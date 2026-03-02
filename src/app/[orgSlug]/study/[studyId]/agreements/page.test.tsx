@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
 } from '@/tests/unit.helpers'
+import { db } from '@/database'
 import StudyAgreementsRoute from './page'
 
 const mockRedirect = vi.fn()
@@ -68,6 +69,7 @@ describe('StudyAgreementsRoute', () => {
 
         expect(capturedProps.isReviewer).toBe(false)
         expect(capturedProps.proceedHref).toContain('/code')
+        expect(capturedProps.previousHref).toContain('/edit')
     })
 
     it('renders agreements for researcher with job activity, proceeding to /view', async () => {
@@ -81,11 +83,13 @@ describe('StudyAgreementsRoute', () => {
 
         expect(capturedProps.proceedHref).toContain('/view')
         expect(capturedProps.proceedLabel).toBe('Back to Study Details')
+        expect(capturedProps.previousHref).not.toContain('/edit')
     })
 
-    it('redirects researcher when study is not APPROVED', async () => {
+    it('redirects researcher when study is not APPROVED and has no job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'DRAFT' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
 
         await expect(
             StudyAgreementsRoute({
