@@ -26,10 +26,9 @@ results <- query_tutor("
 # Researcher: Insert manipulate data and analysis code here
 
 
-write.csv(result, "results-1.csv", row.names = FALSE)
-write.csv(result, "results-2.csv", row.names = FALSE)
+write.csv(result, "results-NATHAN-1.csv", row.names = FALSE)
+
 
 ###############################################################################
 # Researcher: Upload results
-toa_results_upload("results-1.csv")
-toa_results_upload("results-2.csv")
+toa_results_upload("results-NATHAN-1.csv")

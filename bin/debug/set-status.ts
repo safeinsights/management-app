@@ -1,10 +1,13 @@
-import { DebugRequest } from './request'
+import { DebugRequest, extractJobId } from './request'
 
 const req = new DebugRequest()
-req.program.option('-s, --status <status>', 'status to set').option('-j, --jobId <jobId>', 'jobId to set status for')
+req.program
+    .option('-s, --status <status>', 'status to set')
+    .option('-j, --jobId <jobId>', 'jobId or URL containing a jobId')
 req.parse()
 
-const { status, jobId } = req.program.opts()
+const { status } = req.program.opts()
+const jobId = extractJobId(req.program.opts().jobId)
 
 req.path = `job/${jobId}`
 req.method = 'PUT'

@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import type { StudyStatus } from '@/database/types'
+import type { JobFileInfo } from '@/lib/types'
 import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
@@ -14,7 +15,10 @@ import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
 import { Routes, useTypedParams } from '@/lib/routes'
 
-export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
+export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobFileInfo[] }> = ({
+    study,
+    approvedFiles,
+}) => {
     const router = useRouter()
     const { orgSlug } = useTypedParams(Routes.studyReview.schema)
     const [useTestImage, setUseTestImage] = useState(false)
@@ -30,7 +34,12 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
-                return approveStudyProposalAction({ orgSlug, studyId: study.id, useTestImage })
+                return approveStudyProposalAction({
+                    orgSlug,
+                    studyId: study.id,
+                    useTestImage,
+                    jobFiles: approvedFiles,
+                })
             }
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
