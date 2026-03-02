@@ -52,7 +52,6 @@ describe('Study Job Actions', () => {
         const result = actionResult(
             await fetchEncryptedJobFilesAction({
                 jobId: job.id,
-                orgSlug: org.slug,
             }),
         )
 

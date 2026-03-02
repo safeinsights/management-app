@@ -1,6 +1,7 @@
 'use client'
 
 import { CopyingInput } from '@/components/copying-input'
+import { EncryptedFilesPanel } from '@/components/encrypted-files-panel'
 import { JobResults } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { isEncryptedLogType } from '@/lib/file-type-helpers'
@@ -8,19 +9,18 @@ import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
-import { DecryptResults } from './decrypt-results'
 import { JobReviewButtons } from './job-review-buttons'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
 
 export const StudyResults: FC<{
     job: LatestJobForStudy | null
-}> = ({ job }) => {
+    onFilesApproved?: (files: JobFileInfo[]) => void
+}> = ({ job, onFilesApproved }) => {
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
     const hasEncryptedLogs = job?.files?.some((f) => isEncryptedLogType(f.fileType)) ?? false
 
-    // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
         return (
             <Paper bg="white" p="xxl">
@@ -29,6 +29,15 @@ export const StudyResults: FC<{
                         Study Status
                     </Title>
                     <Divider c="dimmed" />
+                    {job && (
+                        <EncryptedFilesPanel
+                            job={job}
+                            onFilesApproved={(files) => {
+                                setDecryptedResults(files)
+                                onFilesApproved?.(files)
+                            }}
+                        />
+                    )}
                     <Text>
                         Study results will become available once the proposal and code are approved and processed.
                     </Text>
@@ -48,7 +57,13 @@ export const StudyResults: FC<{
                 </Group>
                 <Divider c="dimmed" />
                 <JobStatusHelpText job={job} hasEncryptedLogs={hasEncryptedLogs} />
-                <DecryptResults job={job} onApproval={setDecryptedResults} />
+                <EncryptedFilesPanel
+                    job={job}
+                    onFilesApproved={(files) => {
+                        setDecryptedResults(files)
+                        onFilesApproved?.(files)
+                    }}
+                />
                 <JobResults job={job} />
             </Stack>
         </Paper>

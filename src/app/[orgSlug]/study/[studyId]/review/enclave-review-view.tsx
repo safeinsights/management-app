@@ -6,9 +6,7 @@ import { StudyDetails } from '@/components/study/study-details'
 import { latestJobForStudy, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { SecurityScanPanel } from './security-scan-panel'
-import { StudyResults } from './study-results'
-import { StudyReviewButtons } from './study-review-buttons'
+import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 type EnclaveReviewViewProps = {
@@ -33,7 +31,6 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
 
     // old legacy flow starting here
     const job = await latestJobForStudy(study.id)
-
     return (
         <Stack px="xl" gap="xl">
             <OrgBreadcrumbs
@@ -57,7 +54,6 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
                     <StudyDetails studyId={study.id} />
                 </Stack>
             </Paper>
-            <SecurityScanPanel job={job} />
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
@@ -69,8 +65,7 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
-            <StudyResults job={job} />
-            <StudyReviewButtons study={study} />
+            <StudyResultsWithReview job={job} study={study} />
         </Stack>
     )
 }

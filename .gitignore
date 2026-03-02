@@ -21,7 +21,7 @@ tests/coverage/
 playwright-report/
 src/styles/generated
 ./tests/fixtures/temp/large-file
-
+monocart-report/
 # auto-created and updated by nextjs
 next-env.d.ts
 # clerk configuration (can include secrets)
