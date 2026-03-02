@@ -15,16 +15,8 @@ vi.mock('@/components/study/study-details', () => ({
     StudyDetails: () => <div data-testid="study-details" />,
 }))
 
-vi.mock('./security-scan-panel', () => ({
-    SecurityScanPanel: () => <div data-testid="security-scan-panel" />,
-}))
-
-vi.mock('./study-results', () => ({
-    StudyResults: () => <div data-testid="study-results" />,
-}))
-
-vi.mock('./study-review-buttons', () => ({
-    StudyReviewButtons: () => <div data-testid="study-review-buttons" />,
+vi.mock('./study-results-with-review', () => ({
+    StudyResultsWithReview: () => <div data-testid="study-results-with-review" />,
 }))
 
 describe('CodeReviewView', () => {
@@ -44,21 +36,12 @@ describe('CodeReviewView', () => {
         expect(screen.queryByTestId('study-details')).not.toBeInTheDocument()
     })
 
-    it('renders SecurityScanPanel and StudyResults', async () => {
+    it('renders StudyResultsWithReview', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
-        expect(screen.getByTestId('security-scan-panel')).toBeInTheDocument()
-        expect(screen.getByTestId('study-results')).toBeInTheDocument()
-    })
-
-    it('renders StudyReviewButtons', async () => {
-        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
-
-        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
-
-        expect(screen.getByTestId('study-review-buttons')).toBeInTheDocument()
+        expect(screen.getByTestId('study-results-with-review')).toBeInTheDocument()
     })
 
     it('renders Previous button linking to Agreements', async () => {

@@ -5,9 +5,7 @@ import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { SecurityScanPanel } from './security-scan-panel'
-import { StudyResults } from './study-results'
-import { StudyReviewButtons } from './study-review-buttons'
+import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 type CodeReviewViewProps = {
@@ -30,7 +28,6 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 Study Details
             </Title>
             <Divider />
-            <SecurityScanPanel job={job} />
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
@@ -42,8 +39,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
-            <StudyResults job={job} />
-            <StudyReviewButtons study={study} />
+            <StudyResultsWithReview job={job} study={study} />
             <Group>
                 <ButtonLink
                     href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
