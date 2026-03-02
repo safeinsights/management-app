@@ -1,6 +1,5 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
@@ -8,6 +7,7 @@ import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
+import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
 
 export default async function StudyAgreementsRoute(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
@@ -25,10 +25,9 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     }
 
     const isReviewer = currentOrg.type === 'enclave'
-    const latestJobStatus = study.jobStatusChanges.at(0)?.status
-    const hasJobActivity = study.jobStatusChanges.length > 0
 
     if (isReviewer) {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
         if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
@@ -47,6 +46,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
+    const hasJobActivity = study.jobStatusChanges.length > 0
     if (study.status !== 'APPROVED' || hasJobActivity) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
