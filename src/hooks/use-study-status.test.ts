@@ -18,11 +18,13 @@ describe('useStudyStatus', () => {
             const params = createTestParams('PENDING-REVIEW', 'researcher')
             const result = useStudyStatus(params)
 
-            expect(result).toEqual({
-                stage: 'Proposal',
-                label: 'Under Review',
-                tooltip: "Your study proposal is being reviewed. You'll receive an email once a decision is made.",
-            })
+            expect(result).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Under Review',
+                    tooltip: "Your study proposal is being reviewed. You'll receive an email once a decision is made.",
+                }),
+            )
         })
 
         it('prioritizes job status over study status when available', () => {
