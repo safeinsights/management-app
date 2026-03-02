@@ -34,8 +34,9 @@ function ResearcherLink({
         )
     }
 
+    const hasJobActivity = study.jobStatusChanges.length > 0
     const href =
-        isNewFlow && study.status === 'APPROVED'
+        isNewFlow && study.status === 'APPROVED' && !hasJobActivity
             ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
             : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
 
@@ -60,23 +61,20 @@ function ReviewerLink({
     const slug = study.orgSlug || orgSlug
 
     if (isNewFlow) {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        const href =
+            latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+                ? Routes.studyAgreements({ orgSlug: slug, studyId: study.id })
+                : Routes.studyReview({ orgSlug: slug, studyId: study.id })
+
         return (
-            <Link
-                href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })}
-                c="blue.7"
-                fw={isHighlighted ? 600 : undefined}
-            >
+            <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>
                 View
             </Link>
         )
     }
 
-    // jobStatusChanges is ordered DESC, so index 0 is the most recent
-    const latestJobStatus = study.jobStatusChanges.at(0)?.status
-    const href =
-        latestJobStatus === 'CODE-SUBMITTED'
-            ? Routes.studyAgreements({ orgSlug: slug, studyId: study.id })
-            : Routes.studyReview({ orgSlug: slug, studyId: study.id })
+    const href = Routes.studyReview({ orgSlug: slug, studyId: study.id })
 
     return (
         <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>

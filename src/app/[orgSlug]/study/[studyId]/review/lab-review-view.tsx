@@ -12,8 +12,7 @@ type LabReviewViewProps = {
 }
 
 export async function LabReviewView({ orgSlug, study }: LabReviewViewProps) {
-    // Lab org - only show draft review for DRAFT studies, otherwise redirect to view
-    if (study.status !== 'DRAFT') {
+    if (study.status !== 'DRAFT' && study.status !== 'APPROVED') {
         redirect(Routes.studyView({ orgSlug, studyId: study.id }))
     }
 
