@@ -48,10 +48,15 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
-    const hasJobActivity = study.jobStatusChanges.length > 0
-    if (study.status !== 'APPROVED' || hasJobActivity) {
+    if (study.status !== 'APPROVED') {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
+
+    const hasJobActivity = study.jobStatusChanges.length > 0
+    const proceedHref = hasJobActivity
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+        : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
+    const proceedLabel = hasJobActivity ? 'Back to Study Details' : undefined
 
     return (
         <Stack p="xl" gap="xl">
@@ -59,7 +64,8 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={proceedHref}
+                proceedLabel={proceedLabel}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />

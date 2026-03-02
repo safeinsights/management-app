@@ -70,17 +70,17 @@ describe('StudyAgreementsRoute', () => {
         expect(capturedProps.proceedHref).toContain('/code')
     })
 
-    it('redirects researcher when study has job activity', async () => {
+    it('renders agreements for researcher with job activity, proceeding to /view', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await expect(
-            StudyAgreementsRoute({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            }),
-        ).rejects.toThrow('NEXT_REDIRECT')
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+        renderWithProviders(page!)
 
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
+        expect(capturedProps.proceedHref).toContain('/view')
+        expect(capturedProps.proceedLabel).toBe('Back to Study Details')
     })
 
     it('redirects researcher when study is not APPROVED', async () => {
