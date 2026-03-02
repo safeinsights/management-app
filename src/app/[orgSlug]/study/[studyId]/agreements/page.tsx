@@ -1,9 +1,9 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
-import { isFeatureFlagOrg } from '@/lib/org'
 import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
@@ -25,8 +25,14 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     }
 
     const isReviewer = currentOrg.type === 'enclave'
+    const latestJobStatus = study.jobStatusChanges.at(0)?.status
+    const hasJobActivity = study.jobStatusChanges.length > 0
 
     if (isReviewer) {
+        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+            redirect(Routes.studyReview({ orgSlug, studyId }))
+        }
+
         return (
             <Stack p="xl" gap="xl">
                 <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
@@ -41,10 +47,9 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
-    const defaultProceedHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
-    const featureFlagProceedHref = isFeatureFlagOrg(study.submittedByOrgSlug)
-        ? Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
-        : undefined
+    if (study.status !== 'APPROVED' || hasJobActivity) {
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
+    }
 
     return (
         <Stack p="xl" gap="xl">
@@ -52,8 +57,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={defaultProceedHref}
-                featureFlagProceedHref={featureFlagProceedHref}
+                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />

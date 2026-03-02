@@ -65,6 +65,7 @@ const defaultProps = {
     orgSlug: 'test-org',
     submittingOrgSlug: 'test-org',
     language: 'R' as const,
+    previousHref: '/test-org/study/123/agreements' as const,
 }
 
 describe('CodeUploadPage', () => {
@@ -92,14 +93,14 @@ describe('CodeUploadPage', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeInTheDocument()
         })
 
-        it('Previous button navigates to Agreements page', async () => {
+        it('Previous button navigates to previousHref', async () => {
             const user = userEvent.setup()
             renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             await user.click(screen.getByRole('button', { name: /previous/i }))
 
             await waitFor(() => {
-                expect(memoryRouter.asPath).toContain('/agreements')
+                expect(memoryRouter.asPath).toBe(defaultProps.previousHref)
             })
         })
 
@@ -145,14 +146,15 @@ describe('CodeUploadPage', () => {
             expect(screen.getByRole('button', { name: /proceed to review/i })).toBeInTheDocument()
         })
 
-        it('Previous button navigates to Edit page', async () => {
+        it('Previous button navigates to previousHref', async () => {
             const user = userEvent.setup()
-            renderWithProviders(<CodeUploadPage {...defaultProps} />)
+            const editHref = '/test-org/study/123/edit' as const
+            renderWithProviders(<CodeUploadPage {...defaultProps} previousHref={editHref} />)
 
             await user.click(screen.getByRole('button', { name: /previous/i }))
 
             await waitFor(() => {
-                expect(memoryRouter.asPath).toContain('/edit')
+                expect(memoryRouter.asPath).toBe(editHref)
             })
         })
 

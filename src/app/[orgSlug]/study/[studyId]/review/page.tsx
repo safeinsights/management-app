@@ -6,7 +6,6 @@ import { isActionError } from '@/lib/errors'
 import { isFeatureFlagOrg } from '@/lib/org'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { latestJobForStudyOrNull } from '@/server/db/queries'
 import { CodeReviewView } from './code-review-view'
 import { EnclaveReviewView } from './enclave-review-view'
 import { LabReviewView } from './lab-review-view'
@@ -32,21 +31,27 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    if (study.status === 'DRAFT') {
+    if (currentOrg.type === 'lab') {
         return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
     }
 
     if (currentOrg.type === 'enclave') {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+
         let optInContent = <ProposalReviewView orgSlug={orgSlug} study={study} />
-        if (isFeatureFlagOrg(orgSlug)) {
-            const job = await latestJobForStudyOrNull(study.id)
-            if (job) {
-                optInContent = <CodeReviewView orgSlug={orgSlug} study={study} />
-            }
+        if (isFeatureFlagOrg(orgSlug) && codeSubmitted) {
+            optInContent = <CodeReviewView orgSlug={orgSlug} study={study} />
         }
         return (
             <OpenStaxFeatureFlag
-                defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
+                defaultContent={
+                    codeSubmitted ? (
+                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                    ) : (
+                        <ProposalReviewView orgSlug={orgSlug} study={study} />
+                    )
+                }
                 optInContent={optInContent}
             />
         )

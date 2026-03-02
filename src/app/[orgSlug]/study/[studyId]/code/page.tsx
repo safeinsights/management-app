@@ -17,9 +17,8 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         return notFound()
     }
 
-    // Verify study is in DRAFT status
-    if (result.status !== 'DRAFT') {
-        // If not a draft, redirect to the review page
+    // Verify study is in DRAFT or APPROVED status
+    if (result.status !== 'DRAFT' && result.status !== 'APPROVED') {
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
@@ -44,6 +43,11 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 orgSlug={result.orgSlug}
                 submittingOrgSlug={orgSlug}
                 language={result.language}
+                previousHref={
+                    result.status === 'APPROVED'
+                        ? Routes.studyAgreements({ orgSlug, studyId })
+                        : Routes.studyEdit({ orgSlug, studyId })
+                }
                 existingMainFile={result.mainCodeFileName}
                 existingAdditionalFiles={result.additionalCodeFileNames}
             />

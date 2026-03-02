@@ -50,9 +50,14 @@ describe('StudyReviewPage', () => {
         expect(screen.getByTestId('lab-review-view')).toBeInTheDocument()
     })
 
-    it('renders EnclaveReviewView as default and ProposalReviewView as opt-in for non-feature-flag enclave org', async () => {
+    it('renders EnclaveReviewView as default and ProposalReviewView as opt-in for non-feature-flag enclave org with code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
@@ -65,9 +70,14 @@ describe('StudyReviewPage', () => {
         ).toBeInTheDocument()
     })
 
-    it('renders CodeReviewView as opt-in for feature-flag enclave org with job', async () => {
+    it('renders CodeReviewView as opt-in for feature-flag enclave org with code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)

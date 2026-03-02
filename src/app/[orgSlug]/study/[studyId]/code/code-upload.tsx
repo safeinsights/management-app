@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
+import type { Route } from 'next'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
@@ -20,6 +21,7 @@ interface CodeUploadPageProps {
     orgSlug: string
     submittingOrgSlug: string
     language: Language
+    previousHref: Route
     existingMainFile?: string | null
     existingAdditionalFiles?: string[]
 }
@@ -29,6 +31,7 @@ export function CodeUploadPage({
     orgSlug,
     submittingOrgSlug,
     language,
+    previousHref,
     existingMainFile,
     existingAdditionalFiles,
 }: CodeUploadPageProps) {
@@ -89,12 +92,8 @@ export function CodeUploadPage({
         }
     }
 
-    const handleGoBack = () => {
-        if (isNewFlow) {
-            router.push(Routes.studyAgreements({ orgSlug: submittingOrgSlug, studyId }))
-        } else {
-            router.push(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
-        }
+    const handleBackToPrevious = () => {
+        router.push(previousHref)
     }
 
     const handleBackToUpload = () => {
@@ -205,7 +204,13 @@ export function CodeUploadPage({
             </Paper>
 
             <Group mt="xxl" justify={isNewFlow ? 'space-between' : 'flex-end'} style={{ width: '100%' }}>
-                <Button type="button" size="md" variant="subtle" onClick={handleGoBack} leftSection={<CaretLeftIcon />}>
+                <Button
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    onClick={handleBackToPrevious}
+                    leftSection={<CaretLeftIcon />}
+                >
                     Previous
                 </Button>
                 <Button
