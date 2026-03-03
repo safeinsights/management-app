@@ -21,10 +21,7 @@ export const POST = createWebhookHandler({
             .executeTakeFirstOrThrow(throwNotFound('code environment'))
 
         if (body.status === 'SCAN-RUNNING') {
-            await db
-                .insertInto('codeScan')
-                .values({ codeEnvId: body.codeEnvId, status: 'SCAN-RUNNING' })
-                .execute()
+            await db.insertInto('codeScan').values({ codeEnvId: body.codeEnvId, status: 'SCAN-RUNNING' }).execute()
             return
         }
 

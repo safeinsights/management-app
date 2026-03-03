@@ -31,6 +31,11 @@ export const pathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?:
     return parts.sampleDataPath ? `${base}/${parts.sampleDataPath}` : base
 }
 
+export const pathForJobScanArtifacts = (parts: { studyJobId: string }) => `scan-artifacts/jobs/${parts.studyJobId}`
+
+export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
+    `scan-artifacts/code-envs/${parts.codeEnvId}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 

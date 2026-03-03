@@ -91,9 +91,7 @@ test('SCAN-COMPLETE updates the RUNNING row with results', async () => {
     await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
 
     const plaintextLog = 'CVE-2024-1234: high severity\nCVE-2024-5678: low severity'
-    const resp = await apiHandler.POST(
-        authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-COMPLETE', plaintextLog }),
-    )
+    const resp = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-COMPLETE', plaintextLog }))
     expect(resp.ok).toBe(true)
 
     const rows = await getScanRows(codeEnv.id)
@@ -109,9 +107,7 @@ test('SCAN-FAILED updates the RUNNING row', async () => {
     await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
 
     const plaintextLog = 'scan failed: timeout'
-    const resp = await apiHandler.POST(
-        authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-FAILED', plaintextLog }),
-    )
+    const resp = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-FAILED', plaintextLog }))
     expect(resp.ok).toBe(true)
 
     const rows = await getScanRows(codeEnv.id)
