@@ -1,14 +1,14 @@
 'use client'
 
 import { ErrorPanel } from '@/components/panel'
-import { useAuth } from '@clerk/nextjs'
+import { useSignOut } from '@/hooks/use-sign-out'
 
 export const SignOutPanel = () => {
-    const { signOut } = useAuth()
+    const signOut = useSignOut()
 
     return (
-        <ErrorPanel title="You must be signed out to accept invitations" onContinue={() => signOut(() => {}, {})}>
-            Signout to continue
+        <ErrorPanel title="You must be signed out to accept invitations" onContinue={signOut}>
+            Sign out to continue
         </ErrorPanel>
     )
 }

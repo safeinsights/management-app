@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect } from 'react'
-import { useClerk, useSession } from '@clerk/nextjs'
+import { useSignOut } from '@/hooks/use-sign-out'
+import { useSession } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
 import { Button, Space, Stack, Text } from '@mantine/core'
 import { usePathname } from 'next/navigation'
@@ -26,7 +27,7 @@ const InactivityWarningMessage = ({ remainingMinutes, onStaySignedIn }: Inactivi
 
 export const ActivityContext = () => {
     const { session } = useSession()
-    const { signOut } = useClerk()
+    const signOut = useSignOut()
     const pathname = usePathname()
 
     const checkInactivity = useCallback(() => {
