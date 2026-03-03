@@ -137,6 +137,24 @@ function uploadErrorLogs(jobId: string): void {
 }
 
 // ============================================================================
+// IDE upload helper (new flow)
+// ============================================================================
+
+async function uploadCodeViaIDENewFlow(page: Page) {
+    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
+
+    await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
+
+    // Wait for files to appear (auto-sync from Coder workspace)
+    await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
+
+    // New flow: "Submit code" directly submits (no review page)
+    await page.getByRole('button', { name: /Submit code/i }).click()
+
+    await page.waitForURL(/\/dashboard$/, { timeout: 30000 })
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -306,6 +324,141 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
         uploadErrorLogs(jobId)
 
         // Reviewer sees Errored on dashboard
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+        await enableSpyMode(page)
+
+        const reviewerRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(reviewerRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
+    })
+})
+
+test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
+    const studyTitle = `${studyFeatures.studyTitle} - ide`
+
+    await test.step('Step 1 — researcher fills request page', async () => {
+        await fillStep1NewFlow(page)
+        expect(page.url()).toMatch(/\/proposal$/)
+    })
+
+    await test.step('Step 2 — researcher fills proposal form', async () => {
+        await enableSpyMode(page)
+        await expect(page.getByText('STEP 2')).toBeVisible()
+        await fillProposalForm(page, studyTitle)
+    })
+
+    await test.step('Submitted page — researcher sees success', async () => {
+        await enableSpyMode(page)
+        await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
+        await page.getByRole('link', { name: /Go to dashboard/i }).click()
+        await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
+    })
+
+    await test.step('Reviewer approves proposal', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+        await enableSpyMode(page)
+
+        await expect(page.getByText('Review Studies')).toBeVisible()
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(studyTitle)).toBeVisible()
+
+        await page.getByRole('button', { name: /Approve request/i }).click()
+        await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
+    })
+
+    await test.step('Researcher sees agreements and navigates to code page', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        await enableSpyMode(page)
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await page.waitForURL(/\/agreements$/, { timeout: 15000 })
+
+        await expect(page.getByText('STEP 3A')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('STEP 3B')).toBeVisible()
+        await expect(page.getByText('STEP 3C')).toBeVisible()
+
+        await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
+        await page.waitForURL(/\/code$/, { timeout: 15000 })
+
+        await expect(page.getByText('STEP 4 of 4')).toBeVisible({ timeout: 10000 })
+    })
+
+    await test.step('Researcher launches IDE and submits code', async () => {
+        await uploadCodeViaIDENewFlow(page)
+    })
+
+    await test.step('Reviewer sees code review and agreements pages', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+        await enableSpyMode(page)
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        const href = await viewLink.getAttribute('href')
+        const studyBaseUrl = href!.replace(/\/(review|view|agreements)$/, '')
+
+        await goto(page, `${studyBaseUrl}/review`)
+        await enableSpyMode(page)
+
+        const studyDetailsHeading = page.getByRole('heading', { name: /Study Details/i })
+        for (let attempt = 0; attempt < 12; attempt++) {
+            if (await studyDetailsHeading.isVisible().catch(() => false)) break
+            await page.waitForTimeout(5000)
+            await goto(page, `${studyBaseUrl}/review`)
+            await enableSpyMode(page)
+        }
+
+        await expect(studyDetailsHeading).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
+
+        const approveButton = page.getByRole('button', { name: /Approve/i })
+        await expect(approveButton).toBeVisible({ timeout: 45000 })
+
+        await goto(page, `${studyBaseUrl}/agreements`)
+        await enableSpyMode(page)
+
+        await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('STEP 2B')).toBeVisible()
+        await expect(page.getByText('STEP 2C')).toBeVisible()
+
+        await goto(page, `${studyBaseUrl}/review`)
+        await enableSpyMode(page)
+
+        await page.getByRole('button', { name: /Approve/i }).click()
+        await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
+    })
+
+    await test.step('Researcher views submitted study', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        await enableSpyMode(page)
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await expect(page.getByRole('heading', { name: /Study Details/i })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+    })
+
+    await test.step('Error handling — reviewer sees errored status', async () => {
+        const authToken = await createOrgAuthToken('openstax')
+        const studyId = extractStudyIdFromUrl(page)
+
+        const jobId = await waitForJobReady(page, studyId, authToken)
+        uploadErrorLogs(jobId)
+
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
         await enableSpyMode(page)
 
