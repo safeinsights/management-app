@@ -83,7 +83,7 @@ describe('StudyAgreementsRoute', () => {
 
         expect(capturedProps.proceedHref).toContain('/view')
         expect(capturedProps.proceedLabel).toBe('Back to Study Details')
-        expect(capturedProps.previousHref).not.toContain('/edit')
+        expect(capturedProps.previousHref).toBe(`/${org.slug}/dashboard`)
     })
 
     it('redirects researcher when study is not APPROVED and has no job activity', async () => {

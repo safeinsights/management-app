@@ -16,7 +16,7 @@ interface UseIDEFilesOptions {
 export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { setIDECodeFiles, submitStudy, mainFileName } = useStudyRequest()
+    const { setIDECodeFiles, submitStudy, mainFileName, codeFilesLastUpdated } = useStudyRequest()
 
     const pendingDirectSubmitRef = useRef(false)
     const [isDirectSubmitting, setIsDirectSubmitting] = useState(false)
@@ -83,13 +83,14 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         setIsDirectSubmitting(true)
     }, [canSubmit, fileManager.mainFile, fileManager.filteredFiles, setIDECodeFiles, queryClient, studyId])
 
-    // Submit once context has updated with the new file names
+    // Submit once context has updated with the new file names.
+    // codeFilesLastUpdated ensures the effect re-fires on retry even when mainFileName is unchanged.
     useEffect(() => {
         if (pendingDirectSubmitRef.current && mainFileName) {
             pendingDirectSubmitRef.current = false
             submitStudy({ onSettled: () => setIsDirectSubmitting(false) })
         }
-    }, [mainFileName, submitStudy])
+    }, [codeFilesLastUpdated, mainFileName, submitStudy])
 
     return {
         launchWorkspace,

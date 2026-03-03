@@ -186,7 +186,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                         variant="subtle"
                         onClick={onBack}
                         leftSection={<CaretLeftIcon />}
-                        disabled={isSaving}
+                        disabled={isLoading}
                     >
                         Back to upload
                     </Button>

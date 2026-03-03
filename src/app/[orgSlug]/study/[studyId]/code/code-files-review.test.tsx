@@ -55,6 +55,12 @@ describe('CodeFilesReview', () => {
         expect(screen.getByText('STEP 4 of 5')).toBeInTheDocument()
     })
 
+    it('disables Back button when isNewFlow and isSubmitting', () => {
+        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow isSubmitting />)
+
+        expect(screen.getByRole('button', { name: /back to upload/i })).toBeDisabled()
+    })
+
     it('renders "Save and proceed to review" button when isNewFlow is false', () => {
         renderWithProviders(<CodeFilesReview {...defaultProps} />)
 
