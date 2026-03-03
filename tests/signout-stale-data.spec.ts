@@ -1,4 +1,5 @@
-import { expect, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, fillPinInput, goto, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
+import { setupClerkTestingToken } from '@clerk/testing/playwright'
 
 const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     await page.getByRole('button', { name: 'Toggle profile menu' }).click()
@@ -28,6 +29,27 @@ test.describe('sign-out hard redirect', () => {
             () => (window as unknown as Record<string, unknown>).__signOutTestMarker,
         )
         expect(markerSurvived).toBeFalsy()
+    })
+
+    test('redirect_url parameter redirects user back after sign-in', async ({ page }) => {
+        const creds = TestingUsers.researcher
+
+        await setupClerkTestingToken({ page })
+        await goto(page, '/account/signin?redirect_url=/dashboard')
+
+        await page.getByLabel('email').fill(creds.identifier)
+        await page.getByLabel('password').fill(creds.password)
+        await page.getByRole('button', { name: 'login' }).click()
+
+        await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
+        await page.getByRole('button', { name: 'SMS Verification' }).click()
+
+        await page.getByRole('heading', { name: /verify your code/i }).waitFor({ state: 'visible' })
+        await fillPinInput(page, creds.mfa, 'sms-pin-input')
+        await page.getByRole('button', { name: 'Verify code' }).click()
+
+        await page.waitForURL('**/dashboard', { timeout: 15000 })
+        expect(page.url()).toContain('/dashboard')
     })
 
     test('signing in as a different user after sign-out shows fresh data', async ({ page }) => {

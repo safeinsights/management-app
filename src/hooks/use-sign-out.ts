@@ -4,9 +4,15 @@ import { useCallback } from 'react'
 export function useSignOut() {
     const { signOut } = useClerk()
 
-    return useCallback(async () => {
-        await signOut()
-        // Hard redirect destroys the React app and clears stale QueryClient cache
-        window.location.assign('/account/signin')
-    }, [signOut])
+    return useCallback(
+        async (redirectBack?: string) => {
+            await signOut()
+            const url = new URL('/account/signin', window.location.origin)
+            if (redirectBack) {
+                url.searchParams.set('redirect_url', redirectBack)
+            }
+            window.location.assign(url.toString())
+        },
+        [signOut],
+    )
 }
