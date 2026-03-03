@@ -73,7 +73,7 @@ test('returns 404 for unknown codeEnvId', async () => {
     expect(body).toEqual({ error: 'code-env-not-found' })
 })
 
-test('inserts SCAN-RUNNING status', async () => {
+test('SCAN-RUNNING inserts a new row', async () => {
     const { org } = await mockSessionWithTestData({ isAdmin: true })
     const codeEnv = await insertTestCodeEnv({ orgId: org.id })
 
@@ -84,46 +84,38 @@ test('inserts SCAN-RUNNING status', async () => {
     expect(rows.some((r) => r.status === 'SCAN-RUNNING')).toBe(true)
 })
 
-test('inserts SCAN-COMPLETE with results blob', async () => {
+test('SCAN-COMPLETE updates the RUNNING row with results', async () => {
     const { org } = await mockSessionWithTestData({ isAdmin: true })
     const codeEnv = await insertTestCodeEnv({ orgId: org.id })
 
-    const results = 'CVE-2024-1234: high severity\nCVE-2024-5678: low severity'
-    const resp = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-COMPLETE', results }))
+    await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
+
+    const plaintextLog = 'CVE-2024-1234: high severity\nCVE-2024-5678: low severity'
+    const resp = await apiHandler.POST(
+        authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-COMPLETE', plaintextLog }),
+    )
     expect(resp.ok).toBe(true)
 
     const rows = await getScanRows(codeEnv.id)
-    const completeRow = rows.find((r) => r.status === 'SCAN-COMPLETE')
-    expect(completeRow).toBeDefined()
-    expect(completeRow!.results).toBe(results)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('SCAN-COMPLETE')
+    expect(rows[0].results).toBe(plaintextLog)
 })
 
-test('inserts SCAN-FAILED status', async () => {
+test('SCAN-FAILED updates the RUNNING row', async () => {
     const { org } = await mockSessionWithTestData({ isAdmin: true })
     const codeEnv = await insertTestCodeEnv({ orgId: org.id })
 
-    const resp = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-FAILED' }))
+    await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
+
+    const plaintextLog = 'scan failed: timeout'
+    const resp = await apiHandler.POST(
+        authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-FAILED', plaintextLog }),
+    )
     expect(resp.ok).toBe(true)
 
     const rows = await getScanRows(codeEnv.id)
-    expect(rows.some((r) => r.status === 'SCAN-FAILED')).toBe(true)
-})
-
-test('idempotency: duplicate same-status calls do not create duplicate rows', async () => {
-    const { org } = await mockSessionWithTestData({ isAdmin: true })
-    const codeEnv = await insertTestCodeEnv({ orgId: org.id })
-
-    const resp1 = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
-    expect(resp1.ok).toBe(true)
-
-    const rowsAfterFirst = await getScanRows(codeEnv.id)
-    const runningCountFirst = rowsAfterFirst.filter((r) => r.status === 'SCAN-RUNNING').length
-
-    const resp2 = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-RUNNING' }))
-    expect(resp2.ok).toBe(true)
-
-    const rowsAfterSecond = await getScanRows(codeEnv.id)
-    const runningCountSecond = rowsAfterSecond.filter((r) => r.status === 'SCAN-RUNNING').length
-
-    expect(runningCountSecond).toBe(runningCountFirst)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('SCAN-FAILED')
+    expect(rows[0].results).toBe(plaintextLog)
 })
