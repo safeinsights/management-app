@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -21,6 +21,7 @@ import {
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
+    onStudyCodeRejected: vi.fn(),
     onStudyRejected: vi.fn(),
 }))
 
@@ -138,7 +139,7 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
 
-            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+            expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
 
             const job = await latestJobForStudy(study.id)
             expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()

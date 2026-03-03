@@ -5,7 +5,7 @@ import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
-import { onStudyApproved, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
@@ -296,7 +296,11 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
                 .executeTakeFirstOrThrow()
         }
 
-        onStudyRejected({ studyId, userId })
+        if (latestJob) {
+            onStudyCodeRejected({ studyId, userId })
+        } else {
+            onStudyRejected({ studyId, userId })
+        }
     })
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
