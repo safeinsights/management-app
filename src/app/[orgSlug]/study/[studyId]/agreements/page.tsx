@@ -56,6 +56,9 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
     const proceedLabel = hasJobActivity ? 'Back to Study Details' : undefined
+    const previousHref = hasJobActivity
+        ? Routes.orgDashboard({ orgSlug: study.submittedByOrgSlug })
+        : Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
         <Stack p="xl" gap="xl">
@@ -65,11 +68,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
                 isReviewer={false}
                 proceedHref={proceedHref}
                 proceedLabel={proceedLabel}
-                previousHref={
-                    hasJobActivity
-                        ? Routes.orgDashboard({ orgSlug: study.submittedByOrgSlug })
-                        : Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })
-                }
+                previousHref={previousHref}
             />
         </Stack>
     )

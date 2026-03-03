@@ -107,6 +107,8 @@ export function CodeUploadPage({
 
     const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
     const proceedLabel = isNewFlow ? 'Submit code' : 'Proceed to review'
+    const buttonGroupJustify = isNewFlow ? 'space-between' : 'flex-end'
+    const isLoading = isNewFlow && isSubmitting
 
     // Show review mode if files are selected
     if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
@@ -203,7 +205,7 @@ export function CodeUploadPage({
                 )}
             </Paper>
 
-            <Group mt="xxl" justify={isNewFlow ? 'space-between' : 'flex-end'} style={{ width: '100%' }}>
+            <Group mt="xxl" justify={buttonGroupJustify} style={{ width: '100%' }}>
                 <Button
                     type="button"
                     size="md"
@@ -218,7 +220,7 @@ export function CodeUploadPage({
                     variant="primary"
                     size="md"
                     disabled={!canProceedToReview && !existingMainFile}
-                    loading={isNewFlow && isSubmitting}
+                    loading={isLoading}
                     onClick={handleProceed}
                 >
                     {proceedLabel}
