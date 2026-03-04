@@ -97,7 +97,7 @@ export const JobReviewButtons = ({
                 Reject
             </Button>
             <Button
-                disabled={isPending || isSuccess}
+                disabled={isPending || isSuccess || !decryptedResults?.length}
                 loading={isPending && pendingStatus == 'FILES-APPROVED'}
                 onClick={() => updateStudyJob({ status: 'FILES-APPROVED' })}
             >
