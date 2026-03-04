@@ -232,6 +232,12 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     }
 }
 
+export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
+    const field = page.locator(`[aria-label="${ariaLabel}"]`)
+    await field.click()
+    await page.keyboard.type(text)
+}
+
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
     const pin = pinCode.split('')
     // Try to find inputs within the testId element, fallback to direct selection

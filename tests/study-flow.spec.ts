@@ -1,4 +1,4 @@
-import { expect, test, visitClerkProtectedPage, readTestSupportFile } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage, readTestSupportFile, fillLexicalField } from './e2e.helpers'
 import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
@@ -54,12 +54,6 @@ async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<s
 // ============================================================================
 // Step 2: Proposal form
 // ============================================================================
-
-async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
-    const field = page.locator(`[aria-label="${ariaLabel}"]`)
-    await field.click()
-    await page.keyboard.type(text)
-}
 
 async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     // Fill the study title
