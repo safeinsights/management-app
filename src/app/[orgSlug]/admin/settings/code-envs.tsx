@@ -142,7 +142,11 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
     )
 }
 
-const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, canDelete }) => {
+const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean; isDefault: boolean }> = ({
+    image,
+    canDelete,
+    isDefault,
+}) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
@@ -222,6 +226,11 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                             Testing
                         </Badge>
                     )}
+                    {isDefault && (
+                        <Badge variant="filled" size="sm" color="dark">
+                            Default
+                        </Badge>
+                    )}
                     <ScanStatusBadge status={image.latestScanStatus} onClick={openScanResults} />
                 </Group>
                 <Group gap={4} wrap="nowrap">
@@ -286,11 +295,21 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
     }
 
     const canDelete = images.length > 1
+    const defaultEnvIds = new Set(
+        ['R', 'PYTHON']
+            .map((lang) => images.find((img) => !img.isTesting && img.language === lang)?.id)
+            .filter(Boolean),
+    )
 
     return (
         <Stack gap={0}>
             {images.map((image) => (
-                <CodeEnvRow key={image.id} image={image} canDelete={canDelete} />
+                <CodeEnvRow
+                    key={image.id}
+                    image={image}
+                    canDelete={canDelete}
+                    isDefault={defaultEnvIds.has(image.id)}
+                />
             ))}
         </Stack>
     )
