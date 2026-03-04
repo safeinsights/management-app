@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, renderHook } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { FeatureFlagRequiredAlert, OpenStaxFeatureFlag, useOpenStaxFeatureFlag } from './openstax-feature-flag'
+import {
+    UnusedFeatureFlagRequiredAlert as FeatureFlagRequiredAlert,
+    UnusedOpenStaxFeatureFlag as OpenStaxFeatureFlag,
+    useUnusedOpenStaxFeatureFlag as useOpenStaxFeatureFlag
+} from './openstax-feature-flag'
 import { FC } from 'react'
 
 // Mock the dependencies
