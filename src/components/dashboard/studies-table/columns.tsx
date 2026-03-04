@@ -6,34 +6,31 @@ type ColumnDef = {
     header: string
 }
 
-// Researcher columns (6)
+// Researcher columns (5)
 const RESEARCHER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedTo', header: 'Submitted To' },
-    { id: 'stage', header: 'Stage' },
     { id: 'status', header: 'Status' },
     { id: 'details', header: 'Study Details' },
 ]
 
-// Reviewer org columns (7) - has "Reviewed By" which shows orgSlug
+// Reviewer org columns (6) - has "Reviewed By" which shows orgSlug
 const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'reviewedBy', header: 'Reviewed By' },
-    { id: 'stage', header: 'Stage' },
     { id: 'status', header: 'Status' },
     { id: 'details', header: 'Details' },
 ]
 
-// Reviewer user columns (7) - has "Organization" which shows orgName
+// Reviewer user columns (6) - has "Organization" which shows orgName
 const REVIEWER_USER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'organization', header: 'Organization' },
-    { id: 'stage', header: 'Stage' },
     { id: 'status', header: 'Status' },
     { id: 'details', header: 'Details' },
 ]
