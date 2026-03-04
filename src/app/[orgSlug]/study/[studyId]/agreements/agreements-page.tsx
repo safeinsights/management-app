@@ -9,6 +9,7 @@ interface AgreementsPageProps {
     isReviewer: boolean
     proceedHref: string
     previousHref: string
+    previousLabel?: string
 }
 
 interface SectionProps {
@@ -87,7 +88,12 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
     )
 }
 
-export function AgreementsPage({ isReviewer, proceedHref, previousHref }: AgreementsPageProps) {
+export function AgreementsPage({
+    isReviewer,
+    proceedHref,
+    previousHref,
+    previousLabel = 'Previous',
+}: AgreementsPageProps) {
     const router = useRouter()
 
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
@@ -113,7 +119,7 @@ export function AgreementsPage({ isReviewer, proceedHref, previousHref }: Agreem
                         onClick={handlePrevious}
                         leftSection={<CaretLeftIcon />}
                     >
-                        Previous
+                        {previousLabel}
                     </Button>
                     <Button type="button" variant="primary" size="md" onClick={handleProceed}>
                         {proceedLabel}
