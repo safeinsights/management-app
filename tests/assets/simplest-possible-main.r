@@ -1,0 +1,5 @@
+library(osenclave)
+initialize()
+results <- data.frame(col1 = c(1, 2, 3), col2 = c("a", "b", "c"))
+write.csv(results, "results.csv", row.names = FALSE)
+toa_results_upload("results.csv")

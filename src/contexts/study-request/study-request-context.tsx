@@ -5,8 +5,7 @@ import { useForm } from '@mantine/form'
 import { zodResolver } from '@/common'
 import {
     studyProposalFormSchema,
-    formReadinessSchema,
-    openStaxStep1ReadinessSchema,
+    step1ReadinessSchema,
     type StudyProposalFormValues,
 } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
@@ -71,25 +70,8 @@ export function StudyRequestProvider({
     const setIDECodeFiles = codeFilesHook.setIDEFiles
     const clearCodeFiles = codeFilesHook.clear
 
-    const isFormValid = useMemo(() => {
-        const formValues = form.getValues()
-
-        const result = formReadinessSchema.safeParse({
-            orgSlug: formValues.orgSlug,
-            language: formValues.language,
-            title: formValues.title,
-            hasDescriptionDocument:
-                !!formValues.descriptionDocument || !!documentFiles.existingFiles?.descriptionDocPath,
-            hasIrbDocument: !!formValues.irbDocument || !!documentFiles.existingFiles?.irbDocPath,
-            hasAgreementDocument: !!formValues.agreementDocument || !!documentFiles.existingFiles?.agreementDocPath,
-        })
-
-        return result.success
-    }, [form, documentFiles.existingFiles])
-
-    // OpenStax step 1 only requires org + language
     const step1Values = form.getValues()
-    const isStep1Valid = openStaxStep1ReadinessSchema.safeParse({
+    const isStep1Valid = step1ReadinessSchema.safeParse({
         orgSlug: step1Values.orgSlug,
         language: step1Values.language,
     }).success
@@ -173,7 +155,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isFormValid,
             isStep1Valid,
 
             codeFiles: codeFilesHook.codeFiles,
@@ -210,7 +191,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isFormValid,
             isStep1Valid,
             codeFilesHook.codeFiles,
             codeFilesHook.lastUpdated,
