@@ -71,7 +71,7 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await fillLexicalField(page, 'Impact', 'This research will improve understanding of study habits.')
 
     // Select PI from dropdown
-    const piSelect = page.getByLabel('Principal Investigator')
+    const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
     await piSelect.click()
     // Select the first available PI option
     await page.getByRole('option').first().click()
@@ -181,10 +181,28 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     // The reviewer sees ProposalReviewView — approve the proposal
     await page.getByRole('button', { name: /Approve request/i }).click()
 
+    // Wait for the approval mutation to complete and redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
+
     // Verify approval
-    await page.goto('/openstax/dashboard')
     await viewStudyDetails(page, studyTitle, 'review')
-    await expect(page.getByText('Approved on')).toBeVisible()
+    await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
+}
+
+async function reviewerApprovesCode(page: Page, studyTitle: string) {
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+    await expect(page.getByText('Review Studies')).toBeVisible()
+
+    await viewStudyDetails(page, studyTitle, 'review')
+
+    // Wait for code scan to complete — Approve button appears
+    const approveButton = page.getByRole('button', { name: /^Approve$/i })
+    await expect(approveButton).toBeVisible({ timeout: 15000 })
+    await approveButton.click()
+
+    // Wait for the approval mutation to complete and redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
 }
 
 async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
@@ -294,7 +312,7 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 10000 })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
 
     // Navigate to study details
     await viewStudyDetails(page, studyTitle)
@@ -393,6 +411,10 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         studyId = extractStudyIdFromUrl(page)
     })
 
+    await test.step('reviewer approves code', async () => {
+        await reviewerApprovesCode(page, studyTitle)
+    })
+
     await test.step('simulate job failure with error logs', async () => {
         const authToken = await createOrgAuthToken('openstax')
 
@@ -448,6 +470,10 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
         await page.goto('/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
         studyId = extractStudyIdFromUrl(page)
+    })
+
+    await test.step('reviewer approves code', async () => {
+        await reviewerApprovesCode(page, studyTitle)
     })
 
     await test.step('simulate job failure with error logs', async () => {

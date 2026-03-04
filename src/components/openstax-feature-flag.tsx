@@ -46,7 +46,6 @@ const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = (
     )
 }
 
-
 // Note: DO NOT EXPORT the above items, instead reaname them like the below example
 // with a name that matches the feature you are developing.
 // Doing so lets us search for that name when removing the flag

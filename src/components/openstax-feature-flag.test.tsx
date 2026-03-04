@@ -4,7 +4,7 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import {
     UnusedFeatureFlagRequiredAlert as FeatureFlagRequiredAlert,
     UnusedOpenStaxFeatureFlag as OpenStaxFeatureFlag,
-    useUnusedOpenStaxFeatureFlag as useOpenStaxFeatureFlag
+    useUnusedOpenStaxFeatureFlag as useOpenStaxFeatureFlag,
 } from './openstax-feature-flag'
 import { FC } from 'react'
 

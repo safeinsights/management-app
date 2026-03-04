@@ -33,10 +33,9 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const latestJobStatus = study.jobStatusChanges.at(0)?.status
-        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+        const hasJobActivity = study.jobStatusChanges.length > 0
 
-        if (codeSubmitted) {
+        if (hasJobActivity) {
             return <EnclaveReviewView orgSlug={orgSlug} study={study} />
         }
 
