@@ -1,6 +1,9 @@
 import { useClerk } from '@clerk/nextjs'
 import { usePathname } from 'next/navigation'
 
+// Hard-redirects on sign-out to force a full page reload, which destroys the
+// React Query cache. Without this, signing in as a different user can show
+// stale data from the previous session.
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
     const pathname = usePathname()
