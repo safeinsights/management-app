@@ -1,7 +1,6 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
@@ -34,20 +33,12 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const latestJobStatus = study.jobStatusChanges.at(0)?.status
-        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+        const hasJobActivity = study.jobStatusChanges.length > 0
 
-        return (
-            <OpenStaxFeatureFlag
-                defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={
-                    codeSubmitted ? (
-                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
-                    ) : (
-                        <ProposalReviewView orgSlug={orgSlug} study={study} />
-                    )
-                }
-            />
-        )
+        if (hasJobActivity) {
+            return <EnclaveReviewView orgSlug={orgSlug} study={study} />
+        }
+
+        return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
 }

@@ -5,7 +5,7 @@ export const LoadingMessage: React.FC<{ message: string; isVisible?: boolean } &
     isVisible,
     ...textProps
 }) => {
-    if (!isVisible) return null
+    if (isVisible === false) return null
 
     return (
         <Flex align="center">

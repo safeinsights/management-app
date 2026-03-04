@@ -15,12 +15,6 @@ vi.mock('@/components/page-breadcrumbs', () => ({
     OrgBreadcrumbs: () => <div data-testid="org-breadcrumbs" />,
 }))
 
-vi.mock('@/components/openstax-feature-flag', () => ({
-    FeatureFlagRequiredAlert: ({ message }: { message?: string }) => (
-        <div data-testid="feature-flag-alert">{message}</div>
-    ),
-}))
-
 vi.mock('@/components/study/study-code-details', () => ({
     StudyCodeDetails: () => <div data-testid="study-code-details" />,
 }))
@@ -53,42 +47,18 @@ describe('EnclaveReviewView', () => {
         return { org, orgSlug }
     }
 
-    it('shows feature-flag alert for feature-flag org with no job', async () => {
-        const { orgSlug } = await setupStudy('openstax', false)
-
-        renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
-
-        const alert = screen.getByTestId('feature-flag-alert')
-        expect(alert).toBeInTheDocument()
-        expect(alert).toHaveTextContent('created via spy mode without code upload')
-        expect(alert).toHaveTextContent(study.title)
-        expect(screen.queryByTestId('study-code-details')).not.toBeInTheDocument()
-    })
-
-    it('shows full view for feature-flag org with job', async () => {
-        const { orgSlug } = await setupStudy('openstax', true)
+    it('shows full view when job exists', async () => {
+        const { orgSlug } = await setupStudy('test-org', true)
 
         renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
 
         expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
         expect(screen.getByTestId('study-results')).toBeInTheDocument()
         expect(screen.getByTestId('study-review-buttons')).toBeInTheDocument()
-        expect(screen.queryByTestId('feature-flag-alert')).not.toBeInTheDocument()
     })
 
-    it('shows full view for non-feature-flag org with job', async () => {
-        const { orgSlug } = await setupStudy('regular-org', true)
-
-        renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
-
-        expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
-        expect(screen.getByTestId('study-results')).toBeInTheDocument()
-        expect(screen.getByTestId('study-review-buttons')).toBeInTheDocument()
-        expect(screen.queryByTestId('feature-flag-alert')).not.toBeInTheDocument()
-    })
-
-    it('throws NotFoundError for non-feature-flag org with no job', async () => {
-        const { orgSlug } = await setupStudy('regular-org', false)
+    it('throws NotFoundError when no job exists', async () => {
+        const { orgSlug } = await setupStudy('test-org', false)
 
         await expect(EnclaveReviewView({ orgSlug, study })).rejects.toThrow(NotFoundError)
     })

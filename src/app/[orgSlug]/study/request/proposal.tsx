@@ -6,7 +6,6 @@ import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
-import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
@@ -21,9 +20,7 @@ interface StudyProposalProps {
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
-        useStudyRequest()
-    const isOpenStaxFlow: boolean = useOpenStaxFeatureFlag()
+    const { form, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
     const [isProceeding, setIsProceeding] = useState(false)
 
     useEffect(() => {
@@ -41,10 +38,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
                 if (proceed) {
-                    const nextRoute = isOpenStaxFlow
-                        ? Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId })
-                        : Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId })
-                    router.push(nextRoute)
+                    router.push(Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
                 } else {
                     if (!studyId) {
                         router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }), {
@@ -86,15 +80,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 isSavingDraft={isSaving}
                 onNavigateAway={() => reset()}
             >
-                <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
+                <StudyProposalForm studyProposalForm={form} />
 
                 <ProposalFooterActions
                     isSaving={isSaving || isProceeding}
-                    isValid={isOpenStaxFlow ? isStep1Valid : isFormValid}
+                    isValid={isStep1Valid}
                     onSave={handleSave}
-                    saveDraft={isOpenStaxFlow ? undefined : { isDirty: form.isDirty() }}
-                    onCancel={isOpenStaxFlow ? handleCancel : undefined}
-                    proceedLabel={isOpenStaxFlow ? 'Proceed to Step 2' : 'Save and proceed to code upload'}
+                    onCancel={handleCancel}
+                    proceedLabel="Proceed to Step 2"
                 />
             </ProxyProvider>
         </Stack>

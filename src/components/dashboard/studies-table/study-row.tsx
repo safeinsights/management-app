@@ -62,12 +62,9 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
             {/* Fourth column - reviewer only has this extra column */}
             {audience === 'reviewer' && <TableTd>{reviewedByOrOrg}</TableTd>}
 
-            {/* Stage - common to all */}
-            <TableTd>{status.stage}</TableTd>
-
-            {/* Status - common to all, but researcher passes isResearchLabDashboard */}
+            {/* Status - common to all */}
             <TableTd>
-                <DisplayStudyStatus status={status} isResearchLabDashboard={audience === 'researcher'} />
+                <DisplayStudyStatus status={status} />
             </TableTd>
 
             {/* Action Link - common to all */}

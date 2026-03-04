@@ -1,8 +1,12 @@
 import { Code, ScrollArea } from '@mantine/core'
-import type { FC } from 'react'
+import type { ReactNode } from 'react'
 
-export const TextViewer: FC<{ text: string }> = ({ text }) => (
-    <ScrollArea h={500}>
-        <Code block>{text}</Code>
-    </ScrollArea>
-)
+export function textViewer(_path: string, text: string): ReactNode {
+    return (
+        <ScrollArea h={500}>
+            <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>
+                {text}
+            </Code>
+        </ScrollArea>
+    )
+}

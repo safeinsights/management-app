@@ -113,7 +113,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             ...rest,
             starterCodeFileName: starterCode.name,
         })
-        if (isActionError(result)) return result
+        if (isActionError(result)) throw result
 
         await uploadStarterCode(orgSlug, result.id, starterCode)
 
@@ -137,8 +137,9 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             starterCodeUploaded,
             sampleDataUploaded,
         })
+        if (isActionError(result)) throw result
 
-        if (starterCode && !isActionError(result)) {
+        if (starterCode) {
             await uploadStarterCode(orgSlug, image!.id, starterCode)
         }
 
@@ -153,9 +154,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             reportSuccess(isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully')
             onCompleteAction()
         },
-        onError: reportMutationError(
-            isEditMode ? 'Failed to update code environment' : 'Failed to add code environment',
-        ),
+        onError: (err: unknown) => {
+            reportMutationError(isEditMode ? 'Failed to update code environment' : 'Failed to add code environment')(
+                err,
+            )
+        },
     })
 
     const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
