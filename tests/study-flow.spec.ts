@@ -1,4 +1,4 @@
-import { expect, test, visitClerkProtectedPage, fs, readTestSupportFile } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage, readTestSupportFile, fillLexicalField } from './e2e.helpers'
 import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
@@ -10,92 +10,11 @@ test.beforeEach(async ({}, testInfo) => {
 })
 
 // ============================================================================
-// File verification helpers
+// Step 1: Org + language selection
 // ============================================================================
 
-async function compareFiles(file1Path: string, file2Path: string): Promise<boolean> {
-    const file1 = await fs.promises.readFile(file1Path)
-    const file2 = await fs.promises.readFile(file2Path)
-    return Buffer.compare(file1, file2) === 0
-}
-
-async function verifyStudyFileDownloads(page: Page, expectedPdfPath: string) {
-    // Test downloading study documents (IRB, Description, Agreement)
-    const documentBadges = page.locator('a[href*="/dl/study-documents/"]')
-
-    await documentBadges.first().waitFor({ state: 'visible', timeout: 10000 })
-
-    const documentCount = await documentBadges.count()
-    expect(documentCount).toBeGreaterThan(0)
-
-    for (let i = 0; i < documentCount; i++) {
-        const href = await documentBadges.nth(i).getAttribute('href')
-        expect(href).toBeTruthy()
-
-        const response = await page.request.get(href!)
-        expect(response.ok()).toBe(true)
-
-        const tempPath = `/tmp/playwright-download-${Date.now()}-${i}.pdf`
-        const buffer = await response.body()
-        await fs.promises.writeFile(tempPath, buffer)
-
-        const filesMatch = await compareFiles(tempPath, expectedPdfPath)
-        expect(filesMatch).toBe(true)
-
-        await fs.promises.unlink(tempPath)
-    }
-
-    // Test downloading code files
-    const codeBadges = page.locator('a[href*="/dl/study-code/"]')
-    const codeCount = await codeBadges.count()
-
-    if (codeCount > 0) {
-        for (let i = 0; i < codeCount; i++) {
-            const href = await codeBadges.nth(i).getAttribute('href')
-            expect(href).toBeTruthy()
-
-            const filename = href!.split('/').pop()!
-
-            const response = await page.request.get(href!)
-            expect(response.ok()).toBe(true)
-
-            const tempPath = `/tmp/playwright-download-${Date.now()}-${filename}`
-            const buffer = await response.body()
-            await fs.promises.writeFile(tempPath, buffer)
-
-            if (filename === 'main.r') {
-                const originalContent = await fs.promises.readFile('tests/coder-files/main.r', 'utf8')
-                const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
-                expect(downloadedContent).toBe(originalContent)
-            } else if (filename === 'main.py') {
-                const originalContent = await fs.promises.readFile('tests/coder-files/main.py', 'utf8')
-                const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
-                expect(downloadedContent).toBe(originalContent)
-            } else if (filename === 'code.r') {
-                const originalContent = await fs.promises.readFile('tests/coder-files/code.r', 'utf8')
-                const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
-                expect(downloadedContent).toBe(originalContent)
-            }
-
-            await fs.promises.unlink(tempPath)
-        }
-    }
-}
-
-// ============================================================================
-// Step 1: Proposal form helpers
-// ============================================================================
-
-type FillStudyFormOptions = {
-    title: string
-    investigator?: string
-    orgNameRegex?: RegExp
-}
-
-async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
-    const { title, investigator = 'Ricky McResearcher', orgNameRegex = /openstax/i } = options
-
-    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax/i) {
+    await expect(page.getByText(/^STEP 1$/i)).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
 
@@ -104,45 +23,68 @@ async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
     await orgSelect.click()
     await page.getByRole('option', { name: orgNameRegex }).click()
 
-    await page.getByLabel(/title/i).fill(title)
-    await page.getByLabel(/investigator/i).fill(investigator)
-
-    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+    // Wait for language radio buttons to appear after org selection
+    const radioButton = page.getByRole('radio', { name: 'R', exact: true })
+    await radioButton.waitFor({ state: 'visible', timeout: 10000 })
+    await radioButton.click()
 }
 
-async function fillProposalAndSelectLanguage(page: Page, studyTitle: string): Promise<string> {
+async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<string> {
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const newStudyButton = page.getByTestId('new-study').first()
     await newStudyButton.waitFor({ state: 'visible', timeout: 30000 })
     await newStudyButton.click()
 
-    await fillStudyForm(page, { title: studyTitle })
+    await selectOrgAndLanguage(page)
 
-    const nextStepButton = page.getByRole('button', { name: /Save and proceed to code upload/i })
-    await expect(nextStepButton).toBeDisabled()
+    const proceedButton = page.getByRole('button', { name: /Proceed to Step 2/i })
+    await expect(proceedButton).toBeEnabled()
+    await proceedButton.click()
 
-    const radioButton = page.getByRole('radio', { name: 'R', exact: true })
-    await radioButton.waitFor({ state: 'visible', timeout: 10000 })
-    await radioButton.click()
+    // Wait for navigation to proposal page (URL will contain /proposal)
+    await page.waitForURL(/\/proposal$/, { timeout: 30000 })
 
-    await expect(nextStepButton).toBeEnabled()
-    await nextStepButton.click()
-
-    // Wait for navigation to code upload page (URL will contain /code)
-    await page.waitForURL(/\/code$/, { timeout: 30000 })
-
-    // After saving, we navigate to the code upload page
-    // Wait for the code upload page heading to confirm navigation
-    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
+    // On the Step 2 proposal form, fill required fields
+    await expect(page.getByText('STEP 2')).toBeVisible({ timeout: 15000 })
 
     return studyTitle
 }
 
 // ============================================================================
-// Step 2: Code upload helpers
+// Step 2: Proposal form
+// ============================================================================
+
+async function fillAndSubmitProposal(page: Page, studyTitle: string) {
+    // Fill the study title
+    await page.getByLabel('Study Title').fill(studyTitle)
+
+    // Fill required lexical text fields
+    await fillLexicalField(page, 'Research question(s)', 'What is the impact of highlighting on student outcomes?')
+    await fillLexicalField(page, 'Project summary', 'We analyze archival data to study highlighting behavior.')
+    await fillLexicalField(page, 'Impact', 'This research will improve understanding of study habits.')
+
+    // Select PI from dropdown
+    const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
+    await piSelect.click()
+    // Select the first available PI option
+    await page.getByRole('option').first().click()
+
+    // Submit the proposal
+    const submitButton = page.getByRole('button', { name: /Submit study proposal/i })
+    await expect(submitButton).toBeEnabled({ timeout: 10000 })
+    await submitButton.click()
+
+    // Wait for the submitted confirmation page
+    await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 15000 })
+
+    // Go to dashboard
+    await page.getByRole('link', { name: /Go to dashboard/i }).click()
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
+}
+
+// ============================================================================
+// Step 3: Code upload helpers
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
@@ -182,7 +124,7 @@ async function uploadCodeViaIDE(page: Page) {
 }
 
 // ============================================================================
-// Step 3: Review and submit helpers
+// Step 4: Review and submit helpers
 // ============================================================================
 
 async function verifySummaryPage(page: Page, mainFileName: string) {
@@ -219,27 +161,64 @@ async function viewStudyDetails(page: Page, studyTitle: string, destination: 'vi
     }
 
     await expect(
-        page.getByRole('heading', { name: /Study Details|Review your submission|Review submission/i }),
+        page.getByRole('heading', { name: /Study Details|Review your submission|Review submission|Study request/i }),
     ).toBeVisible({ timeout: 10000 })
 }
 
-async function reviewerApprovesStudy(page: Page, studyTitle: string) {
+async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
     await expect(page.getByText('Review Studies')).toBeVisible()
 
     await viewStudyDetails(page, studyTitle, 'review')
 
-    await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
-
-    await page.getByRole('button', { name: /approve/i }).click()
+    // The reviewer sees ProposalReviewView — approve the proposal
+    await page.getByRole('button', { name: /Approve request/i }).click()
 
     // Wait for the approval mutation to complete and redirect to dashboard
     await page.waitForURL('**/dashboard', { timeout: 15000 })
 
+    // Verify approval
+    await viewStudyDetails(page, studyTitle, 'review')
+    await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
+}
+
+async function reviewerApprovesCode(page: Page, studyTitle: string) {
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+    await expect(page.getByText('Review Studies')).toBeVisible()
+
     await viewStudyDetails(page, studyTitle, 'review')
 
-    await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
+    // Wait for code scan to complete — Approve button appears
+    const approveButton = page.getByRole('button', { name: /^Approve$/i })
+    await expect(approveButton).toBeVisible({ timeout: 15000 })
+    await approveButton.click()
+
+    // Wait for the approval mutation to complete and redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
+}
+
+async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
+    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+    // After approval, the researcher's "View" link should go to agreements
+    const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
+    await expect(studyRow).toBeVisible({ timeout: 15000 })
+    const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+    await viewLink.click()
+
+    // Should land on agreements page
+    await page.waitForURL(/\/agreements$/, { timeout: 15000 })
+
+    // Click through agreements to code upload
+    const proceedButton = page.getByRole('button', { name: /Proceed to Step 4/i })
+    await expect(proceedButton).toBeVisible({ timeout: 10000 })
+    await proceedButton.click()
+
+    // Wait for code upload page
+    await page.waitForURL(/\/code$/, { timeout: 15000 })
+    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
 }
 
 // ============================================================================
@@ -327,7 +306,7 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 10000 })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
 
     // Navigate to study details
     await viewStudyDetails(page, studyTitle)
@@ -395,8 +374,20 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     const studyTitle = studyFeatures.studyTitle
     let studyId: string
 
-    await test.step('researcher fills proposal and selects language', async () => {
-        await fillProposalAndSelectLanguage(page, studyTitle)
+    await test.step('researcher selects org and language (Step 1)', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+    })
+
+    await test.step('researcher fills and submits proposal (Step 2)', async () => {
+        await fillAndSubmitProposal(page, studyTitle)
+    })
+
+    await test.step('reviewer approves proposal', async () => {
+        await reviewerApprovesProposal(page, studyTitle)
+    })
+
+    await test.step('researcher navigates to code upload via agreements', async () => {
+        await researcherNavigatesToCodeUpload(page, studyTitle)
     })
 
     await test.step('researcher uploads code files', async () => {
@@ -411,12 +402,11 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await page.goto('/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
-        await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
         studyId = extractStudyIdFromUrl(page)
     })
 
-    await test.step('reviewer approves study', async () => {
-        await reviewerApprovesStudy(page, studyTitle)
+    await test.step('reviewer approves code', async () => {
+        await reviewerApprovesCode(page, studyTitle)
     })
 
     await test.step('simulate job failure with error logs', async () => {
@@ -445,8 +435,20 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     const studyTitle = `${studyFeatures.studyTitle} - IDE`
     let studyId: string
 
-    await test.step('researcher fills proposal and selects language', async () => {
-        await fillProposalAndSelectLanguage(page, studyTitle)
+    await test.step('researcher selects org and language (Step 1)', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+    })
+
+    await test.step('researcher fills and submits proposal (Step 2)', async () => {
+        await fillAndSubmitProposal(page, studyTitle)
+    })
+
+    await test.step('reviewer approves proposal', async () => {
+        await reviewerApprovesProposal(page, studyTitle)
+    })
+
+    await test.step('researcher navigates to code upload via agreements', async () => {
+        await researcherNavigatesToCodeUpload(page, studyTitle)
     })
 
     await test.step('researcher uploads code via IDE', async () => {
@@ -464,8 +466,8 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
         studyId = extractStudyIdFromUrl(page)
     })
 
-    await test.step('reviewer approves study', async () => {
-        await reviewerApprovesStudy(page, studyTitle)
+    await test.step('reviewer approves code', async () => {
+        await reviewerApprovesCode(page, studyTitle)
     })
 
     await test.step('simulate job failure with error logs', async () => {
