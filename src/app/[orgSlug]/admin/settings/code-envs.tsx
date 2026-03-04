@@ -8,6 +8,7 @@ import {
     Text,
     Button,
     Group,
+    Flex,
     ActionIcon,
     Tooltip,
     Collapse,
@@ -34,6 +35,7 @@ import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction 
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
+import { Refresher } from '@/components/refresher'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
@@ -268,6 +270,12 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
     )
 }
 
+const ACTIVE_SCAN_STATUSES: ScanStatus[] = ['SCAN-PENDING', 'SCAN-RUNNING']
+
+function needsRefresh(codeEnvs: CodeEnv[]): boolean {
+    return codeEnvs.some((env) => ACTIVE_SCAN_STATUSES.includes(env.latestScanStatus as ScanStatus))
+}
+
 const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
     if (!images.length) {
         return (
@@ -301,6 +309,8 @@ export const CodeEnvs: React.FC = () => {
         isError,
         error,
         refetch,
+        isFetching,
+        isRefetching,
     } = useQuery({
         queryKey: ['orgCodeEnvs', orgSlug],
         queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
@@ -311,6 +321,8 @@ export const CodeEnvs: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
+    const shouldRefresh = needsRefresh(codeEnvs ?? [])
+
     return (
         <Paper bg="white" p="xxl">
             <Stack>
@@ -318,9 +330,12 @@ export const CodeEnvs: React.FC = () => {
                     <Title order={3} size="lg">
                         Code Environments
                     </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                        Add Code Environment
-                    </Button>
+                    <Flex justify="flex-end" align="center" gap="md">
+                        <Refresher isEnabled={shouldRefresh} refresh={refetch} isPending={isRefetching || isFetching} />
+                        <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
+                            Add Code Environment
+                        </Button>
+                    </Flex>
                 </Group>
                 <Divider c="dimmed" />
 
