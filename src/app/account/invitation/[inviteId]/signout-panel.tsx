@@ -1,18 +1,13 @@
 'use client'
 
 import { ErrorPanel } from '@/components/panel'
-import { useClerk } from '@clerk/nextjs'
-import { useCallback } from 'react'
+import { useSignOut } from '@/hooks/use-sign-out'
 
 export const SignOutPanel = () => {
-    const { signOut } = useClerk()
-
-    const handleSignOut = useCallback(async () => {
-        await signOut({ redirectUrl: window.location.href })
-    }, [signOut])
+    const signOut = useSignOut({ redirectAfterSignOut: window.location.href })
 
     return (
-        <ErrorPanel title="You must be signed out to accept invitations" onContinue={handleSignOut}>
+        <ErrorPanel title="You must be signed out to accept invitations" onContinue={signOut}>
             Sign out to continue
         </ErrorPanel>
     )

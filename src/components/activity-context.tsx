@@ -53,7 +53,7 @@ export const ActivityContext = () => {
                 autoClose: false,
             })
             notifications.hide('inactivity-warning')
-            signOut(pathname)
+            signOut()
         } else if (INACTIVITY_TIMEOUT_MS - inactivityDuration <= WARNING_THRESHOLD_MS) {
             const remainingMinutes = Math.ceil((INACTIVITY_TIMEOUT_MS - inactivityDuration) / 60000)
 
@@ -74,7 +74,7 @@ export const ActivityContext = () => {
                 ),
             })
         }
-    }, [session, signOut, pathname])
+    }, [session, signOut])
 
     useEffect(() => {
         if (!session) {

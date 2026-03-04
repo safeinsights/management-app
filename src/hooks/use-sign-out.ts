@@ -1,18 +1,20 @@
 import { useClerk } from '@clerk/nextjs'
-import { useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 
-export function useSignOut() {
+export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
+    const pathname = usePathname()
 
-    return useCallback(
-        async (redirectBack?: string) => {
-            await signOut()
-            const url = new URL('/account/signin', window.location.origin)
-            if (redirectBack) {
-                url.searchParams.set('redirect_url', redirectBack)
-            }
-            window.location.assign(url.toString())
-        },
-        [signOut],
-    )
+    return async () => {
+        if (options?.redirectAfterSignOut) {
+            await signOut({ redirectUrl: options.redirectAfterSignOut })
+            return
+        }
+        await signOut()
+        const url = new URL('/account/signin', window.location.origin)
+        if (pathname) {
+            url.searchParams.set('redirect_url', pathname)
+        }
+        window.location.assign(url.toString())
+    }
 }

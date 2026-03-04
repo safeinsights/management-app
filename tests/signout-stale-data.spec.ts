@@ -24,6 +24,9 @@ test.describe('sign-out hard redirect', () => {
 
         await signOutViaMenu(page)
 
+        // Sign-out should preserve the current page in redirect_url
+        expect(page.url()).toContain('redirect_url=%2F')
+
         // After the hard redirect, the JS context is fresh — the marker is gone
         const markerSurvived = await page.evaluate(
             () => (window as unknown as Record<string, unknown>).__signOutTestMarker,
