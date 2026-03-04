@@ -12,7 +12,12 @@ import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
 import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
-import { pathForSampleData, pathForStudyJobCode } from '@/lib/paths'
+import {
+    pathForCodeEnvScanArtifacts,
+    pathForJobScanArtifacts,
+    pathForSampleData,
+    pathForStudyJobCode,
+} from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
@@ -242,6 +247,7 @@ export async function triggerScanForStudyJob(info: MinimalJobInfo) {
                 SCAN_MODE: 'source',
                 STUDY_JOB_ID: info.studyJobId,
                 S3_PATH: pathForStudyJobCode(info),
+                ARTIFACTS_PATH: pathForJobScanArtifacts(info),
             }),
         }),
     )
@@ -260,6 +266,7 @@ export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl:
                 SCAN_MODE: 'image',
                 CODE_ENV_ID: info.codeEnvId,
                 DOCKER_IMAGE_URL: info.imageUrl,
+                ARTIFACTS_PATH: pathForCodeEnvScanArtifacts(info),
             }),
         }),
     )

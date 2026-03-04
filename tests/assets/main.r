@@ -26,7 +26,7 @@ results <- query_tutor("
 # Researcher: Insert manipulate data and analysis code here
 
 
-write.csv(result, "results-NATHAN-1.csv", row.names = FALSE)
+write.csv(result, "results.csv", row.names = FALSE)
 
 
 ###############################################################################

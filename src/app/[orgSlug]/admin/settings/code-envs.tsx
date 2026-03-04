@@ -15,7 +15,6 @@ import {
     GridCol,
     Badge,
     Box,
-    Code,
 } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
@@ -40,6 +39,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
+import { FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
@@ -255,8 +255,14 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                     <LoadingMessage message="Loading starter code..." />
                 )}
             </AppModal>
-            <AppModal isOpen={scanResultsOpened} onClose={closeScanResults} title="Latest Results" size="xl">
-                <Code block>{image.latestScanResults || 'No results available.'}</Code>
+            <AppModal
+                isOpen={scanResultsOpened}
+                onClose={closeScanResults}
+                title="Scan Results"
+                size="xl"
+                styles={{ body: { padding: 0 } }}
+            >
+                <FileViewer path="scan-results.txt" text={image.latestScanResults || 'No results available.'} />
             </AppModal>
         </Box>
     )
