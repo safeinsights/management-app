@@ -42,8 +42,13 @@ function extractTextFromLexicalNode(node: unknown): string {
         return n.text
     }
 
+    if (n.type === 'linebreak') {
+        return '\n'
+    }
+
     if (Array.isArray(n.children)) {
-        return n.children.map((child) => extractTextFromLexicalNode(child)).join(' ')
+        const texts = n.children.map((child) => extractTextFromLexicalNode(child))
+        return n.type === 'root' ? texts.join('\n\n') : texts.join('')
     }
 
     return ''
