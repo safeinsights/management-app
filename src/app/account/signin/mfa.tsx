@@ -2,7 +2,7 @@
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { actionResult } from '@/lib/utils'
+import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -70,7 +70,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
-                        let redirectUrl: Route = (searchParams.get('redirect_url') as Route) || Routes.dashboard
+                        let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
@@ -109,8 +109,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    const redirectUrl = searchParams.get('redirect_url') || Routes.home
-                    router.push(redirectUrl as Route)
+                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
