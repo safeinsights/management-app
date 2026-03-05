@@ -3,10 +3,6 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { CodeReviewView } from './code-review-view'
 
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => <div data-testid="org-breadcrumbs" />,
-}))
-
 vi.mock('@/components/study/study-code-details', () => ({
     StudyCodeDetails: () => <div data-testid="study-code-details" />,
 }))

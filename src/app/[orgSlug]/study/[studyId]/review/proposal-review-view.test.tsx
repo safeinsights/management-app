@@ -45,10 +45,6 @@ vi.mock('@/components/study/study-approval-status', () => ({
         ) : null,
 }))
 
-vi.mock('@/components/page-breadcrumbs', () => ({
-    PageBreadcrumbs: () => <div data-testid="page-breadcrumbs" />,
-}))
-
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
 

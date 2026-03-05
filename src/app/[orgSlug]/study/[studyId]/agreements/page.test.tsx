@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import {
     insertTestStudyJobData,
     insertTestStudyOnly,
@@ -8,14 +9,13 @@ import {
 import { db } from '@/database'
 import StudyAgreementsRoute from './page'
 
-const mockRedirect = vi.fn()
+const mockRedirect = vi.mocked(redirect)
 
-vi.mock('next/navigation', () => ({
-    redirect: (...args: unknown[]) => {
-        mockRedirect(...args)
+beforeEach(() => {
+    mockRedirect.mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
-    },
-}))
+    })
+})
 
 let capturedProps: Record<string, unknown> = {}
 
@@ -24,11 +24,6 @@ vi.mock('./agreements-page', () => ({
         capturedProps = props
         return <div data-testid="agreements-page" />
     },
-}))
-
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => <div data-testid="org-breadcrumbs" />,
-    ResearcherBreadcrumbs: () => <div data-testid="researcher-breadcrumbs" />,
 }))
 
 describe('StudyAgreementsRoute', () => {

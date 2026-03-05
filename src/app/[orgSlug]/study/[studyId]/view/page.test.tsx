@@ -30,10 +30,6 @@ vi.mock('@/components/study/study-approval-status', () => ({
     default: () => <div data-testid="study-approval-status" />,
 }))
 
-vi.mock('@/components/page-breadcrumbs', () => ({
-    ResearcherBreadcrumbs: () => <div data-testid="researcher-breadcrumbs" />,
-}))
-
 describe('StudyViewPage', () => {
     it('renders CodeOnlyView when job exists', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
