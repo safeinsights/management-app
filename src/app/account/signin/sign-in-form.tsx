@@ -24,7 +24,7 @@ export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { signOut } = useAuth()
+    const { signOut, getToken } = useAuth()
     const [signedInRecently, setSignedInRecently] = useState(false)
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
@@ -74,6 +74,7 @@ export const SignInForm: FC<{
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
                 const result = actionResult(await onUserSignInAction())
+                await getToken({ skipCache: true })
                 if (result?.redirectToReviewerKey) {
                     router.push(Routes.accountKeys as Route)
                 } else {
