@@ -11,19 +11,6 @@ test.beforeEach(async ({}, testInfo) => {
 })
 
 // ============================================================================
-// Spy mode helpers
-// ============================================================================
-
-async function enableSpyMode(page: Page) {
-    const body = page.locator('body')
-    const currentClass = await body.getAttribute('class')
-    if (currentClass?.includes('spy-mode')) return
-
-    await page.locator('.pi-symbol').click({ force: true })
-    await expect(body).toHaveClass(/spy-mode/)
-}
-
-// ============================================================================
 // Lexical editor helpers
 // ============================================================================
 
@@ -43,8 +30,6 @@ async function fillStep1NewFlow(page: Page) {
     const newStudyButton = page.getByTestId('new-study').first()
     await newStudyButton.waitFor({ state: 'visible', timeout: 30000 })
     await newStudyButton.click()
-
-    await enableSpyMode(page)
 
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
@@ -170,16 +155,12 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
     })
 
     await test.step('Step 2 — researcher fills proposal form', async () => {
-        await enableSpyMode(page)
-
         await expect(page.getByText('STEP 2')).toBeVisible()
 
         await fillProposalForm(page, studyTitle)
     })
 
     await test.step('Submitted page — researcher sees success', async () => {
-        await enableSpyMode(page)
-
         await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
 
         await page.getByRole('link', { name: /Go to dashboard/i }).click()
@@ -188,7 +169,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
     await test.step('Reviewer approves proposal', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
@@ -207,7 +187,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
     await test.step('Researcher sees agreements and navigates to code upload', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -250,7 +229,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
     await test.step('Reviewer sees code review and agreements pages', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -264,7 +242,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
         // The security scan runs async after code submission (~30s),
         // so we reload until the page reflects CODE-SCANNED status.
         await goto(page, `${studyBaseUrl}/review`)
-        await enableSpyMode(page)
 
         // Poll-reload until CodeReviewView appears. We check for the "Study Details"
         // heading (unique to CodeReviewView) rather than the Approve button, because
@@ -274,7 +251,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
             if (await studyDetailsHeading.isVisible().catch(() => false)) break
             await page.waitForTimeout(5000)
             await goto(page, `${studyBaseUrl}/review`)
-            await enableSpyMode(page)
         }
 
         // CodeReviewView headings
@@ -287,7 +263,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
         // Now verify the agreements page renders correctly for the reviewer
         await goto(page, `${studyBaseUrl}/agreements`)
-        await enableSpyMode(page)
 
         await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('STEP 2B')).toBeVisible()
@@ -295,7 +270,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
         // Navigate back to review and approve
         await goto(page, `${studyBaseUrl}/review`)
-        await enableSpyMode(page)
 
         await page.getByRole('button', { name: /Approve/i }).click()
         await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
@@ -303,7 +277,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
     await test.step('Researcher views submitted study', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -325,7 +298,6 @@ test('New flow: full lifecycle via file upload', async ({ page, studyFeatures })
 
         // Reviewer sees Errored on dashboard
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const reviewerRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(reviewerRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
@@ -341,13 +313,11 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
     })
 
     await test.step('Step 2 — researcher fills proposal form', async () => {
-        await enableSpyMode(page)
         await expect(page.getByText('STEP 2')).toBeVisible()
         await fillProposalForm(page, studyTitle)
     })
 
     await test.step('Submitted page — researcher sees success', async () => {
-        await enableSpyMode(page)
         await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
         await page.getByRole('link', { name: /Go to dashboard/i }).click()
         await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
@@ -355,7 +325,6 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('Reviewer approves proposal', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
@@ -373,7 +342,6 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('Researcher sees agreements and navigates to code page', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -398,7 +366,6 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('Reviewer sees code review and agreements pages', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -408,14 +375,12 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
         const studyBaseUrl = href!.replace(/\/(review|view|agreements)$/, '')
 
         await goto(page, `${studyBaseUrl}/review`)
-        await enableSpyMode(page)
 
         const studyDetailsHeading = page.getByRole('heading', { name: /Study Details/i })
         for (let attempt = 0; attempt < 12; attempt++) {
             if (await studyDetailsHeading.isVisible().catch(() => false)) break
             await page.waitForTimeout(5000)
             await goto(page, `${studyBaseUrl}/review`)
-            await enableSpyMode(page)
         }
 
         await expect(studyDetailsHeading).toBeVisible({ timeout: 10000 })
@@ -425,14 +390,12 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
         await expect(approveButton).toBeVisible({ timeout: 45000 })
 
         await goto(page, `${studyBaseUrl}/agreements`)
-        await enableSpyMode(page)
 
         await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('STEP 2B')).toBeVisible()
         await expect(page.getByText('STEP 2C')).toBeVisible()
 
         await goto(page, `${studyBaseUrl}/review`)
-        await enableSpyMode(page)
 
         await page.getByRole('button', { name: /Approve/i }).click()
         await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
@@ -440,7 +403,6 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('Researcher views submitted study', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -460,7 +422,6 @@ test('New flow: full lifecycle via IDE', async ({ page, studyFeatures }) => {
         uploadErrorLogs(jobId)
 
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const reviewerRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(reviewerRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
@@ -472,10 +433,9 @@ test('New flow: proposal rejection', async ({ page, studyFeatures }) => {
 
     await test.step('Researcher creates study', async () => {
         await fillStep1NewFlow(page)
-        await enableSpyMode(page)
+
         await fillProposalForm(page, studyTitle)
 
-        await enableSpyMode(page)
         await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
         await page.getByRole('link', { name: /Go to dashboard/i }).click()
         await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
@@ -483,7 +443,6 @@ test('New flow: proposal rejection', async ({ page, studyFeatures }) => {
 
     await test.step('Reviewer rejects proposal', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -498,8 +457,6 @@ test('New flow: proposal rejection', async ({ page, studyFeatures }) => {
     })
 
     await test.step('Reviewer sees rejected status on dashboard', async () => {
-        await enableSpyMode(page)
-
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
@@ -507,7 +464,6 @@ test('New flow: proposal rejection', async ({ page, studyFeatures }) => {
 
     await test.step('Researcher sees rejected status on dashboard', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -520,17 +476,15 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
 
     await test.step('Researcher creates study and proposal is approved', async () => {
         await fillStep1NewFlow(page)
-        await enableSpyMode(page)
+
         await fillProposalForm(page, studyTitle)
 
-        await enableSpyMode(page)
         await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
         await page.getByRole('link', { name: /Go to dashboard/i }).click()
         await page.waitForURL(/\/dashboard$/, { timeout: 15000 })
 
         // Reviewer approves proposal
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -544,7 +498,6 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
 
     await test.step('Researcher uploads code and submits', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -571,7 +524,6 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
 
     await test.step('Reviewer waits for code scan and rejects code', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -582,14 +534,12 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
 
         // Poll until CodeReviewView appears (code scan takes ~30s)
         await goto(page, `${studyBaseUrl}/review`)
-        await enableSpyMode(page)
 
         const studyDetailsHeading = page.getByRole('heading', { name: /Study Details/i })
         for (let attempt = 0; attempt < 12; attempt++) {
             if (await studyDetailsHeading.isVisible().catch(() => false)) break
             await page.waitForTimeout(5000)
             await goto(page, `${studyBaseUrl}/review`)
-            await enableSpyMode(page)
         }
 
         await expect(studyDetailsHeading).toBeVisible({ timeout: 10000 })
@@ -603,8 +553,6 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
     })
 
     await test.step('Reviewer sees rejected status on dashboard', async () => {
-        await enableSpyMode(page)
-
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
@@ -612,7 +560,6 @@ test('New flow: code rejection and resubmission', async ({ page, studyFeatures }
 
     await test.step('Researcher sees rejection and resubmit button', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
@@ -654,16 +601,14 @@ test('New flow: ProposalReviewView for study without code', async ({ page, study
 
     await test.step('Researcher creates study via new flow (Steps 1-3)', async () => {
         await fillStep1NewFlow(page)
-        await enableSpyMode(page)
+
         await fillProposalForm(page, studyTitle)
 
-        await enableSpyMode(page)
         await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 10000 })
     })
 
     await test.step('Reviewer sees ProposalReviewView', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-        await enableSpyMode(page)
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })

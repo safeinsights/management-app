@@ -30,40 +30,28 @@ describe('CodeFilesReview', () => {
         vi.clearAllMocks()
     })
 
-    it('renders "STEP 4 of 4" when isNewFlow is true', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow />)
+    it('renders "STEP 4 of 4" step label', () => {
+        renderWithProviders(<CodeFilesReview {...defaultProps} />)
 
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
     })
 
-    it('renders "Submit code" button when isNewFlow is true', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow />)
+    it('renders "Submit code" button', () => {
+        renderWithProviders(<CodeFilesReview {...defaultProps} />)
 
         expect(screen.getByRole('button', { name: /submit code/i })).toBeInTheDocument()
     })
 
-    it('shows loading state on proceed button when isNewFlow and isSubmitting', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow isSubmitting />)
+    it('shows loading state on proceed button when isSubmitting', () => {
+        renderWithProviders(<CodeFilesReview {...defaultProps} isSubmitting />)
 
         const button = screen.getByRole('button', { name: /submit code/i })
         expect(button).toHaveAttribute('data-loading', 'true')
     })
 
-    it('renders "STEP 4 of 5" when isNewFlow is false', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} />)
-
-        expect(screen.getByText('STEP 4 of 5')).toBeInTheDocument()
-    })
-
-    it('disables Back button when isNewFlow and isSubmitting', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow isSubmitting />)
+    it('disables Back button when isSubmitting', () => {
+        renderWithProviders(<CodeFilesReview {...defaultProps} isSubmitting />)
 
         expect(screen.getByRole('button', { name: /back to upload/i })).toBeDisabled()
-    })
-
-    it('renders "Save and proceed to review" button when isNewFlow is false', () => {
-        renderWithProviders(<CodeFilesReview {...defaultProps} />)
-
-        expect(screen.getByRole('button', { name: /save and proceed to review/i })).toBeInTheDocument()
     })
 })

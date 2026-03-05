@@ -1,22 +1,17 @@
 import { parseCsv } from '@/lib/file-content-helpers'
-import { Text } from '@mantine/core'
 import { DataTable } from 'mantine-datatable'
-import { type FC, useMemo } from 'react'
+import type { ReactNode } from 'react'
 
-export const CsvViewer: FC<{ text: string }> = ({ text }) => {
-    const { columns, records } = useMemo(() => {
-        const { headers, rows } = parseCsv(text)
-        return {
-            columns: headers.map((header) => ({ accessor: header, title: header })),
-            records: rows.map((row, i) =>
-                Object.fromEntries([['_id', String(i)], ...headers.map((h, j) => [h, row[j] ?? ''])]),
-            ),
-        }
-    }, [text])
+export function csvViewer(path: string, text: string): ReactNode | null {
+    if (!path.toLowerCase().endsWith('.csv')) return null
 
-    if (columns.length === 0) {
-        return <Text>Empty file</Text>
-    }
+    const { headers, rows } = parseCsv(text)
+    if (!(headers.length || rows.length)) return null
+
+    const columns = headers.map((header) => ({ accessor: header, title: header }))
+    const records = rows.map((row, i) =>
+        Object.fromEntries([['_id', String(i)], ...headers.map((h, j) => [h, row[j] ?? ''])]),
+    )
 
     return (
         <DataTable

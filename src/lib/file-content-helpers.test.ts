@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFileContents, parseCsv } from './file-content-helpers'
+import { decodeFileContents, parseCsv, parseLogMessages } from './file-content-helpers'
 
 describe('file-content-helpers', () => {
     describe('decodeFileContents', () => {
@@ -36,6 +36,41 @@ describe('file-content-helpers', () => {
             const result = parseCsv(' name , age \n Alice , 30 ')
             expect(result.headers).toEqual(['name', 'age'])
             expect(result.rows).toEqual([['Alice', '30']])
+        })
+    })
+
+    describe('parseLogMessages', () => {
+        it('parses valid log JSON', () => {
+            const input = JSON.stringify([
+                { timestamp: 1000, message: 'hello' },
+                { timestamp: 2000, message: 'world' },
+            ])
+            expect(parseLogMessages(input)).toEqual([
+                { timestamp: 1000, message: 'hello' },
+                { timestamp: 2000, message: 'world' },
+            ])
+        })
+
+        it('handles whitespace around the JSON', () => {
+            const input = `  [{"timestamp":1000,"message":"trimmed"}]  `
+            expect(parseLogMessages(input)).toEqual([{ timestamp: 1000, message: 'trimmed' }])
+        })
+
+        it('returns null for plain text', () => {
+            expect(parseLogMessages('just a regular log line')).toBeNull()
+        })
+
+        it('returns null for invalid JSON', () => {
+            expect(parseLogMessages('[{broken')).toBeNull()
+        })
+
+        it('returns null for empty array', () => {
+            expect(parseLogMessages('[]')).toBeNull()
+        })
+
+        it('returns null when entries are missing required fields', () => {
+            expect(parseLogMessages('[{"timestamp":1000}]')).toBeNull()
+            expect(parseLogMessages('[{"message":"hello"}]')).toBeNull()
         })
     })
 })

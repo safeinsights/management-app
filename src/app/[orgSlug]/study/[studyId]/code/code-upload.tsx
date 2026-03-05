@@ -9,7 +9,6 @@ import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
-import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { useStudyRequest } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
@@ -39,8 +38,6 @@ export function CodeUploadPage({
     const theme = useMantineTheme()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
-
-    const isNewFlow = useOpenStaxFeatureFlag()
 
     // Context
     const {
@@ -85,11 +82,7 @@ export function CodeUploadPage({
     }
 
     const handleProceed = () => {
-        if (isNewFlow) {
-            submitStudy()
-        } else {
-            router.push(Routes.studyReview({ orgSlug: submittingOrgSlug, studyId }))
-        }
+        submitStudy()
     }
 
     const handleBackToPrevious = () => {
@@ -105,10 +98,10 @@ export function CodeUploadPage({
         closeModal()
     }
 
-    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
-    const proceedLabel = isNewFlow ? 'Submit code' : 'Proceed to review'
-    const buttonGroupJustify = isNewFlow ? 'space-between' : 'flex-end'
-    const isLoading = isNewFlow && isSubmitting
+    const stepLabel = 'STEP 4 of 4'
+    const proceedLabel = 'Submit code'
+    const buttonGroupJustify = 'space-between'
+    const isLoading = isSubmitting
 
     // Show review mode if files are selected
     if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
@@ -118,7 +111,6 @@ export function CodeUploadPage({
                     onBack={handleBackToUpload}
                     onProceed={handleProceed}
                     onOpenUploadModal={openModal}
-                    isNewFlow={isNewFlow}
                     isSubmitting={isSubmitting}
                 />
                 <CodeUploadModal

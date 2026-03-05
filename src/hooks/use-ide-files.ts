@@ -43,30 +43,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         router.push(Routes.studyCode({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
-    const proceedToReview = useCallback(() => {
-        if (!canSubmit) {
-            notifications.show({
-                color: 'red',
-                title: 'Cannot proceed',
-                message: 'Please import files and select a main file first.',
-            })
-            return
-        }
-
-        setIDECodeFiles(fileManager.mainFile, fileManager.filteredFiles)
-        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-        router.push(Routes.studyReview({ orgSlug, studyId }))
-    }, [
-        canSubmit,
-        fileManager.mainFile,
-        fileManager.filteredFiles,
-        setIDECodeFiles,
-        queryClient,
-        studyId,
-        router,
-        orgSlug,
-    ])
-
     const submitDirectly = useCallback(() => {
         if (!canSubmit) {
             notifications.show({
@@ -107,7 +83,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         removeFile: fileManager.removeFile,
 
         canSubmit,
-        proceedToReview,
         submitDirectly,
         isDirectSubmitting,
         goBack,

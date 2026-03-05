@@ -8,7 +8,6 @@ import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-sche
 import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { Language } from '@/database/types'
-import { useOpenStaxFeatureFlag } from '../openstax-feature-flag'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
@@ -16,7 +15,6 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.values.orgSlug)
     form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
 
-    const isFeatureFlagEnabled = useOpenStaxFeatureFlag()
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
@@ -82,7 +80,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     return (
         <Paper p="xl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                {isFeatureFlagEnabled ? 'STEP 1B' : 'STEP 3 OF 5'}
+                STEP 1B
             </Text>
             <Title id="programming-language-title" order={4}>
                 Programming language

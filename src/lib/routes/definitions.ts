@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Route } from 'next'
 import { makeRoute } from './builder'
+import { safeRedirectUrl } from '@/lib/utils'
 
 // ============================================================================
 // Parameter Schemas
@@ -49,7 +50,10 @@ export const DashboardSearchParams = z.object({
  * Common redirect URL pattern
  */
 export const RedirectSearchParams = z.object({
-    redirect_url: z.string().optional(),
+    redirect_url: z
+        .string()
+        .optional()
+        .transform((val) => (val ? safeRedirectUrl(val, '/' as Route) : undefined)),
 })
 
 /**
@@ -57,7 +61,10 @@ export const RedirectSearchParams = z.object({
  */
 export const InviteSearchParams = z.object({
     invite_id: z.string().uuid().optional(),
-    redirect_url: z.string().optional(),
+    redirect_url: z
+        .string()
+        .optional()
+        .transform((val) => (val ? safeRedirectUrl(val, '/' as Route) : undefined)),
 })
 
 // ============================================================================

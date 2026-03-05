@@ -151,6 +151,7 @@ describe('triggerScanForStudyJob', () => {
             { name: 'SCAN_MODE', value: 'source' },
             { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-456/code' },
+            { name: 'ARTIFACTS_PATH', value: 'scan-artifacts/jobs/job-456' },
         ]
 
         expect(startBuildCommandArgs.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))

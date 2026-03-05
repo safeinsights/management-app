@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEncryptedLogBlob, LOG_FILENAME } from './encrypt-log'
+import { createEncryptedLogBlob } from './encrypt-log'
 import { readTestSupportFile } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -10,7 +10,8 @@ describe('createEncryptedLogBlob', () => {
         const fingerprint = await fingerprintKeyData(publicKey)
 
         const message = 'Build failed during code packaging'
-        const zipBlob = await createEncryptedLogBlob(message, [{ publicKey, fingerprint }])
+        const filename = 'packaging-error-log.txt'
+        const zipBlob = await createEncryptedLogBlob(message, [{ publicKey, fingerprint }], filename)
 
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)
@@ -19,7 +20,7 @@ describe('createEncryptedLogBlob', () => {
         const files = await reader.extractFiles()
 
         expect(files).toHaveLength(1)
-        expect(files[0].path).toBe(LOG_FILENAME)
+        expect(files[0].path).toBe(filename)
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
     })

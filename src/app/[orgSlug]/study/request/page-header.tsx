@@ -3,7 +3,6 @@
 import { FC } from 'react'
 import { Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 
 interface ProposalHeaderProps {
     orgSlug: string
@@ -24,10 +23,5 @@ interface StudyRequestPageHeaderProps {
 }
 
 export const StudyRequestPageHeader: FC<StudyRequestPageHeaderProps> = ({ orgSlug }) => {
-    return (
-        <OpenStaxFeatureFlag
-            defaultContent={<ProposalHeader orgSlug={orgSlug} title="Propose a study" />}
-            optInContent={<ProposalHeader orgSlug={orgSlug} title="Request data use" />}
-        />
-    )
+    return <ProposalHeader orgSlug={orgSlug} title="Request data use" />
 }

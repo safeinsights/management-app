@@ -148,19 +148,7 @@ export const step2ProposalApiSchema = z.object({
 
 export const draftStudyApiSchema = studyProposalApiSchema.extend(step2ProposalApiSchema.shape).partial()
 
-export const formReadinessSchema = z.object({
-    orgSlug: z.string().min(1),
-    language: z.enum(['R', 'PYTHON']),
-    title: z.string().min(1).refine(maxWordsRefine(WORD_LIMITS.title).check),
-    hasDescriptionDocument: z.literal(true),
-    hasIrbDocument: z.literal(true),
-    hasAgreementDocument: z.literal(true),
-})
-
-// OpenStax step 1 only requires org + language selection
-export const openStaxStep1ReadinessSchema = z.object({
+export const step1ReadinessSchema = z.object({
     orgSlug: z.string().min(1),
     language: z.enum(['R', 'PYTHON']),
 })
-
-export type FormReadinessInput = z.infer<typeof formReadinessSchema>

@@ -23,7 +23,6 @@ interface CodeFilesReviewProps {
     onProceed: () => void
     onOpenUploadModal: () => void
     isSaving?: boolean
-    isNewFlow?: boolean
     isSubmitting?: boolean
 }
 
@@ -80,7 +79,6 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
     onProceed,
     onOpenUploadModal,
     isSaving = false,
-    isNewFlow = false,
     isSubmitting = false,
 }) => {
     const { codeFiles, codeFilesLastUpdated, removeCodeFile, setMainCodeFile } = useStudyRequest()
@@ -118,9 +116,9 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
         ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
         .toLowerCase()
 
-    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
-    const isLoading = isSaving || (isNewFlow && isSubmitting)
-    const proceedLabel = isNewFlow ? 'Submit code' : 'Save and proceed to review'
+    const stepLabel = 'STEP 4 of 4'
+    const isLoading = isSaving || isSubmitting
+    const proceedLabel = 'Submit code'
 
     return (
         <>

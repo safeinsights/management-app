@@ -104,6 +104,29 @@ describe('proposalFormSchema', () => {
             })
             expect(result.success).toBe(true)
         })
+
+        it('counts formatted text within a word as one word', () => {
+            const formattedJson = JSON.stringify({
+                root: {
+                    type: 'root',
+                    children: [
+                        {
+                            type: 'paragraph',
+                            children: [
+                                { type: 'text', text: 'un' },
+                                { type: 'text', text: 'formatted', format: 1 },
+                                { type: 'text', text: ' question' },
+                            ],
+                        },
+                    ],
+                },
+            })
+            const result = proposalFormSchema.safeParse({
+                ...validProposalData,
+                researchQuestions: formattedJson,
+            })
+            expect(result.success).toBe(true)
+        })
     })
 
     describe('projectSummary', () => {

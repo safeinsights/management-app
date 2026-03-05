@@ -30,50 +30,30 @@ vi.mock('@/components/study/study-approval-status', () => ({
     default: () => <div data-testid="study-approval-status" />,
 }))
 
-vi.mock('@/components/study/job-approval-status', () => ({
-    ApprovalStatus: () => <div data-testid="job-approval-status" />,
-}))
-
 vi.mock('@/components/page-breadcrumbs', () => ({
     ResearcherBreadcrumbs: () => <div data-testid="researcher-breadcrumbs" />,
 }))
 
-vi.mock('@/components/openstax-feature-flag', () => ({
-    OpenStaxFeatureFlag: ({
-        defaultContent,
-        optInContent,
-    }: {
-        defaultContent: React.ReactNode
-        optInContent: React.ReactNode
-    }) => (
-        <>
-            <div data-testid="flag-default">{defaultContent}</div>
-            <div data-testid="flag-optin">{optInContent}</div>
-        </>
-    ),
-}))
-
 describe('StudyViewPage', () => {
-    it('renders CodeOnlyView as opt-in when job exists', async () => {
+    it('renders CodeOnlyView when job exists', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('flag-optin').querySelector('[data-testid="code-only-view"]')).toBeInTheDocument()
+        expect(screen.getByTestId('code-only-view')).toBeInTheDocument()
     })
 
-    it('renders default content as opt-in when no job exists', async () => {
+    it('renders full details when no job exists', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        const optIn = screen.getByTestId('flag-optin')
-        expect(optIn.querySelector('[data-testid="study-details"]')).toBeInTheDocument()
-        expect(optIn.querySelector('[data-testid="code-only-view"]')).not.toBeInTheDocument()
+        expect(screen.getByTestId('study-details')).toBeInTheDocument()
+        expect(screen.queryByTestId('code-only-view')).not.toBeInTheDocument()
     })
 
     it('throws when study does not exist', async () => {

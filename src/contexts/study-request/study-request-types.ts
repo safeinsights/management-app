@@ -35,7 +35,6 @@ export interface StudyRequestContextValue {
     submittingOrgSlug: string
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
-    isFormValid: boolean
     isStep1Valid: boolean
     codeFiles: CodeFileState
     codeFilesLastUpdated: Date | null

@@ -1,13 +1,10 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
-import { isFeatureFlagOrg } from '@/lib/org'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { CodeReviewView } from './code-review-view'
-import { EnclaveReviewView } from './enclave-review-view'
 import { LabReviewView } from './lab-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
@@ -39,18 +36,7 @@ export default async function StudyReviewPage(props: {
         const codeSubmitted = study.jobStatusChanges.some(
             (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
         )
-
-        let optInContent = <ProposalReviewView orgSlug={orgSlug} study={study} />
-        if (isFeatureFlagOrg(orgSlug) && codeSubmitted) {
-            optInContent = <CodeReviewView orgSlug={orgSlug} study={study} />
-        }
-
-        const defaultContent = codeSubmitted ? (
-            <EnclaveReviewView orgSlug={orgSlug} study={study} />
-        ) : (
-            <ProposalReviewView orgSlug={orgSlug} study={study} />
-        )
-
-        return <OpenStaxFeatureFlag defaultContent={defaultContent} optInContent={optInContent} />
+        if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
+        return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
 }
