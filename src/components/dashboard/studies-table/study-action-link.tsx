@@ -32,10 +32,14 @@ function ResearcherLink({
     }
 
     const hasJobActivity = study.jobStatusChanges.length > 0
-    const href =
-        study.status === 'APPROVED' && !hasJobActivity
-            ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
-            : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
+    const studyParams = { orgSlug: labSlug, studyId: study.id }
+
+    const getHref = () => {
+        if (study.status === 'PENDING-REVIEW') return Routes.studySubmitted(studyParams)
+        if (study.status === 'APPROVED' && !hasJobActivity) return Routes.studyAgreements(studyParams)
+        return Routes.studyView(studyParams)
+    }
+    const href = getHref()
 
     return (
         <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
