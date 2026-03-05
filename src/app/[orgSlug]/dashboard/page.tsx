@@ -3,17 +3,19 @@
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { orgInitials, displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { Stack, Text, Title } from '@mantine/core'
+import { redirect } from 'next/navigation'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
 
     const org = await getOrgFromSlugAction({ orgSlug })
     if (isActionError(org)) {
-        throw new Error(`Organization not found: ${orgSlug}`)
+        redirect(Routes.notFound)
     }
 
     const isEnclave = isEnclaveOrg(org)
