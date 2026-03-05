@@ -1,29 +1,16 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { mockStudyRow, renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { StudyActionLink } from './study-action-link'
-import { StudyRow } from './types'
 
 const ORG_SLUG = 'test-org'
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
-const mockStudy = (overrides: Partial<StudyRow> = {}): StudyRow => ({
-    id: STUDY_ID,
-    title: 'Test Study',
-    status: 'APPROVED' as StudyStatus,
-    createdAt: new Date(),
-    researcherId: 'researcher-1',
-    reviewerId: null,
-    createdBy: 'Researcher Name',
-    jobStatusChanges: [],
-    ...overrides,
-})
-
 describe('StudyActionLink', () => {
     describe('researcher audience', () => {
         it('links to edit page for DRAFT studies', () => {
-            const study = mockStudy({ status: 'DRAFT' as StudyStatus })
+            const study = mockStudyRow({ status: 'DRAFT' as StudyStatus })
             renderWithProviders(
                 <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
             )
@@ -34,7 +21,7 @@ describe('StudyActionLink', () => {
         })
 
         it('links to submitted page for PENDING-REVIEW studies', () => {
-            const study = mockStudy({ status: 'PENDING-REVIEW' as StudyStatus })
+            const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus })
             renderWithProviders(
                 <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
             )
@@ -44,7 +31,7 @@ describe('StudyActionLink', () => {
         })
 
         it('links to agreements page for APPROVED studies with no job activity', () => {
-            const study = mockStudy({ status: 'APPROVED' as StudyStatus, jobStatusChanges: [] })
+            const study = mockStudyRow({ status: 'APPROVED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
             )
@@ -54,7 +41,7 @@ describe('StudyActionLink', () => {
         })
 
         it('links to study view page for APPROVED studies with job activity', () => {
-            const study = mockStudy({
+            const study = mockStudyRow({
                 status: 'APPROVED' as StudyStatus,
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
             })
@@ -67,7 +54,7 @@ describe('StudyActionLink', () => {
         })
 
         it('uses submittedByOrgSlug when available', () => {
-            const study = mockStudy({
+            const study = mockStudyRow({
                 status: 'PENDING-REVIEW' as StudyStatus,
                 submittedByOrgSlug: 'lab-org',
             })
@@ -82,7 +69,7 @@ describe('StudyActionLink', () => {
 
     describe('reviewer audience', () => {
         it('links to agreements page when latest job status is CODE-SUBMITTED', () => {
-            const study = mockStudy({
+            const study = mockStudyRow({
                 orgSlug: 'review-org',
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
             })
@@ -95,7 +82,7 @@ describe('StudyActionLink', () => {
         })
 
         it('links to review page when latest job status is not CODE-SUBMITTED or CODE-SCANNED', () => {
-            const study = mockStudy({
+            const study = mockStudyRow({
                 orgSlug: 'review-org',
                 jobStatusChanges: [{ status: 'JOB-RUNNING' as StudyJobStatus, userId: null }],
             })
