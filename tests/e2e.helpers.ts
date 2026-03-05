@@ -218,14 +218,15 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     await page.getByRole('heading', { name: /verify your code/i }).waitFor({ state: 'visible' })
     await fillPinInput(page, creds.mfa, 'sms-pin-input')
     await page.getByRole('button', { name: 'Verify code' }).click()
-    await page.waitForLoadState()
+
+    // Wait for MFA onSuccess to finish metadata update + token refresh + router.push
+    await page.waitForURL((u) => !u.pathname.startsWith('/account/signin'), { timeout: 30000 })
 
     await page.waitForFunction(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
     const updatedEmail = await clerkLoaded(page)
     if (updatedEmail != creds.identifier) {
         throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
     }
-    //  the earlier goto likely navigated to signin
     if (page.url() != url) {
         await goto(page, url)
         await clerkLoaded(page)

@@ -67,6 +67,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
 
                 try {
                     const result = actionResult(await onUserSignInAction())
+                    await auth.getToken({ skipCache: true })
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
@@ -93,8 +94,6 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     color: 'green',
                                     message: `You've successfully linked your SafeInsights accounts under ${email}.`,
                                 })
-
-                                // forces Clerk to regenerate the JWT session token with the latest user metadata
                                 await auth.getToken({ skipCache: true })
                             } catch {
                                 notifications.show({
