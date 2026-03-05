@@ -3,7 +3,7 @@ import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { actionResult } from '@/lib/utils'
+import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
@@ -63,6 +63,14 @@ export const SignInForm: FC<{
 
     if (isSignedIn || !signIn || mfa) return null
 
+    const rawRedirect = searchParams.get('redirect_url')
+    const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
+    const forgotPasswordHref = (
+        rawRedirect && validatedRedirect !== Routes.home
+            ? `${Routes.accountResetPassword}?redirect_url=${encodeURIComponent(validatedRedirect)}`
+            : Routes.accountResetPassword
+    ) as Route
+
     const onSubmit = form.onSubmit(async (values) => {
         setSignedInRecently(true)
         try {
@@ -78,8 +86,7 @@ export const SignInForm: FC<{
                 if (result?.redirectToReviewerKey) {
                     router.push(Routes.accountKeys as Route)
                 } else {
-                    const redirectUrl = searchParams.get('redirect_url') ?? Routes.home
-                    router.push(redirectUrl as Route)
+                    router.push(validatedRedirect)
                 }
             }
             if (attempt.status === 'needs_second_factor') {
@@ -140,17 +147,7 @@ export const SignInForm: FC<{
                         placeholder="*********"
                         aria-label="Password"
                     />
-                    <Link
-                        c="blue.7"
-                        fw={600}
-                        w="fit-content"
-                        size="xs"
-                        href={
-                            (searchParams.get('redirect_url')
-                                ? `${Routes.accountResetPassword}?redirect_url=${searchParams.get('redirect_url')}`
-                                : Routes.accountResetPassword) as Route
-                        }
-                    >
+                    <Link c="blue.7" fw={600} w="fit-content" size="xs" href={forgotPasswordHref}>
                         Forgot password?
                     </Link>
                     <SignInError clerkError={clerkError} setClerkError={setClerkError} />

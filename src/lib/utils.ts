@@ -1,5 +1,6 @@
 import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
 import * as Sentry from '@sentry/nextjs'
+import type { Route } from 'next'
 import { UserSession } from './types'
 
 export type TimeOpts =
@@ -61,4 +62,30 @@ export function actionResult<T>(result: ActionResponse<T>): T {
         throw new Error(errorToString(result))
     }
     return result
+}
+
+export function safeRedirectUrl(url: string | null | undefined, fallback: Route): Route {
+    if (!url) return fallback
+
+    if (!url.startsWith('/') || url.startsWith('//')) return fallback
+
+    if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return fallback
+
+    let decoded: string
+    try {
+        decoded = decodeURIComponent(url)
+    } catch {
+        return fallback
+    }
+
+    // Reject double-encoded values
+    try {
+        if (decodeURIComponent(decoded) !== decoded) return fallback
+    } catch {
+        // decodeURIComponent threw — decoded contained something like a bare %, which is fine
+    }
+
+    if (/\.\.|\\|\/\/|\0/.test(decoded)) return fallback
+
+    return url as Route
 }
