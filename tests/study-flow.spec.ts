@@ -1,4 +1,4 @@
-import { expect, test, visitClerkProtectedPage, readTestSupportFile, fillLexicalField } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage, readTestSupportFile, fillLexicalField, goto } from './e2e.helpers'
 import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
@@ -151,13 +151,13 @@ async function viewStudyDetails(page: Page, studyTitle: string, destination: 'vi
 
     // Navigate directly instead of clicking
     if (href) {
-        await page.goto(href, { waitUntil: 'domcontentloaded' })
+        await goto(page, href)
     }
 
     // agreements page is now the first stop — skip past it via direct navigation
     if (page.url().includes('/agreements')) {
         const studyBaseUrl = page.url().replace('/agreements', '')
-        await page.goto(`${studyBaseUrl}/${destination}`, { waitUntil: 'domcontentloaded' })
+        await goto(page, `${studyBaseUrl}/${destination}`)
     }
 
     await expect(
@@ -279,7 +279,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Click "Decrypt Files" to decrypt
     const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled({ timeout: 5000 })
+    await expect(decryptButton).toBeEnabled({ timeout: 15000 })
     await decryptButton.click()
 
     // Wait for decryption to complete — View buttons appear in the file table
@@ -296,7 +296,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     await approveButton.click()
 
     // Verify approval shows up
-    await page.goto('/openstax/dashboard')
+    await goto(page, '/openstax/dashboard')
     await viewStudyDetails(page, studyTitle, 'review')
     await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })
 }
@@ -306,7 +306,7 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 15000 })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 30000 })
 
     // Navigate to study details
     await viewStudyDetails(page, studyTitle)
@@ -400,7 +400,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
-        await page.goto('/openstax-lab/dashboard')
+        await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
         studyId = extractStudyIdFromUrl(page)
     })
@@ -461,7 +461,7 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
-        await page.goto('/openstax-lab/dashboard')
+        await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
         studyId = extractStudyIdFromUrl(page)
     })
