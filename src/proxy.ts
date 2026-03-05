@@ -1,6 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
+import { Routes } from '@/lib/routes'
+import { safeRedirectUrl } from '@/lib/utils'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from './lib/types'
 import { omit } from 'remeda'
@@ -63,7 +65,8 @@ export const proxy = clerkMiddleware(async (auth, req) => {
             session = BLANK_SESSION
         } else {
             const signInUrl = new URL('/account/signin', req.url)
-            signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
+            const intended = safeRedirectUrl(req.nextUrl.pathname + req.nextUrl.search, Routes.home)
+            signInUrl.searchParams.set('redirect_url', intended)
             log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
