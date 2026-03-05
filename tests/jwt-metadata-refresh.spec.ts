@@ -120,6 +120,7 @@ async function signInToOrgDashboard({ page, email, password }: { page: Page; ema
     await page.getByLabel('email').fill(email)
     await page.getByLabel('password').fill(password)
     await page.getByRole('button', { name: /login/i }).click()
+    await page.waitForURL((u) => !u.pathname.startsWith('/account/signin'), { timeout: 30000 })
 }
 
 async function deleteTempClerkUser(clerkUserId: string) {
