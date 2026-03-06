@@ -40,6 +40,7 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
 
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
+    // TODO: reusing 'vb - new research proposal' template until a dedicated code-submission template is created in Mailgun
     await deliver({
         to: study.reviewerEmail ?? emails.join(', '),
         bcc: emails.join(', '),
@@ -48,7 +49,7 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
         vars: {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            submittedOn: dayjs().format('MM/DD/YYYY'),
             studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
         },
     })
