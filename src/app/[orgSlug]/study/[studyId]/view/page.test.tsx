@@ -1,14 +1,11 @@
-import { Suspense } from 'react'
 import { describe, it, expect } from 'vitest'
 import {
-    act,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
     faker,
-    waitFor,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 
@@ -28,15 +25,10 @@ describe('StudyViewPage', () => {
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
-        await act(async () => {
-            renderWithProviders(<Suspense fallback={<div>Loading...</div>}>{page!}</Suspense>)
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('Study Name')).toBeInTheDocument()
-        })
+        renderWithProviders(page!)
 
         expect(screen.getByText('Study Proposal')).toBeInTheDocument()
+        expect(screen.getByText('Study Name')).toBeInTheDocument()
         expect(screen.getByText(study.title)).toBeInTheDocument()
         expect(screen.getByText('Principal investigator')).toBeInTheDocument()
         expect(screen.queryByText('Previous')).not.toBeInTheDocument()

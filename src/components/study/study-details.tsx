@@ -3,9 +3,9 @@ import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { isActionError } from '@/lib/errors'
 import { studyDocumentURL } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
-import { getStudyAction } from '@/server/actions/study.actions'
+import { SelectedStudy } from '@/server/actions/study.actions'
 import { Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
-import { FC, use } from 'react'
+import { FC } from 'react'
 import { FileChip } from '@/components/file-chip'
 
 interface BadgeWithDescriptionProps {
@@ -20,8 +20,7 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
     return <FileChip href={studyDocumentURL(studyId, type, path)} filename={path} key={path} />
 }
 
-export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
-    const study = use(getStudyAction({ studyId }))
+export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
