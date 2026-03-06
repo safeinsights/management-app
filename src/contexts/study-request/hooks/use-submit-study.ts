@@ -120,9 +120,9 @@ export function useSubmitStudy({
             queryClient.invalidateQueries({ queryKey: ['orgs-with-stats'] })
 
             notifications.show({
-                title: 'Study Proposal Submitted',
+                title: 'Study Code Submitted',
                 message:
-                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                    'Your code has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
 

@@ -105,21 +105,19 @@ export function AgreementsPage({ isReviewer, proceedHref, previousHref, proceedL
                 ))}
             </Stack>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
-                    <Button
-                        type="button"
-                        size="md"
-                        variant="subtle"
-                        onClick={handlePrevious}
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous
-                    </Button>
-                    <Button type="button" variant="primary" size="md" onClick={handleProceed}>
-                        {resolvedProceedLabel}
-                    </Button>
-                </Group>
+            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+                <Button
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    onClick={handlePrevious}
+                    leftSection={<CaretLeftIcon />}
+                >
+                    Previous
+                </Button>
+                <Button type="button" variant="primary" size="md" onClick={handleProceed}>
+                    {resolvedProceedLabel}
+                </Button>
             </Group>
         </>
     )

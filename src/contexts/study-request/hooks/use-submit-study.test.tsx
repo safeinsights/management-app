@@ -155,7 +155,7 @@ describe('useSubmitStudy', () => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
                     color: 'green',
-                    title: 'Study Proposal Submitted',
+                    title: 'Study Code Submitted',
                 }),
             )
         })
