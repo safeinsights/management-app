@@ -56,17 +56,13 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
         )
     }
 
-    const stepLabel = 'STEP 4 of 4'
-    const proceedLabel = 'Submit code'
-    const handleProceed = ide.submitDirectly
-
     return (
         <>
             <Title order={1}>Select files to submit</Title>
 
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    {stepLabel}
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -90,9 +86,9 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
                     variant="primary"
                     disabled={!ide.canSubmit}
                     loading={ide.isDirectSubmitting}
-                    onClick={handleProceed}
+                    onClick={ide.submitDirectly}
                 >
-                    {proceedLabel}
+                    Submit code
                 </Button>
             </Group>
         </>

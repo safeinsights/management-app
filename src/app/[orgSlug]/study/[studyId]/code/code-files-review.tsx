@@ -116,15 +116,13 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
         ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
         .toLowerCase()
 
-    const stepLabel = 'STEP 4 of 4'
     const isLoading = isSaving || isSubmitting
-    const proceedLabel = 'Submit code'
 
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    {stepLabel}
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -196,7 +194,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                         loading={isLoading}
                         onClick={handleProceed}
                     >
-                        {proceedLabel}
+                        Submit code
                     </Button>
                 </Group>
             </Group>

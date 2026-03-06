@@ -81,10 +81,6 @@ export function CodeUploadPage({
         launchWorkspace()
     }
 
-    const handleProceed = () => {
-        submitStudy()
-    }
-
     const handleBackToPrevious = () => {
         router.push(previousHref)
     }
@@ -98,18 +94,13 @@ export function CodeUploadPage({
         closeModal()
     }
 
-    const stepLabel = 'STEP 4 of 4'
-    const proceedLabel = 'Submit code'
-    const buttonGroupJustify = 'space-between'
-    const isLoading = isSubmitting
-
     // Show review mode if files are selected
     if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
         return (
             <>
                 <CodeFilesReview
                     onBack={handleBackToUpload}
-                    onProceed={handleProceed}
+                    onProceed={submitStudy}
                     onOpenUploadModal={openModal}
                     isSubmitting={isSubmitting}
                 />
@@ -129,7 +120,7 @@ export function CodeUploadPage({
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    {stepLabel}
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -197,7 +188,7 @@ export function CodeUploadPage({
                 )}
             </Paper>
 
-            <Group mt="xxl" justify={buttonGroupJustify} style={{ width: '100%' }}>
+            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
                 <Button
                     type="button"
                     size="md"
@@ -212,10 +203,10 @@ export function CodeUploadPage({
                     variant="primary"
                     size="md"
                     disabled={!canProceedToReview && !existingMainFile}
-                    loading={isLoading}
-                    onClick={handleProceed}
+                    loading={isSubmitting}
+                    onClick={submitStudy}
                 >
-                    {proceedLabel}
+                    Submit code
                 </Button>
             </Group>
 
