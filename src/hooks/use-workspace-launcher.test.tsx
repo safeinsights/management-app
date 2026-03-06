@@ -41,7 +41,6 @@ const studyId = faker.string.uuid()
 
 describe('useWorkspaceLauncher', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
         mockWindowOpen.mockReturnValue({ closed: false })
     })
 

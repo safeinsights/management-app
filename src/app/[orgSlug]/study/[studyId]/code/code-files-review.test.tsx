@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { CodeFilesReview } from './code-files-review'
 import { StudyRequestProvider } from '@/contexts/study-request'
@@ -10,10 +10,6 @@ const defaultProps = {
 }
 
 describe('CodeFilesReview', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
     it('renders "STEP 4 of 4" step label', () => {
         renderWithProviders(
             <StudyRequestProvider submittingOrgSlug="test-org">

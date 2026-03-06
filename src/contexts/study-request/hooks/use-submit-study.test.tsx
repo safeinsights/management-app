@@ -3,7 +3,6 @@ import {
     describe,
     it,
     expect,
-    beforeEach,
     waitFor,
     act,
     renderHook,
@@ -54,10 +53,6 @@ const defaultOptions: UseSubmitStudyOptions = {
 }
 
 describe('useSubmitStudy', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
     it('shows error notification when studyId is missing', async () => {
         const { result } = renderHook(() => useSubmitStudy({ ...defaultOptions, studyId: null }), {
             wrapper: createWrapper(),
