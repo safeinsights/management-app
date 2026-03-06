@@ -4,18 +4,19 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { Routes } from '@/lib/routes'
+import { UnusedOpenStaxFeatureFlag as OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { EnclaveReviewView } from './enclave-review-view'
 import { LabReviewView } from './lab-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
-    params: Promise<{
-        orgSlug: string
-        studyId: string
-    }>
+    params: Promise<{ orgSlug: string; studyId: string }>
+    searchParams: Promise<{ from?: string }>
 }) {
     const params = await props.params
     const { orgSlug, studyId } = params
+    const { from } = await props.searchParams
 
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
@@ -35,10 +36,23 @@ export default async function StudyReviewPage(props: {
     if (currentOrg.type === 'enclave') {
         const hasJobActivity = study.jobStatusChanges.length > 0
 
-        if (hasJobActivity) {
-            return <EnclaveReviewView orgSlug={orgSlug} study={study} />
-        }
-
-        return <ProposalReviewView orgSlug={orgSlug} study={study} />
+        return (
+            <OpenStaxFeatureFlag
+                defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={
+                    hasJobActivity ? (
+                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                    ) : (
+                        <ProposalReviewView
+                            orgSlug={orgSlug}
+                            study={study}
+                            agreementsHref={
+                                from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
+                            }
+                        />
+                    )
+                }
+            />
+        )
     }
 }

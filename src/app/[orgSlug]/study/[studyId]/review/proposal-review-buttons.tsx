@@ -3,16 +3,29 @@
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { Button, Group } from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
 import type { FC } from 'react'
 
-export const ProposalReviewButtons: FC<{ study: SelectedStudy; orgSlug: string }> = ({ study, orgSlug }) => {
+type ProposalReviewButtonsProps = {
+    study: SelectedStudy
+    orgSlug: string
+    agreementsHref?: string
+}
+
+export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, orgSlug, agreementsHref }) => {
+    const router = useRouter()
     const { updateStudy, isPending, isSuccess, pendingStatus } = useProposalReviewMutation({
         studyId: study.id,
         orgSlug,
     })
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
-        return null
+        return agreementsHref ? (
+            <Group justify="flex-end">
+                <Button onClick={() => router.push(agreementsHref as Route)}>Proceed to Step 2</Button>
+            </Group>
+        ) : null
     }
 
     return (
