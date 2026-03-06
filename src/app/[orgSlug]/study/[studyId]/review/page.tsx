@@ -2,10 +2,11 @@
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
-import { LabReviewView } from './lab-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
@@ -29,7 +30,7 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'lab') {
-        return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
     if (currentOrg.type === 'enclave') {

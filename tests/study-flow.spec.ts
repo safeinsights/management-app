@@ -142,10 +142,11 @@ async function viewStudyDetails(page: Page, studyTitle: string, destination: 'vi
         await goto(page, href)
     }
 
-    // agreements page is now the first stop — skip past it via direct navigation
     if (page.url().includes('/agreements')) {
-        const studyBaseUrl = page.url().replace('/agreements', '')
-        await goto(page, `${studyBaseUrl}/${destination}`)
+        const proceedButton = page.getByRole('button', { name: /Proceed|Back to Study/i })
+        await expect(proceedButton).toBeVisible({ timeout: 10000 })
+        await proceedButton.click()
+        await page.waitForURL(`**/${destination}`, { timeout: 10000 })
     }
 
     await expect(

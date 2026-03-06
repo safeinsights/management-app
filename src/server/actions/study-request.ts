@@ -18,7 +18,7 @@ import {
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
-import { deferred, onStudyCreated } from '@/server/events'
+import { deferred, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -270,10 +270,15 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Change status to PENDING-REVIEW
+        const study = await db.selectFrom('study').select('status').where('id', '=', studyId).executeTakeFirstOrThrow()
+
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
-        onStudyCreated({ userId, studyId })
+        if (study.status === 'APPROVED') {
+            onStudyCodeSubmitted({ userId, studyId })
+        } else {
+            onStudyCreated({ userId, studyId })
+        }
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -404,6 +409,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
+        onStudyCodeSubmitted({ userId, studyId })
+
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
@@ -453,6 +460,8 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         }
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        onStudyCodeSubmitted({ userId, studyId })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

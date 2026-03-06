@@ -1,8 +1,16 @@
 import { db } from '@/database'
 import * as aws from '@/server/aws'
-import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
+import {
+    actionResult,
+    insertTestOrg,
+    insertTestStudyData,
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
+    addJobToStudyAction,
     onDeleteStudyAction,
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
@@ -19,6 +27,12 @@ vi.mock('@/server/aws', async () => {
         deleteFolderContents: vi.fn(),
     }
 })
+
+vi.mock('@/server/events', () => ({
+    deferred: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+    onStudyCreated: vi.fn(),
+    onStudyCodeSubmitted: vi.fn(),
+}))
 
 describe('Request Study Actions', () => {
     it('onSaveDraftStudyAction creates a draft study', async () => {
@@ -176,6 +190,54 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
+    it('finalizeStudySubmissionAction calls onStudyCreated for DRAFT studies', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-evt-draft' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const draftResult = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+
+        expect(onStudyCreated).toHaveBeenCalledWith({ userId: user.id, studyId: draftResult.studyId })
+        expect(onStudyCodeSubmitted).not.toHaveBeenCalledWith(expect.objectContaining({ studyId: draftResult.studyId }))
+    })
+
+    // APPROVED → PENDING-REVIEW is a code re-submission, sends "code submitted for review" email
+    it('finalizeStudySubmissionAction calls onStudyCodeSubmitted for APPROVED studies', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+
+        expect(onStudyCodeSubmitted).toHaveBeenCalledWith({ userId: user.id, studyId: study.id })
+        expect(onStudyCreated).not.toHaveBeenCalledWith(expect.objectContaining({ studyId: study.id }))
+    })
+
+    // addJobToStudyAction is only used for re-submissions (study already exists and is APPROVED),
+    // so it always sends "code submitted for review" email
+    it('addJobToStudyAction calls onStudyCodeSubmitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+
+        actionResult(
+            await addJobToStudyAction({
+                studyId: study.id,
+                mainCodeFileName: 'main.R',
+                codeFileNames: [],
+            }),
+        )
+
+        expect(onStudyCodeSubmitted).toHaveBeenCalledWith({ userId: user.id, studyId: study.id })
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {

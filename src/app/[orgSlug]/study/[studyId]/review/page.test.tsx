@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import {
     insertTestStudyJobData,
     insertTestStudyOnly,
@@ -8,10 +9,13 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 
-// Async server component — RTL cannot render async components as JSX children
-vi.mock('./lab-review-view', () => ({
-    LabReviewView: () => <div data-testid="lab-review-view" />,
-}))
+const mockRedirect = vi.mocked(redirect)
+
+beforeEach(() => {
+    mockRedirect.mockImplementation(() => {
+        throw new Error('NEXT_REDIRECT')
+    })
+})
 
 // Async server component — RTL cannot render async components as JSX children
 vi.mock('./code-review-view', () => ({
@@ -19,14 +23,15 @@ vi.mock('./code-review-view', () => ({
 }))
 
 describe('StudyReviewPage', () => {
-    it('renders LabReviewView for lab org', async () => {
+    it('redirects lab org to /view', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'DRAFT' })
 
-        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
-        renderWithProviders(page!)
+        await expect(
+            StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(screen.getByTestId('lab-review-view')).toBeInTheDocument()
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
     it('renders CodeReviewView for enclave with code submitted', async () => {

@@ -34,6 +34,26 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
+export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+    const reviewersToNotify = await getUsersForOrgId(study.orgId)
+
+    const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
+
+    await deliver({
+        to: study.reviewerEmail ?? emails.join(', '),
+        bcc: emails.join(', '),
+        subject: 'Study code submitted for review',
+        template: 'vb - new research proposal',
+        vars: {
+            studyTitle: study.title,
+            submittedBy: study.researcherFullName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
+        },
+    })
+}
+
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 

@@ -5,6 +5,7 @@ import {
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
+    screen,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import StudyAgreementsRoute from './page'
@@ -17,17 +18,8 @@ beforeEach(() => {
     })
 })
 
-let capturedProps: Record<string, unknown> = {}
-
-vi.mock('./agreements-page', () => ({
-    AgreementsPage: (props: Record<string, unknown>) => {
-        capturedProps = props
-        return <div data-testid="agreements-page" />
-    },
-}))
-
 describe('StudyAgreementsRoute', () => {
-    it('passes isReviewer=true and proceedHref containing /review for enclave reviewer with CODE-SUBMITTED job', async () => {
+    it('renders reviewer sections and proceed to review for enclave reviewer with CODE-SUBMITTED job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -36,8 +28,10 @@ describe('StudyAgreementsRoute', () => {
         })
         renderWithProviders(page!)
 
-        expect(capturedProps.isReviewer).toBe(true)
-        expect(capturedProps.proceedHref).toContain('/review')
+        expect(screen.getByText('STEP 2A')).toBeInTheDocument()
+        expect(screen.getByText('STEP 2B')).toBeInTheDocument()
+        expect(screen.getByText('STEP 2C')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Proceed to Step 3/ })).toBeInTheDocument()
     })
 
     it('redirects reviewer to review page when job status is not CODE-SCANNED or CODE-SUBMITTED', async () => {
@@ -53,7 +47,7 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
     })
 
-    it('passes proceedHref containing /code for APPROVED researcher with no job activity', async () => {
+    it('renders researcher sections and proceed to code for APPROVED researcher with no job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -62,12 +56,13 @@ describe('StudyAgreementsRoute', () => {
         })
         renderWithProviders(page!)
 
-        expect(capturedProps.isReviewer).toBe(false)
-        expect(capturedProps.proceedHref).toContain('/code')
-        expect(capturedProps.previousHref).toContain('/edit')
+        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
+        expect(screen.getByText('STEP 3B')).toBeInTheDocument()
+        expect(screen.getByText('STEP 3C')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
     })
 
-    it('renders agreements for researcher with job activity, proceeding to /view', async () => {
+    it('renders Back to Study Details for researcher with job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
@@ -76,9 +71,7 @@ describe('StudyAgreementsRoute', () => {
         })
         renderWithProviders(page!)
 
-        expect(capturedProps.proceedHref).toContain('/view')
-        expect(capturedProps.proceedLabel).toBe('Back to Study Details')
-        expect(capturedProps.previousHref).toBe(`/${org.slug}/dashboard`)
+        expect(screen.getByRole('button', { name: /Back to Study Details/ })).toBeInTheDocument()
     })
 
     it('redirects researcher when study is not APPROVED and has no job activity', async () => {
