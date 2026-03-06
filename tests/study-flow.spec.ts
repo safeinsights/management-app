@@ -142,11 +142,10 @@ async function viewStudyDetails(page: Page, studyTitle: string, destination: 'vi
         await goto(page, href)
     }
 
-    if (page.url().includes('/agreements')) {
-        const proceedButton = page.getByRole('button', { name: /Proceed|Back to Study/i })
-        await expect(proceedButton).toBeVisible({ timeout: 10000 })
-        await proceedButton.click()
-        await page.waitForURL(`**/${destination}`, { timeout: 10000 })
+    // agreements/submitted pages may be the first stop — skip past to the actual destination
+    if (page.url().includes('/agreements') || page.url().includes('/submitted')) {
+        const studyBaseUrl = page.url().replace(/\/(agreements|submitted)$/, '')
+        await goto(page, `${studyBaseUrl}/${destination}`)
     }
 
     await expect(

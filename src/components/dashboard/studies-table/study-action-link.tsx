@@ -1,6 +1,7 @@
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Audience, StudyRow } from './types'
+import { useStudyHref } from '@/hooks/use-study-href'
 
 type StudyActionLinkProps = {
     study: StudyRow
@@ -19,6 +20,9 @@ function ResearcherLink({
     isHighlighted: boolean
 }) {
     const labSlug = study.submittedByOrgSlug || orgSlug
+    const hasJobActivity = study.jobStatusChanges.length > 0
+    const studyParams = { orgSlug: labSlug, studyId: study.id }
+    const href = useStudyHref(study.status, hasJobActivity, studyParams)
 
     if (study.status === 'DRAFT') {
         return (
@@ -30,12 +34,6 @@ function ResearcherLink({
             </Link>
         )
     }
-
-    const hasJobActivity = study.jobStatusChanges.length > 0
-    const href =
-        study.status === 'APPROVED' && !hasJobActivity
-            ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
-            : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
 
     return (
         <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>

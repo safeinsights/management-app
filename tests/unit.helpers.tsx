@@ -20,6 +20,7 @@ import { headers } from 'next/headers.js'
 import { useParams } from 'next/navigation'
 import os from 'os'
 import path from 'path'
+import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
 import { ReactElement } from 'react'
 import { Mock, vi } from 'vitest'
@@ -738,6 +739,18 @@ export const getTestResearcherProfileData = async (userId: string) => {
 
     return { user, profile, positions }
 }
+
+export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Test Study',
+    status: 'APPROVED',
+    createdAt: new Date(),
+    researcherId: 'researcher-1',
+    reviewerId: null,
+    createdBy: 'Researcher Name',
+    jobStatusChanges: [],
+    ...overrides,
+})
 
 type CreateMockUserSessionOptions = {
     user: {
