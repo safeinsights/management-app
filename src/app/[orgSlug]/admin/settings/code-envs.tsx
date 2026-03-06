@@ -8,6 +8,7 @@ import {
     Text,
     Button,
     Group,
+    Flex,
     ActionIcon,
     Tooltip,
     Collapse,
@@ -15,7 +16,6 @@ import {
     GridCol,
     Badge,
     Box,
-    Code,
 } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
@@ -35,11 +35,13 @@ import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction 
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
+import { Refresher } from '@/components/refresher'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
+import { FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
@@ -140,7 +142,11 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
     )
 }
 
-const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, canDelete }) => {
+const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean; isDefault: boolean }> = ({
+    image,
+    canDelete,
+    isDefault,
+}) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
@@ -220,6 +226,11 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                             Testing
                         </Badge>
                     )}
+                    {isDefault && (
+                        <Badge variant="filled" size="sm" color="dark">
+                            Default
+                        </Badge>
+                    )}
                     <ScanStatusBadge status={image.latestScanStatus} onClick={openScanResults} />
                 </Group>
                 <Group gap={4} wrap="nowrap">
@@ -255,11 +266,23 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                     <LoadingMessage message="Loading starter code..." />
                 )}
             </AppModal>
-            <AppModal isOpen={scanResultsOpened} onClose={closeScanResults} title="Latest Results" size="xl">
-                <Code block>{image.latestScanResults || 'No results available.'}</Code>
+            <AppModal
+                isOpen={scanResultsOpened}
+                onClose={closeScanResults}
+                title="Scan Results"
+                size="xl"
+                styles={{ body: { padding: 0 } }}
+            >
+                <FileViewer path="scan-results.txt" text={image.latestScanResults || 'No results available.'} />
             </AppModal>
         </Box>
     )
+}
+
+const ACTIVE_SCAN_STATUSES: ScanStatus[] = ['SCAN-PENDING', 'SCAN-RUNNING']
+
+function needsRefresh(codeEnvs: CodeEnv[]): boolean {
+    return codeEnvs.some((env) => ACTIVE_SCAN_STATUSES.includes(env.latestScanStatus as ScanStatus))
 }
 
 const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
@@ -272,11 +295,21 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
     }
 
     const canDelete = images.length > 1
+    const defaultEnvIds = new Set(
+        ['R', 'PYTHON']
+            .map((lang) => images.find((img) => !img.isTesting && img.language === lang)?.id)
+            .filter(Boolean),
+    )
 
     return (
         <Stack gap={0}>
             {images.map((image) => (
-                <CodeEnvRow key={image.id} image={image} canDelete={canDelete} />
+                <CodeEnvRow
+                    key={image.id}
+                    image={image}
+                    canDelete={canDelete}
+                    isDefault={defaultEnvIds.has(image.id)}
+                />
             ))}
         </Stack>
     )
@@ -295,6 +328,8 @@ export const CodeEnvs: React.FC = () => {
         isError,
         error,
         refetch,
+        isFetching,
+        isRefetching,
     } = useQuery({
         queryKey: ['orgCodeEnvs', orgSlug],
         queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
@@ -305,6 +340,8 @@ export const CodeEnvs: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
+    const shouldRefresh = needsRefresh(codeEnvs ?? [])
+
     return (
         <Paper bg="white" p="xxl">
             <Stack>
@@ -312,9 +349,12 @@ export const CodeEnvs: React.FC = () => {
                     <Title order={3} size="lg">
                         Code Environments
                     </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                        Add Code Environment
-                    </Button>
+                    <Flex justify="flex-end" align="center" gap="md">
+                        <Refresher isEnabled={shouldRefresh} refresh={refetch} isPending={isRefetching || isFetching} />
+                        <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
+                            Add Code Environment
+                        </Button>
+                    </Flex>
                 </Group>
                 <Divider c="dimmed" />
 

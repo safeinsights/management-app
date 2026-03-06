@@ -6,6 +6,7 @@ import { useSession } from '@/hooks/session'
 import { useProfileMenuDisclosure } from '@/hooks/use-profile-menu-disclosure'
 import { Routes } from '@/lib/routes'
 import { AuthRole } from '@/lib/types'
+import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
@@ -17,7 +18,8 @@ import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 
 export function NavbarProfileMenu() {
-    const { signOut, openUserProfile } = useClerk()
+    const { openUserProfile } = useClerk()
+    const signOut = useSignOut()
     const router = useRouter()
     const { session } = useSession()
 
@@ -122,7 +124,7 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOutIcon aria-hidden="true" />}
-                    onClick={closeAndCall(() => signOut())}
+                    onClick={closeAndCall(signOut)}
                     c="white"
                     className={styles.navLinkProfileHover}
                     aria-label="Sign Out"

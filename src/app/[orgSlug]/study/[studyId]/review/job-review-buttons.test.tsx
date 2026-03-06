@@ -52,6 +52,16 @@ describe('Study Results Approve/Reject buttons', async () => {
         expect(screen.queryByRole('button', { name: 'Reject' })).toBeDefined()
     })
 
+    it('disables approve button when no files are selected', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
+        await act(async () => {
+            renderWithProviders(<JobReviewButtons job={job} decryptedResults={[]} />)
+        })
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Reject' })).not.toBeDisabled()
+    })
+
     it('renders the approved timestamp for an approved job', async () => {
         await insertAndRender('APPROVED')
         expect(screen.queryByText(/approved on/i)).toBeDefined()

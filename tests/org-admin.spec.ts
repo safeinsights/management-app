@@ -53,7 +53,7 @@ test.describe('Organization Admin', () => {
         await goto(page, `/account/invitation/${inviteId}`)
         await page.waitForTimeout(1000)
         await expect(page.getByText(`must be signed out`)).toBeVisible()
-        await page.getByRole('button', { name: /signout/i }).click()
+        await page.getByRole('button', { name: /sign out/i }).click()
         await page.waitForTimeout(1000)
 
         // Ensure the Create Account link is initially visible

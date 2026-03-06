@@ -21,7 +21,10 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
     const user = await currentUser()
-    if (user && user.twoFactorEnabled === false) {
+    if (!user) {
+        redirect('/account/signin')
+    }
+    if (user.twoFactorEnabled === false) {
         redirect('/account/mfa')
     }
 

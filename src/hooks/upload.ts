@@ -13,8 +13,11 @@ async function uploadFile(file: File, upload: PresignedPost) {
             method: 'POST',
             body,
         })
+        const responseText = await response.text()
         if (!response.ok) {
-            logger.error(`Upload failed with status ${response.status}: ${response.statusText}`)
+            logger.error(`Upload failed with status ${response.status}: ${response.statusText}`, {
+                responseBody: responseText,
+            })
             throw new Error(failureMsg)
         }
     } catch (error) {

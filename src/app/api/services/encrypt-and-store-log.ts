@@ -1,8 +1,13 @@
 import type { FileType } from '@/database/types'
+import { logLabel } from '@/lib/file-type-helpers'
 import logger from '@/lib/logger'
 import { createEncryptedLogBlob } from '@/server/encryption/encrypt-log'
 import { getOrgPublicKeys } from '@/server/db/queries'
 import { storeStudyEncryptedLogFile } from '@/server/storage'
+
+function logFilename(fileType: FileType): string {
+    return logLabel(fileType).toLowerCase().replace(/\s+/g, '-') + '.txt'
+}
 
 interface EncryptAndStoreLogParams {
     route: string
@@ -15,7 +20,7 @@ export async function encryptAndStoreLog({ route, plaintextLog, fileType, job }:
     try {
         const recipients = await getOrgPublicKeys(job.orgId)
         if (recipients.length > 0) {
-            const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients)
+            const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType))
             const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', { type: 'application/zip' })
             await storeStudyEncryptedLogFile(
                 { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
