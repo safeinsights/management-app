@@ -47,7 +47,7 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyCodeSubmittedEmail(studyId)
 })
 
