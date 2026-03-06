@@ -17,10 +17,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         return notFound()
     }
 
-    if (result.status !== 'DRAFT' && result.status !== 'APPROVED') {
-        redirect(Routes.studyReview({ orgSlug, studyId }))
-    }
-
     // Verify language is set (required for code upload)
     if (!result.language) {
         // If no language, redirect back to edit to complete proposal

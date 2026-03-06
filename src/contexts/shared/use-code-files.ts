@@ -18,6 +18,7 @@ export interface UseCodeFilesReturn {
     hasFiles: boolean
     lastUpdated: Date | null
     setUploadedFiles: (main: File | null, additional: File[]) => void
+    setExistingFiles: (mainFileName: string | null, fileNames: string[]) => void
     setIDEFiles: (mainFileName: string, fileNames: string[]) => void
     setMainFile: (fileName: string) => void
     removeFile: (fileName: string) => void
@@ -33,6 +34,16 @@ export function useCodeFiles(): UseCodeFilesReturn {
         setCodeFilesState({
             mainFile: main ? toMemoryFile(main) : null,
             additionalFiles: additional.map(toMemoryFile),
+        })
+        setSource('upload')
+        setLastUpdated(new Date())
+    }, [])
+
+    const setExistingFiles = useCallback((mainFileName: string | null, fileNames: string[]) => {
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName)
+        setCodeFilesState({
+            mainFile: mainFileName ? toServerFile(mainFileName) : null,
+            additionalFiles: additionalFileNames.map((name) => toServerFile(name)),
         })
         setSource('upload')
         setLastUpdated(new Date())
@@ -102,6 +113,7 @@ export function useCodeFiles(): UseCodeFilesReturn {
         hasFiles,
         lastUpdated,
         setUploadedFiles,
+        setExistingFiles,
         setIDEFiles,
         setMainFile,
         removeFile,

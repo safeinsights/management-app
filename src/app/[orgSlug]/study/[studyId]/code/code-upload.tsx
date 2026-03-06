@@ -45,7 +45,7 @@ export function CodeUploadPage({
         codeUploadViewMode,
         canProceedToReview,
         setStudyId,
-        setIDECodeFiles,
+        setExistingFiles,
         setCodeUploadViewMode,
         submitStudy,
         isSubmitting,
@@ -69,7 +69,7 @@ export function CodeUploadPage({
         setStudyId(studyId)
 
         if (existingMainFile && !codeFiles.mainFile) {
-            setIDECodeFiles(existingMainFile, [existingMainFile, ...(existingAdditionalFiles ?? [])])
+            setExistingFiles(existingMainFile, [existingMainFile, ...(existingAdditionalFiles ?? [])])
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])

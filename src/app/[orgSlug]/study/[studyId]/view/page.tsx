@@ -1,4 +1,3 @@
-import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
@@ -12,10 +11,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const { studyId, orgSlug } = await props.params
 
     const study = actionResult(await getStudyAction({ studyId }))
-
-    if (!study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
 
     const job = await latestJobForStudyOrNull(studyId)
 

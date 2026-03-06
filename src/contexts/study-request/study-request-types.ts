@@ -47,6 +47,7 @@ export interface StudyRequestContextValue {
     canSubmit: boolean
     setStudyId: (id: string) => void
     setCodeFiles: (main: File | null, additional: File[]) => void
+    setExistingFiles: (mainFileName: string | null, fileNames: string[]) => void
     setIDECodeFiles: (mainFileName: string, fileNames: string[]) => void
     setMainCodeFile: (fileName: string) => void
     removeCodeFile: (fileName: string) => void

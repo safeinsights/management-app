@@ -5,9 +5,35 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    type Mock,
 } from '@/tests/unit.helpers'
+import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
+
+function createLexicalState(text: string) {
+    return JSON.stringify({
+        root: {
+            children: [
+                {
+                    type: 'paragraph',
+                    children: [{ type: 'text', text, detail: 0, format: 0, mode: 'normal', style: '', version: 1 }],
+                    direction: null,
+                    format: '',
+                    indent: 0,
+                    version: 1,
+                    textFormat: 0,
+                    textStyle: '',
+                },
+            ],
+            direction: null,
+            format: '',
+            indent: 0,
+            type: 'root',
+            version: 1,
+        },
+    })
+}
 
 vi.mock('@/components/readonly-lexical-content', () => ({
     ReadOnlyLexicalContent: ({ value }: { value: string }) => {
@@ -26,23 +52,8 @@ vi.mock('@/components/readonly-lexical-content', () => ({
     },
 }))
 
-vi.mock('./proposal-review-buttons', () => ({
-    ProposalReviewButtons: () => <div data-testid="proposal-review-buttons" />,
-}))
-
 vi.mock('@/components/researcher-profile-popover', () => ({
-    ResearcherProfilePopover: ({ children }: { children: React.ReactNode }) => (
-        <div data-testid="researcher-popover">{children}</div>
-    ),
-}))
-
-vi.mock('@/components/study/study-approval-status', () => ({
-    default: ({ status, date }: { status: string; date?: Date | null }) =>
-        date ? (
-            <div data-testid="study-approval-status">
-                {status} on {date.toISOString()}
-            </div>
-        ) : null,
+    ResearcherProfilePopover: ({ name }: { name: string }) => <div data-testid="researcher-popover">{name}</div>,
 }))
 
 describe('ProposalReviewView', () => {
@@ -57,12 +68,13 @@ describe('ProposalReviewView', () => {
             title: 'Test Study Title',
             piName: 'Dr. Smith',
             datasets: ['Dataset A', 'Dataset B'],
-            researchQuestions: JSON.stringify('What is the effect of X on Y?'),
-            projectSummary: JSON.stringify('This study examines the relationship between X and Y.'),
-            impact: JSON.stringify('This could improve treatment outcomes.'),
-            additionalNotes: JSON.stringify('Funding secured from NIH.'),
+            researchQuestions: createLexicalState('What is the effect of X on Y?'),
+            projectSummary: createLexicalState('This study examines the relationship between X and Y.'),
+            impact: createLexicalState('This could improve treatment outcomes.'),
+            additionalNotes: createLexicalState('Funding secured from NIH.'),
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
     it('renders proposal fields', () => {
@@ -80,6 +92,8 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
         expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
         expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject request' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Approve request' })).toBeInTheDocument()
     })
 
     it('hides fields when values are null', async () => {
@@ -91,6 +105,7 @@ describe('ProposalReviewView', () => {
             piName: '',
         })
         const nullStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={nullStudy} />)
 
@@ -102,16 +117,7 @@ describe('ProposalReviewView', () => {
     })
 
     it('renders Lexical JSON content as text', async () => {
-        const lexicalJson = JSON.stringify({
-            root: {
-                children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Lexical formatted question' }] }],
-                type: 'root',
-                direction: null,
-                format: '',
-                indent: 0,
-                version: 1,
-            },
-        })
+        const lexicalJson = createLexicalState('Lexical formatted question')
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
@@ -121,6 +127,7 @@ describe('ProposalReviewView', () => {
             piName: 'Dr. Jones',
         })
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
 
@@ -133,7 +140,9 @@ describe('ProposalReviewView', () => {
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
-        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('APPROVED')
+        expect(screen.getByText('Approved on Jun 15, 2025')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 
     it('shows rejection status when study is REJECTED', () => {
@@ -141,6 +150,8 @@ describe('ProposalReviewView', () => {
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
 
-        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('REJECTED')
+        expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 })

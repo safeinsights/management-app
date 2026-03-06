@@ -142,6 +142,42 @@ describe('useSubmitStudy', () => {
         })
     })
 
+    it('submits existing server files through upload flow without re-uploading', async () => {
+        const studyJobId = faker.string.uuid()
+        ;(onSubmitDraftStudyAction as Mock).mockResolvedValue({
+            studyId,
+            studyJobId,
+            urlForCodeUpload: 'https://upload.example.com',
+        })
+        ;(finalizeStudySubmissionAction as Mock).mockResolvedValue({ success: true })
+
+        const { result } = renderHook(
+            () =>
+                useSubmitStudy({
+                    ...defaultOptions,
+                    codeSource: 'upload',
+                    codeFiles: {
+                        mainFile: { type: 'server', name: 'main.R', path: 'study/main.R' },
+                        additionalFiles: [{ type: 'server', name: 'helper.R', path: 'study/helper.R' }],
+                    },
+                }),
+            { wrapper: createWrapper() },
+        )
+
+        act(() => result.current.submitStudy())
+
+        await waitFor(() => {
+            expect(onSubmitDraftStudyAction).toHaveBeenCalledWith({
+                studyId,
+                mainCodeFileName: 'main.R',
+                codeFileNames: ['helper.R'],
+            })
+            expect(uploadFiles).not.toHaveBeenCalled()
+            expect(submitStudyFromIDEAction).not.toHaveBeenCalled()
+            expect(finalizeStudySubmissionAction).toHaveBeenCalledWith({ studyId })
+        })
+    })
+
     it('shows success notification on completion', async () => {
         ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId })
 
