@@ -50,6 +50,27 @@ describe('mailgun email functions', () => {
         )
     })
 
+    it('sendStudyCodeSubmittedEmail calls deliver for reviewers', async () => {
+        const { study, org, user1 } = await insertTestOrgStudyJobUsers()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendStudyCodeSubmittedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: expect.stringContaining(user1.email || researcher.email || ''),
+                bcc: expect.stringContaining(user1.email || ''),
+                subject: 'Study code submitted for review',
+                template: 'vb - new research proposal',
+                vars: expect.objectContaining({
+                    studyTitle: study.title,
+                    submittedBy: researcher.fullName,
+                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
+                }),
+            }),
+        )
+    })
+
     it('sendStudyProposalApprovedEmail calls deliver for researcher', async () => {
         const { study, org } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)
