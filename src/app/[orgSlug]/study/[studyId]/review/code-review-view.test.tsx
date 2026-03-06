@@ -1,47 +1,40 @@
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { setupStudyAction } from '@/tests/db-action.helpers'
-import { describe, expect, it, vi } from 'vitest'
+import { useParams } from 'next/navigation'
+import { type Mock, describe, expect, it } from 'vitest'
 import { CodeReviewView } from './code-review-view'
-
-vi.mock('@/components/study/study-code-details', () => ({
-    StudyCodeDetails: () => <div data-testid="study-code-details" />,
-}))
-
-vi.mock('@/components/study/study-details', () => ({
-    StudyDetails: () => <div data-testid="study-details" />,
-}))
-
-vi.mock('./study-results-with-review', () => ({
-    StudyResultsWithReview: () => <div data-testid="study-results-with-review" />,
-}))
 
 describe('CodeReviewView', () => {
     it('renders Study Code section', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
-        expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
+        expect(screen.getByText('Study Code')).toBeInTheDocument()
     })
 
     it('does NOT render Study Proposal section', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
-        expect(screen.queryByTestId('study-details')).not.toBeInTheDocument()
+        expect(screen.queryByText('Study Proposal')).not.toBeInTheDocument()
     })
 
     it('renders StudyResultsWithReview', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
-        expect(screen.getByTestId('study-results-with-review')).toBeInTheDocument()
+        expect(screen.getByText('Study Status')).toBeInTheDocument()
     })
 
     it('renders Previous button linking to Agreements', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
