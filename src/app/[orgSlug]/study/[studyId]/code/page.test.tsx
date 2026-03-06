@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import {
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -14,15 +14,11 @@ import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)
-const mockNotFound = vi.mocked(notFound)
 
 beforeEach(() => {
     memoryRouter.setCurrentUrl('/')
     mockRedirect.mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
-    })
-    mockNotFound.mockImplementation(() => {
-        throw new Error('NEXT_NOT_FOUND')
     })
 })
 
@@ -73,7 +69,7 @@ describe('StudyCodeUploadRoute', () => {
         })
     })
 
-    it('calls notFound for non-DRAFT/APPROVED study', async () => {
+    it('redirects to view for non-DRAFT/APPROVED study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -86,9 +82,9 @@ describe('StudyCodeUploadRoute', () => {
             StudyCodeUploadRoute({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             }),
-        ).rejects.toThrow('NEXT_NOT_FOUND')
+        ).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(mockNotFound).toHaveBeenCalled()
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
     it('enables submit when existing code files are present', async () => {

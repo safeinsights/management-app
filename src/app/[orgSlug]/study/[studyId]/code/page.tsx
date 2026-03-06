@@ -3,7 +3,7 @@
 import { Stack, Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { Routes } from '@/lib/routes'
 
@@ -14,7 +14,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     const result = await getDraftStudyAction({ studyId })
 
     if ('error' in result) {
-        return notFound()
+        redirect(Routes.studyView({ orgSlug, studyId }))
     }
 
     // Verify language is set (required for code upload)
