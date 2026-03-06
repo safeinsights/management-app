@@ -8,14 +8,12 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 
+// Async server component — RTL cannot render async components as JSX children
 vi.mock('./lab-review-view', () => ({
     LabReviewView: () => <div data-testid="lab-review-view" />,
 }))
 
-vi.mock('./proposal-review-view', () => ({
-    ProposalReviewView: () => <div data-testid="proposal-review-view" />,
-}))
-
+// Async server component — RTL cannot render async components as JSX children
 vi.mock('./code-review-view', () => ({
     CodeReviewView: () => <div data-testid="code-review-view" />,
 }))
@@ -53,6 +51,6 @@ describe('StudyReviewPage', () => {
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('proposal-review-view')).toBeInTheDocument()
+        expect(screen.getByText('Study request')).toBeInTheDocument()
     })
 })
