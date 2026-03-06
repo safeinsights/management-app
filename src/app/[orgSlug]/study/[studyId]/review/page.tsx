@@ -40,4 +40,6 @@ export default async function StudyReviewPage(props: {
         if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
         return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
+
+    return <AlertNotFound title="Study was not found" message="no such study exists" />
 }
