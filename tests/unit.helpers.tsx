@@ -38,14 +38,15 @@ export const mockPathname = (path: string) => {
 
 export { db } from '@/database'
 export { faker } from '@faker-js/faker'
-export { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+export { QueryClientProvider }
+export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-const createTestQueryClient = () =>
+export const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
             queries: {

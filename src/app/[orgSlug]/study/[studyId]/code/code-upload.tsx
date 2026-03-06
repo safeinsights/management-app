@@ -204,7 +204,7 @@ export function CodeUploadPage({
                     size="md"
                     disabled={!canProceedToReview && !existingMainFile}
                     loading={isSubmitting}
-                    onClick={submitStudy}
+                    onClick={() => submitStudy()}
                 >
                     Submit code
                 </Button>

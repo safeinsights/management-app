@@ -1,7 +1,17 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { renderHook, waitFor, act } from '@testing-library/react'
-// eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { vi } from 'vitest'
+import {
+    describe,
+    it,
+    expect,
+    beforeEach,
+    waitFor,
+    act,
+    renderHook,
+    faker,
+    createTestQueryClient,
+    QueryClientProvider,
+    type Mock,
+} from '@/tests/unit.helpers'
 import React from 'react'
 import { notifications } from '@mantine/notifications'
 import { useSubmitStudy, type UseSubmitStudyOptions } from './use-submit-study'
@@ -25,7 +35,7 @@ import {
 import { uploadFiles } from '@/hooks/upload'
 
 const createWrapper = () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const client = createTestQueryClient()
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
     )
@@ -33,8 +43,10 @@ const createWrapper = () => {
     return Wrapper
 }
 
+const studyId = faker.string.uuid()
+
 const defaultOptions: UseSubmitStudyOptions = {
-    studyId: 'study-123',
+    studyId,
     mainFileName: 'main.R',
     additionalFileNames: ['helper.R'],
     codeSource: 'upload',
@@ -81,7 +93,7 @@ describe('useSubmitStudy', () => {
     })
 
     it('calls submitStudyFromIDEAction with correct args for IDE source', async () => {
-        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId: 'study-123' })
+        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId })
 
         const { result } = renderHook(() => useSubmitStudy({ ...defaultOptions, codeSource: 'ide' }), {
             wrapper: createWrapper(),
@@ -91,7 +103,7 @@ describe('useSubmitStudy', () => {
 
         await waitFor(() => {
             expect(submitStudyFromIDEAction).toHaveBeenCalledWith({
-                studyId: 'study-123',
+                studyId,
                 mainFileName: 'main.R',
                 fileNames: ['main.R', 'helper.R'],
             })
@@ -100,9 +112,10 @@ describe('useSubmitStudy', () => {
 
     it('calls onSubmitDraftStudyAction → uploadFiles → finalizeStudySubmissionAction for upload source', async () => {
         const mainFile = new File(['content'], 'main.R', { type: 'text/plain' })
+        const studyJobId = faker.string.uuid()
         ;(onSubmitDraftStudyAction as Mock).mockResolvedValue({
-            studyId: 'study-123',
-            studyJobId: 'job-456',
+            studyId,
+            studyJobId,
             urlForCodeUpload: 'https://upload.example.com',
         })
         ;(uploadFiles as Mock).mockResolvedValue(undefined)
@@ -125,17 +138,17 @@ describe('useSubmitStudy', () => {
 
         await waitFor(() => {
             expect(onSubmitDraftStudyAction).toHaveBeenCalledWith({
-                studyId: 'study-123',
+                studyId,
                 mainCodeFileName: 'main.R',
                 codeFileNames: ['helper.R'],
             })
             expect(uploadFiles).toHaveBeenCalledWith([[mainFile, 'https://upload.example.com']])
-            expect(finalizeStudySubmissionAction).toHaveBeenCalledWith({ studyId: 'study-123' })
+            expect(finalizeStudySubmissionAction).toHaveBeenCalledWith({ studyId })
         })
     })
 
     it('shows success notification on completion', async () => {
-        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId: 'study-123' })
+        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId })
 
         const { result } = renderHook(() => useSubmitStudy({ ...defaultOptions, codeSource: 'ide' }), {
             wrapper: createWrapper(),
@@ -173,7 +186,7 @@ describe('useSubmitStudy', () => {
     })
 
     it('calls onSettled callback regardless of outcome', async () => {
-        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId: 'study-123' })
+        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId })
         const onSettled = vi.fn()
 
         const { result } = renderHook(() => useSubmitStudy({ ...defaultOptions, codeSource: 'ide' }), {
