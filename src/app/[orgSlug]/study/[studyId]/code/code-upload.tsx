@@ -43,7 +43,7 @@ export function CodeUploadPage({
     const {
         codeFiles,
         codeUploadViewMode,
-        canProceedToReview,
+        canSubmit,
         setStudyId,
         setExistingFiles,
         setCodeUploadViewMode,
@@ -202,7 +202,7 @@ export function CodeUploadPage({
                     type="button"
                     variant="primary"
                     size="md"
-                    disabled={!canProceedToReview && !existingMainFile}
+                    disabled={!canSubmit && !existingMainFile}
                     loading={isSubmitting}
                     onClick={() => submitStudy()}
                 >

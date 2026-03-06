@@ -162,7 +162,6 @@ export function StudyRequestProvider({
             codeFilesLastUpdated: codeFilesHook.lastUpdated,
             mainFileName: codeFilesHook.mainFileName,
             additionalFileNames: codeFilesHook.additionalFileNames,
-            canProceedToReview: codeFilesHook.canProceed,
             canSubmit: codeFilesHook.canProceed,
             setMainCodeFile: codeFilesHook.setMainFile,
             removeCodeFile: codeFilesHook.removeFile,

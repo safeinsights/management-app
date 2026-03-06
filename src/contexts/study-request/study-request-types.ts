@@ -40,7 +40,6 @@ export interface StudyRequestContextValue {
     codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'
     codeUploadViewMode: 'upload' | 'review'
-    canProceedToReview: boolean
     documentFiles: DocumentFileState
     mainFileName: string | null
     additionalFileNames: string[]
