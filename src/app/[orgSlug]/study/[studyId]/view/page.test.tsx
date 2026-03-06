@@ -9,25 +9,9 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 
-vi.mock('./code-only-view', () => ({
-    CodeOnlyView: () => <div data-testid="code-only-view" />,
-}))
-
-vi.mock('./job-results-status-message', () => ({
-    JobResultsStatusMessage: () => <div data-testid="job-results-status-message" />,
-}))
-
+// Uses React use() hook which suspends — page has no Suspense boundary for RTL
 vi.mock('@/components/study/study-details', () => ({
     StudyDetails: () => <div data-testid="study-details" />,
-}))
-
-vi.mock('@/components/study/study-code-details', () => ({
-    StudyCodeDetails: () => <div data-testid="study-code-details" />,
-}))
-
-vi.mock('@/components/study/study-approval-status', () => ({
-    __esModule: true,
-    default: () => <div data-testid="study-approval-status" />,
 }))
 
 describe('StudyViewPage', () => {
@@ -38,7 +22,7 @@ describe('StudyViewPage', () => {
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('code-only-view')).toBeInTheDocument()
+        expect(screen.getByText('Previous')).toBeInTheDocument()
     })
 
     it('renders full details when no job exists', async () => {
@@ -48,8 +32,8 @@ describe('StudyViewPage', () => {
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('study-details')).toBeInTheDocument()
-        expect(screen.queryByTestId('code-only-view')).not.toBeInTheDocument()
+        expect(screen.getByText('Study Proposal')).toBeInTheDocument()
+        expect(screen.queryByText('Previous')).not.toBeInTheDocument()
     })
 
     it('throws when study does not exist', async () => {
