@@ -178,7 +178,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                 )}
             </Paper>
 
-            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+            <Group mt="xxl" justify="space-between" w="100%">
                 <Button
                     component={Link}
                     href={previousHref}

@@ -35,7 +35,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
 
     return (
         <>
-            <Group mt="xs" justify="space-between" style={{ width: '100%' }}>
+            <Group mt="xs" justify="space-between" w="100%">
                 <Button
                     type="button"
                     variant="subtle"

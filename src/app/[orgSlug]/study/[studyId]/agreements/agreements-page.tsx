@@ -105,7 +105,7 @@ export function AgreementsPage({ isReviewer, proceedHref, previousHref, proceedL
                 ))}
             </Stack>
 
-            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+            <Group mt="xxl" justify="space-between" w="100%">
                 <Button
                     type="button"
                     size="md"

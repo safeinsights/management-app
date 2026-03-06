@@ -189,7 +189,7 @@ export function CodeUploadPage({
                 )}
             </Paper>
 
-            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+            <Group mt="xxl" justify="space-between" w="100%">
                 <Button
                     type="button"
                     size="md"

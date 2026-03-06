@@ -16,7 +16,7 @@ const Step1Footer: FC<Step1FooterProps> = ({ isSaving, isValid, onSave, proceedL
     const showCancel = !!onCancel
 
     return (
-        <Group mt="xs" justify={showCancel ? 'space-between' : 'flex-end'} style={{ width: '100%' }}>
+        <Group mt="xs" justify={showCancel ? 'space-between' : 'flex-end'} w="100%">
             {showCancel && (
                 <Button type="button" variant="subtle" size="md" onClick={onCancel} disabled={isSaving}>
                     Cancel
