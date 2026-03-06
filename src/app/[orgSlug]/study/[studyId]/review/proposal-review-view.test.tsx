@@ -1,3 +1,4 @@
+import { lexicalJson } from '@/lib/word-count'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
@@ -12,30 +13,6 @@ import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
 
-function createLexicalState(text: string) {
-    return JSON.stringify({
-        root: {
-            children: [
-                {
-                    type: 'paragraph',
-                    children: [{ type: 'text', text, detail: 0, format: 0, mode: 'normal', style: '', version: 1 }],
-                    direction: null,
-                    format: '',
-                    indent: 0,
-                    version: 1,
-                    textFormat: 0,
-                    textStyle: '',
-                },
-            ],
-            direction: null,
-            format: '',
-            indent: 0,
-            type: 'root',
-            version: 1,
-        },
-    })
-}
-
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
 
@@ -48,10 +25,10 @@ describe('ProposalReviewView', () => {
             title: 'Test Study Title',
             piName: 'Dr. Smith',
             datasets: ['Dataset A', 'Dataset B'],
-            researchQuestions: createLexicalState('What is the effect of X on Y?'),
-            projectSummary: createLexicalState('This study examines the relationship between X and Y.'),
-            impact: createLexicalState('This could improve treatment outcomes.'),
-            additionalNotes: createLexicalState('Funding secured from NIH.'),
+            researchQuestions: lexicalJson('What is the effect of X on Y?'),
+            projectSummary: lexicalJson('This study examines the relationship between X and Y.'),
+            impact: lexicalJson('This could improve treatment outcomes.'),
+            additionalNotes: lexicalJson('Funding secured from NIH.'),
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
@@ -102,13 +79,13 @@ describe('ProposalReviewView', () => {
     })
 
     it('renders Lexical JSON content as text', async () => {
-        const lexicalJson = createLexicalState('Lexical formatted question')
+        const lexicalQuestion = lexicalJson('Lexical formatted question')
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
-            researchQuestions: lexicalJson,
+            researchQuestions: lexicalQuestion,
             piName: 'Dr. Jones',
         })
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
