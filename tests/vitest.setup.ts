@@ -71,6 +71,12 @@ beforeAll(async () => {
         findOrCreateClerkOrganization: vi.fn(),
     }))
 
+    vi.mock('@/components/page-breadcrumbs', () => ({
+        OrgBreadcrumbs: () => null,
+        ResearcherBreadcrumbs: () => null,
+        PageBreadcrumbs: () => null,
+    }))
+
     vi.mock('@mantine/notifications', () => ({
         notifications: {
             show: vi.fn(),

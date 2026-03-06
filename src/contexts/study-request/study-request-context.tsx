@@ -67,6 +67,7 @@ export function StudyRequestProvider({
 
     const codeSource = codeFilesHook.source ?? 'upload'
     const setCodeFiles = codeFilesHook.setUploadedFiles
+    const setExistingFiles = codeFilesHook.setExistingFiles
     const setIDECodeFiles = codeFilesHook.setIDEFiles
     const clearCodeFiles = codeFilesHook.clear
 
@@ -132,14 +133,14 @@ export function StudyRequestProvider({
             })
 
             if (draft.mainCodeFileName) {
-                codeFilesHook.setIDEFiles(draft.mainCodeFileName, [
+                codeFilesHook.setExistingFiles(draft.mainCodeFileName, [
                     draft.mainCodeFileName,
                     ...(draft.additionalCodeFileNames || []),
                 ])
             }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- using stable setIDEFiles reference to avoid infinite loops
-        [form, initDocumentFilesFromPaths, codeFilesHook.setIDEFiles],
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- using stable setExistingFiles reference to avoid infinite loops
+        [form, initDocumentFilesFromPaths, codeFilesHook.setExistingFiles],
     )
 
     useEffect(() => {
@@ -161,7 +162,6 @@ export function StudyRequestProvider({
             codeFilesLastUpdated: codeFilesHook.lastUpdated,
             mainFileName: codeFilesHook.mainFileName,
             additionalFileNames: codeFilesHook.additionalFileNames,
-            canProceedToReview: codeFilesHook.canProceed,
             canSubmit: codeFilesHook.canProceed,
             setMainCodeFile: codeFilesHook.setMainFile,
             removeCodeFile: codeFilesHook.removeFile,
@@ -169,6 +169,7 @@ export function StudyRequestProvider({
             codeSource,
             codeUploadViewMode,
             setCodeFiles,
+            setExistingFiles,
             setIDECodeFiles,
             clearCodeFiles,
             setCodeUploadViewMode,
@@ -202,6 +203,7 @@ export function StudyRequestProvider({
             codeSource,
             codeUploadViewMode,
             setCodeFiles,
+            setExistingFiles,
             setIDECodeFiles,
             clearCodeFiles,
             documentFiles.documentFiles,

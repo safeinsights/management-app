@@ -105,7 +105,9 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     const mainFileName = mainCodeFile.split('/').pop()!
     await page.getByRole('radio', { name: mainFileName }).click()
 
-    await page.getByRole('button', { name: /Proceed to review/i }).click()
+    await page.getByRole('button', { name: /Submit code/i }).click()
+
+    await page.waitForURL('**/dashboard', { timeout: 30000 })
 
     return mainFileName
 }
@@ -118,25 +120,11 @@ async function uploadCodeViaIDE(page: Page) {
     // Wait for files to appear (auto-sync)
     await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
 
-    await page.getByRole('button', { name: /proceed to review/i }).click()
+    await page.getByRole('button', { name: /Submit code/i }).click()
+
+    await page.waitForURL('**/dashboard', { timeout: 30000 })
 
     return 'main.r'
-}
-
-// ============================================================================
-// Step 4: Review and submit helpers
-// ============================================================================
-
-async function verifySummaryPage(page: Page, mainFileName: string) {
-    await expect(page.getByRole('heading', { name: /Review your submission/i })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: /Programming Language/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
-    await expect(page.getByText(new RegExp(mainFileName, 'i'))).toBeVisible()
-}
-
-async function submitStudy(page: Page) {
-    await page.getByRole('button', { name: /Submit study/i }).click()
-    await page.waitForURL('**/dashboard', { timeout: 15000 })
 }
 
 // ============================================================================
@@ -193,7 +181,16 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     // Wait for code scan to complete — Approve button appears
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible({ timeout: 15000 })
-    await approveButton.click()
+
+    // Verify the reviewer agreements page
+    const studyBaseUrl = page.url().replace(/\/(review|view|agreements)$/, '')
+    await goto(page, `${studyBaseUrl}/agreements`)
+    await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('STEP 2B')).toBeVisible()
+    await expect(page.getByText('STEP 2C')).toBeVisible()
+    await goto(page, `${studyBaseUrl}/review`)
+
+    await page.getByRole('button', { name: /^Approve$/i }).click()
 
     // Wait for the approval mutation to complete and redirect to dashboard
     await page.waitForURL('**/dashboard', { timeout: 15000 })
@@ -211,6 +208,10 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     // Should land on agreements page
     await page.waitForURL(/\/agreements$/, { timeout: 15000 })
 
+    await expect(page.getByText('STEP 3A')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('STEP 3B')).toBeVisible()
+    await expect(page.getByText('STEP 3C')).toBeVisible()
+
     // Click through agreements to code upload
     const proceedButton = page.getByRole('button', { name: /Proceed to Step 4/i })
     await expect(proceedButton).toBeVisible({ timeout: 10000 })
@@ -219,6 +220,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     // Wait for code upload page
     await page.waitForURL(/\/code$/, { timeout: 15000 })
     await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('STEP 4 of 4')).toBeVisible()
 }
 
 // ============================================================================
@@ -390,18 +392,15 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         await researcherNavigatesToCodeUpload(page, studyTitle)
     })
 
-    await test.step('researcher uploads code files', async () => {
-        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
-        await verifySummaryPage(page, mainFileName)
-    })
-
-    await test.step('researcher submits study', async () => {
-        await submitStudy(page)
+    await test.step('researcher uploads code files and submits', async () => {
+        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
+        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
@@ -451,18 +450,15 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
         await researcherNavigatesToCodeUpload(page, studyTitle)
     })
 
-    await test.step('researcher uploads code via IDE', async () => {
-        const mainFileName = await uploadCodeViaIDE(page)
-        await verifySummaryPage(page, mainFileName)
-    })
-
-    await test.step('researcher submits study', async () => {
-        await submitStudy(page)
+    await test.step('researcher uploads code via IDE and submits', async () => {
+        await uploadCodeViaIDE(page)
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
+        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
@@ -484,5 +480,143 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('researcher verifies failed status and logs on dashboard', async () => {
         await verifyFailedStatusDisplay(page, studyTitle)
+    })
+})
+
+test('Proposal rejection', async ({ page, studyFeatures }) => {
+    const studyTitle = `${studyFeatures.studyTitle} - prop-rej`
+
+    await test.step('researcher creates study', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+    })
+
+    await test.step('reviewer rejects proposal', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(studyTitle)).toBeVisible()
+
+        await page.getByRole('button', { name: /Reject request/i }).click()
+        await page.waitForURL('**/dashboard', { timeout: 15000 })
+    })
+
+    await test.step('reviewer sees rejected status on dashboard', async () => {
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+    })
+
+    await test.step('researcher sees rejected status on dashboard', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+    })
+})
+
+test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
+    const studyTitle = `${studyFeatures.studyTitle} - code-rej`
+
+    await test.step('researcher creates study and proposal is approved', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+        await reviewerApprovesProposal(page, studyTitle)
+    })
+
+    await test.step('researcher uploads code and submits', async () => {
+        await researcherNavigatesToCodeUpload(page, studyTitle)
+        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
+    })
+
+    await test.step('reviewer waits for code scan and rejects code', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+        await expect(page.getByText('Review Studies')).toBeVisible()
+
+        await viewStudyDetails(page, studyTitle, 'review')
+
+        // Wait for Reject button (requires CODE-SCANNED)
+        const rejectButton = page.getByRole('button', { name: 'Reject' })
+        await expect(rejectButton).toBeVisible({ timeout: 45000 })
+        await rejectButton.click()
+
+        await page.waitForURL('**/dashboard', { timeout: 15000 })
+    })
+
+    await test.step('reviewer sees rejected status on dashboard', async () => {
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+    })
+
+    await test.step('researcher sees rejection and resubmit link', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await expect(page.getByText(/not been approved/i)).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('link', { name: /Resubmit study code/i })).toBeVisible()
+    })
+
+    await test.step('researcher resubmits code', async () => {
+        await page.getByRole('link', { name: /Resubmit study code/i }).click()
+        await page.waitForURL('**/resubmit', { timeout: 15000 })
+
+        await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
+
+        await page.getByRole('button', { name: /Upload your files/i }).click()
+        await expect(page.getByRole('dialog')).toBeVisible()
+
+        const fileInput = page.locator('input[type="file"]')
+        await fileInput.setInputFiles(['tests/coder-files/main.r', 'tests/coder-files/code.r'])
+
+        await page.getByRole('button', { name: 'Done' }).click()
+        await expect(page.getByRole('dialog')).not.toBeVisible()
+
+        await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+        await page.getByRole('button', { name: /Resubmit study code/i }).click()
+
+        await page.waitForURL('**/view', { timeout: 30000 })
+        await expect(page.getByText(/successfully resubmitted/i)).toBeVisible({ timeout: 10000 })
+    })
+})
+
+test('ProposalReviewView for study without code', async ({ page, studyFeatures }) => {
+    const studyTitle = `${studyFeatures.studyTitle} - proposal-only`
+
+    await test.step('researcher creates study', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+    })
+
+    await test.step('reviewer sees ProposalReviewView', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
+
+        await expect(page.getByText('Study title', { exact: true })).toBeVisible()
+        await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
+        await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
+        await expect(page.getByText('Impact', { exact: true })).toBeVisible()
+        await expect(page.getByText('Principal Investigator', { exact: true })).toBeVisible()
+
+        await expect(page.getByRole('button', { name: /Approve request/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /Reject request/i })).toBeVisible()
     })
 })

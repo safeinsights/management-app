@@ -2,10 +2,11 @@
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { EnclaveReviewView } from './enclave-review-view'
-import { LabReviewView } from './lab-review-view'
+import { redirect } from 'next/navigation'
+import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
@@ -29,16 +30,16 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'lab') {
-        return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
     if (currentOrg.type === 'enclave') {
-        const hasJobActivity = study.jobStatusChanges.length > 0
-
-        if (hasJobActivity) {
-            return <EnclaveReviewView orgSlug={orgSlug} study={study} />
-        }
-
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
+        )
+        if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
         return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
+
+    return <AlertNotFound title="Study was not found" message="no such study exists" />
 }

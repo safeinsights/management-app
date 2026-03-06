@@ -1,17 +1,25 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { renderHook, waitFor, act } from '@testing-library/react'
-// eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { vi } from 'vitest'
+import {
+    describe,
+    it,
+    expect,
+    beforeEach,
+    renderHook,
+    waitFor,
+    act,
+    faker,
+    createTestQueryClient,
+    QueryClientProvider,
+    type Mock,
+} from '@/tests/unit.helpers'
 import React from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 
-// Mock the server actions
 vi.mock('@/server/actions/workspaces.actions', () => ({
     createUserAndWorkspaceAction: vi.fn(),
     getWorkspaceUrlAction: vi.fn(),
 }))
 
-// Mock window.open
 const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {
     value: mockWindowOpen,
@@ -22,27 +30,23 @@ import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/ac
 import { notifications } from '@mantine/notifications'
 
 const createWrapper = () => {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-        },
-    })
+    const queryClient = createTestQueryClient()
     const Wrapper = ({ children }: { children: React.ReactNode }) =>
         React.createElement(QueryClientProvider, { client: queryClient }, children)
     Wrapper.displayName = 'QueryClientWrapper'
     return Wrapper
 }
 
+const studyId = faker.string.uuid()
+
 describe('useWorkspaceLauncher', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
         mockWindowOpen.mockReturnValue({ closed: false })
     })
 
     describe('initial state', () => {
         it('should return initial state correctly', () => {
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -60,7 +64,7 @@ describe('useWorkspaceLauncher', () => {
                 () => new Promise(() => {}), // Never resolves
             )
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -77,7 +81,7 @@ describe('useWorkspaceLauncher', () => {
             const errorMessage = 'Failed to create workspace'
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: errorMessage })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -95,7 +99,7 @@ describe('useWorkspaceLauncher', () => {
         it('should handle mutation error with non-string error', async () => {
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: { code: 500 } })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -116,7 +120,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -126,7 +130,7 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() => {
                 expect(getWorkspaceUrlAction).toHaveBeenCalledWith({
-                    studyId: 'study-123',
+                    studyId,
                     workspaceId: workspaceId,
                 })
             })
@@ -139,7 +143,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue(workspaceUrl)
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -161,7 +165,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue(workspaceUrl)
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -188,7 +192,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -210,7 +214,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: queryError })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -230,7 +234,7 @@ describe('useWorkspaceLauncher', () => {
             })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: { code: 404 } })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -248,7 +252,7 @@ describe('useWorkspaceLauncher', () => {
         it('should clear local error state', async () => {
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'Some error' })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -282,7 +286,7 @@ describe('useWorkspaceLauncher', () => {
                 })
             ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 
@@ -309,7 +313,7 @@ describe('useWorkspaceLauncher', () => {
         it('should reset error state when retrying', async () => {
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'Some error' })
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: 'study-123' }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createWrapper(),
             })
 

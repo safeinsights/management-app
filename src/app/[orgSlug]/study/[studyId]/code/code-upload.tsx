@@ -40,7 +40,16 @@ export function CodeUploadPage({
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
     // Context
-    const { codeFiles, codeUploadViewMode, canProceedToReview, setStudyId, setCodeUploadViewMode } = useStudyRequest()
+    const {
+        codeFiles,
+        codeUploadViewMode,
+        canSubmit,
+        setStudyId,
+        setExistingFiles,
+        setCodeUploadViewMode,
+        submitStudy,
+        isSubmitting,
+    } = useStudyRequest()
 
     // IDE launcher
     const {
@@ -58,6 +67,10 @@ export function CodeUploadPage({
     // Initialize context from server data on mount
     useEffect(() => {
         setStudyId(studyId)
+
+        if (existingMainFile && !codeFiles.mainFile) {
+            setExistingFiles(existingMainFile, [existingMainFile, ...(existingAdditionalFiles ?? [])])
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
@@ -66,10 +79,6 @@ export function CodeUploadPage({
 
     const handleLaunchIDE = () => {
         launchWorkspace()
-    }
-
-    const handleProceedToReview = () => {
-        router.push(Routes.studyReview({ orgSlug: submittingOrgSlug, studyId }))
     }
 
     const handleBackToPrevious = () => {
@@ -90,9 +99,11 @@ export function CodeUploadPage({
         return (
             <>
                 <CodeFilesReview
+                    previousHref={previousHref}
                     onBack={handleBackToUpload}
-                    onProceed={handleProceedToReview}
+                    onProceed={submitStudy}
                     onOpenUploadModal={openModal}
+                    isSubmitting={isSubmitting}
                 />
                 <CodeUploadModal
                     isOpen={isModalOpen}
@@ -110,7 +121,7 @@ export function CodeUploadPage({
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 4 OF 5
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -178,27 +189,26 @@ export function CodeUploadPage({
                 )}
             </Paper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
-                    <Button
-                        type="button"
-                        size="md"
-                        variant="subtle"
-                        onClick={handleBackToPrevious}
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="md"
-                        disabled={!canProceedToReview && !existingMainFile}
-                        onClick={handleProceedToReview}
-                    >
-                        Proceed to review
-                    </Button>
-                </Group>
+            <Group mt="xxl" justify="space-between" w="100%">
+                <Button
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    onClick={handleBackToPrevious}
+                    leftSection={<CaretLeftIcon />}
+                >
+                    Previous
+                </Button>
+                <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    disabled={!canSubmit && !existingMainFile}
+                    loading={isSubmitting}
+                    onClick={() => submitStudy()}
+                >
+                    Submit code
+                </Button>
             </Group>
 
             <CodeUploadModal

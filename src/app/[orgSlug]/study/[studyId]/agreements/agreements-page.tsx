@@ -9,6 +9,8 @@ interface AgreementsPageProps {
     isReviewer: boolean
     proceedHref: string
     previousHref: string
+    proceedLabel?: string
+    previousLabel?: string
 }
 
 interface SectionProps {
@@ -87,11 +89,17 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
     )
 }
 
-export function AgreementsPage({ isReviewer, proceedHref, previousHref }: AgreementsPageProps) {
+export function AgreementsPage({
+    isReviewer,
+    proceedHref,
+    previousHref,
+    proceedLabel,
+    previousLabel = 'Previous',
+}: AgreementsPageProps) {
     const router = useRouter()
 
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
-    const proceedLabel = isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4'
+    const resolvedProceedLabel = proceedLabel ?? (isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4')
 
     const handleProceed = () => router.push(proceedHref as Route)
     const handlePrevious = () => router.push(previousHref as Route)
@@ -104,21 +112,19 @@ export function AgreementsPage({ isReviewer, proceedHref, previousHref }: Agreem
                 ))}
             </Stack>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
-                    <Button
-                        type="button"
-                        size="md"
-                        variant="subtle"
-                        onClick={handlePrevious}
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous
-                    </Button>
-                    <Button type="button" variant="primary" size="md" onClick={handleProceed}>
-                        {proceedLabel}
-                    </Button>
-                </Group>
+            <Group mt="xxl" justify="space-between" w="100%">
+                <Button
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    onClick={handlePrevious}
+                    leftSection={<CaretLeftIcon />}
+                >
+                    {previousLabel}
+                </Button>
+                <Button type="button" variant="primary" size="md" onClick={handleProceed}>
+                    {resolvedProceedLabel}
+                </Button>
             </Group>
         </>
     )

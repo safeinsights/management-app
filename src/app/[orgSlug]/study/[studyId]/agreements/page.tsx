@@ -27,8 +27,10 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
-        const latestJobStatus = study.jobStatusChanges.at(0)?.status
-        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
+        )
+        if (!codeSubmitted) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
@@ -47,9 +49,16 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     }
 
     const hasJobActivity = study.jobStatusChanges.length > 0
-    if (study.status !== 'APPROVED' || hasJobActivity) {
+    if (study.status !== 'APPROVED' && !hasJobActivity) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
+    const proceedHref = hasJobActivity
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+        : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
+    const proceedLabel = hasJobActivity ? 'Back to Study Details' : undefined
+    const previousHref = hasJobActivity
+        ? Routes.orgDashboard({ orgSlug: study.submittedByOrgSlug })
+        : Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
         <Stack p="xl" gap="xl">
@@ -57,9 +66,9 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
-                // TODO: update previousHref when card 392 is implemented
-                previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={proceedHref}
+                proceedLabel={proceedLabel}
+                previousHref={previousHref}
             />
         </Stack>
     )
