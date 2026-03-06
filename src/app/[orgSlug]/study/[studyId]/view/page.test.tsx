@@ -1,18 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import { Suspense } from 'react'
+import { describe, it, expect } from 'vitest'
 import {
+    act,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
     faker,
+    waitFor,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
-
-// Uses React use() hook which suspends — page has no Suspense boundary for RTL
-vi.mock('@/components/study/study-details', () => ({
-    StudyDetails: () => <div data-testid="study-details" />,
-}))
 
 describe('StudyViewPage', () => {
     it('renders CodeOnlyView when job exists', async () => {
@@ -30,10 +28,19 @@ describe('StudyViewPage', () => {
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
-        renderWithProviders(page!)
+        await act(async () => {
+            renderWithProviders(<Suspense fallback={<div>Loading...</div>}>{page!}</Suspense>)
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('Study Name')).toBeInTheDocument()
+        })
 
         expect(screen.getByText('Study Proposal')).toBeInTheDocument()
+        expect(screen.getByText(study.title)).toBeInTheDocument()
+        expect(screen.getByText('Principal investigator')).toBeInTheDocument()
         expect(screen.queryByText('Previous')).not.toBeInTheDocument()
+        expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
     it('throws when study does not exist', async () => {

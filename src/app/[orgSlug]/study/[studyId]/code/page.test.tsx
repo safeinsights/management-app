@@ -1,22 +1,23 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect, notFound } from 'next/navigation'
-import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import {
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { db } from '@/database'
+import { StudyRequestProvider } from '@/contexts/study-request'
+import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)
 const mockNotFound = vi.mocked(notFound)
 
-let capturedProps: Record<string, unknown> = {}
-
-vi.mock('./code-upload', () => ({
-    CodeUploadPage: (props: Record<string, unknown>) => {
-        capturedProps = props
-        return <div data-testid="code-upload-page" />
-    },
-}))
-
 beforeEach(() => {
+    memoryRouter.setCurrentUrl('/')
     mockRedirect.mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
     })
@@ -29,11 +30,11 @@ const renderRoute = async (orgSlug: string, studyId: string) => {
     const page = await StudyCodeUploadRoute({
         params: Promise.resolve({ orgSlug, studyId }),
     })
-    renderWithProviders(page!)
+    renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
 }
 
 describe('StudyCodeUploadRoute', () => {
-    it('renders CodeUploadPage with correct props for DRAFT study', async () => {
+    it('renders code upload page for DRAFT study and previous returns to edit', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -43,25 +44,18 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(capturedProps.studyId).toBe(study.id)
-        expect(capturedProps.language).toBe('R')
-        expect(capturedProps.submittingOrgSlug).toBe(org.slug)
-    })
+        expect(screen.getByRole('heading', { name: /upload your study code/i })).toBeInTheDocument()
+        expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
 
-    it('passes previousHref containing /edit for DRAFT study', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'DRAFT',
+        const userEventSetup = userEvent.setup()
+        await userEventSetup.click(screen.getByRole('button', { name: /previous/i }))
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toContain('/edit')
         })
-
-        await renderRoute(org.slug, study.id)
-
-        expect(capturedProps.previousHref).toContain('/edit')
     })
 
-    it('passes previousHref containing /agreements for APPROVED study', async () => {
+    it('routes approved study previous button to agreements', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -71,7 +65,12 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(capturedProps.previousHref).toContain('/agreements')
+        const userEventSetup = userEvent.setup()
+        await userEventSetup.click(screen.getByRole('button', { name: /previous/i }))
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toContain('/agreements')
+        })
     })
 
     it('calls notFound for non-DRAFT/APPROVED study', async () => {
@@ -92,7 +91,7 @@ describe('StudyCodeUploadRoute', () => {
         expect(mockNotFound).toHaveBeenCalled()
     })
 
-    it('passes existingMainFile and existingAdditionalFiles when studyJobFile records exist', async () => {
+    it('enables submit when existing code files are present', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -116,11 +115,12 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(capturedProps.existingMainFile).toBe('main.R')
-        expect(capturedProps.existingAdditionalFiles).toEqual(['helper.R'])
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
     })
 
-    it('passes undefined existingMainFile and empty existingAdditionalFiles when no code files exist', async () => {
+    it('keeps submit disabled when no code files exist', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -130,7 +130,6 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(capturedProps.existingMainFile).toBeUndefined()
-        expect(capturedProps.existingAdditionalFiles).toEqual([])
+        expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
     })
 })

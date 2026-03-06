@@ -5,10 +5,11 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
 
 function createLexicalState(text: string) {
@@ -35,27 +36,6 @@ function createLexicalState(text: string) {
     })
 }
 
-vi.mock('@/components/readonly-lexical-content', () => ({
-    ReadOnlyLexicalContent: ({ value }: { value: string }) => {
-        try {
-            const parsed = JSON.parse(value)
-            if (typeof parsed === 'string') return <div>{parsed}</div>
-            const text = parsed.root.children
-                .map((node: { children: { text: string }[] }) =>
-                    node.children.map((c: { text: string }) => c.text).join(''),
-                )
-                .join('\n')
-            return <div>{text}</div>
-        } catch {
-            return <div>{value}</div>
-        }
-    },
-}))
-
-vi.mock('@/components/researcher-profile-popover', () => ({
-    ResearcherProfilePopover: ({ name }: { name: string }) => <div data-testid="researcher-popover">{name}</div>,
-}))
-
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
 
@@ -77,11 +57,14 @@ describe('ProposalReviewView', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
-    it('renders proposal fields', () => {
+    it('renders proposal fields', async () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
+        await waitFor(() => {
+            expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
+        })
+
         expect(screen.getByText('Research question(s)')).toBeInTheDocument()
-        expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
         expect(screen.getByText('Project summary')).toBeInTheDocument()
         expect(screen.getByText('This study examines the relationship between X and Y.')).toBeInTheDocument()
         expect(screen.getByText('Impact')).toBeInTheDocument()
@@ -92,6 +75,8 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
         expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
         expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
+        expect(screen.getByText('Researcher')).toBeInTheDocument()
+        expect(screen.getByText(study.createdBy)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Reject request' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Approve request' })).toBeInTheDocument()
     })
@@ -131,7 +116,9 @@ describe('ProposalReviewView', () => {
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
 
-        expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
+        await waitFor(() => {
+            expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
+        })
         expect(screen.getByText('Dr. Jones')).toBeInTheDocument()
     })
 
