@@ -40,15 +40,13 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
-            <Group>
-                <ButtonLink
-                    href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
-                    variant="subtle"
-                    leftSection={<CaretLeftIcon />}
-                >
-                    Previous
-                </ButtonLink>
-            </Group>
+            <ButtonLink
+                href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
+                variant="subtle"
+                leftSection={<CaretLeftIcon />}
+            >
+                Previous
+            </ButtonLink>
         </Stack>
     )
 }
