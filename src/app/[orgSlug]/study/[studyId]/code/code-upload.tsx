@@ -99,6 +99,7 @@ export function CodeUploadPage({
         return (
             <>
                 <CodeFilesReview
+                    previousHref={previousHref}
                     onBack={handleBackToUpload}
                     onProceed={submitStudy}
                     onOpenUploadModal={openModal}

@@ -4,6 +4,7 @@ import { CodeFilesReview } from './code-files-review'
 import { StudyRequestProvider } from '@/contexts/study-request'
 
 const defaultProps = {
+    previousHref: '/test-org/study/123/details' as import('next').Route,
     onBack: vi.fn(),
     onProceed: vi.fn(),
     onOpenUploadModal: vi.fn(),

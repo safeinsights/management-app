@@ -1,6 +1,8 @@
 'use client'
 
+import type { Route } from 'next'
 import { FC, useState } from 'react'
+import Link from 'next/link'
 import {
     ActionIcon,
     Button,
@@ -19,6 +21,7 @@ import { useStudyRequest } from '@/contexts/study-request'
 import { getFileName, getFileSize, type FileRef } from '@/contexts/shared/file-types'
 
 interface CodeFilesReviewProps {
+    previousHref: Route
     onBack: () => void
     onProceed: () => void
     onOpenUploadModal: () => void
@@ -75,6 +78,7 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
 }
 
 export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
+    previousHref,
     onBack,
     onProceed,
     onOpenUploadModal,
@@ -174,8 +178,19 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                 )}
             </Paper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
+            <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+                <Button
+                    component={Link}
+                    href={previousHref}
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    leftSection={<CaretLeftIcon />}
+                    disabled={isLoading}
+                >
+                    Previous
+                </Button>
+                <Group>
                     <Button
                         type="button"
                         size="md"

@@ -294,9 +294,6 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
                     studyJobId: latestJob.id,
                 })
                 .executeTakeFirstOrThrow()
-        }
-
-        if (latestJob) {
             onStudyCodeRejected({ studyId, userId })
         } else {
             onStudyRejected({ studyId, userId })
