@@ -154,9 +154,9 @@ async function viewStudyDetails(page: Page, studyTitle: string, destination: 'vi
         await goto(page, href)
     }
 
-    // agreements page is now the first stop — skip past it via direct navigation
-    if (page.url().includes('/agreements')) {
-        const studyBaseUrl = page.url().replace('/agreements', '')
+    // agreements/submitted pages may be the first stop — skip past to the actual destination
+    if (page.url().includes('/agreements') || page.url().includes('/submitted')) {
+        const studyBaseUrl = page.url().replace(/\/(agreements|submitted)$/, '')
         await goto(page, `${studyBaseUrl}/${destination}`)
     }
 
