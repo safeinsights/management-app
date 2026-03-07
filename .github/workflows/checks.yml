@@ -133,7 +133,6 @@ jobs:
               if: failure()
 
     test-e2e-shards:
-        needs: [test-unit]
         timeout-minutes: 20
         runs-on: ubuntu-latest
         strategy:

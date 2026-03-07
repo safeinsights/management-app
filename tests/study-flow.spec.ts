@@ -40,10 +40,13 @@ async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<s
 
     const proceedButton = page.getByRole('button', { name: /Proceed to Step 2/i })
     await expect(proceedButton).toBeEnabled()
-    await proceedButton.click()
-
-    // Wait for navigation to proposal page (URL will contain /proposal)
-    await page.waitForURL(/\/proposal$/, { timeout: 30000 })
+    await Promise.all([
+        page.waitForURL(/\/proposal$/, {
+            timeout: 30000,
+            waitUntil: 'domcontentloaded',
+        }),
+        proceedButton.click(),
+    ])
 
     // On the Step 2 proposal form, fill required fields
     await expect(page.getByText('STEP 2')).toBeVisible({ timeout: 15000 })
