@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { PROD_BUILD } from '@/server/config'
-import { isTestUser, getProtectedTestEmails } from '@/lib/clerk'
+import { isTestUser, getGitHubRunKey, getProtectedTestEmails } from '@/lib/clerk'
 import { createClerkClient } from '@clerk/backend'
 import dayjs from 'dayjs'
 
@@ -14,13 +14,13 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
     let offset = 0
     let hasMore = true
 
-    const ciJobId = process.env.GITHUB_JOB
+    const ciRunId = getGitHubRunKey()
 
     // eslint-disable-next-line no-console
     console.log(`Deleting test users created before ${cutoff.toISOString()}`)
-    if (ciJobId) {
+    if (ciRunId) {
         // eslint-disable-next-line no-console
-        console.log(`CI mode: only deleting users created by job ${ciJobId}`)
+        console.log(`CI mode: only deleting users created by run ${ciRunId}`)
     } else {
         // eslint-disable-next-line no-console
         console.log(`Local mode: deleting all matching test users`)
@@ -34,7 +34,7 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
 
         for (const user of users.data) {
             const createdBefore = dayjs(user.createdAt).isBefore(cutoff)
-            const ciMatch = ciJobId ? user.privateMetadata.createdByCIJobId == ciJobId : true
+            const ciMatch = ciRunId ? user.privateMetadata.createdByCIRunId == ciRunId : true
 
             if (createdBefore && isTestUser(user, protectedEmails) && ciMatch) {
                 try {

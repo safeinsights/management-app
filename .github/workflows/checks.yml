@@ -51,9 +51,48 @@ jobs:
             #   env:
             #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-    test:
+    test-unit:
         timeout-minutes: 20
         runs-on: ubuntu-latest
+        permissions: {}
+        env:
+            DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
+            SIMULATE_CODE_BUILD: 't'
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+            CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
+            CLERK_RESEARCHER_PASSWORD: ${{ secrets.CLERK_RESEARCHER_PASSWORD }}
+            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+            CLERK_REVIEWER_EMAIL: ${{ secrets.CLERK_REVIEWER_EMAIL }}
+            CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
+            CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
+            CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'npm'
+            - name: npm install
+              run: npm ci
+            - name: npm run test:unit
+              run: npm run test:unit -- --reporter=verbose
+            - name: Upload unit test coverage
+              uses: actions/upload-artifact@v4
+              with:
+                  name: unit-test-coverage
+                  path: test-results/unit
+                  retention-days: 1
+
+    test-e2e-shards:
+        needs: [test-unit]
+        timeout-minutes: 20
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                shardIndex: [1, 2, 3, 4]
+                shardTotal: [4]
         services:
             db:
                 image: postgres:15
@@ -64,10 +103,7 @@ jobs:
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        permissions:
-            pull-requests: write
-            contents: write
-            pages: write
+        permissions: {}
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -134,40 +170,100 @@ jobs:
               run: npm ci
             - name: provision db
               run: npm run db:migrate
-            - name: npm run test:unit
-              run: npm run test:unit -- --reporter=verbose
             - name: build and run server
               run: npm run ci:server -- server_output.log
             - name: install playwright dependencies
               if: steps.cache-all-the-things.outputs.cache-hit != 'true'
               run: npx playwright install --with-deps --only-shell chromium
             - name: npm run test:e2e
-              run: npm run test:e2e
-            - name: npm run test:coverage
-              run: npm run test:coverage
-            - name: Add code coverage to actions summary
-              run: |
-                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
-                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
-            - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@v5.0.1
+              run: npm run test:e2e -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+            - name: Upload e2e results
+              uses: actions/upload-artifact@v4
+              if: ${{ always() && !cancelled() }}
               with:
-                  github-token: ${{ secrets.GITHUB_TOKEN }}
-                  base-summary-filename: base-summary.json
-                  coverage-filename: test-results/coverage/coverage-summary.json
-                  allowed-to-fail: true
+                  name: e2e-shard-${{ matrix.shardIndex }}
+                  path: test-results/e2e
+                  if-no-files-found: ignore
+                  retention-days: 1
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
             - name: Display SeaweedFS log
               run: docker logs seaweedfs 2>&1 || true
               if: failure()
+
+    test-e2e-merge:
+        needs: [test-unit, test-e2e-shards]
+        if: ${{ always() && !cancelled() && needs.test-unit.result == 'success' }}
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
+            contents: write
+            pages: write
+        env:
+            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'npm'
+            - name: npm install
+              run: npm ci
+            - name: Download e2e shard results
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: e2e-shard-*
+                  path: test-results/
+            - name: Download unit test coverage
+              if: ${{ needs.test-e2e-shards.result == 'success' }}
+              uses: actions/download-artifact@v4
+              with:
+                  name: unit-test-coverage
+                  path: test-results/unit
+            - name: Merge e2e reports
+              run: npx tsx ./bin/merge-monocart.ts
+            - name: Fail if any e2e shard failed
+              if: ${{ needs.test-e2e-shards.result == 'failure' }}
+              run: exit 1
+            - name: npm run test:coverage
+              if: ${{ needs.test-e2e-shards.result == 'success' }}
+              run: npm run test:coverage
+            - name: Add code coverage to actions summary
+              if: ${{ needs.test-e2e-shards.result == 'success' }}
+              run: |
+                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            - name: Coverage Diff
+              if: ${{ needs.test-e2e-shards.result == 'success' }}
+              uses: bultkrantz/coverage-diff-action@v5.0.1
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
+                  coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
             - name: Delete any test users created
               run: npx tsx ./bin/delete-clerk-test-users.ts
               if: always()
-            - uses: actions/upload-artifact@v4
-              if: failure()
+            - name: Upload merged report
+              uses: actions/upload-artifact@v4
+              if: ${{ failure() && !cancelled() }}
               with:
                   name: playwright-report
                   path: test-results/e2e
+                  if-no-files-found: ignore
                   retention-days: 30
+
+    test:
+        needs: [test-unit, test-e2e-merge]
+        if: ${{ always() && !cancelled() }}
+        runs-on: ubuntu-latest
+        permissions: {}
+        steps:
+            - name: Fail if unit tests failed
+              if: ${{ needs.test-unit.result != 'success' }}
+              run: exit 1
+            - name: Fail if e2e workflow failed
+              if: ${{ needs.test-unit.result == 'success' && needs.test-e2e-merge.result != 'success' }}
+              run: exit 1

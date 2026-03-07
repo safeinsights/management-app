@@ -1,6 +1,7 @@
 'use server'
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { getGitHubRunKey } from '@/lib/clerk'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
@@ -185,8 +186,8 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         if (users.data.length) {
             clerkId = users.data[0].id
         } else {
-            const createdByCIJobId = process.env.GITHUB_JOB
-            const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
+            const createdByCIRunId = getGitHubRunKey()
+            const privateMetadata = createdByCIRunId ? { createdByCIRunId } : undefined
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,
                 lastName: form.lastName,

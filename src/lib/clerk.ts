@@ -21,6 +21,14 @@ export function getProtectedTestEmails(): Set<string> {
     )
 }
 
+export function getGitHubRunKey(): string | undefined {
+    const runId = process.env.GITHUB_RUN_ID
+    if (!runId) return
+
+    const runAttempt = process.env.GITHUB_RUN_ATTEMPT
+    return runAttempt ? `${runId}:${runAttempt}` : runId
+}
+
 /**
  * Check if a user is a test user based on their email addresses and name.
  * Test users have emails/names matching TEST_USER_PATTERN but are NOT in the protected set.
