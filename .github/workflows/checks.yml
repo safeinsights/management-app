@@ -88,6 +88,8 @@ jobs:
             AWS_REGION: 'us-east-1'
             PORT: '4000'
             NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
+            NEXT_TELEMETRY_DISABLED: '1'
+            VITEST_MAX_WORKERS: '1'
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -97,14 +99,12 @@ jobs:
             - uses: actions/cache@v4
               id: cache-all-the-things
               with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}
                   path: |
-                      ~/.npm
                       ~/.cache
                       ${{ github.workspace }}/.next/cache
-                      # Generate a new cache whenever packages or source files change.
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+                      ${{ runner.os }}-nextjs-
             - name: Start SeaweedFS
               run: |
                   docker run -d \
@@ -114,7 +114,12 @@ jobs:
                     -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
                     chrislusf/seaweedfs:latest \
                     server -s3 -dir=/data
-
+            - name: npm install
+              run: npm ci
+            - name: provision db
+              run: npm run db:migrate
+            - name: Wait for SeaweedFS and create bucket
+              run: |
                   for i in $(seq 1 30); do
                     status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ 2>/dev/null || true)
                     if [ "$status" = "200" ] || [ "$status" = "403" ]; then
@@ -128,19 +133,47 @@ jobs:
                     fi
                     sleep 1
                   done
-            - name: Create S3 bucket
-              run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
-            - name: npm install
-              run: npm ci
-            - name: provision db
-              run: npm run db:migrate
-            - name: npm run test:unit
-              run: npm run test:unit -- --reporter=verbose
-            - name: build and run server
-              run: npm run ci:server -- server_output.log
-            - name: install playwright dependencies
-              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
-              run: npx playwright install --with-deps --only-shell chromium
+                  aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
+            - name: 'Parallel: unit tests + build + playwright install'
+              env:
+                  CACHE_HIT: ${{ steps.cache-all-the-things.outputs.cache-hit }}
+              run: |
+                  set +e
+
+                  # Background 1: Playwright install
+                  if [ "$CACHE_HIT" = "true" ]; then
+                    echo "Playwright: cache hit, installing OS deps only"
+                    npx playwright install-deps chromium > playwright_setup.log 2>&1 &
+                  else
+                    echo "Playwright: cache miss, full install"
+                    npx playwright install --with-deps --only-shell chromium > playwright_setup.log 2>&1 &
+                  fi
+                  PW_PID=$!
+
+                  # Background 2: Next.js build + server start
+                  npm run ci:server -- server_output.log &
+                  SERVER_PID=$!
+
+                  # Foreground: Unit tests (1 worker via VITEST_MAX_WORKERS env)
+                  npm run test:unit -- --reporter=verbose
+                  UNIT_EXIT=$?
+
+                  # Wait for background tasks
+                  wait $SERVER_PID
+                  SERVER_EXIT=$?
+                  wait $PW_PID
+                  PW_EXIT=$?
+
+                  echo "=== Playwright Setup Log ==="
+                  cat playwright_setup.log
+
+                  echo "Unit=$UNIT_EXIT Server=$SERVER_EXIT Playwright=$PW_EXIT"
+                  if [ $UNIT_EXIT -ne 0 ] || [ $SERVER_EXIT -ne 0 ] || [ $PW_EXIT -ne 0 ]; then
+                    [ $UNIT_EXIT -ne 0 ] && echo "::error::Unit tests failed (exit $UNIT_EXIT)"
+                    [ $SERVER_EXIT -ne 0 ] && echo "::error::Server build failed (exit $SERVER_EXIT)"
+                    [ $PW_EXIT -ne 0 ] && echo "::error::Playwright install failed (exit $PW_EXIT)"
+                    exit 1
+                  fi
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
