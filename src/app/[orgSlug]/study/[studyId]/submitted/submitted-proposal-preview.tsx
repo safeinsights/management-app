@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Button, Divider, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modal'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { LexicalProposalField, PIField, ResearcherField, stringifyJson } from '../review/proposal-review-view'
+import { LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
+import { stringifyJson } from '@/lib/string'
 
 type SubmittedProposalPreviewProps = {
     study: SelectedStudy
