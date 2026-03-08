@@ -36,18 +36,18 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                     <LexicalProposalField
                         label="Research question(s)"
                         value={stringifyJson(study.researchQuestions)}
-                        showDivider={false}
+                        divider="none"
                     />
                     <LexicalProposalField
                         label="Project summary"
                         value={stringifyJson(study.projectSummary)}
-                        showDivider={false}
+                        divider="none"
                     />
-                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} showDivider={false} />
+                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} divider="none" />
                     <LexicalProposalField
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
-                        showDivider={false}
+                        divider="none"
                     />
 
                     <PIField study={study} />

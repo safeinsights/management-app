@@ -8,17 +8,17 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 export function LexicalProposalField({
     label,
     value,
-    showDivider = true,
+    divider = 'subtle',
 }: {
     label: string
     value?: string | null
-    showDivider?: boolean
+    divider?: 'subtle' | 'default' | 'none'
 }) {
     if (!value) return null
 
     return (
         <>
-            {showDivider && <Divider color="gray.1" />}
+            {divider !== 'none' && <Divider color={divider === 'subtle' ? 'gray.1' : undefined} />}
             <Stack gap={4}>
                 <Text fw={600} size="sm">
                     {label}

@@ -46,7 +46,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     <LexicalProposalField
                         label="Research question(s)"
                         value={stringifyJson(study.researchQuestions)}
-                        showDivider={false}
+                        divider="default"
                     />
                     <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
                     <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
