@@ -16,25 +16,25 @@ type ProposalReviewViewProps = {
     study: SelectedStudy
 }
 
-function stringifyJson(value: Json | null | undefined): string | null {
+export function stringifyJson(value: Json | null | undefined): string | null {
     if (value == null) return null
     return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
-function LexicalProposalField({
+export function LexicalProposalField({
     label,
     value,
-    subtle = true,
+    showDivider = true,
 }: {
     label: string
     value?: string | null
-    subtle?: boolean
+    showDivider?: boolean
 }) {
     if (!value) return null
 
     return (
         <>
-            <Divider color={subtle ? 'gray.1' : undefined} />
+            {showDivider && <Divider color="gray.1" />}
             <Stack gap={4}>
                 <Text fw={600} size="sm">
                     {label}
@@ -62,7 +62,7 @@ function DatasetsField({ datasets }: { datasets: string[] }) {
 
 // TODO: Show info icon + hover popover when PI profile system is implemented
 // TODO: Click info icon to open PI profile page
-function PIField({ study }: { study: SelectedStudy }) {
+export function PIField({ study }: { study: SelectedStudy }) {
     if (!study.piName) return null
 
     return (
@@ -78,7 +78,7 @@ function PIField({ study }: { study: SelectedStudy }) {
     )
 }
 
-function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
+export function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
     return (
         <Stack gap={4} mt={mt}>
             <Text fw={600} size="sm">
@@ -129,7 +129,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     <LexicalProposalField
                         label="Research question(s)"
                         value={stringifyJson(study.researchQuestions)}
-                        subtle={false}
+                        showDivider={false}
                     />
                     <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
                     <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
