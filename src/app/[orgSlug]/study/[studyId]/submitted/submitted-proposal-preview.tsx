@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button, Divider, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modal'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
+import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
 import { stringifyJson } from '@/lib/string'
 
 type SubmittedProposalPreviewProps = {
@@ -12,7 +12,7 @@ type SubmittedProposalPreviewProps = {
     orgSlug: string
 }
 
-export function SubmittedProposalPreview({ study }: SubmittedProposalPreviewProps) {
+export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPreviewProps) {
     const [isOpen, setIsOpen] = useState(false)
 
     return (
@@ -29,14 +29,7 @@ export function SubmittedProposalPreview({ study }: SubmittedProposalPreviewProp
                         <Text size="sm">{study.title}</Text>
                     </Stack>
 
-                    {study.datasets && study.datasets.length > 0 && (
-                        <Stack gap={4}>
-                            <Text fw={600} size="sm">
-                                Dataset(s) of interest
-                            </Text>
-                            <Text size="sm">{study.datasets.join(', ')}</Text>
-                        </Stack>
-                    )}
+                    <DatasetsField datasets={study.datasets ?? []} />
 
                     <Divider />
 
@@ -58,7 +51,7 @@ export function SubmittedProposalPreview({ study }: SubmittedProposalPreviewProp
                     />
 
                     <PIField study={study} />
-                    <ResearcherField study={study} orgSlug={study.submittedByOrgSlug} mt="md" />
+                    <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
             </AppModal>
         </>
