@@ -39,6 +39,8 @@ export default async function StudyReviewPage(props: {
         const codeSubmitted = study.jobStatusChanges.some(
             (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
         )
+        // When a reviewer navigates back from the agreements step, show the proposal
+        // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
                 <ProposalReviewView
