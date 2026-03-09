@@ -44,11 +44,7 @@ function ResearcherLink({
 
 function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgSlug: string; isHighlighted: boolean }) {
     const slug = study.orgSlug || orgSlug
-    const latestJobStatus = study.jobStatusChanges.at(0)?.status
-    const href =
-        latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
-            ? Routes.studyAgreements({ orgSlug: slug, studyId: study.id })
-            : Routes.studyReview({ orgSlug: slug, studyId: study.id })
+    const href = Routes.studyReview({ orgSlug: slug, studyId: study.id })
 
     return (
         <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>

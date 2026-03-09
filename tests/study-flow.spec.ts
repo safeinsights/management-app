@@ -131,22 +131,11 @@ async function uploadCodeViaIDE(page: Page) {
 // Reviewer helpers
 // ============================================================================
 
-async function viewStudyDetails(page: Page, studyTitle: string, destination: 'view' | 'review' = 'view') {
+async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
-    const href = await viewLink.getAttribute('href')
-
-    // Navigate directly instead of clicking
-    if (href) {
-        await goto(page, href)
-    }
-
-    // agreements/submitted pages may be the first stop — skip past to the actual destination
-    if (page.url().includes('/agreements') || page.url().includes('/submitted')) {
-        const studyBaseUrl = page.url().replace(/\/(agreements|submitted)$/, '')
-        await goto(page, `${studyBaseUrl}/${destination}`)
-    }
+    await viewLink.click()
 
     await expect(
         page.getByRole('heading', { name: /Study Details|Review your submission|Review submission|Study request/i }),
@@ -158,7 +147,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
 
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle, 'review')
+    await viewStudyDetails(page, studyTitle)
 
     // The reviewer sees ProposalReviewView — approve the proposal
     await page.getByRole('button', { name: /Approve request/i }).click()
@@ -167,7 +156,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard', { timeout: 15000 })
 
     // Verify approval
-    await viewStudyDetails(page, studyTitle, 'review')
+    await viewStudyDetails(page, studyTitle)
     await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
 }
 
@@ -176,7 +165,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle, 'review')
+    await viewStudyDetails(page, studyTitle)
 
     // Wait for code scan to complete — Approve button appears
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
@@ -271,7 +260,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle, 'review')
+    await viewStudyDetails(page, studyTitle)
 
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
@@ -299,7 +288,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Verify approval shows up
     await goto(page, '/openstax/dashboard')
-    await viewStudyDetails(page, studyTitle, 'review')
+    await viewStudyDetails(page, studyTitle)
     await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })
 }
 
@@ -540,7 +529,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
-        await viewStudyDetails(page, studyTitle, 'review')
+        await viewStudyDetails(page, studyTitle)
 
         // Wait for Reject button (requires CODE-SCANNED)
         const rejectButton = page.getByRole('button', { name: 'Reject' })
