@@ -14,6 +14,7 @@ import { ProposalReviewButtons } from './proposal-review-buttons'
 type ProposalReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
+    agreementsHref?: string
 }
 
 function stringifyJson(value: Json | null | undefined): string | null {
@@ -97,7 +98,7 @@ function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug
     )
 }
 
-export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
+export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
     return (
         <Stack px="xl" gap="xl">
             <PageBreadcrumbs
@@ -142,7 +143,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                 </Stack>
             </Paper>
 
-            <ProposalReviewButtons study={study} orgSlug={orgSlug} />
+            <ProposalReviewButtons study={study} orgSlug={orgSlug} agreementsHref={agreementsHref} />
         </Stack>
     )
 }

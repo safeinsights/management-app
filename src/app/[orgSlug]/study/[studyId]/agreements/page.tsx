@@ -39,8 +39,8 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
                 <AgreementsPage
                     isReviewer
                     proceedHref={Routes.studyReview({ orgSlug, studyId })}
-                    // TODO: update previousHref when card 393 is implemented
-                    previousHref={Routes.orgDashboard({ orgSlug })}
+                    previousHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements`}
+                    previousLabel="View Proposal"
                 />
             </Stack>
         )
