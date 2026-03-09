@@ -169,9 +169,13 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible({ timeout: 15000 })
 
-    // Verify the reviewer agreements page
-    const studyBaseUrl = page.url().replace(/\/(review|view|agreements)$/, '')
-    await goto(page, `${studyBaseUrl}/agreements`)
+    // Click Previous to navigate to agreements page
+    const previousLink = page.getByRole('link', { name: /Previous/i })
+    await previousLink.scrollIntoViewIfNeeded()
+    await previousLink.click()
+    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+
+    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
     await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
@@ -221,6 +225,16 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await page.waitForURL(/\/code$/, { timeout: 15000 })
     await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('STEP 4 of 4')).toBeVisible()
+
+    // Verify Previous on code upload navigates back to agreements
+    await page.getByRole('link', { name: /Previous/i }).click()
+    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+
+    // Navigate back to code upload for the next step
+    const proceedButton2 = page.getByRole('button', { name: /Proceed to Step 4/i })
+    await proceedButton2.scrollIntoViewIfNeeded()
+    await proceedButton2.click()
+    await page.waitForURL(/\/code$/, { timeout: 15000 })
 }
 
 // ============================================================================
