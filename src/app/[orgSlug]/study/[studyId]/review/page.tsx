@@ -14,8 +14,10 @@ export default async function StudyReviewPage(props: {
         orgSlug: string
         studyId: string
     }>
+    searchParams: Promise<{ from?: string }>
 }) {
     const params = await props.params
+    const searchParams = await props.searchParams
     const { orgSlug, studyId } = params
 
     const session = await sessionFromClerk()
@@ -37,6 +39,16 @@ export default async function StudyReviewPage(props: {
         const codeSubmitted = study.jobStatusChanges.some(
             (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
         )
+        if (searchParams.from === 'agreements' && codeSubmitted) {
+            return (
+                <ProposalReviewView
+                    orgSlug={orgSlug}
+                    study={study}
+                    agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
+                />
+            )
+        }
+
         if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
         return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }

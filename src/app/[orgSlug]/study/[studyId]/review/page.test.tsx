@@ -10,6 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewView } from './code-review-view'
+import { ProposalReviewView } from './proposal-review-view'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -25,7 +26,10 @@ describe('StudyReviewPage', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'DRAFT' })
 
         await expect(
-            StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) }),
+            StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            }),
         ).rejects.toThrow('NEXT_REDIRECT')
 
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
@@ -40,7 +44,10 @@ describe('StudyReviewPage', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
         expect(page?.type).toBe(CodeReviewView)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
@@ -54,11 +61,31 @@ describe('StudyReviewPage', () => {
         )
     })
 
+    it('renders ProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'agreements' }),
+        })
+        expect(page?.type).toBe(ProposalReviewView)
+        expect(page?.props.agreementsHref).toContain('/agreements')
+    })
+
     it('renders ProposalReviewView for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
         renderWithProviders(page!)
 
         expect(screen.getByText('Study request')).toBeInTheDocument()
