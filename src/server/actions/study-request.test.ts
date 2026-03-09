@@ -1,8 +1,8 @@
-import { db } from '@/database'
 import * as aws from '@/server/aws'
-import { onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import {
     actionResult,
+    db,
+    getAuditEntries,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
@@ -27,12 +27,6 @@ vi.mock('@/server/aws', async () => {
         deleteFolderContents: vi.fn(),
     }
 })
-
-vi.mock('@/server/events', () => ({
-    deferred: <T extends (...args: never[]) => unknown>(fn: T) => fn,
-    onStudyCreated: vi.fn(),
-    onStudyCodeSubmitted: vi.fn(),
-}))
 
 describe('Request Study Actions', () => {
     it('onSaveDraftStudyAction creates a draft study', async () => {
@@ -208,8 +202,20 @@ describe('Request Study Actions', () => {
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
-        expect(onStudyCreated).toHaveBeenCalledWith({ userId: user.id, studyId: draftResult.studyId })
-        expect(onStudyCodeSubmitted).not.toHaveBeenCalledWith(expect.objectContaining({ studyId: draftResult.studyId }))
+        const auditEntries = await getAuditEntries(draftResult.studyId, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'CREATED',
+            recordType: 'STUDY',
+            recordId: draftResult.studyId,
+            userId: user.id,
+        })
+        expect(auditEntries).not.toContainEqual(
+            expect.objectContaining({
+                eventType: 'UPDATED',
+                recordId: draftResult.studyId,
+            }),
+        )
     })
 
     // APPROVED → PENDING-REVIEW is a code re-submission, sends "code submitted for review" email
@@ -219,8 +225,20 @@ describe('Request Study Actions', () => {
 
         actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
 
-        expect(onStudyCodeSubmitted).toHaveBeenCalledWith({ userId: user.id, studyId: study.id })
-        expect(onStudyCreated).not.toHaveBeenCalledWith(expect.objectContaining({ studyId: study.id }))
+        const auditEntries = await getAuditEntries(study.id, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.id,
+            userId: user.id,
+        })
+        expect(auditEntries).not.toContainEqual(
+            expect.objectContaining({
+                eventType: 'CREATED',
+                recordId: study.id,
+            }),
+        )
     })
 
     // addJobToStudyAction is only used for re-submissions (study already exists and is APPROVED),
@@ -237,7 +255,14 @@ describe('Request Study Actions', () => {
             }),
         )
 
-        expect(onStudyCodeSubmitted).toHaveBeenCalledWith({ userId: user.id, studyId: study.id })
+        const auditEntries = await getAuditEntries(study.id, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.id,
+            userId: user.id,
+        })
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {

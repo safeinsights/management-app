@@ -1,6 +1,6 @@
 import { db } from '@/database'
 
-import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -42,6 +42,14 @@ export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
 export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .execute()
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
