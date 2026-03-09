@@ -35,21 +35,22 @@ export default async function StudyReviewPage(props: {
 
     if (currentOrg.type === 'enclave') {
         const hasJobActivity = study.jobStatusChanges.length > 0
+        const agreementsHref = from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
 
         return (
             <OpenStaxFeatureFlag
-                defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
+                defaultContent={
+                    hasJobActivity ? (
+                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                    ) : (
+                        <ProposalReviewView orgSlug={orgSlug} study={study} />
+                    )
+                }
                 optInContent={
                     hasJobActivity ? (
                         <EnclaveReviewView orgSlug={orgSlug} study={study} />
                     ) : (
-                        <ProposalReviewView
-                            orgSlug={orgSlug}
-                            study={study}
-                            agreementsHref={
-                                from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
-                            }
-                        />
+                        <ProposalReviewView orgSlug={orgSlug} study={study} agreementsHref={agreementsHref} />
                     )
                 }
             />
