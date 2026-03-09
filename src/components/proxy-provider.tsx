@@ -186,8 +186,8 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
                 >
                     <Stack>
                         <Text size="md">
-                            You have made changes to this study. Would you like to discard this study or should we save
-                            this as a draft for later use? Discarded studies cannot be retrieved.
+                            You have made changes to this study. Would you like to save those changes? Discarded changes
+                            cannot be retrieved.
                         </Text>
                         <Group justify="flex-end">
                             <Button variant="outline" onClick={handleDiscard} disabled={isSavingDraft}>

@@ -14,6 +14,8 @@
         "build:lambda": "./bin/build-lambda",
         "ci:server": "./bin/ci-server",
         "dev": "next dev -p 4000",
+        "dev:local": "concurrently --kill-others-on-fail npm:dev npm:s3:local",
+        "s3:local": "./bin/local-seaweedfs",
         "prepare": "panda codegen",
         "build": "next build",
         "db:migrate": "./bin/migrate-dev-db",
@@ -137,6 +139,7 @@
         "@types/react": "19.2.14",
         "minimatch": "^10.2.1",
         "fast-xml-parser": "^5.3.8",
-        "serialize-javascript": "^7.0.3"
+        "serialize-javascript": "^7.0.3",
+        "express-rate-limit": "^8.2.2"
     }
 }
