@@ -1,4 +1,3 @@
-import { StudyStatus } from '@/database/types'
 import { faker } from '@faker-js/faker'
 import { describe, expect, it } from 'vitest'
 import { useStudyHref } from './use-study-href'
@@ -8,10 +7,9 @@ const BASE = `/${PARAMS.orgSlug}/study/${PARAMS.studyId}`
 
 describe('useStudyHref', () => {
     it('routes to /view when there is job activity regardless of status', () => {
-        const statuses: StudyStatus[] = ['PENDING-REVIEW', 'APPROVED', 'REJECTED']
-        for (const status of statuses) {
-            expect(useStudyHref(status, true, PARAMS)).toBe(`${BASE}/view`)
-        }
+        expect(useStudyHref('PENDING-REVIEW', true, PARAMS)).toBe(`${BASE}/view`)
+        expect(useStudyHref('APPROVED', true, PARAMS)).toBe(`${BASE}/view`)
+        expect(useStudyHref('REJECTED', true, PARAMS)).toBe(`${BASE}/view`)
     })
 
     it('routes to /submitted for PENDING-REVIEW without job activity', () => {
