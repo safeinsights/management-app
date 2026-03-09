@@ -1,5 +1,6 @@
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { setupStudyAction } from '@/tests/db-action.helpers'
+import { NotFoundError } from '@/lib/errors'
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it } from 'vitest'
 import { CodeReviewView } from './code-review-view'
@@ -30,6 +31,13 @@ describe('CodeReviewView', () => {
         renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByText('Study Status')).toBeInTheDocument()
+    })
+
+    it('throws NotFoundError when study has no job', async () => {
+        const { org, study } = await setupStudyAction({ orgSlug: 'regular-org', orgType: 'enclave', createJob: false })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await expect(CodeReviewView({ orgSlug: org.slug, study })).rejects.toThrow(NotFoundError)
     })
 
     it('renders Previous button linking to Agreements', async () => {
