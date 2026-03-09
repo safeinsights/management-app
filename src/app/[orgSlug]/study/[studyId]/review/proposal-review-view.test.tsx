@@ -1,3 +1,4 @@
+import { lexicalJson } from '@/lib/word-count'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
@@ -5,49 +6,12 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    waitFor,
+    type Mock,
 } from '@/tests/unit.helpers'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useParams } from 'next/navigation'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
-
-vi.mock('@/components/readonly-lexical-content', () => ({
-    ReadOnlyLexicalContent: ({ value }: { value: string }) => {
-        try {
-            const parsed = JSON.parse(value)
-            if (typeof parsed === 'string') return <div>{parsed}</div>
-            const text = parsed.root.children
-                .map((node: { children: { text: string }[] }) =>
-                    node.children.map((c: { text: string }) => c.text).join(''),
-                )
-                .join('\n')
-            return <div>{text}</div>
-        } catch {
-            return <div>{value}</div>
-        }
-    },
-}))
-
-vi.mock('./proposal-review-buttons', () => ({
-    ProposalReviewButtons: () => <div data-testid="proposal-review-buttons" />,
-}))
-
-vi.mock('@/components/researcher-profile-popover', () => ({
-    ResearcherProfilePopover: ({ children }: { children: React.ReactNode }) => (
-        <div data-testid="researcher-popover">{children}</div>
-    ),
-}))
-
-vi.mock('@/components/study/study-approval-status', () => ({
-    default: ({ status, date }: { status: string; date?: Date | null }) =>
-        date ? (
-            <div data-testid="study-approval-status">
-                {status} on {date.toISOString()}
-            </div>
-        ) : null,
-}))
-
-vi.mock('@/components/page-breadcrumbs', () => ({
-    PageBreadcrumbs: () => <div data-testid="page-breadcrumbs" />,
-}))
 
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
@@ -61,19 +25,23 @@ describe('ProposalReviewView', () => {
             title: 'Test Study Title',
             piName: 'Dr. Smith',
             datasets: ['Dataset A', 'Dataset B'],
-            researchQuestions: JSON.stringify('What is the effect of X on Y?'),
-            projectSummary: JSON.stringify('This study examines the relationship between X and Y.'),
-            impact: JSON.stringify('This could improve treatment outcomes.'),
-            additionalNotes: JSON.stringify('Funding secured from NIH.'),
+            researchQuestions: lexicalJson('What is the effect of X on Y?'),
+            projectSummary: lexicalJson('This study examines the relationship between X and Y.'),
+            impact: lexicalJson('This could improve treatment outcomes.'),
+            additionalNotes: lexicalJson('Funding secured from NIH.'),
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
-    it('renders proposal fields', () => {
+    it('renders proposal fields', async () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
+        await waitFor(() => {
+            expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
+        })
+
         expect(screen.getByText('Research question(s)')).toBeInTheDocument()
-        expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
         expect(screen.getByText('Project summary')).toBeInTheDocument()
         expect(screen.getByText('This study examines the relationship between X and Y.')).toBeInTheDocument()
         expect(screen.getByText('Impact')).toBeInTheDocument()
@@ -84,6 +52,10 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
         expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
         expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
+        expect(screen.getByText('Researcher')).toBeInTheDocument()
+        expect(screen.getByText(study.createdBy)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject request' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Approve request' })).toBeInTheDocument()
     })
 
     it('hides fields when values are null', async () => {
@@ -95,6 +67,7 @@ describe('ProposalReviewView', () => {
             piName: '',
         })
         const nullStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={nullStudy} />)
 
@@ -106,29 +79,23 @@ describe('ProposalReviewView', () => {
     })
 
     it('renders Lexical JSON content as text', async () => {
-        const lexicalJson = JSON.stringify({
-            root: {
-                children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Lexical formatted question' }] }],
-                type: 'root',
-                direction: null,
-                format: '',
-                indent: 0,
-                version: 1,
-            },
-        })
+        const lexicalQuestion = lexicalJson('Lexical formatted question')
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
-            researchQuestions: lexicalJson,
+            researchQuestions: lexicalQuestion,
             piName: 'Dr. Jones',
         })
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
 
-        expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
+        await waitFor(() => {
+            expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
+        })
         expect(screen.getByText('Dr. Jones')).toBeInTheDocument()
     })
 
@@ -137,7 +104,9 @@ describe('ProposalReviewView', () => {
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
-        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('APPROVED')
+        expect(screen.getByText('Approved on Jun 15, 2025')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 
     it('shows rejection status when study is REJECTED', () => {
@@ -145,6 +114,8 @@ describe('ProposalReviewView', () => {
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
 
-        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('REJECTED')
+        expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 })

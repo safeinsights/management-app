@@ -1,6 +1,6 @@
 import { db } from '@/database'
 
-import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -39,14 +39,23 @@ export const mockPathname = (path: string) => {
 
 export { db } from '@/database'
 export { faker } from '@faker-js/faker'
-export { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+export { QueryClientProvider }
+export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .execute()
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-const createTestQueryClient = () =>
+export const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
             queries: {
@@ -294,9 +303,20 @@ export const insertTestStudyJobData = async ({
     }
 }
 
-export const insertTestStudyOnly = async ({ orgSlug }: { orgSlug: string }) => {
-    const org = await insertTestOrg({ slug: orgSlug })
-    const { user } = await insertTestUser({ org })
+export const insertTestStudyOnly = async ({
+    org,
+    researcherId,
+}: {
+    org?: MinimalTestOrg
+    researcherId?: string
+} = {}) => {
+    if (!org) {
+        org = await insertTestOrg()
+    }
+    if (!researcherId) {
+        const { user } = await insertTestUser({ org })
+        researcherId = user.id
+    }
     const study = await db
         .insertInto('study')
         .values({
@@ -304,7 +324,7 @@ export const insertTestStudyOnly = async ({ orgSlug }: { orgSlug: string }) => {
             submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'study without job',
-            researcherId: user.id,
+            researcherId,
             piName: 'test',
             status: 'APPROVED',
             dataSources: ['all'],
@@ -313,7 +333,7 @@ export const insertTestStudyOnly = async ({ orgSlug }: { orgSlug: string }) => {
         })
         .returningAll()
         .executeTakeFirstOrThrow()
-    return { org, user, study }
+    return { org, study }
 }
 
 export const insertTestStudyJobUsers = async ({

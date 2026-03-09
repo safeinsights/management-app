@@ -2,21 +2,23 @@
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { Routes } from '@/lib/routes'
-import { UnusedOpenStaxFeatureFlag as OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
-import { EnclaveReviewView } from './enclave-review-view'
-import { LabReviewView } from './lab-review-view'
+import { redirect } from 'next/navigation'
+import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
-    params: Promise<{ orgSlug: string; studyId: string }>
+    params: Promise<{
+        orgSlug: string
+        studyId: string
+    }>
     searchParams: Promise<{ from?: string }>
 }) {
     const params = await props.params
+    const searchParams = await props.searchParams
     const { orgSlug, studyId } = params
-    const { from } = await props.searchParams
 
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
@@ -30,30 +32,28 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'lab') {
-        return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
     if (currentOrg.type === 'enclave') {
-        const hasJobActivity = study.jobStatusChanges.length > 0
-        const agreementsHref = from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
-
-        return (
-            <OpenStaxFeatureFlag
-                defaultContent={
-                    hasJobActivity ? (
-                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
-                    ) : (
-                        <ProposalReviewView orgSlug={orgSlug} study={study} />
-                    )
-                }
-                optInContent={
-                    hasJobActivity ? (
-                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
-                    ) : (
-                        <ProposalReviewView orgSlug={orgSlug} study={study} agreementsHref={agreementsHref} />
-                    )
-                }
-            />
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
         )
+        // When a reviewer navigates back from the agreements step, show the proposal
+        // instead of the code review — they've already reviewed code and need to revisit the proposal
+        if (searchParams.from === 'agreements' && codeSubmitted) {
+            return (
+                <ProposalReviewView
+                    orgSlug={orgSlug}
+                    study={study}
+                    agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
+                />
+            )
+        }
+
+        if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
+        return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
+
+    return <AlertNotFound title="Study was not found" message="no such study exists" />
 }

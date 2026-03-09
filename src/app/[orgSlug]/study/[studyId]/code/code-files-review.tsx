@@ -1,6 +1,8 @@
 'use client'
 
+import type { Route } from 'next'
 import { FC, useState } from 'react'
+import Link from 'next/link'
 import {
     ActionIcon,
     Button,
@@ -19,10 +21,12 @@ import { useStudyRequest } from '@/contexts/study-request'
 import { getFileName, getFileSize, type FileRef } from '@/contexts/shared/file-types'
 
 interface CodeFilesReviewProps {
+    previousHref: Route
     onBack: () => void
     onProceed: () => void
     onOpenUploadModal: () => void
     isSaving?: boolean
+    isSubmitting?: boolean
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -74,10 +78,12 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
 }
 
 export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
+    previousHref,
     onBack,
     onProceed,
     onOpenUploadModal,
     isSaving = false,
+    isSubmitting = false,
 }) => {
     const { codeFiles, codeFilesLastUpdated, removeCodeFile, setMainCodeFile } = useStudyRequest()
 
@@ -114,11 +120,13 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
         ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
         .toLowerCase()
 
+    const isLoading = isSaving || isSubmitting
+
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 4 OF 5
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -170,15 +178,26 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                 )}
             </Paper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
+            <Group mt="xxl" justify="space-between" w="100%">
+                <Button
+                    component={Link}
+                    href={previousHref}
+                    type="button"
+                    size="md"
+                    variant="subtle"
+                    leftSection={<CaretLeftIcon />}
+                    disabled={isLoading}
+                >
+                    Previous
+                </Button>
+                <Group>
                     <Button
                         type="button"
                         size="md"
                         variant="subtle"
                         onClick={onBack}
                         leftSection={<CaretLeftIcon />}
-                        disabled={isSaving}
+                        disabled={isLoading}
                     >
                         Back to upload
                     </Button>
@@ -187,10 +206,10 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                         variant="primary"
                         size="md"
                         disabled={!selectedMainFile || allFiles.length === 0 || isSaving}
-                        loading={isSaving}
+                        loading={isLoading}
                         onClick={handleProceed}
                     >
-                        Save and proceed to review
+                        Submit code
                     </Button>
                 </Group>
             </Group>

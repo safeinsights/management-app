@@ -18,7 +18,7 @@ import {
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
-import { deferred, onStudyCreated } from '@/server/events'
+import { deferred, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -267,13 +267,16 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
         const userId = session.user.id
 
-        // Change status to PENDING-REVIEW
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
-        onStudyCreated({ userId, studyId })
+        if (status === 'APPROVED') {
+            onStudyCodeSubmitted({ userId, studyId })
+        } else {
+            onStudyCreated({ userId, studyId })
+        }
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -404,6 +407,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
+        onStudyCodeSubmitted({ userId, studyId })
+
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
@@ -416,7 +421,7 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
-    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db }) => {
+    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }
@@ -453,6 +458,12 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         }
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        if (status === 'APPROVED') {
+            onStudyCodeSubmitted({ userId, studyId })
+        } else {
+            onStudyCreated({ userId, studyId })
+        }
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

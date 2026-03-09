@@ -1,10 +1,20 @@
 import { describe, expect, test, vi } from 'vitest'
 import { db, insertTestStudyJobData, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
-import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction, loadStudyJobAction } from './study-job.actions'
+import {
+    fetchApprovedJobFilesAction,
+    fetchEncryptedJobFilesAction,
+    loadStudyJobAction,
+    rejectStudyJobFilesAction,
+} from './study-job.actions'
+import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
     fetchFileContents: vi.fn(() => new Blob()),
+}))
+
+vi.mock('@/server/mailer', () => ({
+    sendStudyResultsRejectedEmail: vi.fn(),
 }))
 
 describe('Study Job Actions', () => {
@@ -57,5 +67,41 @@ describe('Study Job Actions', () => {
 
         expect(result).toHaveLength(1)
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
+    })
+
+    describe('rejectStudyJobFilesAction', () => {
+        test('creates FILES-REJECTED status and sends rejection email', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+
+            await rejectStudyJobFilesAction({
+                studyId: study.id,
+                studyJobId: job.id,
+                orgSlug: org.slug,
+            })
+
+            const statusChanges = await db
+                .selectFrom('jobStatusChange')
+                .select('status')
+                .where('studyJobId', '=', job.id)
+                .orderBy('createdAt', 'desc')
+                .execute()
+
+            expect(statusChanges.find((sc) => sc.status === 'FILES-REJECTED')).toBeTruthy()
+            expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
+        })
+
+        test('permission denied for non-enclave user', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+
+            const result = await rejectStudyJobFilesAction({
+                studyId: study.id,
+                studyJobId: job.id,
+                orgSlug: org.slug,
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
     })
 })

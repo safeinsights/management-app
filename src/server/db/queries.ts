@@ -81,8 +81,9 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
-export const latestJobForStudy = async (studyId: string) => {
-    return await Action.db
+
+function latestJobForStudyQuery(studyId: string) {
+    return Action.db
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -105,7 +106,14 @@ export const latestJobForStudy = async (studyId: string) => {
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
-        .executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+}
+
+export const latestJobForStudy = async (studyId: string) => {
+    return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+}
+
+export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
+    return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -214,7 +222,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }

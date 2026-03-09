@@ -20,12 +20,18 @@ export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, o
         orgSlug,
     })
 
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
-        return agreementsHref ? (
+    // When navigating from agreements, show only the forward navigation button —
+    // the reviewer is viewing the proposal for reference, not re-reviewing it
+    if (agreementsHref) {
+        return (
             <Group justify="flex-end">
                 <Button onClick={() => router.push(agreementsHref as Route)}>Proceed to Step 2</Button>
             </Group>
-        ) : null
+        )
+    }
+
+    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+        return null
     }
 
     return (

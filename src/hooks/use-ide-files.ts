@@ -2,7 +2,7 @@ import { useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles } from './use-workspace-files'
 import { useFileListManager } from './use-file-list-manager'
@@ -16,7 +16,10 @@ interface UseIDEFilesOptions {
 export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { setIDECodeFiles } = useStudyRequest()
+    const { setIDECodeFiles, submitStudy, mainFileName, codeFilesLastUpdated } = useStudyRequest()
+
+    const pendingDirectSubmitRef = useRef(false)
+    const [isDirectSubmitting, setIsDirectSubmitting] = useState(false)
 
     const {
         launchWorkspace,
@@ -40,7 +43,7 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         router.push(Routes.studyCode({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
-    const proceedToReview = useCallback(() => {
+    const submitDirectly = useCallback(() => {
         if (!canSubmit) {
             notifications.show({
                 color: 'red',
@@ -52,17 +55,18 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
 
         setIDECodeFiles(fileManager.mainFile, fileManager.filteredFiles)
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-        router.push(Routes.studyReview({ orgSlug, studyId }))
-    }, [
-        canSubmit,
-        fileManager.mainFile,
-        fileManager.filteredFiles,
-        setIDECodeFiles,
-        queryClient,
-        studyId,
-        router,
-        orgSlug,
-    ])
+        pendingDirectSubmitRef.current = true
+        setIsDirectSubmitting(true)
+    }, [canSubmit, fileManager.mainFile, fileManager.filteredFiles, setIDECodeFiles, queryClient, studyId])
+
+    // Submit once context has updated with the new file names.
+    // codeFilesLastUpdated ensures the effect re-fires on retry even when mainFileName is unchanged.
+    useEffect(() => {
+        if (pendingDirectSubmitRef.current && mainFileName) {
+            pendingDirectSubmitRef.current = false
+            submitStudy({ onSettled: () => setIsDirectSubmitting(false) })
+        }
+    }, [codeFilesLastUpdated, mainFileName, submitStudy])
 
     return {
         launchWorkspace,
@@ -79,7 +83,8 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         removeFile: fileManager.removeFile,
 
         canSubmit,
-        proceedToReview,
+        submitDirectly,
+        isDirectSubmitting,
         goBack,
     }
 }

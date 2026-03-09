@@ -127,6 +127,42 @@ describe('ProposalReviewButtons', () => {
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
     })
 
+    it('renders Proceed to Step 2 button when study is APPROVED and agreementsHref is provided', async () => {
+        const user = userEvent.setup()
+        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date() }
+        renderWithProviders(
+            <ProposalReviewButtons
+                study={approvedStudy}
+                orgSlug="test-org"
+                agreementsHref="/test-org/study/123/agreements"
+            />,
+        )
+
+        const proceedButton = screen.getByRole('button', { name: 'Proceed to Step 2' })
+        expect(proceedButton).toBeInTheDocument()
+
+        await user.click(proceedButton)
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe('/test-org/study/123/agreements')
+        })
+    })
+
+    it('renders Proceed to Step 2 when PENDING-REVIEW and agreementsHref is provided', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(
+            <ProposalReviewButtons study={study} orgSlug="test-org" agreementsHref="/test-org/study/123/agreements" />,
+        )
+
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+
+        const proceedButton = screen.getByRole('button', { name: 'Proceed to Step 2' })
+        await user.click(proceedButton)
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe('/test-org/study/123/agreements')
+        })
+    })
+
     it('handles error responses from server actions', async () => {
         const user = userEvent.setup()
         mockRejectAction.mockResolvedValue({ error: 'Rejection failed due to network error' })

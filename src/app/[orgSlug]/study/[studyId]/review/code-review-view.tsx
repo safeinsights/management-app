@@ -1,24 +1,26 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { StudyDetails } from '@/components/study/study-details'
 import { latestJobForStudy } from '@/server/db/queries'
+import { ButtonLink } from '@/components/links'
+import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
-type EnclaveReviewViewProps = {
+type CodeReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
 }
 
-export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewProps) {
+export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     const job = await latestJobForStudy(study.id)
+
     return (
         <Stack px="xl" gap="xl">
             <OrgBreadcrumbs
                 crumbs={{
-                    orgSlug: orgSlug,
+                    orgSlug,
                     current: 'Study Details',
                 }}
             />
@@ -26,17 +28,6 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
                 Study Details
             </Title>
             <Divider />
-            <Paper bg="white" p="xxl">
-                <Stack>
-                    <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
-                            Study Proposal
-                        </Title>
-                        <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
-                    </Group>
-                    <StudyDetails studyId={study.id} />
-                </Stack>
-            </Paper>
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
@@ -49,6 +40,15 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
                 </Stack>
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
+            <Group>
+                <ButtonLink
+                    href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
+                    variant="subtle"
+                    leftSection={<CaretLeftIcon />}
+                >
+                    Previous
+                </ButtonLink>
+            </Group>
         </Stack>
     )
 }
