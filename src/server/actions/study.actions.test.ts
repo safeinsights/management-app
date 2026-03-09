@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -21,10 +21,12 @@ import {
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
+    onStudyCodeRejected: vi.fn(),
     onStudyRejected: vi.fn(),
 }))
 
 describe('Study Actions', () => {
+    // Approving a proposal sends "proposal approved" email to the researcher
     it('successfully approves a study proposal', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -118,6 +120,7 @@ describe('Study Actions', () => {
     })
 
     describe('rejectStudyProposalAction', () => {
+        // Rejecting a study that has code sends "study results rejected" email to the researcher
         it('rejects a study with a job', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({
@@ -138,7 +141,7 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
 
-            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+            expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
 
             const job = await latestJobForStudy(study.id)
             expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
@@ -165,6 +168,7 @@ describe('Study Actions', () => {
                 .executeTakeFirstOrThrow()
         }
 
+        // Approving a proposal-only study sends "proposal approved" email to the researcher
         it('approves a proposal-only study without crashing', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)
@@ -191,6 +195,7 @@ describe('Study Actions', () => {
             expect(jobStatusChanges).toHaveLength(0)
         })
 
+        // Rejecting a proposal-only study sends "proposal rejected" email to the researcher
         it('rejects a proposal-only study without crashing', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)

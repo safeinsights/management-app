@@ -40,13 +40,13 @@ export interface StudyRequestContextValue {
     codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'
     codeUploadViewMode: 'upload' | 'review'
-    canProceedToReview: boolean
     documentFiles: DocumentFileState
     mainFileName: string | null
     additionalFileNames: string[]
     canSubmit: boolean
     setStudyId: (id: string) => void
     setCodeFiles: (main: File | null, additional: File[]) => void
+    setExistingFiles: (mainFileName: string | null, fileNames: string[]) => void
     setIDECodeFiles: (mainFileName: string, fileNames: string[]) => void
     setMainCodeFile: (fileName: string) => void
     removeCodeFile: (fileName: string) => void
@@ -63,7 +63,7 @@ export interface StudyRequestContextValue {
     saveDraft: (options?: MutationOptions) => void
     isSaving: boolean
 
-    submitStudy: () => void
+    submitStudy: (options?: { onSettled?: () => void }) => void
     isSubmitting: boolean
 }
 

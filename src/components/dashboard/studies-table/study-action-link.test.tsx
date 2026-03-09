@@ -20,14 +20,27 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/edit`)
         })
 
-        it('links to submitted page for PENDING-REVIEW studies', () => {
-            const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus })
+        it('links to submitted page for PENDING-REVIEW studies without job activity', () => {
+            const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/submitted`)
+        })
+
+        it('links to view page for PENDING-REVIEW studies with job activity', () => {
+            const study = mockStudyRow({
+                status: 'PENDING-REVIEW' as StudyStatus,
+                jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
+            })
+            renderWithProviders(
+                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+            )
+
+            const link = screen.getByRole('link', { name: /view details/i })
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
         })
 
         it('links to agreements page for APPROVED studies with no job activity', () => {
@@ -68,23 +81,10 @@ describe('StudyActionLink', () => {
     })
 
     describe('reviewer audience', () => {
-        it('links to agreements page when latest job status is CODE-SUBMITTED', () => {
+        it('links to review page for all studies', () => {
             const study = mockStudyRow({
                 orgSlug: 'review-org',
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
-            })
-            renderWithProviders(
-                <StudyActionLink study={study} audience="reviewer" orgSlug={ORG_SLUG} isHighlighted={false} />,
-            )
-
-            const link = screen.getByRole('link', { name: /view/i })
-            expect(link.getAttribute('href')).toBe(`/review-org/study/${STUDY_ID}/agreements`)
-        })
-
-        it('links to review page when latest job status is not CODE-SUBMITTED or CODE-SCANNED', () => {
-            const study = mockStudyRow({
-                orgSlug: 'review-org',
-                jobStatusChanges: [{ status: 'JOB-RUNNING' as StudyJobStatus, userId: null }],
             })
             renderWithProviders(
                 <StudyActionLink study={study} audience="reviewer" orgSlug={ORG_SLUG} isHighlighted={false} />,

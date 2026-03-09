@@ -62,7 +62,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
 
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 5 of 5
+                    STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -82,8 +82,13 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
                     Back to upload
                 </Button>
 
-                <Button variant="primary" disabled={!ide.canSubmit} onClick={ide.proceedToReview}>
-                    Save and proceed to review
+                <Button
+                    variant="primary"
+                    disabled={!ide.canSubmit}
+                    loading={ide.isDirectSubmitting}
+                    onClick={ide.submitDirectly}
+                >
+                    Submit code
                 </Button>
             </Group>
         </>

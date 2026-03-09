@@ -1,8 +1,16 @@
-import { db } from '@/database'
 import * as aws from '@/server/aws'
-import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    db,
+    getAuditEntries,
+    insertTestOrg,
+    insertTestStudyData,
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
+    addJobToStudyAction,
     onDeleteStudyAction,
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
@@ -176,6 +184,85 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
+    it('finalizeStudySubmissionAction calls onStudyCreated for DRAFT studies', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-evt-draft' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const draftResult = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+
+        const auditEntries = await getAuditEntries(draftResult.studyId, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'CREATED',
+            recordType: 'STUDY',
+            recordId: draftResult.studyId,
+            userId: user.id,
+        })
+        expect(auditEntries).not.toContainEqual(
+            expect.objectContaining({
+                eventType: 'UPDATED',
+                recordId: draftResult.studyId,
+            }),
+        )
+    })
+
+    // APPROVED → PENDING-REVIEW is a code re-submission, sends "code submitted for review" email
+    it('finalizeStudySubmissionAction calls onStudyCodeSubmitted for APPROVED studies', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+
+        const auditEntries = await getAuditEntries(study.id, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.id,
+            userId: user.id,
+        })
+        expect(auditEntries).not.toContainEqual(
+            expect.objectContaining({
+                eventType: 'CREATED',
+                recordId: study.id,
+            }),
+        )
+    })
+
+    // addJobToStudyAction is only used for re-submissions (study already exists and is APPROVED),
+    // so it always sends "code submitted for review" email
+    it('addJobToStudyAction calls onStudyCodeSubmitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
+
+        actionResult(
+            await addJobToStudyAction({
+                studyId: study.id,
+                mainCodeFileName: 'main.R',
+                codeFileNames: [],
+            }),
+        )
+
+        const auditEntries = await getAuditEntries(study.id, 'STUDY')
+
+        expect(auditEntries).toContainEqual({
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.id,
+            userId: user.id,
+        })
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {

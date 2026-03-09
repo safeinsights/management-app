@@ -1,6 +1,7 @@
 import 'dotenv/config' // read .env file before other imports, to match Next.js default
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
+import { localStorageContext } from '@/server/actions/action'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
@@ -18,6 +19,13 @@ expect.extend(matchers)
 
 const Headers = new Map()
 
+function runDeferredTestCallback(cb: () => void | Promise<void>) {
+    // Run deferred callbacks outside the action transaction so audit writes do not reuse a committed test transaction.
+    localStorageContext.run({ db: undefined as never }, () => {
+        void cb()
+    })
+}
+
 beforeAll(async () => {
     // Defense layer: clear Clerk credentials to prevent real API calls if mocks fail
     delete process.env.CLERK_SECRET_KEY
@@ -28,7 +36,7 @@ beforeAll(async () => {
     vi.mock('next/router', () => require('next-router-mock'))
     vi.mock('next/server', async (importOriginal) => ({
         ...(await importOriginal()),
-        after: (cb: () => void) => cb(),
+        after: runDeferredTestCallback,
     }))
 
     // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
@@ -69,6 +77,12 @@ beforeAll(async () => {
         updateClerkUserName: vi.fn(),
         updateClerkUserMetadata: vi.fn(),
         findOrCreateClerkOrganization: vi.fn(),
+    }))
+
+    vi.mock('@/components/page-breadcrumbs', () => ({
+        OrgBreadcrumbs: () => null,
+        ResearcherBreadcrumbs: () => null,
+        PageBreadcrumbs: () => null,
     }))
 
     vi.mock('@mantine/notifications', () => ({
