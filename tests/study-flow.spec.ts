@@ -137,9 +137,7 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     await viewLink.click()
 
-    await expect(
-        page.getByRole('heading', { name: /Study Details|Review your submission|Review submission|Study request/i }),
-    ).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Study Details/i })).toBeVisible({ timeout: 10000 })
 }
 
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {

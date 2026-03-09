@@ -5,7 +5,6 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
-    userEvent,
     waitFor,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -30,7 +29,7 @@ const renderRoute = async (orgSlug: string, studyId: string) => {
 }
 
 describe('StudyCodeUploadRoute', () => {
-    it('renders code upload page for DRAFT study and previous returns to edit', async () => {
+    it('renders code upload page for DRAFT study and previous links to edit', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -43,12 +42,8 @@ describe('StudyCodeUploadRoute', () => {
         expect(screen.getByRole('heading', { name: /upload your study code/i })).toBeInTheDocument()
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
 
-        const userEventSetup = userEvent.setup()
-        await userEventSetup.click(screen.getByRole('button', { name: /previous/i }))
-
-        await waitFor(() => {
-            expect(memoryRouter.asPath).toContain('/edit')
-        })
+        const previousLink = screen.getByRole('link', { name: /previous/i })
+        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/edit'))
     })
 
     it('routes approved study previous button to agreements', async () => {
@@ -61,12 +56,8 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        const userEventSetup = userEvent.setup()
-        await userEventSetup.click(screen.getByRole('button', { name: /previous/i }))
-
-        await waitFor(() => {
-            expect(memoryRouter.asPath).toContain('/agreements')
-        })
+        const previousLink = screen.getByRole('link', { name: /previous/i })
+        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements'))
     })
 
     it('redirects to view for non-DRAFT/APPROVED study', async () => {

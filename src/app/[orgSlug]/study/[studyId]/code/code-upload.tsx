@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
+import { ButtonLink } from '@/components/links'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
@@ -79,10 +80,6 @@ export function CodeUploadPage({
 
     const handleLaunchIDE = () => {
         launchWorkspace()
-    }
-
-    const handleBackToPrevious = () => {
-        router.push(previousHref)
     }
 
     const handleBackToUpload = () => {
@@ -190,15 +187,9 @@ export function CodeUploadPage({
             </Paper>
 
             <Group mt="xxl" justify="space-between" w="100%">
-                <Button
-                    type="button"
-                    size="md"
-                    variant="subtle"
-                    onClick={handleBackToPrevious}
-                    leftSection={<CaretLeftIcon />}
-                >
+                <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
                     Previous
-                </Button>
+                </ButtonLink>
                 <Button
                     type="button"
                     variant="primary"
