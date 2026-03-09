@@ -1,7 +1,7 @@
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
-import { AccessDeniedError, NotFoundError, throwNotFound } from '@/lib/errors'
+import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
@@ -81,8 +81,9 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
-export const latestJobForStudy = async (studyId: string) => {
-    return await Action.db
+
+function latestJobForStudyQuery(studyId: string) {
+    return Action.db
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -105,16 +106,14 @@ export const latestJobForStudy = async (studyId: string) => {
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
-        .executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+}
+
+export const latestJobForStudy = async (studyId: string) => {
+    return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
 export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
-    try {
-        return await latestJobForStudy(studyId)
-    } catch (error) {
-        if (error instanceof NotFoundError) return null
-        throw error
-    }
+    return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
