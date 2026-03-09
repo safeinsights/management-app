@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@/common'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { actionResult } from '@/lib/utils'
 import { errorToString } from '@/lib/errors'
-import { getLabSlug } from '@/lib/org'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
 
@@ -50,7 +49,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
                     await onSaveDraftStudyAction({
                         orgSlug: formValues.orgSlug,
                         studyInfo: draftInfo,
-                        submittingOrgSlug: getLabSlug(submittingOrgSlug),
+                        submittingOrgSlug,
                     }),
                 )
             }
