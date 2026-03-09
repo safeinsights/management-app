@@ -50,13 +50,15 @@ export function CodeOnlyView({ orgSlug, study, job }: CodeOnlyViewProps) {
                     <JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />
                 </Stack>
             </Paper>
-            <ButtonLink
-                href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
-                variant="subtle"
-                leftSection={<CaretLeftIcon />}
-            >
-                Previous
-            </ButtonLink>
+            <Group>
+                <ButtonLink
+                    href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
+                    variant="subtle"
+                    leftSection={<CaretLeftIcon />}
+                >
+                    Previous
+                </ButtonLink>
+            </Group>
         </Stack>
     )
 }
