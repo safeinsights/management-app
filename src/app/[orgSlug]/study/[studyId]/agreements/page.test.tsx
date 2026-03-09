@@ -74,6 +74,19 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByRole('button', { name: /Back to Study Details/ })).toBeInTheDocument()
     })
 
+    it('renders Previous button linking to study view for APPROVED researcher with no job activity', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+        renderWithProviders(page!)
+
+        const previousButton = screen.getByRole('button', { name: 'Previous' })
+        expect(previousButton).toBeInTheDocument()
+    })
+
     it('redirects researcher when study is not APPROVED and has no job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
