@@ -137,7 +137,7 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     await viewLink.click()
 
-    await expect(page.getByRole('heading', { name: /Study Details/i })).toBeVisible({ timeout: 10000 })
+    await page.waitForURL(/\/study\//, { timeout: 10000 })
 }
 
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {
@@ -175,6 +175,19 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
+
+    // Verify "View Proposal" button is present on agreements page
+    const viewProposalButton = page.getByRole('button', { name: /View Proposal/i })
+    await viewProposalButton.scrollIntoViewIfNeeded()
+    await expect(viewProposalButton).toBeVisible({ timeout: 10000 })
+
+    // Verify the ?from=agreements flow renders ProposalReviewView (not CodeReviewView)
+    await goto(page, `${studyBaseUrl}/review?from=agreements`)
+    await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible({ timeout: 10000 })
+
+    // Navigate back to code review for approval
     await goto(page, `${studyBaseUrl}/review`)
 
     await page.getByRole('button', { name: /^Approve$/i }).click()
@@ -389,6 +402,20 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
+    })
+
+    await test.step('researcher navigates back via previous buttons', async () => {
+        // Currently on the CodeOnlyView (study details page)
+        // Click Previous → should go to agreements
+        await page.getByRole('link', { name: /Previous/i }).click()
+        await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+
+        // Agreements should show "Back to Study Details" (not "Proceed to Step 4")
+        await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible({ timeout: 10000 })
+
+        // Click Previous on agreements → should go to dashboard
+        await page.getByRole('button', { name: /Previous/i }).click()
+        await page.waitForURL(/\/dashboard$/, { timeout: 10000 })
     })
 
     await test.step('reviewer approves code', async () => {
