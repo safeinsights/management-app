@@ -139,6 +139,7 @@
         "@types/react": "19.2.14",
         "minimatch": "^10.2.1",
         "fast-xml-parser": "^5.3.8",
-        "serialize-javascript": "^7.0.3"
+        "serialize-javascript": "^7.0.3",
+        "express-rate-limit": "^8.2.2"
     }
 }
