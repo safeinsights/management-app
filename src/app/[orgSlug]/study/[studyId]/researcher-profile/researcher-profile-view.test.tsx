@@ -18,7 +18,12 @@ describe('ResearcherProfileView', () => {
         const profileData = await getTestResearcherProfileData(user.id)
 
         renderWithProviders(
-            <ResearcherProfileView orgSlug={org.slug} studyId={faker.string.uuid()} profileData={profileData} />,
+            <ResearcherProfileView
+                orgSlug={org.slug}
+                studyId={faker.string.uuid()}
+                profileData={profileData}
+                orgType="lab"
+            />,
         )
 
         expect(screen.getByText('Personal information')).toBeInTheDocument()
@@ -41,7 +46,12 @@ describe('ResearcherProfileView', () => {
         const profileData = await getTestResearcherProfileData(user.id)
 
         renderWithProviders(
-            <ResearcherProfileView orgSlug={org.slug} studyId={faker.string.uuid()} profileData={profileData} />,
+            <ResearcherProfileView
+                orgSlug={org.slug}
+                studyId={faker.string.uuid()}
+                profileData={profileData}
+                orgType="lab"
+            />,
         )
 
         expect(screen.getByText('Personal information')).toBeInTheDocument()
@@ -50,7 +60,7 @@ describe('ResearcherProfileView', () => {
         expect(screen.getByText('Research details')).toBeInTheDocument()
     })
 
-    it('should render "Back to study proposal" link with correct href', async () => {
+    it('should link back to submitted page for lab org', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
 
         await insertTestResearcherProfile({ userId: user.id })
@@ -58,10 +68,27 @@ describe('ResearcherProfileView', () => {
         const profileData = await getTestResearcherProfileData(user.id)
         const studyId = faker.string.uuid()
 
-        renderWithProviders(<ResearcherProfileView orgSlug={org.slug} studyId={studyId} profileData={profileData} />)
+        renderWithProviders(
+            <ResearcherProfileView orgSlug={org.slug} studyId={studyId} profileData={profileData} orgType="lab" />,
+        )
 
         const link = screen.getByText('Back to study proposal')
-        expect(link).toBeInTheDocument()
+        expect(link.closest('a')).toHaveAttribute('href', `/${org.slug}/study/${studyId}/submitted`)
+    })
+
+    it('should link back to review page for enclave org', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const profileData = await getTestResearcherProfileData(user.id)
+        const studyId = faker.string.uuid()
+
+        renderWithProviders(
+            <ResearcherProfileView orgSlug={org.slug} studyId={studyId} profileData={profileData} orgType="enclave" />,
+        )
+
+        const link = screen.getByText('Back to study proposal')
         expect(link.closest('a')).toHaveAttribute('href', `/${org.slug}/study/${studyId}/review`)
     })
 })

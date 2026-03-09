@@ -9,19 +9,24 @@ import { PositionsSection } from '@/components/researcher-profile/positions-sect
 import { ResearchDetailsSection } from '@/components/researcher-profile/research-details-section'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
+import type { OrgType } from '@/database/types'
 
 interface ResearcherProfileViewProps {
     orgSlug: string
     studyId: string
     profileData: ResearcherProfileData
+    orgType: OrgType
 }
 
 const noop = async () => {}
 
-export function ResearcherProfileView({ orgSlug, studyId, profileData }: ResearcherProfileViewProps) {
+export function ResearcherProfileView({ orgSlug, studyId, profileData, orgType }: ResearcherProfileViewProps) {
+    const studyParams = { orgSlug, studyId }
+    const backHref = orgType === 'lab' ? Routes.studySubmitted(studyParams) : Routes.studyReview(studyParams)
+
     return (
         <Stack px="xl" gap="xl">
-            <Link href={Routes.studyReview({ orgSlug, studyId })} c="blue.7">
+            <Link href={backHref} c="blue.7">
                 <Group gap={4} display="inline-flex">
                     <ArrowLeftIcon size={16} />
                     Back to study proposal

@@ -8,6 +8,7 @@ import { getOrgNameFromId } from '@/server/db/queries'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
+import { SubmittedProposalPreview } from './submitted-proposal-preview'
 
 export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -33,15 +34,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
                         {displayOrgName(orgName)} will follow up with feedback, follow-up questions, or a decision.
                         Please check your dashboard for notifications and status updates.
                     </Text>
-                    <Button
-                        component={Link}
-                        href={Routes.studyView({ orgSlug, studyId })}
-                        variant="outline"
-                        mt="md"
-                        size="md"
-                    >
-                        View submitted study proposal
-                    </Button>
+                    <SubmittedProposalPreview study={result} orgSlug={orgSlug} />
                 </Stack>
             </Paper>
             <Stack gap="sm" align="flex-end">
