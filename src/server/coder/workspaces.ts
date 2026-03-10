@@ -100,7 +100,8 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
     } else if (codeEnv.dataSourceType === 'postgres') {
         const dbName = toPgDbName(codeEnv.slug, codeEnv.identifier)
         const pgHost = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
-        const dbUrl = `pg://${pgHost}/${dbName}`
+        const pgUser = await getConfigValue('CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER')
+        const dbUrl = `pg://${pgUser}@${pgHost}/${dbName}`
         environment.push({ name: 'DATABASE_URL', value: dbUrl })
         environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
     }

@@ -93,7 +93,7 @@ async function connectToPgAdmin(): Promise<PG.Client> {
     const hostPort = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
     const [hostname, portStr] = hostPort.split(':')
     const port = parseInt(portStr, 10)
-    const username = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_USER')
+    const username = await getConfigValue('CODER_SAMPLE_DATA_ADMIN_POSTGRES_USER')
 
     const signer = new Signer({
         hostname,

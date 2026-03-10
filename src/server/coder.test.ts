@@ -410,6 +410,7 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
             if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
             if (key === 'CODER_SAMPLE_DATA_POSTGRES_HOST') return Promise.resolve('pg-host.example.com:5432')
+            if (key === 'CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER') return Promise.resolve('readonly_user')
             return Promise.resolve('https://api.coder.com')
         })
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
@@ -441,11 +442,11 @@ describe('createUserAndWorkspace', () => {
 
         expect(envVars).toContainEqual({
             name: 'DATABASE_URL',
-            value: 'pg://pg-host.example.com:5432/test_org_test_env',
+            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
         expect(envVars).toContainEqual({
             name: 'TEST-ENV_DATABASE_URL',
-            value: 'pg://pg-host.example.com:5432/test_org_test_env',
+            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
     })
 
