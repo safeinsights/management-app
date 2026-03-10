@@ -151,14 +151,15 @@ export const minimalCodeEnvInfoSchema = minimalOrgInfoSchema.extend({
 
 export type MinimalCodeEnvInfo = z.infer<typeof minimalCodeEnvInfoSchema>
 
-export const SAMPLE_DATA_FORMATS = {
+export const DATA_SOURCE_TYPES = {
     parquet: 'Parquet',
     avro: 'Avro',
     pg_backup: 'Postgresql Backup',
     csv: 'CSV',
+    athena: 'Athena',
 } as const
 
-export type SampleDataFormat = keyof typeof SAMPLE_DATA_FORMATS
+export type DataSourceType = keyof typeof DATA_SOURCE_TYPES
 
 export type AllStatus = StudyJobStatus | StudyStatus
 

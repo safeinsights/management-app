@@ -54,6 +54,7 @@ describe('Study Actions', () => {
             .insertInto('orgCodeEnv')
             .values({
                 name: 'Python Base',
+                identifier: 'python-base',
                 language: 'PYTHON',
                 cmdLine: 'python %f',
                 url: 'test/url',
@@ -231,6 +232,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Test R Image',
+                    identifier: 'test-r-image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',
@@ -261,6 +263,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Non-Test R Image',
+                    identifier: 'non-test-r',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',
@@ -284,6 +287,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Other Org Test Image',
+                    identifier: 'other-org-test',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',

@@ -15,7 +15,7 @@ import {
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
-import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
+import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
@@ -60,6 +60,7 @@ const codeEnvSettingsSchema = z.object({
 const createOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
+    identifier: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
@@ -68,8 +69,8 @@ const createOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z
-        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+    dataSourceType: z
+        .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
 })
@@ -121,6 +122,7 @@ const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     codeEnvId: z.string(),
     name: z.string(),
+    identifier: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
@@ -130,8 +132,8 @@ const updateOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z
-        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+    dataSourceType: z
+        .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
 })

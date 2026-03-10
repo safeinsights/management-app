@@ -325,6 +325,7 @@ async function setupOrganizations() {
                     {
                         orgId: org.id,
                         name: 'R Code Environment',
+                        identifier: 'r-base',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
                         cmdLine: 'Rscript main.r',
@@ -334,6 +335,7 @@ async function setupOrganizations() {
                     {
                         orgId: org.id,
                         name: 'Python Code Environment',
+                        identifier: 'python-base',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
                         cmdLine: 'python main.py',
@@ -380,6 +382,7 @@ async function setupOrganizations() {
             .values({
                 orgId: singleLangOrg.id,
                 name: 'R Code Environment (Single-Lang)',
+                identifier: 'r-base',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
                 cmdLine: 'Rscript main.r',

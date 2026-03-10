@@ -76,6 +76,37 @@ async function startWorkspace(workspaceId: string): Promise<void> {
     }
 }
 
+async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
+    const environment = codeEnv.settings?.environment || []
+    const dataPath = completePathForSampleData({
+        orgSlug: codeEnv.slug,
+        codeEnvId: codeEnv.id,
+        sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+    })
+    const prefix = codeEnv.identifier.toUpperCase()
+    const dbName = `${codeEnv.slug}_${codeEnv.identifier}`
+
+    environment.push({ name: 'DATA_PATH', value: dataPath })
+    environment.push({ name: `${prefix}_DATA_PATH`, value: dataPath })
+
+    if (codeEnv.dataSourceType === 'athena') {
+        const region = process.env.AWS_REGION || 'us-east-1'
+        const dbUrl = `athena://athena.${region}.amazonaws.com:443/${dbName}?s3_location=${dataPath}`
+        environment.push({ name: 'DATABASE_URL', value: dbUrl })
+        environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
+        environment.push({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
+        environment.push({ name: 'AWS_ATHENA_WORK_GROUP', value: await getConfigValue('CODER_ATHENA_WORK_GROUP') })
+        environment.push({ name: 'AWS_REGION', value: region })
+    } else if (codeEnv.dataSourceType === 'pg_backup') {
+        const pgHost = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
+        const dbUrl = `pg://${pgHost}/${dbName}`
+        environment.push({ name: 'DATABASE_URL', value: dbUrl })
+        environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
+    }
+
+    return environment
+}
+
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
@@ -95,20 +126,11 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
-            const environment = codeEnv.settings?.environment || []
-            environment.push({
-                name: 'SAMPLE_DATA_PATH',
-                value: completePathForSampleData({
-                    orgSlug: codeEnv.slug,
-                    codeEnvId: codeEnv.id,
-                    sampleDataPath: codeEnv.sampleDataPath ?? undefined,
-                }),
-            })
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
                 containerImage: codeEnv.url,
-                environment,
+                environment: await buildWorkspaceEnvironment(codeEnv),
             })
         }
         throw error

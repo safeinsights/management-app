@@ -113,12 +113,13 @@ export interface Org {
 export interface OrgCodeEnv {
     cmdLine: string
     createdAt: Generated<Timestamp>
+    dataSourceType: string | null
     id: Generated<string>
+    identifier: Generated<string>
     isTesting: Generated<boolean>
     language: Language
     name: string
     orgId: string
-    sampleDataFormat: string | null
     sampleDataPath: string | null
     settings: Generated<OrgCodeEnvSettings>
     starterCodePath: string

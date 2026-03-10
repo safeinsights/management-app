@@ -280,6 +280,8 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .limit(1)
         .select([
             'orgCodeEnv.id',
+            'orgCodeEnv.identifier',
+            'orgCodeEnv.dataSourceType',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
             'orgCodeEnv.starterCodePath',

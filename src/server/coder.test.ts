@@ -237,6 +237,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
+            identifier: 'test-env',
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
@@ -266,12 +267,180 @@ describe('createUserAndWorkspace', () => {
                 value: JSON.stringify([
                     { name: 'VAR1', value: 'value1' },
                     {
-                        name: 'SAMPLE_DATA_PATH',
+                        name: 'DATA_PATH',
+                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+                    },
+                    {
+                        name: 'TEST-ENV_DATA_PATH',
                         value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
                     },
                 ]),
             },
         ])
+    })
+
+    it('should include DATABASE_URL env vars for athena data source type', async () => {
+        const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockImplementation((url: string) => {
+            if (url.includes('/users?')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
+                })
+            }
+            if (url.includes('/workspaces/') || url.includes('@')) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 404,
+                    text: vi.fn().mockResolvedValue('Not found'),
+                })
+            }
+            if (url.includes('/templates')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
+                })
+            }
+            if (url.includes('/members/')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
+                })
+            }
+            if (url.includes('/organizations')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
+                })
+            }
+            return Promise.resolve({
+                ok: false,
+                status: 404,
+                text: vi.fn().mockResolvedValue('Not found'),
+            })
+        })
+
+        process.env.AWS_REGION = 'us-west-2'
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
+            if (key === 'CODER_ATHENA_WORK_GROUP') return Promise.resolve('my-workgroup')
+            return Promise.resolve('https://api.coder.com')
+        })
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
+        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            identifier: 'test-env',
+            dataSourceType: 'athena',
+            slug: 'test-org',
+            url: 'test-image:latest',
+            settings: { environment: [] },
+            starterCodePath: 'starter-code/test-org/main.R',
+        })
+        fetchFileContentsMock.mockResolvedValue({
+            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
+        })
+
+        await createUserAndWorkspace('study123')
+
+        const createWorkspaceCall = mockFetch.mock.calls.find(
+            (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
+        )
+        const requestBody = JSON.parse(createWorkspaceCall![1].body)
+        const envVars = JSON.parse(
+            requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
+        )
+
+        const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`
+        const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test-org_test-env?s3_location=${dataPath}`
+        expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: expectedDbUrl })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_DATABASE_URL', value: expectedDbUrl })
+        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
+        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_WORK_GROUP', value: 'my-workgroup' })
+        expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
+    })
+
+    it('should include DATABASE_URL env vars for pg_backup data source type', async () => {
+        const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockImplementation((url: string) => {
+            if (url.includes('/users?')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
+                })
+            }
+            if (url.includes('/workspaces/') || url.includes('@')) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 404,
+                    text: vi.fn().mockResolvedValue('Not found'),
+                })
+            }
+            if (url.includes('/templates')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
+                })
+            }
+            if (url.includes('/members/')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
+                })
+            }
+            if (url.includes('/organizations')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
+                })
+            }
+            return Promise.resolve({
+                ok: false,
+                status: 404,
+                text: vi.fn().mockResolvedValue('Not found'),
+            })
+        })
+
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
+            if (key === 'CODER_SAMPLE_DATA_POSTGRES_HOST') return Promise.resolve('pg-host.example.com:5432')
+            return Promise.resolve('https://api.coder.com')
+        })
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
+        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            identifier: 'test-env',
+            dataSourceType: 'pg_backup',
+            slug: 'test-org',
+            url: 'test-image:latest',
+            settings: { environment: [] },
+            starterCodePath: 'starter-code/test-org/main.R',
+        })
+        fetchFileContentsMock.mockResolvedValue({
+            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
+        })
+
+        await createUserAndWorkspace('study123')
+
+        const createWorkspaceCall = mockFetch.mock.calls.find(
+            (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
+        )
+        const requestBody = JSON.parse(createWorkspaceCall![1].body)
+        const envVars = JSON.parse(
+            requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
+        )
+
+        expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: 'pg://pg-host.example.com:5432/test-org_test-env' })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_DATABASE_URL', value: 'pg://pg-host.example.com:5432/test-org_test-env' })
     })
 
     it('should throw error when user creation fails', async () => {
@@ -289,6 +458,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
+            identifier: 'test-env',
             slug: 'test-org',
             url: 'test-image:latest',
             settings: {},

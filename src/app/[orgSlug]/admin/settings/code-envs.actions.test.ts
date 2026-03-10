@@ -27,6 +27,7 @@ describe('Code Environment Actions', () => {
             await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image',
+                identifier: 'test-image',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -49,6 +50,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image to Delete',
+                identifier: 'test-delete',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -71,6 +73,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image to Fetch',
+                identifier: 'test-fetch',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -91,6 +94,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image to Update',
+                identifier: 'test-update',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -105,6 +109,7 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
+                identifier: 'test-update',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
                 url: 'updated-url',
@@ -129,6 +134,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image to Update',
+                identifier: 'test-update-starter',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -143,6 +149,7 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
+                identifier: 'test-update-starter',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
                 url: 'updated-url',
@@ -167,6 +174,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Non-admin cannot update',
+                identifier: 'non-admin',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -180,6 +188,7 @@ describe('Code Environment Actions', () => {
             orgSlug: org.slug,
             codeEnvId: codeEnv.id,
             name: 'Attempted Update',
+            identifier: 'non-admin',
             cmdLine: 'updated command',
             language: 'PYTHON',
             url: 'updated-url',
@@ -198,6 +207,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'SI admin can update',
+                identifier: 'si-admin',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -212,6 +222,7 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 codeEnvId: codeEnv.id,
                 name: 'Updated by SI admin',
+                identifier: 'si-admin',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
                 url: 'updated-url',
@@ -314,6 +325,7 @@ describe('Code Environment Actions', () => {
             await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image with Env',
+                identifier: 'test-env-vars',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -334,6 +346,7 @@ describe('Code Environment Actions', () => {
             await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image without Env',
+                identifier: 'test-no-env',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -354,6 +367,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image',
+                identifier: 'test-env-update',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -374,6 +388,7 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 codeEnvId: codeEnv.id,
                 name: 'Test Image',
+                identifier: 'test-env-update',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
@@ -400,6 +415,7 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 codeEnvId: codeEnv.id,
                 name: 'Admin Updated Name',
+                identifier: codeEnv.identifier,
                 cmdLine: 'admin updated command',
                 language: 'PYTHON',
                 url: 'admin-updated-url',
@@ -428,6 +444,7 @@ describe('Code Environment Actions', () => {
             .values({
                 orgId: org.id,
                 name: 'Test Image with Env',
+                identifier: 'fetch-env-vars',
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',

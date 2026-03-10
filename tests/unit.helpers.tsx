@@ -596,6 +596,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string
+    identifier?: string
     language?: Language
     cmdLine?: string
     url?: string
@@ -613,6 +614,7 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .values({
             orgId: options.orgId,
             name: options.name || `${language} ${faker.system.semver()} Code Environment`,
+            identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
             cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,

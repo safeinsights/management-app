@@ -16,7 +16,7 @@ import {
     ActionIcon,
     Box,
 } from '@mantine/core'
-import { ActionSuccessType, SAMPLE_DATA_FORMATS } from '@/lib/types'
+import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -68,23 +68,26 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <Group align="flex-start" wrap="nowrap">
+                <Group align="flex-end" wrap="nowrap">
                     <TextInput
-                        label="Name"
-                        placeholder="e.g., R 4.2.0 Code Environment"
-                        {...form.getInputProps('name')}
+                        label="Identifier"
+                        placeholder="e.g., r-4-2-0"
+                        description="Unique lowercase identifier using only letters, numbers, and dashes"
+                        {...form.getInputProps('identifier')}
                         style={{ flex: 1 }}
                     />
-                    <Box>
-                        <Text size="sm" fw={500} mb={7}>
-                            Is testing image
-                        </Text>
-                        <Checkbox {...form.getInputProps('isTesting', { type: 'checkbox' })} />
-                        <Text c="dimmed" size="sm">
-                            Only admins can use testing images
-                        </Text>
-                    </Box>
+                    <Checkbox
+                        label="Is testing image"
+                        description="Only admins can use testing images"
+                        {...form.getInputProps('isTesting', { type: 'checkbox' })}
+                        mb={4}
+                    />
                 </Group>
+                <TextInput
+                    label="Name"
+                    placeholder="e.g., R 4.2.0 Code Environment"
+                    {...form.getInputProps('name')}
+                />
                 <TextInput
                     label="Command Line"
                     placeholder="Rscript %f"
@@ -148,9 +151,9 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             value={sampleDataFiles}
                             onChange={setSampleDataFiles}
                         />
-                        <Radio.Group label="File Format" {...form.getInputProps('sampleDataFormat')}>
+                        <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
                             <Flex gap="md" mt="xs">
-                                {Object.entries(SAMPLE_DATA_FORMATS).map(([value, label]) => (
+                                {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
                                     <Radio key={value} value={value} label={label} />
                                 ))}
                             </Flex>
