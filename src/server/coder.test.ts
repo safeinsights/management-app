@@ -274,6 +274,9 @@ describe('createUserAndWorkspace', () => {
                         name: 'TEST-ENV_DATA_PATH',
                         value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
                     },
+                    { name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
+                    { name: 'TEST-ENV_S3_BUCKET_PREFIX', value: 'code-env/test-org/env-123/sample-data' },
+                    { name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-east-1' },
                 ]),
             },
         ])
@@ -362,6 +365,12 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_WORK_GROUP', value: 'my-workgroup' })
         expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
+        expect(envVars).toContainEqual({
+            name: 'TEST-ENV_S3_BUCKET_PREFIX',
+            value: 'code-env/test-org/env-123/sample-data',
+        })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-west-2' })
     })
 
     it('should include DATABASE_URL env vars for postgres data source type', async () => {
@@ -448,6 +457,12 @@ describe('createUserAndWorkspace', () => {
             name: 'TEST-ENV_DATABASE_URL',
             value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
+        expect(envVars).toContainEqual({
+            name: 'TEST-ENV_S3_BUCKET_PREFIX',
+            value: 'code-env/test-org/env-123/sample-data',
+        })
+        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-east-1' })
     })
 
     it('should throw error when user creation fails', async () => {

@@ -4,9 +4,10 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
+    pathForSampleData,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
-import { completePathForSampleData, toAthenaDbName, toPgDbName } from '../aws'
+import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } from '../aws'
 import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
@@ -87,6 +88,17 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
 
     environment.push({ name: 'DATA_PATH', value: dataPath })
     environment.push({ name: `${prefix}_DATA_PATH`, value: dataPath })
+
+    const bucketName = s3BucketName()
+    const bucketPrefix = pathForSampleData({
+        orgSlug: codeEnv.slug,
+        codeEnvId: codeEnv.id,
+        sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+    })
+    const bucketRegion = process.env.AWS_REGION || 'us-east-1'
+    environment.push({ name: `${prefix}_S3_BUCKET_NAME`, value: bucketName })
+    environment.push({ name: `${prefix}_S3_BUCKET_PREFIX`, value: bucketPrefix })
+    environment.push({ name: `${prefix}_S3_BUCKET_REGION`, value: bucketRegion })
 
     if (codeEnv.dataSourceType === 'athena') {
         const dbName = toAthenaDbName(codeEnv.slug, codeEnv.identifier)
