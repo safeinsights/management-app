@@ -45,9 +45,8 @@ const codeEnvFieldsSchema = z.object({
     sampleDataPath: z
         .string()
         .max(250)
-        .regex(pathnameRegex, 'Must be a valid file path (e.g. data/sample.csv)')
-        .optional()
-        .or(z.literal('')),
+        .refine((val) => val === '' || pathnameRegex.test(val), 'Must be a valid file path (e.g. data/sample.csv)')
+        .optional(),
     dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
 })
 
