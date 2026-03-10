@@ -7,9 +7,12 @@ import {
     ListObjectsV2Command,
     S3Client,
 } from '@aws-sdk/client-s3'
+import { GlueClient, CreateDatabaseCommand, DeleteDatabaseCommand, type DatabaseInput } from '@aws-sdk/client-glue'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
+import { Signer } from '@aws-sdk/rds-signer'
+import PG from 'pg'
 import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import {
@@ -53,6 +56,89 @@ export const getS3BrowserClient = () =>
         endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
+
+let _glueClient: GlueClient | null = null
+const getGlueClient = () =>
+    _glueClient ||
+    (_glueClient = new GlueClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
+
+export const toDbName = (orgSlug: string, identifier: string) => `${orgSlug}_${identifier}`.replace(/-/g, '_')
+
+export const toAthenaDbName = toDbName
+export const toPgDbName = toDbName
+
+export async function createAthenaDatabase(dbName: string) {
+    const input: DatabaseInput = { Name: dbName }
+    try {
+        await getGlueClient().send(new CreateDatabaseCommand({ DatabaseInput: input }))
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AlreadyExistsException') return
+        throw err
+    }
+}
+
+export async function deleteAthenaDatabase(dbName: string) {
+    try {
+        await getGlueClient().send(new DeleteDatabaseCommand({ Name: dbName }))
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'EntityNotFoundException') return
+        throw err
+    }
+}
+
+async function connectToPgAdmin(): Promise<PG.Client> {
+    const hostPort = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
+    const [hostname, portStr] = hostPort.split(':')
+    const port = parseInt(portStr, 10)
+    const username = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_USER')
+
+    const signer = new Signer({
+        hostname,
+        port,
+        username,
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    })
+
+    const token = await signer.getAuthToken()
+    const client = new PG.Client({
+        host: hostname,
+        port,
+        user: username,
+        password: token,
+        database: 'postgres',
+        ssl: true,
+    })
+
+    await client.connect()
+    return client
+}
+
+export async function createPgDatabase(dbName: string) {
+    const client = await connectToPgAdmin()
+    try {
+        await client.query(`CREATE DATABASE "${dbName}"`)
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && err.code === '42P04') return
+        throw err
+    } finally {
+        await client.end()
+    }
+}
+
+export async function deletePgDatabase(dbName: string) {
+    const client = await connectToPgAdmin()
+    try {
+        await client.query(`DROP DATABASE "${dbName}"`)
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && err.code === '3D000') return
+        throw err
+    } finally {
+        await client.end()
+    }
+}
 
 export const s3BucketName = () => {
     if (!process.env.BUCKET_NAME) {

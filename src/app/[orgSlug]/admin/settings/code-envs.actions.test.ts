@@ -16,6 +16,10 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         deleteS3File: vi.fn().mockResolvedValue(undefined),
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
+        createAthenaDatabase: vi.fn().mockResolvedValue(undefined),
+        deleteAthenaDatabase: vi.fn().mockResolvedValue(undefined),
+        createPgDatabase: vi.fn().mockResolvedValue(undefined),
+        deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }
 })
 
@@ -311,6 +315,28 @@ describe('Code Environment Actions', () => {
 
         const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', testingImage.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
+    })
+
+    it('createOrgCodeEnvAction with athena does not call createAthenaDatabase in test env', async () => {
+        const { createAthenaDatabase } = await import('@/server/aws')
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Athena Env',
+                identifier: 'athena-env',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceType: 'athena',
+            }),
+        )
+
+        expect(createAthenaDatabase).not.toHaveBeenCalled()
     })
 
     it('createOrgCodeEnvAction creates a code environment with environment variables', async () => {

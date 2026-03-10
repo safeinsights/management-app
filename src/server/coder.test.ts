@@ -356,7 +356,7 @@ describe('createUserAndWorkspace', () => {
         )
 
         const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`
-        const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test-org_test-env?s3_location=${dataPath}`
+        const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test_org_test_env?s3_location=${dataPath}`
         expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: expectedDbUrl })
         expect(envVars).toContainEqual({ name: 'TEST-ENV_DATABASE_URL', value: expectedDbUrl })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
@@ -364,7 +364,7 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
     })
 
-    it('should include DATABASE_URL env vars for pg_backup data source type', async () => {
+    it('should include DATABASE_URL env vars for postgres data source type', async () => {
         const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
         const mockFetch = global.fetch as unknown as Mock
         mockFetch.mockImplementation((url: string) => {
@@ -419,7 +419,7 @@ describe('createUserAndWorkspace', () => {
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
             identifier: 'test-env',
-            dataSourceType: 'pg_backup',
+            dataSourceType: 'postgres',
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [] },
@@ -439,8 +439,14 @@ describe('createUserAndWorkspace', () => {
             requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
         )
 
-        expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: 'pg://pg-host.example.com:5432/test-org_test-env' })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_DATABASE_URL', value: 'pg://pg-host.example.com:5432/test-org_test-env' })
+        expect(envVars).toContainEqual({
+            name: 'DATABASE_URL',
+            value: 'pg://pg-host.example.com:5432/test_org_test_env',
+        })
+        expect(envVars).toContainEqual({
+            name: 'TEST-ENV_DATABASE_URL',
+            value: 'pg://pg-host.example.com:5432/test_org_test_env',
+        })
     })
 
     it('should throw error when user creation fails', async () => {

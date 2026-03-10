@@ -154,7 +154,7 @@ export type MinimalCodeEnvInfo = z.infer<typeof minimalCodeEnvInfoSchema>
 export const DATA_SOURCE_TYPES = {
     parquet: 'Parquet',
     avro: 'Avro',
-    pg_backup: 'Postgresql Backup',
+    postgres: 'PostgreSQL',
     csv: 'CSV',
     athena: 'Athena',
 } as const

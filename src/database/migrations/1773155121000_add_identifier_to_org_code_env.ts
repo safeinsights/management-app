@@ -23,10 +23,7 @@ export async function up(db: Kysely<never>): Promise<void> {
 export async function down(db: Kysely<never>): Promise<void> {
     await db.schema.alterTable('org_code_env').renameColumn('data_source_type', 'sample_data_format').execute()
 
-    await db.schema
-        .alterTable('org_code_env')
-        .dropConstraint('org_code_env_org_id_identifier_unique')
-        .execute()
+    await db.schema.alterTable('org_code_env').dropConstraint('org_code_env_org_id_identifier_unique').execute()
 
     await db.schema.alterTable('org_code_env').dropColumn('identifier').execute()
 }
