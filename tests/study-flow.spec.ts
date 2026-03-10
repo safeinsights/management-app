@@ -216,6 +216,28 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 3B')).toBeVisible()
     await expect(page.getByText('STEP 3C')).toBeVisible()
 
+    // Test View Proposal → ResearcherProposalView → Proceed to Step 3 round-trip
+    const viewProposalButton = page.getByRole('button', { name: /View Proposal/i })
+    await viewProposalButton.scrollIntoViewIfNeeded()
+    await expect(viewProposalButton).toBeVisible({ timeout: 10000 })
+    await viewProposalButton.click()
+
+    // Should land on /view?from=agreements and show ResearcherProposalView
+    await page.waitForURL(/\/view\?from=agreements$/, { timeout: 10000 })
+    await expect(page.getByText('STEP 2', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
+    await expect(page.getByText(studyTitle)).toBeVisible()
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+
+    // Should show "Proceed to Step 3" since we came from agreements
+    const proceedToStep3 = page.getByRole('button', { name: /Proceed to Step 3/i })
+    await expect(proceedToStep3).toBeVisible({ timeout: 10000 })
+    await proceedToStep3.click()
+
+    // Should navigate back to agreements
+    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+    await expect(page.getByText('STEP 3A')).toBeVisible({ timeout: 10000 })
+
     // Click through agreements to code upload
     const proceedButton = page.getByRole('button', { name: /Proceed to Step 4/i })
     await expect(proceedButton).toBeVisible({ timeout: 10000 })
@@ -546,6 +568,22 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible({ timeout: 15000 })
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+    })
+
+    await test.step('researcher views rejected study and sees proposal view', async () => {
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+        await viewLink.click()
+
+        // Should land on /view and see ResearcherProposalView
+        await page.waitForURL(/\/view$/, { timeout: 10000 })
+        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
+        await expect(page.getByText(studyTitle)).toBeVisible()
+        await expect(page.getByText(/Rejected on/)).toBeVisible()
+
+        // Should NOT show "Proceed to Step 3" (no agreementsHref for rejected studies)
+        await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
     })
 })
 
