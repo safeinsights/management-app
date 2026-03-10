@@ -74,7 +74,7 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByRole('button', { name: /Back to Study Details/ })).toBeInTheDocument()
     })
 
-    it('renders Previous button linking to study view for APPROVED researcher with no job activity', async () => {
+    it('renders View Proposal button linking to study view for APPROVED researcher with no job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -83,7 +83,7 @@ describe('StudyAgreementsRoute', () => {
         })
         renderWithProviders(page!)
 
-        const previousButton = screen.getByRole('button', { name: 'Previous' })
+        const previousButton = screen.getByRole('button', { name: 'View Proposal' })
         expect(previousButton).toBeInTheDocument()
     })
 
