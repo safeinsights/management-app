@@ -83,8 +83,8 @@ describe('StudyAgreementsRoute', () => {
         })
         renderWithProviders(page!)
 
-        const previousButton = screen.getByRole('button', { name: 'View Proposal' })
-        expect(previousButton).toBeInTheDocument()
+        const viewProposalButton = screen.getByRole('button', { name: 'View Proposal' })
+        expect(viewProposalButton).toBeInTheDocument()
     })
 
     it('redirects researcher when study is not APPROVED and has no job activity', async () => {
