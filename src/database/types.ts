@@ -210,6 +210,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyView {
+    id: Generated<string>
+    jobStatusAtView: StudyJobStatus | null
+    studyId: string
+    studyStatusAtView: StudyStatus | null
+    userId: string
+    viewedAt: Generated<Timestamp>
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -243,6 +252,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyView: StudyView
     user: User
     userPublicKey: UserPublicKey
 }

@@ -58,10 +58,13 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             gap="xs"
             w={WIDTH}
             pt={isMainDashboard ? 0 : 'md'}
-            ml={isMainDashboard ? -WIDTH : 0}
-            style={{ transition: 'margin 0.3s ease, padding 0.3s ease' }}
         >
-            <Square color="white" my="lg" href={Routes.dashboard} display={isMainDashboard ? undefined : 'none'}>
+            <Square
+                color="white"
+                my="lg"
+                href={Routes.dashboard}
+                display={isMainDashboard ? undefined : 'none'}
+            >
                 <SiBulbLogo width={24} />
             </Square>
             {orgs.map((org) => {

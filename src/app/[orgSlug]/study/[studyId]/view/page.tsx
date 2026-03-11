@@ -6,6 +6,7 @@ import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { actionResult } from '@/lib/utils'
 import { CodeOnlyView } from './code-only-view'
+import { StudyViewTracker } from '@/components/study/study-view-tracker'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -14,10 +15,18 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     const job = await latestJobForStudyOrNull(studyId)
 
-    if (job) return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} />
+    if (job) {
+        return (
+            <>
+                <StudyViewTracker studyId={studyId} />
+                <CodeOnlyView orgSlug={orgSlug} study={study} job={job} />
+            </>
+        )
+    }
 
     return (
         <Stack p="xl" gap="xl">
+            <StudyViewTracker studyId={studyId} />
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId,

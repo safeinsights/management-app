@@ -10,6 +10,113 @@ import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { Action, z } from './action'
+import { sql } from 'kysely'
+
+// Statuses that trigger attention for researchers (study owner)
+const LAB_ATTENTION_STUDY_STATUSES = ['APPROVED', 'REJECTED'] as const
+const LAB_ATTENTION_JOB_STATUSES = [
+    'CODE-APPROVED',
+    'CODE-REJECTED',
+    'JOB-ERRORED',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+] as const
+
+// Statuses that trigger attention for data org reviewers
+const ENCLAVE_ATTENTION_STUDY_STATUSES = ['PENDING-REVIEW'] as const
+const ENCLAVE_ATTENTION_JOB_STATUSES = ['CODE-SUBMITTED', 'JOB-ERRORED', 'RUN-COMPLETE'] as const
+
+type StudyWithJobChanges = {
+    id: string
+    status: string
+    researcherId: string
+    jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
+}
+
+type ViewRecord = {
+    studyId: string
+    viewedAt: Date
+}
+
+function computeNeedsAttention(
+    study: StudyWithJobChanges,
+    audience: 'researcher' | 'reviewer',
+    viewRecord: ViewRecord | undefined,
+    latestStatusChangeAt: Date | undefined,
+): boolean {
+    const latestJobStatus = study.jobStatusChanges[0]?.status
+
+    const isAttentionStatus =
+        audience === 'researcher'
+            ? (LAB_ATTENTION_STUDY_STATUSES as readonly string[]).includes(study.status) ||
+              (latestJobStatus && (LAB_ATTENTION_JOB_STATUSES as readonly string[]).includes(latestJobStatus))
+            : (ENCLAVE_ATTENTION_STUDY_STATUSES as readonly string[]).includes(study.status) ||
+              (latestJobStatus && (ENCLAVE_ATTENTION_JOB_STATUSES as readonly string[]).includes(latestJobStatus))
+
+    if (!isAttentionStatus) return false
+
+    // If never viewed, it needs attention
+    if (!viewRecord) return true
+
+    // If viewed before the latest status change, it needs attention again
+    if (latestStatusChangeAt && viewRecord.viewedAt < latestStatusChangeAt) return true
+
+    return false
+}
+
+async function fetchViewRecords(
+    db: DBExecutor,
+    studyIds: string[],
+    audience: 'researcher' | 'reviewer',
+    userId: string,
+    enclaveOrgId?: string,
+): Promise<ViewRecord[]> {
+    try {
+        if (audience === 'reviewer' && enclaveOrgId) {
+            return await db
+                .selectFrom('studyView as sv')
+                .innerJoin('orgUser as ou', (join) =>
+                    join.onRef('ou.userId', '=', 'sv.userId').on('ou.orgId', '=', enclaveOrgId),
+                )
+                .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
+                .where('sv.studyId', 'in', studyIds)
+                .groupBy('sv.studyId')
+                .execute()
+        }
+        return await db
+            .selectFrom('studyView')
+            .select(['studyView.studyId', 'studyView.viewedAt'])
+            .where('studyView.studyId', 'in', studyIds)
+            .where('studyView.userId', '=', userId)
+            .execute()
+    } catch {
+        // study_view table may not exist yet if migration hasn't run
+        return []
+    }
+}
+
+async function enrichWithNeedsAttention<T extends StudyWithJobChanges & { latestStatusChangedAt?: Date | null }>(
+    db: DBExecutor,
+    studies: T[],
+    audience: 'researcher' | 'reviewer',
+    userId: string,
+    enclaveOrgId?: string,
+): Promise<(T & { needsAttention: boolean })[]> {
+    if (studies.length === 0) return []
+    const studyIds = studies.map((s) => s.id)
+    const viewRecords = await fetchViewRecords(db, studyIds, audience, userId, enclaveOrgId)
+    const viewMap = new Map(viewRecords.map((v) => [v.studyId, v]))
+
+    return studies.map((study) => ({
+        ...study,
+        needsAttention: computeNeedsAttention(
+            study,
+            audience,
+            viewMap.get(study.id),
+            study.latestStatusChangedAt ?? undefined,
+        ),
+    }))
+}
 
 // NOT exported, for internal use by actions in this file
 function fetchStudyQuery(db: DBExecutor) {
@@ -36,6 +143,14 @@ function fetchStudyQuery(db: DBExecutor) {
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc'),
             ).as('jobStatusChanges'),
+            // Timestamp of the latest status change (for view-tracking comparison)
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.createdAt')
+                .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .as('latestStatusChangedAt'),
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
@@ -81,51 +196,56 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .requireAbilityTo('view', 'OrgStudies')
     .handler(async ({ db, orgId, orgType, session }) => {
         const userId = session.user.id
+        const audience = orgType === 'enclave' ? 'reviewer' : 'researcher'
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            // Reviewer dashboards should not see draft studies
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
         if (orgType === 'lab') {
-            // Lab dashboards: show non-drafts OR user's own drafts
             query = query
                 .where('study.submittedByOrgId', '=', orgId)
                 .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
         }
-        return query
+        const studies = await query
             .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select(['reviewerOrg.name as reviewingEnclaveName'])
             .select(['submittingOrg.name as submittingLabName'])
             .execute()
+        return enrichWithNeedsAttention(db, studies, audience, userId, orgType === 'enclave' ? orgId : undefined)
     })
 
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
         const userId = session.user.id
-        return fetchStudyQuery(db)
-            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)])) // Only show: non-draft studies OR drafts where user is the researcher
+        const studies = await fetchStudyQuery(db)
+            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select(['org.name as orgName', 'org.slug as orgSlug', 'submittingOrg.slug as submittedByOrgSlug'])
             .execute()
+        return enrichWithNeedsAttention(db, studies, 'researcher', userId)
     })
 
 export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
+        const userId = session.user.id
         const userOrgs = Object.values(session.orgs)
         const reviewerOrgIds = userOrgs.filter((org) => org.type === 'enclave').map((org) => org.id)
         if (reviewerOrgIds.length === 0) {
             return []
         }
-        return fetchStudyQuery(db)
+        const studies = await fetchStudyQuery(db)
             .where('study.orgId', 'in', reviewerOrgIds)
-            .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
+            .where('study.status', '!=', 'DRAFT')
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
+        // For user-scope reviewer queries with multiple enclaves, we pass undefined for enclaveOrgId
+        // which means view tracking falls back to per-user check
+        return enrichWithNeedsAttention(db, studies, 'reviewer', userId)
     })
 
 export const getStudyAction = new Action('getStudyAction')
@@ -297,6 +417,56 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
             onStudyCodeRejected({ studyId, userId })
         } else {
             onStudyRejected({ studyId, userId })
+        }
+    })
+
+export const markStudyAsViewedAction = new Action('markStudyAsViewedAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ db, session, params: { studyId } }) => {
+        try {
+            const study = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', studyId)
+                .executeTakeFirst()
+
+            const latestJobStatus = await db
+                .selectFrom('studyJob')
+                .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+                .select(['jobStatusChange.status'])
+                .where('studyJob.studyId', '=', studyId)
+                .orderBy('studyJob.createdAt', 'desc')
+                .orderBy('jobStatusChange.createdAt', 'desc')
+                .limit(1)
+                .executeTakeFirst()
+
+            await db
+                .insertInto('studyView')
+                .values({
+                    studyId,
+                    userId: session.user.id,
+                    studyStatusAtView: study?.status ?? null,
+                    jobStatusAtView: latestJobStatus?.status ?? null,
+                })
+                .onConflict((oc) =>
+                    oc.columns(['studyId', 'userId']).doUpdateSet({
+                        studyStatusAtView: study?.status ?? null,
+                        jobStatusAtView: latestJobStatus?.status ?? null,
+                        viewedAt: sql`now()`,
+                    }),
+                )
+                .execute()
+        } catch {
+            // study_view table may not exist yet if migration hasn't run
         }
     })
 

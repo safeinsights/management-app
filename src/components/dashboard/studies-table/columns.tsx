@@ -48,6 +48,7 @@ export function TableHeader({ audience, scope }: { audience: Audience; scope: Sc
     return (
         <TableThead>
             <TableTr>
+                <TableTh w={16} p={0} />
                 {columns.map((col, index) => (
                     <TableTh key={col.id} fw={600} ta={index === columns.length - 1 ? 'center' : undefined}>
                         {col.header}

@@ -8,6 +8,7 @@ import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
+import { StudyViewTracker } from '@/components/study/study-view-tracker'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -43,16 +44,31 @@ export default async function StudyReviewPage(props: {
         // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
-                <ProposalReviewView
-                    orgSlug={orgSlug}
-                    study={study}
-                    agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
-                />
+                <>
+                    <StudyViewTracker studyId={studyId} />
+                    <ProposalReviewView
+                        orgSlug={orgSlug}
+                        study={study}
+                        agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
+                    />
+                </>
             )
         }
 
-        if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
-        return <ProposalReviewView orgSlug={orgSlug} study={study} />
+        if (codeSubmitted) {
+            return (
+                <>
+                    <StudyViewTracker studyId={studyId} />
+                    <CodeReviewView orgSlug={orgSlug} study={study} />
+                </>
+            )
+        }
+        return (
+            <>
+                <StudyViewTracker studyId={studyId} />
+                <ProposalReviewView orgSlug={orgSlug} study={study} />
+            </>
+        )
     }
 
     return <AlertNotFound title="Study was not found" message="no such study exists" />

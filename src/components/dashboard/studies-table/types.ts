@@ -13,6 +13,7 @@ export type StudyRow = {
     reviewerId: string | null
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
+    needsAttention?: boolean
     // Org actions return these
     reviewingEnclaveName?: string
     submittingLabName?: string
