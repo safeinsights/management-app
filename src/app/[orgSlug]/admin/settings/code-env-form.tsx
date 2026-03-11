@@ -128,6 +128,39 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 <Divider />
                 <Box>
                     <Title order={5} mb={4}>
+                        Environment Variables
+                    </Title>
+                    <Text size="xs" c="dimmed" mb="sm">
+                        Define environment variables available to the container
+                    </Text>
+
+                    <Stack gap="xs">
+                        {form.values.settings.environment.map((envVar, index) => (
+                            <EnvVarLine
+                                key={index}
+                                envVar={envVar}
+                                onNameChange={(name) => updateEnvVarName(index, name)}
+                                onValueChange={(value) => updateEnvVarValue(index, value)}
+                                onRemove={() => removeEnvVar(index)}
+                            />
+                        ))}
+
+                        <Group gap="xs" align="flex-start">
+                            <TextInput
+                                {...form.getInputProps('newEnvKey')}
+                                placeholder="Variable name"
+                                style={{ flex: 1 }}
+                            />
+                            <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
+                            <ActionIcon color="blue" variant="subtle" onClick={addEnvVar} mt={4}>
+                                <PlusCircleIcon size={16} />
+                            </ActionIcon>
+                        </Group>
+                    </Stack>
+                </Box>
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
                         Sample Data
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
@@ -162,39 +195,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     </Stack>
                 </Box>
 
-                <Divider />
-                <Box>
-                    <Title order={5} mb={4}>
-                        Environment Variables
-                    </Title>
-                    <Text size="xs" c="dimmed" mb="sm">
-                        Define environment variables available to the container
-                    </Text>
 
-                    <Stack gap="xs">
-                        {form.values.settings.environment.map((envVar, index) => (
-                            <EnvVarLine
-                                key={index}
-                                envVar={envVar}
-                                onNameChange={(name) => updateEnvVarName(index, name)}
-                                onValueChange={(value) => updateEnvVarValue(index, value)}
-                                onRemove={() => removeEnvVar(index)}
-                            />
-                        ))}
-
-                        <Group gap="xs" align="flex-start">
-                            <TextInput
-                                {...form.getInputProps('newEnvKey')}
-                                placeholder="Variable name"
-                                style={{ flex: 1 }}
-                            />
-                            <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
-                            <ActionIcon color="blue" variant="subtle" onClick={addEnvVar} mt={4}>
-                                <PlusCircleIcon size={16} />
-                            </ActionIcon>
-                        </Group>
-                    </Stack>
-                </Box>
 
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
