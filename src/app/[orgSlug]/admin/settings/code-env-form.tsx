@@ -84,7 +84,12 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         mb={4}
                     />
                 </Group>
-                <TextInput label="Name" withAsterisk placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
+                <TextInput
+                    label="Name"
+                    withAsterisk
+                    placeholder="e.g., R 4.2.0 Code Environment"
+                    {...form.getInputProps('name')}
+                />
                 <TextInput
                     label="Command Line"
                     withAsterisk
@@ -194,8 +199,6 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         </Radio.Group>
                     </Stack>
                 </Box>
-
-
 
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
