@@ -104,7 +104,7 @@ test.describe('Organization Admin', () => {
 
         // Fill in code environment details
         await page.getByLabel(/identifier/i).fill(codeEnvIdentifier)
-        await page.getByLabel(/^name$/i).fill(codeEnvName)
+        await page.getByRole('textbox', { name: /^name$/i }).fill(codeEnvName)
         await page.getByLabel(/command line/i).fill('Rscript %f')
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
 
@@ -137,7 +137,7 @@ test.describe('Organization Admin', () => {
 
         // Edit a text field to verify the update flow works
         const updatedName = `${codeEnvName} Updated`
-        await editDialog.getByLabel(/^name$/i).fill(updatedName)
+        await editDialog.getByRole('textbox', { name: /^name$/i }).fill(updatedName)
 
         // Submit the update
         await editDialog.getByRole('button', { name: /update code environment/i }).click()

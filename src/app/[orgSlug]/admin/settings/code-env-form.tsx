@@ -71,6 +71,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 <Group align="flex-end" wrap="nowrap">
                     <TextInput
                         label="Identifier"
+                        withAsterisk
                         placeholder="e.g., r-4-2-0"
                         description="Unique lowercase identifier using only letters, numbers, and dashes"
                         {...form.getInputProps('identifier')}
@@ -83,9 +84,10 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         mb={4}
                     />
                 </Group>
-                <TextInput label="Name" placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
+                <TextInput label="Name" withAsterisk placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
                 <TextInput
                     label="Command Line"
+                    withAsterisk
                     placeholder="Rscript %f"
                     description="Command used to execute scripts.  %f will be subsituted with main code file"
                     {...form.getInputProps('cmdLine')}
@@ -93,6 +95,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
 
                 <Select
                     label="Language"
+                    withAsterisk
                     placeholder="Select language"
                     data={[
                         { value: 'R', label: 'R' },
@@ -102,11 +105,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 />
                 <TextInput
                     label="URL to code environment"
+                    withAsterisk
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
                 <FileInput
                     label="Starter Code"
+                    withAsterisk={!isEditMode}
                     description={
                         isEditMode
                             ? 'Upload a new file to replace the existing starter code (optional)'
