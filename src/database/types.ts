@@ -126,6 +126,16 @@ export interface OrgCodeEnv {
     url: string
 }
 
+export interface OrgDataSource {
+    codeEnvId: string
+    createdAt: Generated<Timestamp>
+    description: string | null
+    documentationUrl: string | null
+    id: Generated<string>
+    name: string
+    orgId: string
+}
+
 export interface OrgUser {
     id: Generated<string>
     isAdmin: boolean
@@ -237,6 +247,7 @@ export interface DB {
     jobStatusChange: JobStatusChange
     org: Org
     orgCodeEnv: OrgCodeEnv
+    orgDataSource: OrgDataSource
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition

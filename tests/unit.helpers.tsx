@@ -626,6 +626,28 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .executeTakeFirstOrThrow()
 }
 
+export type InsertTestDataSourceOptions = {
+    orgId: string
+    codeEnvId: string
+    name?: string
+    description?: string | null
+    documentationUrl?: string | null
+}
+
+export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
+    return await db
+        .insertInto('orgDataSource')
+        .values({
+            orgId: options.orgId,
+            codeEnvId: options.codeEnvId,
+            name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
+            description: options.description ?? null,
+            documentationUrl: options.documentationUrl ?? null,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
 // Re-export actionResult for backwards compatibility in tests
 export { actionResult } from '@/lib/utils'
 

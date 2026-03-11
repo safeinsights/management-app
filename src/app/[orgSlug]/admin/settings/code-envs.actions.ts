@@ -345,6 +345,18 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             }
         }
 
+        const linkedDataSources = await db
+            .selectFrom('orgDataSource')
+            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .where('codeEnvId', '=', codeEnv.id)
+            .executeTakeFirstOrThrow()
+
+        if (Number(linkedDataSources.count) > 0) {
+            throw new Error(
+                'Cannot delete this code environment because it has linked data sources. Remove or reassign them first.',
+            )
+        }
+
         if (!SIMULATE_CODE_BUILD) {
             if (codeEnv.dataSourceType === 'athena') {
                 await deleteAthenaDatabase(toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier))
