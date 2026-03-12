@@ -1,8 +1,10 @@
 'use client'
 
-import { ActionIcon, Box, Paper, Portal, TextInput } from '@mantine/core'
+import { ActionIcon, Box, Paper, Portal, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
+    CheckIcon,
+    XIcon,
     TextBIcon,
     TextItalicIcon,
     TextUnderlineIcon,
@@ -20,6 +22,7 @@ import {
     TextFormatType,
 } from 'lexical'
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
+import { isValidUrl } from './config'
 import {
     INSERT_ORDERED_LIST_COMMAND,
     INSERT_UNORDERED_LIST_COMMAND,
@@ -57,8 +60,9 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     }, [])
 
     const submitLink = useCallback(() => {
-        if (url.trim()) {
-            editor.dispatchCommand(TOGGLE_LINK_COMMAND, url.trim())
+        const trimmed = url.trim()
+        if (trimmed && isValidUrl(trimmed)) {
+            editor.dispatchCommand(TOGGLE_LINK_COMMAND, trimmed)
         } else {
             editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
         }
@@ -246,6 +250,16 @@ function LinkInput({
                 placeholder="https://"
                 style={{ width: 200 }}
             />
+            <Tooltip label="Apply">
+                <ActionIcon size="sm" variant="subtle" color="green" onClick={onSubmit} aria-label="Apply link">
+                    <CheckIcon size={14} />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Cancel">
+                <ActionIcon size="sm" variant="subtle" color="red" onClick={onCancel} aria-label="Cancel link">
+                    <XIcon size={14} />
+                </ActionIcon>
+            </Tooltip>
         </Box>
     )
 }

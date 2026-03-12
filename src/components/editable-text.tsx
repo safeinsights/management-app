@@ -16,7 +16,7 @@ import { InputError } from '@/components/errors'
 import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { FloatingToolbar } from './editable-text/toolbar'
-import { lexicalTheme, lexicalNodes } from './editable-text/config'
+import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
 
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
@@ -167,7 +167,7 @@ export const EditableText: FC<EditableTextProps> = ({
                     />
                     <HistoryPlugin />
                     <ListPlugin />
-                    <LinkPlugin />
+                    <LinkPlugin validateUrl={isValidUrl} />
                     <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     {isEditable && <FloatingToolbar />}
