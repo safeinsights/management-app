@@ -59,6 +59,10 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     // Fill the study title
     await page.getByLabel('Study Title').fill(studyTitle)
 
+    // Select a dataset
+    await page.getByPlaceholder('Select dataset(s) of interest').click()
+    await page.getByRole('option').first().click()
+
     // Fill required lexical text fields
     await fillLexicalField(page, 'Research question(s)', 'What is the impact of highlighting on student outcomes?')
     await fillLexicalField(page, 'Project summary', 'We analyze archival data to study highlighting behavior.')

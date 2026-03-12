@@ -147,6 +147,14 @@ export const studyInfoForStudyId = async (studyId: string) => {
         .executeTakeFirst()
 }
 
+export const getDataSourcesForOrg = async (orgId: string) => {
+    return Action.db
+        .selectFrom('orgDataSource')
+        .select(['orgDataSource.id', 'orgDataSource.name'])
+        .where('orgDataSource.orgId', '=', orgId)
+        .execute()
+}
+
 export const getUsersForOrgId = async (orgId: string) => {
     return Action.db
         .selectFrom('user')

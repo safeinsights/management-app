@@ -112,7 +112,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                         </Box>
 
                         <Box>
-                            <FormFieldLabel label="Dataset(s) of interest" inputId="datasets" />
+                            <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                             <Text size="sm" c="dimmed" mb="xs">
                                 Select one or more datasets relevant to your study.
                             </Text>

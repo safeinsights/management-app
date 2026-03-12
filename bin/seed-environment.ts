@@ -348,6 +348,25 @@ async function setupOrganizations() {
         } else {
             console.log(`📦 Code environments already exist for openstax`)
         }
+
+        const existingDataSources = await db.selectFrom('orgDataSource').where('orgId', '=', org.id).execute()
+        if (existingDataSources.length === 0) {
+            const codeEnv = await db
+                .selectFrom('orgCodeEnv')
+                .select('id')
+                .where('orgId', '=', org.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('orgDataSource')
+                .values([
+                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Student Activity Logs' },
+                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Course Enrollment Data' },
+                ])
+                .execute()
+            console.log(`📊 Created data sources for openstax`)
+        } else {
+            console.log(`📊 Data sources already exist for openstax`)
+        }
     }
 
     let singleLangOrg = await db

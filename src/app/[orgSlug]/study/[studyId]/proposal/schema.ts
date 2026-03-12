@@ -31,7 +31,7 @@ export const proposalFormSchema = z.object({
         .string()
         .min(1, { message: REQUIRED_FIELD_ERROR })
         .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-    datasets: z.array(z.string()).optional().default([]),
+    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
     researchQuestions: z
         .string()
         .refine((val) => extractTextFromLexical(val).trim().length > 0, {
