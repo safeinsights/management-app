@@ -1,4 +1,4 @@
-import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { db, type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -159,8 +159,10 @@ export const getUsersForOrgId = async (orgId: string) => {
 
 // this is called primarily by the mail functions to get study information
 // some of these functions are called by API, which lacks a user, do not use siUser inside this
+// Uses global db (not Action.db) because mail functions call this from after() callbacks
+// where the action transaction is already committed.
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
-    const res = await Action.db
+    const res = await db
         .selectFrom('study')
         .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
         .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
