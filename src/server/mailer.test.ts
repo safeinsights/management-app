@@ -42,9 +42,10 @@ describe('mailgun email functions', () => {
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
+                    orgName: org.name,
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining(`/${org.slug}/dashboard`),
                 }),
             }),
         )
@@ -85,7 +86,8 @@ describe('mailgun email functions', () => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    submittedTo: org.name,
+                    orgName: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
@@ -105,8 +107,8 @@ describe('mailgun email functions', () => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    studyURL: expect.stringContaining(`/researcher/study/${study.id}/review`),
+                    orgName: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
