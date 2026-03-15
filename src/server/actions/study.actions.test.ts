@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -21,6 +21,7 @@ import {
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
+    onStudyCodeApproved: vi.fn(),
     onStudyCodeRejected: vi.fn(),
     onStudyRejected: vi.fn(),
 }))
@@ -89,6 +90,22 @@ describe('Study Actions', () => {
 
         // Check that onStudyApproved was only called once
         expect(onStudyApproved).toHaveBeenCalledOnce()
+    })
+
+    it('sends code-approved event for previously approved study in pending review', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SCANNED',
+        })
+        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+        expect(onStudyCodeApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        expect(onStudyApproved).not.toHaveBeenCalled()
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
