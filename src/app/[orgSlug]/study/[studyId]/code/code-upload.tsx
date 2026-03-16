@@ -88,7 +88,7 @@ export function CodeUploadPage({
     }
 
     if (codeUploadViewMode === 'ide-review') {
-        return <StudyCodeFromIDE studyId={studyId} studyOrgSlug={orgSlug} />
+        return <StudyCodeFromIDE studyId={studyId} studyOrgSlug={orgSlug} previousHref={previousHref} />
     }
 
     // Show review mode if files are selected

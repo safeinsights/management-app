@@ -1,9 +1,11 @@
 'use client'
 
+import type { Route } from 'next'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
-import { Box, Button, Group, Paper, Stack, Text } from '@mantine/core'
+import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ButtonLink } from '@/components/links'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
 import { OpenStaxOnly } from '@/components/openstax-only'
@@ -11,9 +13,10 @@ import { OpenStaxOnly } from '@/components/openstax-only'
 interface StudyCodeFromIDEProps {
     studyId: string
     studyOrgSlug: string
+    previousHref: Route
 }
 
-export const StudyCodeFromIDE = ({ studyId, studyOrgSlug }: StudyCodeFromIDEProps) => {
+export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref }: StudyCodeFromIDEProps) => {
     const ide = useIDEFiles({ studyId })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
@@ -58,6 +61,11 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug }: StudyCodeFromIDEProp
     return (
         <>
             <Paper p="xl">
+                <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                    STEP 4 of 4
+                </Text>
+                <Title order={4}>Study code</Title>
+                <Divider my="sm" mt="sm" mb="md" />
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files from IDE</Text>
                     <OpenStaxOnly orgSlug={studyOrgSlug}>
@@ -68,19 +76,23 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug }: StudyCodeFromIDEProp
                 {body}
             </Paper>
 
-            <Group justify="space-between">
-                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={ide.goBack}>
-                    Back to upload
-                </Button>
-
-                <Button
-                    variant="primary"
-                    disabled={!ide.canSubmit}
-                    loading={ide.isDirectSubmitting}
-                    onClick={ide.submitDirectly}
-                >
-                    Submit code
-                </Button>
+            <Group mt="xxl" justify="space-between" w="100%">
+                <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
+                    Previous
+                </ButtonLink>
+                <Group>
+                    <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={ide.goBack}>
+                        Back to upload
+                    </Button>
+                    <Button
+                        variant="primary"
+                        disabled={!ide.canSubmit}
+                        loading={ide.isDirectSubmitting}
+                        onClick={ide.submitDirectly}
+                    >
+                        Submit code
+                    </Button>
+                </Group>
             </Group>
         </>
     )

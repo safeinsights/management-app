@@ -100,10 +100,10 @@ describe('CodeUploadPage', () => {
         const launchButton = await screen.findByText('Launch IDE')
         await user.click(launchButton)
 
-        // Upload chrome replaced by IDE review
+        // IDE review shows Step 4 chrome and file list
         await waitFor(() => {
-            expect(screen.queryByText('STEP 4 of 4')).not.toBeInTheDocument()
-            expect(screen.queryByText('Study code')).not.toBeInTheDocument()
+            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
+            expect(screen.getByText('Study code')).toBeInTheDocument()
             expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
             expect(screen.getByText('main.r')).toBeInTheDocument()
         })
