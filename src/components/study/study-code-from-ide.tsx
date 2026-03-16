@@ -2,7 +2,7 @@
 
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
-import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Paper, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
@@ -10,12 +10,11 @@ import { OpenStaxOnly } from '@/components/openstax-only'
 
 interface StudyCodeFromIDEProps {
     studyId: string
-    orgSlug: string
     studyOrgSlug: string
 }
 
-export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFromIDEProps) => {
-    const ide = useIDEFiles({ studyId, orgSlug })
+export const StudyCodeFromIDE = ({ studyId, studyOrgSlug }: StudyCodeFromIDEProps) => {
+    const ide = useIDEFiles({ studyId })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
     let launchButton = (
@@ -58,15 +57,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
 
     return (
         <>
-            <Title order={1}>Select files to submit</Title>
-
             <Paper p="xl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 4 of 4
-                </Text>
-                <Title order={4}>Study code</Title>
-                <Divider my="sm" mt="sm" mb="md" />
-
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files from IDE</Text>
                     <OpenStaxOnly orgSlug={studyOrgSlug}>

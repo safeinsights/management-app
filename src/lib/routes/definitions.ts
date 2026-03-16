@@ -97,10 +97,6 @@ export const Routes = {
 
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
-    studyUpload: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/upload`, StudyParams),
-
-    studySelectFiles: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/select-files`, StudyParams),
-
     studyView: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view`, StudyParams),
 
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),

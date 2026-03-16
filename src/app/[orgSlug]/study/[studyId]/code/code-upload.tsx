@@ -2,24 +2,22 @@
 
 import { useEffect } from 'react'
 import type { Route } from 'next'
-import { useRouter } from 'next/navigation'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
 import { ButtonLink } from '@/components/links'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
-import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
 import { useStudyRequest } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
+import { StudyCodeFromIDE } from '@/components/study/study-code-from-ide'
 import { CodeUploadModal } from './code-upload-modal'
 import { CodeFilesReview } from './code-files-review'
 
 interface CodeUploadPageProps {
     studyId: string
     orgSlug: string
-    submittingOrgSlug: string
     language: Language
     existingMainFile?: string | null
     existingAdditionalFiles?: string[]
@@ -29,13 +27,11 @@ interface CodeUploadPageProps {
 export function CodeUploadPage({
     studyId,
     orgSlug,
-    submittingOrgSlug,
     language,
     existingMainFile,
     existingAdditionalFiles,
     previousHref,
 }: CodeUploadPageProps) {
-    const router = useRouter()
     const theme = useMantineTheme()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
@@ -61,7 +57,7 @@ export function CodeUploadPage({
     } = useWorkspaceLauncher({
         studyId,
         onSuccess: () => {
-            router.push(Routes.studySelectFiles({ orgSlug: submittingOrgSlug, studyId }))
+            setCodeUploadViewMode('ide-review')
         },
     })
 
@@ -89,6 +85,10 @@ export function CodeUploadPage({
     const handleFilesConfirmed = () => {
         setCodeUploadViewMode('review')
         closeModal()
+    }
+
+    if (codeUploadViewMode === 'ide-review') {
+        return <StudyCodeFromIDE studyId={studyId} studyOrgSlug={orgSlug} />
     }
 
     // Show review mode if files are selected

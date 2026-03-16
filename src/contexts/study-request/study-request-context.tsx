@@ -45,7 +45,7 @@ export function StudyRequestProvider({
     const [studyId, setStudyId] = useState<string | null>(initialStudyId ?? null)
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
-    const [codeUploadViewMode, setCodeUploadViewMode] = useState<'upload' | 'review'>('upload')
+    const [codeUploadViewMode, setCodeUploadViewMode] = useState<'upload' | 'review' | 'ide-review'>('upload')
 
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',

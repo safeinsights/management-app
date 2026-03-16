@@ -39,7 +39,7 @@ export interface StudyRequestContextValue {
     codeFiles: CodeFileState
     codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'
-    codeUploadViewMode: 'upload' | 'review'
+    codeUploadViewMode: 'upload' | 'review' | 'ide-review'
     documentFiles: DocumentFileState
     mainFileName: string | null
     additionalFileNames: string[]
@@ -51,7 +51,7 @@ export interface StudyRequestContextValue {
     setMainCodeFile: (fileName: string) => void
     removeCodeFile: (fileName: string) => void
     clearCodeFiles: () => void
-    setCodeUploadViewMode: (mode: 'upload' | 'review') => void
+    setCodeUploadViewMode: (mode: 'upload' | 'review' | 'ide-review') => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
     setExistingDocuments: (docs: {
         description?: string | null
