@@ -83,7 +83,7 @@ describe('NavbarOrgSquares', () => {
 
         it('shows badge when eventCount is a bigint from SQL', () => {
             mockPathname('/dashboard')
-            const orgs = [makeOrg({ eventCount: 5n as unknown as number })]
+            const orgs = [makeOrg({ eventCount: BigInt(5) as unknown as number })]
 
             renderWithProviders(<NavbarOrgSquares isMainDashboard={true} orgs={orgs} focusedOrgSlug={null} />)
 
@@ -92,7 +92,7 @@ describe('NavbarOrgSquares', () => {
 
         it('does not show badge when eventCount is bigint 0n from SQL', () => {
             mockPathname('/dashboard')
-            const orgs = [makeOrg({ eventCount: 0n as unknown as number })]
+            const orgs = [makeOrg({ eventCount: BigInt(0) as unknown as number })]
 
             renderWithProviders(<NavbarOrgSquares isMainDashboard={true} orgs={orgs} focusedOrgSlug={null} />)
 
