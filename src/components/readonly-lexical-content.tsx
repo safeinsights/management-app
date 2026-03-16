@@ -4,20 +4,14 @@ import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { lexicalTheme, lexicalNodes } from '@/components/editable-text/config'
 import logger from '@/lib/logger'
-
-const theme = {
-    text: {
-        bold: 'editable-text-bold',
-        italic: 'editable-text-italic',
-        underline: 'editable-text-underline',
-    },
-}
 
 export function ReadOnlyLexicalContent({ value }: { value: string }) {
     const initialConfig = {
         namespace: 'ReadOnlyLexicalContent',
-        theme,
+        theme: lexicalTheme,
+        nodes: lexicalNodes,
         editable: false,
         editorState: value,
         onError: (error: Error) => {

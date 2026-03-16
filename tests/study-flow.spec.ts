@@ -333,7 +333,10 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     await expect(approveButton).toBeEnabled({ timeout: 15000 })
     await approveButton.click()
 
-    // Verify approval shows up
+    // Wait for mutation to complete and redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
+
+    // Full-page reload clears Router Cache so study details re-fetches from DB
     await goto(page, '/openstax/dashboard')
     await viewStudyDetails(page, studyTitle)
     await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })

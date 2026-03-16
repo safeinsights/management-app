@@ -6,6 +6,8 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { ListPlugin } from '@lexical/react/LexicalListPlugin'
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useEffect, useState } from 'react'
@@ -14,6 +16,7 @@ import { InputError } from '@/components/errors'
 import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { FloatingToolbar } from './editable-text/toolbar'
+import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
 
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
@@ -48,14 +51,6 @@ export interface EditableTextProps {
     onWordCount?: (count: number) => void
 }
 
-const theme = {
-    text: {
-        bold: 'editable-text-bold',
-        italic: 'editable-text-italic',
-        underline: 'editable-text-underline',
-    },
-}
-
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
     let editorState: SerializedEditorState | undefined
     if (value) {
@@ -68,7 +63,8 @@ function createInitialConfig(value: string | undefined, disabled: boolean, readO
 
     return {
         namespace: 'EditableText',
-        theme,
+        theme: lexicalTheme,
+        nodes: lexicalNodes,
         editable: !disabled && !readOnly,
         editorState: editorState ? JSON.stringify(editorState) : undefined,
         onError: (error: Error) => {
@@ -170,6 +166,8 @@ export const EditableText: FC<EditableTextProps> = ({
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin />
+                    <ListPlugin />
+                    <LinkPlugin validateUrl={isValidUrl} />
                     <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     {isEditable && <FloatingToolbar />}
