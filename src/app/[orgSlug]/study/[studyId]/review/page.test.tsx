@@ -48,10 +48,11 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({}),
         })
-        expect(page?.type).toBe(CodeReviewView)
+        const children = page?.props.children
+        expect(children[1].type).toBe(CodeReviewView)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        renderWithProviders(await CodeReviewView(page!.props as Parameters<typeof CodeReviewView>[0]))
+        renderWithProviders(await CodeReviewView(children[1].props as Parameters<typeof CodeReviewView>[0]))
 
         expect(screen.getByText('Study Code')).toBeInTheDocument()
         expect(screen.getByText('Study Status')).toBeInTheDocument()
@@ -74,8 +75,9 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
-        expect(page?.type).toBe(ProposalReviewView)
-        expect(page?.props.agreementsHref).toContain('/agreements')
+        const children = page?.props.children
+        expect(children[1].type).toBe(ProposalReviewView)
+        expect(children[1].props.agreementsHref).toContain('/agreements')
     })
 
     it('renders ProposalReviewView for enclave without code', async () => {
