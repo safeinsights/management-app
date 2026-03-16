@@ -136,11 +136,7 @@ async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSes
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'jobStatusChange.status',
-                        'jobStatusChange.createdAt',
-                    ])
+                    .select(['jobStatusChange.studyJobId', 'jobStatusChange.status', 'jobStatusChange.createdAt'])
                     .distinctOn('studyJobId')
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc')
@@ -177,7 +173,11 @@ async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSes
         .where((eb) =>
             eb.or([
                 eb('sv.viewedAt', 'is', null),
-                eb('sv.viewedAt', '<', eb.ref('latestStatusPerStudy.statusChangedAt')),
+                eb(
+                    'sv.viewedAt',
+                    '<',
+                    sql<Date>`greatest(latest_status_per_study.status_changed_at, s.approved_at, s.rejected_at)`,
+                ),
             ]),
         )
         .groupBy('s.submittedByOrgId')
@@ -185,12 +185,8 @@ async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSes
 
     const enclaveViewedByOrgMember = db
         .selectFrom('studyView as sv')
-        .innerJoin('orgUser as ou', (join) =>
-            join.onRef('ou.userId', '=', 'sv.userId'),
-        )
-        .innerJoin('study as viewedStudy', (join) =>
-            join.onRef('viewedStudy.id', '=', 'sv.studyId'),
-        )
+        .innerJoin('orgUser as ou', (join) => join.onRef('ou.userId', '=', 'sv.userId'))
+        .innerJoin('study as viewedStudy', (join) => join.onRef('viewedStudy.id', '=', 'sv.studyId'))
         .select([
             'sv.studyId as studyId',
             'viewedStudy.orgId as orgId',
@@ -204,9 +200,7 @@ async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSes
         .selectFrom('study as s')
         .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
         .leftJoin(enclaveViewedByOrgMember, (join) =>
-            join
-                .onRef('enclaveViewed.studyId', '=', 's.id')
-                .onRef('enclaveViewed.orgId', '=', 's.orgId'),
+            join.onRef('enclaveViewed.studyId', '=', 's.id').onRef('enclaveViewed.orgId', '=', 's.orgId'),
         )
         .select((eb) => ['s.orgId as orgId', eb.fn.count('s.id').distinct().as('count')])
         .where((eb) =>
@@ -218,7 +212,11 @@ async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSes
         .where((eb) =>
             eb.or([
                 eb('enclaveViewed.latestViewedAt', 'is', null),
-                eb('enclaveViewed.latestViewedAt', '<', eb.ref('latestStatusPerStudy.statusChangedAt')),
+                eb(
+                    'enclaveViewed.latestViewedAt',
+                    '<',
+                    sql<Date>`greatest(latest_status_per_study.status_changed_at, s.created_at)`,
+                ),
             ]),
         )
         .groupBy('s.orgId')

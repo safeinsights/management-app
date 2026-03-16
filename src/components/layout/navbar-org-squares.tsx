@@ -31,12 +31,11 @@ const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, 
             style={{ borderRadius: SQUARE_SIZE / 4, overflow: 'visible' }}
             pos="relative"
         >
-            {/* if tab is active dont show current event count */}
-            {eventCount == null || isActive ? null : (
+            {Number(eventCount) > 0 && !isActive ? (
                 <Badge size="sm" pos="absolute" right={-4} top={-4} bottom={0} fz="sx" color="red">
                     {eventCount}
                 </Badge>
-            )}
+            ) : null}
             {children}
         </ButtonLink>
     )
@@ -59,12 +58,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             w={WIDTH}
             pt={isMainDashboard ? 0 : 'md'}
         >
-            <Square
-                color="white"
-                my="lg"
-                href={Routes.dashboard}
-                display={isMainDashboard ? undefined : 'none'}
-            >
+            <Square color="white" my="lg" href={Routes.dashboard} display={isMainDashboard ? undefined : 'none'}>
                 <SiBulbLogo width={24} />
             </Square>
             {orgs.map((org) => {
@@ -83,7 +77,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                             color="white"
                             isActive={isActive}
                             href={Routes.orgDashboard({ orgSlug: org.slug })}
-                            eventCount={isActive ? 0 : org.eventCount}
+                            eventCount={org.eventCount}
                         >
                             {orgInitials(org.name, org.type)}
                         </Square>

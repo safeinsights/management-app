@@ -12,11 +12,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addUniqueConstraint('uq_study_view_study_user', ['study_id', 'user_id'])
         .execute()
 
-    await db.schema
-        .createIndex('idx_study_view_user_study')
-        .on('study_view')
-        .columns(['user_id', 'study_id'])
-        .execute()
+    await db.schema.createIndex('idx_study_view_user_study').on('study_view').columns(['user_id', 'study_id']).execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

@@ -11,58 +11,7 @@ import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { Action, z } from './action'
 import { sql } from 'kysely'
-
-// Statuses that trigger attention for researchers (study owner)
-const LAB_ATTENTION_STUDY_STATUSES = ['APPROVED', 'REJECTED'] as const
-const LAB_ATTENTION_JOB_STATUSES = [
-    'CODE-APPROVED',
-    'CODE-REJECTED',
-    'JOB-ERRORED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-] as const
-
-// Statuses that trigger attention for data org reviewers
-const ENCLAVE_ATTENTION_STUDY_STATUSES = ['PENDING-REVIEW'] as const
-const ENCLAVE_ATTENTION_JOB_STATUSES = ['CODE-SUBMITTED', 'JOB-ERRORED', 'RUN-COMPLETE'] as const
-
-type StudyWithJobChanges = {
-    id: string
-    status: string
-    researcherId: string
-    jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
-}
-
-type ViewRecord = {
-    studyId: string
-    viewedAt: Date
-}
-
-function computeNeedsAttention(
-    study: StudyWithJobChanges,
-    audience: 'researcher' | 'reviewer',
-    viewRecord: ViewRecord | undefined,
-    latestStatusChangeAt: Date | undefined,
-): boolean {
-    const latestJobStatus = study.jobStatusChanges[0]?.status
-
-    const isAttentionStatus =
-        audience === 'researcher'
-            ? (LAB_ATTENTION_STUDY_STATUSES as readonly string[]).includes(study.status) ||
-              (latestJobStatus && (LAB_ATTENTION_JOB_STATUSES as readonly string[]).includes(latestJobStatus))
-            : (ENCLAVE_ATTENTION_STUDY_STATUSES as readonly string[]).includes(study.status) ||
-              (latestJobStatus && (ENCLAVE_ATTENTION_JOB_STATUSES as readonly string[]).includes(latestJobStatus))
-
-    if (!isAttentionStatus) return false
-
-    // If never viewed, it needs attention
-    if (!viewRecord) return true
-
-    // If viewed before the latest status change, it needs attention again
-    if (latestStatusChangeAt && viewRecord.viewedAt < latestStatusChangeAt) return true
-
-    return false
-}
+import { computeNeedsAttention, type StudyWithJobChanges, type ViewRecord } from './compute-needs-attention'
 
 async function fetchViewRecords(
     db: DBExecutor,
@@ -77,6 +26,20 @@ async function fetchViewRecords(
                 .selectFrom('studyView as sv')
                 .innerJoin('orgUser as ou', (join) =>
                     join.onRef('ou.userId', '=', 'sv.userId').on('ou.orgId', '=', enclaveOrgId),
+                )
+                .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
+                .where('sv.studyId', 'in', studyIds)
+                .groupBy('sv.studyId')
+                .execute()
+        }
+        if (audience === 'reviewer') {
+            // My Dashboard case: no specific enclaveOrgId, but we still need org-wide
+            // view checking. Per spec, data org numbers clear when anyone on the org views.
+            return await db
+                .selectFrom('studyView as sv')
+                .innerJoin('study as s', 's.id', 'sv.studyId')
+                .innerJoin('orgUser as ou', (join) =>
+                    join.onRef('ou.userId', '=', 'sv.userId').onRef('ou.orgId', '=', 's.orgId'),
                 )
                 .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
                 .where('sv.studyId', 'in', studyIds)
@@ -144,13 +107,16 @@ function fetchStudyQuery(db: DBExecutor) {
                     .orderBy('createdAt', 'desc'),
             ).as('jobStatusChanges'),
             // Timestamp of the latest status change (for view-tracking comparison)
-            eb
-                .selectFrom('jobStatusChange')
-                .select('jobStatusChange.createdAt')
-                .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
-                .orderBy('createdAt', 'desc')
-                .limit(1)
-                .as('latestStatusChangedAt'),
+            // Uses GREATEST across job status changes and study-level status timestamps
+            // so that proposal approvals/rejections (which don't create job status changes)
+            // are still tracked for view comparison
+            sql<Date>`greatest(
+                (SELECT jsc.created_at FROM job_status_change jsc
+                 WHERE jsc.study_job_id = latest_study_job.job_id
+                 ORDER BY jsc.created_at DESC LIMIT 1),
+                study.approved_at,
+                study.rejected_at
+            )`.as('latestStatusChangedAt'),
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
@@ -243,8 +209,6 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
-        // For user-scope reviewer queries with multiple enclaves, we pass undefined for enclaveOrgId
-        // which means view tracking falls back to per-user check
         return enrichWithNeedsAttention(db, studies, 'reviewer', userId)
     })
 
@@ -433,11 +397,7 @@ export const markStudyAsViewedAction = new Action('markStudyAsViewedAction', { p
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, session, params: { studyId } }) => {
         try {
-            const study = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', studyId)
-                .executeTakeFirst()
+            const study = await db.selectFrom('study').select(['status']).where('id', '=', studyId).executeTakeFirst()
 
             const latestJobStatus = await db
                 .selectFrom('studyJob')

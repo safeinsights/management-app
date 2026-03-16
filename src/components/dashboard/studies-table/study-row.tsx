@@ -33,9 +33,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     return (
         <TableTr fz={14} style={highlightStyle}>
             <TableTd w={16} p={0} pl={4}>
-                {isHighlighted && (
-                    <Box w={8} h={8} bg="red" style={{ borderRadius: '50%' }} />
-                )}
+                {isHighlighted && <Box w={8} h={8} bg="red" style={{ borderRadius: '50%' }} />}
             </TableTd>
 
             <TableTd>

@@ -40,9 +40,10 @@ function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userI
     if (audience === 'researcher') {
         return studies.filter((study) => study.researcherId === userId)
     }
-    // Reviewer: show studies where user is assigned OR has taken reviewer actions
+    // Reviewer: show studies that need the org's attention, user is assigned to, or user has acted on
     return studies.filter(
         (study) =>
+            study.needsAttention ||
             study.reviewerId === userId ||
             study.jobStatusChanges.some(
                 (change) => change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
