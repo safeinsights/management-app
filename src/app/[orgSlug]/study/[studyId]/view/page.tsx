@@ -4,17 +4,30 @@ import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { CodeOnlyView } from './code-only-view'
+import { ResearcherProposalView } from './researcher-proposal-view'
 
-export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
+export default async function StudyReviewPage(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const { studyId, orgSlug } = await props.params
+    const searchParams = await props.searchParams
 
     const study = actionResult(await getStudyAction({ studyId }))
 
     const job = await latestJobForStudyOrNull(studyId)
 
     if (job) return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} />
+
+    const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED'
+    if (showProposalView) {
+        const agreementsHref =
+            searchParams.from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
+        return <ResearcherProposalView orgSlug={orgSlug} study={study} agreementsHref={agreementsHref} />
+    }
 
     return (
         <Stack p="xl" gap="xl">

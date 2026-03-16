@@ -7,31 +7,93 @@ import {
     screen,
     faker,
 } from '@/tests/unit.helpers'
+import { db } from '@/database'
 import StudyReviewPage from './page'
+
+const defaultSearchParams = Promise.resolve({})
 
 describe('StudyViewPage', () => {
     it('renders CodeOnlyView when job exists', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
         renderWithProviders(page!)
 
         expect(screen.getByText('Previous')).toBeInTheDocument()
     })
 
-    it('renders full details when no job exists', async () => {
+    it('renders ResearcherProposalView for APPROVED study without job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
         renderWithProviders(page!)
 
-        expect(screen.getByText('Study Proposal')).toBeInTheDocument()
-        expect(screen.getByText('Study Name')).toBeInTheDocument()
-        expect(screen.getByText(study.title)).toBeInTheDocument()
-        expect(screen.getByText('Principal investigator')).toBeInTheDocument()
-        expect(screen.queryByText('Previous')).not.toBeInTheDocument()
+        expect(screen.getByText('STEP 2')).toBeInTheDocument()
+        expect(screen.getByText('Study proposal')).toBeInTheDocument()
+        expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
+    })
+
+    it('renders ResearcherProposalView with agreementsHref when from=agreements', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'agreements' }),
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+    })
+
+    it('renders ResearcherProposalView without agreementsHref when from is absent', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
+        renderWithProviders(page!)
+
+        expect(screen.queryByRole('button', { name: 'Proceed to Step 3' })).not.toBeInTheDocument()
+    })
+
+    it('renders ResearcherProposalView for REJECTED study', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'REJECTED' }).where('id', '=', study.id).execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('STEP 2')).toBeInTheDocument()
+        expect(screen.getByText('Study proposal')).toBeInTheDocument()
+    })
+
+    it('renders generic layout for DRAFT study without job', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study Details')).toBeInTheDocument()
         expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
@@ -41,6 +103,7 @@ describe('StudyViewPage', () => {
         await expect(
             StudyReviewPage({
                 params: Promise.resolve({ orgSlug: 'test-org', studyId: faker.string.uuid() }),
+                searchParams: defaultSearchParams,
             }),
         ).rejects.toThrow()
     })
