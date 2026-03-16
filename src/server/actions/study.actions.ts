@@ -173,7 +173,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
         const userId = session.user.id
-        const alreadyApproved = study.status === 'APPROVED' || !!study.approvedAt
+        const proposalPreviouslyApproved = study.status === 'APPROVED' || !!study.approvedAt
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -182,12 +182,12 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
 
-        if (alreadyApproved && !latestJob) return
+        if (proposalPreviouslyApproved && !latestJob) return
 
         if (latestJob) {
             const job = await latestJobForStudy(studyId)
 
-            if (alreadyApproved) {
+            if (proposalPreviouslyApproved) {
                 const latestJobStatus = job.statusChanges.at(0)?.status
                 if (latestJobStatus !== 'CODE-SCANNED') return
             }
@@ -241,12 +241,20 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 }
             }
 
-            if (alreadyApproved) {
+            // Study was previously approved but went back to PENDING-REVIEW when new code was submitted —
+            // restore APPROVED status now that the code has been approved
+            if (proposalPreviouslyApproved && study.status === 'PENDING-REVIEW') {
+                await db
+                    .updateTable('study')
+                    .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                    .where('id', '=', studyId)
+                    .execute()
+
                 onStudyCodeApproved({ studyId, userId })
             }
         }
 
-        if (!alreadyApproved) {
+        if (!proposalPreviouslyApproved) {
             await db
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })

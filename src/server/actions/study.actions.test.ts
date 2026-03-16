@@ -92,7 +92,7 @@ describe('Study Actions', () => {
         expect(onStudyApproved).toHaveBeenCalledOnce()
     })
 
-    it('sends code-approved event for previously approved study in pending review', async () => {
+    it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -106,6 +106,16 @@ describe('Study Actions', () => {
 
         expect(onStudyCodeApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
         expect(onStudyApproved).not.toHaveBeenCalled()
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
