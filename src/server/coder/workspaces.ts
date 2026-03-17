@@ -78,7 +78,7 @@ async function startWorkspace(workspaceId: string): Promise<void> {
 }
 
 async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
-    const environment = codeEnv.settings?.environment || []
+    const environment = [...(codeEnv.settings?.environment || [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
         codeEnvId: codeEnv.id,
