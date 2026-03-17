@@ -24,8 +24,8 @@ function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
         submittedBy: study.researcherFullName,
-        submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-        orgName: study.orgName,
+        submittedOn: dayjs().format('MM/DD/YYYY'),
+        submittedTo: study.orgName,
     }
 }
 
