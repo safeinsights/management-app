@@ -65,7 +65,15 @@ const getGlueClient = () =>
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
-export const toDbName = (orgSlug: string, identifier: string) => `${orgSlug}_${identifier}`.replace(/-/g, '_')
+const safeDbNameRegex = /^[a-z0-9_]+$/
+
+export const toDbName = (orgSlug: string, identifier: string) => {
+    const name = `${orgSlug}_${identifier}`.replace(/-/g, '_')
+    if (!safeDbNameRegex.test(name)) {
+        throw new Error(`Invalid database name: ${name}`)
+    }
+    return name
+}
 
 export const toAthenaDbName = toDbName
 export const toPgDbName = toDbName
@@ -121,7 +129,7 @@ export async function createPgDatabase(dbName: string) {
     try {
         await client.query(`CREATE DATABASE "${dbName}"`)
     } catch (err: unknown) {
-        if (err instanceof Error && 'code' in err && err.code === '42P04') return
+        if (err instanceof Error && 'code' in err && err.code === '42P04') return  // 42P04 == 'DUPLICATE DATABASE'
         throw err
     } finally {
         await client.end()
