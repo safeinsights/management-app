@@ -5,8 +5,9 @@ import { useQuery } from '@/common'
 import { isActionError } from '@/lib/errors'
 import { fetchOrgDataSourcesAction } from '@/app/[orgSlug]/admin/settings/data-sources.actions'
 
-export function useOrgDataSources() {
-    const { orgSlug } = useParams<{ orgSlug: string }>()
+export function useOrgDataSources(orgSlugOverride?: string) {
+    const params = useParams<{ orgSlug: string }>()
+    const orgSlug = orgSlugOverride || params.orgSlug
 
     const query = useQuery({
         queryKey: ['org-data-sources', orgSlug],

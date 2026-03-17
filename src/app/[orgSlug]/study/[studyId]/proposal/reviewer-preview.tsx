@@ -10,11 +10,12 @@ import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
     researcherName: string
+    enclaveOrgSlug?: string
 }
 
-export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName }) => {
+export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName, enclaveOrgSlug }) => {
     const { form } = useProposal()
-    const { options: datasetOptions } = useOrgDataSources()
+    const { options: datasetOptions } = useOrgDataSources(enclaveOrgSlug)
     const values = form.getValues()
 
     return (

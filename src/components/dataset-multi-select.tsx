@@ -15,6 +15,7 @@ interface DatasetMultiSelectProps {
     onChange: (value: string[]) => void
     placeholder?: string
     disabled?: boolean
+    orgSlug?: string
 }
 
 export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
@@ -23,8 +24,9 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
     onChange,
     placeholder = 'Select dataset(s) of interest',
     disabled = false,
+    orgSlug,
 }) => {
-    const { options } = useOrgDataSources()
+    const { options } = useOrgDataSources(orgSlug)
     const [search, setSearch] = useState('')
     const combobox = useCombobox({
         onDropdownClose: () => combobox.resetSelectedOption(),

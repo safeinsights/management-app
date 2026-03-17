@@ -43,6 +43,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     orgName={displayOrgName(result.orgName)}
                     members={memberOptions}
                     researcherName={result.researcherName}
+                    enclaveOrgSlug={result.orgSlug}
                 />
             </ProposalProvider>
         </Stack>

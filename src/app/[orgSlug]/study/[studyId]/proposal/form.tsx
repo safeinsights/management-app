@@ -25,6 +25,7 @@ interface ProposalFormProps {
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
+    enclaveOrgSlug?: string
 }
 
 const ProposalTextField: FC<{
@@ -64,7 +65,12 @@ const ProposalTextField: FC<{
     )
 }
 
-export const ProposalForm: FC<ProposalFormProps> = ({ members = [], orgName = '', researcherName = '' }) => {
+export const ProposalForm: FC<ProposalFormProps> = ({
+    members = [],
+    orgName = '',
+    researcherName = '',
+    enclaveOrgSlug,
+}) => {
     const { form, saveDraft, isSaving } = useProposal()
 
     const titleWordCount = countWords(form.values.title)
@@ -116,6 +122,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({ members = [], orgName = ''
                                         id="datasets"
                                         value={form.values.datasets}
                                         onChange={(val) => form.setFieldValue('datasets', val)}
+                                        orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
                                 <Anchor
@@ -203,7 +210,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({ members = [], orgName = ''
                     </Stack>
                 </Paper>
 
-                <ProposalFooter researcherName={researcherName} />
+                <ProposalFooter researcherName={researcherName} enclaveOrgSlug={enclaveOrgSlug} />
             </Stack>
         </ProxyProvider>
     )
