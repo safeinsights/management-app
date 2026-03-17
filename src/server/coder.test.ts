@@ -451,11 +451,11 @@ describe('createUserAndWorkspace', () => {
 
         expect(envVars).toContainEqual({
             name: 'DATABASE_URL',
-            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
+            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
         expect(envVars).toContainEqual({
             name: 'TEST-ENV_DATABASE_URL',
-            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
+            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
         expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
