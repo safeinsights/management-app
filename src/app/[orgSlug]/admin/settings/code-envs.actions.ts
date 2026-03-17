@@ -21,6 +21,7 @@ import {
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
+import { identifierRegex } from './code-envs.schema'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
@@ -69,7 +70,7 @@ const codeEnvSettingsSchema = z.object({
 const createOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
-    identifier: z.string(),
+    identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
@@ -137,7 +138,7 @@ const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     codeEnvId: z.string(),
     name: z.string(),
-    identifier: z.string(),
+    identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),

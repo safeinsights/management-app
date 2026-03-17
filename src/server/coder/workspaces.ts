@@ -78,13 +78,13 @@ async function startWorkspace(workspaceId: string): Promise<void> {
 }
 
 async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
-    const environment = codeEnv.settings?.environment || []
+    const environment = [...(codeEnv.settings?.environment || [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
         codeEnvId: codeEnv.id,
         sampleDataPath: codeEnv.sampleDataPath ?? undefined,
     })
-    const prefix = codeEnv.identifier.toUpperCase()
+    const prefix = codeEnv.identifier.toUpperCase().replace(/-/g, '_')
 
     environment.push({ name: 'DATA_PATH', value: dataPath })
     environment.push({ name: `${prefix}_DATA_PATH`, value: dataPath })
@@ -102,18 +102,17 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
 
     if (codeEnv.dataSourceType === 'athena') {
         const dbName = toAthenaDbName(codeEnv.slug, codeEnv.identifier)
-        const region = process.env.AWS_REGION || 'us-east-1'
-        const dbUrl = `athena://athena.${region}.amazonaws.com:443/${dbName}?s3_location=${dataPath}`
+        const dbUrl = `athena://athena.${bucketRegion}.amazonaws.com:443/${dbName}?s3_location=${dataPath}`
         environment.push({ name: 'DATABASE_URL', value: dbUrl })
         environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
         environment.push({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
         environment.push({ name: 'AWS_ATHENA_WORK_GROUP', value: await getConfigValue('CODER_ATHENA_WORK_GROUP') })
-        environment.push({ name: 'AWS_REGION', value: region })
+        environment.push({ name: 'AWS_REGION', value: bucketRegion })
     } else if (codeEnv.dataSourceType === 'postgres') {
         const dbName = toPgDbName(codeEnv.slug, codeEnv.identifier)
         const pgHost = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
         const pgUser = await getConfigValue('CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER')
-        const dbUrl = `pg://${pgUser}@${pgHost}/${dbName}`
+        const dbUrl = `postgres://${pgUser}@${pgHost}/${dbName}`
         environment.push({ name: 'DATABASE_URL', value: dbUrl })
         environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
     }

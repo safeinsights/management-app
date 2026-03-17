@@ -95,7 +95,7 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: /code environments/i })).toBeVisible()
 
         const codeEnvName = `E2E Code Env ${faker.string.alpha(6)}`
-        const codeEnvIdentifier = `e2e-${faker.string.alpha(6).toLowerCase()}`
+        const codeEnvIdentifier = `e2e_${faker.string.alpha(6).toLowerCase()}`
 
         // Open the "Add Code Environment" modal
         const addButton = page.getByRole('button', { name: /add code environment/i })

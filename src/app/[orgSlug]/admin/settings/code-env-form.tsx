@@ -72,8 +72,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     <TextInput
                         label="Identifier"
                         withAsterisk
-                        placeholder="e.g., r-4-2-0"
-                        description="Unique lowercase identifier using only letters, numbers, and dashes"
+                        placeholder="e.g., r_4_2_0"
+                        description="Unique lowercase identifier using only letters, numbers, and underscores"
                         {...form.getInputProps('identifier')}
                         style={{ flex: 1 }}
                     />

@@ -32,7 +32,7 @@ const mockPresignedUrl = { url: 'https://s3.example.com', fields: { key: 'test' 
 const mockCodeEnv = {
     id: 'code-env-1',
     orgId: 'org-1',
-    identifier: 'test-env',
+    identifier: 'test_env',
     name: 'Test Env',
     language: 'PYTHON' as const,
     cmdLine: 'python %f',
@@ -92,7 +92,7 @@ describe('useCodeEnvForm', () => {
 
         const starterCode = new File(['code'], 'main.py')
         act(() => {
-            result.current.form.setFieldValue('identifier', 'new-env')
+            result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
             result.current.form.setFieldValue('url', 'python:3.11')
@@ -129,7 +129,7 @@ describe('useCodeEnvForm', () => {
         const sampleFile = new File(['data'], 'sample.csv')
 
         act(() => {
-            result.current.form.setFieldValue('identifier', 'new-env')
+            result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
             result.current.form.setFieldValue('url', 'python:3.11')
@@ -156,7 +156,7 @@ describe('useCodeEnvForm', () => {
 
         const starterCode = new File(['code'], 'main.py')
         act(() => {
-            result.current.form.setFieldValue('identifier', 'new-env')
+            result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
             result.current.form.setFieldValue('url', 'python:3.11')

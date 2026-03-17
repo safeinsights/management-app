@@ -237,7 +237,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
-            identifier: 'test-env',
+            identifier: 'test_env',
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
@@ -271,12 +271,12 @@ describe('createUserAndWorkspace', () => {
                         value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
                     },
                     {
-                        name: 'TEST-ENV_DATA_PATH',
+                        name: 'TEST_ENV_DATA_PATH',
                         value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
                     },
-                    { name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
-                    { name: 'TEST-ENV_S3_BUCKET_PREFIX', value: 'code-env/test-org/env-123/sample-data' },
-                    { name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-east-1' },
+                    { name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
+                    { name: 'TEST_ENV_S3_BUCKET_PREFIX', value: 'code-env/test-org/env-123/sample-data' },
+                    { name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' },
                 ]),
             },
         ])
@@ -337,7 +337,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
-            identifier: 'test-env',
+            identifier: 'test_env',
             dataSourceType: 'athena',
             slug: 'test-org',
             url: 'test-image:latest',
@@ -361,16 +361,16 @@ describe('createUserAndWorkspace', () => {
         const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`
         const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test_org_test_env?s3_location=${dataPath}`
         expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: expectedDbUrl })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_DATABASE_URL', value: expectedDbUrl })
+        expect(envVars).toContainEqual({ name: 'TEST_ENV_DATABASE_URL', value: expectedDbUrl })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_WORK_GROUP', value: 'my-workgroup' })
         expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
+        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
-            name: 'TEST-ENV_S3_BUCKET_PREFIX',
+            name: 'TEST_ENV_S3_BUCKET_PREFIX',
             value: 'code-env/test-org/env-123/sample-data',
         })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-west-2' })
+        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-west-2' })
     })
 
     it('should include DATABASE_URL env vars for postgres data source type', async () => {
@@ -428,7 +428,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
-            identifier: 'test-env',
+            identifier: 'test_env',
             dataSourceType: 'postgres',
             slug: 'test-org',
             url: 'test-image:latest',
@@ -451,18 +451,18 @@ describe('createUserAndWorkspace', () => {
 
         expect(envVars).toContainEqual({
             name: 'DATABASE_URL',
-            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
+            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
         expect(envVars).toContainEqual({
-            name: 'TEST-ENV_DATABASE_URL',
-            value: 'pg://readonly_user@pg-host.example.com:5432/test_org_test_env',
+            name: 'TEST_ENV_DATABASE_URL',
+            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
         })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
+        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
-            name: 'TEST-ENV_S3_BUCKET_PREFIX',
+            name: 'TEST_ENV_S3_BUCKET_PREFIX',
             value: 'code-env/test-org/env-123/sample-data',
         })
-        expect(envVars).toContainEqual({ name: 'TEST-ENV_S3_BUCKET_REGION', value: 'us-east-1' })
+        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' })
     })
 
     it('should throw error when user creation fails', async () => {
@@ -480,7 +480,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
-            identifier: 'test-env',
+            identifier: 'test_env',
             slug: 'test-org',
             url: 'test-image:latest',
             settings: {},

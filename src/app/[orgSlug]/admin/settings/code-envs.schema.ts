@@ -28,7 +28,7 @@ const codeEnvSettingsSchema = z.object({
 // Valid pathname: alphanumeric, hyphens, underscores, dots, forward slashes
 const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
-export const identifierRegex = /^[a-z0-9-]+$/
+export const identifierRegex = /^[a-z0-9_]+$/
 
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
@@ -36,7 +36,7 @@ const codeEnvFieldsSchema = z.object({
     identifier: z
         .string()
         .nonempty('Identifier is required')
-        .regex(identifierRegex, 'Must be all lowercase alphanumeric or dashes'),
+        .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
     cmdLine: z.string().nonempty(),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
