@@ -129,7 +129,7 @@ export async function createPgDatabase(dbName: string) {
     try {
         await client.query(`CREATE DATABASE "${dbName}"`)
     } catch (err: unknown) {
-        if (err instanceof Error && 'code' in err && err.code === '42P04') return  // 42P04 == 'DUPLICATE DATABASE'
+        if (err instanceof Error && 'code' in err && err.code === '42P04') return // 42P04 == 'DUPLICATE DATABASE'
         throw err
     } finally {
         await client.end()
