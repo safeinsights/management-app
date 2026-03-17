@@ -35,91 +35,10 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
 export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db, session }) => {
-        // Try the view-aware query first; fall back to basic counts if study_view table doesn't exist yet
-        try {
-            return await fetchOrgsWithViewAwareCounts(db, session)
-        } catch {
-            return await fetchOrgsWithBasicCounts(db, session)
-        }
+        return await fetchOrgsWithViewAwareCounts(db, session)
     })
 
 type OrgStatsSession = { user: { id: string } }
-
-async function fetchOrgsWithBasicCounts(db: DBExecutor, session: OrgStatsSession) {
-    const latestStudyJob = db
-        .selectFrom('studyJob')
-        .select(['studyJob.studyId as studyId', 'studyJob.id as jobId'])
-        .distinctOn('studyId')
-        .orderBy('studyId')
-        .orderBy('createdAt', 'desc')
-        .as('latestStudyJob')
-
-    const latestStatusPerStudy = db
-        .selectFrom(latestStudyJob)
-        .innerJoin(
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.studyJobId', 'jobStatusChange.status'])
-                    .distinctOn('studyJobId')
-                    .orderBy('studyJobId')
-                    .orderBy('createdAt', 'desc')
-                    .as('latestStatus'),
-            (join) => join.onRef('latestStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-        )
-        .select(['latestStudyJob.studyId as studyId', 'latestStatus.status as status'])
-        .as('latestStatusPerStudy')
-
-    const labCounts = db
-        .selectFrom('study as s')
-        .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
-        .select((eb) => ['s.submittedByOrgId as orgId', eb.fn.count('s.id').distinct().as('count')])
-        .where('s.researcherId', '=', session.user.id)
-        .where((eb) =>
-            eb.or([
-                eb('s.status', 'in', ['APPROVED', 'REJECTED']),
-                eb('latestStatusPerStudy.status', 'in', [
-                    'JOB-ERRORED',
-                    'FILES-APPROVED',
-                    'FILES-REJECTED',
-                    'CODE-APPROVED',
-                    'CODE-REJECTED',
-                ]),
-            ]),
-        )
-        .groupBy('s.submittedByOrgId')
-        .as('labCounts')
-
-    const enclaveCounts = db
-        .selectFrom('study as s')
-        .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
-        .select((eb) => ['s.orgId as orgId', eb.fn.count('s.id').distinct().as('count')])
-        .where((eb) =>
-            eb.or([
-                eb('s.status', '=', 'PENDING-REVIEW'),
-                eb('latestStatusPerStudy.status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE', 'CODE-SUBMITTED']),
-            ]),
-        )
-        .groupBy('s.orgId')
-        .as('enclaveCounts')
-
-    return await db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .leftJoin(labCounts, (join) => join.onRef('labCounts.orgId', '=', 'org.id').on('org.type', '=', 'lab'))
-        .leftJoin(enclaveCounts, (join) =>
-            join.onRef('enclaveCounts.orgId', '=', 'org.id').on('org.type', '=', 'enclave'),
-        )
-        .select((eb) => [
-            'org.id',
-            'org.name',
-            'org.slug',
-            'org.type',
-            eb.fn.coalesce('labCounts.count', eb.fn.coalesce('enclaveCounts.count', eb.val(0))).as('eventCount'),
-        ])
-        .where('orgUser.userId', '=', session.user.id)
-        .execute()
-}
 
 async function fetchOrgsWithViewAwareCounts(db: DBExecutor, session: OrgStatsSession) {
     const latestStudyJob = db

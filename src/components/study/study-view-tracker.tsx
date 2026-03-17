@@ -12,7 +12,8 @@ export function StudyViewTracker({ studyId }: StudyViewTrackerProps) {
     const queryClient = useQueryClient()
 
     useEffect(() => {
-        markStudyAsViewedAction({ studyId }).then(() => {
+        markStudyAsViewedAction({ studyId }).then((result) => {
+            if (typeof result !== 'object' || result === null || !('wasUpdated' in result) || !result.wasUpdated) return
             queryClient.invalidateQueries({ queryKey: ['orgs-with-stats'] })
             queryClient.invalidateQueries({ queryKey: ['org-studies'] })
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })

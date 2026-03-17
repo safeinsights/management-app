@@ -20,42 +20,37 @@ async function fetchViewRecords(
     userId: string,
     enclaveOrgId?: string,
 ): Promise<ViewRecord[]> {
-    try {
-        if (audience === 'reviewer' && enclaveOrgId) {
-            return await db
-                .selectFrom('studyView as sv')
-                .innerJoin('orgUser as ou', (join) =>
-                    join.onRef('ou.userId', '=', 'sv.userId').on('ou.orgId', '=', enclaveOrgId),
-                )
-                .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
-                .where('sv.studyId', 'in', studyIds)
-                .groupBy('sv.studyId')
-                .execute()
-        }
-        if (audience === 'reviewer') {
-            // My Dashboard case: no specific enclaveOrgId, but we still need org-wide
-            // view checking. Per spec, data org numbers clear when anyone on the org views.
-            return await db
-                .selectFrom('studyView as sv')
-                .innerJoin('study as s', 's.id', 'sv.studyId')
-                .innerJoin('orgUser as ou', (join) =>
-                    join.onRef('ou.userId', '=', 'sv.userId').onRef('ou.orgId', '=', 's.orgId'),
-                )
-                .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
-                .where('sv.studyId', 'in', studyIds)
-                .groupBy('sv.studyId')
-                .execute()
-        }
+    if (audience === 'reviewer' && enclaveOrgId) {
         return await db
-            .selectFrom('studyView')
-            .select(['studyView.studyId', 'studyView.viewedAt'])
-            .where('studyView.studyId', 'in', studyIds)
-            .where('studyView.userId', '=', userId)
+            .selectFrom('studyView as sv')
+            .innerJoin('orgUser as ou', (join) =>
+                join.onRef('ou.userId', '=', 'sv.userId').on('ou.orgId', '=', enclaveOrgId),
+            )
+            .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
+            .where('sv.studyId', 'in', studyIds)
+            .groupBy('sv.studyId')
             .execute()
-    } catch {
-        // study_view table may not exist yet if migration hasn't run
-        return []
     }
+    if (audience === 'reviewer') {
+        // My Dashboard case: no specific enclaveOrgId, but we still need org-wide
+        // view checking. Per spec, data org numbers clear when anyone on the org views.
+        return await db
+            .selectFrom('studyView as sv')
+            .innerJoin('study as s', 's.id', 'sv.studyId')
+            .innerJoin('orgUser as ou', (join) =>
+                join.onRef('ou.userId', '=', 'sv.userId').onRef('ou.orgId', '=', 's.orgId'),
+            )
+            .select(['sv.studyId', sql<Date>`max(sv.viewed_at)`.as('viewedAt')])
+            .where('sv.studyId', 'in', studyIds)
+            .groupBy('sv.studyId')
+            .execute()
+    }
+    return await db
+        .selectFrom('studyView')
+        .select(['studyView.studyId', 'studyView.viewedAt'])
+        .where('studyView.studyId', 'in', studyIds)
+        .where('studyView.userId', '=', userId)
+        .execute()
 }
 
 async function enrichWithNeedsAttention<T extends StudyWithJobChanges & { latestStatusChangedAt?: Date | null }>(
@@ -396,38 +391,37 @@ export const markStudyAsViewedAction = new Action('markStudyAsViewedAction', { p
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, session, params: { studyId } }) => {
-        try {
-            const study = await db.selectFrom('study').select(['status']).where('id', '=', studyId).executeTakeFirst()
+        const study = await db.selectFrom('study').select(['status']).where('id', '=', studyId).executeTakeFirst()
 
-            const latestJobStatus = await db
-                .selectFrom('studyJob')
-                .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
-                .select(['jobStatusChange.status'])
-                .where('studyJob.studyId', '=', studyId)
-                .orderBy('studyJob.createdAt', 'desc')
-                .orderBy('jobStatusChange.createdAt', 'desc')
-                .limit(1)
-                .executeTakeFirst()
+        const latestJobStatus = await db
+            .selectFrom('studyJob')
+            .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+            .select(['jobStatusChange.status'])
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('studyJob.createdAt', 'desc')
+            .orderBy('jobStatusChange.createdAt', 'desc')
+            .limit(1)
+            .executeTakeFirst()
 
-            await db
-                .insertInto('studyView')
-                .values({
-                    studyId,
-                    userId: session.user.id,
+        const result = await db
+            .insertInto('studyView')
+            .values({
+                studyId,
+                userId: session.user.id,
+                studyStatusAtView: study?.status ?? null,
+                jobStatusAtView: latestJobStatus?.status ?? null,
+            })
+            .onConflict((oc) =>
+                oc.columns(['studyId', 'userId']).doUpdateSet({
                     studyStatusAtView: study?.status ?? null,
                     jobStatusAtView: latestJobStatus?.status ?? null,
-                })
-                .onConflict((oc) =>
-                    oc.columns(['studyId', 'userId']).doUpdateSet({
-                        studyStatusAtView: study?.status ?? null,
-                        jobStatusAtView: latestJobStatus?.status ?? null,
-                        viewedAt: sql`now()`,
-                    }),
-                )
-                .execute()
-        } catch {
-            // study_view table may not exist yet if migration hasn't run
-        }
+                    viewedAt: sql`now()`,
+                }),
+            )
+            .executeTakeFirst()
+
+        const wasInserted = Number(result.numInsertedOrUpdatedRows ?? 0) > 0
+        return { wasUpdated: wasInserted }
     })
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')

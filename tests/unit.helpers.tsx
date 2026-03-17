@@ -306,9 +306,11 @@ export const insertTestStudyJobData = async ({
 export const insertTestStudyOnly = async ({
     org,
     researcherId,
+    status = 'APPROVED',
 }: {
     org?: MinimalTestOrg
     researcherId?: string
+    status?: StudyStatus
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -326,7 +328,7 @@ export const insertTestStudyOnly = async ({
             title: 'study without job',
             researcherId,
             piName: 'test',
-            status: 'APPROVED',
+            status,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
