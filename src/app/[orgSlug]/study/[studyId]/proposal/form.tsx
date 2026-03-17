@@ -8,7 +8,7 @@ import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
-import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
+import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS } from './schema'
@@ -22,7 +22,6 @@ export interface MemberOption {
 }
 
 interface ProposalFormProps {
-    datasets?: DatasetOption[]
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
@@ -65,12 +64,7 @@ const ProposalTextField: FC<{
     )
 }
 
-export const ProposalForm: FC<ProposalFormProps> = ({
-    datasets = [],
-    members = [],
-    orgName = '',
-    researcherName = '',
-}) => {
+export const ProposalForm: FC<ProposalFormProps> = ({ members = [], orgName = '', researcherName = '' }) => {
     const { form, saveDraft, isSaving } = useProposal()
 
     const titleWordCount = countWords(form.values.title)
@@ -120,7 +114,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 <Box w="50%">
                                     <DatasetMultiSelect
                                         id="datasets"
-                                        options={datasets}
                                         value={form.values.datasets}
                                         onChange={(val) => form.setFieldValue('datasets', val)}
                                     />

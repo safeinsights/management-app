@@ -1,6 +1,6 @@
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { getDataSourcesForOrg, getUsersForOrgId } from '@/server/db/queries'
+import { getUsersForOrgId } from '@/server/db/queries'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
@@ -21,11 +21,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
-    const [dataSources, labMembers] = await Promise.all([
-        getDataSourcesForOrg(result.orgId),
-        getUsersForOrgId(result.submittedByOrgId),
-    ])
-    const datasetOptions = dataSources.map((ds) => ({ value: ds.id, label: ds.name }))
+    const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
@@ -45,7 +41,6 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
             >
                 <ProposalForm
                     orgName={displayOrgName(result.orgName)}
-                    datasets={datasetOptions}
                     members={memberOptions}
                     researcherName={result.researcherName}
                 />

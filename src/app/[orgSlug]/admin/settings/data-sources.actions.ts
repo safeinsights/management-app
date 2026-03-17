@@ -7,6 +7,31 @@ import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
+import type { Kysely } from 'kysely'
+import type { DB } from '@/database/types'
+
+const orgIdFromSlugWithCodeEnv = async ({
+    params: { orgSlug, codeEnvId },
+    db,
+}: {
+    params: { orgSlug: string; codeEnvId: string }
+    db: Kysely<DB>
+}) => {
+    const org = await db
+        .selectFrom('org')
+        .select(['id as orgId', 'type as orgType'])
+        .where('slug', '=', orgSlug)
+        .executeTakeFirst()
+
+    await db
+        .selectFrom('orgCodeEnv')
+        .select('id')
+        .where('id', '=', codeEnvId)
+        .where('orgId', '=', org?.orgId ?? '')
+        .executeTakeFirstOrThrow(throwNotFound(`Code environment ${codeEnvId}`))
+
+    return org
+}
 
 const fetchOrgDataSourcesSchema = z.object({
     orgSlug: z.string(),
@@ -42,7 +67,7 @@ const createSchema = z.object({
 
 export const createOrgDataSourceAction = new Action('createOrgDataSourceAction', { performsMutations: true })
     .params(createSchema)
-    .middleware(orgIdFromSlug)
+    .middleware(orgIdFromSlugWithCodeEnv)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, name, description, documentationUrl, codeEnvId } = params
@@ -72,7 +97,7 @@ const updateSchema = z.object({
 
 export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction', { performsMutations: true })
     .params(updateSchema)
-    .middleware(orgIdFromSlug)
+    .middleware(orgIdFromSlugWithCodeEnv)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, dataSourceId, name, description, documentationUrl, codeEnvId } = params

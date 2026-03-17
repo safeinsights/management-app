@@ -2,6 +2,7 @@
 
 import { FC, useState } from 'react'
 import { Combobox, Group, Pill, PillsInput, Text, useCombobox, CheckIcon } from '@mantine/core'
+import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 
 export interface DatasetOption {
     value: string
@@ -10,7 +11,6 @@ export interface DatasetOption {
 
 interface DatasetMultiSelectProps {
     id: string
-    options: DatasetOption[]
     value: string[]
     onChange: (value: string[]) => void
     placeholder?: string
@@ -19,12 +19,12 @@ interface DatasetMultiSelectProps {
 
 export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
     id,
-    options,
     value,
     onChange,
     placeholder = 'Select dataset(s) of interest',
     disabled = false,
 }) => {
+    const { options } = useOrgDataSources()
     const [search, setSearch] = useState('')
     const combobox = useCombobox({
         onDropdownClose: () => combobox.resetSelectedOption(),

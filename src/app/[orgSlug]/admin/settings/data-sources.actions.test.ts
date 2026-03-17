@@ -4,6 +4,7 @@ import {
     actionResult,
     insertTestCodeEnv,
     insertTestDataSource,
+    insertTestOrg,
 } from '@/tests/unit.helpers'
 import {
     createOrgDataSourceAction,
@@ -119,6 +120,38 @@ describe('Data Source Actions', () => {
             orgSlug: org.slug,
             name: 'Should Fail',
             codeEnvId: codeEnv.id,
+        })
+
+        expect(isActionError(result)).toBe(true)
+    })
+
+    it('rejects creating a data source with a code env from another org', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const otherOrg = await insertTestOrg()
+        const otherCodeEnv = await insertTestCodeEnv({ orgId: otherOrg.id, language: 'R' })
+
+        const result = await createOrgDataSourceAction({
+            orgSlug: org.slug,
+            name: 'Cross Org DS',
+            codeEnvId: otherCodeEnv.id,
+        })
+
+        expect(isActionError(result)).toBe(true)
+    })
+
+    it('rejects updating a data source with a code env from another org', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
+        const ds = await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv.id })
+
+        const otherOrg = await insertTestOrg()
+        const otherCodeEnv = await insertTestCodeEnv({ orgId: otherOrg.id, language: 'R' })
+
+        const result = await updateOrgDataSourceAction({
+            orgSlug: org.slug,
+            dataSourceId: ds.id,
+            name: 'Updated',
+            codeEnvId: otherCodeEnv.id,
         })
 
         expect(isActionError(result)).toBe(true)
