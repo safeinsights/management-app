@@ -47,7 +47,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource; codeEnvOptions: { value:
                     <Group gap="sm" wrap="nowrap">
                         <Text fw={500}>{dataSource.name}</Text>
                         <Text c="dimmed" size="sm">
-                            {dataSource.codeEnvName}
+                            {dataSource.codeEnvs.map((e) => e.name).join(', ')}
                         </Text>
                     </Group>
                     {dataSource.description && (

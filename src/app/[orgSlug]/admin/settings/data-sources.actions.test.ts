@@ -30,7 +30,7 @@ vi.mock('@/server/aws', async () => {
 })
 
 describe('Data Source Actions', () => {
-    it('creates a data source with valid code env', async () => {
+    it('creates a data source with valid code envs', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
 
@@ -40,14 +40,43 @@ describe('Data Source Actions', () => {
                 name: 'Some Records',
                 description: 'De-identified patient data',
                 documentationUrl: 'https://example.com/docs',
-                codeEnvId: codeEnv.id,
+                codeEnvIds: [codeEnv.id],
             }),
         )
 
         expect(result.name).toEqual('Some Records')
         expect(result.description).toEqual('De-identified patient data')
         expect(result.documentationUrl).toEqual('https://example.com/docs')
-        expect(result.codeEnvId).toEqual(codeEnv.id)
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('dataSourceId', '=', result.id)
+            .execute()
+        expect(joinRows).toHaveLength(1)
+        expect(joinRows[0].codeEnvId).toEqual(codeEnv.id)
+    })
+
+    it('creates a data source with multiple code envs', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv1 = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
+        const codeEnv2 = await insertTestCodeEnv({ orgId: org.id, language: 'PYTHON' })
+
+        const result = actionResult(
+            await createOrgDataSourceAction({
+                orgSlug: org.slug,
+                name: 'Multi Env DS',
+                codeEnvIds: [codeEnv1.id, codeEnv2.id],
+            }),
+        )
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('dataSourceId', '=', result.id)
+            .execute()
+        expect(joinRows).toHaveLength(2)
+        expect(joinRows.map((r) => r.codeEnvId).sort()).toEqual([codeEnv1.id, codeEnv2.id].sort())
     })
 
     it('coerces empty description and documentationUrl to null', async () => {
@@ -60,7 +89,7 @@ describe('Data Source Actions', () => {
                 name: 'Minimal Source',
                 description: '',
                 documentationUrl: '',
-                codeEnvId: codeEnv.id,
+                codeEnvIds: [codeEnv.id],
             }),
         )
 
@@ -68,22 +97,24 @@ describe('Data Source Actions', () => {
         expect(result.documentationUrl).toBeNull()
     })
 
-    it('fetches data sources with codeEnvName', async () => {
+    it('fetches data sources with codeEnvs', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, name: 'R 4.3 Env', language: 'R' })
-        await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv.id, name: 'Test DS' })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv.id], name: 'Test DS' })
 
         const result = actionResult(await fetchOrgDataSourcesAction({ orgSlug: org.slug }))
 
         expect(result).toHaveLength(1)
         expect(result[0].name).toEqual('Test DS')
-        expect(result[0].codeEnvName).toEqual('R 4.3 Env')
+        expect(result[0].codeEnvs).toHaveLength(1)
+        expect(result[0].codeEnvs[0].name).toEqual('R 4.3 Env')
     })
 
-    it('updates data source fields', async () => {
+    it('updates data source fields and replaces code env associations', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
-        const ds = await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv.id, name: 'Original' })
+        const codeEnv1 = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
+        const codeEnv2 = await insertTestCodeEnv({ orgId: org.id, language: 'PYTHON' })
+        const ds = await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv1.id], name: 'Original' })
 
         const result = actionResult(
             await updateOrgDataSourceAction({
@@ -92,24 +123,39 @@ describe('Data Source Actions', () => {
                 name: 'Updated',
                 description: 'New desc',
                 documentationUrl: 'https://example.com/new',
-                codeEnvId: codeEnv.id,
+                codeEnvIds: [codeEnv2.id],
             }),
         )
 
         expect(result.name).toEqual('Updated')
         expect(result.description).toEqual('New desc')
         expect(result.documentationUrl).toEqual('https://example.com/new')
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('dataSourceId', '=', ds.id)
+            .execute()
+        expect(joinRows).toHaveLength(1)
+        expect(joinRows[0].codeEnvId).toEqual(codeEnv2.id)
     })
 
-    it('deletes a data source', async () => {
+    it('deletes a data source and cascades join rows', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
-        const ds = await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv.id })
+        const ds = await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv.id] })
 
         await deleteOrgDataSourceAction({ orgSlug: org.slug, dataSourceId: ds.id })
 
         const deleted = await db.selectFrom('orgDataSource').where('id', '=', ds.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('dataSourceId', '=', ds.id)
+            .execute()
+        expect(joinRows).toHaveLength(0)
     })
 
     it('denies non-admin from creating data sources', async () => {
@@ -119,7 +165,7 @@ describe('Data Source Actions', () => {
         const result = await createOrgDataSourceAction({
             orgSlug: org.slug,
             name: 'Should Fail',
-            codeEnvId: codeEnv.id,
+            codeEnvIds: [codeEnv.id],
         })
 
         expect(isActionError(result)).toBe(true)
@@ -133,7 +179,7 @@ describe('Data Source Actions', () => {
         const result = await createOrgDataSourceAction({
             orgSlug: org.slug,
             name: 'Cross Org DS',
-            codeEnvId: otherCodeEnv.id,
+            codeEnvIds: [otherCodeEnv.id],
         })
 
         expect(isActionError(result)).toBe(true)
@@ -142,7 +188,7 @@ describe('Data Source Actions', () => {
     it('rejects updating a data source with a code env from another org', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
-        const ds = await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv.id })
+        const ds = await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv.id] })
 
         const otherOrg = await insertTestOrg()
         const otherCodeEnv = await insertTestCodeEnv({ orgId: otherOrg.id, language: 'R' })
@@ -151,7 +197,7 @@ describe('Data Source Actions', () => {
             orgSlug: org.slug,
             dataSourceId: ds.id,
             name: 'Updated',
-            codeEnvId: otherCodeEnv.id,
+            codeEnvIds: [otherCodeEnv.id],
         })
 
         expect(isActionError(result)).toBe(true)
@@ -161,7 +207,7 @@ describe('Data Source Actions', () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv1 = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
         await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
-        await insertTestDataSource({ orgId: org.id, codeEnvId: codeEnv1.id })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv1.id] })
 
         const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: codeEnv1.id })
 

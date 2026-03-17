@@ -347,8 +347,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         }
 
         const linkedDataSources = await db
-            .selectFrom('orgDataSource')
-            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .selectFrom('orgDataSourceCodeEnv')
+            .select(({ fn }) => [fn.count<number>('dataSourceId').as('count')])
             .where('codeEnvId', '=', codeEnv.id)
             .executeTakeFirstOrThrow()
 

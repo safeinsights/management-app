@@ -1,11 +1,11 @@
 'use client'
 
-import { Button, Stack, TextInput, Textarea, Select } from '@mantine/core'
+import { Button, Stack, TextInput, Textarea, MultiSelect } from '@mantine/core'
 import { ActionSuccessType } from '@/lib/types'
-import { createOrgDataSourceAction } from './data-sources.actions'
+import { fetchOrgDataSourcesAction } from './data-sources.actions'
 import { useDataSourceForm } from './use-data-source-form'
 
-type DataSource = ActionSuccessType<typeof createOrgDataSourceAction>
+type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
 interface DataSourceFormProps {
     dataSource?: DataSource
@@ -33,11 +33,11 @@ export function DataSourceForm({ dataSource, codeEnvOptions, onCompleteAction }:
                     placeholder="https://example.com/docs"
                     {...form.getInputProps('documentationUrl')}
                 />
-                <Select
-                    label="Code Environment"
-                    placeholder="Select a code environment"
+                <MultiSelect
+                    label="Code Environments"
+                    placeholder="Select code environments"
                     data={codeEnvOptions}
-                    {...form.getInputProps('codeEnvId')}
+                    {...form.getInputProps('codeEnvIds')}
                 />
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Data Source' : 'Save Data Source'}
