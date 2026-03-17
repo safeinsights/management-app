@@ -21,8 +21,6 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
-    // TODO: Fetch datasets for the org
-
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
@@ -43,9 +41,9 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
             >
                 <ProposalForm
                     orgName={displayOrgName(result.orgName)}
-                    datasets={[]}
                     members={memberOptions}
                     researcherName={result.researcherName}
+                    enclaveOrgSlug={result.orgSlug}
                 />
             </ProposalProvider>
         </Stack>

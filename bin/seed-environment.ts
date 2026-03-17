@@ -325,6 +325,7 @@ async function setupOrganizations() {
                     {
                         orgId: org.id,
                         name: 'R Code Environment',
+                        identifier: 'r-base',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
                         cmdLine: 'Rscript main.r',
@@ -334,6 +335,7 @@ async function setupOrganizations() {
                     {
                         orgId: org.id,
                         name: 'Python Code Environment',
+                        identifier: 'python-base',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
                         cmdLine: 'python main.py',
@@ -345,6 +347,25 @@ async function setupOrganizations() {
             console.log(`📦 Created code environments for openstax`)
         } else {
             console.log(`📦 Code environments already exist for openstax`)
+        }
+
+        const existingDataSources = await db.selectFrom('orgDataSource').where('orgId', '=', org.id).execute()
+        if (existingDataSources.length === 0) {
+            const codeEnv = await db
+                .selectFrom('orgCodeEnv')
+                .select('id')
+                .where('orgId', '=', org.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('orgDataSource')
+                .values([
+                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Student Activity Logs' },
+                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Course Enrollment Data' },
+                ])
+                .execute()
+            console.log(`📊 Created data sources for openstax`)
+        } else {
+            console.log(`📊 Data sources already exist for openstax`)
         }
     }
 
@@ -380,6 +401,7 @@ async function setupOrganizations() {
             .values({
                 orgId: singleLangOrg.id,
                 name: 'R Code Environment (Single-Lang)',
+                identifier: 'r-base',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
                 cmdLine: 'Rscript main.r',

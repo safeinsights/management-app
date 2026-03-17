@@ -113,16 +113,27 @@ export interface Org {
 export interface OrgCodeEnv {
     cmdLine: string
     createdAt: Generated<Timestamp>
+    dataSourceType: string | null
     id: Generated<string>
+    identifier: Generated<string>
     isTesting: Generated<boolean>
     language: Language
     name: string
     orgId: string
-    sampleDataFormat: string | null
     sampleDataPath: string | null
     settings: Generated<OrgCodeEnvSettings>
     starterCodePath: string
     url: string
+}
+
+export interface OrgDataSource {
+    codeEnvId: string
+    createdAt: Generated<Timestamp>
+    description: string | null
+    documentationUrl: string | null
+    id: Generated<string>
+    name: string
+    orgId: string
 }
 
 export interface OrgUser {
@@ -236,6 +247,7 @@ export interface DB {
     jobStatusChange: JobStatusChange
     org: Org
     orgCodeEnv: OrgCodeEnv
+    orgDataSource: OrgDataSource
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition

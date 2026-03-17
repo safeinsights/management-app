@@ -95,6 +95,7 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: /code environments/i })).toBeVisible()
 
         const codeEnvName = `E2E Code Env ${faker.string.alpha(6)}`
+        const codeEnvIdentifier = `e2e-${faker.string.alpha(6).toLowerCase()}`
 
         // Open the "Add Code Environment" modal
         const addButton = page.getByRole('button', { name: /add code environment/i })
@@ -102,7 +103,8 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: /add code environment/i })).toBeVisible()
 
         // Fill in code environment details
-        await page.getByLabel(/name/i).fill(codeEnvName)
+        await page.getByLabel(/identifier/i).fill(codeEnvIdentifier)
+        await page.getByRole('textbox', { name: /^name$/i }).fill(codeEnvName)
         await page.getByLabel(/command line/i).fill('Rscript %f')
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
 
@@ -135,7 +137,7 @@ test.describe('Organization Admin', () => {
 
         // Edit a text field to verify the update flow works
         const updatedName = `${codeEnvName} Updated`
-        await editDialog.getByLabel(/name/i).fill(updatedName)
+        await editDialog.getByRole('textbox', { name: /^name$/i }).fill(updatedName)
 
         // Submit the update
         await editDialog.getByRole('button', { name: /update code environment/i }).click()

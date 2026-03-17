@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { triggerBuildImageForJob, triggerScanForStudyJob } from './aws'
+import { triggerBuildImageForJob, triggerScanForStudyJob, toAthenaDbName, toPgDbName } from './aws'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 
 vi.mock('./config', async (importOriginal) => {
@@ -17,6 +17,30 @@ vi.mock('@aws-sdk/client-codebuild', () => {
         CodeBuildClient: mockCodeBuildClient,
         StartBuildCommand: vi.fn(), // Mock StartBuildCommand constructor
     }
+})
+
+describe('toAthenaDbName', () => {
+    it('should replace dashes with underscores', () => {
+        expect(toAthenaDbName('my-org', 'my-env')).toBe('my_org_my_env')
+    })
+
+    it('should leave names without dashes unchanged', () => {
+        expect(toAthenaDbName('myorg', 'myenv')).toBe('myorg_myenv')
+    })
+
+    it('should handle multiple consecutive dashes', () => {
+        expect(toAthenaDbName('org--name', 'env--id')).toBe('org__name_env__id')
+    })
+})
+
+describe('toPgDbName', () => {
+    it('should replace dashes with underscores', () => {
+        expect(toPgDbName('my-org', 'my-env')).toBe('my_org_my_env')
+    })
+
+    it('should produce the same result as toAthenaDbName', () => {
+        expect(toPgDbName('org-name', 'env-id')).toBe(toAthenaDbName('org-name', 'env-id'))
+    })
 })
 
 describe('triggerBuildImageForJob', () => {

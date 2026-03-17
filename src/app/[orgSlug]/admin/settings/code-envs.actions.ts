@@ -12,10 +12,16 @@ import {
     moveFolderContents,
     createSignedUploadUrl,
     triggerScanForCodeEnv,
+    createAthenaDatabase,
+    deleteAthenaDatabase,
+    toAthenaDbName,
+    createPgDatabase,
+    deletePgDatabase,
+    toPgDbName,
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
-import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
+import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
@@ -39,6 +45,9 @@ const codeEnvFromOrgAndId = async ({
             'orgCodeEnv.starterCodePath',
             'orgCodeEnv.sampleDataPath',
             'orgCodeEnv.url',
+            'orgCodeEnv.dataSourceType',
+            'orgCodeEnv.identifier',
+            'org.slug as orgSlug',
             'org.id as orgId',
         ])
         .where('org.slug', '=', orgSlug)
@@ -60,6 +69,7 @@ const codeEnvSettingsSchema = z.object({
 const createOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
+    identifier: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
@@ -68,8 +78,8 @@ const createOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z
-        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+    dataSourceType: z
+        .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
 })
@@ -107,6 +117,12 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
         if (SIMULATE_CODE_BUILD) {
             await insertFakeCodeScan(newCodeEnv.id, db)
         } else {
+            if (fieldValues.dataSourceType === 'athena') {
+                await createAthenaDatabase(toAthenaDbName(orgSlug, fieldValues.identifier))
+            } else if (fieldValues.dataSourceType === 'postgres') {
+                await createPgDatabase(toPgDbName(orgSlug, fieldValues.identifier))
+            }
+
             await db.insertInto('codeScan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
@@ -121,6 +137,7 @@ const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     codeEnvId: z.string(),
     name: z.string(),
+    identifier: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
@@ -130,8 +147,8 @@ const updateOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z
-        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+    dataSourceType: z
+        .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
 })
@@ -141,70 +158,112 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
     // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
-    .handler(async ({ params, starterCodePath, sampleDataPath: prevSampleDataPath, url: prevUrl, db }) => {
-        const {
-            orgSlug,
-            codeEnvId,
-            starterCodeFileName,
-            starterCodeUploaded,
-            sampleDataPath,
-            sampleDataUploaded,
-            ...fieldValues
-        } = params
-
-        if (starterCodeUploaded && starterCodeFileName) {
-            const newStarterCodePath = pathForStarterCode({
+    .handler(
+        async ({
+            params,
+            starterCodePath,
+            sampleDataPath: prevSampleDataPath,
+            url: prevUrl,
+            dataSourceType: prevDataSourceType,
+            identifier: prevIdentifier,
+            orgSlug: prevOrgSlug,
+            db,
+        }) => {
+            const {
                 orgSlug,
                 codeEnvId,
-                fileName: starterCodeFileName,
-            })
-            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId }))
-            starterCodePath = newStarterCodePath
-        }
+                starterCodeFileName,
+                starterCodeUploaded,
+                sampleDataPath,
+                sampleDataUploaded,
+                ...fieldValues
+            } = params
 
-        const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
+            if (starterCodeUploaded && starterCodeFileName) {
+                const newStarterCodePath = pathForStarterCode({
+                    orgSlug,
+                    codeEnvId,
+                    fileName: starterCodeFileName,
+                })
+                await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId }))
+                starterCodePath = newStarterCodePath
+            }
 
-        if (sampleDataUploaded && prevSampleDataPath) {
-            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
-        } else if (sanitizedSampleDataPath && prevSampleDataPath && sanitizedSampleDataPath !== prevSampleDataPath) {
-            const codeEnvInfo = { orgSlug, codeEnvId }
-            await moveFolderContents(
-                pathForSampleData({ ...codeEnvInfo, sampleDataPath: prevSampleDataPath }),
-                pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
-            )
-        }
+            const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
 
-        const updatedCodeEnv = await db
-            .updateTable('orgCodeEnv')
-            .set({
-                ...fieldValues,
-                settings: fieldValues.settings,
-                starterCodePath,
-                sampleDataPath: sanitizedSampleDataPath,
-            })
-            .where('id', '=', codeEnvId)
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
-
-        if (updatedCodeEnv.url !== prevUrl) {
-            if (SIMULATE_CODE_BUILD) {
-                await insertFakeCodeScan(updatedCodeEnv.id, db)
-            } else {
-                await db
-                    .insertInto('codeScan')
-                    .values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' })
-                    .execute()
-
-                triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
-                    logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
+            if (sampleDataUploaded && prevSampleDataPath) {
+                await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
+            } else if (
+                sanitizedSampleDataPath &&
+                prevSampleDataPath &&
+                sanitizedSampleDataPath !== prevSampleDataPath
+            ) {
+                const codeEnvInfo = { orgSlug, codeEnvId }
+                await moveFolderContents(
+                    pathForSampleData({ ...codeEnvInfo, sampleDataPath: prevSampleDataPath }),
+                    pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
                 )
             }
-        }
 
-        return updatedCodeEnv
-    })
+            const updatedCodeEnv = await db
+                .updateTable('orgCodeEnv')
+                .set({
+                    ...fieldValues,
+                    settings: fieldValues.settings,
+                    starterCodePath,
+                    sampleDataPath: sanitizedSampleDataPath,
+                })
+                .where('id', '=', codeEnvId)
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+            revalidatePath(Routes.adminSettings({ orgSlug }))
+
+            if (!SIMULATE_CODE_BUILD) {
+                const oldAthenaName =
+                    prevDataSourceType === 'athena' ? toAthenaDbName(prevOrgSlug, prevIdentifier) : null
+                const newAthenaName =
+                    fieldValues.dataSourceType === 'athena' ? toAthenaDbName(orgSlug, fieldValues.identifier) : null
+
+                if (oldAthenaName && oldAthenaName !== newAthenaName) {
+                    await deleteAthenaDatabase(oldAthenaName)
+                }
+                if (newAthenaName && newAthenaName !== oldAthenaName) {
+                    await createAthenaDatabase(newAthenaName)
+                }
+
+                const oldPgName = prevDataSourceType === 'postgres' ? toPgDbName(prevOrgSlug, prevIdentifier) : null
+                const newPgName =
+                    fieldValues.dataSourceType === 'postgres' ? toPgDbName(orgSlug, fieldValues.identifier) : null
+
+                if (oldPgName && oldPgName !== newPgName) {
+                    await deletePgDatabase(oldPgName)
+                }
+                if (newPgName && newPgName !== oldPgName) {
+                    await createPgDatabase(newPgName)
+                }
+            }
+
+            if (updatedCodeEnv.url !== prevUrl) {
+                if (SIMULATE_CODE_BUILD) {
+                    await insertFakeCodeScan(updatedCodeEnv.id, db)
+                } else {
+                    await db
+                        .insertInto('codeScan')
+                        .values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' })
+                        .execute()
+
+                    triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
+                        logger.error('Failed to trigger scan for updated code env', err, {
+                            codeEnvId: updatedCodeEnv.id,
+                        }),
+                    )
+                }
+            }
+
+            return updatedCodeEnv
+        },
+    )
 
 const fetchOrgCodeEnvsSchema = z.object({
     orgSlug: z.string(),
@@ -257,6 +316,9 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 'orgCodeEnv.language',
                 'orgCodeEnv.isTesting',
                 'orgCodeEnv.orgId',
+                'orgCodeEnv.dataSourceType',
+                'orgCodeEnv.identifier',
+                'org.slug as orgSlug',
             ])
             .where('org.slug', '=', orgSlug)
             .where('orgCodeEnv.id', '=', codeEnvId)
@@ -280,6 +342,26 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 throw new Error(
                     `Cannot delete the last non-testing ${codeEnv.language} code environment. At least one non-testing code environment must exist for each language.`,
                 )
+            }
+        }
+
+        const linkedDataSources = await db
+            .selectFrom('orgDataSource')
+            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .where('codeEnvId', '=', codeEnv.id)
+            .executeTakeFirstOrThrow()
+
+        if (Number(linkedDataSources.count) > 0) {
+            throw new Error(
+                'Cannot delete this code environment because it has linked data sources. Remove or reassign them first.',
+            )
+        }
+
+        if (!SIMULATE_CODE_BUILD) {
+            if (codeEnv.dataSourceType === 'athena') {
+                await deleteAthenaDatabase(toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier))
+            } else if (codeEnv.dataSourceType === 'postgres') {
+                await deletePgDatabase(toPgDbName(codeEnv.orgSlug, codeEnv.identifier))
             }
         }
 

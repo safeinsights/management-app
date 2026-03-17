@@ -8,7 +8,7 @@ import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
-import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
+import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS } from './schema'
@@ -22,10 +22,10 @@ export interface MemberOption {
 }
 
 interface ProposalFormProps {
-    datasets?: DatasetOption[]
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
+    enclaveOrgSlug?: string
 }
 
 const ProposalTextField: FC<{
@@ -66,10 +66,10 @@ const ProposalTextField: FC<{
 }
 
 export const ProposalForm: FC<ProposalFormProps> = ({
-    datasets = [],
     members = [],
     orgName = '',
     researcherName = '',
+    enclaveOrgSlug,
 }) => {
     const { form, saveDraft, isSaving } = useProposal()
 
@@ -112,7 +112,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                         </Box>
 
                         <Box>
-                            <FormFieldLabel label="Dataset(s) of interest" inputId="datasets" />
+                            <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                             <Text size="sm" c="dimmed" mb="xs">
                                 Select one or more datasets relevant to your study.
                             </Text>
@@ -120,9 +120,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 <Box w="50%">
                                     <DatasetMultiSelect
                                         id="datasets"
-                                        options={datasets}
                                         value={form.values.datasets}
                                         onChange={(val) => form.setFieldValue('datasets', val)}
+                                        orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
                                 <Anchor
@@ -210,7 +210,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                <ProposalFooter researcherName={researcherName} />
+                <ProposalFooter researcherName={researcherName} enclaveOrgSlug={enclaveOrgSlug} />
             </Stack>
         </ProxyProvider>
     )

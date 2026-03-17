@@ -5,14 +5,17 @@ import { Box, Divider, Stack, Text } from '@mantine/core'
 import { EditableText } from '@/components/editable-text'
 import { extractTextFromLexical } from '@/lib/word-count'
 import { useProposal } from '@/contexts/proposal'
+import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
     researcherName: string
+    enclaveOrgSlug?: string
 }
 
-export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName }) => {
+export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName, enclaveOrgSlug }) => {
     const { form } = useProposal()
+    const { options: datasetOptions } = useOrgDataSources(enclaveOrgSlug)
     const values = form.getValues()
 
     return (
@@ -31,7 +34,11 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName }) =>
                     Dataset(s) of interest
                 </Text>
                 <Text size="md" fw={400}>
-                    {values.datasets.length > 0 ? values.datasets.join(', ') : 'None selected'}
+                    {values.datasets.length > 0
+                        ? values.datasets
+                              .map((id) => datasetOptions.find((o) => o.value === id)?.label || id)
+                              .join(', ')
+                        : 'None selected'}
                 </Text>
             </Box>
 

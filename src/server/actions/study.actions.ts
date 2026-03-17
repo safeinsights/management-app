@@ -1,6 +1,7 @@
 'use server'
 
 import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { sql } from 'kysely'
 import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
@@ -36,6 +37,12 @@ function fetchStudyQuery(db: DBExecutor) {
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc'),
             ).as('jobStatusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('orgDataSource')
+                    .select(['orgDataSource.id', 'orgDataSource.name'])
+                    .where(sql<boolean>`"org_data_source"."id"::text = ANY("study"."datasets")`),
+            ).as('orgDataSources'),
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))

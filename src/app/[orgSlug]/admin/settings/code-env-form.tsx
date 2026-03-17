@@ -16,7 +16,7 @@ import {
     ActionIcon,
     Box,
 } from '@mantine/core'
-import { ActionSuccessType, SAMPLE_DATA_FORMATS } from '@/lib/types'
+import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -68,25 +68,31 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <Group align="flex-start" wrap="nowrap">
+                <Group align="flex-end" wrap="nowrap">
                     <TextInput
-                        label="Name"
-                        placeholder="e.g., R 4.2.0 Code Environment"
-                        {...form.getInputProps('name')}
+                        label="Identifier"
+                        withAsterisk
+                        placeholder="e.g., r-4-2-0"
+                        description="Unique lowercase identifier using only letters, numbers, and dashes"
+                        {...form.getInputProps('identifier')}
                         style={{ flex: 1 }}
                     />
-                    <Box>
-                        <Text size="sm" fw={500} mb={7}>
-                            Is testing image
-                        </Text>
-                        <Checkbox {...form.getInputProps('isTesting', { type: 'checkbox' })} />
-                        <Text c="dimmed" size="sm">
-                            Only admins can use testing images
-                        </Text>
-                    </Box>
+                    <Checkbox
+                        label="Is testing image"
+                        description="Only admins can use testing images"
+                        {...form.getInputProps('isTesting', { type: 'checkbox' })}
+                        mb={4}
+                    />
                 </Group>
                 <TextInput
+                    label="Name"
+                    withAsterisk
+                    placeholder="e.g., R 4.2.0 Code Environment"
+                    {...form.getInputProps('name')}
+                />
+                <TextInput
                     label="Command Line"
+                    withAsterisk
                     placeholder="Rscript %f"
                     description="Command used to execute scripts.  %f will be subsituted with main code file"
                     {...form.getInputProps('cmdLine')}
@@ -94,6 +100,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
 
                 <Select
                     label="Language"
+                    withAsterisk
                     placeholder="Select language"
                     data={[
                         { value: 'R', label: 'R' },
@@ -103,11 +110,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 />
                 <TextInput
                     label="URL to code environment"
+                    withAsterisk
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
                 <FileInput
                     label="Starter Code"
+                    withAsterisk={!isEditMode}
                     description={
                         isEditMode
                             ? 'Upload a new file to replace the existing starter code (optional)'
@@ -121,43 +130,6 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         Current file: {basename(image.starterCodePath)}
                     </Text>
                 )}
-                <Divider />
-                <Box>
-                    <Title order={5} mb={4}>
-                        Sample Data
-                    </Title>
-                    <Text size="xs" c="dimmed" mb="sm">
-                        Files available to researchers when they develop in Coder
-                    </Text>
-                    <Stack gap="xs">
-                        <TextInput
-                            label="Data Path"
-                            description="Directory path where files appear in the workspace (e.g. data/)"
-                            placeholder="data/"
-                            {...form.getInputProps('sampleDataPath')}
-                        />
-                        <FileInput
-                            label="Files"
-                            description={
-                                isEditMode
-                                    ? 'Upload new files to replace the existing sample data (optional)'
-                                    : 'Upload sample data files for researchers (optional)'
-                            }
-                            placeholder="Select files"
-                            multiple
-                            value={sampleDataFiles}
-                            onChange={setSampleDataFiles}
-                        />
-                        <Radio.Group label="File Format" {...form.getInputProps('sampleDataFormat')}>
-                            <Flex gap="md" mt="xs">
-                                {Object.entries(SAMPLE_DATA_FORMATS).map(([value, label]) => (
-                                    <Radio key={value} value={value} label={label} />
-                                ))}
-                            </Flex>
-                        </Radio.Group>
-                    </Stack>
-                </Box>
-
                 <Divider />
                 <Box>
                     <Title order={5} mb={4}>
@@ -189,6 +161,42 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>
+                    </Stack>
+                </Box>
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
+                        Sample Data
+                    </Title>
+                    <Text size="xs" c="dimmed" mb="sm">
+                        Files available to researchers when they develop in Coder
+                    </Text>
+                    <Stack gap="xs">
+                        <TextInput
+                            label="Data Path"
+                            description="Directory path where files appear in the workspace (e.g. data/)"
+                            placeholder="data/"
+                            {...form.getInputProps('sampleDataPath')}
+                        />
+                        <FileInput
+                            label="Files"
+                            description={
+                                isEditMode
+                                    ? 'Upload new files to replace the existing sample data (optional)'
+                                    : 'Upload sample data files for researchers (optional)'
+                            }
+                            placeholder="Select files"
+                            multiple
+                            value={sampleDataFiles}
+                            onChange={setSampleDataFiles}
+                        />
+                        <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
+                            <Flex gap="md" mt="xs">
+                                {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
+                                    <Radio key={value} value={value} label={label} />
+                                ))}
+                            </Flex>
+                        </Radio.Group>
                     </Stack>
                 </Box>
 

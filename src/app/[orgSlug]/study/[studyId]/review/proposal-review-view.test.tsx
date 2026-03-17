@@ -100,7 +100,7 @@ describe('ProposalReviewView', () => {
     })
 
     it('shows approval status when study is APPROVED', () => {
-        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15') }
+        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15T12:00:00') }
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
@@ -110,7 +110,7 @@ describe('ProposalReviewView', () => {
     })
 
     it('shows rejection status when study is REJECTED', () => {
-        const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15') }
+        const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15T12:00:00') }
 
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
 
