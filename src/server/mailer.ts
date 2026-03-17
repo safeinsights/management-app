@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
+import logger from '@/lib/logger'
 import { deliver } from './mailgun'
 
 // For local testing, send to a fixed 'to' email address that is authorized to
@@ -44,10 +45,16 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
     const emails = reviewers.map((r) => r.email).filter(Boolean)
+    const to = study.reviewerEmail ?? emails.join(', ')
+
+    if (!to) {
+        logger.warn(`No recipients for study proposal email, studyId: ${studyId}`)
+        return
+    }
 
     await deliver({
-        to: study.reviewerEmail ?? emails.join(', '),
-        bcc: emails.join(', '),
+        to,
+        ...(emails.length > 0 && { bcc: emails.join(', ') }),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
         vars: {
@@ -62,15 +69,21 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
     const emails = reviewers.map((reviewer) => reviewer.email).filter((email) => email)
+    const to = study.reviewerEmail ?? emails.join(', ')
+
+    if (!to) {
+        logger.warn(`No recipients for study code submitted email, studyId: ${studyId}`)
+        return
+    }
 
     await deliver({
-        to: study.reviewerEmail ?? emails.join(', '),
-        bcc: emails.join(', '),
+        to,
+        ...(emails.length > 0 && { bcc: emails.join(', ') }),
         subject: 'Study code submitted for review',
         template: 'vb - new code submission',
         vars: {
             ...baseStudyVars(study),
-            fullName: study.reviewerFullName,
+            fullName: study.reviewerFullName ?? '',
             dashboardURL: `${APP_BASE_URL}/dashboard?audience=reviewer`,
         },
     })
