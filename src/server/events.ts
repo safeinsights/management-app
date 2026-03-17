@@ -51,12 +51,6 @@ export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEv
     await email.sendStudyCodeSubmittedEmail(studyId)
 })
 
-export const onStudyFilesApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await email.sendStudyResultsApprovedEmail(studyId)
-})
-
 export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
@@ -69,7 +63,25 @@ export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) 
     await email.sendStudyProposalRejectedEmail(studyId)
 })
 
+export const onStudyCodeApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+    await email.sendStudyCodeApprovedEmail(studyId)
+})
+
 export const onStudyCodeRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+    await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
+    await email.sendStudyCodeRejectedEmail(studyId)
+})
+
+export const onStudyResultsApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+    await email.sendStudyResultsApprovedEmail(studyId)
+})
+
+export const onStudyResultsRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyResultsRejectedEmail(studyId)

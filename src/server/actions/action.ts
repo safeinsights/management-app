@@ -135,6 +135,8 @@ export class Action<
 
         // build the final action function
         const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
+            let actionCtx: ActionContext | undefined
+
             try {
                 // 1) validate
                 let args: Args
@@ -163,6 +165,7 @@ export class Action<
                 // Function to execute with either transaction or regular db
                 const execute = async (dbConn: DBExecutor): Promise<Res> => {
                     let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
+                    actionCtx = ctx
 
                     return localStorageContext.run(ctx, async () => {
                         // Run all middleware in order, including any permission checking middleware
@@ -189,8 +192,12 @@ export class Action<
                     result = await execute(db)
                 }
 
+                if (actionCtx) actionCtx.db = db
+
                 return result
             } catch (error) {
+                if (actionCtx) actionCtx.db = db
+
                 Sentry.captureException(error)
 
                 // Handle specific error types

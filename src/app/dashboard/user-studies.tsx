@@ -5,15 +5,36 @@ import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skel
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
-import { useState } from 'react'
+import type { Route } from 'next'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+
+type Audience = 'researcher' | 'reviewer'
+
+function getAudienceFromQuery(audience: string | null): Audience | null {
+    if (audience === 'researcher' || audience === 'reviewer') return audience
+    return null
+}
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
     useInvitationNotices()
 
     const showTabs = session?.belongsToEnclave && session?.belongsToLab
-    const defaultTab = session?.belongsToEnclave ? 'reviewer' : 'researcher'
-    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>(defaultTab)
+    const defaultTab: Audience = session?.belongsToEnclave ? 'reviewer' : 'researcher'
+    const audienceFromQuery = getAudienceFromQuery(searchParams.get('audience'))
+    const activeTab = audienceFromQuery ?? defaultTab
+
+    const onAudienceChange = (value: string) => {
+        const nextAudience = getAudienceFromQuery(value)
+        if (!nextAudience) return
+
+        const params = new URLSearchParams(searchParams.toString())
+        params.set('audience', nextAudience)
+        router.replace(`${pathname}?${params.toString()}` as Route)
+    }
 
     if (!session) {
         return (
@@ -39,7 +60,7 @@ export default function UserStudiesDashboard() {
                     <Flex justify="flex-end" align="center">
                         <SegmentedControl
                             value={activeTab}
-                            onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
+                            onChange={onAudienceChange}
                             mb="xl"
                             data={[
                                 { label: 'Reviewer', value: 'reviewer' },

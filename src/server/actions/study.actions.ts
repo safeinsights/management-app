@@ -5,7 +5,7 @@ import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
-import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
@@ -165,7 +165,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['status', 'orgId', 'containerLocation'])
+            .select(['status', 'approvedAt', 'orgId', 'containerLocation'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
         return { study, orgId: study.orgId }
@@ -173,7 +173,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
         const userId = session.user.id
-        const alreadyApproved = study.status === 'APPROVED'
+        const proposalPreviouslyApproved = study.status === 'APPROVED' || !!study.approvedAt
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -182,12 +182,12 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
 
-        if (alreadyApproved && !latestJob) return
+        if (proposalPreviouslyApproved && !latestJob) return
 
         if (latestJob) {
             const job = await latestJobForStudy(studyId)
 
-            if (alreadyApproved) {
+            if (proposalPreviouslyApproved) {
                 const latestJobStatus = job.statusChanges.at(0)?.status
                 if (latestJobStatus !== 'CODE-SCANNED') return
             }
@@ -240,9 +240,21 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                     await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
                 }
             }
+
+            // Study was previously approved but went back to PENDING-REVIEW when new code was submitted —
+            // restore APPROVED status now that the code has been approved
+            if (proposalPreviouslyApproved && study.status === 'PENDING-REVIEW') {
+                await db
+                    .updateTable('study')
+                    .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                    .where('id', '=', studyId)
+                    .execute()
+
+                onStudyCodeApproved({ studyId, userId })
+            }
         }
 
-        if (!alreadyApproved) {
+        if (!proposalPreviouslyApproved) {
             await db
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
