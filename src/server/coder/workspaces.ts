@@ -102,13 +102,12 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
 
     if (codeEnv.dataSourceType === 'athena') {
         const dbName = toAthenaDbName(codeEnv.slug, codeEnv.identifier)
-        const region = process.env.AWS_REGION || 'us-east-1'
-        const dbUrl = `athena://athena.${region}.amazonaws.com:443/${dbName}?s3_location=${dataPath}`
+        const dbUrl = `athena://athena.${bucketRegion}.amazonaws.com:443/${dbName}?s3_location=${dataPath}`
         environment.push({ name: 'DATABASE_URL', value: dbUrl })
         environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
         environment.push({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
         environment.push({ name: 'AWS_ATHENA_WORK_GROUP', value: await getConfigValue('CODER_ATHENA_WORK_GROUP') })
-        environment.push({ name: 'AWS_REGION', value: region })
+        environment.push({ name: 'AWS_REGION', value: bucketRegion })
     } else if (codeEnv.dataSourceType === 'postgres') {
         const dbName = toPgDbName(codeEnv.slug, codeEnv.identifier)
         const pgHost = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
