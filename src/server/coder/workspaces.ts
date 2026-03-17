@@ -84,7 +84,7 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
         codeEnvId: codeEnv.id,
         sampleDataPath: codeEnv.sampleDataPath ?? undefined,
     })
-    const prefix = codeEnv.identifier.toUpperCase()
+    const prefix = codeEnv.identifier.toUpperCase().replace(/-/g, '_')
 
     environment.push({ name: 'DATA_PATH', value: dataPath })
     environment.push({ name: `${prefix}_DATA_PATH`, value: dataPath })
