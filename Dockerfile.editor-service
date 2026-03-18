@@ -1,0 +1,7 @@
+FROM node:24-slim
+WORKDIR /app
+RUN echo '{"type":"module","dependencies":{"@hocuspocus/server":"^3.4.4"}}' > package.json
+RUN npm install --omit=dev
+COPY bin/editor-service.ts .
+EXPOSE 1234
+CMD ["node", "editor-service.ts"]

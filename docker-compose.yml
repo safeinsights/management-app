@@ -69,6 +69,16 @@ services:
             "
         networks:
             - mgmnt-app
+    editor-service:
+        container_name: editor-service
+        build:
+            context: .
+            dockerfile: ./Dockerfile.editor-service
+        networks:
+            - mgmnt-app
+        ports:
+            - 1234:1234
+        restart: unless-stopped
     mgmnt-app:
         container_name: mgmnt-app
         depends_on:

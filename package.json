@@ -11,10 +11,12 @@
         "node": ">=20.0.0"
     },
     "scripts": {
-        "build:lambda": "./bin/build-lambda",
+        "build:app": "./bin/build-app",
+        "build:editor": "./bin/build-editor-service",
         "ci:server": "./bin/ci-server",
         "dev": "next dev -p 4000",
         "dev:local": "concurrently --kill-others-on-fail npm:dev npm:s3:local",
+        "hocuspocus": "node bin/hocuspocus-server.mjs",
         "s3:local": "./bin/local-seaweedfs",
         "prepare": "panda codegen",
         "build": "next build",
@@ -52,6 +54,8 @@
         "@casl/ability": "^6.8.0",
         "@clerk/nextjs": "^6.39.0",
         "@faker-js/faker": "^10.3.0",
+        "@hocuspocus/provider": "^3.4.4",
+        "@hocuspocus/server": "^3.4.4",
         "@lexical/link": "^0.41.0",
         "@lexical/list": "^0.41.0",
         "@lexical/react": "^0.41.0",
