@@ -134,6 +134,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     </Text>
                 )}
                 <Divider />
+                <MultiSelect
+                    label="Data Sources"
+                    placeholder="Select data sources"
+                    data={dataSourceOptions}
+                    {...form.getInputProps('dataSourceIds')}
+                />
+                <Divider />
                 <Box>
                     <Title order={5} mb={4}>
                         Environment Variables
@@ -202,14 +209,6 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         </Radio.Group>
                     </Stack>
                 </Box>
-                <Divider />
-                <MultiSelect
-                    label="Data Sources"
-                    placeholder="Select data sources"
-                    data={dataSourceOptions}
-                    {...form.getInputProps('dataSourceIds')}
-                />
-
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
                 </Button>
