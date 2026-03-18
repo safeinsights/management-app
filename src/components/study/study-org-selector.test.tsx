@@ -37,16 +37,8 @@ describe('StudyOrgSelector', () => {
         } as ReturnType<typeof useUser>)
     })
 
-    it('renders step indicator as "Step 1" when no org is selected', async () => {
+    it('renders step indicator as "Step 1A"', async () => {
         render(<FormWrapper />)
-
-        await waitFor(() => {
-            expect(screen.getByText(/^step 1$/i)).toBeInTheDocument()
-        })
-    })
-
-    it('renders step indicator as "Step 1A" when org is selected', async () => {
-        render(<FormWrapper orgSlug="test-org" />)
 
         await waitFor(() => {
             expect(screen.getByText(/step 1a/i)).toBeInTheDocument()
