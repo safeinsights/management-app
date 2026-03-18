@@ -7,9 +7,9 @@ const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     await expect(signOutBtn).toBeVisible()
     // force:true bypasses the Collapse animation stability check
     await signOutBtn.click({ force: true })
-    // Wait for the hard redirect to fully complete — the sign-in page renders the Login button
-    // once all navigations (Clerk soft redirect + our window.location.assign) have settled
-    await page.getByRole('button', { name: 'Login' }).waitFor({ state: 'visible', timeout: 15000 })
+    // Wait for the hard redirect (window.location.assign) to land on the sign-in page.
+    // Clerk's signOut() API call runs before the redirect fires, so give it plenty of room.
+    await page.waitForURL('**/account/signin**', { timeout: 15000 })
 }
 
 test.describe('sign-out hard redirect', () => {
