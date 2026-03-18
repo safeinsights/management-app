@@ -7,9 +7,10 @@ const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     await expect(signOutBtn).toBeVisible()
     // force:true bypasses the Collapse animation stability check
     await signOutBtn.click({ force: true })
-    // Wait for the hard redirect (window.location.assign) to land on the sign-in page.
-    // Clerk's signOut() API call runs before the redirect fires and can be slow on CI.
-    await page.waitForURL('**/account/signin**')
+    // Clerk's signOut() is a slow API call, then window.location.assign fires a hard
+    // redirect. Wait for the sign-in page to fully load (networkidle) so the execution
+    // context is stable for any subsequent page.evaluate calls.
+    await page.waitForURL('**/account/signin**', { timeout: 40_000, waitUntil: 'networkidle' })
 }
 
 test.describe('sign-out hard redirect', () => {
