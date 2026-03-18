@@ -14,7 +14,7 @@ import {
     deleteOrgAction,
     getOrgFromSlugAction,
     getUsersForOrgAction,
-    fetchUsersOrgsWithStatsAction,
+    fetchUsersOrgsAction,
     insertOrgAction,
     updateOrgSettingsAction,
     getStudyCapableEnclaveOrgsAction,
@@ -77,7 +77,7 @@ describe('Org Actions', () => {
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
             await deleteOrgAction({ orgId: org.id })
-            const result = await fetchUsersOrgsWithStatsAction()
+            const result = await fetchUsersOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
     })

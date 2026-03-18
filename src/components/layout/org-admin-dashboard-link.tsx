@@ -9,8 +9,8 @@ import styles from './navbar-items.module.css'
 import { NavbarLink } from './navbar-link'
 import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
-type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
+import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
+type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean

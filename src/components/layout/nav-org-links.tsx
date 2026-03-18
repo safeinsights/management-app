@@ -2,13 +2,13 @@ import { useSession } from '@/hooks/session'
 import { orgInitialsTitle } from '@/lib/string'
 import { ExternalLinks } from '@/lib/routes'
 import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
-import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
 import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
 import { NavbarLink } from './navbar-link'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
-type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
+type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
 type Props = {
     org: Org
