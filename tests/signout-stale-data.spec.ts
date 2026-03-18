@@ -8,12 +8,15 @@ const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     // force:true bypasses the Collapse animation stability check
     await signOutBtn.click({ force: true })
     // Wait for the hard redirect (window.location.assign) to land on the sign-in page.
-    // Clerk's signOut() API call runs before the redirect fires, so give it plenty of room.
-    await page.waitForURL('**/account/signin**', { timeout: 15000 })
+    // Clerk's signOut() API call runs before the redirect fires and can be slow on CI.
+    await page.waitForURL('**/account/signin**')
 }
 
 test.describe('sign-out hard redirect', () => {
     test('hard redirect on sign-out destroys previous session state', async ({ page }) => {
+        // Clerk's signOut() API is slow on CI cold starts
+        test.setTimeout(45_000)
+
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
         await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
 
@@ -56,6 +59,9 @@ test.describe('sign-out hard redirect', () => {
     })
 
     test('signing in as a different user after sign-out shows fresh data', async ({ page }) => {
+        // Clerk's signOut() API is slow on CI cold starts
+        test.setTimeout(45_000)
+
         // Sign in as researcher
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
         await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
