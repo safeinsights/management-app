@@ -136,6 +136,7 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                 <DetailRow label="Data Source Type">
                     {DATA_SOURCE_TYPES[image.dataSourceType as DataSourceType] || '-'}
                 </DetailRow>
+                <DetailRow label="Data Sources">{image.dataSources?.map((ds) => ds.name).join(', ') || '-'}</DetailRow>
                 <DetailRow label="Env Vars">{envVars}</DetailRow>
                 <DetailRow label="Created At">{new Date(image.createdAt).toISOString()}</DetailRow>
             </Stack>
@@ -143,11 +144,11 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
     )
 }
 
-const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean; isDefault: boolean }> = ({
-    image,
-    canDelete,
-    isDefault,
-}) => {
+const CodeEnvRow: React.FC<{
+    image: CodeEnv
+    canDelete: boolean
+    isDefault: boolean
+}> = ({ image, canDelete, isDefault }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)

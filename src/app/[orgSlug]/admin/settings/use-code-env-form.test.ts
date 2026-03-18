@@ -43,6 +43,9 @@ const mockCodeEnv = {
     dataSourceType: null,
     settings: { environment: [] },
     createdAt: new Date(),
+    latestScanStatus: null,
+    latestScanResults: null,
+    dataSources: [] as { id: string; name: string }[],
 }
 
 const createWrapper = () => {

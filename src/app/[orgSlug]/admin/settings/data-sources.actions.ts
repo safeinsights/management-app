@@ -8,35 +8,6 @@ import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
-import type { Kysely } from 'kysely'
-import type { DB } from '@/database/types'
-
-const orgIdFromSlugWithCodeEnvs = async ({
-    params: { orgSlug, codeEnvIds },
-    db,
-}: {
-    params: { orgSlug: string; codeEnvIds: string[] }
-    db: Kysely<DB>
-}) => {
-    const org = await db
-        .selectFrom('org')
-        .select(['id as orgId', 'type as orgType'])
-        .where('slug', '=', orgSlug)
-        .executeTakeFirst()
-
-    const matched = await db
-        .selectFrom('orgCodeEnv')
-        .select('id')
-        .where('id', 'in', codeEnvIds)
-        .where('orgId', '=', org?.orgId ?? '')
-        .execute()
-
-    if (matched.length !== codeEnvIds.length) {
-        throw new Error('One or more code environments not found for this organization')
-    }
-
-    return org
-}
 
 const fetchOrgDataSourcesSchema = z.object({
     orgSlug: z.string(),
@@ -76,10 +47,10 @@ const createSchema = z.object({
 
 export const createOrgDataSourceAction = new Action('createOrgDataSourceAction', { performsMutations: true })
     .params(createSchema)
-    .middleware(orgIdFromSlugWithCodeEnvs)
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, name, description, documentationUrl, codeEnvIds } = params
+        const { orgSlug, name, description, documentationUrl } = params
 
         const result = await db
             .insertInto('orgDataSource')
@@ -91,11 +62,6 @@ export const createOrgDataSourceAction = new Action('createOrgDataSourceAction',
             })
             .returningAll()
             .executeTakeFirstOrThrow()
-
-        await db
-            .insertInto('orgDataSourceCodeEnv')
-            .values(codeEnvIds.map((codeEnvId) => ({ dataSourceId: result.id, codeEnvId })))
-            .execute()
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
@@ -110,10 +76,10 @@ const updateSchema = z.object({
 
 export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction', { performsMutations: true })
     .params(updateSchema)
-    .middleware(orgIdFromSlugWithCodeEnvs)
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, dataSourceId, name, description, documentationUrl, codeEnvIds } = params
+        const { orgSlug, dataSourceId, name, description, documentationUrl } = params
 
         const result = await db
             .updateTable('orgDataSource')
@@ -126,13 +92,6 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
             .where('orgId', '=', orgId)
             .returningAll()
             .executeTakeFirstOrThrow(throwNotFound(`Data source with id ${dataSourceId}`))
-
-        await db.deleteFrom('orgDataSourceCodeEnv').where('dataSourceId', '=', dataSourceId).execute()
-
-        await db
-            .insertInto('orgDataSourceCodeEnv')
-            .values(codeEnvIds.map((codeEnvId) => ({ dataSourceId, codeEnvId })))
-            .execute()
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 

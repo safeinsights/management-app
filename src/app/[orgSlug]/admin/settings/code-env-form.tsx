@@ -6,6 +6,7 @@ import {
     Divider,
     FileInput,
     Flex,
+    MultiSelect,
     Radio,
     Select,
     Stack,
@@ -20,10 +21,11 @@ import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { createOrgCodeEnvAction } from './code-envs.actions'
+import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
+import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 
-type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
+type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
 interface EnvVarLineProps {
     envVar: EnvVar
@@ -63,6 +65,7 @@ interface CodeEnvFormProps {
 export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const { form, isEditMode, isPending, onSubmit, sampleDataFiles, setSampleDataFiles, envVarActions } =
         useCodeEnvForm(image, onCompleteAction)
+    const { options: dataSourceOptions } = useOrgDataSources()
     const { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar } = envVarActions
 
     return (
@@ -199,6 +202,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         </Radio.Group>
                     </Stack>
                 </Box>
+                <Divider />
+                <MultiSelect
+                    label="Data Sources"
+                    placeholder="Select data sources"
+                    data={dataSourceOptions}
+                    {...form.getInputProps('dataSourceIds')}
+                />
 
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}

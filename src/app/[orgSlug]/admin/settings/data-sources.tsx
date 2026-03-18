@@ -8,7 +8,6 @@ import { AppModal } from '@/components/modal'
 import { DataSourceForm } from './data-source-form'
 import { TrashIcon, PlusCircleIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sources.actions'
-import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
@@ -18,10 +17,7 @@ import { ActionSuccessType } from '@/lib/types'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
-const DataSourceRow: React.FC<{ dataSource: DataSource; codeEnvOptions: { value: string; label: string }[] }> = ({
-    dataSource,
-    codeEnvOptions,
-}) => {
+const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
@@ -77,20 +73,13 @@ const DataSourceRow: React.FC<{ dataSource: DataSource; codeEnvOptions: { value:
             </Group>
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Data Source">
-                <DataSourceForm
-                    dataSource={dataSource}
-                    codeEnvOptions={codeEnvOptions}
-                    onCompleteAction={handleEditComplete}
-                />
+                <DataSourceForm dataSource={dataSource} onCompleteAction={handleEditComplete} />
             </AppModal>
         </Box>
     )
 }
 
-const DataSourcesTable: React.FC<{
-    dataSources: DataSource[]
-    codeEnvOptions: { value: string; label: string }[]
-}> = ({ dataSources, codeEnvOptions }) => {
+const DataSourcesTable: React.FC<{ dataSources: DataSource[] }> = ({ dataSources }) => {
     if (!dataSources.length) {
         return (
             <Text fz="sm" c="dimmed" ta="center" p="md">
@@ -102,7 +91,7 @@ const DataSourcesTable: React.FC<{
     return (
         <Stack gap={0}>
             {dataSources.map((ds) => (
-                <DataSourceRow key={ds.id} dataSource={ds} codeEnvOptions={codeEnvOptions} />
+                <DataSourceRow key={ds.id} dataSource={ds} />
             ))}
         </Stack>
     )
@@ -123,13 +112,6 @@ export const DataSources: React.FC = () => {
         queryKey: ['orgDataSources', orgSlug],
         queryFn: async () => await fetchOrgDataSourcesAction({ orgSlug }),
     })
-
-    const { data: codeEnvs } = useQuery({
-        queryKey: ['orgCodeEnvs', orgSlug],
-        queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
-    })
-
-    const codeEnvOptions = (codeEnvs || []).map((env) => ({ value: env.id, label: env.name }))
 
     const handleFormComplete = () => {
         closeAddModal()
@@ -160,13 +142,11 @@ export const DataSources: React.FC = () => {
                     </ErrorPanel>
                 )}
 
-                {!isLoading && !isError && (
-                    <DataSourcesTable dataSources={dataSources || []} codeEnvOptions={codeEnvOptions} />
-                )}
+                {!isLoading && !isError && <DataSourcesTable dataSources={dataSources || []} />}
             </Stack>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Data Source">
-                <DataSourceForm codeEnvOptions={codeEnvOptions} onCompleteAction={handleFormComplete} />
+                <DataSourceForm onCompleteAction={handleFormComplete} />
             </AppModal>
         </Paper>
     )

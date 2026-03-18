@@ -628,7 +628,7 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
 
 export type InsertTestDataSourceOptions = {
     orgId: string
-    codeEnvIds: string[]
+    codeEnvIds?: string[]
     name?: string
     description?: string | null
     documentationUrl?: string | null
@@ -646,10 +646,11 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    if (options.codeEnvIds.length > 0) {
+    const codeEnvIds = options.codeEnvIds
+    if (codeEnvIds?.length) {
         await db
             .insertInto('orgDataSourceCodeEnv')
-            .values(options.codeEnvIds.map((codeEnvId) => ({ dataSourceId: dataSource.id, codeEnvId })))
+            .values(codeEnvIds.map((codeEnvId) => ({ dataSourceId: dataSource.id, codeEnvId })))
             .execute()
     }
 

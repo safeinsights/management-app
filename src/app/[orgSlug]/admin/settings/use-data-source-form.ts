@@ -20,7 +20,6 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
             name: dataSource?.name || '',
             description: dataSource?.description || '',
             documentationUrl: dataSource?.documentationUrl || '',
-            codeEnvIds: dataSource?.codeEnvs?.map((e) => e.id) || [],
         },
         validate: zodResolver(createOrgDataSourceSchema),
     })
