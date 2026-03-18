@@ -628,24 +628,33 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
 
 export type InsertTestDataSourceOptions = {
     orgId: string
-    codeEnvId: string
+    codeEnvIds?: string[]
     name?: string
     description?: string | null
     documentationUrl?: string | null
 }
 
 export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
-    return await db
+    const dataSource = await db
         .insertInto('orgDataSource')
         .values({
             orgId: options.orgId,
-            codeEnvId: options.codeEnvId,
             name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
             description: options.description ?? null,
             documentationUrl: options.documentationUrl ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
+
+    const codeEnvIds = options.codeEnvIds
+    if (codeEnvIds?.length) {
+        await db
+            .insertInto('orgDataSourceCodeEnv')
+            .values(codeEnvIds.map((codeEnvId) => ({ dataSourceId: dataSource.id, codeEnvId })))
+            .execute()
+    }
+
+    return dataSource
 }
 
 // Re-export actionResult for backwards compatibility in tests

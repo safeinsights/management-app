@@ -5,6 +5,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
+import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import {
     deleteS3File,
@@ -83,6 +84,7 @@ const createOrgCodeEnvSchema = z.object({
         .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
+    dataSourceIds: z.array(z.string().uuid()).default([]),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -90,7 +92,20 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, starterCodeFileName, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
+        const { orgSlug, starterCodeFileName, sampleDataPath, sampleDataUploaded, dataSourceIds, ...fieldValues } =
+            params
+
+        if (dataSourceIds.length > 0) {
+            const matched = await db
+                .selectFrom('orgDataSource')
+                .select('id')
+                .where('id', 'in', dataSourceIds)
+                .where('orgId', '=', orgId)
+                .execute()
+            if (matched.length !== dataSourceIds.length) {
+                throw new Error('One or more data sources not found for this organization')
+            }
+        }
 
         const id = uuidv7()
 
@@ -112,6 +127,13 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        if (dataSourceIds.length > 0) {
+            await db
+                .insertInto('orgDataSourceCodeEnv')
+                .values(dataSourceIds.map((dataSourceId) => ({ dataSourceId, codeEnvId: id })))
+                .execute()
+        }
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
@@ -152,11 +174,15 @@ const updateOrgCodeEnvSchema = z.object({
         .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
+    dataSourceIds: z.array(z.string().uuid()).default([]),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
     .params(updateOrgCodeEnvSchema)
-    .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
+    .middleware(async (args) => {
+        const { codeEnv, orgId } = await codeEnvFromOrgAndId(args)
+        return { ...codeEnv, orgId }
+    })
     .requireAbilityTo('update', 'Org')
     // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
     .handler(
@@ -168,6 +194,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             dataSourceType: prevDataSourceType,
             identifier: prevIdentifier,
             orgSlug: prevOrgSlug,
+            orgId,
             db,
         }) => {
             const {
@@ -177,8 +204,21 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 starterCodeUploaded,
                 sampleDataPath,
                 sampleDataUploaded,
+                dataSourceIds,
                 ...fieldValues
             } = params
+
+            if (dataSourceIds.length > 0) {
+                const matched = await db
+                    .selectFrom('orgDataSource')
+                    .select('id')
+                    .where('id', 'in', dataSourceIds)
+                    .where('orgId', '=', orgId)
+                    .execute()
+                if (matched.length !== dataSourceIds.length) {
+                    throw new Error('One or more data sources not found for this organization')
+                }
+            }
 
             if (starterCodeUploaded && starterCodeFileName) {
                 const newStarterCodePath = pathForStarterCode({
@@ -217,6 +257,14 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 .where('id', '=', codeEnvId)
                 .returningAll()
                 .executeTakeFirstOrThrow()
+
+            await db.deleteFrom('orgDataSourceCodeEnv').where('codeEnvId', '=', codeEnvId).execute()
+            if (dataSourceIds.length > 0) {
+                await db
+                    .insertInto('orgDataSourceCodeEnv')
+                    .values(dataSourceIds.map((dataSourceId) => ({ dataSourceId, codeEnvId })))
+                    .execute()
+            }
 
             revalidatePath(Routes.adminSettings({ orgSlug }))
 
@@ -293,6 +341,13 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
                     .orderBy('codeScan.createdAt', 'desc')
                     .limit(1)
                     .as('latestScanResults'),
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('orgDataSourceCodeEnv')
+                        .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceCodeEnv.dataSourceId')
+                        .select(['orgDataSource.id', 'orgDataSource.name'])
+                        .whereRef('orgDataSourceCodeEnv.codeEnvId', '=', 'orgCodeEnv.id'),
+                ).as('dataSources'),
             ])
             .where('orgCodeEnv.orgId', '=', orgId)
             .orderBy('createdAt', 'desc')
@@ -347,8 +402,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         }
 
         const linkedDataSources = await db
-            .selectFrom('orgDataSource')
-            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .selectFrom('orgDataSourceCodeEnv')
+            .select(({ fn }) => [fn.count<number>('dataSourceId').as('count')])
             .where('codeEnvId', '=', codeEnv.id)
             .executeTakeFirstOrThrow()
 

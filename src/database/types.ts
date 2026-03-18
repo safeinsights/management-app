@@ -127,13 +127,17 @@ export interface OrgCodeEnv {
 }
 
 export interface OrgDataSource {
-    codeEnvId: string
     createdAt: Generated<Timestamp>
     description: string | null
     documentationUrl: string | null
     id: Generated<string>
     name: string
     orgId: string
+}
+
+export interface OrgDataSourceCodeEnv {
+    codeEnvId: string
+    dataSourceId: string
 }
 
 export interface OrgUser {
@@ -248,6 +252,7 @@ export interface DB {
     org: Org
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
+    orgDataSourceCodeEnv: OrgDataSourceCodeEnv
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition

@@ -4,11 +4,11 @@ import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { useParams } from 'next/navigation'
-import { createOrgDataSourceAction, updateOrgDataSourceAction } from './data-sources.actions'
+import { createOrgDataSourceAction, fetchOrgDataSourcesAction, updateOrgDataSourceAction } from './data-sources.actions'
 import { createOrgDataSourceSchema } from './data-sources.schema'
 import { ActionSuccessType } from '@/lib/types'
 
-type DataSource = ActionSuccessType<typeof createOrgDataSourceAction>
+type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 type FormValues = z.infer<typeof createOrgDataSourceSchema>
 
 export function useDataSourceForm(dataSource: DataSource | undefined, onCompleteAction: () => void) {
@@ -20,7 +20,6 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
             name: dataSource?.name || '',
             description: dataSource?.description || '',
             documentationUrl: dataSource?.documentationUrl || '',
-            codeEnvId: dataSource?.codeEnvId || '',
         },
         validate: zodResolver(createOrgDataSourceSchema),
     })

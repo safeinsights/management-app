@@ -356,12 +356,17 @@ async function setupOrganizations() {
                 .select('id')
                 .where('orgId', '=', org.id)
                 .executeTakeFirstOrThrow()
-            await db
+            const dataSources = await db
                 .insertInto('orgDataSource')
                 .values([
-                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Student Activity Logs' },
-                    { orgId: org.id, codeEnvId: codeEnv.id, name: 'Course Enrollment Data' },
+                    { orgId: org.id, name: 'Student Activity Logs' },
+                    { orgId: org.id, name: 'Course Enrollment Data' },
                 ])
+                .returning('id')
+                .execute()
+            await db
+                .insertInto('orgDataSourceCodeEnv')
+                .values(dataSources.map((ds) => ({ dataSourceId: ds.id, codeEnvId: codeEnv.id })))
                 .execute()
             console.log(`📊 Created data sources for openstax`)
         } else {
