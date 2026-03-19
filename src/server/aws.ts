@@ -36,6 +36,13 @@ export function objectToAWSTags(tags: Record<string, string>) {
     }))
 }
 
+function s3Credentials() {
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+        return { accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY }
+    if (process.env.AWS_PROFILE) return fromIni({ profile: process.env.AWS_PROFILE })
+    throw new Error('AWS credentials not configured: set AWS_PROFILE or AWS_SECRET_ACCESS_KEY')
+}
+
 let _s3Client: S3Client | null = null
 export const getS3Client = () =>
     _s3Client ||
@@ -43,7 +50,7 @@ export const getS3Client = () =>
         region: process.env.AWS_REGION || 'us-east-1',
         forcePathStyle: true,
         endpoint: process.env.S3_ENDPOINT,
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+        credentials: s3Credentials(),
     }))
 
 // For Pre-signed URLs and client calls
@@ -54,7 +61,7 @@ export const getS3BrowserClient = () =>
         region: process.env.AWS_REGION || 'us-east-1',
         forcePathStyle: true,
         endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+        credentials: s3Credentials(),
     }))
 
 let _glueClient: GlueClient | null = null
