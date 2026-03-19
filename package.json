@@ -12,11 +12,11 @@
     },
     "scripts": {
         "build:app": "./bin/build-app",
-        "build:editor": "./bin/build-editor-service",
+        "build:editor": "./services/editor/build",
         "ci:server": "./bin/ci-server",
         "dev": "next dev -p 4000",
         "dev:local": "concurrently --kill-others-on-fail npm:dev npm:s3:local",
-        "hocuspocus": "node bin/hocuspocus-server.mjs",
+        "hocuspocus": "node services/editor/server.ts",
         "s3:local": "./bin/local-seaweedfs",
         "prepare": "panda codegen",
         "build": "next build",
