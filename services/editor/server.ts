@@ -7,6 +7,7 @@ const server = new Server({
         if (request.url === '/health') {
             response.writeHead(200, { 'Content-Type': 'text/plain' })
             response.end('ok')
+            throw null
         }
     },
 })
