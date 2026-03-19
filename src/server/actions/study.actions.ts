@@ -5,7 +5,7 @@ import { sql } from 'kysely'
 import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
-import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
+import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
@@ -35,7 +35,8 @@ function fetchStudyQuery(db: DBExecutor) {
                     .select(['jobStatusChange.status', 'jobStatusChange.userId'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
                     .orderBy('studyJobId')
-                    .orderBy('createdAt', 'desc'),
+                    .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc'),
             ).as('jobStatusChanges'),
             jsonArrayFrom(
                 eb
@@ -161,6 +162,65 @@ export const getStudyAction = new Action('getStudyAction')
 
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
+async function approveJobCode({
+    db,
+    job,
+    study,
+    userId,
+    studyId,
+    orgSlug,
+    useTestImage,
+    jobFiles,
+}: {
+    db: DBExecutor
+    job: LatestJobForStudy
+    study: { orgId: string; containerLocation: string }
+    userId: string
+    studyId: string
+    orgSlug: string
+    useTestImage?: boolean
+    jobFiles?: z.infer<typeof jobFileSchema>[]
+}) {
+    let status: StudyJobStatus = 'CODE-APPROVED'
+
+    if (SIMULATE_CODE_BUILD) {
+        status = 'JOB-READY'
+    } else {
+        const image = await db
+            .selectFrom('orgCodeEnv')
+            .where('language', '=', job.language)
+            .where('orgId', '=', study.orgId)
+            .where('isTesting', '=', useTestImage || false)
+            .orderBy('orgCodeEnv.createdAt', 'desc')
+            .select(['url', 'cmdLine'])
+            .executeTakeFirstOrThrow(
+                throwNotFound(`no code environment found for org ${orgSlug} and language ${job.language}`),
+            )
+
+        const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
+
+        await triggerBuildImageForJob({
+            studyJobId: job.id,
+            studyId,
+            orgSlug,
+            containerLocation: study.containerLocation,
+            codeEntryPointFileName: mainCode.name,
+            cmdLine: image.cmdLine,
+            codeEnvURL: image.url,
+        })
+    }
+
+    await db.insertInto('jobStatusChange').values({ userId, status, studyJobId: job.id }).executeTakeFirstOrThrow()
+
+    if (jobFiles?.length) {
+        const info = { studyId, studyJobId: job.id, orgSlug }
+        for (const jobFile of jobFiles) {
+            const file = new File([jobFile.contents], jobFile.path)
+            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
+        }
+    }
+}
+
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -181,7 +241,18 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
         const userId = session.user.id
-        const proposalPreviouslyApproved = study.status === 'APPROVED' || !!study.approvedAt
+        const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
+        const isCodeReapproval = !isFirstApproval
+
+        if (isFirstApproval) {
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
+
+            onStudyApproved({ studyId, userId })
+        }
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -190,86 +261,27 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
 
-        if (proposalPreviouslyApproved && !latestJob) return
+        if (!latestJob) return
 
-        if (latestJob) {
-            const job = await latestJobForStudy(studyId)
+        const job = await latestJobForStudy(studyId)
+        const latestJobStatus = job.statusChanges.at(0)?.status
 
-            if (proposalPreviouslyApproved) {
-                const latestJobStatus = job.statusChanges.at(0)?.status
-                if (latestJobStatus !== 'CODE-SCANNED') return
-            }
-
-            let status: StudyJobStatus = 'CODE-APPROVED'
-
-            // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-            if (SIMULATE_CODE_BUILD) {
-                status = 'JOB-READY'
-            } else {
-                // TODO: the code environment should be chosen by the user (if admin) when they create the study
-                // but for now we just use the latest code environment for the org and language
-                const image = await db
-                    .selectFrom('orgCodeEnv')
-                    .where('language', '=', job.language)
-                    .where('orgId', '=', study.orgId)
-                    .where('isTesting', '=', useTestImage || false)
-                    .orderBy('orgCodeEnv.createdAt', 'desc')
-                    .select(['url', 'cmdLine'])
-                    .executeTakeFirstOrThrow(
-                        throwNotFound(`no code environment found for org ${orgSlug} and language ${job.language}`),
-                    )
-
-                const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
-
-                await triggerBuildImageForJob({
-                    studyJobId: job.id,
-                    studyId,
-                    orgSlug: orgSlug,
-                    containerLocation: study.containerLocation,
-                    codeEntryPointFileName: mainCode.name,
-                    cmdLine: image.cmdLine,
-                    codeEnvURL: image.url,
-                })
-            }
-
-            await db
-                .insertInto('jobStatusChange')
-                .values({
-                    userId,
-                    status,
-                    studyJobId: job.id,
-                })
-                .executeTakeFirstOrThrow()
-
-            if (jobFiles?.length) {
-                const info = { studyId, studyJobId: job.id, orgSlug }
-                for (const jobFile of jobFiles) {
-                    const file = new File([jobFile.contents], jobFile.path)
-                    await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-                }
-            }
-
-            // Study was previously approved but went back to PENDING-REVIEW when new code was submitted —
-            // restore APPROVED status now that the code has been approved
-            if (proposalPreviouslyApproved && study.status === 'PENDING-REVIEW') {
-                await db
-                    .updateTable('study')
-                    .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
-                    .where('id', '=', studyId)
-                    .execute()
-
-                onStudyCodeApproved({ studyId, userId })
-            }
+        // For code re-approval, only proceed if code has been submitted or scanned
+        if (isCodeReapproval) {
+            if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
         }
 
-        if (!proposalPreviouslyApproved) {
+        await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+
+        // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
+        if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
             await db
                 .updateTable('study')
-                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
                 .execute()
 
-            onStudyApproved({ studyId, userId })
+            onStudyCodeApproved({ studyId, userId })
         }
     })
 

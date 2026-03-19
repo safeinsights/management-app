@@ -53,7 +53,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
     if (study.status === 'REJECTED') return null
 
     const latestJobStatus = study.jobStatusChanges?.at(0)?.status
-    const codeNeedsReview = latestJobStatus === 'CODE-SCANNED'
+    const codeNeedsReview = latestJobStatus === 'CODE-SCANNED' || latestJobStatus === 'CODE-SUBMITTED'
 
     if (study.status === 'APPROVED' && !codeNeedsReview) return null
 
