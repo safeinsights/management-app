@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Center, Loader } from '@mantine/core'
-import { ClerkProvider } from '@clerk/nextjs'
 
 function EditorDemoLoader() {
     const [Editor, setEditor] = useState<React.ComponentType | null>(null)
@@ -23,9 +22,5 @@ function EditorDemoLoader() {
 }
 
 export default function EditorDemoPage() {
-    return (
-        <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''}>
-            <EditorDemoLoader />
-        </ClerkProvider>
-    )
+    return <EditorDemoLoader />
 }
