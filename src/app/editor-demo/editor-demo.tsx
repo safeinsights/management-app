@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { Box, Container, Title, Text, Badge, Group, Paper } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
@@ -30,6 +30,38 @@ function pickColor(name: string): string {
     return COLORS[Math.abs(hash) % COLORS.length]
 }
 
+type EditorState = { name: string; color: string; focusing: boolean }
+
+function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null>) {
+    const [editors, setEditors] = useState<EditorState[]>([])
+
+    useEffect(() => {
+        const provider = providerRef.current
+        if (!provider) return
+
+        const awareness = provider.awareness!
+
+        const update = () => {
+            const states: EditorState[] = []
+            awareness.getStates().forEach((state, clientId) => {
+                if (clientId !== awareness.clientID && state.name) {
+                    states.push({ name: state.name, color: state.color, focusing: state.focusing })
+                }
+            })
+            setEditors(states)
+        }
+
+        awareness.on('change', update)
+        update()
+
+        return () => {
+            awareness.off('change', update)
+        }
+    }, [providerRef])
+
+    return editors
+}
+
 const initialConfig = {
     namespace: 'editor-demo',
     theme: lexicalTheme,
@@ -38,7 +70,36 @@ const initialConfig = {
     onError: (error: Error) => console.error('Lexical error:', error),
 }
 
-function EditorContent({ username, cursorColor, wsUrl }: { username: string; cursorColor: string; wsUrl: string }) {
+function ActiveEditorsList({ providerRef }: { providerRef: React.RefObject<HocuspocusProvider | null> }) {
+    const editors = useActiveEditors(providerRef)
+
+    if (editors.length === 0) return null
+
+    return (
+        <Group mt="xs" gap="xs">
+            <Text size="xs" c="dimmed">
+                Also editing:
+            </Text>
+            {editors.map((editor) => (
+                <Badge key={editor.name} color={editor.color} variant="light" size="sm">
+                    {editor.name}
+                </Badge>
+            ))}
+        </Group>
+    )
+}
+
+function EditorContent({
+    username,
+    cursorColor,
+    wsUrl,
+    providerRef,
+}: {
+    username: string
+    cursorColor: string
+    wsUrl: string
+    providerRef: React.MutableRefObject<HocuspocusProvider | null>
+}) {
     const providerFactory = useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
             let doc = yjsDocMap.get(id)
@@ -54,9 +115,11 @@ function EditorContent({ username, cursorColor, wsUrl }: { username: string; cur
                 autoConnect: false,
             } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
+            providerRef.current = provider
+
             return provider as unknown as Provider
         },
-        [wsUrl],
+        [wsUrl, providerRef],
     )
 
     return (
@@ -81,6 +144,7 @@ function EditorContent({ username, cursorColor, wsUrl }: { username: string; cur
 
 export default function EditorDemo({ wsUrl }: { wsUrl: string }) {
     const { user } = useUser()
+    const providerRef = useRef<HocuspocusProvider | null>(null)
 
     const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const color = pickColor(name)
@@ -96,15 +160,13 @@ export default function EditorDemo({ wsUrl }: { wsUrl: string }) {
                     <Badge color={color} variant="filled" size="sm">
                         {name}
                     </Badge>
-                    <Text size="xs" c="dimmed">
-                        Connected to {wsUrl}
-                    </Text>
                 </Group>
+                <ActiveEditorsList providerRef={providerRef} />
             </Box>
 
             <LexicalComposer initialConfig={initialConfig}>
                 <LexicalCollaboration>
-                    <EditorContent username={name} cursorColor={color} wsUrl={wsUrl} />
+                    <EditorContent username={name} cursorColor={color} wsUrl={wsUrl} providerRef={providerRef} />
                 </LexicalCollaboration>
             </LexicalComposer>
         </Container>
