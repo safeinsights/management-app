@@ -74,7 +74,7 @@
         "highlight.js": "^11.11.1",
         "jsonwebtoken": "^9.0.3",
         "jws": "^4.0.1",
-        "kysely": "^0.28.11",
+        "kysely": "^0.28.12",
         "kysely-ctl": "^0.20.0",
         "lexical": "^0.41.0",
         "libphonenumber-js": "^1.12.38",
