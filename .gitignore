@@ -16,7 +16,6 @@ yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
-package-lock.json
 tests/coverage/
 playwright-report/
 src/styles/generated
