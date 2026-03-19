@@ -39,22 +39,25 @@ const initialConfig = {
 }
 
 function EditorContent({ username, cursorColor, wsUrl }: { username: string; cursorColor: string; wsUrl: string }) {
-    const providerFactory = useCallback((id: string, yjsDocMap: Map<string, Doc>): Provider => {
-        let doc = yjsDocMap.get(id)
-        if (!doc) {
-            doc = new Doc()
-            yjsDocMap.set(id, doc)
-        }
+    const providerFactory = useCallback(
+        (id: string, yjsDocMap: Map<string, Doc>): Provider => {
+            let doc = yjsDocMap.get(id)
+            if (!doc) {
+                doc = new Doc()
+                yjsDocMap.set(id, doc)
+            }
 
-        const provider = new HocuspocusProvider({
-            url: wsUrl,
-            name: id,
-            document: doc,
-            autoConnect: false,
-        } as ConstructorParameters<typeof HocuspocusProvider>[0])
+            const provider = new HocuspocusProvider({
+                url: wsUrl,
+                name: id,
+                document: doc,
+                autoConnect: false,
+            } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
-        return provider as unknown as Provider
-    }, [])
+            return provider as unknown as Provider
+        },
+        [wsUrl],
+    )
 
     return (
         <Paper shadow="sm" radius="md" p={0} style={{ overflow: 'hidden' }}>
