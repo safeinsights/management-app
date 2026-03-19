@@ -1,7 +1,33 @@
-import { getStudyAndOrgDisplayInfo, getUserById, getUsersForOrgId } from '@/server/db/queries'
+import { db } from '@/database'
+import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
+import logger from '@/lib/logger'
 import { deliver } from './mailgun'
+
+// For local testing, send to a fixed 'to' email address that is authorized to
+// receive emails from Mailgun, and remove the 'vb -' prefix from the template name.
+
+async function getOrgMembers(orgId: string) {
+    return db
+        .selectFrom('user')
+        .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+        .distinctOn('user.id')
+        .select(['user.id', 'user.email', 'user.fullName'])
+        .where('orgUser.orgId', '=', orgId)
+        .execute()
+}
+
+type StudyInfo = Awaited<ReturnType<typeof getStudyAndOrgDisplayInfo>>
+
+function baseStudyVars(study: StudyInfo) {
+    return {
+        studyTitle: study.title,
+        submittedBy: study.researcherFullName,
+        submittedOn: dayjs().format('MM/DD/YYYY'),
+        submittedTo: study.orgName,
+    }
+}
 
 export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
     await deliver({
@@ -14,47 +40,56 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
     })
 }
 
+// Audience: reviewer, Trigger: Status == PENDING-REVIEW (initial)
 export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const reviewersToNotify = await getUsersForOrgId(study.orgId)
+    const reviewers = await getOrgMembers(study.orgId)
+    const emails = reviewers.map((r) => r.email).filter(Boolean)
+    const to = study.reviewerEmail ?? emails.join(', ')
 
-    const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
+    if (!to) {
+        logger.warn(`No recipients for study proposal email, studyId: ${studyId}`)
+        return
+    }
 
     await deliver({
-        to: study.reviewerEmail ?? emails.join(', '), // work around in case no reviewer is set. mailgun requires a to address
-        bcc: emails.join(', '),
+        to,
+        ...(emails.length > 0 && { bcc: emails.join(', ') }),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
         vars: {
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
+            ...baseStudyVars(study),
+            dashboardURL: `${APP_BASE_URL}/${study.orgSlug}/dashboard`,
         },
     })
 }
 
+// Audience: reviewer, Trigger: Status == Code Needs Review
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const reviewersToNotify = await getUsersForOrgId(study.orgId)
+    const reviewers = await getOrgMembers(study.orgId)
+    const emails = reviewers.map((reviewer) => reviewer.email).filter((email) => email)
+    const to = study.reviewerEmail ?? emails.join(', ')
 
-    const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
+    if (!to) {
+        logger.warn(`No recipients for study code submitted email, studyId: ${studyId}`)
+        return
+    }
 
-    // TODO: reusing 'vb - new research proposal' template until a dedicated code-submission template is created in Mailgun
     await deliver({
-        to: study.reviewerEmail ?? emails.join(', '),
-        bcc: emails.join(', '),
+        to,
+        ...(emails.length > 0 && { bcc: emails.join(', ') }),
         subject: 'Study code submitted for review',
-        template: 'vb - new research proposal',
+        template: 'vb - new code submission',
         vars: {
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedOn: dayjs().format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
+            ...baseStudyVars(study),
+            fullName: study.reviewerFullName ?? '',
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=reviewer`,
         },
     })
 }
 
+// Audience: researcher, Trigger: Status == Proposal Approved
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
@@ -65,37 +100,31 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
         subject: 'Study Proposal Approved',
         template: 'vb - research proposal approved',
         vars: {
+            ...baseStudyVars(study),
             fullName: study.researcherFullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedTo: study.orgName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
 }
 
+// Audience: researcher, Trigger: Status == Proposal Rejected
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-
-    const researcher = await getUserById(study.researcherId)
-
-    if (!researcher.email) return
+    if (!study.researcherEmail) return
 
     await deliver({
-        to: researcher.email,
+        to: study.researcherEmail,
         subject: 'Study Proposal Rejected',
         template: 'vb - research proposal rejected',
         vars: {
-            fullName: researcher.fullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedTo: study.orgName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/researcher/study/${studyId}/review`,
+            ...baseStudyVars(study),
+            fullName: study.researcherFullName,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
 }
 
+// Audience: reviewer, Trigger: Status == Results Needs Review
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
@@ -108,52 +137,77 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
         subject: 'Results ready for review',
         template: 'vb - encrypted results ready for review',
         vars: {
+            ...baseStudyVars(study),
             fullName: study.reviewerFullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=reviewer`,
         },
     })
 }
 
-export const sendStudyResultsApprovedEmail = async (studyId: string) => {
+// Audience: researcher, Trigger: Status == Code Approved
+export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const researcher = await getUserById(study.researcherId)
-
-    if (!researcher.email) return
+    if (!study.researcherEmail) return
 
     await deliver({
-        to: researcher.email,
+        to: study.researcherEmail,
+        subject: 'Study Code Approved',
+        template: 'vb - code approved',
+        vars: {
+            ...baseStudyVars(study),
+            fullName: study.researcherFullName,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
+        },
+    })
+}
+
+// Audience: researcher, Trigger: Status == Code Rejected
+export const sendStudyCodeRejectedEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+    if (!study.researcherEmail) return
+
+    await deliver({
+        to: study.researcherEmail,
+        subject: 'Study Code Rejected',
+        template: 'vb - code rejected',
+        vars: {
+            ...baseStudyVars(study),
+            fullName: study.researcherFullName,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
+        },
+    })
+}
+
+// Audience: researcher, Trigger: Status == Results Approved
+export const sendStudyResultsApprovedEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+    if (!study.researcherEmail) return
+
+    await deliver({
+        to: study.researcherEmail,
         subject: 'Study Results',
         template: 'vb - study results approved',
         vars: {
-            fullName: researcher.fullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedTo: study.orgName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/researcher/study/${studyId}/review`,
+            ...baseStudyVars(study),
+            fullName: study.researcherFullName,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
 }
 
+// Audience: researcher, Trigger: Status == Results Rejected
 export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const researcher = await getUserById(study.researcherId)
-
-    if (!researcher.email) return
+    if (!study.researcherEmail) return
 
     await deliver({
-        to: researcher.email,
+        to: study.researcherEmail,
         subject: 'Study Results',
         template: 'vb - study results rejected',
         vars: {
-            fullName: researcher.fullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedTo: study.orgName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            ...baseStudyVars(study),
+            fullName: study.researcherFullName,
+            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
 }

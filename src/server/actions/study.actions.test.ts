@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -21,6 +21,7 @@ import {
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
+    onStudyCodeApproved: vi.fn(),
     onStudyCodeRejected: vi.fn(),
     onStudyRejected: vi.fn(),
 }))
@@ -54,6 +55,7 @@ describe('Study Actions', () => {
             .insertInto('orgCodeEnv')
             .values({
                 name: 'Python Base',
+                identifier: 'python-base',
                 language: 'PYTHON',
                 cmdLine: 'python %f',
                 url: 'test/url',
@@ -89,6 +91,32 @@ describe('Study Actions', () => {
 
         // Check that onStudyApproved was only called once
         expect(onStudyApproved).toHaveBeenCalledOnce()
+    })
+
+    it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SCANNED',
+        })
+        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+        expect(onStudyCodeApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        expect(onStudyApproved).not.toHaveBeenCalled()
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
@@ -231,6 +259,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Test R Image',
+                    identifier: 'test-r-image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',
@@ -261,6 +290,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Non-Test R Image',
+                    identifier: 'non-test-r',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',
@@ -284,6 +314,7 @@ describe('Study Actions', () => {
                 .insertInto('orgCodeEnv')
                 .values({
                     name: 'Other Org Test Image',
+                    identifier: 'other-org-test',
                     language: 'R',
                     cmdLine: 'Rscript %f',
                     url: 'test/url',

@@ -1,0 +1,7 @@
+FROM node:24-slim
+WORKDIR /app
+COPY services/editor/package.json services/editor/package-lock.json ./
+RUN npm ci --omit=dev
+COPY services/editor/server.ts .
+EXPOSE 1234
+CMD ["node", "server.ts"]

@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
+import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 
-const sampleDataFormatKeys = Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]
+const dataSourceTypeKeys = Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]]
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const MAX_FILE_SIZE_STR = '10MB'
@@ -28,9 +28,15 @@ const codeEnvSettingsSchema = z.object({
 // Valid pathname: alphanumeric, hyphens, underscores, dots, forward slashes
 const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
+export const identifierRegex = /^[a-z0-9_]+$/
+
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
     name: z.string().nonempty(),
+    identifier: z
+        .string()
+        .nonempty('Identifier is required')
+        .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
     cmdLine: z.string().nonempty(),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
@@ -39,10 +45,10 @@ const codeEnvFieldsSchema = z.object({
     sampleDataPath: z
         .string()
         .max(250)
-        .regex(pathnameRegex, 'Must be a valid file path (e.g. data/sample.csv)')
-        .optional()
-        .or(z.literal('')),
-    sampleDataFormat: z.enum(sampleDataFormatKeys).nullable().optional(),
+        .refine((val) => val === '' || pathnameRegex.test(val), 'Must be a valid file path (e.g. data/sample.csv)')
+        .optional(),
+    dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
+    dataSourceIds: z.array(z.string().uuid()).default([]),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)

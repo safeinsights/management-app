@@ -43,7 +43,7 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
 
-                    <DatasetsField datasets={study.datasets ?? []} />
+                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
                     <LexicalProposalField
                         label="Research question(s)"
                         value={stringifyJson(study.researchQuestions)}

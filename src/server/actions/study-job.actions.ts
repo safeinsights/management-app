@@ -4,10 +4,8 @@ import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
-import { onStudyFilesApproved } from '@/server/events'
-import { sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
-import { revalidatePath } from 'next/cache'
 import { Action, z } from './action'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
@@ -42,7 +40,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             })
             .executeTakeFirstOrThrow()
 
-        onStudyFilesApproved({ studyId: info.studyId, userId: session.user.id })
+        onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
 export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
@@ -67,9 +65,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             .executeTakeFirstOrThrow()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
-        await sendStudyResultsRejectedEmail(info.studyId)
-
-        revalidatePath(`/[orgSlug]/study/${info.studyId}`)
+        onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')

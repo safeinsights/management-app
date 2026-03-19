@@ -596,6 +596,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string
+    identifier?: string
     language?: Language
     cmdLine?: string
     url?: string
@@ -613,6 +614,7 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .values({
             orgId: options.orgId,
             name: options.name || `${language} ${faker.system.semver()} Code Environment`,
+            identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
             cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
@@ -622,6 +624,37 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         })
         .returningAll()
         .executeTakeFirstOrThrow()
+}
+
+export type InsertTestDataSourceOptions = {
+    orgId: string
+    codeEnvIds?: string[]
+    name?: string
+    description?: string | null
+    documentationUrl?: string | null
+}
+
+export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
+    const dataSource = await db
+        .insertInto('orgDataSource')
+        .values({
+            orgId: options.orgId,
+            name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
+            description: options.description ?? null,
+            documentationUrl: options.documentationUrl ?? null,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    const codeEnvIds = options.codeEnvIds
+    if (codeEnvIds?.length) {
+        await db
+            .insertInto('orgDataSourceCodeEnv')
+            .values(codeEnvIds.map((codeEnvId) => ({ dataSourceId: dataSource.id, codeEnvId })))
+            .execute()
+    }
+
+    return dataSource
 }
 
 // Re-export actionResult for backwards compatibility in tests

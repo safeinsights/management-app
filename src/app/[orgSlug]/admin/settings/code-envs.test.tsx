@@ -74,6 +74,7 @@ describe('CodeEnvs', async () => {
 
         const envName = faker.hacker.noun() + ' Code Env'
         await userEvent.type(screen.getByLabelText(/Name/i), envName)
+        await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
         await userEvent.type(screen.getByLabelText(/Command Line/i), 'Rscript %f')
         await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 

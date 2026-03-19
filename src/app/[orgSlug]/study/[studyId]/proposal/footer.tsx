@@ -12,9 +12,10 @@ import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
     researcherName: string
+    enclaveOrgSlug?: string
 }
 
-export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
+export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, enclaveOrgSlug }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
@@ -83,7 +84,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
                 onClose={() => setIsReviewerModalOpen(false)}
                 title="View as reviewer"
             >
-                <ReviewerPreview researcherName={researcherName} />
+                <ReviewerPreview researcherName={researcherName} enclaveOrgSlug={enclaveOrgSlug} />
             </AppModal>
         </>
     )

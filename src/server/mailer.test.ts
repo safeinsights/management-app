@@ -42,16 +42,17 @@ describe('mailgun email functions', () => {
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
+                    submittedTo: org.name,
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining(`/${org.slug}/dashboard`),
                 }),
             }),
         )
     })
 
     it('sendStudyCodeSubmittedEmail calls deliver for reviewers', async () => {
-        const { study, org, user1 } = await insertTestOrgStudyJobUsers()
+        const { study, user1 } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
@@ -61,11 +62,11 @@ describe('mailgun email functions', () => {
                 to: expect.stringContaining(user1.email || researcher.email || ''),
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: 'Study code submitted for review',
-                template: 'vb - new research proposal',
+                template: 'vb - new code submission',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining('/dashboard?audience=reviewer'),
                 }),
             }),
         )
@@ -86,6 +87,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
@@ -106,14 +108,14 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
-                    studyURL: expect.stringContaining(`/researcher/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
     })
 
     it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {
-        const { study, org, user1: reviewer } = await insertTestOrgStudyJobUsers()
+        const { study, user1: reviewer } = await insertTestOrgStudyJobUsers()
         await db.updateTable('study').set({ reviewerId: reviewer.id }).where('id', '=', study.id).execute()
 
         await mailgun.sendResultsReadyForReviewEmail(study.id)
@@ -127,7 +129,51 @@ describe('mailgun email functions', () => {
                     fullName: reviewer.fullName,
                     studyTitle: study.title,
                     submittedBy: expect.any(String),
-                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining('/dashboard?audience=reviewer'),
+                }),
+            }),
+        )
+    })
+
+    it('sendStudyCodeApprovedEmail calls deliver for researcher', async () => {
+        const { study, org } = await insertTestOrgStudyJobUsers()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendStudyCodeApprovedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: researcher.email,
+                subject: expect.stringContaining('Code Approved'),
+                template: 'vb - code approved',
+                vars: expect.objectContaining({
+                    fullName: researcher.fullName,
+                    studyTitle: study.title,
+                    submittedBy: researcher.fullName,
+                    submittedTo: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
+                }),
+            }),
+        )
+    })
+
+    it('sendStudyCodeRejectedEmail calls deliver for researcher', async () => {
+        const { study, org } = await insertTestOrgStudyJobUsers()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendStudyCodeRejectedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: researcher.email,
+                subject: expect.stringContaining('Code Rejected'),
+                template: 'vb - code rejected',
+                vars: expect.objectContaining({
+                    fullName: researcher.fullName,
+                    studyTitle: study.title,
+                    submittedBy: researcher.fullName,
+                    submittedTo: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
@@ -149,7 +195,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
-                    studyURL: expect.stringContaining(`/researcher/study/${study.id}/review`),
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )
@@ -171,6 +217,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
+                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
                 }),
             }),
         )

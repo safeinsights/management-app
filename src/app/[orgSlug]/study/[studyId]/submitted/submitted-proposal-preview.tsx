@@ -29,7 +29,7 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         <Text size="sm">{study.title}</Text>
                     </Stack>
 
-                    <DatasetsField datasets={study.datasets ?? []} />
+                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
 
                     <Divider />
 

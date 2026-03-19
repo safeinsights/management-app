@@ -8,6 +8,7 @@ import { useParams } from 'next/navigation'
 import {
     createOrgCodeEnvAction,
     updateOrgCodeEnvAction,
+    fetchOrgCodeEnvsAction,
     getSampleDataUploadUrlAction,
     getStarterCodeUploadUrlAction,
 } from './code-envs.actions'
@@ -17,12 +18,12 @@ import {
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
 } from './code-envs.schema'
-import { ActionSuccessType, type SampleDataFormat } from '@/lib/types'
+import { ActionSuccessType, type DataSourceType } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
 
-type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
+type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
 type EditFormValues = z.infer<typeof editOrgCodeEnvSchema>
 type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
@@ -53,13 +54,15 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     const form = useForm<FormValues>({
         initialValues: {
             name: image?.name || '',
+            identifier: image?.identifier || '',
             cmdLine: image?.cmdLine || '',
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
             starterCode: undefined,
             sampleDataPath: image?.sampleDataPath || '',
-            sampleDataFormat: (image?.sampleDataFormat as SampleDataFormat | null) || null,
+            dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
+            dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
             settings: {
                 environment: image?.settings?.environment || [],
             },

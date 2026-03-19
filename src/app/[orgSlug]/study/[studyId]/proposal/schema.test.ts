@@ -11,7 +11,7 @@ function words(count: number): string {
 
 const validProposalData = {
     title: 'Valid Study Title',
-    datasets: [] as string[],
+    datasets: ['dataset-1'],
     researchQuestions: lexicalText('What is the primary research question?'),
     projectSummary: lexicalText('This study examines the relationship between variables.'),
     impact: lexicalText('Findings will inform educational practice.'),
@@ -242,12 +242,15 @@ describe('proposalFormSchema', () => {
     })
 
     describe('datasets', () => {
-        it('defaults to empty array when omitted', () => {
-            const { datasets, ...data } = validProposalData
-            const result = proposalFormSchema.safeParse(data)
-            expect(result.success).toBe(true)
-            if (result.success) {
-                expect(result.data.datasets).toEqual([])
+        it('rejects empty array', () => {
+            const result = proposalFormSchema.safeParse({
+                ...validProposalData,
+                datasets: [],
+            })
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                const error = result.error.issues.find((e) => e.path.includes('datasets'))
+                expect(error?.message).toBe('Select at least one dataset.')
             }
         })
 

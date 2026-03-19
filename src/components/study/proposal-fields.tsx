@@ -31,15 +31,23 @@ export function LexicalProposalField({
     )
 }
 
-export function DatasetsField({ datasets }: { datasets: string[] }) {
+export function DatasetsField({
+    datasets,
+    orgDataSources,
+}: {
+    datasets: string[]
+    orgDataSources: Array<{ id: string; name: string }>
+}) {
     if (!datasets.length) return null
+
+    const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
 
     return (
         <Stack gap={4}>
             <Text fw={600} size="sm">
                 Dataset(s) of interest
             </Text>
-            <Text size="sm">{datasets.join(', ')}</Text>
+            <Text size="sm">{datasets.map((id) => nameMap[id] || id).join(', ')}</Text>
         </Stack>
     )
 }

@@ -39,9 +39,9 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
 
     permit('view', 'OrgMembers', { orgId: { $in: usersOrgIds } })
-
-    // can view orgs, studies and jobs for all orgs that the user belongs to
-    permit('view', 'Org', { orgId: { $in: usersOrgIds } })
+    // in the future we may narrow this, but right now
+    // researchers need to be able to view enclave orgs to create studies
+    permit('view', 'Org')
 
     permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds } })
     permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds } })
@@ -88,7 +88,6 @@ export function defineAbilityFor(session: UserSession) {
         permit('invite', 'User')
         permit('view', 'Study')
         permit('view', 'StudyJob')
-        permit('view', 'Org')
         permit('update', 'Org')
         permit('delete', 'Org')
         permit('view', 'OrgStudies')

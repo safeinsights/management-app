@@ -7,9 +7,12 @@ import {
     ListObjectsV2Command,
     S3Client,
 } from '@aws-sdk/client-s3'
+import { GlueClient, CreateDatabaseCommand, DeleteDatabaseCommand, type DatabaseInput } from '@aws-sdk/client-glue'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
+import { Signer } from '@aws-sdk/rds-signer'
+import PG from 'pg'
 import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import {
@@ -53,6 +56,121 @@ export const getS3BrowserClient = () =>
         endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
+
+let _glueClient: GlueClient | null = null
+const getGlueClient = () =>
+    _glueClient ||
+    (_glueClient = new GlueClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
+
+const safeDbNameRegex = /^[a-z0-9_]+$/
+
+export const toDbName = (orgSlug: string, identifier: string) => {
+    const name = `${orgSlug}_${identifier}`.replace(/-/g, '_')
+    if (!safeDbNameRegex.test(name)) {
+        throw new Error(`Invalid database name: ${name}`)
+    }
+    return name
+}
+
+export const toAthenaDbName = toDbName
+export const toPgDbName = toDbName
+
+export async function createAthenaDatabase(dbName: string) {
+    const input: DatabaseInput = { Name: dbName }
+    try {
+        await getGlueClient().send(new CreateDatabaseCommand({ DatabaseInput: input }))
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AlreadyExistsException') return
+        throw err
+    }
+}
+
+export async function deleteAthenaDatabase(dbName: string) {
+    try {
+        await getGlueClient().send(new DeleteDatabaseCommand({ Name: dbName }))
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'EntityNotFoundException') return
+        throw err
+    }
+}
+
+async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {
+    const hostPort = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
+    const [hostname, portStr] = hostPort.split(':')
+    const port = parseInt(portStr, 10)
+    const username = await getConfigValue('CODER_SAMPLE_DATA_ADMIN_POSTGRES_USER')
+
+    const signer = new Signer({
+        hostname,
+        port,
+        username,
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    })
+
+    const token = await signer.getAuthToken()
+    const client = new PG.Client({
+        host: hostname,
+        port,
+        user: username,
+        password: token,
+        database,
+        ssl: true,
+    })
+
+    await client.connect()
+    return client
+}
+
+async function grantReadOnlyAccess(dbName: string) {
+    const readOnlyUser = await getConfigValue('CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER')
+
+    // GRANT CONNECT must be run from any database (it's a cluster-level privilege)
+    const adminClient = await connectToPgAdmin()
+    try {
+        await adminClient.query(`GRANT CONNECT ON DATABASE "${dbName}" TO ${readOnlyUser}`)
+    } finally {
+        await adminClient.end()
+    }
+
+    // Schema and table grants must be run while connected to the target database
+    const dbClient = await connectToPgAdmin(dbName)
+    try {
+        await dbClient.query(`GRANT USAGE ON SCHEMA public TO ${readOnlyUser}`)
+        await dbClient.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${readOnlyUser}`)
+        await dbClient.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${readOnlyUser}`)
+    } finally {
+        await dbClient.end()
+    }
+}
+
+export async function createPgDatabase(dbName: string) {
+    const client = await connectToPgAdmin()
+    try {
+        await client.query(`CREATE DATABASE "${dbName}"`)
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && err.code === '42P04') return // 42P04 == 'DUPLICATE DATABASE'
+        throw err
+    } finally {
+        await client.end()
+    }
+
+    await grantReadOnlyAccess(dbName)
+}
+
+export async function deletePgDatabase(dbName: string) {
+    const client = await connectToPgAdmin()
+    try {
+        await client.query(`DROP DATABASE "${dbName}"`)
+    } catch (err: unknown) {
+        if (err instanceof Error && 'code' in err && err.code === '3D000') return
+        throw err
+    } finally {
+        await client.end()
+    }
+}
 
 export const s3BucketName = () => {
     if (!process.env.BUCKET_NAME) {

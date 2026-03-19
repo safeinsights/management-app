@@ -38,7 +38,7 @@ import { reportSuccess } from '@/components/notices'
 import { Refresher } from '@/components/refresher'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
-import { ActionSuccessType, SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
+import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { FileViewer } from '@/components/file-viewers'
@@ -112,6 +112,7 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
     return (
         <Box p="md" bg="gray.0">
             <Stack gap="xs">
+                <DetailRow label="Identifier">{image.identifier}</DetailRow>
                 <DetailRow label="URL">{image.url}</DetailRow>
                 <DetailRow label="Command Line">{image.cmdLine}</DetailRow>
                 <DetailRow label="Starter Code">
@@ -132,9 +133,10 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                     </Group>
                 </DetailRow>
                 <DetailRow label="Sample Data Path">{image.sampleDataPath || '-'}</DetailRow>
-                <DetailRow label="File Format">
-                    {SAMPLE_DATA_FORMATS[image.sampleDataFormat as SampleDataFormat] || '-'}
+                <DetailRow label="Data Source Type">
+                    {DATA_SOURCE_TYPES[image.dataSourceType as DataSourceType] || '-'}
                 </DetailRow>
+                <DetailRow label="Data Sources">{image.dataSources?.map((ds) => ds.name).join(', ') || '-'}</DetailRow>
                 <DetailRow label="Env Vars">{envVars}</DetailRow>
                 <DetailRow label="Created At">{new Date(image.createdAt).toISOString()}</DetailRow>
             </Stack>
@@ -142,11 +144,11 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
     )
 }
 
-const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean; isDefault: boolean }> = ({
-    image,
-    canDelete,
-    isDefault,
-}) => {
+const CodeEnvRow: React.FC<{
+    image: CodeEnv
+    canDelete: boolean
+    isDefault: boolean
+}> = ({ image, canDelete, isDefault }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
@@ -247,7 +249,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean; isDefault: bool
                 <CodeEnvDetailPanel image={image} onViewCode={handleViewCode} isLoadingCode={isLoadingCode} />
             </Collapse>
 
-            <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment">
+            <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment" size="xl">
                 <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
             </AppModal>
             <AppModal
@@ -372,7 +374,7 @@ export const CodeEnvs: React.FC = () => {
                 {!isLoading && !isError && <CodeEnvsTable images={codeEnvs || []} />}
             </Stack>
 
-            <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment">
+            <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment" size="xl">
                 <CodeEnvForm onCompleteAction={handleFormComplete} />
             </AppModal>
         </Paper>
