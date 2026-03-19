@@ -38,7 +38,7 @@ const initialConfig = {
     onError: (error: Error) => console.error('Lexical error:', error),
 }
 
-function EditorContent({ username, cursorColor }: { username: string; cursorColor: string }) {
+function EditorContent({ username, cursorColor, wsUrl }: { username: string; cursorColor: string; wsUrl: string }) {
     const providerFactory = useCallback((id: string, yjsDocMap: Map<string, Doc>): Provider => {
         let doc = yjsDocMap.get(id)
         if (!doc) {
@@ -47,7 +47,7 @@ function EditorContent({ username, cursorColor }: { username: string; cursorColo
         }
 
         const provider = new HocuspocusProvider({
-            url: 'ws://localhost:1234',
+            url: wsUrl,
             name: id,
             document: doc,
             autoConnect: false,
@@ -76,7 +76,7 @@ function EditorContent({ username, cursorColor }: { username: string; cursorColo
     )
 }
 
-export default function EditorDemo() {
+export default function EditorDemo({ wsUrl }: { wsUrl: string }) {
     const { user } = useUser()
 
     const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
@@ -94,14 +94,14 @@ export default function EditorDemo() {
                         {name}
                     </Badge>
                     <Text size="xs" c="dimmed">
-                        Connected to ws://localhost:1234
+                        Connected to {wsUrl}
                     </Text>
                 </Group>
             </Box>
 
             <LexicalComposer initialConfig={initialConfig}>
                 <LexicalCollaboration>
-                    <EditorContent username={name} cursorColor={color} />
+                    <EditorContent username={name} cursorColor={color} wsUrl={wsUrl} />
                 </LexicalCollaboration>
             </LexicalComposer>
         </Container>

@@ -1,26 +1,8 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { Center, Loader } from '@mantine/core'
-
-function EditorDemoLoader() {
-    const [Editor, setEditor] = useState<React.ComponentType | null>(null)
-
-    useEffect(() => {
-        import('./editor-demo').then((mod) => setEditor(() => mod.default))
-    }, [])
-
-    if (!Editor) {
-        return (
-            <Center h="80vh">
-                <Loader />
-            </Center>
-        )
-    }
-
-    return <Editor />
-}
+import { PROD_ENV } from '@/server/config'
+import { EditorDemoLoader } from './editor-demo-loader'
 
 export default function EditorDemoPage() {
-    return <EditorDemoLoader />
+    const wsUrl = PROD_ENV ? '/ws' : 'ws://localhost:1234'
+
+    return <EditorDemoLoader wsUrl={wsUrl} />
 }
