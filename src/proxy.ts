@@ -21,6 +21,7 @@ const ANON_ROUTES: Array<string> = [
     '/account/signup',
     '/account/signin',
     '/account/invitation',
+    '/editor-demo',
 ]
 
 function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {

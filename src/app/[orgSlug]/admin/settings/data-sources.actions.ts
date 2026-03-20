@@ -4,34 +4,10 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
+import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
-import type { Kysely } from 'kysely'
-import type { DB } from '@/database/types'
-
-const orgIdFromSlugWithCodeEnv = async ({
-    params: { orgSlug, codeEnvId },
-    db,
-}: {
-    params: { orgSlug: string; codeEnvId: string }
-    db: Kysely<DB>
-}) => {
-    const org = await db
-        .selectFrom('org')
-        .select(['id as orgId', 'type as orgType'])
-        .where('slug', '=', orgSlug)
-        .executeTakeFirst()
-
-    await db
-        .selectFrom('orgCodeEnv')
-        .select('id')
-        .where('id', '=', codeEnvId)
-        .where('orgId', '=', org?.orgId ?? '')
-        .executeTakeFirstOrThrow(throwNotFound(`Code environment ${codeEnvId}`))
-
-    return org
-}
 
 const fetchOrgDataSourcesSchema = z.object({
     orgSlug: z.string(),
@@ -44,16 +20,20 @@ export const fetchOrgDataSourcesAction = new Action('fetchOrgDataSourcesAction')
     .handler(async ({ orgId, db }) => {
         return await db
             .selectFrom('orgDataSource')
-            .innerJoin('orgCodeEnv', 'orgCodeEnv.id', 'orgDataSource.codeEnvId')
-            .select([
+            .select((eb) => [
                 'orgDataSource.id',
                 'orgDataSource.name',
                 'orgDataSource.description',
                 'orgDataSource.documentationUrl',
                 'orgDataSource.orgId',
-                'orgDataSource.codeEnvId',
                 'orgDataSource.createdAt',
-                'orgCodeEnv.name as codeEnvName',
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('orgDataSourceCodeEnv')
+                        .innerJoin('orgCodeEnv', 'orgCodeEnv.id', 'orgDataSourceCodeEnv.codeEnvId')
+                        .select(['orgCodeEnv.id', 'orgCodeEnv.name'])
+                        .whereRef('orgDataSourceCodeEnv.dataSourceId', '=', 'orgDataSource.id'),
+                ).as('codeEnvs'),
             ])
             .where('orgDataSource.orgId', '=', orgId)
             .orderBy('orgDataSource.createdAt', 'desc')
@@ -67,16 +47,15 @@ const createSchema = z.object({
 
 export const createOrgDataSourceAction = new Action('createOrgDataSourceAction', { performsMutations: true })
     .params(createSchema)
-    .middleware(orgIdFromSlugWithCodeEnv)
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, name, description, documentationUrl, codeEnvId } = params
+        const { orgSlug, name, description, documentationUrl } = params
 
         const result = await db
             .insertInto('orgDataSource')
             .values({
                 orgId,
-                codeEnvId,
                 name,
                 description: description || null,
                 documentationUrl: documentationUrl || null,
@@ -97,10 +76,10 @@ const updateSchema = z.object({
 
 export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction', { performsMutations: true })
     .params(updateSchema)
-    .middleware(orgIdFromSlugWithCodeEnv)
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, dataSourceId, name, description, documentationUrl, codeEnvId } = params
+        const { orgSlug, dataSourceId, name, description, documentationUrl } = params
 
         const result = await db
             .updateTable('orgDataSource')
@@ -108,7 +87,6 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
                 name,
                 description: description || null,
                 documentationUrl: documentationUrl || null,
-                codeEnvId,
             })
             .where('id', '=', dataSourceId)
             .where('orgId', '=', orgId)

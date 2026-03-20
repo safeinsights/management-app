@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, insertTestCodeEnv } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    insertTestCodeEnv,
+    insertTestDataSource,
+    insertTestOrg,
+} from '@/tests/unit.helpers'
 import {
     createOrgCodeEnvAction,
     deleteOrgCodeEnvAction,
@@ -38,6 +44,7 @@ describe('Code Environment Actions', () => {
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
+                dataSourceIds: [],
             }),
         )
 
@@ -119,6 +126,7 @@ describe('Code Environment Actions', () => {
                 url: 'updated-url',
                 isTesting: true,
                 settings: { environment: [] },
+                dataSourceIds: [],
             }),
         )
 
@@ -161,6 +169,7 @@ describe('Code Environment Actions', () => {
                 starterCodeFileName: 'new-starter.py',
                 starterCodeUploaded: true,
                 settings: { environment: [] },
+                dataSourceIds: [],
             }),
         )
 
@@ -198,6 +207,7 @@ describe('Code Environment Actions', () => {
             url: 'updated-url',
             isTesting: true,
             settings: { environment: [] },
+            dataSourceIds: [],
         })
 
         expect(isActionError(result)).toBe(true)
@@ -232,6 +242,7 @@ describe('Code Environment Actions', () => {
                 url: 'updated-url',
                 isTesting: true,
                 settings: { environment: [] },
+                dataSourceIds: [],
             }),
         )
 
@@ -333,6 +344,7 @@ describe('Code Environment Actions', () => {
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceType: 'athena',
+                dataSourceIds: [],
             }),
         )
 
@@ -358,6 +370,7 @@ describe('Code Environment Actions', () => {
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment },
+                dataSourceIds: [],
             }),
         )
 
@@ -379,6 +392,7 @@ describe('Code Environment Actions', () => {
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
+                dataSourceIds: [],
             }),
         )
 
@@ -420,6 +434,7 @@ describe('Code Environment Actions', () => {
                 url: 'test-url',
                 isTesting: false,
                 settings: { environment: newEnvironment },
+                dataSourceIds: [],
             }),
         )
         expect(result).toBeDefined()
@@ -447,6 +462,7 @@ describe('Code Environment Actions', () => {
                 url: 'admin-updated-url',
                 isTesting: true,
                 settings: { environment: [{ name: 'ADMIN_VAR', value: 'admin_value' }] },
+                dataSourceIds: [],
             }),
         )
 
@@ -483,5 +499,126 @@ describe('Code Environment Actions', () => {
         const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
         expect(result).toHaveLength(1)
         expect((result[0].settings as OrgCodeEnvSettings).environment).toEqual(environment)
+    })
+
+    it('creates a code environment with linked data sources', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const ds1 = await insertTestDataSource({ orgId: org.id, name: 'DS One' })
+        const ds2 = await insertTestDataSource({ orgId: org.id, name: 'DS Two' })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Env with DS',
+                identifier: 'env_with_ds',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [ds1.id, ds2.id],
+            }),
+        )
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('codeEnvId', '=', result.id)
+            .execute()
+        expect(joinRows).toHaveLength(2)
+        expect(joinRows.map((r) => r.dataSourceId).sort()).toEqual([ds1.id, ds2.id].sort())
+    })
+
+    it('creates a code environment with no data sources', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Env no DS',
+                identifier: 'env_no_ds',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('codeEnvId', '=', result.id)
+            .execute()
+        expect(joinRows).toHaveLength(0)
+    })
+
+    it('updates code environment and replaces data source associations', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const ds1 = await insertTestDataSource({ orgId: org.id, name: 'DS One' })
+        const ds2 = await insertTestDataSource({ orgId: org.id, name: 'DS Two' })
+        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+
+        await db.insertInto('orgDataSourceCodeEnv').values({ dataSourceId: ds1.id, codeEnvId: codeEnv.id }).execute()
+
+        actionResult(
+            await updateOrgCodeEnvAction({
+                orgSlug: org.slug,
+                codeEnvId: codeEnv.id,
+                name: codeEnv.name,
+                identifier: codeEnv.identifier,
+                cmdLine: codeEnv.cmdLine,
+                language: codeEnv.language,
+                url: codeEnv.url,
+                isTesting: false,
+                settings: { environment: [] },
+                dataSourceIds: [ds2.id],
+            }),
+        )
+
+        const joinRows = await db
+            .selectFrom('orgDataSourceCodeEnv')
+            .selectAll('orgDataSourceCodeEnv')
+            .where('codeEnvId', '=', codeEnv.id)
+            .execute()
+        expect(joinRows).toHaveLength(1)
+        expect(joinRows[0].dataSourceId).toEqual(ds2.id)
+    })
+
+    it('rejects data source from another org when creating code env', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const otherOrg = await insertTestOrg()
+        const otherDs = await insertTestDataSource({ orgId: otherOrg.id, name: 'Other DS' })
+
+        const result = await createOrgCodeEnvAction({
+            orgSlug: org.slug,
+            name: 'Cross Org',
+            identifier: 'cross_org',
+            cmdLine: 'test',
+            language: 'R',
+            url: 'test-url',
+            starterCodeFileName: 'test.py',
+            isTesting: true,
+            settings: { environment: [] },
+            dataSourceIds: [otherDs.id],
+        })
+
+        expect(isActionError(result)).toBe(true)
+    })
+
+    it('fetchOrgCodeEnvsAction returns linked data sources', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const ds = await insertTestDataSource({ orgId: org.id, name: 'Linked DS' })
+        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
+
+        await db.insertInto('orgDataSourceCodeEnv').values({ dataSourceId: ds.id, codeEnvId: codeEnv.id }).execute()
+
+        const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
+        expect(result).toHaveLength(1)
+        expect(result[0].dataSources).toHaveLength(1)
+        expect(result[0].dataSources[0].name).toEqual('Linked DS')
     })
 })

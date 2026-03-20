@@ -48,6 +48,7 @@ const codeEnvFieldsSchema = z.object({
         .refine((val) => val === '' || pathnameRegex.test(val), 'Must be a valid file path (e.g. data/sample.csv)')
         .optional(),
     dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
+    dataSourceIds: z.array(z.string().uuid()).default([]),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)

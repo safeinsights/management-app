@@ -8,6 +8,7 @@ import { useParams } from 'next/navigation'
 import {
     createOrgCodeEnvAction,
     updateOrgCodeEnvAction,
+    fetchOrgCodeEnvsAction,
     getSampleDataUploadUrlAction,
     getStarterCodeUploadUrlAction,
 } from './code-envs.actions'
@@ -22,7 +23,7 @@ import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
 
-type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
+type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
 type EditFormValues = z.infer<typeof editOrgCodeEnvSchema>
 type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
@@ -61,6 +62,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             starterCode: undefined,
             sampleDataPath: image?.sampleDataPath || '',
             dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
+            dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
             settings: {
                 environment: image?.settings?.environment || [],
             },
