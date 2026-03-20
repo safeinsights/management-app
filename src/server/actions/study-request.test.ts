@@ -4,6 +4,7 @@ import {
     cleanupWorkspaceDirs,
     createWorkspaceDir,
     db,
+    expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
     insertTestStudyData,
@@ -385,24 +386,10 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(updatedStudy.status).toBe('PENDING-REVIEW')
 
-            const jobFiles = await db
-                .selectFrom('studyJobFile')
-                .select(['name', 'fileType'])
-                .where('studyJobId', '=', result.studyJobId)
-                .orderBy('fileType', 'asc')
-                .execute()
-            expect(jobFiles).toEqual([
+            await expectStudyJobRecords(study.id, [
                 { name: 'main.R', fileType: 'MAIN-CODE' },
                 { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
             ])
-
-            const statuses = await db
-                .selectFrom('jobStatusChange')
-                .select(['status'])
-                .where('studyJobId', '=', result.studyJobId)
-                .orderBy('createdAt', 'asc')
-                .execute()
-            expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED'])
 
             expect(aws.storeS3File).toHaveBeenCalledTimes(2)
         })
