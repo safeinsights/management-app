@@ -35,7 +35,6 @@ jobs:
             - name: Run Trivy vulnerability scanner in fs mode
               uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
-                  hide-progress: true
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
