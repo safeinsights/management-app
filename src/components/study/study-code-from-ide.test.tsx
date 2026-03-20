@@ -6,6 +6,7 @@ import {
     db,
     describe,
     expect,
+    expectStudyJobRecords,
     it,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -153,27 +154,10 @@ describe('StudyCodeFromIDE', () => {
             expect(updated.status).toBe('PENDING-REVIEW')
         })
 
-        const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', study.id).execute()
-        expect(jobs).toHaveLength(1)
-
-        const jobFiles = await db
-            .selectFrom('studyJobFile')
-            .select(['name', 'fileType'])
-            .where('studyJobId', '=', jobs[0].id)
-            .orderBy('fileType', 'asc')
-            .execute()
-        expect(jobFiles).toEqual([
+        await expectStudyJobRecords(study.id, [
             { name: 'main.R', fileType: 'MAIN-CODE' },
             { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
         ])
-
-        const statuses = await db
-            .selectFrom('jobStatusChange')
-            .select(['status'])
-            .where('studyJobId', '=', jobs[0].id)
-            .orderBy('createdAt', 'asc')
-            .execute()
-        expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED'])
 
         expect(notifications.show).toHaveBeenCalledWith(
             expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),

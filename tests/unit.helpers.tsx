@@ -23,7 +23,7 @@ import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
 import { ReactElement } from 'react'
-import { Mock, vi } from 'vitest'
+import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
@@ -801,6 +801,30 @@ export const getTestResearcherProfileData = async (userId: string) => {
         .execute()
 
     return { user, profile, positions }
+}
+
+export const expectStudyJobRecords = async (
+    studyId: string,
+    expectedFiles: Array<{ name: string; fileType: string }>,
+) => {
+    const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', studyId).execute()
+    expect(jobs).toHaveLength(1)
+
+    const jobFiles = await db
+        .selectFrom('studyJobFile')
+        .select(['name', 'fileType'])
+        .where('studyJobId', '=', jobs[0].id)
+        .orderBy('fileType', 'asc')
+        .execute()
+    expect(jobFiles).toEqual(expectedFiles)
+
+    const statuses = await db
+        .selectFrom('jobStatusChange')
+        .select(['status'])
+        .where('studyJobId', '=', jobs[0].id)
+        .orderBy('createdAt', 'asc')
+        .execute()
+    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
