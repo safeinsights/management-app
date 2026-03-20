@@ -27,7 +27,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const isExistingDraft = !!studyId
 
     return (
-        <Paper p="xl">
+        <Paper p="xxl">
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 STEP 1A
             </Text>

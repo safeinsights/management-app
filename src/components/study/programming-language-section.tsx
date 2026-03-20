@@ -78,7 +78,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     }
 
     return (
-        <Paper p="xl">
+        <Paper p="xxl">
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 STEP 1B
             </Text>

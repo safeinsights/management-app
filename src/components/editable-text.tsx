@@ -155,7 +155,7 @@ export const EditableText: FC<EditableTextProps> = ({
                                     position: 'absolute',
                                     top: 'var(--mantine-spacing-sm)',
                                     left: 'var(--mantine-spacing-sm)',
-                                    color: 'var(--mantine-color-gray-5)',
+                                    color: 'var(--mantine-color-placeholder)',
                                     pointerEvents: 'none',
                                     userSelect: 'none',
                                 }}
