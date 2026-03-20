@@ -7,13 +7,17 @@ const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     await expect(signOutBtn).toBeVisible()
     // force:true bypasses the Collapse animation stability check
     await signOutBtn.click({ force: true })
-    // Wait for the hard redirect to fully complete — the sign-in page renders the Login button
-    // once all navigations (Clerk soft redirect + our window.location.assign) have settled
-    await page.getByRole('button', { name: 'Login' }).waitFor({ state: 'visible', timeout: 15000 })
+    // Clerk's signOut() is a slow API call, then window.location.assign fires a hard
+    // redirect. Wait for the sign-in page to fully load (networkidle) so the execution
+    // context is stable for any subsequent page.evaluate calls.
+    await page.waitForURL('**/account/signin**', { timeout: 40_000, waitUntil: 'networkidle' })
 }
 
 test.describe('sign-out hard redirect', () => {
     test('hard redirect on sign-out destroys previous session state', async ({ page }) => {
+        // Clerk's signOut() API is slow on CI cold starts
+        test.setTimeout(45_000)
+
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
         await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
 
@@ -56,6 +60,9 @@ test.describe('sign-out hard redirect', () => {
     })
 
     test('signing in as a different user after sign-out shows fresh data', async ({ page }) => {
+        // Clerk's signOut() API is slow on CI cold starts
+        test.setTimeout(45_000)
+
         // Sign in as researcher
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
         await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
