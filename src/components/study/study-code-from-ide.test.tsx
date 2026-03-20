@@ -3,6 +3,7 @@ import {
     beforeEach,
     cleanupWorkspaceDirs,
     createWorkspaceDir,
+    db,
     describe,
     expect,
     it,
@@ -16,6 +17,7 @@ import {
 } from '@/tests/unit.helpers'
 import { StudyRequestProvider } from '@/contexts/study-request'
 import { StudyCodeFromIDE } from './study-code-from-ide'
+import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 
@@ -46,7 +48,7 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
     renderWithProviders(
-        <StudyRequestProvider submittingOrgSlug={studyOrgSlug}>
+        <StudyRequestProvider submittingOrgSlug={studyOrgSlug} initialStudyId={study.id}>
             <StudyCodeFromIDE studyId={study.id} studyOrgSlug={studyOrgSlug} previousHref={previousHref} />
         </StudyRequestProvider>,
     )
@@ -127,6 +129,55 @@ describe('StudyCodeFromIDE', () => {
         })
 
         expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
+    })
+
+    it('submits IDE files and persists study job records', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'main.R': 'print("main")',
+            'helper.R': 'print("helper")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('main.R')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', study.id).execute()
+        expect(jobs).toHaveLength(1)
+
+        const jobFiles = await db
+            .selectFrom('studyJobFile')
+            .select(['name', 'fileType'])
+            .where('studyJobId', '=', jobs[0].id)
+            .orderBy('fileType', 'asc')
+            .execute()
+        expect(jobFiles).toEqual([
+            { name: 'main.R', fileType: 'MAIN-CODE' },
+            { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
+
+        const statuses = await db
+            .selectFrom('jobStatusChange')
+            .select(['status'])
+            .where('studyJobId', '=', jobs[0].id)
+            .orderBy('createdAt', 'asc')
+            .execute()
+        expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED'])
+
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
+        )
     })
 
     it('renders the page chrome and previous link', async () => {
