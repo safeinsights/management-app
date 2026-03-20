@@ -30,6 +30,8 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
+// Mock the launcher hook here so this test stays focused on CodeUploadPage view transitions.
+// The real hook adds window.open plus polling/timing behavior that is slower, more brittle in jsdom, and covered in use-workspace-launcher.test.tsx.
 vi.mock('@/hooks/use-workspace-launcher', () => ({
     useWorkspaceLauncher: (props: { studyId: string; onSuccess?: () => void }) => ({
         launchWorkspace: () => {
