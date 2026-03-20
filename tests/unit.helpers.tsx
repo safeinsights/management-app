@@ -824,7 +824,7 @@ export const expectStudyJobRecords = async (
         .where('studyJobId', '=', jobs[0].id)
         .orderBy('createdAt', 'asc')
         .execute()
-    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED'])
+    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
