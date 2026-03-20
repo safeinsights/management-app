@@ -593,6 +593,28 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+export const createWorkspaceDir = async (prefix: string) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
+    process.env.CODER_FILES = root
+    return root
+}
+
+export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
+    const { CODER_DISABLED } = await import('@/server/config')
+    const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
+    await fs.promises.mkdir(workspaceDir, { recursive: true })
+    await Promise.all(
+        Object.entries(files).map(([fileName, content]) =>
+            fs.promises.writeFile(path.join(workspaceDir, fileName), content),
+        ),
+    )
+}
+
+export const cleanupWorkspaceDirs = async (dirs: string[]) => {
+    delete process.env.CODER_FILES
+    await Promise.all(dirs.splice(0).map((root) => fs.promises.rm(root, { recursive: true, force: true })))
+}
+
 export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string

@@ -1,133 +1,121 @@
-import { vi } from 'vitest'
 import {
-    describe,
-    it,
-    expect,
+    afterEach,
     beforeEach,
-    screen,
-    waitFor,
+    cleanupWorkspaceDirs,
+    createWorkspaceDir,
+    describe,
+    expect,
+    insertTestStudyOnly,
+    it,
+    mockSessionWithTestData,
     renderWithProviders,
-    faker,
+    screen,
     userEvent,
+    waitFor,
+    writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
-import { CodeUploadPage } from './code-upload'
 import { StudyRequestProvider } from '@/contexts/study-request'
+import { CodeUploadPage } from './code-upload'
 import type { Route } from 'next'
-import { type Mock } from 'vitest'
+import { vi } from 'vitest'
 
-vi.mock('@/server/actions/workspaces.actions', () => ({
-    createUserAndWorkspaceAction: vi.fn(),
-    getWorkspaceUrlAction: vi.fn(),
-    listWorkspaceFilesAction: vi.fn(),
+const launchWorkspace = vi.fn()
+
+vi.mock('@/server/aws', async () => {
+    const actual = await vi.importActual('@/server/aws')
+    return {
+        ...actual,
+        storeS3File: vi.fn(),
+        triggerScanForStudyJob: vi.fn(),
+    }
+})
+
+vi.mock('@/hooks/use-workspace-launcher', () => ({
+    useWorkspaceLauncher: (props: { studyId: string; onSuccess?: () => void }) => ({
+        launchWorkspace: () => {
+            launchWorkspace(props.studyId)
+            props.onSuccess?.()
+        },
+        isLaunching: false,
+        isCreatingWorkspace: false,
+        error: null,
+        clearError: vi.fn(),
+    }),
 }))
 
-const mockWindowOpen = vi.fn(() => ({ closed: false }))
-Object.defineProperty(window, 'open', { value: mockWindowOpen, writable: true })
+const workspaceRoots: string[] = []
 
-import {
-    createUserAndWorkspaceAction,
-    getWorkspaceUrlAction,
-    listWorkspaceFilesAction,
-} from '@/server/actions/workspaces.actions'
+const renderPage = async (orgSlug = 'openstax') => {
+    const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
+    const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-const studyId = faker.string.uuid()
-
-const renderPage = (orgSlug = 'openstax') => {
-    return renderWithProviders(
+    renderWithProviders(
         <StudyRequestProvider submittingOrgSlug={orgSlug}>
-            <CodeUploadPage studyId={studyId} orgSlug={orgSlug} language="R" previousHref={'/test' as Route} />
+            <CodeUploadPage studyId={study.id} orgSlug={orgSlug} language="R" previousHref={'/test' as Route} />
         </StudyRequestProvider>,
     )
-}
 
-const launchIDE = async () => {
-    ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-        workspace: { id: 'ws-1' },
-    })
-    ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
-    ;(listWorkspaceFilesAction as Mock).mockResolvedValue({
-        files: ['main.r', 'helper.r'],
-        suggestedMain: 'main.r',
-        lastModified: '2026-01-15T10:00:00Z',
-    })
-    mockWindowOpen.mockReturnValue({ closed: false })
-
-    const user = userEvent.setup()
-    renderPage()
-
-    // Find and click the Launch IDE button (it's an UnstyledButton with "Launch IDE" text)
-    const launchButton = await screen.findByText('Launch IDE')
-    await user.click(launchButton)
-
-    // Wait for transition to ide-review mode
-    await waitFor(() => {
-        expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
-    })
-
-    return user
+    return { study }
 }
 
 describe('CodeUploadPage', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
-        ;(listWorkspaceFilesAction as Mock).mockResolvedValue({
-            files: [],
-            suggestedMain: null,
-            lastModified: null,
-        })
+        delete process.env.CODER_FILES
+    })
+
+    afterEach(async () => {
+        await cleanupWorkspaceDirs(workspaceRoots)
     })
 
     it('transitions from upload view to inline IDE review after clicking Launch IDE', async () => {
-        ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-            workspace: { id: 'ws-1' },
+        const { study } = await renderPage()
+        const root = await createWorkspaceDir('code-upload-page')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
         })
-        ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
-        ;(listWorkspaceFilesAction as Mock).mockResolvedValue({
-            files: ['main.r', 'helper.r'],
-            suggestedMain: 'main.r',
-            lastModified: '2026-01-15T10:00:00Z',
-        })
-        mockWindowOpen.mockReturnValue({ closed: false })
 
         const user = userEvent.setup()
-        renderPage()
-
-        // Upload chrome visible before launch
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
         expect(screen.getByText('Study code')).toBeInTheDocument()
 
-        // Click Launch IDE
-        const launchButton = await screen.findByText('Launch IDE')
-        await user.click(launchButton)
+        await user.click(await screen.findByRole('button', { name: /launch ide/i }))
 
-        // IDE review shows Step 4 chrome and file list
         await waitFor(() => {
-            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-            expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(launchWorkspace).toHaveBeenCalledWith(study.id)
             expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
             expect(screen.getByText('main.r')).toBeInTheDocument()
         })
     })
 
-    it('returns from inline IDE review to upload view when "Back to upload" is clicked', async () => {
-        const user = await launchIDE()
-
-        const backButton = screen.getByRole('button', { name: /back to upload/i })
-        await user.click(backButton)
-
-        // Upload UI should reappear
-        await waitFor(() => {
-            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-            expect(screen.getByText('Study code')).toBeInTheDocument()
+    it('returns from IDE review to upload view when Back to upload is clicked', async () => {
+        const { study } = await renderPage()
+        const root = await createWorkspaceDir('code-upload-page')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, {
+            'main.r': 'print("main")',
         })
 
-        expect(screen.queryByText('Review files from IDE')).not.toBeInTheDocument()
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: /launch ide/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /back to upload/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('Review files from IDE')).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+        })
     })
 
-    it('hides non-OpenStax Launch IDE button for non-OpenStax orgs', async () => {
-        renderPage('some-other-org')
+    it('hides the Launch IDE button for non-OpenStax orgs', async () => {
+        await renderPage('some-other-org')
 
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-        expect(screen.queryByText('Launch IDE')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
     })
 })
