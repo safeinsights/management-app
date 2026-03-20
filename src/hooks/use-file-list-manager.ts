@@ -19,10 +19,11 @@ export function useFileListManager({ files, suggestedMain }: UseFileListManagerO
 
     const filteredFiles = useMemo(() => files.filter((f) => !removedFiles.has(f)), [files, removedFiles])
 
-    const mainFile = useMemo(
-        () => mainFileOverride ?? suggestedMain ?? filteredFiles[0] ?? '',
-        [mainFileOverride, suggestedMain, filteredFiles],
-    )
+    const mainFile = useMemo(() => {
+        if (mainFileOverride && filteredFiles.includes(mainFileOverride)) return mainFileOverride
+        if (suggestedMain && filteredFiles.includes(suggestedMain)) return suggestedMain
+        return filteredFiles[0] ?? ''
+    }, [mainFileOverride, suggestedMain, filteredFiles])
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)

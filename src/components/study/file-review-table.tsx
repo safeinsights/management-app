@@ -49,7 +49,12 @@ export const FileReviewTable = ({
                                 </Table.Td>
                                 <Table.Td>{file}</Table.Td>
                                 <Table.Td>
-                                    <ActionIcon variant="subtle" color="red" onClick={() => onRemoveFile(file)}>
+                                    <ActionIcon
+                                        variant="subtle"
+                                        color="red"
+                                        aria-label={`Remove ${file}`}
+                                        onClick={() => onRemoveFile(file)}
+                                    >
                                         <TrashIcon />
                                     </ActionIcon>
                                 </Table.Td>

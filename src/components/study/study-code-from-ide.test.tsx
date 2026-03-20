@@ -164,6 +164,199 @@ describe('StudyCodeFromIDE', () => {
         )
     })
 
+    it('removes the suggested main file and submits with fallback main', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
+            'utils.r': 'print("utils")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('main.r')).toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('main.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: 'Remove main.r' }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('main.r')).not.toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('helper.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [
+            { name: 'helper.r', fileType: 'MAIN-CODE' },
+            { name: 'utils.r', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
+    })
+
+    it('removes a supplemental file and submits with correct records', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
+            'utils.r': 'print("utils")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('utils.r')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Remove utils.r' }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('utils.r')).not.toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('main.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [
+            { name: 'main.r', fileType: 'MAIN-CODE' },
+            { name: 'helper.r', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
+    })
+
+    it('disables submit after removing all files', async () => {
+        const user = userEvent.setup()
+        await renderIDE('openstax-lab', {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('main.r')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Remove main.r' }))
+        await user.click(screen.getByRole('button', { name: 'Remove helper.r' }))
+
+        await waitFor(() => {
+            expect(screen.getByText('No files found in workspace.')).toBeInTheDocument()
+        })
+
+        expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+    })
+
+    it('removes manually-overridden main and falls back to suggestedMain', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
+            'utils.r': 'print("utils")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('helper.r')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByDisplayValue('helper.r'))
+        expect(screen.getByDisplayValue('helper.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: 'Remove helper.r' }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('helper.r')).not.toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('main.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [
+            { name: 'main.r', fileType: 'MAIN-CODE' },
+            { name: 'utils.r', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
+    })
+
+    it('submits a single file as main', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'analysis.r': 'print("only")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('analysis.r')).toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
+    })
+
+    it('auto-selects first file when no suggestedMain matches', async () => {
+        const user = userEvent.setup()
+        const { study } = await renderIDE('openstax-lab', {
+            'analysis.r': 'print("analysis")',
+            'helper.r': 'print("helper")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('analysis.r')).toBeInTheDocument()
+        })
+
+        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [
+            { name: 'analysis.r', fileType: 'MAIN-CODE' },
+            { name: 'helper.r', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
+    })
+
     it('renders the page chrome and previous link', async () => {
         const { previousHref } = await renderIDE()
 

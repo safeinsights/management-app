@@ -76,6 +76,19 @@ describe('useFileListManager', () => {
         expect(result.current.filteredFiles).toEqual([])
     })
 
+    it('falls back to first remaining file when suggestedMain is removed', () => {
+        const { result } = renderHook(() => useFileListManager({ files, suggestedMain: 'main.r' }))
+
+        expect(result.current.mainFile).toBe('main.r')
+
+        act(() => {
+            result.current.removeFile('main.r')
+        })
+
+        expect(result.current.filteredFiles).toEqual(['helper.r', 'utils.r'])
+        expect(result.current.mainFile).toBe('helper.r')
+    })
+
     it('clears removedFiles and mainFileOverride on reset', () => {
         const { result } = renderHook(() => useFileListManager({ files, suggestedMain: null }))
 
