@@ -5,17 +5,27 @@ import { usePathname } from 'next/navigation'
 // cache and other in-memory stores. Without this, signing in as a different
 // user can show stale data from the previous session.
 //
-// We fire signOut() and window.location.assign() in parallel rather than
-// sequentially because Clerk's internal onAfterSetActive hook calls
-// router.refresh(), which can trigger a middleware redirect that destroys the
-// JS context before signOut()'s promise resolves — preventing any code after
-// `await signOut()` from ever executing.
+// The default path (sign-out → sign-in page) fires signOut() and
+// window.location.assign() in parallel because Clerk's internal
+// onAfterSetActive hook calls router.refresh(), which can trigger a middleware
+// redirect that destroys the JS context before signOut()'s promise resolves —
+// preventing any code after `await signOut()` from ever executing. This is
+// safe because we're navigating to the sign-in page where the session state
+// doesn't matter.
+//
+// When redirectAfterSignOut is specified, the caller needs the session
+// invalidated before the redirect (e.g. reloading the same page that checks
+// auth), so we let Clerk handle both via signOut({ redirectUrl }).
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
     const pathname = usePathname()
 
+    if (options?.redirectAfterSignOut) {
+        return () => void signOut({ redirectUrl: options.redirectAfterSignOut })
+    }
+
     return () => {
-        const redirectUrl = options?.redirectAfterSignOut ?? buildSignInUrl(pathname)
+        const redirectUrl = buildSignInUrl(pathname)
         void signOut({ redirectUrl })
         window.location.assign(redirectUrl)
     }
