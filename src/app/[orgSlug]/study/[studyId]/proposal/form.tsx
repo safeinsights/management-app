@@ -74,8 +74,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     enclaveOrgSlug,
 }) => {
     const { form, saveDraft, isSaving } = useProposal()
-
-    const [piUserId, setPiUserId] = useState('')
     const titleWordCount = countWords(form.values.title)
 
     return (
@@ -176,9 +174,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     placeholder="Choose a PI"
                                     searchable
                                     data={members}
-                                    value={members.find((m) => m.label === form.values.piName)?.value ?? null}
+                                    value={form.values.piUserId || null}
                                     onChange={(id) => {
-                                        setPiUserId(id ?? '')
+                                        form.setFieldValue('piUserId', id ?? '')
                                         form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
                                     }}
                                     error={!!form.errors.piName}
@@ -221,7 +219,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                 <ProposalFooter
                     researcherName={researcherName}
                     researcherId={researcherId}
-                    piUserId={piUserId}
+                    piUserId={form.values.piUserId}
                     enclaveOrgSlug={enclaveOrgSlug}
                 />
             </Stack>

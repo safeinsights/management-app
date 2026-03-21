@@ -55,7 +55,7 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} />
+                    <PIField study={study} orgSlug={orgSlug} />
                     <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
             </Paper>

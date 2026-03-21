@@ -133,6 +133,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 id: studyId,
                 title: studyInfo.title || 'Untitled Draft',
                 piName: studyInfo.piName || '',
+                piUserId: studyInfo.piUserId || null,
                 language: studyInfo.language,
                 descriptionDocPath: studyInfo.descriptionDocPath || null,
                 irbDocPath: studyInfo.irbDocPath || null,
@@ -176,6 +177,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         const updatable = [
             'title',
             'piName',
+            'piUserId',
             'language',
             'descriptionDocPath',
             'irbDocPath',
@@ -306,6 +308,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.id',
                 'study.title',
                 'study.piName',
+                'study.piUserId',
                 'study.language',
                 'study.descriptionDocPath',
                 'study.irbDocPath',

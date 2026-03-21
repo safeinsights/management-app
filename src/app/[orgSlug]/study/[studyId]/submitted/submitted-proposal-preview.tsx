@@ -50,7 +50,7 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         divider="none"
                     />
 
-                    <PIField study={study} />
+                    <PIField study={study} orgSlug={orgSlug} />
                     <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
             </AppModal>

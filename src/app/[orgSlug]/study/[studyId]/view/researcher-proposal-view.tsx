@@ -60,7 +60,7 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} />
+                    <PIField study={study} orgSlug={orgSlug} />
                     <ResearcherProfileLink study={study} />
                 </Stack>
             </Paper>

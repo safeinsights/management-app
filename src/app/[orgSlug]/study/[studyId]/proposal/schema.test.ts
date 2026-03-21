@@ -281,6 +281,7 @@ describe('proposalFormSchema', () => {
                 impact: '',
                 additionalNotes: '',
                 piName: '',
+                piUserId: '',
             })
         })
     })

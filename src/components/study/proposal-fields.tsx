@@ -52,7 +52,7 @@ export function DatasetsField({
     )
 }
 
-export function PIField({ study }: { study: SelectedStudy }) {
+export function PIField({ study, orgSlug }: { study: SelectedStudy; orgSlug: string }) {
     if (!study.piName) return null
 
     return (
@@ -62,7 +62,20 @@ export function PIField({ study }: { study: SelectedStudy }) {
                 <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
-                <Text size="sm">{study.piName}</Text>
+                {/* we may not have a pi user id for legacy studies */}
+                {study.piUserId ? (
+                    <ResearcherProfilePopover
+                        userId={study.piUserId}
+                        studyId={study.id}
+                        orgSlug={orgSlug}
+                        name={study.piName}
+                        position="right"
+                        offset={8}
+                        arrowSize={12}
+                    />
+                ) : (
+                    <Text size="sm">{study.piName}</Text>
+                )}
             </Stack>
         </>
     )

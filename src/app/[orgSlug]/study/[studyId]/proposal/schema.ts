@@ -64,6 +64,7 @@ export const proposalFormSchema = z.object({
         .optional()
         .default(''),
     piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
+    piUserId: z.string().optional().default(''),
 })
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
@@ -76,4 +77,5 @@ export const initialProposalValues: ProposalFormValues = {
     impact: '',
     additionalNotes: '',
     piName: '',
+    piUserId: '',
 }

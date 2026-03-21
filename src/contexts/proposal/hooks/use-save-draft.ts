@@ -9,6 +9,7 @@ export function buildStudyInfo(values: ProposalFormValues) {
     return {
         title: values.title || 'Untitled Draft',
         piName: values.piName || undefined,
+        piUserId: values.piUserId || undefined,
         datasets: values.datasets,
         researchQuestions: values.researchQuestions || undefined,
         projectSummary: values.projectSummary || undefined,
