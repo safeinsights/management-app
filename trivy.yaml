@@ -21,8 +21,5 @@ scan:
         - playwright-report
     skip-files:
         - .env
-misconfiguration:
-    scanners:
-        - dockerfile
 pkg:
     include-dev-deps: true
