@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
     renderWithProviders,
     screen,
@@ -11,11 +12,23 @@ import {
 import { describe, expect, it } from 'vitest'
 import { ResearcherProfilePopover } from './researcher-profile-popover'
 
+function ControlledPopover({ userId, studyId, orgSlug }: { userId: string; studyId: string; orgSlug: string }) {
+    const [opened, setOpened] = useState(false)
+    return (
+        <ResearcherProfilePopover
+            userId={userId}
+            studyId={studyId}
+            orgSlug={orgSlug}
+            name="Hover target"
+            opened={opened}
+            onOpenChange={setOpened}
+        />
+    )
+}
+
 const renderAndHover = async (userId: string, studyId: string, orgSlug: string) => {
     const user = userEvent.setup()
-    renderWithProviders(
-        <ResearcherProfilePopover userId={userId} studyId={studyId} orgSlug={orgSlug} name="Hover target" />,
-    )
+    renderWithProviders(<ControlledPopover userId={userId} studyId={studyId} orgSlug={orgSlug} />)
     await user.hover(screen.getByText('Hover target'))
     return user
 }

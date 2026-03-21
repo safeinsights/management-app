@@ -52,7 +52,14 @@ export function DatasetsField({
     )
 }
 
-export function PIField({ study, orgSlug }: { study: SelectedStudy; orgSlug: string }) {
+interface PopoverFieldProps {
+    study: SelectedStudy
+    orgSlug: string
+    opened: boolean
+    onOpenChange: (opened: boolean) => void
+}
+
+export function PIField({ study, orgSlug, opened, onOpenChange }: PopoverFieldProps) {
     if (!study.piName) return null
 
     return (
@@ -62,7 +69,6 @@ export function PIField({ study, orgSlug }: { study: SelectedStudy; orgSlug: str
                 <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
-                {/* we may not have a pi user id for legacy studies */}
                 {study.piUserId ? (
                     <ResearcherProfilePopover
                         userId={study.piUserId}
@@ -72,6 +78,8 @@ export function PIField({ study, orgSlug }: { study: SelectedStudy; orgSlug: str
                         position="right"
                         offset={8}
                         arrowSize={12}
+                        opened={opened}
+                        onOpenChange={onOpenChange}
                     />
                 ) : (
                     <Text size="sm">{study.piName}</Text>
@@ -81,7 +89,7 @@ export function PIField({ study, orgSlug }: { study: SelectedStudy; orgSlug: str
     )
 }
 
-export function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
+export function ResearcherField({ study, orgSlug, opened, onOpenChange, mt }: PopoverFieldProps & { mt?: string }) {
     return (
         <Stack gap={4} mt={mt}>
             <Text fw={600} size="sm">
@@ -95,6 +103,8 @@ export function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; 
                 position="right"
                 offset={8}
                 arrowSize={12}
+                opened={opened}
+                onOpenChange={onOpenChange}
             />
         </Stack>
     )

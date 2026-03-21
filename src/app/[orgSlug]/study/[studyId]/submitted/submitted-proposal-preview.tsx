@@ -14,6 +14,11 @@ type SubmittedProposalPreviewProps = {
 
 export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPreviewProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const [activePopover, setActivePopover] = useState<string | null>(null)
+    const popoverProps = (id: string) => ({
+        opened: activePopover === id,
+        onOpenChange: (open: boolean) => setActivePopover(open ? id : null),
+    })
 
     return (
         <>
@@ -50,8 +55,8 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         divider="none"
                     />
 
-                    <PIField study={study} orgSlug={orgSlug} />
-                    <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
+                    <PIField study={study} orgSlug={orgSlug} {...popoverProps('pi')} />
+                    <ResearcherField study={study} orgSlug={orgSlug} {...popoverProps('researcher')} mt="md" />
                 </Stack>
             </AppModal>
         </>

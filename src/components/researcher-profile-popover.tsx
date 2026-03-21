@@ -15,7 +15,6 @@ import {
     Text,
     type FloatingPosition,
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import {
     ArrowSquareOutIcon,
     BookOpenIcon,
@@ -38,8 +37,8 @@ interface ResearcherProfilePopoverProps {
     withArrow?: boolean
     offset?: number
     arrowSize?: number
-    opened?: boolean
-    onOpenChange?: (opened: boolean) => void
+    opened: boolean
+    onOpenChange: (opened: boolean) => void
 }
 
 const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
@@ -286,17 +285,11 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     withArrow = true,
     offset = 8,
     arrowSize = 12,
-    opened: controlledOpened,
+    opened,
     onOpenChange,
 }) => {
-    // Supports both controlled (parent manages state) and uncontrolled (self-managed) modes.
-    // Controlled mode allows a parent to coordinate multiple popovers so only one is open at a time.
-    const isControlled = controlledOpened !== undefined
-    const [internalOpened, { close: internalClose, open: internalOpen }] = useDisclosure(false)
-    const opened = isControlled ? controlledOpened : internalOpened
-
-    const open = () => (isControlled ? onOpenChange?.(true) : internalOpen())
-    const close = () => (isControlled ? onOpenChange?.(false) : internalClose())
+    const open = () => onOpenChange(true)
+    const close = () => onOpenChange(false)
 
     return (
         <Popover

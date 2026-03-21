@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { DatasetsField, LexicalProposalField, PIField } from '@/components/study/proposal-fields'
@@ -18,6 +19,8 @@ type ResearcherProposalViewProps = {
 }
 
 export function ResearcherProposalView({ orgSlug, study, agreementsHref }: ResearcherProposalViewProps) {
+    const [piPopoverOpen, setPiPopoverOpen] = useState(false)
+
     return (
         <Stack px="xl" gap="xl">
             <ResearcherBreadcrumbs
@@ -60,7 +63,7 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} orgSlug={orgSlug} />
+                    <PIField study={study} orgSlug={orgSlug} opened={piPopoverOpen} onOpenChange={setPiPopoverOpen} />
                     <ResearcherProfileLink study={study} />
                 </Stack>
             </Paper>
