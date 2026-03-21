@@ -38,6 +38,8 @@ interface ResearcherProfilePopoverProps {
     withArrow?: boolean
     offset?: number
     arrowSize?: number
+    opened?: boolean
+    onOpenChange?: (opened: boolean) => void
 }
 
 const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
@@ -121,11 +123,21 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
     )
 }
 
-const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string }> = ({ count, orgSlug, studyId }) => {
+const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string; userId: string }> = ({
+    count,
+    orgSlug,
+    studyId,
+    userId,
+}) => {
     if (count <= 1) return null
 
     return (
-        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId })} target="_blank" size="sm" fw={600}>
+        <Anchor
+            href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
+            target="_blank"
+            size="sm"
+            fw={600}
+        >
             + {count - 1} more current affiliation
         </Anchor>
     )
@@ -211,16 +223,10 @@ const PopoverContent: FC<{
         return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
+    const profileUrl = `${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`
+
     const viewFullProfileButton = (
-        <Button
-            component="a"
-            href={Routes.researcherProfileView({ orgSlug, studyId })}
-            target="_blank"
-            variant="filled"
-            size="md"
-            fullWidth
-            radius="sm"
-        >
+        <Button component="a" href={profileUrl} target="_blank" variant="filled" size="md" fullWidth radius="sm">
             View full profile
         </Button>
     )
@@ -234,7 +240,12 @@ const PopoverContent: FC<{
                 <PopoverPositionTitle value={firstPosition?.position} />
                 <PopoverEducation degree={profile.educationDegree} />
                 <ResearchInterestsPills interests={profile.researchInterests} />
-                <MoreAffiliationsLink count={data.positions.length} orgSlug={orgSlug} studyId={studyId} />
+                <MoreAffiliationsLink
+                    count={data.positions.length}
+                    orgSlug={orgSlug}
+                    studyId={studyId}
+                    userId={userId}
+                />
             </Stack>
 
             <PopoverLinks profileUrl={firstPosition?.profileUrl} publicationsUrl={profile.detailedPublicationsUrl} />
@@ -248,8 +259,18 @@ const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; nam
     ({ onMouseEnter, name, ...others }, ref) => (
         <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
             <Text size="sm">{name}</Text>
-            <div ref={ref} {...others}>
-                <InfoIcon weight="fill" size={16} color="gray" />
+            <div
+                ref={ref}
+                {...others}
+                style={{ display: 'flex', color: 'gray' }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--mantine-color-charcoal-5)'
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'gray'
+                }}
+            >
+                <InfoIcon weight="fill" size={16} color="currentColor" />
             </div>
         </Group>
     ),
@@ -265,8 +286,17 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     withArrow = true,
     offset = 8,
     arrowSize = 12,
+    opened: controlledOpened,
+    onOpenChange,
 }) => {
-    const [opened, { close, open }] = useDisclosure(false)
+    // Supports both controlled (parent manages state) and uncontrolled (self-managed) modes.
+    // Controlled mode allows a parent to coordinate multiple popovers so only one is open at a time.
+    const isControlled = controlledOpened !== undefined
+    const [internalOpened, { close: internalClose, open: internalOpen }] = useDisclosure(false)
+    const opened = isControlled ? controlledOpened : internalOpened
+
+    const open = () => (isControlled ? onOpenChange?.(true) : internalOpen())
+    const close = () => (isControlled ? onOpenChange?.(false) : internalClose())
 
     return (
         <Popover

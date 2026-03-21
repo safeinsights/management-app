@@ -25,6 +25,7 @@ interface ProposalFormProps {
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
+    researcherId?: string
     enclaveOrgSlug?: string
 }
 
@@ -69,10 +70,12 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     members = [],
     orgName = '',
     researcherName = '',
+    researcherId = '',
     enclaveOrgSlug,
 }) => {
     const { form, saveDraft, isSaving } = useProposal()
 
+    const [piUserId, setPiUserId] = useState('')
     const titleWordCount = countWords(form.values.title)
 
     return (
@@ -174,9 +177,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     searchable
                                     data={members}
                                     value={members.find((m) => m.label === form.values.piName)?.value ?? null}
-                                    onChange={(id) =>
+                                    onChange={(id) => {
+                                        setPiUserId(id ?? '')
                                         form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
-                                    }
+                                    }}
                                     error={!!form.errors.piName}
                                 />
                             </Box>
@@ -214,7 +218,12 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                <ProposalFooter researcherName={researcherName} enclaveOrgSlug={enclaveOrgSlug} />
+                <ProposalFooter
+                    researcherName={researcherName}
+                    researcherId={researcherId}
+                    piUserId={piUserId}
+                    enclaveOrgSlug={enclaveOrgSlug}
+                />
             </Stack>
         </ProxyProvider>
     )
