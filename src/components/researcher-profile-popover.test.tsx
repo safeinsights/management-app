@@ -133,7 +133,10 @@ describe('ResearcherProfilePopover', () => {
         await waitFor(() => {
             const link = screen.getByText('View full profile')
             expect(link).toBeInTheDocument()
-            expect(link.closest('a')).toHaveAttribute('href', `/test-org/study/${study.id}/researcher-profile`)
+            expect(link.closest('a')).toHaveAttribute(
+                'href',
+                `/test-org/study/${study.id}/researcher-profile?userId=${user.id}`,
+            )
         })
     })
 })

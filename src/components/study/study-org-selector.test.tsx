@@ -45,11 +45,11 @@ describe('StudyOrgSelector', () => {
         })
     })
 
-    it('renders title as "Data organization"', async () => {
+    it('renders title as "Data Organization"', async () => {
         render(<FormWrapper />)
 
         await waitFor(() => {
-            expect(screen.getByRole('heading', { name: 'Data organization' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Data Organization', level: 4 })).toBeInTheDocument()
         })
     })
 })
