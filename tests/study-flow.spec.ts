@@ -14,7 +14,7 @@ test.beforeEach(async ({}, testInfo) => {
 // ============================================================================
 
 async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax/i) {
-    await expect(page.getByText(/^STEP 1$/i)).toBeVisible()
+    await expect(page.getByText(/^STEP 1A$/i)).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
 
