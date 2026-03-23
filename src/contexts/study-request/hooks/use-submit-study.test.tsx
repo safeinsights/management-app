@@ -12,7 +12,9 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import React from 'react'
+import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
+import { Routes } from '@/lib/routes'
 import { useSubmitStudy, type UseSubmitStudyOptions } from './use-submit-study'
 
 vi.mock('@/server/actions/study-request', () => ({
@@ -176,6 +178,20 @@ describe('useSubmitStudy', () => {
             expect(uploadFiles).not.toHaveBeenCalled()
             expect(submitStudyFromIDEAction).not.toHaveBeenCalled()
             expect(finalizeStudySubmissionAction).toHaveBeenCalledWith({ studyId })
+        })
+    })
+
+    it('navigates to dashboard on successful submit', async () => {
+        ;(submitStudyFromIDEAction as Mock).mockResolvedValue({ studyId })
+
+        const { result } = renderHook(() => useSubmitStudy({ ...defaultOptions, codeSource: 'ide' }), {
+            wrapper: createWrapper(),
+        })
+
+        act(() => result.current.submitStudy())
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe(Routes.dashboard)
         })
     })
 
