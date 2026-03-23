@@ -370,12 +370,13 @@ describe('CodeUploadPage', () => {
         expect(screen.getByText('Study code')).toBeInTheDocument()
     })
 
-    it('shows recovery state when mode=review but no files in memory', async () => {
+    it('redirects to upload mode when mode=review but no files exist', async () => {
         await renderPage({ initialMode: 'review' })
 
         await waitFor(() => {
-            expect(screen.getByText('Review uploaded files')).toBeInTheDocument()
-            expect(screen.getByText('No files uploaded. Go back to upload files.')).toBeInTheDocument()
+            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
+            expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(getUrl()).not.toContain('mode=')
         })
     })
 })

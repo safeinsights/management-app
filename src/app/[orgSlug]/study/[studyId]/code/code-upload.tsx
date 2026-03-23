@@ -83,6 +83,13 @@ export function CodeUploadPage({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
+    // If review mode has no files (e.g. page was refreshed before submitting), fall back to upload
+    useEffect(() => {
+        if (codeUploadViewMode === 'review' && !codeFiles.mainFile && !existingMainFile) {
+            setMode('upload')
+        }
+    }, [codeUploadViewMode, codeFiles.mainFile, existingMainFile, setMode])
+
     const isOpenstax = isOpenStaxOrg(orgSlug)
     const isIDELoading = isLaunching || isCreatingWorkspace
 
