@@ -24,6 +24,7 @@ import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
+import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -131,7 +132,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .insertInto('study')
             .values({
                 id: studyId,
-                title: studyInfo.title || 'Untitled Draft',
+                title: studyInfo.title || DEFAULT_DRAFT_TITLE,
                 piName: studyInfo.piName || '',
                 piUserId: studyInfo.piUserId || null,
                 language: studyInfo.language,

@@ -18,6 +18,7 @@ import {
     finalizeStudySubmissionAction,
 } from '@/server/actions/study-request'
 import { lexicalJson } from '@/lib/word-count'
+import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -292,7 +293,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
-            expect(study?.title).toEqual('Untitled Draft')
+            expect(study?.title).toEqual(DEFAULT_DRAFT_TITLE)
 
             // Step 2: Update with proposal fields
             const proposalFields = {

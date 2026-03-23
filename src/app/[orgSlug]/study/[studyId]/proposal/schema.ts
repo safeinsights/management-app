@@ -4,6 +4,8 @@ import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
+export const DEFAULT_DRAFT_TITLE = 'Untitled Draft'
+
 export const WORD_LIMITS = {
     title: 20,
     researchQuestions: 500,

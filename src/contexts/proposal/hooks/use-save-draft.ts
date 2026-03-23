@@ -3,11 +3,11 @@ import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
-import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 export function buildStudyInfo(values: ProposalFormValues) {
     return {
-        title: values.title || 'Untitled Draft',
+        title: values.title || DEFAULT_DRAFT_TITLE,
         piName: values.piName || undefined,
         piUserId: values.piUserId || undefined,
         datasets: values.datasets,
