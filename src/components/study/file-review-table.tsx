@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Radio, Table, Text } from '@mantine/core'
+import { ActionIcon, Divider, Radio, Table, Text } from '@mantine/core'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 
 interface FileReviewTableProps {
@@ -63,6 +63,7 @@ export const FileReviewTable = ({
                     </Table.Tbody>
                 </Table>
             </Radio.Group>
+            <Divider />
         </>
     )
 }
