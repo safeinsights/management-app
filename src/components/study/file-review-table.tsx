@@ -38,7 +38,7 @@ export const FileReviewTable = ({
                         <Table.Tr>
                             <Table.Th w={100}>Main file</Table.Th>
                             <Table.Th>File name</Table.Th>
-                            <Table.Th w={80}>Delete</Table.Th>
+                            <Table.Th w={80}>Remove</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
