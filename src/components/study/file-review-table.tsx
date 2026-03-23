@@ -33,12 +33,12 @@ export const FileReviewTable = ({
                 </Text>
             )}
             <Radio.Group value={mainFile} onChange={onMainFileChange}>
-                <Table layout="fixed" verticalSpacing="md" highlightOnHover withTableBorder>
+                <Table verticalSpacing="md">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={100}>Main file</Table.Th>
                             <Table.Th>File name</Table.Th>
-                            <Table.Th w={80}>Remove</Table.Th>
+                            <Table.Th w={80}>Delete</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -51,11 +51,11 @@ export const FileReviewTable = ({
                                 <Table.Td>
                                     <ActionIcon
                                         variant="subtle"
-                                        color="red"
+                                        color="gray"
                                         aria-label={`Remove ${file}`}
                                         onClick={() => onRemoveFile(file)}
                                     >
-                                        <TrashIcon />
+                                        <TrashIcon weight="fill" />
                                     </ActionIcon>
                                 </Table.Td>
                             </Table.Tr>
