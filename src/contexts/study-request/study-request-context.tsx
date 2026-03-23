@@ -101,7 +101,6 @@ export function StudyRequestProvider({
         additionalFileNames: codeFilesHook.additionalFileNames,
         codeSource,
         codeFiles: codeFilesHook.codeFiles,
-        onSuccess: reset,
     })
 
     const saveDraft = useCallback(

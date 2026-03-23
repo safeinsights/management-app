@@ -21,7 +21,6 @@ export interface UseSubmitStudyOptions {
     additionalFileNames: string[]
     codeSource: 'upload' | 'ide'
     codeFiles: CodeFileState
-    onSuccess?: () => void
 }
 
 export interface UseSubmitStudyReturn {
@@ -35,7 +34,6 @@ export function useSubmitStudy({
     additionalFileNames,
     codeSource,
     codeFiles,
-    onSuccess,
 }: UseSubmitStudyOptions): UseSubmitStudyReturn {
     const router = useRouter()
     const queryClient = useQueryClient()
@@ -114,7 +112,6 @@ export function useSubmitStudy({
             return { studyId: submittedStudyId }
         },
         onSuccess() {
-            onSuccess?.()
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['orgs-with-stats'] })
