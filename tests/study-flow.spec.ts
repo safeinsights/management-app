@@ -519,13 +519,9 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
-        studyId = extractStudyIdFromUrl(page)
-        // Navigate directly to view page — the dashboard "View" link depends on
-        // jobStatusChanges being available; on slow CI the data fetch may not yet
-        // reflect the newly-created job, causing the link to point to /submitted.
-        await goto(page, `/openstax-lab/study/${studyId}/view`)
         await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+        studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('reviewer approves code', async () => {
