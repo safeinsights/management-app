@@ -50,7 +50,12 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
 
     renderWithProviders(
         <StudyRequestProvider submittingOrgSlug={studyOrgSlug} initialStudyId={study.id}>
-            <StudyCodeFromIDE studyId={study.id} studyOrgSlug={studyOrgSlug} previousHref={previousHref} />
+            <StudyCodeFromIDE
+                studyId={study.id}
+                studyOrgSlug={studyOrgSlug}
+                previousHref={previousHref}
+                onGoBack={vi.fn()}
+            />
         </StudyRequestProvider>,
     )
 
@@ -382,9 +387,15 @@ describe('StudyCodeFromIDE', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
+            const onGoBack = vi.fn()
             const { unmount } = renderWithProviders(
                 <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
-                    <StudyCodeFromIDE studyId={study.id} studyOrgSlug={orgSlug} previousHref={previousHref} />
+                    <StudyCodeFromIDE
+                        studyId={study.id}
+                        studyOrgSlug={orgSlug}
+                        previousHref={previousHref}
+                        onGoBack={onGoBack}
+                    />
                 </StudyRequestProvider>,
             )
 
@@ -398,7 +409,12 @@ describe('StudyCodeFromIDE', () => {
             // Fresh mount with same studyId (as if re-login redirected back to same URL)
             renderWithProviders(
                 <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
-                    <StudyCodeFromIDE studyId={study.id} studyOrgSlug={orgSlug} previousHref={previousHref} />
+                    <StudyCodeFromIDE
+                        studyId={study.id}
+                        studyOrgSlug={orgSlug}
+                        previousHref={previousHref}
+                        onGoBack={onGoBack}
+                    />
                 </StudyRequestProvider>,
             )
 

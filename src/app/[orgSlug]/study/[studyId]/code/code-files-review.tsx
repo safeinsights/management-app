@@ -88,8 +88,13 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
     const { codeFiles, codeFilesLastUpdated, removeCodeFile, setMainCodeFile } = useStudyRequest()
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : ''
-    const [selectedMainFile, setSelectedMainFile] = useState(mainFileName)
+    const [selectedMainOverride, setSelectedMainOverride] = useState('')
     const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
+
+    // Use user override if set, otherwise fall back to context main file.
+    // This handles async hydration: selectedMainOverride starts empty, mainFileName
+    // populates once context hydrates, so the effective value is always correct.
+    const selectedMainFile = selectedMainOverride || mainFileName
 
     const handleRemoveFile = (fileName: string) => {
         removeCodeFile(fileName)
@@ -97,14 +102,14 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
             const remaining = allFiles.filter((f) => getFileName(f) !== fileName)
             if (remaining.length > 0) {
                 const newMain = getFileName(remaining[0])
-                setSelectedMainFile(newMain)
+                setSelectedMainOverride(newMain)
                 setMainCodeFile(newMain)
             }
         }
     }
 
     const handleMainFileChange = (fileName: string) => {
-        setSelectedMainFile(fileName)
+        setSelectedMainOverride(fileName)
         setMainCodeFile(fileName)
     }
 

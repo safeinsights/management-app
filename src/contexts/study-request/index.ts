@@ -1,6 +1,7 @@
 export { StudyRequestProvider, useStudyRequest } from './study-request-context'
 export type {
     StudyRequestContextValue,
+    CodeUploadViewMode,
     DraftStudyData,
     ExistingFiles,
     StudyProposalFormValues,

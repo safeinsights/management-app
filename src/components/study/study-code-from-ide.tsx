@@ -14,10 +14,11 @@ interface StudyCodeFromIDEProps {
     studyId: string
     studyOrgSlug: string
     previousHref: Route
+    onGoBack: () => void
 }
 
-export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref }: StudyCodeFromIDEProps) => {
-    const ide = useIDEFiles({ studyId })
+export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack }: StudyCodeFromIDEProps) => {
+    const ide = useIDEFiles({ studyId, onGoBack })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
     let launchButton = (

@@ -63,7 +63,7 @@ beforeAll(async () => {
             }),
             usePathname: () => {
                 const router = useRouter()
-                return router.asPath
+                return router.asPath.split('?')[0]
             },
             useParams: vi.fn(() => ({})),
             useSearchParams: () => {

@@ -1,19 +1,23 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { Route } from 'next'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { z } from 'zod'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
 import { ButtonLink } from '@/components/links'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
-import { useStudyRequest } from '@/contexts/study-request'
+import { useStudyRequest, type CodeUploadViewMode } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
 import { StudyCodeFromIDE } from '@/components/study/study-code-from-ide'
 import { CodeUploadModal } from './code-upload-modal'
 import { CodeFilesReview } from './code-files-review'
+
+const CodeViewModeSchema = z.enum(['upload', 'review', 'ide-review']).catch('upload')
 
 interface CodeUploadPageProps {
     studyId: string
@@ -36,17 +40,28 @@ export function CodeUploadPage({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
+    // URL-driven view mode
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const codeUploadViewMode = CodeViewModeSchema.parse(searchParams.get('mode'))
+
+    const setMode = useCallback(
+        (mode: CodeUploadViewMode) => {
+            const params = new URLSearchParams(searchParams.toString())
+            if (mode === 'upload') {
+                params.delete('mode')
+            } else {
+                params.set('mode', mode)
+            }
+            const query = params.toString()
+            router.replace(`${pathname}${query ? `?${query}` : ''}` as Route)
+        },
+        [searchParams, pathname, router],
+    )
+
     // Context
-    const {
-        codeFiles,
-        codeUploadViewMode,
-        canSubmit,
-        setStudyId,
-        setExistingFiles,
-        setCodeUploadViewMode,
-        submitStudy,
-        isSubmitting,
-    } = useStudyRequest()
+    const { codeFiles, canSubmit, setStudyId, setExistingFiles, submitStudy, isSubmitting } = useStudyRequest()
 
     // IDE launcher
     const {
@@ -57,7 +72,7 @@ export function CodeUploadPage({
     } = useWorkspaceLauncher({
         studyId,
         onSuccess: () => {
-            setCodeUploadViewMode('ide-review')
+            setMode('ide-review')
         },
     })
 
@@ -79,20 +94,26 @@ export function CodeUploadPage({
     }
 
     const handleBackToUpload = () => {
-        setCodeUploadViewMode('upload')
+        setMode('upload')
     }
 
     const handleFilesConfirmed = () => {
-        setCodeUploadViewMode('review')
+        setMode('review')
         closeModal()
     }
 
     if (codeUploadViewMode === 'ide-review') {
-        return <StudyCodeFromIDE studyId={studyId} studyOrgSlug={orgSlug} previousHref={previousHref} />
+        return (
+            <StudyCodeFromIDE
+                studyId={studyId}
+                studyOrgSlug={orgSlug}
+                previousHref={previousHref}
+                onGoBack={() => setMode('upload')}
+            />
+        )
     }
 
-    // Show review mode if files are selected
-    if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
+    if (codeUploadViewMode === 'review') {
         return (
             <>
                 <CodeFilesReview

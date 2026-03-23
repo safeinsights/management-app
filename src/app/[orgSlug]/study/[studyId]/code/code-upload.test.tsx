@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import {
     afterEach,
     beforeEach,
@@ -10,6 +9,7 @@ import {
     expectStudyJobRecords,
     insertTestStudyOnly,
     it,
+    mockPathname,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -17,12 +17,16 @@ import {
     waitFor,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
-import { StudyRequestProvider, useStudyRequest } from '@/contexts/study-request'
+import * as RouterMock from 'next-router-mock'
+import { StudyRequestProvider, type CodeUploadViewMode } from '@/contexts/study-request'
 import { notifications } from '@mantine/notifications'
 import { storeS3File } from '@/server/aws'
 import { CodeUploadPage } from './code-upload'
 import type { Route } from 'next'
 import { vi } from 'vitest'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getUrl = (): string => (RouterMock as any).memoryRouter.asPath
 
 const launchWorkspace = vi.fn()
 
@@ -56,28 +60,20 @@ interface RenderPageOptions {
     orgSlug?: string
     existingMainFile?: string
     existingAdditionalFiles?: string[]
-    seedReviewMode?: boolean
-}
-
-function ReviewModeSeeder({ mainFile, additionalFiles }: { mainFile: string; additionalFiles: string[] }) {
-    const { setExistingFiles, setCodeUploadViewMode } = useStudyRequest()
-
-    useEffect(() => {
-        setExistingFiles(mainFile, [mainFile, ...additionalFiles])
-        setCodeUploadViewMode('review')
-    }, [mainFile, additionalFiles, setExistingFiles, setCodeUploadViewMode])
-
-    return null
+    initialMode?: CodeUploadViewMode
 }
 
 const renderPage = async ({
     orgSlug = 'openstax',
     existingMainFile,
     existingAdditionalFiles,
-    seedReviewMode,
+    initialMode,
 }: RenderPageOptions = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+    const modeSuffix = initialMode ? `?mode=${initialMode}` : ''
+    mockPathname(`/${orgSlug}/study/${study.id}/code${modeSuffix}`)
 
     renderWithProviders(
         <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
@@ -89,9 +85,6 @@ const renderPage = async ({
                 existingMainFile={existingMainFile}
                 existingAdditionalFiles={existingAdditionalFiles}
             />
-            {seedReviewMode && existingMainFile && (
-                <ReviewModeSeeder mainFile={existingMainFile} additionalFiles={existingAdditionalFiles ?? []} />
-            )}
         </StudyRequestProvider>,
     )
 
@@ -126,6 +119,7 @@ describe('CodeUploadPage', () => {
             expect(launchWorkspace).toHaveBeenCalledWith(study.id)
             expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
             expect(screen.getByText('main.r')).toBeInTheDocument()
+            expect(getUrl()).toContain('mode=ide-review')
         })
     })
 
@@ -149,6 +143,7 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.queryByText('Review files from IDE')).not.toBeInTheDocument()
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+            expect(getUrl()).not.toContain('mode=')
         })
     })
 
@@ -288,7 +283,7 @@ describe('CodeUploadPage', () => {
         await renderPage({
             existingMainFile: 'analysis.R',
             existingAdditionalFiles: ['utils.R'],
-            seedReviewMode: true,
+            initialMode: 'review',
         })
 
         await waitFor(() => {
@@ -297,14 +292,48 @@ describe('CodeUploadPage', () => {
             expect(screen.getByText('utils.R')).toBeInTheDocument()
         })
 
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeInTheDocument()
+        // Main file radio should be selected and submit should be enabled after async hydration
+        await waitFor(() => {
+            expect(screen.getByRole('radio', { name: /select analysis\.r as main file/i })).toBeChecked()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
         expect(screen.getByRole('button', { name: /back to upload/i })).toBeInTheDocument()
+    })
+
+    it('submits existing files from review mode loaded via URL', async () => {
+        const { study } = await renderPage({
+            existingMainFile: 'analysis.R',
+            existingAdditionalFiles: ['utils.R'],
+            initialMode: 'review',
+        })
+
+        const user = userEvent.setup()
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await expectStudyJobRecords(study.id, [
+            { name: 'analysis.R', fileType: 'MAIN-CODE' },
+            { name: 'utils.R', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
     })
 
     it('returns from review mode to upload mode when Back to upload is clicked', async () => {
         await renderPage({
             existingMainFile: 'analysis.R',
-            seedReviewMode: true,
+            initialMode: 'review',
         })
 
         await waitFor(() => {
@@ -317,6 +346,36 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
             expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(getUrl()).not.toContain('mode=')
+        })
+    })
+
+    // --- URL-driven refresh stability tests ---
+
+    it('renders IDE review when URL has mode=ide-review', async () => {
+        const { study } = await renderPage({ initialMode: 'ide-review' })
+        const root = await createWorkspaceDir('url-ide-review')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, { 'main.r': 'print("hello")' })
+
+        await waitFor(() => {
+            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
+        })
+    })
+
+    it('falls back to upload screen for invalid mode value', async () => {
+        await renderPage({ initialMode: 'garbage' as CodeUploadViewMode })
+
+        expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
+        expect(screen.getByText('Study code')).toBeInTheDocument()
+    })
+
+    it('shows recovery state when mode=review but no files in memory', async () => {
+        await renderPage({ initialMode: 'review' })
+
+        await waitFor(() => {
+            expect(screen.getByText('Review uploaded files')).toBeInTheDocument()
+            expect(screen.getByText('No files uploaded. Go back to upload files.')).toBeInTheDocument()
         })
     })
 })

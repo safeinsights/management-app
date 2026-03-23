@@ -45,7 +45,6 @@ export function StudyRequestProvider({
     const [studyId, setStudyId] = useState<string | null>(initialStudyId ?? null)
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
-    const [codeUploadViewMode, setCodeUploadViewMode] = useState<'upload' | 'review' | 'ide-review'>('upload')
 
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -88,7 +87,6 @@ export function StudyRequestProvider({
             setStudyId(preserveStudyId ?? null)
             setOrgSlug('')
             clearCodeFiles()
-            setCodeUploadViewMode('upload')
             resetDocumentFiles()
             form.reset()
         },
@@ -166,12 +164,10 @@ export function StudyRequestProvider({
             removeCodeFile: codeFilesHook.removeFile,
 
             codeSource,
-            codeUploadViewMode,
             setCodeFiles,
             setExistingFiles,
             setIDECodeFiles,
             clearCodeFiles,
-            setCodeUploadViewMode,
 
             ...documentFiles,
 
@@ -200,7 +196,6 @@ export function StudyRequestProvider({
             codeFilesHook.setMainFile,
             codeFilesHook.removeFile,
             codeSource,
-            codeUploadViewMode,
             setCodeFiles,
             setExistingFiles,
             setIDECodeFiles,

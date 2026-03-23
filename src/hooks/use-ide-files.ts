@@ -8,12 +8,12 @@ import { useStudyRequest } from '@/contexts/study-request'
 
 interface UseIDEFilesOptions {
     studyId: string
+    onGoBack: () => void
 }
 
-export function useIDEFiles({ studyId }: UseIDEFilesOptions) {
+export function useIDEFiles({ studyId, onGoBack }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
-    const { setIDECodeFiles, setCodeUploadViewMode, submitStudy, mainFileName, codeFilesLastUpdated } =
-        useStudyRequest()
+    const { setIDECodeFiles, submitStudy, mainFileName, codeFilesLastUpdated } = useStudyRequest()
 
     const pendingDirectSubmitRef = useRef(false)
     const [isDirectSubmitting, setIsDirectSubmitting] = useState(false)
@@ -37,8 +37,8 @@ export function useIDEFiles({ studyId }: UseIDEFilesOptions) {
     const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
 
     const goBack = useCallback(() => {
-        setCodeUploadViewMode('upload')
-    }, [setCodeUploadViewMode])
+        onGoBack()
+    }, [onGoBack])
 
     const submitDirectly = useCallback(() => {
         if (!canSubmit) {
