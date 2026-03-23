@@ -1,10 +1,5 @@
 @layer reset, base, tokens, recipes, utilities;
 
-:root,
-[data-mantine-color-scheme] {
-    --mantine-color-placeholder: #525c66;
-}
-
 .pi-symbol {
     position: fixed;
     bottom: 0px;

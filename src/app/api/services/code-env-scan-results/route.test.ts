@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestCodeEnv } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, insertTestCodeEnv, BLANK_UUID } from '@/tests/unit.helpers'
 
 const TEST_SECRET = 'test-scan-webhook-secret'
 
@@ -65,9 +65,7 @@ test('returns 400 on invalid payload', async () => {
 })
 
 test('returns 404 for unknown codeEnvId', async () => {
-    const resp = await apiHandler.POST(
-        authedRequest({ codeEnvId: '00000000-0000-0000-0000-000000000000', status: 'SCAN-RUNNING' }),
-    )
+    const resp = await apiHandler.POST(authedRequest({ codeEnvId: BLANK_UUID, status: 'SCAN-RUNNING' }))
     expect(resp.status).toBe(404)
     const body = await resp.json()
     expect(body).toEqual({ error: 'code-env-not-found' })

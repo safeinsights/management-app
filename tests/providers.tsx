@@ -1,6 +1,6 @@
 import { MantineProvider } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { theme } from '@/theme'
+import { cssVariablesResolver, theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ const queryClient = new QueryClient({
 
 export const TestingProviders: FC<{ children: ReactNode }> = ({ children }) => {
     return (
-        <MantineProvider theme={theme}>
+        <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
             <QueryClientProvider client={queryClient}>
                 <ClerkProvider>
                     <ModalsProvider>{children}</ModalsProvider>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
+import { insertTestOrg, insertTestStudyJobUsers, BLANK_UUID } from '@/tests/unit.helpers'
 
 describe('get keys', () => {
     let req: Request
@@ -24,7 +24,7 @@ describe('get keys', () => {
         await insertTestOrg()
 
         const response = await apiHandler.GET(req, {
-            params: Promise.resolve({ jobId: '00000000-0000-0000-0000-000000000000' }),
+            params: Promise.resolve({ jobId: BLANK_UUID }),
         })
 
         expect(response.status).toBe(200)

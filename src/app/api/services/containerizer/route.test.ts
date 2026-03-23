@@ -1,7 +1,7 @@
 import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -129,8 +129,7 @@ test('logs error with context on invalid payload', async () => {
 })
 
 test('returns 404 job-not-found for unknown jobId', async () => {
-    const badJobId = '00000000-0000-0000-0000-000000000000'
-    const resp = await apiHandler.POST(authedRequest({ jobId: badJobId, status: 'JOB-PACKAGING' }))
+    const resp = await apiHandler.POST(authedRequest({ jobId: BLANK_UUID, status: 'JOB-PACKAGING' }))
     expect(resp.ok).toBe(false)
     expect(resp.status).toBe(404)
 
