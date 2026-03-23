@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Alert, Button, Divider, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
 import type { Route } from 'next'
 
@@ -112,7 +112,7 @@ export function AgreementsPage({
                 ))}
             </Stack>
 
-            <Group mt="xxl" justify="space-between" w="100%">
+            <Flex mt="xxl" justify="space-between" w="100%">
                 <Button
                     type="button"
                     size="md"
@@ -125,7 +125,7 @@ export function AgreementsPage({
                 <Button type="button" variant="primary" size="md" onClick={handleProceed}>
                     {resolvedProceedLabel}
                 </Button>
-            </Group>
+            </Flex>
         </>
     )
 }
