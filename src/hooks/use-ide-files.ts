@@ -36,9 +36,7 @@ export function useIDEFiles({ studyId, onGoBack }: UseIDEFilesOptions) {
     const showEmptyState = fileManager.filteredFiles.length === 0 && !workspace.isLoading
     const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
 
-    const goBack = useCallback(() => {
-        onGoBack()
-    }, [onGoBack])
+    const goBack = onGoBack
 
     const submitDirectly = useCallback(() => {
         if (!canSubmit) {

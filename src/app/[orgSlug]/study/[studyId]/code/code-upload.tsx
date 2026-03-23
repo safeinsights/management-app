@@ -40,7 +40,6 @@ export function CodeUploadPage({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    // URL-driven view mode
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -60,10 +59,8 @@ export function CodeUploadPage({
         [searchParams, pathname, router],
     )
 
-    // Context
     const { codeFiles, canSubmit, setStudyId, setExistingFiles, submitStudy, isSubmitting } = useStudyRequest()
 
-    // IDE launcher
     const {
         launchWorkspace,
         isLaunching,
@@ -188,7 +185,6 @@ export function CodeUploadPage({
                     </OpenStaxOnly>
                 </Group>
 
-                {/* Show existing files info if any */}
                 {existingMainFile && !codeFiles.mainFile && (
                     <Stack mt="xl" gap="xs">
                         <Text size="sm" c="dimmed">
