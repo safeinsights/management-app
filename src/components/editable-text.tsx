@@ -112,11 +112,29 @@ export const EditableText: FC<EditableTextProps> = ({
     // Lexical manages its own state after initialization
     const [initialConfig] = useState<InitialConfigType>(() => createInitialConfig(value, disabled, readOnly))
 
+    const [isFocused, setIsFocused] = useState(false)
+
     const handleChange = (editorState: EditorState) => {
         onChange?.(JSON.stringify(editorState.toJSON()))
     }
 
+    const handleFocus = () => {
+        setIsFocused(true)
+        onFocus?.()
+    }
+
+    const handleBlur = () => {
+        setIsFocused(false)
+        onBlur?.()
+    }
+
     const isEditable = !disabled && !readOnly
+
+    const borderColor = error
+        ? 'var(--mantine-color-red-filled)'
+        : isFocused
+          ? 'var(--mantine-color-blue-filled)'
+          : 'var(--mantine-color-gray-4)'
 
     return (
         <Box>
@@ -124,9 +142,7 @@ export const EditableText: FC<EditableTextProps> = ({
                 <Box
                     style={{
                         position: 'relative',
-                        border: borderless
-                            ? 'none'
-                            : `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
+                        border: borderless ? 'none' : `1px solid ${borderColor}`,
                         borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
                         minHeight: borderless ? undefined : minHeight,
                         maxHeight,
@@ -145,8 +161,8 @@ export const EditableText: FC<EditableTextProps> = ({
                                     padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
                                     minHeight: borderless ? undefined : minHeight,
                                 }}
-                                onFocus={onFocus}
-                                onBlur={onBlur}
+                                onFocus={handleFocus}
+                                onBlur={handleBlur}
                             />
                         }
                         placeholder={
