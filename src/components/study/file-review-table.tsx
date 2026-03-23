@@ -33,7 +33,7 @@ export const FileReviewTable = ({
                 </Text>
             )}
             <Radio.Group value={mainFile} onChange={onMainFileChange}>
-                <Table verticalSpacing="md">
+                <Table highlightOnHover verticalSpacing="md">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={100}>Main file</Table.Th>
