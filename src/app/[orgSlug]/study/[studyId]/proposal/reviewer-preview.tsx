@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { Box, Divider, Stack, Text } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { EditableText } from '@/components/editable-text'
@@ -8,6 +8,7 @@ import { ResearcherProfilePopover } from '@/components/researcher-profile-popove
 import { extractTextFromLexical } from '@/lib/word-count'
 import { useProposal } from '@/contexts/proposal'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
+import { usePopover } from '@/hooks/use-popover'
 import { DEFAULT_DRAFT_TITLE } from './schema'
 import { editableTextFields } from './field-config'
 
@@ -28,15 +29,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { options: datasetOptions } = useOrgDataSources(enclaveOrgSlug)
     const values = form.getValues()
-    const [activePopover, setActivePopover] = useState<string | null>(null)
-
-    const handleOpenChange = (id: string) => (open: boolean) =>
-        // handle the opening and closing of multiple popovers
-        setActivePopover((current) => {
-            if (open) return id // opening this popover, make it active
-            if (current === id) return null // closing the currently active popover
-            return current // a different popover is active, leave it unchanged
-        })
+    const { getPopoverProps } = usePopover()
 
     return (
         <Stack gap="lg">
@@ -97,8 +90,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                         orgSlug={orgSlug}
                         name={values.piName}
                         position="right-start"
-                        opened={activePopover === 'pi'}
-                        onOpenChange={handleOpenChange('pi')}
+                        {...getPopoverProps('pi')}
                     />
                 ) : (
                     <Text size="md">Not selected</Text>
@@ -115,8 +107,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                     orgSlug={orgSlug}
                     name={researcherName}
                     position="right-start"
-                    opened={activePopover === 'researcher'}
-                    onOpenChange={handleOpenChange('researcher')}
+                    {...getPopoverProps('researcher')}
                 />
             </Box>
         </Stack>

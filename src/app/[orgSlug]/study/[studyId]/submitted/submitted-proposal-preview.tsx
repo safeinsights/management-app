@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button, Divider, Stack, Text } from '@mantine/core'
+import { usePopover } from '@/hooks/use-popover'
 import { AppModal } from '@/components/modal'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
@@ -14,11 +15,7 @@ type SubmittedProposalPreviewProps = {
 
 export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPreviewProps) {
     const [isOpen, setIsOpen] = useState(false)
-    const [activePopover, setActivePopover] = useState<string | null>(null)
-    const popoverProps = (id: string) => ({
-        opened: activePopover === id,
-        onOpenChange: (open: boolean) => setActivePopover(open ? id : null),
-    })
+    const { getPopoverProps } = usePopover()
 
     return (
         <>
@@ -55,8 +52,8 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         divider="none"
                     />
 
-                    <PIField study={study} orgSlug={orgSlug} {...popoverProps('pi')} />
-                    <ResearcherField study={study} orgSlug={orgSlug} {...popoverProps('researcher')} mt="md" />
+                    <PIField study={study} orgSlug={orgSlug} {...getPopoverProps('pi')} />
+                    <ResearcherField study={study} orgSlug={orgSlug} {...getPopoverProps('researcher')} mt="md" />
                 </Stack>
             </AppModal>
         </>

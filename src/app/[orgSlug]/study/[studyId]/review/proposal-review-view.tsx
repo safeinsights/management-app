@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
@@ -8,6 +7,7 @@ import { stringifyJson } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { usePopover } from '@/hooks/use-popover'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
 type ProposalReviewViewProps = {
@@ -17,11 +17,7 @@ type ProposalReviewViewProps = {
 }
 
 export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
-    const [activePopover, setActivePopover] = useState<string | null>(null)
-    const popoverProps = (id: string) => ({
-        opened: activePopover === id,
-        onOpenChange: (open: boolean) => setActivePopover(open ? id : null),
-    })
+    const { getPopoverProps } = usePopover()
 
     return (
         <Stack px="xl" gap="xl">
@@ -62,8 +58,8 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} orgSlug={orgSlug} {...popoverProps('pi')} />
-                    <ResearcherField study={study} orgSlug={orgSlug} {...popoverProps('researcher')} mt="md" />
+                    <PIField study={study} orgSlug={orgSlug} {...getPopoverProps('pi')} />
+                    <ResearcherField study={study} orgSlug={orgSlug} {...getPopoverProps('researcher')} mt="md" />
                 </Stack>
             </Paper>
 
