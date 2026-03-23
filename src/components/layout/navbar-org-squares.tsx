@@ -13,12 +13,11 @@ const WIDTH = 70
 const SQUARE_SIZE = 48
 
 type SquareProps = ButtonLinkProps & {
-    isActive?: boolean
     color: string
     children: React.ReactNode
 }
 
-const Square: React.FC<SquareProps> = ({ color, children, isActive, ...props }) => {
+const Square: React.FC<SquareProps> = ({ color, children, ...props }) => {
     return (
         <ButtonLink
             {...props}
@@ -69,7 +68,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         style={{ transition: 'background-color 0.2s ease' }}
                         py={8}
                     >
-                        <Square color="white" isActive={isActive} href={Routes.orgDashboard({ orgSlug: org.slug })}>
+                        <Square color="white" href={Routes.orgDashboard({ orgSlug: org.slug })}>
                             {orgInitials(org.name, org.type)}
                         </Square>
                     </Flex>
