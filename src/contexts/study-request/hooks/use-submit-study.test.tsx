@@ -65,6 +65,7 @@ describe('useSubmitStudy', () => {
                 expect.objectContaining({
                     color: 'red',
                     title: 'Unable to Submit Study',
+                    message: 'Study ID is required to submit',
                 }),
             )
         })

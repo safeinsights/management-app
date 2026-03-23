@@ -369,4 +369,66 @@ describe('StudyCodeFromIDE', () => {
         expect(previousLink).toHaveAttribute('href', previousHref)
         expect(screen.getByRole('button', { name: /back to upload/i })).toBeInTheDocument()
     })
+
+    describe('OTTER-467 session timeout regression', () => {
+        it('submits successfully after unmount and fresh remount with same studyId', async () => {
+            const orgSlug = 'openstax-lab'
+            const { study } = await setupStudy(orgSlug)
+            const root = await createWorkspaceDir('study-code-from-ide')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+            })
+            const previousHref = `/test-org/study/${study.id}/agreements` as Route
+
+            const { unmount } = renderWithProviders(
+                <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
+                    <StudyCodeFromIDE studyId={study.id} studyOrgSlug={orgSlug} previousHref={previousHref} />
+                </StudyRequestProvider>,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByText('main.R')).toBeInTheDocument()
+            })
+
+            // Simulate session timeout / page reload: destroy the entire React tree
+            unmount()
+
+            // Fresh mount with same studyId (as if re-login redirected back to same URL)
+            renderWithProviders(
+                <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
+                    <StudyCodeFromIDE studyId={study.id} studyOrgSlug={orgSlug} previousHref={previousHref} />
+                </StudyRequestProvider>,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByText('main.R')).toBeInTheDocument()
+            })
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+            await waitFor(async () => {
+                const updated = await db
+                    .selectFrom('study')
+                    .select(['status'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+                expect(updated.status).toBe('PENDING-REVIEW')
+            })
+
+            await expectStudyJobRecords(study.id, [
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+            ])
+
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
+            )
+            expect(notifications.show).not.toHaveBeenCalledWith(
+                expect.objectContaining({ message: 'Study ID is required to submit' }),
+            )
+        })
+    })
 })
