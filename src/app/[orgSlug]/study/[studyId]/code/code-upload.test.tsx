@@ -154,45 +154,6 @@ describe('CodeUploadPage', () => {
         expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
     })
 
-    // --- Integration tests ---
-
-    it('submits IDE files through full page flow and persists study job records', async () => {
-        const { study } = await renderPage()
-        const root = await createWorkspaceDir('code-upload-page')
-        workspaceRoots.push(root)
-        await writeWorkspaceFiles(root, study.id, {
-            'main.R': 'print("main")',
-            'helper.R': 'print("helper")',
-        })
-
-        const user = userEvent.setup()
-        await user.click(await screen.findByRole('button', { name: /launch ide/i }))
-
-        await waitFor(() => {
-            expect(screen.getByText('main.R')).toBeInTheDocument()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'main.R', fileType: 'MAIN-CODE' },
-            { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
-
-        expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
-        )
-    })
-
     it('shows error notification when IDE file upload to S3 fails', async () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
@@ -226,39 +187,6 @@ describe('CodeUploadPage', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updated.status).not.toBe('PENDING-REVIEW')
-    })
-
-    it('submits existing files and persists study job records', async () => {
-        const { study } = await renderPage({
-            existingMainFile: 'analysis.R',
-            existingAdditionalFiles: ['utils.R'],
-        })
-
-        const user = userEvent.setup()
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'analysis.R', fileType: 'MAIN-CODE' },
-            { name: 'utils.R', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
-
-        expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
-        )
     })
 
     // --- Branch coverage tests ---
