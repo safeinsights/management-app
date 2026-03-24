@@ -75,7 +75,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             queryClient.invalidateQueries({ queryKey: ['draft-study', newStudyId] })
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['orgs-with-stats'] })
+            queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
         },
         onError: (error) => {
             notifications.show({

@@ -19,7 +19,6 @@ describe('OrgAdminDashboardLink', () => {
             name: faker.company.name(),
             id: faker.string.uuid(),
             slug: orgSlug,
-            eventCount: 0,
         }
         // Mock session for an admin user to ensure all links are visible
         await mockSessionWithTestData({ orgSlug, isAdmin: true })
@@ -37,7 +36,6 @@ describe('OrgAdminDashboardLink', () => {
             name: faker.company.name(),
             id: faker.string.uuid(),
             slug: orgSlug,
-            eventCount: 0,
         }
         await mockSessionWithTestData()
         renderWithProviders(<OrgAdminDashboardLink isVisible={false} org={org} />)
@@ -51,7 +49,6 @@ describe('OrgAdminDashboardLink', () => {
             name: faker.company.name(),
             id: faker.string.uuid(),
             slug: orgSlug,
-            eventCount: 0,
         }
 
         // Test with regular Org Admin
@@ -70,7 +67,6 @@ describe('OrgAdminDashboardLink', () => {
             name: faker.company.name(),
             id: faker.string.uuid(),
             slug: orgSlug,
-            eventCount: 0,
         }
         await mockSessionWithTestData()
         mockPathname(`/admin/team/${orgSlug}`)
@@ -87,7 +83,6 @@ describe('OrgAdminDashboardLink', () => {
             name: faker.company.name(),
             id: faker.string.uuid(),
             slug: orgSlug,
-            eventCount: 0,
         }
         await mockSessionWithTestData()
         mockPathname('/')
