@@ -257,7 +257,7 @@ const PopoverContent: FC<{
 const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string }>(
     ({ onMouseEnter, name, ...others }, ref) => (
         <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
-            <Text size="sm">{name}</Text>
+            <Text size="md">{name}</Text>
             <div
                 ref={ref}
                 {...others}

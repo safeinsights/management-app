@@ -130,7 +130,7 @@ export const studyProposalApiSchema = z.object({
         .min(1, { message: 'Title is required' })
         .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
     piName: z.string().max(100).trim(),
-    piUserId: z.string().uuid().optional(),
+    piUserId: z.string().uuid(),
     language: z.enum(['R', 'PYTHON']),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { proposalFormSchema, initialProposalValues, WORD_LIMITS } from './schema'
+import { BLANK_UUID } from '@/tests/unit.helpers'
 
 function lexicalText(text: string): string {
     return JSON.stringify({ root: { type: 'text', text } })
@@ -17,6 +18,7 @@ const validProposalData = {
     impact: lexicalText('Findings will inform educational practice.'),
     additionalNotes: '',
     piName: 'Jane Smith',
+    piUserId: BLANK_UUID,
 }
 
 describe('proposalFormSchema', () => {
