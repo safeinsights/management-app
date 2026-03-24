@@ -78,18 +78,11 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
 
-function useEditorPosition(editor: ReturnType<typeof useLexicalComposerContext>[0]) {
-    const [position, setPosition] = useState<ToolbarPosition | null>(null)
-
-    const update = useCallback(() => {
-        const root = editor.getRootElement()
-        if (!root) return null
-        const rect = root.getBoundingClientRect()
-        setPosition({ top: rect.bottom + window.scrollY, left: rect.left })
-        return true
-    }, [editor])
-
-    return { position, update }
+function getEditorPosition(editor: ReturnType<typeof useLexicalComposerContext>[0]): ToolbarPosition | null {
+    const root = editor.getRootElement()
+    if (!root) return null
+    const rect = root.getBoundingClientRect()
+    return { top: rect.bottom + window.scrollY, left: rect.left }
 }
 
 export const FloatingToolbar = () => {
@@ -104,7 +97,7 @@ export const FloatingToolbar = () => {
     })
 
     const linkEditor = useLinkEditor(editor)
-    const { position, update: updatePosition } = useEditorPosition(editor)
+    const position = getEditorPosition(editor)
 
     useEffect(() => {
         return mergeRegister(
@@ -112,7 +105,6 @@ export const FloatingToolbar = () => {
                 FOCUS_COMMAND,
                 () => {
                     setIsFocused(true)
-                    updatePosition()
                     return false
                 },
                 COMMAND_PRIORITY_LOW,
@@ -126,7 +118,7 @@ export const FloatingToolbar = () => {
                 COMMAND_PRIORITY_LOW,
             ),
         )
-    }, [editor, updatePosition])
+    }, [editor])
 
     const updateToolbar = useCallback(() => {
         const selection = $getSelection()
@@ -154,7 +146,6 @@ export const FloatingToolbar = () => {
                 editorState.read(() => {
                     updateToolbar()
                 })
-                updatePosition()
             }),
             editor.registerCommand(
                 SELECTION_CHANGE_COMMAND,
@@ -165,7 +156,7 @@ export const FloatingToolbar = () => {
                 COMMAND_PRIORITY_LOW,
             ),
         )
-    }, [editor, updateToolbar, updatePosition])
+    }, [editor, updateToolbar])
 
     const formatText = (format: TextFormatType) => {
         editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
@@ -214,7 +205,7 @@ export const FloatingToolbar = () => {
                     position: 'absolute',
                     top: position.top,
                     left: position.left,
-                    zIndex: 1000,
+                    zIndex: 50,
                     display: 'flex',
                     gap: 4,
                     alignItems: 'center',
