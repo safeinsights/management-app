@@ -4,7 +4,7 @@ import { useQuery } from '@/common'
 import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
-import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 import { AppShellNavbar, AppShellSection, Box, Group, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -18,8 +18,8 @@ import { SafeInsightsLogo } from './svg/si-logo'
 export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop }) => {
     const path = usePathname()
     const { data: orgs = [] } = useQuery({
-        queryFn: async () => fetchUsersOrgsWithStatsAction(),
-        queryKey: ['orgs-with-stats'],
+        queryFn: async () => fetchUsersOrgsAction(),
+        queryKey: ['user-orgs'],
     })
 
     const sortedOrgs = useMemo(() => {
