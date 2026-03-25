@@ -58,8 +58,14 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} orgSlug={orgSlug} {...getPopoverProps('pi')} />
-                    <ResearcherField study={study} orgSlug={orgSlug} {...getPopoverProps('researcher')} mt="md" />
+                    <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
+                    <ResearcherField
+                        study={study}
+                        orgSlug={orgSlug}
+                        size="sm"
+                        {...getPopoverProps('researcher')}
+                        mt="md"
+                    />
                 </Stack>
             </Paper>
 

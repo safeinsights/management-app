@@ -38,6 +38,7 @@ interface ResearcherProfilePopoverProps {
     offset?: number
     arrowSize?: number
     opened: boolean
+    size?: 'sm' | 'md'
     onOpenChange: (opened: boolean) => void
 }
 
@@ -254,10 +255,10 @@ const PopoverContent: FC<{
     )
 }
 
-const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string }>(
-    ({ onMouseEnter, name, ...others }, ref) => (
+const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string; size: 'sm' | 'md' }>(
+    ({ onMouseEnter, name, size, ...others }, ref) => (
         <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
-            <Text size="md">{name}</Text>
+            <Text size={size}>{name}</Text>
             <div
                 ref={ref}
                 {...others}
@@ -285,6 +286,7 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     withArrow = true,
     offset = 8,
     arrowSize = 12,
+    size = 'md',
     opened,
     onOpenChange,
 }) => {
@@ -306,7 +308,7 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
             clickOutsideEvents={['mousedown', 'touchstart']}
         >
             <Popover.Target>
-                <PopoverAnchor name={name} onMouseEnter={open} />
+                <PopoverAnchor name={name} size={size} onMouseEnter={open} />
             </Popover.Target>
             <Popover.Dropdown onMouseLeave={(e) => e.stopPropagation()} p="lg">
                 <PopoverContent userId={userId} studyId={studyId} orgSlug={orgSlug} onClose={close} />

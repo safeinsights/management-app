@@ -28,10 +28,10 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         <Text fw={600} size="sm">
                             Study title
                         </Text>
-                        <Text size="sm">{study.title}</Text>
+                        <Text size="md">{study.title}</Text>
                     </Stack>
 
-                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
+                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} size="md" />
 
                     <Divider />
 
@@ -39,17 +39,20 @@ export function SubmittedProposalPreview({ study, orgSlug }: SubmittedProposalPr
                         label="Research question(s)"
                         value={stringifyJson(study.researchQuestions)}
                         divider="none"
+                        size="md"
                     />
                     <LexicalProposalField
                         label="Project summary"
                         value={stringifyJson(study.projectSummary)}
                         divider="none"
+                        size="md"
                     />
-                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} divider="none" />
+                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} divider="none" size="md" />
                     <LexicalProposalField
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                         divider="none"
+                        size="md"
                     />
 
                     <PIField study={study} orgSlug={orgSlug} {...getPopoverProps('pi')} />
