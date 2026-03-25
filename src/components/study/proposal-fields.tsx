@@ -65,7 +65,7 @@ interface PopoverFieldProps {
 }
 
 export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverFieldProps) {
-    if (!study.piUserId) return null
+    if (!study.piName) return null
 
     return (
         <>
@@ -75,7 +75,7 @@ export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverF
                     Principal Investigator
                 </Text>
                 <ResearcherProfilePopover
-                    userId={study.piUserId}
+                    userId={study.piUserId ?? ''}
                     studyId={study.id}
                     orgSlug={orgSlug}
                     name={study.piName}
