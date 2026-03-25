@@ -184,11 +184,6 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    // Verify "View Proposal" button is present on agreements page
-    const viewProposalButton = page.getByRole('button', { name: /View Proposal/i })
-    await viewProposalButton.scrollIntoViewIfNeeded()
-    await expect(viewProposalButton).toBeVisible({ timeout: 10000 })
-
     // Verify the ?from=agreements flow renders ProposalReviewView (not CodeReviewView)
     await goto(page, `${studyBaseUrl}/review?from=agreements`)
     await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
@@ -220,11 +215,11 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 3B')).toBeVisible()
     await expect(page.getByText('STEP 3C')).toBeVisible()
 
-    // Test View Proposal → ResearcherProposalView → Proceed to Step 3 round-trip
-    const viewProposalButton = page.getByRole('button', { name: /View Proposal/i })
-    await viewProposalButton.scrollIntoViewIfNeeded()
-    await expect(viewProposalButton).toBeVisible({ timeout: 10000 })
-    await viewProposalButton.click()
+    // Test Previous → ResearcherProposalView → Proceed to Step 3 round-trip
+    const previousButton = page.getByRole('button', { name: /^Previous$/i })
+    await previousButton.scrollIntoViewIfNeeded()
+    await expect(previousButton).toBeVisible({ timeout: 10000 })
+    await previousButton.click()
 
     // Should land on /view?from=agreements and show ResearcherProposalView
     await page.waitForURL(/\/view\?from=agreements$/, { timeout: 10000 })

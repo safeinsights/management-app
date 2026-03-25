@@ -1,25 +1,23 @@
 import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
 import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
-import { Badge, Flex } from '@mantine/core'
+import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
+import { Flex } from '@mantine/core'
 import { ButtonLink, type ButtonLinkProps } from '../links'
 import { SiBulbLogo } from './svg/si-bulb-logo'
 import { Routes } from '@/lib/routes'
 
-type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
+type Orgs = ActionSuccessType<typeof fetchUsersOrgsAction>
 
 const WIDTH = 70
 const SQUARE_SIZE = 48
 
 type SquareProps = ButtonLinkProps & {
-    isActive?: boolean
     color: string
-    eventCount?: string | number | bigint
     children: React.ReactNode
 }
 
-const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, ...props }) => {
+const Square: React.FC<SquareProps> = ({ color, children, ...props }) => {
     return (
         <ButtonLink
             {...props}
@@ -31,12 +29,6 @@ const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, 
             style={{ borderRadius: SQUARE_SIZE / 4, overflow: 'visible' }}
             pos="relative"
         >
-            {/* if tab is active dont show current event count */}
-            {eventCount == null || isActive ? null : (
-                <Badge size="sm" pos="absolute" right={-4} top={-4} bottom={0} fz="sx" color="red">
-                    {eventCount}
-                </Badge>
-            )}
             {children}
         </ButtonLink>
     )
@@ -76,12 +68,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         style={{ transition: 'background-color 0.2s ease' }}
                         py={8}
                     >
-                        <Square
-                            color="white"
-                            isActive={isActive}
-                            href={Routes.orgDashboard({ orgSlug: org.slug })}
-                            eventCount={isActive ? 0 : org.eventCount}
-                        >
+                        <Square color="white" href={Routes.orgDashboard({ orgSlug: org.slug })}>
                             {orgInitials(org.name, org.type)}
                         </Square>
                     </Flex>
