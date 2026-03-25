@@ -41,8 +41,8 @@ export const sessionFromMetadata = ({
     const membershipInfo: MembershipInfo = Object.values(orgs).reduce(
         (acc: MembershipInfo, org) => {
             const mb: MembershipInfo = { ...acc }
-            if (org.isAdmin || org.type === 'lab') mb.belongsToLab = true
-            if (org.isAdmin || org.type === 'enclave') mb.belongsToEnclave = true
+            if (org.type === 'lab') mb.belongsToLab = true
+            if (org.type === 'enclave') mb.belongsToEnclave = true
             return mb
         },
         { belongsToEnclave: session.user.isSiAdmin, belongsToLab: session.user.isSiAdmin },
