@@ -3,10 +3,6 @@ import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
 
-function createUniqueStudyTitle(baseTitle: string, suffix: string) {
-    return `${baseTitle} - ${suffix} ${Date.now()}`
-}
-
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
 test.beforeEach(async ({}, testInfo) => {
@@ -420,7 +416,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 // ============================================================================
 
 test('Study creation via file upload', async ({ page, studyFeatures }) => {
-    const studyTitle = createUniqueStudyTitle(studyFeatures.studyTitle, 'file-upload')
+    const studyTitle = studyFeatures.uniqueTitle('file-upload')
     let studyId: string
 
     await test.step('researcher selects org and language (Step 1)', async () => {
@@ -493,7 +489,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 })
 
 test('Study creation via IDE', async ({ page, studyFeatures }) => {
-    const studyTitle = createUniqueStudyTitle(studyFeatures.studyTitle, 'IDE')
+    const studyTitle = studyFeatures.uniqueTitle('IDE')
     let studyId: string
 
     await test.step('researcher selects org and language (Step 1)', async () => {
@@ -546,7 +542,7 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
 })
 
 test('Proposal rejection', async ({ page, studyFeatures }) => {
-    const studyTitle = createUniqueStudyTitle(studyFeatures.studyTitle, 'prop-rej')
+    const studyTitle = studyFeatures.uniqueTitle('prop-rej')
 
     await test.step('researcher creates study', async () => {
         await navigateToProposeStudy(page, studyTitle)
@@ -600,7 +596,7 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
 })
 
 test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
-    const studyTitle = createUniqueStudyTitle(studyFeatures.studyTitle, 'code-rej')
+    const studyTitle = studyFeatures.uniqueTitle('code-rej')
     let studyId: string
 
     await test.step('researcher creates study and proposal is approved', async () => {
@@ -672,7 +668,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 })
 
 test('ProposalReviewView for study without code', async ({ page, studyFeatures }) => {
-    const studyTitle = createUniqueStudyTitle(studyFeatures.studyTitle, 'proposal-only')
+    const studyTitle = studyFeatures.uniqueTitle('proposal-only')
 
     await test.step('researcher creates study', async () => {
         await navigateToProposeStudy(page, studyTitle)
