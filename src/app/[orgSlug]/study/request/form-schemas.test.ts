@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { studyProposalFormSchema, studyProposalApiSchema } from './form-schemas'
+import { BLANK_UUID } from '@/tests/unit.helpers'
 
 describe('studyProposalFormSchema', () => {
     describe('language field', () => {
@@ -42,6 +43,7 @@ describe('studyProposalApiSchema', () => {
         const validApiData = {
             title: 'Valid Test Title',
             piName: 'Test PI',
+            piUserId: BLANK_UUID,
             language: 'R',
             descriptionDocPath: '/path/to/description.pdf',
             irbDocPath: '/path/to/irb.pdf',
