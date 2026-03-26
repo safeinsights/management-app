@@ -4,6 +4,8 @@ import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
+export const DEFAULT_DRAFT_TITLE = 'Untitled Draft'
+
 export const WORD_LIMITS = {
     title: 20,
     researchQuestions: 500,
@@ -64,6 +66,7 @@ export const proposalFormSchema = z.object({
         .optional()
         .default(''),
     piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
+    piUserId: z.string().uuid({ message: REQUIRED_FIELD_ERROR }),
 })
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
@@ -76,4 +79,5 @@ export const initialProposalValues: ProposalFormValues = {
     impact: '',
     additionalNotes: '',
     piName: '',
+    piUserId: '',
 }

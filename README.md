@@ -123,6 +123,7 @@ To develop locally, you'll need to create your own SI Staff admin account:
 
 - `npx kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
 - `npm run db:migrate` - Run database migrations
+- `npx kysely migrate:down -1` - Rollback the last applied migration
 
 ### Database Visualization with DBGate 📊
 

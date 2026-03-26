@@ -199,6 +199,7 @@ export interface Study {
     orgId: string
     outputMimeType: string | null
     piName: string
+    piUserId: string | null
     projectSummary: Json | null
     rejectedAt: Timestamp | null
     researcherId: string

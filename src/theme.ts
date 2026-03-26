@@ -1,4 +1,10 @@
-import { createTheme, DefaultMantineColor, DefaultMantineSize, MantineColorsTuple } from '@mantine/core'
+import {
+    createTheme,
+    CSSVariablesResolver,
+    DefaultMantineColor,
+    DefaultMantineSize,
+    MantineColorsTuple,
+} from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -136,4 +142,12 @@ export const theme = createTheme({
         xs: '0.5rem',
         xxl: '2.5rem',
     },
+})
+
+export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+    variables: {
+        '--mantine-color-placeholder': theme.colors.grey[7],
+    },
+    dark: {},
+    light: {},
 })

@@ -7,6 +7,7 @@ import { stringifyJson } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { usePopover } from '@/hooks/use-popover'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
 type ProposalReviewViewProps = {
@@ -16,6 +17,8 @@ type ProposalReviewViewProps = {
 }
 
 export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
+    const { getPopoverProps } = usePopover()
+
     return (
         <Stack px="xl" gap="xl">
             <PageBreadcrumbs
@@ -55,8 +58,14 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField study={study} />
-                    <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
+                    <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
+                    <ResearcherField
+                        study={study}
+                        orgSlug={orgSlug}
+                        size="sm"
+                        {...getPopoverProps('researcher')}
+                        mt="md"
+                    />
                 </Stack>
             </Paper>
 

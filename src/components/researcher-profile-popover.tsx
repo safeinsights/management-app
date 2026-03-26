@@ -15,7 +15,6 @@ import {
     Text,
     type FloatingPosition,
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import {
     ArrowSquareOutIcon,
     BookOpenIcon,
@@ -38,6 +37,9 @@ interface ResearcherProfilePopoverProps {
     withArrow?: boolean
     offset?: number
     arrowSize?: number
+    opened: boolean
+    size?: 'sm' | 'md'
+    onOpenChange: (opened: boolean) => void
 }
 
 const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
@@ -121,11 +123,21 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
     )
 }
 
-const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string }> = ({ count, orgSlug, studyId }) => {
+const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string; userId: string }> = ({
+    count,
+    orgSlug,
+    studyId,
+    userId,
+}) => {
     if (count <= 1) return null
 
     return (
-        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId })} target="_blank" size="sm" fw={600}>
+        <Anchor
+            href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
+            target="_blank"
+            size="sm"
+            fw={600}
+        >
             + {count - 1} more current affiliation
         </Anchor>
     )
@@ -211,16 +223,10 @@ const PopoverContent: FC<{
         return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
+    const profileUrl = `${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`
+
     const viewFullProfileButton = (
-        <Button
-            component="a"
-            href={Routes.researcherProfileView({ orgSlug, studyId })}
-            target="_blank"
-            variant="filled"
-            size="md"
-            fullWidth
-            radius="sm"
-        >
+        <Button component="a" href={profileUrl} target="_blank" variant="filled" size="md" fullWidth radius="sm">
             View full profile
         </Button>
     )
@@ -234,7 +240,12 @@ const PopoverContent: FC<{
                 <PopoverPositionTitle value={firstPosition?.position} />
                 <PopoverEducation degree={profile.educationDegree} />
                 <ResearchInterestsPills interests={profile.researchInterests} />
-                <MoreAffiliationsLink count={data.positions.length} orgSlug={orgSlug} studyId={studyId} />
+                <MoreAffiliationsLink
+                    count={data.positions.length}
+                    orgSlug={orgSlug}
+                    studyId={studyId}
+                    userId={userId}
+                />
             </Stack>
 
             <PopoverLinks profileUrl={firstPosition?.profileUrl} publicationsUrl={profile.detailedPublicationsUrl} />
@@ -244,12 +255,22 @@ const PopoverContent: FC<{
     )
 }
 
-const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string }>(
-    ({ onMouseEnter, name, ...others }, ref) => (
+const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string; size: 'sm' | 'md' }>(
+    ({ onMouseEnter, name, size, ...others }, ref) => (
         <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
-            <Text size="sm">{name}</Text>
-            <div ref={ref} {...others}>
-                <InfoIcon weight="fill" size={16} color="gray" />
+            <Text size={size}>{name}</Text>
+            <div
+                ref={ref}
+                {...others}
+                style={{ display: 'flex', color: 'gray' }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--mantine-color-charcoal-5)'
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'gray'
+                }}
+            >
+                <InfoIcon weight="fill" size={16} color="currentColor" />
             </div>
         </Group>
     ),
@@ -265,8 +286,12 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     withArrow = true,
     offset = 8,
     arrowSize = 12,
+    size = 'md',
+    opened,
+    onOpenChange,
 }) => {
-    const [opened, { close, open }] = useDisclosure(false)
+    const open = () => onOpenChange(true)
+    const close = () => onOpenChange(false)
 
     return (
         <Popover
@@ -283,7 +308,7 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
             clickOutsideEvents={['mousedown', 'touchstart']}
         >
             <Popover.Target>
-                <PopoverAnchor name={name} onMouseEnter={open} />
+                <PopoverAnchor name={name} size={size} onMouseEnter={open} />
             </Popover.Target>
             <Popover.Dropdown onMouseLeave={(e) => e.stopPropagation()} p="lg">
                 <PopoverContent userId={userId} studyId={studyId} orgSlug={orgSlug} onClose={close} />

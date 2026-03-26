@@ -79,6 +79,8 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 
 export * from './common.helpers'
 
+export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
+
 export const insertTestStudyData = async ({
     org,
     researcherId,

@@ -32,6 +32,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                 draftData={{
                     title: result.title,
                     piName: result.piName,
+                    piUserId: result.piUserId ?? undefined,
                     datasets: result.datasets ?? undefined,
                     researchQuestions: result.researchQuestions ? JSON.stringify(result.researchQuestions) : undefined,
                     projectSummary: result.projectSummary ? JSON.stringify(result.projectSummary) : undefined,
@@ -43,6 +44,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     orgName={displayOrgName(result.orgName)}
                     members={memberOptions}
                     researcherName={result.researcherName}
+                    researcherId={result.researcherId}
                     enclaveOrgSlug={result.orgSlug}
                 />
             </ProposalProvider>

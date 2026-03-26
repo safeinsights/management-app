@@ -11,7 +11,7 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS } from './schema'
+import { DEFAULT_DRAFT_TITLE, WORD_LIMITS } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -25,6 +25,7 @@ interface ProposalFormProps {
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
+    researcherId?: string
     enclaveOrgSlug?: string
 }
 
@@ -38,11 +39,11 @@ const ProposalTextField: FC<{
     const [wordCount, setWordCount] = useState(0)
 
     return (
-        <Paper p="xl">
+        <Paper p="xxl">
             <Stack gap="xxl">
                 <Box>
                     <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
-                    <Text size="sm" c="dimmed" mb="xs">
+                    <Text size="xs" c="charcoal.7" mb="xs">
                         {field.description}
                     </Text>
                     <EditableText
@@ -69,20 +70,22 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     members = [],
     orgName = '',
     researcherName = '',
+    researcherId = '',
     enclaveOrgSlug,
 }) => {
     const { form, saveDraft, isSaving } = useProposal()
-
     const titleWordCount = countWords(form.values.title)
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
             <Stack gap="xxl">
-                <Paper p="xl">
-                    <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                <Paper p="xxl">
+                    <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                         STEP 2
                     </Text>
-                    <Title order={4}>Study proposal</Title>
+                    <Title fz={20} order={4} c="charcoal.9">
+                        Study proposal
+                    </Title>
                     <Divider my="md" />
 
                     <Text mb="xl">
@@ -94,7 +97,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     <Stack gap="xxl">
                         <Box>
                             <FormFieldLabel label="Study title" required inputId="title" />
-                            <Text size="sm" c="dimmed" mb="xs">
+                            <Text size="xs" c="charcoal.7" mb="xs">
                                 Give your study a short, clear title. This will help identify and reference your project
                                 on SafeInsights.
                             </Text>
@@ -103,6 +106,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 aria-label="Study Title"
                                 placeholder="Ex. Impact of highlighting on student learning outcomes."
                                 {...form.getInputProps('title')}
+                                value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
                                 error={!!form.errors.title}
                             />
                             <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>
@@ -113,10 +117,11 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 
                         <Box>
                             <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
-                            <Text size="sm" c="dimmed" mb="xs">
-                                Select one or more datasets relevant to your study.
+                            <Text size="xs" mb="xs" c="charcoal.7">
+                                Select the dataset(s) you&apos;d like to use for your research. You&apos;ll find options
+                                based on the selected Data Organization in Step 1 and its data availability.
                             </Text>
-                            <Group align="center" gap="md">
+                            <Group align="center" gap="xxl">
                                 <Box w="50%">
                                     <DatasetMultiSelect
                                         id="datasets"
@@ -155,24 +160,25 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     />
                 ))}
 
-                <Paper p="xl">
+                <Paper p="xxl">
                     <Stack gap="xxl">
                         <Box>
                             <FormFieldLabel label="Principal Investigator" required inputId="piName" />
-                            <Text size="sm" c="dimmed" mb="xs">
+                            <Text size="xs" c="charcoal.7" mb="xs">
                                 Select a Principal Investigator from your lab.
                             </Text>
-                            <Box w="50%">
+                            <Box w="30%">
                                 <Select
                                     id="piName"
                                     aria-label="Principal Investigator"
                                     placeholder="Choose a PI"
                                     searchable
                                     data={members}
-                                    value={members.find((m) => m.label === form.values.piName)?.value ?? null}
-                                    onChange={(id) =>
+                                    value={form.values.piUserId || null}
+                                    onChange={(id) => {
+                                        form.setFieldValue('piUserId', id ?? '')
                                         form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
-                                    }
+                                    }}
                                     error={!!form.errors.piName}
                                 />
                             </Box>
@@ -180,11 +186,11 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 
                         <Box>
                             <FormFieldLabel label="Researcher" required inputId="researcher" />
-                            <Text size="sm" c="dimmed" mb="xs">
+                            <Text size="xs" c="charcoal.7" mb="xs">
                                 Ensure that your profile is complete and updated.
                             </Text>
-                            <Group align="center" gap="md">
-                                <Box w="50%">
+                            <Group align="center" gap="xxl">
+                                <Box w="30%">
                                     <TextInput
                                         id="researcher"
                                         aria-label="Researcher"
@@ -210,7 +216,12 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                <ProposalFooter researcherName={researcherName} enclaveOrgSlug={enclaveOrgSlug} />
+                <ProposalFooter
+                    researcherName={researcherName}
+                    researcherId={researcherId}
+                    piUserId={form.values.piUserId}
+                    enclaveOrgSlug={enclaveOrgSlug}
+                />
             </Stack>
         </ProxyProvider>
     )

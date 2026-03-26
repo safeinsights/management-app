@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
+import { BLANK_UUID, insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
 import {
     getOrgIdForJobId,
     getOrgPublicKeys,
@@ -43,8 +43,6 @@ async function insertRecords() {
     }
 }
 
-const invalidUUID = '00000000-0000-0000-0000-000000000000'
-
 describe('getReviewerPublicKey', () => {
     it('returns public key when userId is valid', async () => {
         const { org1User1 } = await insertRecords()
@@ -53,7 +51,7 @@ describe('getReviewerPublicKey', () => {
     })
 
     it('returns null when userId is invalid', async () => {
-        const publicKey = await getReviewerPublicKey(invalidUUID)
+        const publicKey = await getReviewerPublicKey(BLANK_UUID)
         expect(publicKey).toBeUndefined()
     })
 })
@@ -78,7 +76,7 @@ describe('studyInfoForStudyId', () => {
     })
 
     it('returns null when studyId is invalid', async () => {
-        const studyInfo = await studyInfoForStudyId(invalidUUID)
+        const studyInfo = await studyInfoForStudyId(BLANK_UUID)
         expect(studyInfo).toBeUndefined()
     })
 })
@@ -94,7 +92,7 @@ describe('getUsersForOrgId', () => {
     })
 
     it('returns empty array when orgId is invalid', async () => {
-        const users = await getUsersForOrgId(invalidUUID)
+        const users = await getUsersForOrgId(BLANK_UUID)
         expect(users).toEqual([])
     })
 })
@@ -107,7 +105,7 @@ describe('getOrgIdForJobId', () => {
     })
 
     it('returns undefined when jobId is invalid', async () => {
-        const orgId = await getOrgIdForJobId(invalidUUID)
+        const orgId = await getOrgIdForJobId(BLANK_UUID)
         expect(orgId).toBeUndefined()
     })
 })
@@ -125,7 +123,7 @@ describe('getOrgPublicKeysRaw', () => {
     })
 
     it('returns empty array when orgId is invalid', async () => {
-        const keys = await getOrgPublicKeysRaw(invalidUUID)
+        const keys = await getOrgPublicKeysRaw(BLANK_UUID)
         expect(keys).toEqual([])
     })
 })
@@ -143,7 +141,7 @@ describe('getOrgPublicKeys', () => {
     })
 
     it('returns empty array when orgId is invalid', async () => {
-        const keys = await getOrgPublicKeys(invalidUUID)
+        const keys = await getOrgPublicKeys(BLANK_UUID)
         expect(keys).toEqual([])
     })
 

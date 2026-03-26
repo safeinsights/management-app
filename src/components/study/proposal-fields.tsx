@@ -9,10 +9,12 @@ export function LexicalProposalField({
     label,
     value,
     divider = 'subtle',
+    size = 'sm',
 }: {
     label: string
     value?: string | null
     divider?: 'subtle' | 'default' | 'none'
+    size?: 'sm' | 'md'
 }) {
     if (!value) return null
 
@@ -23,7 +25,7 @@ export function LexicalProposalField({
                 <Text fw={600} size="sm">
                     {label}
                 </Text>
-                <Text size="sm" component="div">
+                <Text size={size} component="div">
                     <ReadOnlyLexicalContent value={value} />
                 </Text>
             </Stack>
@@ -34,9 +36,11 @@ export function LexicalProposalField({
 export function DatasetsField({
     datasets,
     orgDataSources,
+    size = 'sm',
 }: {
     datasets: string[]
     orgDataSources: Array<{ id: string; name: string }>
+    size?: 'sm' | 'md'
 }) {
     if (!datasets.length) return null
 
@@ -47,12 +51,20 @@ export function DatasetsField({
             <Text fw={600} size="sm">
                 Dataset(s) of interest
             </Text>
-            <Text size="sm">{datasets.map((id) => nameMap[id] || id).join(', ')}</Text>
+            <Text size={size}>{datasets.map((id) => nameMap[id] || id).join(', ')}</Text>
         </Stack>
     )
 }
 
-export function PIField({ study }: { study: SelectedStudy }) {
+interface PopoverFieldProps {
+    study: SelectedStudy
+    orgSlug: string
+    opened: boolean
+    onOpenChange: (opened: boolean) => void
+    size?: 'sm' | 'md'
+}
+
+export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverFieldProps) {
     if (!study.piName) return null
 
     return (
@@ -62,13 +74,31 @@ export function PIField({ study }: { study: SelectedStudy }) {
                 <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
-                <Text size="sm">{study.piName}</Text>
+                <ResearcherProfilePopover
+                    userId={study.piUserId ?? ''}
+                    studyId={study.id}
+                    orgSlug={orgSlug}
+                    name={study.piName}
+                    size={size}
+                    position="right"
+                    offset={8}
+                    arrowSize={12}
+                    opened={opened}
+                    onOpenChange={onOpenChange}
+                />
             </Stack>
         </>
     )
 }
 
-export function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
+export function ResearcherField({
+    study,
+    orgSlug,
+    opened,
+    onOpenChange,
+    size,
+    mt,
+}: PopoverFieldProps & { mt?: string }) {
     return (
         <Stack gap={4} mt={mt}>
             <Text fw={600} size="sm">
@@ -79,9 +109,12 @@ export function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; 
                 studyId={study.id}
                 orgSlug={orgSlug}
                 name={study.createdBy}
+                size={size}
                 position="right"
                 offset={8}
                 arrowSize={12}
+                opened={opened}
+                onOpenChange={onOpenChange}
             />
         </Stack>
     )

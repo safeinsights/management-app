@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildStudyInfo } from './use-save-draft'
-import type { ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { BLANK_UUID } from '@/tests/unit.helpers'
 
 describe('buildStudyInfo', () => {
     const validFormValues: ProposalFormValues = {
@@ -11,6 +12,7 @@ describe('buildStudyInfo', () => {
         impact: '{"root":{"type":"text","text":"Impact content"}}',
         additionalNotes: '{"root":{"type":"text","text":"Additional notes"}}',
         piName: 'Dr. Jane Smith',
+        piUserId: BLANK_UUID,
     }
 
     it('transforms all fields correctly', () => {
@@ -19,6 +21,7 @@ describe('buildStudyInfo', () => {
         expect(result).toEqual({
             title: 'Test Study Title',
             piName: 'Dr. Jane Smith',
+            piUserId: BLANK_UUID,
             datasets: ['dataset-1', 'dataset-2'],
             researchQuestions: '{"root":{"type":"text","text":"Research question content"}}',
             projectSummary: '{"root":{"type":"text","text":"Project summary content"}}',
@@ -36,12 +39,14 @@ describe('buildStudyInfo', () => {
             impact: '',
             additionalNotes: '',
             piName: '',
+            piUserId: '',
         }
 
         const result = buildStudyInfo(formValues)
 
-        expect(result.title).toBe('Untitled Draft')
+        expect(result.title).toBe(DEFAULT_DRAFT_TITLE)
         expect(result.piName).toBeUndefined()
+        expect(result.piUserId).toBeUndefined()
         expect(result.researchQuestions).toBeUndefined()
         expect(result.projectSummary).toBeUndefined()
         expect(result.impact).toBeUndefined()
@@ -57,6 +62,7 @@ describe('buildStudyInfo', () => {
             impact: '',
             additionalNotes: '',
             piName: '',
+            piUserId: '',
         }
 
         const result = buildStudyInfo(formValues)

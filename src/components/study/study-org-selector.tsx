@@ -24,25 +24,26 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
-    const hasOrgSelected = !!form.values.orgSlug
     const isExistingDraft = !!studyId
 
-    const step = hasOrgSelected ? 'STEP 1A' : 'STEP 1'
-
     return (
-        <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                {step}
+        <Paper p="xxl">
+            <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                STEP 1A
             </Text>
-            <Title order={4}>Data organization</Title>
+            <Title fz={20} order={4} c="charcoal.9">
+                Data Organization
+            </Title>
             <Divider my="md" />
             <Stack gap="xl">
                 <Text>
-                    Select the data organization your study is intended for: This crucial initial step ensures your
-                    proposal is routed correctly for review. You can save a draft or cancel at any time during the
-                    process.
+                    <Text span fw={600}>
+                        Select the Data Organization your study is intended for.
+                    </Text>{' '}
+                    This crucial initial step ensures your proposal is routed correctly for review. You can save a draft
+                    or cancel at any time during the process.
                 </Text>
-                <Grid align="flex-start">
+                <Grid align="center">
                     <Grid.Col span={titleSpan}>
                         <FormFieldLabel label="Data Organization" inputId="studyOrg" />
                     </Grid.Col>
@@ -52,7 +53,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             data-testid="org-select"
                             key={form.key('orgSlug')}
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
-                            placeholder="Select a data organization"
+                            placeholder="Select a Data Organization"
                             disabled={isExistingDraft || isLoading}
                             {...form.getInputProps('orgSlug')}
                         />

@@ -1,6 +1,6 @@
 'use client'
 
-import { theme } from '@/theme'
+import { cssVariablesResolver, theme } from '@/theme'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { useEffect, type FC, type ReactNode } from 'react'
@@ -52,7 +52,7 @@ export const Providers: FC<Props> = ({ children }) => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <MantineProvider theme={theme}>
+            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
                 <ModalsProvider>
                     <ErrorBoundary>
                         <SpyModeProvider>{children}</SpyModeProvider>

@@ -1,5 +1,3 @@
-'use server'
-
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -12,8 +10,11 @@ export default async function ResearcherProfilePage(props: {
         orgSlug: string
         studyId: string
     }>
+    searchParams: Promise<{ userId?: string }>
 }) {
     const { orgSlug, studyId } = await props.params
+    const searchParams = await props.searchParams
+    const userIdParam = searchParams?.userId
 
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
@@ -27,7 +28,7 @@ export default async function ResearcherProfilePage(props: {
     }
 
     const profileData = await getResearcherProfileByUserIdAction({
-        userId: study.researcherId,
+        userId: userIdParam || study.researcherId,
         studyId: study.id,
     })
 

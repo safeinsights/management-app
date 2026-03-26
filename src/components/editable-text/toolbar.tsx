@@ -16,6 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     $getSelection,
     $isRangeSelection,
+    BLUR_COMMAND,
+    FOCUS_COMMAND,
     FORMAT_TEXT_COMMAND,
     SELECTION_CHANGE_COMMAND,
     COMMAND_PRIORITY_LOW,
@@ -76,9 +78,16 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
 
+function getEditorPosition(editor: ReturnType<typeof useLexicalComposerContext>[0]): ToolbarPosition | null {
+    const root = editor.getRootElement()
+    if (!root) return null
+    const rect = root.getBoundingClientRect()
+    return { top: rect.bottom + window.scrollY, left: rect.left }
+}
+
 export const FloatingToolbar = () => {
     const [editor] = useLexicalComposerContext()
-    const [position, setPosition] = useState<ToolbarPosition | null>(null)
+    const [isFocused, setIsFocused] = useState(false)
     const [formatState, setFormatState] = useState<FormatState>({
         isBold: false,
         isItalic: false,
@@ -88,16 +97,32 @@ export const FloatingToolbar = () => {
     })
 
     const linkEditor = useLinkEditor(editor)
+    const position = getEditorPosition(editor)
+
+    useEffect(() => {
+        return mergeRegister(
+            editor.registerCommand(
+                FOCUS_COMMAND,
+                () => {
+                    setIsFocused(true)
+                    return false
+                },
+                COMMAND_PRIORITY_LOW,
+            ),
+            editor.registerCommand(
+                BLUR_COMMAND,
+                () => {
+                    setIsFocused(false)
+                    return false
+                },
+                COMMAND_PRIORITY_LOW,
+            ),
+        )
+    }, [editor])
 
     const updateToolbar = useCallback(() => {
         const selection = $getSelection()
-
-        if (!$isRangeSelection(selection) || selection.isCollapsed()) {
-            if (!linkEditor.isEditing) {
-                setPosition(null)
-            }
-            return
-        }
+        if (!$isRangeSelection(selection)) return
 
         const anchorNode = selection.anchor.getNode()
         const parent = anchorNode.getParent()
@@ -113,26 +138,7 @@ export const FloatingToolbar = () => {
                 return listNode.getListType() === 'number' ? 'number' : 'bullet'
             })(),
         })
-
-        const nativeSelection = window.getSelection()
-        if (!nativeSelection || nativeSelection.rangeCount === 0) {
-            setPosition(null)
-            return
-        }
-
-        const range = nativeSelection.getRangeAt(0)
-        const rect = range.getBoundingClientRect()
-
-        if (rect.width === 0) {
-            setPosition(null)
-            return
-        }
-
-        setPosition({
-            top: rect.top - 45 + window.scrollY,
-            left: rect.left + rect.width / 2,
-        })
-    }, [linkEditor.isEditing])
+    }, [])
 
     useEffect(() => {
         return mergeRegister(
@@ -182,21 +188,24 @@ export const FloatingToolbar = () => {
         }
     }
 
-    if (!position) {
-        return null
-    }
+    if (!isFocused && !linkEditor.isEditing) return null
+    if (!position) return null
 
     return (
         <Portal>
             <Paper
                 shadow="md"
                 p={4}
+                onMouseDown={(e: React.MouseEvent) => {
+                    if (!(e.target instanceof HTMLInputElement)) {
+                        e.preventDefault()
+                    }
+                }}
                 style={{
                     position: 'absolute',
                     top: position.top,
                     left: position.left,
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
+                    zIndex: 50,
                     display: 'flex',
                     gap: 4,
                     alignItems: 'center',
@@ -279,6 +288,7 @@ function FormatButtons({
         <>
             <ActionIcon
                 variant={formatState.isBold ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={() => onFormatText('bold')}
                 aria-label="Bold"
@@ -287,6 +297,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isItalic ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={() => onFormatText('italic')}
                 aria-label="Italic"
@@ -295,6 +306,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isUnderline ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={() => onFormatText('underline')}
                 aria-label="Underline"
@@ -303,6 +315,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isLink ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={onToggleLink}
                 aria-label="Link"
@@ -311,6 +324,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'bullet' ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={() => onToggleList('bullet')}
                 aria-label="Bullet list"
@@ -319,6 +333,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'number' ? 'filled' : 'subtle'}
+                color="charcoal.4"
                 size="sm"
                 onClick={() => onToggleList('number')}
                 aria-label="Numbered list"

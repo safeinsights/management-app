@@ -59,6 +59,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.submittedByOrgId',
             'study.outputMimeType',
             'study.piName',
+            'study.piUserId',
             'study.reviewerId',
             'study.researcherId',
             'study.researchQuestions',
