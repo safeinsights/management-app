@@ -170,7 +170,8 @@ export const fetchEncryptedFileMetadataAction = new Action('fetchEncryptedFileMe
         for (const encryptedFile of encryptedFiles) {
             const blob = await fetchFileContents(encryptedFile.path)
             const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
-            const files = await reader.listFiles()
+            await reader.decode()
+            const files = Object.values(reader.manifest.files).map(({ path, bytes }) => ({ path, bytes }))
             metadata.push({
                 sourceId: encryptedFile.id,
                 fileType: encryptedFile.fileType,
