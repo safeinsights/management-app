@@ -137,11 +137,12 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     }, [decryptedFiles])
 
     const metadataByFileType = useMemo(() => {
-        const map = new Map<FileType, { path: string; bytes: number }>()
+        const map = new Map<FileType, { name: string; totalBytes: number }>()
         for (const meta of encryptedMetadata ?? []) {
-            if (meta.files.length > 0) {
-                map.set(meta.fileType, meta.files[0])
-            }
+            if (meta.files.length === 0) continue
+            const totalBytes = meta.files.reduce((sum, f) => sum + f.bytes, 0)
+            const name = meta.files.length === 1 ? meta.files[0].path : `${meta.files.length} files`
+            map.set(meta.fileType, { name, totalBytes })
         }
         return map
     }, [encryptedMetadata])
@@ -180,8 +181,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             rows.push({
                 key: `${f.fileType}-${f.name}`,
                 label: logLabel(f.fileType),
-                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.path ?? f.name,
-                bytes: meta?.bytes ?? null,
+                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.name ?? f.name,
+                bytes: meta?.totalBytes ?? null,
                 fileType: f.fileType,
                 state,
                 file,
