@@ -22,7 +22,8 @@ export default function UserStudiesDashboard() {
     const searchParams = useSearchParams()
     useInvitationNotices()
 
-    const showTabs = session?.belongsToEnclave && session?.belongsToLab
+    const hasMultipleOrgTypes = session ? new Set(Object.values(session.orgs).map((o) => o.type)).size > 1 : false
+    const showTabs = hasMultipleOrgTypes
     const defaultTab: Audience = session?.belongsToEnclave ? 'reviewer' : 'researcher'
     const audienceFromQuery = getAudienceFromQuery(searchParams.get('audience'))
     const activeTab = audienceFromQuery ?? defaultTab
