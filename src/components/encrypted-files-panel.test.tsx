@@ -9,7 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { EncryptedFilesPanel } from './encrypted-files-panel'
-import { fetchEncryptedFileMetadataAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
@@ -17,7 +17,6 @@ import { type FileType } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchApprovedJobFilesAction: vi.fn(() => []),
-    fetchEncryptedFileMetadataAction: vi.fn(() => []),
     fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
@@ -88,11 +87,12 @@ describe('EncryptedFilesPanel', () => {
             })
             .execute()
 
-        vi.mocked(fetchEncryptedFileMetadataAction).mockResolvedValue([
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
             {
+                blob: new Blob(),
                 sourceId: '123',
                 fileType: 'ENCRYPTED-RESULT',
-                files: [{ path: 'results.csv', bytes: 2048 }],
+                metadata: [{ path: 'results.csv', bytes: 2048 }],
             },
         ])
 
@@ -125,6 +125,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'results.csv', bytes: 15 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
@@ -184,6 +185,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'results.csv', bytes: 15 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
@@ -242,6 +244,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' as FileType,
+            metadata: [{ path: 'scan-log.txt', bytes: 40 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])

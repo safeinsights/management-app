@@ -212,12 +212,6 @@ export type JobFileInfo = FileEntry & {
     fileType: FileType
 }
 
-export type EncryptedFileMetadata = {
-    sourceId: string
-    fileType: FileType
-    files: Array<{ path: string; bytes: number }>
-}
-
 export type JobFile = {
     contents: ArrayBuffer
     path: string

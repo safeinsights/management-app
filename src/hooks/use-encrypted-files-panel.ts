@@ -9,11 +9,7 @@ import {
 } from '@/lib/file-type-helpers'
 import { toSentence } from '@/lib/string'
 import type { JobFile, JobFileInfo } from '@/lib/types'
-import {
-    fetchApprovedJobFilesAction,
-    fetchEncryptedFileMetadataAction,
-    fetchEncryptedJobFilesAction,
-} from '@/server/actions/study-job.actions'
+import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
@@ -56,12 +52,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         queryKey: ['approved-files', job.id],
         queryFn: () => fetchApprovedJobFilesAction({ studyJobId: job.id }),
         enabled: hasPreviouslyApprovedFiles,
-    })
-
-    const { data: encryptedMetadata } = useQuery({
-        queryKey: ['encrypted-metadata', job.id],
-        queryFn: () => fetchEncryptedFileMetadataAction({ jobId: job.id }),
-        enabled: encryptedFileTypes.length > 0,
     })
 
     const hasUndecryptedFiles = encryptedFileTypes.some((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
@@ -138,14 +128,14 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
     const metadataByFileType = useMemo(() => {
         const map = new Map<FileType, { name: string; totalBytes: number }>()
-        for (const meta of encryptedMetadata ?? []) {
-            if (meta.files.length === 0) continue
-            const totalBytes = meta.files.reduce((sum, f) => sum + f.bytes, 0)
-            const name = meta.files.length === 1 ? meta.files[0].path : `${meta.files.length} files`
-            map.set(meta.fileType, { name, totalBytes })
+        for (const file of encryptedFiles ?? []) {
+            if (file.metadata.length === 0) continue
+            const totalBytes = file.metadata.reduce((sum, f) => sum + f.bytes, 0)
+            const name = file.metadata.length === 1 ? file.metadata[0].path : `${file.metadata.length} files`
+            map.set(file.fileType, { name, totalBytes })
         }
         return map
-    }, [encryptedMetadata])
+    }, [encryptedFiles])
 
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         const rows: UnifiedFileRow[] = []

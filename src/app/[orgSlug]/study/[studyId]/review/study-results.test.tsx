@@ -130,6 +130,7 @@ describe('View Study Results', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'test.data', bytes: 4 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
