@@ -9,7 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { EncryptedFilesPanel } from './encrypted-files-panel'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedFileMetadataAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
@@ -17,6 +17,7 @@ import { type FileType } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchApprovedJobFilesAction: vi.fn(() => []),
+    fetchEncryptedFileMetadataAction: vi.fn(() => []),
     fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
@@ -69,6 +70,43 @@ describe('EncryptedFilesPanel', () => {
         // Decrypt form is present
         expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
         expect(screen.getByRole('button', { name: 'Decrypt Files' })).toBeDefined()
+    })
+
+    it('shows file names and sizes from metadata before decryption', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        vi.mocked(fetchEncryptedFileMetadataAction).mockResolvedValue([
+            {
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ path: 'results.csv', bytes: 2048 }],
+            },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('results.csv')).toBeDefined()
+            expect(screen.getByText('2.0 KB')).toBeDefined()
+        })
+
+        // Still locked — no View or Download
+        expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+        expect(screen.queryByTestId('download-link')).toBeNull()
     })
 
     it('decrypts and shows file table with View and Download', async () => {

@@ -2,10 +2,12 @@
 
 import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
+import type { EncryptedFileMetadata } from '@/lib/types'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
+import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
@@ -145,4 +147,36 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         }
 
         return encryptedJobFiles
+    })
+
+export const fetchEncryptedFileMetadataAction = new Action('fetchEncryptedFileMetadataAction')
+    .params(
+        z.object({
+            jobId: z.string(),
+        }),
+    )
+    .middleware(async ({ params: { jobId } }) => {
+        const studyJob = await getStudyJobInfo(jobId)
+        return { studyJob, orgId: studyJob.orgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+
+    .handler(async ({ studyJob }) => {
+        const encryptedFiles = studyJob.files.filter(
+            (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
+        )
+
+        const metadata: EncryptedFileMetadata[] = []
+        for (const encryptedFile of encryptedFiles) {
+            const blob = await fetchFileContents(encryptedFile.path)
+            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
+            const files = await reader.listFiles()
+            metadata.push({
+                sourceId: encryptedFile.id,
+                fileType: encryptedFile.fileType,
+                files,
+            })
+        }
+
+        return metadata
     })

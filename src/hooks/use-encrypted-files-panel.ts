@@ -9,7 +9,11 @@ import {
 } from '@/lib/file-type-helpers'
 import { toSentence } from '@/lib/string'
 import type { JobFile, JobFileInfo } from '@/lib/types'
-import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import {
+    fetchApprovedJobFilesAction,
+    fetchEncryptedFileMetadataAction,
+    fetchEncryptedJobFilesAction,
+} from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
@@ -27,6 +31,7 @@ export type UnifiedFileRow = {
     key: string
     label: string
     name: string
+    bytes: number | null
     fileType: FileType
     state: FileRowState
     file: JobFile | null
@@ -51,6 +56,12 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         queryKey: ['approved-files', job.id],
         queryFn: () => fetchApprovedJobFilesAction({ studyJobId: job.id }),
         enabled: hasPreviouslyApprovedFiles,
+    })
+
+    const { data: encryptedMetadata } = useQuery({
+        queryKey: ['encrypted-metadata', job.id],
+        queryFn: () => fetchEncryptedFileMetadataAction({ jobId: job.id }),
+        enabled: encryptedFileTypes.length > 0,
     })
 
     const hasUndecryptedFiles = encryptedFileTypes.some((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
@@ -125,6 +136,16 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         return map
     }, [decryptedFiles])
 
+    const metadataByFileType = useMemo(() => {
+        const map = new Map<FileType, { path: string; bytes: number }>()
+        for (const meta of encryptedMetadata ?? []) {
+            if (meta.files.length > 0) {
+                map.set(meta.fileType, meta.files[0])
+            }
+        }
+        return map
+    }, [encryptedMetadata])
+
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         const rows: UnifiedFileRow[] = []
 
@@ -141,6 +162,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
             const approvedFile = approvedFilesByType.get(approvedType)
             const decryptedFile = decryptedFilesByType.get(approvedType)
+            const meta = metadataByFileType.get(f.fileType)
 
             let state: FileRowState
             let file: JobFile | null = null
@@ -158,7 +180,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             rows.push({
                 key: `${f.fileType}-${f.name}`,
                 label: logLabel(f.fileType),
-                name: decryptedFile?.path ?? approvedFile?.path ?? f.name,
+                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.path ?? f.name,
+                bytes: meta?.bytes ?? null,
                 fileType: f.fileType,
                 state,
                 file,
@@ -166,7 +189,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         }
 
         return rows
-    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType])
+    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType, metadataByFileType])
 
     const hasFileRows = fileRows.length > 0
 

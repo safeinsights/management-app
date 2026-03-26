@@ -4,6 +4,7 @@ import { InfoTooltip } from '@/components/tooltip'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
 import { decodeFileContents } from '@/lib/file-content-helpers'
 import { logLabel } from '@/lib/file-type-helpers'
+import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Anchor, Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
@@ -85,6 +86,7 @@ const UnifiedFileTable: FC<UnifiedFileTableProps> = ({ rows, onView, selectedPat
                 </Table.Th>
                 <Table.Th>File Type</Table.Th>
                 <Table.Th>Name</Table.Th>
+                <Table.Th>Size</Table.Th>
                 <Table.Th>View</Table.Th>
                 <Table.Th>Download</Table.Th>
             </Table.Tr>
@@ -126,6 +128,7 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onTo
             <Table.Td>{statusCell}</Table.Td>
             <Table.Td>{row.label}</Table.Td>
             <Table.Td>{row.name}</Table.Td>
+            <Table.Td>{row.bytes !== null && formatBytes(row.bytes)}</Table.Td>
             <Table.Td>
                 {hasContents && (
                     <Button variant="light" size="xs" onClick={() => onView(row.file!)}>
