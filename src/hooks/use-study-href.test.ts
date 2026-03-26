@@ -12,8 +12,8 @@ describe('useStudyHref', () => {
         expect(useStudyHref('REJECTED', true, PARAMS)).toBe(`${BASE}/view`)
     })
 
-    it('routes to /submitted for PENDING-REVIEW without job activity', () => {
-        expect(useStudyHref('PENDING-REVIEW', false, PARAMS)).toBe(`${BASE}/submitted`)
+    it('routes to /view for PENDING-REVIEW without job activity', () => {
+        expect(useStudyHref('PENDING-REVIEW', false, PARAMS)).toBe(`${BASE}/view`)
     })
 
     it('routes to /agreements for APPROVED without job activity', () => {

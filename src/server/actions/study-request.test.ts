@@ -1,14 +1,19 @@
 import * as aws from '@/server/aws'
 import {
     actionResult,
+    cleanupWorkspaceDirs,
+    createWorkspaceDir,
     db,
+    expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
+    writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     addJobToStudyAction,
     onDeleteStudyAction,
@@ -16,6 +21,7 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+    submitStudyFromIDEAction,
 } from '@/server/actions/study-request'
 import { lexicalJson } from '@/lib/word-count'
 
@@ -25,10 +31,22 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         createSignedUploadUrl: vi.fn().mockResolvedValue('test-signed-url'),
         deleteFolderContents: vi.fn(),
+        storeS3File: vi.fn(),
+        triggerScanForStudyJob: vi.fn(),
     }
 })
 
+const workspaceRoots: string[] = []
+
 describe('Request Study Actions', () => {
+    beforeEach(() => {
+        delete process.env.CODER_FILES
+    })
+
+    afterEach(async () => {
+        await cleanupWorkspaceDirs(workspaceRoots)
+    })
+
     it('onSaveDraftStudyAction creates a draft study', async () => {
         // create the enclave that owns the data
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-draft' })
@@ -337,6 +355,62 @@ describe('Request Study Actions', () => {
                 .where('id', '=', draftResult.studyId)
                 .executeTakeFirst()
             expect(study?.status).toEqual('PENDING-REVIEW')
+        })
+    })
+
+    describe('submitStudyFromIDEAction', () => {
+        it('creates job files, uploads workspace files, and moves the study to PENDING-REVIEW', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+            })
+
+            const result = actionResult(
+                await submitStudyFromIDEAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R', 'helper.R'],
+                }),
+            )
+
+            expect(result.studyJobId).toBeDefined()
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('PENDING-REVIEW')
+
+            await expectStudyJobRecords(study.id, [
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+            ])
+
+            expect(aws.storeS3File).toHaveBeenCalledTimes(2)
+        })
+
+        it('rejects a main file that is not in the workspace file list', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-reject')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'helper.R': 'print("helper")',
+            })
+
+            const result = await submitStudyFromIDEAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['helper.R'],
+            })
+
+            expect(result).toHaveProperty('error')
+            expect((result as { error: string }).error).toContain('Main file not in file list')
         })
     })
 })

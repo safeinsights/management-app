@@ -23,7 +23,7 @@ import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
 import { ReactElement } from 'react'
-import { Mock, vi } from 'vitest'
+import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
@@ -593,6 +593,28 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+export const createWorkspaceDir = async (prefix: string) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
+    process.env.CODER_FILES = root
+    return root
+}
+
+export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
+    const { CODER_DISABLED } = await import('@/server/config')
+    const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
+    await fs.promises.mkdir(workspaceDir, { recursive: true })
+    await Promise.all(
+        Object.entries(files).map(([fileName, content]) =>
+            fs.promises.writeFile(path.join(workspaceDir, fileName), content),
+        ),
+    )
+}
+
+export const cleanupWorkspaceDirs = async (dirs: string[]) => {
+    delete process.env.CODER_FILES
+    await Promise.all(dirs.splice(0).map((root) => fs.promises.rm(root, { recursive: true, force: true })))
+}
+
 export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string
@@ -779,6 +801,30 @@ export const getTestResearcherProfileData = async (userId: string) => {
         .execute()
 
     return { user, profile, positions }
+}
+
+export const expectStudyJobRecords = async (
+    studyId: string,
+    expectedFiles: Array<{ name: string; fileType: string }>,
+) => {
+    const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', studyId).execute()
+    expect(jobs).toHaveLength(1)
+
+    const jobFiles = await db
+        .selectFrom('studyJobFile')
+        .select(['name', 'fileType'])
+        .where('studyJobId', '=', jobs[0].id)
+        .orderBy('fileType', 'asc')
+        .execute()
+    expect(jobFiles).toEqual(expectedFiles)
+
+    const statuses = await db
+        .selectFrom('jobStatusChange')
+        .select(['status'])
+        .where('studyJobId', '=', jobs[0].id)
+        .orderBy('createdAt', 'asc')
+        .execute()
+    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({

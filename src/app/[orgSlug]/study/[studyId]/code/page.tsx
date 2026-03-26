@@ -36,7 +36,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
             <CodeUploadPage
                 studyId={studyId}
                 orgSlug={result.orgSlug}
-                submittingOrgSlug={orgSlug}
                 language={result.language}
                 existingMainFile={result.mainCodeFileName}
                 existingAdditionalFiles={result.additionalCodeFileNames}

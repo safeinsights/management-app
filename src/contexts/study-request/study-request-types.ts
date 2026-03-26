@@ -3,6 +3,8 @@ import type { Language } from '@/database/types'
 import type { CodeFileState, DocumentFileState } from '@/contexts/shared/file-types'
 import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 
+export type CodeUploadViewMode = 'upload' | 'review' | 'ide-review'
+
 export type { StudyProposalFormValues }
 
 export interface DraftStudyData {
@@ -39,7 +41,6 @@ export interface StudyRequestContextValue {
     codeFiles: CodeFileState
     codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'
-    codeUploadViewMode: 'upload' | 'review'
     documentFiles: DocumentFileState
     mainFileName: string | null
     additionalFileNames: string[]
@@ -51,7 +52,6 @@ export interface StudyRequestContextValue {
     setMainCodeFile: (fileName: string) => void
     removeCodeFile: (fileName: string) => void
     clearCodeFiles: () => void
-    setCodeUploadViewMode: (mode: 'upload' | 'review') => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
     setExistingDocuments: (docs: {
         description?: string | null

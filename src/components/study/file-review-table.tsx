@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Radio, Table, Text } from '@mantine/core'
+import { ActionIcon, Divider, Radio, Table, Text } from '@mantine/core'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 
 interface FileReviewTableProps {
@@ -33,7 +33,7 @@ export const FileReviewTable = ({
                 </Text>
             )}
             <Radio.Group value={mainFile} onChange={onMainFileChange}>
-                <Table layout="fixed" verticalSpacing="md" highlightOnHover withTableBorder>
+                <Table highlightOnHover verticalSpacing="md">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={100}>Main file</Table.Th>
@@ -49,8 +49,13 @@ export const FileReviewTable = ({
                                 </Table.Td>
                                 <Table.Td>{file}</Table.Td>
                                 <Table.Td>
-                                    <ActionIcon variant="subtle" color="red" onClick={() => onRemoveFile(file)}>
-                                        <TrashIcon />
+                                    <ActionIcon
+                                        variant="subtle"
+                                        color="gray"
+                                        aria-label={`Remove ${file}`}
+                                        onClick={() => onRemoveFile(file)}
+                                    >
+                                        <TrashIcon weight="fill" />
                                     </ActionIcon>
                                 </Table.Td>
                             </Table.Tr>
@@ -58,6 +63,7 @@ export const FileReviewTable = ({
                     </Table.Tbody>
                 </Table>
             </Radio.Group>
+            <Divider />
         </>
     )
 }

@@ -1,7 +1,5 @@
 import { useQueryClient } from '@/common'
-import { Routes } from '@/lib/routes'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles } from './use-workspace-files'
@@ -10,11 +8,10 @@ import { useStudyRequest } from '@/contexts/study-request'
 
 interface UseIDEFilesOptions {
     studyId: string
-    orgSlug: string
+    onGoBack: () => void
 }
 
-export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
-    const router = useRouter()
+export function useIDEFiles({ studyId, onGoBack }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const { setIDECodeFiles, submitStudy, mainFileName, codeFilesLastUpdated } = useStudyRequest()
 
@@ -39,9 +36,7 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const showEmptyState = fileManager.filteredFiles.length === 0 && !workspace.isLoading
     const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
 
-    const goBack = useCallback(() => {
-        router.push(Routes.studyCode({ orgSlug, studyId }))
-    }, [router, orgSlug, studyId])
+    const goBack = onGoBack
 
     const submitDirectly = useCallback(() => {
         if (!canSubmit) {

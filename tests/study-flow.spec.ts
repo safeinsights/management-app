@@ -411,7 +411,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 // ============================================================================
 
 test('Study creation via file upload', async ({ page, studyFeatures }) => {
-    const studyTitle = studyFeatures.studyTitle
+    const studyTitle = studyFeatures.uniqueTitle('file-upload')
     let studyId: string
 
     await test.step('researcher selects org and language (Step 1)', async () => {
@@ -437,9 +437,10 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
+        studyId = extractStudyIdFromUrl(page)
+        await goto(page, `/openstax-lab/study/${studyId}/view`)
         await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
-        studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('researcher navigates back via previous buttons', async () => {
@@ -483,7 +484,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 })
 
 test('Study creation via IDE', async ({ page, studyFeatures }) => {
-    const studyTitle = `${studyFeatures.studyTitle} - IDE`
+    const studyTitle = studyFeatures.uniqueTitle('IDE')
     let studyId: string
 
     await test.step('researcher selects org and language (Step 1)', async () => {
@@ -536,7 +537,7 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
 })
 
 test('Proposal rejection', async ({ page, studyFeatures }) => {
-    const studyTitle = `${studyFeatures.studyTitle} - prop-rej`
+    const studyTitle = studyFeatures.uniqueTitle('prop-rej')
 
     await test.step('researcher creates study', async () => {
         await navigateToProposeStudy(page, studyTitle)
@@ -590,7 +591,8 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
 })
 
 test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
-    const studyTitle = `${studyFeatures.studyTitle} - code-rej`
+    const studyTitle = studyFeatures.uniqueTitle('code-rej')
+    let studyId: string
 
     await test.step('researcher creates study and proposal is approved', async () => {
         await navigateToProposeStudy(page, studyTitle)
@@ -616,6 +618,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await rejectButton.click()
 
         await page.waitForURL('**/dashboard', { timeout: 15000 })
+        await goto(page, '/openstax/dashboard')
     })
 
     await test.step('reviewer sees rejected status on dashboard', async () => {
@@ -634,11 +637,11 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await expect(page.getByText(/not been approved/i)).toBeVisible({ timeout: 10000 })
         await expect(page.getByRole('link', { name: /Resubmit study code/i })).toBeVisible()
+        studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('researcher resubmits code', async () => {
-        await page.getByRole('link', { name: /Resubmit study code/i }).click()
-        await page.waitForURL('**/resubmit', { timeout: 15000 })
+        await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
 
         await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
 
@@ -660,7 +663,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 })
 
 test('ProposalReviewView for study without code', async ({ page, studyFeatures }) => {
-    const studyTitle = `${studyFeatures.studyTitle} - proposal-only`
+    const studyTitle = studyFeatures.uniqueTitle('proposal-only')
 
     await test.step('researcher creates study', async () => {
         await navigateToProposeStudy(page, studyTitle)

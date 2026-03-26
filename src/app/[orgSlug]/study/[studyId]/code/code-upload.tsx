@@ -1,25 +1,27 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { Route } from 'next'
-import { useRouter } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { z } from 'zod'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
 import { ButtonLink } from '@/components/links'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
-import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
-import { useStudyRequest } from '@/contexts/study-request'
+import { useStudyRequest, type CodeUploadViewMode } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
+import { StudyCodeFromIDE } from '@/components/study/study-code-from-ide'
 import { CodeUploadModal } from './code-upload-modal'
 import { CodeFilesReview } from './code-files-review'
+
+const CodeViewModeSchema = z.enum(['upload', 'review', 'ide-review']).catch('upload')
 
 interface CodeUploadPageProps {
     studyId: string
     orgSlug: string
-    submittingOrgSlug: string
     language: Language
     existingMainFile?: string | null
     existingAdditionalFiles?: string[]
@@ -29,30 +31,36 @@ interface CodeUploadPageProps {
 export function CodeUploadPage({
     studyId,
     orgSlug,
-    submittingOrgSlug,
     language,
     existingMainFile,
     existingAdditionalFiles,
     previousHref,
 }: CodeUploadPageProps) {
-    const router = useRouter()
     const theme = useMantineTheme()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    // Context
-    const {
-        codeFiles,
-        codeUploadViewMode,
-        canSubmit,
-        setStudyId,
-        setExistingFiles,
-        setCodeUploadViewMode,
-        submitStudy,
-        isSubmitting,
-    } = useStudyRequest()
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const codeUploadViewMode = CodeViewModeSchema.parse(searchParams.get('mode'))
 
-    // IDE launcher
+    const setMode = useCallback(
+        (mode: CodeUploadViewMode) => {
+            const params = new URLSearchParams(searchParams.toString())
+            if (mode === 'upload') {
+                params.delete('mode')
+            } else {
+                params.set('mode', mode)
+            }
+            const query = params.toString()
+            router.replace(`${pathname}${query ? `?${query}` : ''}` as Route)
+        },
+        [searchParams, pathname, router],
+    )
+
+    const { codeFiles, canSubmit, setStudyId, setExistingFiles, submitStudy, isSubmitting } = useStudyRequest()
+
     const {
         launchWorkspace,
         isLaunching,
@@ -61,7 +69,7 @@ export function CodeUploadPage({
     } = useWorkspaceLauncher({
         studyId,
         onSuccess: () => {
-            router.push(Routes.studySelectFiles({ orgSlug: submittingOrgSlug, studyId }))
+            setMode('ide-review')
         },
     })
 
@@ -75,6 +83,13 @@ export function CodeUploadPage({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
+    // If review mode has no files (e.g. page was refreshed before submitting), fall back to upload
+    useEffect(() => {
+        if (codeUploadViewMode === 'review' && !codeFiles.mainFile && !existingMainFile) {
+            setMode('upload')
+        }
+    }, [codeUploadViewMode, codeFiles.mainFile, existingMainFile, setMode])
+
     const isOpenstax = isOpenStaxOrg(orgSlug)
     const isIDELoading = isLaunching || isCreatingWorkspace
 
@@ -83,16 +98,26 @@ export function CodeUploadPage({
     }
 
     const handleBackToUpload = () => {
-        setCodeUploadViewMode('upload')
+        setMode('upload')
     }
 
     const handleFilesConfirmed = () => {
-        setCodeUploadViewMode('review')
+        setMode('review')
         closeModal()
     }
 
-    // Show review mode if files are selected
-    if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
+    if (codeUploadViewMode === 'ide-review') {
+        return (
+            <StudyCodeFromIDE
+                studyId={studyId}
+                studyOrgSlug={orgSlug}
+                previousHref={previousHref}
+                onGoBack={() => setMode('upload')}
+            />
+        )
+    }
+
+    if (codeUploadViewMode === 'review') {
         return (
             <>
                 <CodeFilesReview
@@ -167,7 +192,6 @@ export function CodeUploadPage({
                     </OpenStaxOnly>
                 </Group>
 
-                {/* Show existing files info if any */}
                 {existingMainFile && !codeFiles.mainFile && (
                     <Stack mt="xl" gap="xs">
                         <Text size="sm" c="dimmed">

@@ -19,10 +19,20 @@ expect.extend(matchers)
 
 const Headers = new Map()
 
+// Deferred callbacks (via next/server's `after`) are fire-and-forget async operations.
+// In production they run after the response. In tests we must:
+//  1. Track their promises so we can await them before rolling back the transaction
+//  2. Mock `sleep` to be instant (otherwise simulateJobScan waits 1s, completeFakeCodeScan waits 30s)
+// Without this, callbacks outlive the test transaction and cause FK violations — non-deterministically
+// depending on machine speed (works on fast local machines, fails on slow CI).
+const pendingDeferredCallbacks: Promise<unknown>[] = []
+
 function runDeferredTestCallback(cb: () => void | Promise<void>) {
-    // Run deferred callbacks outside the action transaction so audit writes do not reuse a committed test transaction.
     localStorageContext.run({ db: undefined as never }, () => {
-        void cb()
+        const result = cb()
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+            pendingDeferredCallbacks.push(result as Promise<unknown>)
+        }
     })
 }
 
@@ -53,7 +63,7 @@ beforeAll(async () => {
             }),
             usePathname: () => {
                 const router = useRouter()
-                return router.asPath
+                return router.asPath.split('?')[0]
             },
             useParams: vi.fn(() => ({})),
             useSearchParams: () => {
@@ -94,6 +104,13 @@ beforeAll(async () => {
         Notifications: () => null,
     }))
 
+    // Make sleep instant so deferred simulation callbacks (simulateJobScan, completeFakeCodeScan)
+    // complete within the test transaction instead of firing real 1s/30s timers.
+    vi.mock('@/lib/utils', async (importOriginal) => ({
+        ...(await importOriginal()),
+        sleep: vi.fn().mockResolvedValue(undefined),
+    }))
+
     testTransaction.start()
 })
 
@@ -116,6 +133,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
     Headers.clear()
+    await Promise.allSettled(pendingDeferredCallbacks)
+    pendingDeferredCallbacks.length = 0
     await testTransaction.rollback()
     await fs.promises.rm(tmpDir, { recursive: true })
     delete process.env.UPLOAD_TMP_DIRECTORY
