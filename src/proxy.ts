@@ -37,7 +37,27 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
     return NextResponse.redirect(new URL('/dashboard', request.url))
 }
 
+// Returns a redirect response if the redirect_url is not safe, otherwise returns null (no change needed)
+function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
+    const redirectUrl = req.nextUrl.searchParams.get('redirect_url')
+    if (!redirectUrl) return null
+
+    const sanitized = safeRedirectUrl(redirectUrl, Routes.home)
+    if (sanitized === redirectUrl) return null
+
+    const cleanUrl = req.nextUrl.clone()
+    if (sanitized === Routes.home) {
+        cleanUrl.searchParams.delete('redirect_url')
+    } else {
+        cleanUrl.searchParams.set('redirect_url', sanitized)
+    }
+    return NextResponse.redirect(cleanUrl)
+}
+
 export const proxy = clerkMiddleware(async (auth, req) => {
+    const redirectSanitized = sanitizeRedirectParam(req)
+    if (redirectSanitized) return redirectSanitized
+
     const { userId: clerkUserId, sessionClaims } = await auth()
 
     // Check if this is an anonymous route before doing session work
