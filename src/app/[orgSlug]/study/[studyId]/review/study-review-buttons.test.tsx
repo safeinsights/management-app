@@ -117,14 +117,14 @@ describe('StudyReviewButtons', () => {
         expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 
-    it('renders buttons when study is approved but code is at CODE-SCANNED', async () => {
-        const approvedWithCodeScanned = {
+    it('renders buttons when study is approved but code is at CODE-SUBMITTED', async () => {
+        const approvedWithCodeSubmitted = {
             ...study,
             status: 'APPROVED' as const,
             approvedAt: new Date(),
-            jobStatusChanges: [{ status: 'CODE-SCANNED' as const, userId: study.researcherId }],
+            jobStatusChanges: [{ status: 'CODE-SUBMITTED' as const, userId: study.researcherId }],
         }
-        renderWithProviders(<StudyReviewButtons study={approvedWithCodeScanned} />)
+        renderWithProviders(<StudyReviewButtons study={approvedWithCodeSubmitted} />)
 
         expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
