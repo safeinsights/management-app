@@ -112,7 +112,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     {...form.getInputProps('language')}
                 />
                 <TextInput
-                    label="Image reference"
+                    label="URL to code environment"
                     withAsterisk
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     description="Docker Hub images (e.g., python:3.11) are automatically routed through our internal Harbor registry on save. The image itself is unchanged."
