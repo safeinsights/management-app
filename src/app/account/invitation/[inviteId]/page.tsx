@@ -9,11 +9,12 @@ import { Flex, Paper, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
-    const { inviteId } = await params
     const session = await sessionFromClerk()
     if (session) {
-        return <SignOutPanel redirectUrl={`/account/invitation/${inviteId}`} />
+        return <SignOutPanel />
     }
+
+    const { inviteId } = await params
 
     const pendingInvite = await db
         .selectFrom('pendingUser')

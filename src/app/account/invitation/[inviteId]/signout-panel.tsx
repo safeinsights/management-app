@@ -3,8 +3,8 @@
 import { ErrorPanel } from '@/components/panel'
 import { useSignOut } from '@/hooks/use-sign-out'
 
-export const SignOutPanel = ({ redirectUrl }: { redirectUrl: string }) => {
-    const signOut = useSignOut({ redirectAfterSignOut: redirectUrl })
+export const SignOutPanel = () => {
+    const signOut = useSignOut({ redirectAfterSignOut: window.location.href })
 
     return (
         <ErrorPanel title="You must be signed out to accept invitations" onContinue={signOut}>

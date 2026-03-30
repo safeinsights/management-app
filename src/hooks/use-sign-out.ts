@@ -1,40 +1,23 @@
 import { useClerk } from '@clerk/nextjs'
 import { usePathname } from 'next/navigation'
 
-// Hard-redirects on sign-out so the full page reload destroys the React Query
-// cache and other in-memory stores. Without this, signing in as a different
-// user can show stale data from the previous session.
-//
-// The default path (sign-out → sign-in page) fires signOut() and
-// window.location.assign() in parallel because Clerk's internal
-// onAfterSetActive hook calls router.refresh(), which can trigger a middleware
-// redirect that destroys the JS context before signOut()'s promise resolves —
-// preventing any code after `await signOut()` from ever executing. This is
-// safe because we're navigating to the sign-in page where the session state
-// doesn't matter.
-//
-// When redirectAfterSignOut is specified, the caller needs the session
-// invalidated before the redirect (e.g. reloading the same page that checks
-// auth), so we let Clerk handle both via signOut({ redirectUrl }).
+// Hard-redirects on sign-out to force a full page reload, which destroys the
+// React Query cache. Without this, signing in as a different user can show
+// stale data from the previous session.
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
     const pathname = usePathname()
 
-    if (options?.redirectAfterSignOut) {
-        return () => void signOut({ redirectUrl: options.redirectAfterSignOut })
+    return async () => {
+        if (options?.redirectAfterSignOut) {
+            await signOut({ redirectUrl: options.redirectAfterSignOut })
+            return
+        }
+        await signOut()
+        const url = new URL('/account/signin', window.location.origin)
+        if (pathname) {
+            url.searchParams.set('redirect_url', pathname)
+        }
+        window.location.assign(url.toString())
     }
-
-    return () => {
-        const redirectUrl = buildSignInUrl(pathname)
-        void signOut({ redirectUrl })
-        window.location.assign(redirectUrl)
-    }
-}
-
-function buildSignInUrl(pathname: string | null): string {
-    const url = new URL('/account/signin', window.location.origin)
-    if (pathname) {
-        url.searchParams.set('redirect_url', pathname)
-    }
-    return url.toString()
 }
