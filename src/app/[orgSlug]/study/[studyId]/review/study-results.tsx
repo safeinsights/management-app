@@ -22,9 +22,10 @@ export const StudyResults: FC<{
     const hasEncryptedLogs = job?.files?.some((f) => isEncryptedLogType(f.fileType)) ?? false
 
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
-        const latestJobStatus = job?.statusChanges.at(0)?.status
+        const statuses = job?.statusChanges.map((sc) => sc.status) ?? []
+        const awaitingScan = statuses.includes('CODE-SUBMITTED') && !statuses.includes('CODE-SCANNED')
         let message = 'Study results will become available once the proposal and code are approved and processed.'
-        if (latestJobStatus == 'CODE-SUBMITTED') {
+        if (awaitingScan) {
             message = 'Code has been uploaded and is being scanned. Approve with caution after manually reviewing it'
         }
 
