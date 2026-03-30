@@ -63,6 +63,7 @@ export function StudiesTable({
     showNewStudyButton = false,
     showRefresher = false,
     paperWrapper = false,
+    headerActions,
 }: StudiesTableProps) {
     const { session } = useSession()
     const userId = session?.user.id
@@ -131,6 +132,7 @@ export function StudiesTable({
             <Group justify="space-between" align="center">
                 {title && <Title order={3}>{title}</Title>}
                 <Flex justify="flex-end" align="center" gap="md">
+                    {headerActions}
                     {showRefresher && (
                         <Refresher
                             isEnabled={shouldShowRefresher}

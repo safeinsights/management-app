@@ -1,3 +1,4 @@
+import type React from 'react'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
 export type Audience = 'researcher' | 'reviewer'
@@ -31,6 +32,7 @@ export type StudiesTableProps = {
     showNewStudyButton?: boolean
     showRefresher?: boolean
     paperWrapper?: boolean
+    headerActions?: React.ReactNode
 }
 
 // Status changes that indicate job is in a final state (no refresh needed)

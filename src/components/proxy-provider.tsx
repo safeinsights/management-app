@@ -172,18 +172,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
             {children}
 
             <>
-                <AppModal
-                    isOpen={isOpen}
-                    onClose={handleClose}
-                    title="Save study as draft"
-                    overlayProps={{
-                        style: {
-                            position: 'fixed',
-                            zIndex: 10000,
-                            pointerEvents: isOpen ? 'auto' : 'none',
-                        },
-                    }}
-                >
+                <AppModal isOpen={isOpen} onClose={handleClose} title="Save study as draft" zIndex={10000}>
                     <Stack>
                         <Text size="md">
                             You have made changes to this study. Would you like to save those changes? Discarded changes
