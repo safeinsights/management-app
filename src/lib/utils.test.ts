@@ -63,6 +63,11 @@ describe('safeRedirectUrl', () => {
         expect(safeRedirectUrl('/foo%00bar', FALLBACK)).toBe(FALLBACK)
     })
 
+    it('rejects encoded control characters', () => {
+        expect(safeRedirectUrl('/%0d%0a%0d%0a<script>alert(1)</script>', FALLBACK)).toBe(FALLBACK)
+        expect(safeRedirectUrl('/foo%09bar', FALLBACK)).toBe(FALLBACK)
+    })
+
     it('returns fallback for malformed percent-encoding', () => {
         expect(safeRedirectUrl('/foo%ZZ', FALLBACK)).toBe(FALLBACK)
     })
