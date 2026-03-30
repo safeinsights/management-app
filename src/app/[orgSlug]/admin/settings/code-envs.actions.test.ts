@@ -15,6 +15,7 @@ import {
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { OrgCodeEnvSettings } from '@/database/types'
+import { HARBOR_DOCKERHUB_PREFIX } from './code-envs.schema'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -40,7 +41,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_image',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
@@ -49,9 +50,93 @@ describe('Code Environment Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect(result.url).toEqual('test-url')
+        expect(result.url).toEqual('harbor.safeinsights.org/test/image')
         expect(result.name).toEqual('Test Image')
         expect(result.starterCodePath).toBeDefined()
+    })
+
+    it('createOrgCodeEnvAction auto-prefixes bare Docker Hub images with Harbor proxy', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Bare Image',
+                identifier: 'bare_image',
+                cmdLine: 'python %f',
+                language: 'PYTHON',
+                url: 'python:3.11',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual(`${HARBOR_DOCKERHUB_PREFIX}python:3.11`)
+    })
+
+    it('createOrgCodeEnvAction rewrites docker.io/ prefix to Harbor proxy', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Docker IO Image',
+                identifier: 'docker_io_image',
+                cmdLine: 'python %f',
+                language: 'PYTHON',
+                url: 'docker.io/library/python:3.11',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual(`${HARBOR_DOCKERHUB_PREFIX}library/python:3.11`)
+    })
+
+    it('createOrgCodeEnvAction rewrites Docker Hub namespaced images to Harbor proxy', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Namespaced Image',
+                identifier: 'namespaced_image',
+                cmdLine: 'test',
+                language: 'R',
+                url: 'aquasec/trivy:0.67.2',
+                starterCodeFileName: 'test.R',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual(`${HARBOR_DOCKERHUB_PREFIX}aquasec/trivy:0.67.2`)
+    })
+
+    it('createOrgCodeEnvAction keeps registry-qualified URLs unchanged', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Qualified Image',
+                identifier: 'qualified_image',
+                cmdLine: 'python %f',
+                language: 'PYTHON',
+                url: 'harbor.safeinsights.org/custom/python:3.11',
+                starterCodeFileName: 'test.py',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual('harbor.safeinsights.org/custom/python:3.11')
     })
 
     it('deleteOrgCodeEnvAction deletes a code environment', async () => {
@@ -64,7 +149,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_delete',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: true,
                 starterCodePath: 'test/path/to/starter.py',
             })
@@ -87,7 +172,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_fetch',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: true,
                 starterCodePath: 'test/path/to/starter.py',
             })
@@ -108,7 +193,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_update',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 starterCodePath: 'test/path/to/starter.py',
             })
@@ -123,7 +208,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_update',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
-                url: 'updated-url',
+                url: 'harbor.safeinsights.org/test/updated-image',
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -134,9 +219,44 @@ describe('Code Environment Actions', () => {
         expect(result.name).toEqual('Updated Test Image')
         expect(result.cmdLine).toEqual('updated command')
         expect(result.language).toEqual('PYTHON')
-        expect(result.url).toEqual('updated-url')
+        expect(result.url).toEqual('harbor.safeinsights.org/test/updated-image')
         expect(result.isTesting).toEqual(true)
         expect(result.starterCodePath).toEqual('test/path/to/starter.py') // Should remain unchanged
+    })
+
+    it('updateOrgCodeEnvAction auto-prefixes bare Docker Hub images on update', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: org.id,
+                name: 'Test Image',
+                identifier: 'test_bare_update',
+                cmdLine: 'Rscript %f',
+                language: 'R',
+                url: 'harbor.safeinsights.org/test/image',
+                isTesting: false,
+                starterCodePath: 'test/path/to/starter.R',
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(
+            await updateOrgCodeEnvAction({
+                orgSlug: org.slug,
+                codeEnvId: codeEnv.id,
+                name: 'Test Image',
+                identifier: 'test_bare_update',
+                cmdLine: 'Rscript %f',
+                language: 'R',
+                url: 'r-base:4.3',
+                isTesting: false,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual(`${HARBOR_DOCKERHUB_PREFIX}r-base:4.3`)
     })
 
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
@@ -149,7 +269,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_update_starter',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 starterCodePath: 'test/path/to/old-starter.py',
             })
@@ -164,7 +284,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_update_starter',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
-                url: 'updated-url',
+                url: 'harbor.safeinsights.org/test/updated-image',
                 isTesting: true,
                 starterCodeFileName: 'new-starter.py',
                 starterCodeUploaded: true,
@@ -190,7 +310,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'non_admin',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 starterCodePath: 'test/path/to/starter.R',
             })
@@ -204,7 +324,7 @@ describe('Code Environment Actions', () => {
             identifier: 'non_admin',
             cmdLine: 'updated command',
             language: 'PYTHON',
-            url: 'updated-url',
+            url: 'harbor.safeinsights.org/test/updated-image',
             isTesting: true,
             settings: { environment: [] },
             dataSourceIds: [],
@@ -224,7 +344,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'si_admin',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 starterCodePath: 'test/path/to/starter.R',
             })
@@ -239,7 +359,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'si_admin',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
-                url: 'updated-url',
+                url: 'harbor.safeinsights.org/test/updated-image',
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -250,7 +370,7 @@ describe('Code Environment Actions', () => {
         expect(result.name).toEqual('Updated by SI admin')
         expect(result.cmdLine).toEqual('updated command')
         expect(result.language).toEqual('PYTHON')
-        expect(result.url).toEqual('updated-url')
+        expect(result.url).toEqual('harbor.safeinsights.org/test/updated-image')
         expect(result.isTesting).toEqual(true)
     })
 
@@ -339,7 +459,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'athena_env',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
@@ -366,7 +486,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_env_vars',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment },
@@ -388,7 +508,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_no_env',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
@@ -410,7 +530,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_env_update',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 starterCodePath: 'test/path/to/starter.py',
                 settings: { environment: [{ name: 'OLDVAR', value: 'old_value' }] },
@@ -431,7 +551,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'test_env_update',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: false,
                 settings: { environment: newEnvironment },
                 dataSourceIds: [],
@@ -459,7 +579,7 @@ describe('Code Environment Actions', () => {
                 identifier: codeEnv.identifier,
                 cmdLine: 'admin updated command',
                 language: 'PYTHON',
-                url: 'admin-updated-url',
+                url: 'harbor.safeinsights.org/test/admin-updated-image',
                 isTesting: true,
                 settings: { environment: [{ name: 'ADMIN_VAR', value: 'admin_value' }] },
                 dataSourceIds: [],
@@ -470,7 +590,7 @@ describe('Code Environment Actions', () => {
         expect(result.name).toEqual('Admin Updated Name')
         expect(result.cmdLine).toEqual('admin updated command')
         expect(result.language).toEqual('PYTHON')
-        expect(result.url).toEqual('admin-updated-url')
+        expect(result.url).toEqual('harbor.safeinsights.org/test/admin-updated-image')
         expect(result.isTesting).toEqual(true)
         expect((result.settings as OrgCodeEnvSettings).environment).toEqual([
             { name: 'ADMIN_VAR', value: 'admin_value' },
@@ -489,7 +609,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'fetch_env_vars',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 isTesting: true,
                 starterCodePath: 'test/path/to/starter.py',
                 settings: { environment },
@@ -513,7 +633,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'env_with_ds',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
@@ -540,7 +660,7 @@ describe('Code Environment Actions', () => {
                 identifier: 'env_no_ds',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                url: 'harbor.safeinsights.org/test/image',
                 starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
@@ -599,7 +719,7 @@ describe('Code Environment Actions', () => {
             identifier: 'cross_org',
             cmdLine: 'test',
             language: 'R',
-            url: 'test-url',
+            url: 'harbor.safeinsights.org/test/image',
             starterCodeFileName: 'test.py',
             isTesting: true,
             settings: { environment: [] },

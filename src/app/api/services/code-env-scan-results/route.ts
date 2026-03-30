@@ -25,11 +25,18 @@ export const POST = createWebhookHandler({
             return
         }
 
-        await db
+        const result = await db
             .updateTable('codeScan')
             .set({ status: body.status, results: body.plaintextLog ?? null })
             .where('codeEnvId', '=', body.codeEnvId)
             .where('status', '=', 'SCAN-RUNNING')
-            .execute()
+            .executeTakeFirst()
+
+        if (!result || !result.numUpdatedRows) {
+            await db
+                .insertInto('codeScan')
+                .values({ codeEnvId: body.codeEnvId, status: body.status, results: body.plaintextLog ?? null })
+                .execute()
+        }
     },
 })

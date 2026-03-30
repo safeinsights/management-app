@@ -22,7 +22,7 @@ import {
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
-import { identifierRegex } from './code-envs.schema'
+import { dockerImageRefSchema, identifierRegex } from './code-envs.schema'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
@@ -74,7 +74,7 @@ const createOrgCodeEnvSchema = z.object({
     identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
-    url: z.string(),
+    url: dockerImageRefSchema,
     starterCodeFileName: z.string(),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
@@ -163,7 +163,7 @@ const updateOrgCodeEnvSchema = z.object({
     identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
-    url: z.string(),
+    url: dockerImageRefSchema,
     starterCodeFileName: z.string().optional(),
     starterCodeUploaded: z.boolean().optional(),
     isTesting: z.boolean().default(false),
