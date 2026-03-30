@@ -139,6 +139,27 @@ describe('Code Environment Actions', () => {
         expect(result.url).toEqual('harbor.safeinsights.org/custom/python:3.11')
     })
 
+    it('createOrgCodeEnvAction does not rewrite non-Docker-Hub external registries', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'GHCR Image',
+                identifier: 'ghcr_image',
+                cmdLine: 'test',
+                language: 'R',
+                url: 'ghcr.io/owner/repo:v1.0',
+                starterCodeFileName: 'test.R',
+                isTesting: true,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        expect(result.url).toEqual('ghcr.io/owner/repo:v1.0')
+    })
+
     it('deleteOrgCodeEnvAction deletes a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await db
