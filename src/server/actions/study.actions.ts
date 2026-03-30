@@ -2,7 +2,6 @@
 
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
-import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
@@ -181,10 +180,16 @@ async function approveJobCode({
     useTestImage?: boolean
     jobFiles?: z.infer<typeof jobFileSchema>[]
 }) {
-    let status: StudyJobStatus = 'CODE-APPROVED'
+    await db
+        .insertInto('jobStatusChange')
+        .values({ userId, status: 'CODE-APPROVED', studyJobId: job.id })
+        .executeTakeFirstOrThrow()
 
     if (SIMULATE_CODE_BUILD) {
-        status = 'JOB-READY'
+        await db
+            .insertInto('jobStatusChange')
+            .values({ userId, status: 'JOB-READY', studyJobId: job.id })
+            .executeTakeFirstOrThrow()
     } else {
         const image = await db
             .selectFrom('orgCodeEnv')
@@ -209,8 +214,6 @@ async function approveJobCode({
             codeEnvURL: image.url,
         })
     }
-
-    await db.insertInto('jobStatusChange').values({ userId, status, studyJobId: job.id }).executeTakeFirstOrThrow()
 
     if (jobFiles?.length) {
         const info = { studyId, studyJobId: job.id, orgSlug }
