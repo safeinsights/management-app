@@ -36,7 +36,7 @@ const mockCodeEnv = {
     name: 'Test Env',
     language: 'PYTHON' as const,
     cmdLine: 'python %f',
-    url: 'harbor.safeinsights.org/dockerhub/python:3.11',
+    url: 'python:3.11',
     isTesting: false,
     starterCodePath: 'code-env/test-org/code-env-1/starter-code/main.py',
     sampleDataPath: null,

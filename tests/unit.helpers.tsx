@@ -641,9 +641,7 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
             identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
             cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
-            url:
-                options.url ||
-                `harbor.safeinsights.org/test/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
+            url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
             isTesting: options.isTesting ?? false,
             starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
             settings: { environment: options.environment ?? [] },

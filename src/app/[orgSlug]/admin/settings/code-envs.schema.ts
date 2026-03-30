@@ -32,37 +32,11 @@ export const identifierRegex = /^[a-z0-9_]+$/
 
 // Docker image reference format: [HOST[:PORT]/]PATH[:TAG|@DIGEST]
 // Not a URL — Docker FROM doesn't use schemes like http://
-// Docker Hub images are auto-routed through the Harbor Docker Hub proxy
-export const HARBOR_DOCKERHUB_PREFIX = 'harbor.safeinsights.org/dockerhub/'
-
-const DOCKER_HUB_DOMAINS = ['docker.io/', 'index.docker.io/', 'registry-1.docker.io/']
-
-// Docker treats the first segment before "/" as a registry hostname only if it contains a "." or ":"
-// Otherwise it's a Docker Hub namespace (e.g., "myuser/myimage" → docker.io/myuser/myimage)
-function isDockerHubRef(val: string): boolean {
-    if (!val.includes('/')) return true
-    const firstSegment = val.split('/')[0]
-    return !firstSegment.includes('.') && !firstSegment.includes(':')
-}
-
-function rewriteToHarbor(val: string): string {
-    for (const domain of DOCKER_HUB_DOMAINS) {
-        if (val.startsWith(domain)) {
-            return `${HARBOR_DOCKERHUB_PREFIX}${val.slice(domain.length)}`
-        }
-    }
-    if (isDockerHubRef(val)) {
-        return `${HARBOR_DOCKERHUB_PREFIX}${val}`
-    }
-    return val
-}
-
 export const dockerImageRefSchema = z
     .string()
     .nonempty('Image reference is required')
     .refine((val) => !/\s/.test(val), 'Must not contain spaces')
     .refine((val) => !val.includes('://'), 'Enter a Docker image reference, not a URL (omit http:// or https://)')
-    .transform(rewriteToHarbor)
 
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
