@@ -149,6 +149,8 @@
         "fast-xml-parser": "^5.3.8",
         "serialize-javascript": "^7.0.3",
         "express-rate-limit": "^8.2.2",
-        "flatted": "^3.4.0"
+        "flatted": "^3.4.0",
+        "nodemailer": "^8.0.4",
+        "picomatch": "^4.0.4"
     }
 }
