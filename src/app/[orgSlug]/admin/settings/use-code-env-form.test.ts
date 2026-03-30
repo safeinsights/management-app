@@ -98,7 +98,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
-            result.current.form.setFieldValue('url', 'harbor.safeinsights.org/dockerhub/python:3.11')
+            result.current.form.setFieldValue('url', 'python:3.11')
             result.current.form.setFieldValue('starterCode', starterCode)
         })
 
@@ -135,7 +135,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
-            result.current.form.setFieldValue('url', 'harbor.safeinsights.org/dockerhub/python:3.11')
+            result.current.form.setFieldValue('url', 'python:3.11')
             result.current.form.setFieldValue('starterCode', starterCode)
             result.current.form.setFieldValue('sampleDataPath', 'data/sample.csv')
             result.current.setSampleDataFiles([sampleFile])
@@ -162,7 +162,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('cmdLine', 'python %f')
-            result.current.form.setFieldValue('url', 'harbor.safeinsights.org/dockerhub/python:3.11')
+            result.current.form.setFieldValue('url', 'python:3.11')
             result.current.form.setFieldValue('starterCode', starterCode)
         })
 
