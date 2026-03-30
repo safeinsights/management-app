@@ -7,6 +7,7 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
+import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
@@ -183,6 +184,7 @@ export const EditableText: FC<EditableTextProps> = ({
                     />
                     <HistoryPlugin />
                     <ListPlugin />
+                    <TabIndentationPlugin />
                     <LinkPlugin validateUrl={isValidUrl} />
                     <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
