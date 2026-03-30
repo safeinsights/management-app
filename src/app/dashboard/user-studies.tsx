@@ -4,7 +4,7 @@ import { StudiesTable } from '@/components/dashboard/studies-table'
 import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
-import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
+import { Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
@@ -57,20 +57,6 @@ export default function UserStudiesDashboard() {
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 
             <Paper shadow="xs" p="xl">
-                {showTabs && (
-                    <Flex justify="flex-end" align="center">
-                        <SegmentedControl
-                            value={activeTab}
-                            onChange={onAudienceChange}
-                            mb="xl"
-                            data={[
-                                { label: 'Reviewer', value: 'reviewer' },
-                                { label: 'Researcher', value: 'researcher' },
-                            ]}
-                        />
-                    </Flex>
-                )}
-
                 <StudiesTable
                     audience={audience}
                     scope="user"
@@ -81,8 +67,19 @@ export default function UserStudiesDashboard() {
                             ? "Review all the studies submitted to your organizations. Studies that need your attention will be labeled 'Needs review'."
                             : undefined
                     }
-                    showNewStudyButton={isResearcher}
                     showRefresher
+                    headerActions={
+                        showTabs ? (
+                            <SegmentedControl
+                                value={activeTab}
+                                onChange={onAudienceChange}
+                                data={[
+                                    { label: 'Reviewer', value: 'reviewer' },
+                                    { label: 'Researcher', value: 'researcher' },
+                                ]}
+                            />
+                        ) : undefined
+                    }
                 />
             </Paper>
         </Stack>
