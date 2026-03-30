@@ -11,14 +11,16 @@ import {
     LinkIcon,
     ListBulletsIcon,
     ListNumbersIcon,
+    TextIndentIcon,
+    TextOutdentIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     $getSelection,
     $isRangeSelection,
-    BLUR_COMMAND,
-    FOCUS_COMMAND,
     FORMAT_TEXT_COMMAND,
+    INDENT_CONTENT_COMMAND,
+    OUTDENT_CONTENT_COMMAND,
     SELECTION_CHANGE_COMMAND,
     COMMAND_PRIORITY_LOW,
     TextFormatType,
@@ -78,16 +80,23 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
 
-function getEditorPosition(editor: ReturnType<typeof useLexicalComposerContext>[0]): ToolbarPosition | null {
-    const root = editor.getRootElement()
-    if (!root) return null
-    const rect = root.getBoundingClientRect()
-    return { top: rect.bottom + window.scrollY, left: rect.left }
+function getSelectionPosition(): ToolbarPosition | null {
+    const nativeSelection = window.getSelection()
+    if (!nativeSelection || nativeSelection.rangeCount === 0) return null
+
+    const range = nativeSelection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+    if (rect.width === 0 && rect.height === 0) return null
+
+    return {
+        top: rect.top - 45 + window.scrollY,
+        left: rect.left + rect.width / 2,
+    }
 }
 
 export const FloatingToolbar = () => {
     const [editor] = useLexicalComposerContext()
-    const [isFocused, setIsFocused] = useState(false)
+    const [position, setPosition] = useState<ToolbarPosition | null>(null)
     const [formatState, setFormatState] = useState<FormatState>({
         isBold: false,
         isItalic: false,
@@ -97,32 +106,16 @@ export const FloatingToolbar = () => {
     })
 
     const linkEditor = useLinkEditor(editor)
-    const position = getEditorPosition(editor)
-
-    useEffect(() => {
-        return mergeRegister(
-            editor.registerCommand(
-                FOCUS_COMMAND,
-                () => {
-                    setIsFocused(true)
-                    return false
-                },
-                COMMAND_PRIORITY_LOW,
-            ),
-            editor.registerCommand(
-                BLUR_COMMAND,
-                () => {
-                    setIsFocused(false)
-                    return false
-                },
-                COMMAND_PRIORITY_LOW,
-            ),
-        )
-    }, [editor])
 
     const updateToolbar = useCallback(() => {
         const selection = $getSelection()
-        if (!$isRangeSelection(selection)) return
+
+        if (!$isRangeSelection(selection) || selection.isCollapsed()) {
+            if (!linkEditor.isEditing) {
+                setPosition(null)
+            }
+            return
+        }
 
         const anchorNode = selection.anchor.getNode()
         const parent = anchorNode.getParent()
@@ -138,7 +131,9 @@ export const FloatingToolbar = () => {
                 return listNode.getListType() === 'number' ? 'number' : 'bullet'
             })(),
         })
-    }, [])
+
+        setPosition(getSelectionPosition())
+    }, [linkEditor.isEditing])
 
     useEffect(() => {
         return mergeRegister(
@@ -188,7 +183,9 @@ export const FloatingToolbar = () => {
         }
     }
 
-    if (!isFocused && !linkEditor.isEditing) return null
+    const indent = () => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
+    const outdent = () => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+
     if (!position) return null
 
     return (
@@ -205,7 +202,8 @@ export const FloatingToolbar = () => {
                     position: 'absolute',
                     top: position.top,
                     left: position.left,
-                    zIndex: 50,
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
                     display: 'flex',
                     gap: 4,
                     alignItems: 'center',
@@ -225,6 +223,8 @@ export const FloatingToolbar = () => {
                         onFormatText={formatText}
                         onToggleLink={toggleLink}
                         onToggleList={toggleList}
+                        onIndent={indent}
+                        onOutdent={outdent}
                     />
                 )}
             </Paper>
@@ -278,11 +278,15 @@ function FormatButtons({
     onFormatText,
     onToggleLink,
     onToggleList,
+    onIndent,
+    onOutdent,
 }: {
     formatState: FormatState
     onFormatText: (format: TextFormatType) => void
     onToggleLink: () => void
     onToggleList: (type: 'bullet' | 'number') => void
+    onIndent: () => void
+    onOutdent: () => void
 }) {
     return (
         <>
@@ -339,6 +343,26 @@ function FormatButtons({
                 aria-label="Numbered list"
             >
                 <ListNumbersIcon size={16} weight={formatState.listType === 'number' ? 'bold' : 'regular'} />
+            </ActionIcon>
+            <ActionIcon
+                variant="subtle"
+                color="charcoal.4"
+                size="sm"
+                onClick={onIndent}
+                aria-label="Indent"
+                disabled={!formatState.listType}
+            >
+                <TextIndentIcon size={16} />
+            </ActionIcon>
+            <ActionIcon
+                variant="subtle"
+                color="charcoal.4"
+                size="sm"
+                onClick={onOutdent}
+                aria-label="Outdent"
+                disabled={!formatState.listType}
+            >
+                <TextOutdentIcon size={16} />
             </ActionIcon>
         </>
     )
