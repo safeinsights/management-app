@@ -1,4 +1,5 @@
 import { useClerk } from '@clerk/nextjs'
+import logger from '@/lib/logger'
 import { usePathname } from 'next/navigation'
 
 // Hard-redirects on sign-out to force a full page reload, which destroys the
@@ -11,11 +12,13 @@ export function useSignOut(options?: { redirectAfterSignOut: string }) {
     return async () => {
         const redirectUrl = options?.redirectAfterSignOut ?? buildSignInUrl(pathname)
         try {
-            await signOut({ redirectUrl })
-        } catch {
-            // manual hard redirect so the user always lands on the sign-in page.
-            window.location.assign(redirectUrl)
+            await signOut()
+        } catch (e) {
+            logger.error('Clerk signOut failed', e)
         }
+        // This clears the JS heap and React Query cache, preventing stale data
+        // from leaking into a subsequent session.
+        window.location.assign(redirectUrl)
     }
 }
 
