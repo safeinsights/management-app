@@ -27,7 +27,9 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
+        )
         if (!codeSubmitted) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
@@ -38,7 +40,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
                 <Title order={1}>Study request</Title>
                 <AgreementsPage
                     isReviewer
-                    proceedHref={Routes.studyReview({ orgSlug, studyId })}
+                    proceedHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements-proceed`}
                     previousHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements`}
                     previousLabel="Previous"
                 />

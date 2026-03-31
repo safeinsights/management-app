@@ -51,7 +51,12 @@ export default async function StudyReviewPage(props: {
             )
         }
 
-        if (codeSubmitted) return <CodeReviewView orgSlug={orgSlug} study={study} />
+        if (codeSubmitted) {
+            if (searchParams.from !== 'agreements-proceed') {
+                redirect(Routes.studyAgreements({ orgSlug, studyId }))
+            }
+            return <CodeReviewView orgSlug={orgSlug} study={study} />
+        }
         return <ProposalReviewView orgSlug={orgSlug} study={study} />
     }
 
