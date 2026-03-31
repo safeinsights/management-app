@@ -9,15 +9,18 @@ export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const pathname = usePathname()
 
     return async () => {
-        if (options?.redirectAfterSignOut) {
-            await signOut({ redirectUrl: options.redirectAfterSignOut })
-            return
+        const redirectUrl = options?.redirectAfterSignOut ?? buildSignInUrl(pathname)
+        try {
+            await signOut({ redirectUrl })
+        } catch {
+            // manual hard redirect so the user always lands on the sign-in page.
+            window.location.assign(redirectUrl)
         }
-        await signOut()
-        const url = new URL('/account/signin', window.location.origin)
-        if (pathname) {
-            url.searchParams.set('redirect_url', pathname)
-        }
-        window.location.assign(url.toString())
     }
+}
+
+function buildSignInUrl(pathname: string | null): string {
+    const url = new URL('/account/signin', window.location.origin)
+    if (pathname) url.searchParams.set('redirect_url', pathname)
+    return url.toString()
 }

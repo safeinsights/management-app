@@ -16,7 +16,7 @@ const signOutViaMenu = async (page: import('@playwright/test').Page) => {
 test.describe('sign-out hard redirect', () => {
     test('hard redirect on sign-out destroys previous session state', async ({ page }) => {
         // Clerk's signOut() API is slow on CI cold starts
-        test.setTimeout(45_000)
+        test.setTimeout(90_000)
 
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
         await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
@@ -30,6 +30,12 @@ test.describe('sign-out hard redirect', () => {
 
         // Sign-out should preserve the current page in redirect_url
         expect(page.url()).toContain('redirect_url=%2F')
+
+        // Clerk may briefly show isSignedIn=true on the sign-in page while it re-validates
+        // the (now-revoked) session, causing the sign-in form to kick off a second signOut
+        // and navigation. Wait for networkidle again to let that settle before evaluating
+        // JS state — if no second navigation occurs this resolves immediately.
+        await page.waitForURL('**/account/signin**', { waitUntil: 'networkidle', timeout: 30_000 })
 
         // After the hard redirect, the JS context is fresh — the marker is gone
         const markerSurvived = await page.evaluate(
