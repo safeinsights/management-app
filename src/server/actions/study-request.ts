@@ -367,7 +367,11 @@ export const onDeleteStudyJobAction = new Action('onDeleteStudyJobAction', { per
         await db.deleteFrom('studyJobFile').where('studyJobId', '=', studyJobId).execute()
         await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
 
-        await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyJobId, studyId }))
+        try {
+            await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyJobId, studyId }))
+        } catch (err) {
+            logger.error(`Failed to delete S3 files for job ${studyJobId}: ${err}`)
+        }
     })
 
 export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })

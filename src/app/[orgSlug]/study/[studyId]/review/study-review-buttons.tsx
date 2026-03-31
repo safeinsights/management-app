@@ -52,10 +52,11 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
 
     if (study.status === 'REJECTED') return null
 
-    const latestJobStatus = study.jobStatusChanges?.at(0)?.status
-    const codeNeedsReview = latestJobStatus === 'CODE-SCANNED'
+    const statuses = study.jobStatusChanges?.map((c) => c.status) ?? []
+    const hasCodeToReview = statuses.includes('CODE-SUBMITTED')
+    const alreadyReviewed = statuses.some((s) => s === 'CODE-APPROVED' || s === 'CODE-REJECTED')
 
-    if (study.status === 'APPROVED' && !codeNeedsReview) return null
+    if (study.status === 'APPROVED' && (!hasCodeToReview || alreadyReviewed)) return null
 
     return (
         <Stack>
