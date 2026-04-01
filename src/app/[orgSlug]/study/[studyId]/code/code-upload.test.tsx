@@ -338,6 +338,35 @@ describe('CodeUploadPage', () => {
         })
     })
 
+    it('enables Done button in upload modal after backing out of review and re-opening', async () => {
+        await renderPage()
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /upload your files/i }))
+
+        const fileInput = document.querySelector('input[name="codeFiles"]') as HTMLInputElement | null
+        expect(fileInput).not.toBeNull()
+        await user.upload(fileInput!, new File(['print("main")'], 'analysis.R', { type: 'text/plain' }))
+
+        await user.click(screen.getByRole('button', { name: /done/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Review uploaded files')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /back to upload/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Study code')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /upload your files/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /done/i })).toBeEnabled()
+        })
+    })
+
     // --- URL-driven refresh stability tests ---
 
     it('renders IDE review when URL has mode=ide-review', async () => {
