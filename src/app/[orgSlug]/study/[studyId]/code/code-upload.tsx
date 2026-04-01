@@ -59,7 +59,7 @@ export function CodeUploadPage({
         [searchParams, pathname, router],
     )
 
-    const { codeFiles, canSubmit, setStudyId, setExistingFiles, submitStudy, isSubmitting } = useStudyRequest()
+    const { codeFiles, setStudyId, setExistingFiles, submitStudy, isSubmitting } = useStudyRequest()
 
     const {
         launchWorkspace,
@@ -218,7 +218,7 @@ export function CodeUploadPage({
                     type="button"
                     variant="primary"
                     size="md"
-                    disabled={!canSubmit && !existingMainFile}
+                    disabled
                     loading={isSubmitting}
                     onClick={() => submitStudy()}
                 >

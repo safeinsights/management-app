@@ -143,7 +143,41 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.queryByText('Review files from IDE')).not.toBeInTheDocument()
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
             expect(getUrl()).not.toContain('mode=')
+        })
+    })
+
+    it('shows the same IDE workspace files after going back and relaunching IDE', async () => {
+        const { study } = await renderPage()
+        const root = await createWorkspaceDir('code-upload-page')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, {
+            'main.r': 'print("main")',
+            'helper.r': 'print("helper")',
+        })
+
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: /launch ide/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
+            expect(screen.getByText('main.r')).toBeInTheDocument()
+            expect(screen.getByText('helper.r')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /back to upload/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /launch ide/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
+            expect(screen.getByText('main.r')).toBeInTheDocument()
+            expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
     })
 
@@ -191,13 +225,13 @@ describe('CodeUploadPage', () => {
 
     // --- Branch coverage tests ---
 
-    it('enables submit when existing files are present', async () => {
+    it('keeps submit disabled on upload screen even when existing files are present', async () => {
         await renderPage({
             existingMainFile: 'analysis.R',
         })
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
@@ -274,7 +308,33 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
             expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
             expect(getUrl()).not.toContain('mode=')
+        })
+    })
+
+    it('keeps submit disabled on upload screen after backing out of uploaded files review', async () => {
+        await renderPage()
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /upload your files/i }))
+
+        const fileInput = document.querySelector('input[name="codeFiles"]') as HTMLInputElement | null
+        expect(fileInput).not.toBeNull()
+        await user.upload(fileInput!, new File(['print("main")'], 'analysis.R', { type: 'text/plain' }))
+
+        await user.click(screen.getByRole('button', { name: /done/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Review uploaded files')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /back to upload/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
