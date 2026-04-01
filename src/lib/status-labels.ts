@@ -13,7 +13,7 @@ export type StatusLabel = {
 }
 
 const COLORS = {
-    draft: { bg: '#F1F3F5', c: 'gray.9' },
+    draft: { bg: 'grey.10', c: 'gray.9' },
     needsReview: { bg: 'purple.1', c: 'purple.7' },
     underReview: { bg: 'yellow.0', c: 'dark.9' },
     rejected: { bg: 'red.1', c: 'red.8' },

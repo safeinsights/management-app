@@ -276,6 +276,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
                 .insertInto('jobStatusChange')
                 .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
                 .execute()
+            triggerCodeScan(latestJob.id, orgSlug, studyId)
         }
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
@@ -284,10 +285,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             onStudyCodeSubmitted({ userId, studyId })
         } else {
             onStudyCreated({ userId, studyId })
-        }
-
-        if (latestJob) {
-            triggerCodeScan(latestJob.id, orgSlug, studyId)
         }
 
         revalidatePath(`/${orgSlug}/dashboard`)
