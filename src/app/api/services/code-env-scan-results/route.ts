@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 
@@ -25,11 +26,21 @@ export const POST = createWebhookHandler({
             return
         }
 
-        await db
+        const result = await db
             .updateTable('codeScan')
             .set({ status: body.status, results: body.plaintextLog ?? null })
             .where('codeEnvId', '=', body.codeEnvId)
             .where('status', '=', 'SCAN-RUNNING')
-            .execute()
+            .executeTakeFirst()
+
+        if (!result || !result.numUpdatedRows) {
+            logger.error(
+                `code-env-scan-results: received ${body.status} for codeEnvId=${body.codeEnvId} but no SCAN-RUNNING row found`,
+            )
+            await db
+                .insertInto('codeScan')
+                .values({ codeEnvId: body.codeEnvId, status: body.status, results: body.plaintextLog ?? null })
+                .execute()
+        }
     },
 })
