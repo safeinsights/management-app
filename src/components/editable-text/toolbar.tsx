@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Box, Paper, Portal, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -35,13 +35,6 @@ import {
     ListNode,
 } from '@lexical/list'
 import { $getNearestNodeOfType, mergeRegister } from '@lexical/utils'
-
-// inspiration from https://konstantin.digital/blog/how-to-build-a-floating-menu-with-lexical-react
-
-interface ToolbarPosition {
-    top: number
-    left: number
-}
 
 interface FormatState {
     isBold: boolean
@@ -80,23 +73,8 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
 
-function getSelectionPosition(): ToolbarPosition | null {
-    const nativeSelection = window.getSelection()
-    if (!nativeSelection || nativeSelection.rangeCount === 0) return null
-
-    const range = nativeSelection.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
-    if (rect.width === 0 && rect.height === 0) return null
-
-    return {
-        top: rect.top - 45 + window.scrollY,
-        left: rect.left + rect.width / 2,
-    }
-}
-
-export const FloatingToolbar = () => {
+export const Toolbar = () => {
     const [editor] = useLexicalComposerContext()
-    const [position, setPosition] = useState<ToolbarPosition | null>(null)
     const [formatState, setFormatState] = useState<FormatState>({
         isBold: false,
         isItalic: false,
@@ -110,10 +88,7 @@ export const FloatingToolbar = () => {
     const updateToolbar = useCallback(() => {
         const selection = $getSelection()
 
-        if (!$isRangeSelection(selection) || selection.isCollapsed()) {
-            if (!linkEditor.isEditing) {
-                setPosition(null)
-            }
+        if (!$isRangeSelection(selection)) {
             return
         }
 
@@ -131,9 +106,7 @@ export const FloatingToolbar = () => {
                 return listNode.getListType() === 'number' ? 'number' : 'bullet'
             })(),
         })
-
-        setPosition(getSelectionPosition())
-    }, [linkEditor.isEditing])
+    }, [])
 
     useEffect(() => {
         return mergeRegister(
@@ -186,49 +159,40 @@ export const FloatingToolbar = () => {
     const indent = () => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
     const outdent = () => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
 
-    if (!position) return null
-
     return (
-        <Portal>
-            <Paper
-                shadow="md"
-                p={4}
-                onMouseDown={(e: React.MouseEvent) => {
-                    if (!(e.target instanceof HTMLInputElement)) {
-                        e.preventDefault()
-                    }
-                }}
-                style={{
-                    position: 'absolute',
-                    top: position.top,
-                    left: position.left,
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    gap: 4,
-                    alignItems: 'center',
-                }}
-            >
-                {linkEditor.isEditing ? (
-                    <LinkInput
-                        url={linkEditor.url}
-                        onChange={linkEditor.setUrl}
-                        onSubmit={linkEditor.submitLink}
-                        onCancel={linkEditor.cancelLink}
-                        inputRef={linkEditor.inputRef}
-                    />
-                ) : (
-                    <FormatButtons
-                        formatState={formatState}
-                        onFormatText={formatText}
-                        onToggleLink={toggleLink}
-                        onToggleList={toggleList}
-                        onIndent={indent}
-                        onOutdent={outdent}
-                    />
-                )}
-            </Paper>
-        </Portal>
+        <Box
+            p={4}
+            onMouseDown={(e: React.MouseEvent) => {
+                if (!(e.target instanceof HTMLInputElement)) {
+                    e.preventDefault()
+                }
+            }}
+            style={{
+                borderTop: '1px solid var(--mantine-color-gray-3)',
+                display: 'flex',
+                gap: 4,
+                alignItems: 'center',
+            }}
+        >
+            {linkEditor.isEditing ? (
+                <LinkInput
+                    url={linkEditor.url}
+                    onChange={linkEditor.setUrl}
+                    onSubmit={linkEditor.submitLink}
+                    onCancel={linkEditor.cancelLink}
+                    inputRef={linkEditor.inputRef}
+                />
+            ) : (
+                <FormatButtons
+                    formatState={formatState}
+                    onFormatText={formatText}
+                    onToggleLink={toggleLink}
+                    onToggleList={toggleList}
+                    onIndent={indent}
+                    onOutdent={outdent}
+                />
+            )}
+        </Box>
     )
 }
 

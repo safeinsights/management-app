@@ -16,7 +16,7 @@ import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
 import { lexicalTheme, lexicalNodes, isValidUrl } from '@/components/editable-text/config'
-import { FloatingToolbar } from '@/components/editable-text/toolbar'
+import { Toolbar } from '@/components/editable-text/toolbar'
 
 import './styles.css'
 
@@ -137,7 +137,7 @@ function EditorContent({
             />
             <ListPlugin />
             <LinkPlugin validateUrl={isValidUrl} />
-            <FloatingToolbar />
+            <Toolbar />
         </Paper>
     )
 }
