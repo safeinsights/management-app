@@ -66,15 +66,6 @@ async function addStudyJob(
         .executeTakeFirstOrThrow()
 
     await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: userId,
-            status: 'CODE-SUBMITTED',
-            studyJobId: studyJob.id,
-        })
-        .execute()
-
-    await db
         .insertInto('studyJobFile')
         .values({
             name: mainCodeFileName,
@@ -273,6 +264,20 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
         const userId = session.user.id
 
+        const latestJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (latestJob) {
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
+                .execute()
+        }
+
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
         if (status === 'APPROVED') {
@@ -280,13 +285,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         } else {
             onStudyCreated({ userId, studyId })
         }
-
-        const latestJob = await db
-            .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
 
         if (latestJob) {
             triggerCodeScan(latestJob.id, orgSlug, studyId)
@@ -413,6 +411,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
             codeFileNames,
         )
 
+        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
         onStudyCodeSubmitted({ userId, studyId })
@@ -464,6 +464,8 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
             const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitizedName)
             await storeS3File({ orgSlug, studyId }, webStream, s3Path)
         }
+
+        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
