@@ -13,6 +13,14 @@ vi.mock('@/server/storage', () => ({
     fetchFileContents: vi.fn(() => new Blob()),
 }))
 
+vi.mock('si-encryption/job-results/reader', () => ({
+    ResultsReader: class {
+        async listFiles() {
+            return [{ path: 'test.csv', bytes: 0 }]
+        }
+    },
+}))
+
 vi.mock('@/server/mailer', () => ({
     sendStudyResultsRejectedEmail: vi.fn(),
 }))

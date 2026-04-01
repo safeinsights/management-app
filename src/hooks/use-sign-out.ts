@@ -13,7 +13,10 @@ export function useSignOut(options?: { redirectAfterSignOut: string }) {
             await signOut({ redirectUrl: options.redirectAfterSignOut })
             return
         }
-        await signOut()
+        // Clerk's signOut() occasionally hangs. Race it against a timeout so
+        // the redirect always fires — the middleware rejects stale sessions
+        // regardless of whether the API call completed.
+        await Promise.race([signOut(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {})
         const url = new URL('/account/signin', window.location.origin)
         if (pathname) {
             url.searchParams.set('redirect_url', pathname)
