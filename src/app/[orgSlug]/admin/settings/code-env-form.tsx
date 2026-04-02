@@ -17,10 +17,10 @@ import {
     ActionIcon,
     Box,
 } from '@mantine/core'
+import { Dropzone } from '@mantine/dropzone'
 import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
-import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
-import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
 import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
@@ -57,16 +57,173 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
     )
 }
 
+function StarterCodeSection({
+    isEditMode,
+    image,
+    starterCodes,
+    setStarterCodes,
+    removeStarterCode,
+}: {
+    isEditMode: boolean
+    image?: CodeEnv
+    starterCodes: File[]
+    setStarterCodes: (files: File[]) => void
+    removeStarterCode: (fileName: string) => void
+}) {
+    const handleDrop = (files: File[]) => {
+        const existingNames = new Set(starterCodes.map((f) => f.name))
+        const newFiles = files.filter((f) => !existingNames.has(f.name))
+        setStarterCodes([...starterCodes, ...newFiles])
+    }
+
+    return (
+        <Box>
+            <Title order={5} mb={4}>
+                Starter Code{' '}
+                {!isEditMode && (
+                    <Text component="span" c="red">
+                        *
+                    </Text>
+                )}
+            </Title>
+            <Text size="xs" c="dimmed" mb="sm">
+                {isEditMode
+                    ? 'Upload new files to replace all existing starter code (optional)'
+                    : 'Upload starter code files to assist Researchers with their coding experience.'}
+            </Text>
+            <Dropzone onDrop={handleDrop} multiple p="md">
+                <Group gap="xs" justify="center">
+                    <Dropzone.Accept>
+                        <UploadIcon size={24} />
+                    </Dropzone.Accept>
+                    <Dropzone.Idle>
+                        <FileArrowUpIcon size={24} />
+                    </Dropzone.Idle>
+                    <Text size="sm" c="dimmed">
+                        Drop files or click to browse
+                    </Text>
+                </Group>
+            </Dropzone>
+            {starterCodes.length > 0 && (
+                <Stack gap="xs" mt="sm">
+                    {starterCodes.map((file) => (
+                        <Group key={file.name} justify="space-between">
+                            <Text size="sm">{file.name}</Text>
+                            <ActionIcon color="red" variant="subtle" onClick={() => removeStarterCode(file.name)}>
+                                <TrashIcon size={14} />
+                            </ActionIcon>
+                        </Group>
+                    ))}
+                </Stack>
+            )}
+            {isEditMode && image?.starterCodeFileNames?.length && (
+                <Text size="sm" c="dimmed" mt="sm">
+                    Existing files: {image.starterCodeFileNames.join(', ')}
+                </Text>
+            )}
+        </Box>
+    )
+}
+
+interface CommandLineRowProps {
+    ext: string
+    cmd: string
+    onCmdChange: (cmd: string) => void
+    onRemove: () => void
+}
+
+function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
+    return (
+        <Group gap="xs" align="flex-start">
+            <TextInput value={ext} readOnly style={{ flex: 1 }} />
+            <TextInput
+                value={cmd}
+                onChange={(e) => onCmdChange(e.target.value)}
+                style={{ flex: 2 }}
+                placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
+                error={!cmd.trim() ? 'Command is required' : null}
+            />
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+                <TrashIcon size={16} />
+            </ActionIcon>
+        </Group>
+    )
+}
+
+function CommandLinesSection({
+    commandLines,
+    onUpdate,
+    onRemove,
+    onAdd,
+    newExtProps,
+    newCmdProps,
+}: {
+    commandLines: Record<string, string>
+    onUpdate: (ext: string, cmd: string) => void
+    onRemove: (ext: string) => void
+    onAdd: (ext: string, cmd: string) => void
+    newExtProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
+    newCmdProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
+}) {
+    const handleAdd = () => {
+        const ext = (newExtProps.value as string).trim().toLowerCase().replace(/^\./, '')
+        const cmd = (newCmdProps.value as string).trim()
+        if (!ext || !cmd) return
+        onAdd(ext, cmd)
+    }
+
+    return (
+        <Box>
+            <Title order={5} mb={4}>
+                Command Lines
+            </Title>
+            <Text size="xs" c="dimmed" mb="sm">
+                Map file extensions to the command used to execute them. Use %f for the main code file name.
+            </Text>
+            <Stack gap="xs">
+                {Object.entries(commandLines).map(([ext, cmd]) => (
+                    <CommandLineRow
+                        key={ext}
+                        ext={ext}
+                        cmd={cmd}
+                        onCmdChange={(value) => onUpdate(ext, value)}
+                        onRemove={() => onRemove(ext)}
+                    />
+                ))}
+                <Group gap="xs" align="flex-start">
+                    <TextInput {...newExtProps} placeholder="Extension (e.g. r, py)" style={{ flex: 1 }} />
+                    <TextInput {...newCmdProps} placeholder="Command (e.g. Rscript %f)" style={{ flex: 2 }} />
+                    <ActionIcon color="blue" variant="subtle" onClick={handleAdd} mt={4} aria-label="Add command line">
+                        <PlusCircleIcon size={16} />
+                    </ActionIcon>
+                </Group>
+            </Stack>
+        </Box>
+    )
+}
+
 interface CodeEnvFormProps {
     image?: CodeEnv
     onCompleteAction: () => void
 }
 
 export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
-    const { form, isEditMode, isPending, onSubmit, sampleDataFiles, setSampleDataFiles, envVarActions } =
-        useCodeEnvForm(image, onCompleteAction)
+    const {
+        form,
+        isEditMode,
+        isPending,
+        onSubmit,
+        sampleDataFiles,
+        setSampleDataFiles,
+        starterCodeActions,
+        commandLineActions,
+        envVarActions,
+    } = useCodeEnvForm(image, onCompleteAction)
     const { options: dataSourceOptions } = useOrgDataSources()
     const { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar } = envVarActions
+    const { setStarterCodes, removeStarterCode } = starterCodeActions
+    const { addCommandLine, updateCommandLine, removeCommandLine } = commandLineActions
+    const starterCodes = (form.values.starterCodes as File[] | undefined) || []
 
     return (
         <form onSubmit={onSubmit}>
@@ -93,13 +250,6 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     placeholder="e.g., R 4.2.0 Code Environment"
                     {...form.getInputProps('name')}
                 />
-                <TextInput
-                    label="Command Line"
-                    withAsterisk
-                    placeholder="Rscript %f"
-                    description="Command used to execute scripts.  %f will be subsituted with main code file"
-                    {...form.getInputProps('cmdLine')}
-                />
 
                 <Select
                     label="Language"
@@ -117,22 +267,22 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
-                <FileInput
-                    label="Starter Code"
-                    withAsterisk={!isEditMode}
-                    description={
-                        isEditMode
-                            ? 'Upload a new file to replace the existing starter code (optional)'
-                            : 'Upload starter code to assist Researchers with their coding experience.'
-                    }
-                    placeholder="Select a file"
-                    {...form.getInputProps('starterCode')}
+                <Divider />
+                <StarterCodeSection
+                    isEditMode={isEditMode}
+                    image={image}
+                    starterCodes={starterCodes}
+                    setStarterCodes={setStarterCodes}
+                    removeStarterCode={removeStarterCode}
                 />
-                {isEditMode && image?.starterCodePath && (
-                    <Text size="sm" c="dimmed">
-                        Current file: {basename(image.starterCodePath)}
-                    </Text>
-                )}
+                <CommandLinesSection
+                    commandLines={form.values.commandLines}
+                    onUpdate={updateCommandLine}
+                    onRemove={removeCommandLine}
+                    onAdd={addCommandLine}
+                    newExtProps={form.getInputProps('newCmdExt')}
+                    newCmdProps={form.getInputProps('newCmdValue')}
+                />
                 <Divider />
                 <MultiSelect
                     label="Data Sources"
@@ -189,7 +339,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             {...form.getInputProps('sampleDataPath')}
                         />
                         <FileInput
-                            label="Files"
+                            label="Sample Data Files"
                             description={
                                 isEditMode
                                     ? 'Upload new files to replace the existing sample data (optional)'
