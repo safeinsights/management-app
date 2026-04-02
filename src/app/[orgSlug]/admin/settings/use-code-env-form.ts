@@ -71,6 +71,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             newEnvValue: '',
             newCmdExt: '',
             newCmdValue: '',
+            existingStarterCodeFileNames: image?.starterCodeFileNames ?? [],
         },
         validate: zodResolver(formSchema),
     })
@@ -192,18 +193,20 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         },
     })
 
-    const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, ...values }) => {
-        if (newEnvKey && newEnvValue) {
-            values.settings = {
-                ...values.settings,
-                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+    const onSubmit = form.onSubmit(
+        ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
+            if (newEnvKey && newEnvValue) {
+                values.settings = {
+                    ...values.settings,
+                    environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+                }
             }
-        }
-        if (newCmdExt && newCmdValue) {
-            values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
-        }
-        saveCodeEnv(values as CreateFormValues | EditFormValues)
-    })
+            if (newCmdExt && newCmdValue) {
+                values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
+            }
+            saveCodeEnv(values as CreateFormValues | EditFormValues)
+        },
+    )
 
     return {
         form,

@@ -72,6 +72,7 @@ const codeEnvFieldsSchema = z.object({
         .optional(),
     dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
     dataSourceIds: z.array(z.string().uuid()).default([]),
+    existingStarterCodeFileNames: z.array(z.string()).default([]),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)
@@ -132,12 +133,48 @@ const rejectDuplicateEnvVarName = (
     }
 }
 
+function bareExtension(fileName: string): string {
+    return fileName.split('.').pop()?.toLowerCase() ?? ''
+}
+
+const requireCommandLineForEachExtension = (
+    data: {
+        starterCodes?: File[]
+        commandLines: Record<string, string>
+        existingStarterCodeFileNames: string[]
+        newCmdExt: string
+        newCmdValue: string
+    },
+    ctx: z.RefinementCtx,
+) => {
+    const newFileNames = (data.starterCodes ?? []).map((f) => f.name)
+    const fileNames = newFileNames.length > 0 ? newFileNames : data.existingStarterCodeFileNames
+    if (!fileNames.length) return
+
+    const cmdLines = { ...data.commandLines }
+    if (data.newCmdExt && data.newCmdValue) {
+        cmdLines[data.newCmdExt] = data.newCmdValue
+    }
+
+    const missingExts = [...new Set(fileNames.map(bareExtension).filter(Boolean))].filter((ext) => !cmdLines[ext])
+
+    if (missingExts.length > 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Missing command line for extension(s): .${missingExts.join(', .')}`,
+            path: ['starterCodes'],
+        })
+    }
+}
+
 export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine(rejectDuplicateEnvVarName)
+    .superRefine(requireCommandLineForEachExtension)
 
 export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine(rejectDuplicateEnvVarName)
+    .superRefine(requireCommandLineForEachExtension)
 
 export const orgCodeEnvSchema = createOrgCodeEnvSchema

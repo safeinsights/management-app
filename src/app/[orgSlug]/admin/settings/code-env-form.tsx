@@ -63,12 +63,14 @@ function StarterCodeSection({
     starterCodes,
     setStarterCodes,
     removeStarterCode,
+    error,
 }: {
     isEditMode: boolean
     image?: CodeEnv
     starterCodes: File[]
     setStarterCodes: (files: File[]) => void
     removeStarterCode: (fileName: string) => void
+    error?: string
 }) {
     const handleDrop = (files: File[]) => {
         const existingNames = new Set(starterCodes.map((f) => f.name))
@@ -104,6 +106,11 @@ function StarterCodeSection({
                     </Text>
                 </Group>
             </Dropzone>
+            {error && (
+                <Text size="sm" c="red" mt="xs">
+                    {error}
+                </Text>
+            )}
             {starterCodes.length > 0 && (
                 <Stack gap="xs" mt="sm">
                     {starterCodes.map((file) => (
@@ -274,6 +281,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     starterCodes={starterCodes}
                     setStarterCodes={setStarterCodes}
                     removeStarterCode={removeStarterCode}
+                    error={form.errors.starterCodes as string}
                 />
                 <CommandLinesSection
                     commandLines={form.values.commandLines}
