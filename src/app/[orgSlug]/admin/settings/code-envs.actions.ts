@@ -8,7 +8,6 @@ import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import {
-    deleteS3File,
     deleteFolderContents,
     moveFolderContents,
     createSignedUploadUrl,
@@ -29,6 +28,7 @@ import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
+import { toJsonb } from '@/database/types-manual'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 
@@ -44,7 +44,7 @@ const codeEnvFromOrgAndId = async ({
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
         .select([
             'orgCodeEnv.id',
-            'orgCodeEnv.starterCodePath',
+            'orgCodeEnv.starterCodeFileNames',
             'orgCodeEnv.sampleDataPath',
             'orgCodeEnv.url',
             'orgCodeEnv.dataSourceType',
@@ -73,9 +73,9 @@ const createOrgCodeEnvSchema = z.object({
     name: z.string(),
     identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
-    cmdLine: z.string(),
+    commandLines: z.record(z.string(), z.string()),
     url: dockerImageRefSchema,
-    starterCodeFileName: z.string(),
+    starterCodeFileNames: z.array(z.string()).min(1),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
@@ -92,7 +92,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, starterCodeFileName, sampleDataPath, sampleDataUploaded, dataSourceIds, ...fieldValues } =
+        const { orgSlug, starterCodeFileNames, sampleDataPath, sampleDataUploaded, dataSourceIds, ...fieldValues } =
             params
 
         if (dataSourceIds.length > 0) {
@@ -109,12 +109,6 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
         const id = uuidv7()
 
-        const starterCodePath = pathForStarterCode({
-            orgSlug,
-            codeEnvId: id,
-            fileName: starterCodeFileName,
-        })
-
         const newCodeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
@@ -122,7 +116,8 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 orgId,
                 ...fieldValues,
                 settings: fieldValues.settings,
-                starterCodePath,
+                commandLines: toJsonb(fieldValues.commandLines),
+                starterCodeFileNames,
                 sampleDataPath: sampleDataPath ? sanitizeFileName(sampleDataPath) : null,
             })
             .returningAll()
@@ -162,9 +157,9 @@ const updateOrgCodeEnvSchema = z.object({
     name: z.string(),
     identifier: z.string().regex(identifierRegex, 'Invalid identifier'),
     language: z.enum(['R', 'PYTHON']),
-    cmdLine: z.string(),
+    commandLines: z.record(z.string(), z.string()),
     url: dockerImageRefSchema,
-    starterCodeFileName: z.string().optional(),
+    starterCodeFileNames: z.array(z.string()).optional(),
     starterCodeUploaded: z.boolean().optional(),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
@@ -188,7 +183,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .handler(
         async ({
             params,
-            starterCodePath,
+            starterCodeFileNames: prevStarterCodeFileNames,
             sampleDataPath: prevSampleDataPath,
             url: prevUrl,
             dataSourceType: prevDataSourceType,
@@ -200,7 +195,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             const {
                 orgSlug,
                 codeEnvId,
-                starterCodeFileName,
+                starterCodeFileNames,
                 starterCodeUploaded,
                 sampleDataPath,
                 sampleDataUploaded,
@@ -220,14 +215,10 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 }
             }
 
-            if (starterCodeUploaded && starterCodeFileName) {
-                const newStarterCodePath = pathForStarterCode({
-                    orgSlug,
-                    codeEnvId,
-                    fileName: starterCodeFileName,
-                })
+            let currentFileNames = prevStarterCodeFileNames
+            if (starterCodeUploaded && starterCodeFileNames?.length) {
                 await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId }))
-                starterCodePath = newStarterCodePath
+                currentFileNames = starterCodeFileNames
             }
 
             const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
@@ -251,7 +242,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 .set({
                     ...fieldValues,
                     settings: fieldValues.settings,
-                    starterCodePath,
+                    commandLines: toJsonb(fieldValues.commandLines),
+                    starterCodeFileNames: currentFileNames,
                     sampleDataPath: sanitizedSampleDataPath,
                 })
                 .where('id', '=', codeEnvId)
@@ -367,7 +359,6 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
             .select([
                 'orgCodeEnv.id',
-                'orgCodeEnv.starterCodePath',
                 'orgCodeEnv.sampleDataPath',
                 'orgCodeEnv.language',
                 'orgCodeEnv.isTesting',
@@ -421,7 +412,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             }
         }
 
-        await deleteS3File(codeEnv.starterCodePath)
+        await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId: codeEnv.id }))
         await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: codeEnv.id }))
 
         await db
@@ -435,16 +426,21 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
 const fetchStarterCodeSchema = z.object({
     orgSlug: z.string(),
     codeEnvId: z.string(),
+    fileName: z.string(),
 })
 
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .params(fetchStarterCodeSchema)
     .middleware(codeEnvFromOrgAndId)
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ codeEnv }) => {
-        const blob = await fetchFileContents(codeEnv.starterCodePath)
+    .handler(async ({ codeEnv, params: { fileName } }) => {
+        if (!codeEnv.starterCodeFileNames.includes(fileName)) {
+            throw new Error(`Starter code file "${fileName}" not found`)
+        }
+        const path = pathForStarterCode({ orgSlug: codeEnv.orgSlug, codeEnvId: codeEnv.id, fileName })
+        const blob = await fetchFileContents(path)
         const content = await blob.text()
-        return { content, path: codeEnv.starterCodePath }
+        return { content, path, fileName }
     })
 
 const getSampleDataUploadUrlSchema = z.object({

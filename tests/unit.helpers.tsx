@@ -1,6 +1,7 @@
 import { db } from '@/database'
 
 import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { toJsonb } from '@/database/types-manual'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -622,16 +623,20 @@ export type InsertTestCodeEnvOptions = {
     name?: string
     identifier?: string
     language?: Language
-    cmdLine?: string
+    commandLines?: Record<string, string>
     url?: string
     isTesting?: boolean
-    starterCodePath?: string
+    starterCodeFileNames?: string[]
     environment?: Array<{ name: string; value: string }>
 }
 
 export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
     const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
     const fileExtension = language === 'R' ? 'R' : 'py'
+    const defaultFileName = `starter.${fileExtension}`
+
+    const commandLines = options.commandLines || (language === 'R' ? { r: 'Rscript %f' } : { py: 'python %f' })
+    const starterCodeFileNames = options.starterCodeFileNames || [defaultFileName]
 
     return await db
         .insertInto('orgCodeEnv')
@@ -640,10 +645,10 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
             name: options.name || `${language} ${faker.system.semver()} Code Environment`,
             identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
-            cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
+            commandLines: toJsonb(commandLines),
             url: options.url || `example.com/${language.toLowerCase()}-base:${faker.string.alphanumeric(6)}`,
             isTesting: options.isTesting ?? false,
-            starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
+            starterCodeFileNames: starterCodeFileNames,
             settings: { environment: options.environment ?? [] },
         })
         .returningAll()

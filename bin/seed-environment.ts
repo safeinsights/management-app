@@ -8,6 +8,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '@/database'
+import { toJsonb } from '@/database/types-manual'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import type { UserInfo } from '@/lib/types'
@@ -344,8 +345,8 @@ async function setupOrganizations() {
                         identifier: 'r-base',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
-                        cmdLine: 'Rscript main.r',
-                        starterCodePath: 'main.r',
+                        commandLines: toJsonb({ r: 'Rscript main.r' }),
+                        starterCodeFileNames: ['main.r'],
                         isTesting: false,
                     },
                     {
@@ -354,8 +355,8 @@ async function setupOrganizations() {
                         identifier: 'python-base',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
-                        cmdLine: 'python main.py',
-                        starterCodePath: 'main.py',
+                        commandLines: toJsonb({ py: 'python main.py' }),
+                        starterCodeFileNames: ['main.py'],
                         isTesting: false,
                     },
                 ])
@@ -426,8 +427,8 @@ async function setupOrganizations() {
                 identifier: 'r-base',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
-                cmdLine: 'Rscript main.r',
-                starterCodePath: 'main.r',
+                commandLines: toJsonb({ r: 'Rscript main.r' }),
+                starterCodeFileNames: ['main.r'],
                 isTesting: false,
             })
             .execute()
