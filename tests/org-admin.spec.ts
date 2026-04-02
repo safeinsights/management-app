@@ -52,7 +52,7 @@ test.describe('Organization Admin', () => {
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
         await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
+        await expect(page.getByText('You must be signed out to accept invitations', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: /sign out/i }).click()
         await page.waitForTimeout(1000)
 

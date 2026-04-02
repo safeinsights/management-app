@@ -4,4 +4,4 @@
 
 DIR="./tmp/local-s3"; [ -d "$DIR" ] || mkdir -p "$DIR"
 
-AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 weed server -s3 -dir="$DIR" -s3.port=8333 -ip=127.0.0.1
+AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 weed -v 0 server -s3 -dir="$DIR" -s3.port=8333 -ip=127.0.0.1

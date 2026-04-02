@@ -113,3 +113,15 @@ test('SCAN-FAILED updates the RUNNING row', async () => {
     expect(rows[0].status).toBe('SCAN-FAILED')
     expect(rows[0].results).toBe(plaintextLog)
 })
+
+test('SCAN-FAILED without prior SCAN-RUNNING inserts a new row', async () => {
+    const { org } = await mockSessionWithTestData({ isAdmin: true })
+    const codeEnv = await insertTestCodeEnv({ orgId: org.id })
+
+    const plaintextLog = 'Failed to pull image "bad-url": exit code 1'
+    const resp = await apiHandler.POST(authedRequest({ codeEnvId: codeEnv.id, status: 'SCAN-FAILED', plaintextLog }))
+    expect(resp.ok).toBe(true)
+
+    const rows = await getScanRows(codeEnv.id)
+    expect(rows.some((r) => r.status === 'SCAN-FAILED' && r.results === plaintextLog)).toBe(true)
+})

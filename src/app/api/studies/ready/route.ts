@@ -12,27 +12,35 @@ export const GET = wrapApiOrgAction(async () => {
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.on('orgId', '=', org.id).onRef('study.id', '=', 'studyJob.studyId'))
         .innerJoin(
-            // join to the latest status change
+            // A late-arriving scan webhook can insert CODE-SCANNED after JOB-READY,
+            // so check for the presence of a ready/running status rather than
+            // requiring it to be the very latest
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
+                    .where('status', 'in', ['JOB-READY', 'JOB-RUNNING'])
                     .orderBy('studyJobId', 'desc')
                     .orderBy('id', 'desc')
                     .distinctOn('studyJobId')
                     .select(['jobStatusChange.studyJobId', 'status'])
-                    .as('latestStatusChange'),
-            (join) =>
-                join
-                    // and only select rows where the latest is READY or RUNNING
-                    .on('latestStatusChange.status', 'in', ['JOB-READY', 'JOB-RUNNING'])
-                    .onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
+                    .as('readyStatusChange'),
+            (join) => join.onRef('readyStatusChange.studyJobId', '=', 'studyJob.id'),
         )
         .where('study.status', '=', 'APPROVED')
+        .where(({ not, exists, selectFrom }) =>
+            not(
+                exists(
+                    selectFrom('jobStatusChange')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                        .where('status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']),
+                ),
+            ),
+        )
         .select([
             'studyJob.id as jobId',
             'studyId',
             'studyJob.createdAt as requestedAt',
-            'latestStatusChange.status',
+            'readyStatusChange.status',
             'study.title',
             'study.dataSources',
             'study.outputMimeType',

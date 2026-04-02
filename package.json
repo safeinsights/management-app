@@ -96,7 +96,7 @@
         "react-phone-number-input": "^3.4.16",
         "remeda": "^2.33.6",
         "server-only": "^0.0.1",
-        "si-encryption": "github:safeinsights/encryption#0dc20c2949199185182c16569313660657dcb636",
+        "si-encryption": "github:safeinsights/encryption#2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20",
         "uuid": "^13.0.0",
         "validator": "^13.15.26",
         "zod": "^4.3.6",
@@ -149,6 +149,8 @@
         "fast-xml-parser": "^5.3.8",
         "serialize-javascript": "^7.0.3",
         "express-rate-limit": "^8.2.2",
-        "flatted": "^3.4.0"
+        "flatted": "^3.4.0",
+        "nodemailer": "^8.0.4",
+        "picomatch": "^4.0.4"
     }
 }

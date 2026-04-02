@@ -6,11 +6,13 @@ import { useMutation } from '@/common'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
+import type { FileInfo } from 'si-encryption/job-results/types'
 
 export type EncryptedJobFile = {
     blob: Blob
     sourceId: string
     fileType: FileType
+    metadata: FileInfo[]
 }
 
 class KeyParseError extends Error {}

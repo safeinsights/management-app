@@ -117,6 +117,28 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
     ],
 })
 
+// --- Clerk testing helpers ---
+//
+// Clerk's testing infrastructure (setupClerkTestingToken) intercepts all Clerk
+// FAPI requests via a Playwright route handler that proxies them with a testing
+// token. This proxy has no fetch timeout — if any single Clerk API request
+// hangs (intermittent on their end), the route handler blocks forever and
+// window.Clerk.loaded never becomes true.
+//
+// This causes two categories of flakiness in tests that sign in/out:
+//
+// 1. visitClerkProtectedPage hangs: clerkLoaded() waits for window.Clerk.loaded
+//    which depends on the Clerk SDK completing its initialization requests. When
+//    one of those requests hangs in the proxy, the whole sign-in flow stalls.
+//
+// 2. Stale SDK state after sign-out: Clerk's signOut() can also hang (same root
+//    cause). When it does, the SDK is left in a broken state that blocks any
+//    subsequent sign-in on the same page/context. Tests that sign out then sign
+//    in as a different user must use a fresh browser context to avoid this.
+//
+// The production code (use-sign-out.ts) mitigates issue #2 with a Promise.race
+// timeout on signOut() so the redirect always fires regardless.
+
 const clerkLoaded = async (page: Page) => {
     await page.waitForFunction(() => window.Clerk !== undefined)
     await page.waitForFunction(() => window.Clerk.loaded)

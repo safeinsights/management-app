@@ -6,6 +6,7 @@ import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
+import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
@@ -137,10 +138,13 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         const encryptedJobFiles = []
         for (const encryptedFile of encryptedFiles) {
             const blob = await fetchFileContents(encryptedFile.path)
+            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
+            const fileMetadata = await reader.listFiles()
             encryptedJobFiles.push({
                 fileType: encryptedFile.fileType,
                 sourceId: encryptedFile.id,
-                blob: blob,
+                blob,
+                metadata: fileMetadata,
             })
         }
 
