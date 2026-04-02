@@ -8,7 +8,6 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '@/database'
-import { toJsonb } from '@/database/types-manual'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import type { UserInfo } from '@/lib/types'
@@ -345,7 +344,7 @@ async function setupOrganizations() {
                         identifier: 'r-base',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
-                        commandLines: toJsonb({ r: 'Rscript main.r' }),
+                        commandLines: { r: 'Rscript main.r' },
                         starterCodeFileNames: ['main.r'],
                         isTesting: false,
                     },
@@ -355,7 +354,7 @@ async function setupOrganizations() {
                         identifier: 'python-base',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
-                        commandLines: toJsonb({ py: 'python main.py' }),
+                        commandLines: { py: 'python main.py' },
                         starterCodeFileNames: ['main.py'],
                         isTesting: false,
                     },
@@ -427,7 +426,7 @@ async function setupOrganizations() {
                 identifier: 'r-base',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
-                commandLines: toJsonb({ r: 'Rscript main.r' }),
+                commandLines: { r: 'Rscript main.r' },
                 starterCodeFileNames: ['main.r'],
                 isTesting: false,
             })

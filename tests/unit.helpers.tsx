@@ -1,7 +1,6 @@
 import { db } from '@/database'
 
 import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
-import { toJsonb } from '@/database/types-manual'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -645,7 +644,7 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
             name: options.name || `${language} ${faker.system.semver()} Code Environment`,
             identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
-            commandLines: toJsonb(commandLines),
+            commandLines,
             url: options.url || `example.com/${language.toLowerCase()}-base:${faker.string.alphanumeric(6)}`,
             isTesting: options.isTesting ?? false,
             starterCodeFileNames: starterCodeFileNames,

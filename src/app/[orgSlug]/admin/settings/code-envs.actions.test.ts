@@ -15,7 +15,6 @@ import {
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { OrgCodeEnvSettings } from '@/database/types'
-import { toJsonb } from '@/database/types-manual'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -63,7 +62,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Delete',
                 identifier: 'test_delete',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
@@ -86,7 +85,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Fetch',
                 identifier: 'test_fetch',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
@@ -107,7 +106,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Update',
                 identifier: 'test_update',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -148,7 +147,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Update',
                 identifier: 'test_update_starter',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -189,7 +188,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Non-admin cannot update',
                 identifier: 'non_admin',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -223,7 +222,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'SI admin can update',
                 identifier: 'si_admin',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -409,7 +408,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image',
                 identifier: 'test_env_update',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -488,7 +487,7 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image with Env',
                 identifier: 'fetch_env_vars',
-                commandLines: toJsonb({ r: 'test command' }),
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,

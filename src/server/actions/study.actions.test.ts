@@ -9,7 +9,6 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
-import { toJsonb } from '@/database/types-manual'
 import { describe, expect, it, vi } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
@@ -58,7 +57,7 @@ describe('Study Actions', () => {
                 name: 'Python Base',
                 identifier: 'python-base',
                 language: 'PYTHON',
-                commandLines: toJsonb({ py: 'python %f' }),
+                commandLines: { py: 'python %f' },
                 url: 'test/url',
                 isTesting: true,
                 orgId: org.id,
@@ -262,7 +261,7 @@ describe('Study Actions', () => {
                     name: 'Test R Image',
                     identifier: 'test-r-image',
                     language: 'R',
-                    commandLines: toJsonb({ r: 'Rscript %f' }),
+                    commandLines: { r: 'Rscript %f' },
                     url: 'test/url',
                     isTesting: true,
                     orgId: org.id,
@@ -293,7 +292,7 @@ describe('Study Actions', () => {
                     name: 'Non-Test R Image',
                     identifier: 'non-test-r',
                     language: 'R',
-                    commandLines: toJsonb({ r: 'Rscript %f' }),
+                    commandLines: { r: 'Rscript %f' },
                     url: 'test/url',
                     isTesting: false,
                     orgId: org.id,
@@ -317,7 +316,7 @@ describe('Study Actions', () => {
                     name: 'Other Org Test Image',
                     identifier: 'other-org-test',
                     language: 'R',
-                    commandLines: toJsonb({ r: 'Rscript %f' }),
+                    commandLines: { r: 'Rscript %f' },
                     url: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,

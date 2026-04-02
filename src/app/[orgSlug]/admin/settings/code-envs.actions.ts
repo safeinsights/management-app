@@ -28,7 +28,6 @@ import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
-import { toJsonb } from '@/database/types-manual'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 
@@ -116,7 +115,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 orgId,
                 ...fieldValues,
                 settings: fieldValues.settings,
-                commandLines: toJsonb(fieldValues.commandLines),
+                commandLines: fieldValues.commandLines,
                 starterCodeFileNames,
                 sampleDataPath: sampleDataPath ? sanitizeFileName(sampleDataPath) : null,
             })
@@ -242,7 +241,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 .set({
                     ...fieldValues,
                     settings: fieldValues.settings,
-                    commandLines: toJsonb(fieldValues.commandLines),
+                    commandLines: fieldValues.commandLines,
                     starterCodeFileNames: currentFileNames,
                     sampleDataPath: sanitizedSampleDataPath,
                 })
