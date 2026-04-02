@@ -9,6 +9,7 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { toJsonb } from '@/database/types-manual'
 import { describe, expect, it, vi } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
@@ -57,11 +58,11 @@ describe('Study Actions', () => {
                 name: 'Python Base',
                 identifier: 'python-base',
                 language: 'PYTHON',
-                cmdLine: 'python %f',
+                commandLines: toJsonb({ py: 'python %f' }),
                 url: 'test/url',
                 isTesting: true,
                 orgId: org.id,
-                starterCodePath: 'test/path/starter.py',
+                starterCodeFileNames: ['starter.py'],
             })
             .execute()
 
@@ -261,11 +262,11 @@ describe('Study Actions', () => {
                     name: 'Test R Image',
                     identifier: 'test-r-image',
                     language: 'R',
-                    cmdLine: 'Rscript %f',
+                    commandLines: toJsonb({ r: 'Rscript %f' }),
                     url: 'test/url',
                     isTesting: true,
                     orgId: org.id,
-                    starterCodePath: 'test/path/starter.R',
+                    starterCodeFileNames: ['starter.R'],
                 })
                 .execute()
 
@@ -292,11 +293,11 @@ describe('Study Actions', () => {
                     name: 'Non-Test R Image',
                     identifier: 'non-test-r',
                     language: 'R',
-                    cmdLine: 'Rscript %f',
+                    commandLines: toJsonb({ r: 'Rscript %f' }),
                     url: 'test/url',
                     isTesting: false,
                     orgId: org.id,
-                    starterCodePath: 'test/path/starter.R',
+                    starterCodeFileNames: ['starter.R'],
                 })
                 .execute()
 
@@ -316,11 +317,11 @@ describe('Study Actions', () => {
                     name: 'Other Org Test Image',
                     identifier: 'other-org-test',
                     language: 'R',
-                    cmdLine: 'Rscript %f',
+                    commandLines: toJsonb({ r: 'Rscript %f' }),
                     url: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,
-                    starterCodePath: 'test/path/starter.R',
+                    starterCodeFileNames: ['starter.R'],
                 })
                 .execute()
 

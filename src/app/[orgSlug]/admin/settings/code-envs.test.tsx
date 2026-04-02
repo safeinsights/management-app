@@ -75,14 +75,18 @@ describe('CodeEnvs', async () => {
         const envName = faker.hacker.noun() + ' Code Env'
         await userEvent.type(screen.getByLabelText(/Name/i), envName)
         await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
-        await userEvent.type(screen.getByLabelText(/Command Line/i), 'Rscript %f')
         await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 
-        // Upload a starter code file
+        // Upload a starter code file via the dropzone input
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement
         await userEvent.upload(fileInput, file)
+
+        // Add a command line entry
+        await userEvent.type(screen.getByPlaceholderText(/Extension/i), 'r')
+        await userEvent.type(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
+        await userEvent.click(screen.getByRole('button', { name: /Add command line/i }))
 
         await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
 

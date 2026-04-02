@@ -58,25 +58,32 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
         enabled: isOpen,
     })
 
-    const starterCodeUrl = starterCodeData?.starterCodeUrl
+    const starterCodeUrls = starterCodeData?.starterCodeUrls ?? []
 
     return (
         <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
             <Stack>
-                <Group gap={0}>
+                <Stack gap="xs">
                     <Text size="sm">
-                        Upload your code file(s). Important: Make sure that your main file includes the &nbsp;
+                        Upload your code file(s). Important: Make sure that your main file includes the Starter Code
+                        provided by the data organization.
                     </Text>
-                    <Text size="sm" c="blue.7" fw="bold">
-                        Starter Code
-                    </Text>
-                    {starterCodeUrl && (
-                        <Anchor href={starterCodeUrl} target="_blank" ml={4}>
-                            <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
-                        </Anchor>
+                    {starterCodeUrls.length > 0 && (
+                        <Group gap="xs">
+                            <Text size="sm" c="blue.7" fw="bold">
+                                Starter Code:
+                            </Text>
+                            {starterCodeUrls.map((entry) => (
+                                <Anchor key={entry.fileName} href={entry.url} target="_blank">
+                                    <Group gap={4}>
+                                        <Text size="sm">{entry.fileName}</Text>
+                                        <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
+                                    </Group>
+                                </Anchor>
+                            ))}
+                        </Group>
                     )}
-                    <Text size="sm">provided by the data organization.</Text>
-                </Group>
+                </Stack>
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
                         <GridCol span={{ base: 6, md: 5 }}>

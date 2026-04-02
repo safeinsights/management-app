@@ -15,6 +15,7 @@ import {
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { OrgCodeEnvSettings } from '@/database/types'
+import { toJsonb } from '@/database/types-manual'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -38,10 +39,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Test Image',
                 identifier: 'test_image',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -51,7 +52,7 @@ describe('Code Environment Actions', () => {
         expect(result).toBeDefined()
         expect(result.url).toEqual('test-url')
         expect(result.name).toEqual('Test Image')
-        expect(result.starterCodePath).toBeDefined()
+        expect(result.starterCodeFileNames).toBeDefined()
     })
 
     it('deleteOrgCodeEnvAction deletes a code environment', async () => {
@@ -62,11 +63,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Delete',
                 identifier: 'test_delete',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
-                starterCodePath: 'test/path/to/starter.py',
+                starterCodeFileNames: ['starter.py'],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -85,11 +86,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Fetch',
                 identifier: 'test_fetch',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
-                starterCodePath: 'test/path/to/starter.py',
+                starterCodeFileNames: ['starter.py'],
             })
             .execute()
 
@@ -106,11 +107,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Update',
                 identifier: 'test_update',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
-                starterCodePath: 'test/path/to/starter.py',
+                starterCodeFileNames: ['starter.py'],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -121,7 +122,7 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
                 identifier: 'test_update',
-                cmdLine: 'updated command',
+                commandLines: { py: 'updated command' },
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
@@ -132,11 +133,11 @@ describe('Code Environment Actions', () => {
 
         expect(result).toBeDefined()
         expect(result.name).toEqual('Updated Test Image')
-        expect(result.cmdLine).toEqual('updated command')
+        expect(result.commandLines).toEqual({ py: 'updated command' })
         expect(result.language).toEqual('PYTHON')
         expect(result.url).toEqual('updated-url')
         expect(result.isTesting).toEqual(true)
-        expect(result.starterCodePath).toEqual('test/path/to/starter.py') // Should remain unchanged
+        expect(result.starterCodeFileNames).toEqual(['starter.py']) // Should remain unchanged
     })
 
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
@@ -147,11 +148,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image to Update',
                 identifier: 'test_update_starter',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
-                starterCodePath: 'test/path/to/old-starter.py',
+                starterCodeFileNames: ['old-starter.py'],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -162,11 +163,11 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
                 identifier: 'test_update_starter',
-                cmdLine: 'updated command',
+                commandLines: { py: 'updated command' },
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
-                starterCodeFileName: 'new-starter.py',
+                starterCodeFileNames: ['new-starter.py'],
                 starterCodeUploaded: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -175,8 +176,8 @@ describe('Code Environment Actions', () => {
 
         expect(result).toBeDefined()
         expect(result.name).toEqual('Updated Test Image')
-        expect(result.starterCodePath).toBeDefined()
-        expect(result.starterCodePath).toContain('new-starter.py')
+        expect(result.starterCodeFileNames).toBeDefined()
+        expect(result.starterCodeFileNames).toContain('new-starter.py')
     })
 
     it('updateOrgCodeEnvAction denies update for non-admin org member', async () => {
@@ -188,11 +189,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Non-admin cannot update',
                 identifier: 'non_admin',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
-                starterCodePath: 'test/path/to/starter.R',
+                starterCodeFileNames: ['starter.R'],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -202,7 +203,7 @@ describe('Code Environment Actions', () => {
             codeEnvId: codeEnv.id,
             name: 'Attempted Update',
             identifier: 'non_admin',
-            cmdLine: 'updated command',
+            commandLines: { py: 'updated command' },
             language: 'PYTHON',
             url: 'updated-url',
             isTesting: true,
@@ -222,11 +223,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'SI admin can update',
                 identifier: 'si_admin',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
-                starterCodePath: 'test/path/to/starter.R',
+                starterCodeFileNames: ['starter.R'],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -237,7 +238,7 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: 'Updated by SI admin',
                 identifier: 'si_admin',
-                cmdLine: 'updated command',
+                commandLines: { py: 'updated command' },
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
@@ -248,7 +249,7 @@ describe('Code Environment Actions', () => {
 
         expect(result).toBeDefined()
         expect(result.name).toEqual('Updated by SI admin')
-        expect(result.cmdLine).toEqual('updated command')
+        expect(result.commandLines).toEqual({ py: 'updated command' })
         expect(result.language).toEqual('PYTHON')
         expect(result.url).toEqual('updated-url')
         expect(result.isTesting).toEqual(true)
@@ -337,10 +338,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Athena Env',
                 identifier: 'athena_env',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceType: 'athena',
@@ -364,10 +365,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Test Image with Env',
                 identifier: 'test_env_vars',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment },
                 dataSourceIds: [],
@@ -386,10 +387,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Test Image without Env',
                 identifier: 'test_no_env',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -408,11 +409,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image',
                 identifier: 'test_env_update',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
-                starterCodePath: 'test/path/to/starter.py',
+                starterCodeFileNames: ['starter.py'],
                 settings: { environment: [{ name: 'OLDVAR', value: 'old_value' }] },
             })
             .returningAll()
@@ -429,7 +430,7 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: 'Test Image',
                 identifier: 'test_env_update',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
                 isTesting: false,
@@ -457,7 +458,7 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: 'Admin Updated Name',
                 identifier: codeEnv.identifier,
-                cmdLine: 'admin updated command',
+                commandLines: { py: 'admin updated command' },
                 language: 'PYTHON',
                 url: 'admin-updated-url',
                 isTesting: true,
@@ -468,7 +469,7 @@ describe('Code Environment Actions', () => {
 
         expect(result).toBeDefined()
         expect(result.name).toEqual('Admin Updated Name')
-        expect(result.cmdLine).toEqual('admin updated command')
+        expect(result.commandLines).toEqual({ py: 'admin updated command' })
         expect(result.language).toEqual('PYTHON')
         expect(result.url).toEqual('admin-updated-url')
         expect(result.isTesting).toEqual(true)
@@ -487,11 +488,11 @@ describe('Code Environment Actions', () => {
                 orgId: org.id,
                 name: 'Test Image with Env',
                 identifier: 'fetch_env_vars',
-                cmdLine: 'test command',
+                commandLines: toJsonb({ r: 'test command' }),
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
-                starterCodePath: 'test/path/to/starter.py',
+                starterCodeFileNames: ['starter.py'],
                 settings: { environment },
             })
             .execute()
@@ -511,10 +512,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Env with DS',
                 identifier: 'env_with_ds',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [ds1.id, ds2.id],
@@ -538,10 +539,10 @@ describe('Code Environment Actions', () => {
                 orgSlug: org.slug,
                 name: 'Env no DS',
                 identifier: 'env_no_ds',
-                cmdLine: 'test command',
+                commandLines: { r: 'test command' },
                 language: 'R',
                 url: 'test-url',
-                starterCodeFileName: 'test.py',
+                starterCodeFileNames: ['test.py'],
                 isTesting: true,
                 settings: { environment: [] },
                 dataSourceIds: [],
@@ -570,7 +571,7 @@ describe('Code Environment Actions', () => {
                 codeEnvId: codeEnv.id,
                 name: codeEnv.name,
                 identifier: codeEnv.identifier,
-                cmdLine: codeEnv.cmdLine,
+                commandLines: codeEnv.commandLines,
                 language: codeEnv.language,
                 url: codeEnv.url,
                 isTesting: false,
@@ -597,10 +598,10 @@ describe('Code Environment Actions', () => {
             orgSlug: org.slug,
             name: 'Cross Org',
             identifier: 'cross_org',
-            cmdLine: 'test',
+            commandLines: { r: 'test' },
             language: 'R',
             url: 'test-url',
-            starterCodeFileName: 'test.py',
+            starterCodeFileNames: ['test.py'],
             isTesting: true,
             settings: { environment: [] },
             dataSourceIds: [otherDs.id],
