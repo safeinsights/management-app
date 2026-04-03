@@ -138,6 +138,10 @@ async function uploadCodeViaIDE(page: Page) {
 async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await expect(studyRow).toBeVisible()
+
+    // Wait for the table to stabilize — React Query refetches can detach DOM nodes mid-click
+    await page.waitForLoadState('networkidle')
+
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     await viewLink.click()
 
