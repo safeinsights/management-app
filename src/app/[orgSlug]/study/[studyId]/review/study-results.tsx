@@ -83,10 +83,26 @@ export const JobStatusHelpText: FC<{
     job: LatestJobForStudy
     hasEncryptedLogs: boolean
 }> = ({ job, hasEncryptedLogs }) => {
-    const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
+    const { isComplete, isErrored, isApproved, isRejected, isFilesRejected } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
         return <Text>The results and logs have been approved and shared with the researcher.</Text>
+    }
+
+    if (isRejected) {
+        if (isFilesRejected) {
+            return (
+                <Text>
+                    The results have been rejected and will not be shared with the researcher. The researcher may
+                    resubmit updated code.
+                </Text>
+            )
+        }
+        return (
+            <Text>
+                The study code has been rejected. The researcher may revise and resubmit updated code.
+            </Text>
+        )
     }
 
     if (isErrored) {
