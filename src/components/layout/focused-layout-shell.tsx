@@ -22,7 +22,7 @@ export function FocusedLayoutShell({ children }: Props) {
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-            <Notifications position="top-right" />
+            <Notifications position="top-right" autoClose={10000} />
             <ActivityContext />
 
             <AppShellHeader bg="purple.8" withBorder={false}>

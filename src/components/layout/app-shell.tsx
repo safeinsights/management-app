@@ -53,7 +53,7 @@ export function AppShell({ children }: Props) {
             <RequireUser />
             <RequireMFA />
             <RequireReviewerKey />
-            <Notifications position="top-right" />
+            <Notifications position="top-right" autoClose={10000} />
             <ActivityContext />
 
             <AppShellHeader bg="purple.8" w="100%">
