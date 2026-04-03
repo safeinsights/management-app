@@ -24,8 +24,12 @@ export const StudyResults: FC<{
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
         const statuses = job?.statusChanges.map((sc) => sc.status) ?? []
         const awaitingScan = statuses.includes('CODE-SUBMITTED') && !statuses.includes('CODE-SCANNED')
+        const codeApproved = statuses.includes('CODE-APPROVED')
+
         let message = 'Study results will become available once the proposal and code are approved and processed.'
-        if (awaitingScan) {
+        if (codeApproved) {
+            message = 'Code has been approved and is being processed. Results will appear here once the run completes.'
+        } else if (awaitingScan) {
             message = 'Code has been uploaded and is being scanned. Approve with caution after manually reviewing it'
         }
 
