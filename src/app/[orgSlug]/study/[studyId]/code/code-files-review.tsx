@@ -89,9 +89,10 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : ''
     const [selectedMainOverride, setSelectedMainOverride] = useState('')
-    const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles].sort(
-        (a, b) => getFileName(a).localeCompare(getFileName(b)),
-    )
+    const allFiles: FileRef[] = [
+        ...(codeFiles.mainFile ? [codeFiles.mainFile] : []),
+        ...codeFiles.additionalFiles,
+    ].sort((a, b) => getFileName(a).localeCompare(getFileName(b)))
 
     // Use user override if set, otherwise fall back to context main file.
     // This handles async hydration: selectedMainOverride starts empty, mainFileName
