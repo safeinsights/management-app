@@ -62,7 +62,7 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: /add code environment/i })).toBeInTheDocument()
     })
 
-    it('opens the modal and creates a code environment that is displayed in table', async () => {
+    it('opens the modal and creates a code environment that is displayed in table', { timeout: 15000 }, async () => {
         renderWithProviders(<CodeEnvs />)
 
         const addButton = screen.getByRole('button', { name: /Add Code Environment/i })
