@@ -52,78 +52,7 @@ jobs:
             #   env:
             #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-    test-unit:
-        timeout-minutes: 10
-        runs-on: ubuntu-latest
-        services:
-            db:
-                image: postgres:15
-                ports:
-                    - 5432:5432
-                env:
-                    POSTGRES_USER: si
-                    POSTGRES_DB: si_test
-                    POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        permissions:
-            contents: read
-        env:
-            DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
-            SIMULATE_CODE_BUILD: 't'
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-            S3_ENDPOINT: 'http://127.0.0.1:8333'
-            S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
-            AWS_ACCESS_KEY_ID: 'si-local-s3'
-            AWS_SECRET_ACCESS_KEY: 'si-local-s3'
-            BUCKET_NAME: 'mgmt-app-local'
-            AWS_REGION: 'us-east-1'
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  cache: 'npm'
-            - name: Start SeaweedFS
-              run: |
-                  docker run -d \
-                    --name seaweedfs \
-                    -p 8333:8333 \
-                    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-                    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                    chrislusf/seaweedfs:latest \
-                    server -s3 -dir=/data
-
-                  for i in $(seq 1 30); do
-                    status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ 2>/dev/null || true)
-                    if [ "$status" = "200" ] || [ "$status" = "403" ]; then
-                      echo "SeaweedFS S3 ready (HTTP $status after ${i}s)"
-                      break
-                    fi
-                    if [ "$i" = "30" ]; then
-                      echo "SeaweedFS failed to start within 30s"
-                      docker logs seaweedfs
-                      exit 1
-                    fi
-                    sleep 1
-                  done
-            - name: Create S3 bucket
-              run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
-            - name: npm install
-              run: npm ci
-            - name: provision db
-              run: npm run db:migrate
-            - name: npm run test:unit
-              run: npm run test:unit -- --reporter=verbose
-            - name: Upload unit coverage
-              uses: actions/upload-artifact@v4
-              if: always()
-              with:
-                  name: unit-coverage
-                  path: test-results/unit
-                  retention-days: 5
-
-    test-e2e:
+    test:
         timeout-minutes: 20
         runs-on: ubuntu-latest
         services:
@@ -137,7 +66,9 @@ jobs:
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         permissions:
-            contents: read
+            pull-requests: write
+            contents: write
+            pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -204,6 +135,8 @@ jobs:
               run: npm ci
             - name: provision db
               run: npm run db:migrate
+            - name: npm run test:unit
+              run: npm run test:unit -- --reporter=verbose
             - name: build and run server
               run: npm run ci:server -- server_output.log
             - name: install playwright dependencies
@@ -211,13 +144,19 @@ jobs:
               run: npx playwright install --with-deps --only-shell chromium
             - name: npm run test:e2e
               run: npm run test:e2e
-            - name: Upload e2e coverage
-              uses: actions/upload-artifact@v4
-              if: always()
+            - name: npm run test:coverage
+              run: npm run test:coverage
+            - name: Add code coverage to actions summary
+              run: |
+                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            - name: Coverage Diff
+              uses: bultkrantz/coverage-diff-action@v5.0.1
               with:
-                  name: e2e-coverage
-                  path: test-results/e2e
-                  retention-days: 5
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
+                  coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
@@ -233,43 +172,3 @@ jobs:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
-
-    test-coverage:
-        timeout-minutes: 5
-        needs: [test-unit, test-e2e]
-        runs-on: ubuntu-latest
-        permissions:
-            pull-requests: write
-            contents: write
-            pages: write
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  cache: 'npm'
-            - name: npm install
-              run: npm ci
-            - name: Download unit coverage
-              uses: actions/download-artifact@v4
-              with:
-                  name: unit-coverage
-                  path: test-results/unit
-            - name: Download e2e coverage
-              uses: actions/download-artifact@v4
-              with:
-                  name: e2e-coverage
-                  path: test-results/e2e
-            - name: npm run test:coverage
-              run: npm run test:coverage
-            - name: Add code coverage to actions summary
-              run: |
-                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
-                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
-            - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@v5.0.1
-              with:
-                  github-token: ${{ secrets.GITHUB_TOKEN }}
-                  base-summary-filename: base-summary.json
-                  coverage-filename: test-results/coverage/coverage-summary.json
-                  allowed-to-fail: true
