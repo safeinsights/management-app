@@ -107,7 +107,9 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
     const theme = useMantineTheme()
     return (
         <Group gap="xs">
-            <Text size="sm" fw={600}>{logLabel(file.fileType)}:</Text>
+            <Text size="sm" fw={600}>
+                {logLabel(file.fileType)}:
+            </Text>
             <ViewResultsLink content={file.contents} />
             <span
                 style={{
