@@ -17,6 +17,8 @@ import type { Provider } from '@lexical/yjs'
 
 import { lexicalTheme, lexicalNodes, isValidUrl } from '@/components/editable-text/config'
 import { Toolbar } from '@/components/editable-text/toolbar'
+import { EscapeFocusPlugin } from '@/components/editable-text/escape-focus-plugin'
+import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 
 import './styles.css'
 
@@ -136,6 +138,8 @@ function EditorContent({
                 cursorColor={cursorColor}
             />
             <ListPlugin />
+            <TabIndentationPlugin />
+            <EscapeFocusPlugin />
             <LinkPlugin validateUrl={isValidUrl} />
             <Toolbar />
         </Paper>

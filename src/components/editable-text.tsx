@@ -17,6 +17,7 @@ import { InputError } from '@/components/errors'
 import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
+import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
 import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
 
 export interface EditableTextProps {
@@ -187,6 +188,7 @@ export const EditableText: FC<EditableTextProps> = ({
                         <HistoryPlugin />
                         <ListPlugin />
                         <TabIndentationPlugin />
+                        <EscapeFocusPlugin />
                         <LinkPlugin validateUrl={isValidUrl} />
                         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                         {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}

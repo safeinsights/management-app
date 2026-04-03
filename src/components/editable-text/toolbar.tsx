@@ -89,6 +89,7 @@ export const Toolbar = () => {
         const selection = $getSelection()
 
         if (!$isRangeSelection(selection)) {
+            setFormatState({ isBold: false, isItalic: false, isUnderline: false, isLink: false, listType: null })
             return
         }
 
