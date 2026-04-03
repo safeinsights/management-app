@@ -42,7 +42,7 @@ function AddTotpScreenContent({
     const theme = useMantineTheme()
     const { user } = useUser()
     const createBackupCode = useReverification(() => user?.createBackupCode(), {
-        onNeedsReverification: ({ complete }) => complete(),
+        onNeedsReverification: ({ cancel }) => cancel(),
     })
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)

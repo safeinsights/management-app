@@ -31,20 +31,14 @@ export function AddSMSMFA() {
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
     const [isVerifyingCode, setIsVerifyingCode] = useState(false)
-    const skipClerkUI = { onNeedsReverification: ({ complete }: { complete: () => void }) => complete() }
-    const createPhoneNumber = useReverification(
-        (phone: string) => user?.createPhoneNumber({ phoneNumber: phone }),
-        skipClerkUI,
+    const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
+    const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
+        phone.setReservedForSecondFactor({ reserved: true }),
     )
-    const setReservedForSecondFactor = useReverification(
-        (phone: PhoneNumberResource) => phone.setReservedForSecondFactor({ reserved: true }),
-        skipClerkUI,
-    )
-    const makeDefaultSecondFactor = useReverification(
-        (phone: PhoneNumberResource) => phone.makeDefaultSecondFactor(),
-        skipClerkUI,
-    )
-    const createBackupCode = useReverification(() => user?.createBackupCode(), skipClerkUI)
+    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
+    const createBackupCode = useReverification(() => user?.createBackupCode(), {
+        onNeedsReverification: ({ cancel }) => cancel(),
+    })
 
     const phoneForm = useForm({
         initialValues: {
