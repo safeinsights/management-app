@@ -22,6 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
         icons: {
             icon: '/icon.png',
         },
+        other: {
+            google: 'notranslate',
+        },
     }
 }
 
