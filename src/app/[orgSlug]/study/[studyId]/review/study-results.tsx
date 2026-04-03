@@ -112,7 +112,7 @@ export const JobStatusHelpText: FC<{
                 </Text>
                 {hasEncryptedLogs && (
                     <Group justify="flex-start" align="center">
-                        <Text fw={650}>Job ID:</Text>
+                        <Text size="sm" fw={600}>Job ID:</Text>
                         <CopyingInput value={job.id} tooltipLabel="Copy" />
                     </Group>
                 )}
