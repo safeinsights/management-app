@@ -135,16 +135,17 @@ async function uploadCodeViaIDE(page: Page) {
 // Reviewer helpers
 // ============================================================================
 
+async function clickViewLink(page: Page, studyRow: ReturnType<Page['getByRole']>) {
+    await expect(studyRow).toBeVisible()
+    // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt
+    await expect(async () => {
+        await studyRow.getByRole('link', { name: 'View' }).first().click()
+    }).toPass()
+}
+
 async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(studyRow).toBeVisible()
-
-    // Wait for the table to stabilize — React Query refetches can detach DOM nodes mid-click
-    await page.waitForLoadState('networkidle')
-
-    const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
-    await viewLink.click()
-
+    await clickViewLink(page, studyRow)
     await page.waitForURL(/\/study\//)
 }
 
@@ -208,9 +209,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // After approval, the researcher's "View" link should go to agreements
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(studyRow).toBeVisible()
-    const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
-    await viewLink.click()
+    await clickViewLink(page, studyRow)
 
     // Should land on agreements page
     await page.waitForURL(/\/agreements$/)
@@ -552,9 +551,7 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible()
-        const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
-        await viewLink.click()
+        await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expect(page.getByText(studyTitle)).toBeVisible()
