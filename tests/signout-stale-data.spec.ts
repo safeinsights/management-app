@@ -10,9 +10,9 @@ import { setupClerkTestingToken } from '@clerk/testing/playwright'
 const signOutViaMenu = async (page: import('@playwright/test').Page) => {
     await page.getByRole('button', { name: 'Toggle profile menu' }).click()
     const signOutBtn = page.getByRole('menuitem', { name: 'Sign Out' })
-    await signOutBtn.waitFor({ state: 'visible', timeout: 5_000 })
+    await signOutBtn.waitFor({ state: 'visible' })
     await signOutBtn.click({ force: true })
-    await page.getByLabel('email').waitFor({ state: 'visible', timeout: 15_000 })
+    await page.getByLabel('email').waitFor({ state: 'visible' })
 }
 
 test.describe('sign-out hard redirect', () => {
@@ -20,7 +20,7 @@ test.describe('sign-out hard redirect', () => {
         test.setTimeout(60_000)
 
         await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
-        await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('text=dashboard').first()).toBeVisible()
 
         // Plant a marker in the JS heap to detect whether a hard navigation occurs
         await page.evaluate(() => {
@@ -62,7 +62,7 @@ test.describe('sign-out hard redirect', () => {
         await fillPinInput(page, creds.mfa, 'sms-pin-input')
         await page.getByRole('button', { name: 'Verify code' }).click()
 
-        await page.waitForURL('**/dashboard', { timeout: 15000 })
+        await page.waitForURL('**/dashboard')
         expect(page.url()).toContain('/dashboard')
     })
 
@@ -75,14 +75,14 @@ test.describe('sign-out hard redirect', () => {
         const ctx1 = await browser.newContext()
         const page1 = await ctx1.newPage()
         await visitClerkProtectedPage({ page: page1, url: '/', role: 'researcher' })
-        await expect(page1.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
+        await expect(page1.locator('text=dashboard').first()).toBeVisible()
         await ctx1.close()
 
         // Sign in as a different user in a clean context — no stale session
         const ctx2 = await browser.newContext()
         const page2 = await ctx2.newPage()
         await visitClerkProtectedPage({ page: page2, url: '/', role: 'admin' })
-        await expect(page2.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
+        await expect(page2.locator('text=dashboard').first()).toBeVisible()
 
         const currentEmail = await page2.evaluate(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
         expect(currentEmail).toBe(TestingUsers.admin.identifier)

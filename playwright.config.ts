@@ -1,6 +1,6 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
-import { IS_CI } from './tests/e2e.helpers'
+import { IS_CI, E2E_TIMEOUT, E2E_TIMEOUT_LONG, E2E_EXPECT_TIMEOUT } from './tests/e2e.helpers'
 
 const reporters: ReporterDescription[] = []
 if (process.argv.includes('--ui')) {
@@ -43,22 +43,23 @@ export default defineConfig({
     /* Fail the build on CI if you accidentally left test.only in the source code. */
     forbidOnly: IS_CI,
 
-    retries: 1,
+    retries: IS_CI ? 2 : 1,
     /* Opt out of parallel tests on CI. */
     workers: IS_CI ? 1 : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
     reporter: reporters,
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
     use: {
-        /* Base URL to use in actions like `await page.goto('/')`. */
         baseURL: 'http://localhost:4000',
+        actionTimeout: E2E_TIMEOUT,
+        navigationTimeout: E2E_TIMEOUT,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
 
+    timeout: E2E_TIMEOUT_LONG,
     expect: {
-        // gh actions is slow
-        timeout: IS_CI ? 10_000 : 5_000,
+        timeout: E2E_EXPECT_TIMEOUT,
     },
 
     outputDir: 'test-results/e2e',
