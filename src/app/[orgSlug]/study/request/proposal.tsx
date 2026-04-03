@@ -63,7 +63,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={submittingOrgSlug} />
+            <StudyRequestPageHeader orgSlug={submittingOrgSlug} studyId={studyId} studyTitle={draftData?.title} />
             <ProxyProvider
                 isDirty={form.isDirty()}
                 onSaveDraft={() =>

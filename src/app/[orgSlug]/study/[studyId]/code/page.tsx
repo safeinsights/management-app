@@ -27,8 +27,9 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
-                    orgSlug, // research lab's org slug
+                    orgSlug,
                     studyId,
+                    studyTitle: result.title,
                     current: 'Upload code',
                 }}
             />

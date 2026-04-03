@@ -26,7 +26,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={orgSlug} />
+            <StudyRequestPageHeader orgSlug={orgSlug} studyId={studyId} studyTitle={result.title} />
             <ProposalProvider
                 studyId={studyId}
                 draftData={{
