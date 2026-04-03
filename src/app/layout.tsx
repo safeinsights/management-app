@@ -31,7 +31,7 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     return (
-        <html lang="en" className={globalFont.className}>
+        <html lang="en" translate="no" className={globalFont.className}>
             <body>
                 <Providers>
                     <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
