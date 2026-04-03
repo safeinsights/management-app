@@ -13,6 +13,7 @@ import {
 
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
+import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
@@ -53,7 +54,7 @@ export function AppShell({ children }: Props) {
             <RequireUser />
             <RequireMFA />
             <RequireReviewerKey />
-            <Notifications position="top-right" autoClose={10000} />
+            <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
             <AppShellHeader bg="purple.8" w="100%">
