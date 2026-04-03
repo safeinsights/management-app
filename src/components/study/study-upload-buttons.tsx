@@ -27,7 +27,7 @@ export const UploadFilesButton: FC<{ onClick: () => void; language: Language }> 
                 <Text fw={600} fz="sm">
                     Upload your files
                 </Text>
-                <Text fz="xs" c="gray.6">
+                <Text fz="xs" c="gray.7">
                     {getAcceptedFormatsForLanguage(language)}
                 </Text>
             </Stack>

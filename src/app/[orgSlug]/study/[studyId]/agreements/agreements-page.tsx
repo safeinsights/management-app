@@ -66,7 +66,7 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
+            <Text fz="sm" fw={700} c="gray.7" pb="sm">
                 {stepLabel}
             </Text>
             <Title order={4}>{title}</Title>

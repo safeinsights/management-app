@@ -147,6 +147,7 @@ export const theme = createTheme({
 export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
     variables: {
         '--mantine-color-placeholder': theme.colors.grey[7],
+        '--mantine-color-dimmed': theme.colors.gray[7],
     },
     dark: {},
     light: {},

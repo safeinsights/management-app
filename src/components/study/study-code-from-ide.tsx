@@ -62,7 +62,7 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack
     return (
         <>
             <Paper p="xl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                <Text fz="sm" fw={700} c="gray.7" pb="sm">
                     STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>
