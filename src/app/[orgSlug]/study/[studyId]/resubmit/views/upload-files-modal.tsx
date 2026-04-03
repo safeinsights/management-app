@@ -120,18 +120,8 @@ export function UploadFilesModal({ isOpen, onClose, language, onConfirmAndProcee
                             <Radio.Group value={selectedMainFile} onChange={setSelectedMainFile}>
                                 <Stack gap="xs">
                                     {files.map((file) => (
-                                        <Group
-                                            key={file.name}
-                                            gap="md"
-                                            w="100%"
-                                            justify="space-between"
-                                            wrap="nowrap"
-                                        >
-                                            <Group
-                                                gap="sm"
-                                                wrap="nowrap"
-                                                style={{ minWidth: 0, overflow: 'hidden' }}
-                                            >
+                                        <Group key={file.name} gap="md" w="100%" justify="space-between" wrap="nowrap">
+                                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0, overflow: 'hidden' }}>
                                                 <Radio
                                                     value={file.name}
                                                     label={file.name}

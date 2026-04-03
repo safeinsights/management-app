@@ -121,13 +121,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                                 {allFiles.map((fileRef) => {
                                     const fileName = getFileName(fileRef)
                                     return (
-                                        <Group
-                                            key={fileName}
-                                            gap="md"
-                                            w="100%"
-                                            justify="space-between"
-                                            wrap="nowrap"
-                                        >
+                                        <Group key={fileName} gap="md" w="100%" justify="space-between" wrap="nowrap">
                                             <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
                                                 <CheckCircleIcon
                                                     size={20}
