@@ -121,19 +121,29 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                                 {allFiles.map((fileRef) => {
                                     const fileName = getFileName(fileRef)
                                     return (
-                                        <Group key={fileName} gap="md" w="100%" justify="space-between">
-                                            <Group gap="sm">
+                                        <Group
+                                            key={fileName}
+                                            gap="md"
+                                            w="100%"
+                                            justify="space-between"
+                                            wrap="nowrap"
+                                        >
+                                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
                                                 <CheckCircleIcon
                                                     size={20}
                                                     color={theme.colors.green[9]}
                                                     weight="fill"
+                                                    style={{ flexShrink: 0 }}
                                                 />
-                                                <Text size="sm">{fileName}</Text>
+                                                <Text size="sm" truncate>
+                                                    {fileName}
+                                                </Text>
                                             </Group>
                                             <ActionIcon
                                                 variant="transparent"
                                                 aria-label={`Remove file ${fileName}`}
                                                 onClick={() => handleRemoveFile(fileName)}
+                                                style={{ flexShrink: 0 }}
                                             >
                                                 <XCircleIcon color={theme.colors.charcoal[4]} weight="fill" />
                                             </ActionIcon>

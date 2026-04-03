@@ -55,8 +55,10 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
             <Table.Td>
                 <Radio checked={isSelected} onChange={onSelect} aria-label={`Select ${fileName} as main file`} />
             </Table.Td>
-            <Table.Td>
-                <Text size="sm">{fileName}</Text>
+            <Table.Td style={{ maxWidth: 300 }}>
+                <Text size="sm" truncate>
+                    {fileName}
+                </Text>
             </Table.Td>
             <Table.Td>
                 <Text size="sm" c="dimmed">
