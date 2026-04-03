@@ -25,7 +25,7 @@ async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax
 
     // Wait for language radio buttons to appear after org selection
     const radioButton = page.getByRole('radio', { name: 'R', exact: true })
-    await radioButton.waitFor({ state: 'visible', timeout: 10000 })
+    await radioButton.waitFor({ state: 'visible' })
     await radioButton.click()
 }
 
@@ -33,7 +33,7 @@ async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<s
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const newStudyButton = page.getByTestId('new-study').first()
-    await newStudyButton.waitFor({ state: 'visible', timeout: 30000 })
+    await newStudyButton.waitFor({ state: 'visible' })
     await newStudyButton.click()
 
     await selectOrgAndLanguage(page)
@@ -43,10 +43,10 @@ async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<s
     await proceedButton.click()
 
     // Wait for navigation to proposal page (URL will contain /proposal)
-    await page.waitForURL(/\/proposal$/, { timeout: 30000 })
+    await page.waitForURL(/\/proposal$/)
 
     // On the Step 2 proposal form, fill required fields
-    await expect(page.getByText('STEP 2')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('STEP 2')).toBeVisible()
 
     return studyTitle
 }
@@ -76,15 +76,15 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 
     // Submit the proposal
     const submitButton = page.getByRole('button', { name: /Submit study proposal/i })
-    await expect(submitButton).toBeEnabled({ timeout: 10000 })
+    await expect(submitButton).toBeEnabled()
     await submitButton.click()
 
     // Wait for the submitted confirmation page
-    await expect(page.getByText(/submitted successfully/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/submitted successfully/i)).toBeVisible()
 
     // Go to dashboard
     await page.getByRole('link', { name: /Go to dashboard/i }).click()
-    await page.waitForURL('**/dashboard', { timeout: 15000 })
+    await page.waitForURL('**/dashboard')
 }
 
 // ============================================================================
@@ -104,14 +104,14 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('dialog')).not.toBeVisible()
 
     // Now on the review page, select the main file
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
 
     const mainFileName = mainCodeFile.split('/').pop()!
     await page.getByRole('radio', { name: mainFileName }).click()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
-    await page.waitForURL('**/dashboard', { timeout: 30000 })
+    await page.waitForURL('**/dashboard')
 
     return mainFileName
 }
@@ -122,11 +122,11 @@ async function uploadCodeViaIDE(page: Page) {
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
     // Wait for files to appear (auto-sync)
-    await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/main.r/i)).toBeVisible()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
-    await page.waitForURL('**/dashboard', { timeout: 30000 })
+    await page.waitForURL('**/dashboard')
 
     return 'main.r'
 }
@@ -137,11 +137,11 @@ async function uploadCodeViaIDE(page: Page) {
 
 async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(studyRow).toBeVisible({ timeout: 15000 })
+    await expect(studyRow).toBeVisible()
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     await viewLink.click()
 
-    await page.waitForURL(/\/study\//, { timeout: 10000 })
+    await page.waitForURL(/\/study\//)
 }
 
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {
@@ -155,11 +155,11 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await page.getByRole('button', { name: /Approve request/i }).click()
 
     // Wait for the approval mutation to complete and redirect to dashboard
-    await page.waitForURL('**/dashboard', { timeout: 15000 })
+    await page.waitForURL('**/dashboard')
 
     // Verify approval
     await viewStudyDetails(page, studyTitle)
-    await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Approved on')).toBeVisible()
 }
 
 async function reviewerApprovesCode(page: Page, studyTitle: string) {
@@ -171,24 +171,24 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     // Wait for code scan to complete — Approve button appears
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
-    await expect(approveButton).toBeVisible({ timeout: 15000 })
+    await expect(approveButton).toBeVisible()
 
     // Click Previous to navigate to agreements page
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
-    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+    await page.waitForURL(/\/agreements$/)
 
     const studyBaseUrl = page.url().replace(/\/agreements$/, '')
-    await expect(page.getByText('STEP 2A')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
     // Verify the ?from=agreements flow renders ProposalReviewView (not CodeReviewView)
     await goto(page, `${studyBaseUrl}/review?from=agreements`)
-    await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible()
 
     // Navigate back to code review for approval
     await goto(page, `${studyBaseUrl}/review`)
@@ -196,7 +196,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByRole('button', { name: /^Approve$/i }).click()
 
     // Wait for the approval mutation to complete and redirect to dashboard
-    await page.waitForURL('**/dashboard', { timeout: 15000 })
+    await page.waitForURL('**/dashboard')
 }
 
 async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
@@ -204,58 +204,58 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // After approval, the researcher's "View" link should go to agreements
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(studyRow).toBeVisible({ timeout: 15000 })
+    await expect(studyRow).toBeVisible()
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     await viewLink.click()
 
     // Should land on agreements page
-    await page.waitForURL(/\/agreements$/, { timeout: 15000 })
+    await page.waitForURL(/\/agreements$/)
 
-    await expect(page.getByText('STEP 3A')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('STEP 3A')).toBeVisible()
     await expect(page.getByText('STEP 3B')).toBeVisible()
     await expect(page.getByText('STEP 3C')).toBeVisible()
 
     // Test Previous → ResearcherProposalView → Proceed to Step 3 round-trip
     const previousButton = page.getByRole('button', { name: /^Previous$/i })
     await previousButton.scrollIntoViewIfNeeded()
-    await expect(previousButton).toBeVisible({ timeout: 10000 })
+    await expect(previousButton).toBeVisible()
     await previousButton.click()
 
     // Should land on /view?from=agreements and show ResearcherProposalView
-    await page.waitForURL(/\/view\?from=agreements$/, { timeout: 10000 })
-    await expect(page.getByText('STEP 2', { exact: true })).toBeVisible({ timeout: 10000 })
+    await page.waitForURL(/\/view\?from=agreements$/)
+    await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
     await expect(page.getByText(studyTitle)).toBeVisible()
     await expect(page.getByText(/Approved on/)).toBeVisible()
 
     // Should show "Proceed to Step 3" since we came from agreements
     const proceedToStep3 = page.getByRole('button', { name: /Proceed to Step 3/i })
-    await expect(proceedToStep3).toBeVisible({ timeout: 10000 })
+    await expect(proceedToStep3).toBeVisible()
     await proceedToStep3.click()
 
     // Should navigate back to agreements
-    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
-    await expect(page.getByText('STEP 3A')).toBeVisible({ timeout: 10000 })
+    await page.waitForURL(/\/agreements$/)
+    await expect(page.getByText('STEP 3A')).toBeVisible()
 
     // Click through agreements to code upload
     const proceedButton = page.getByRole('button', { name: /Proceed to Step 4/i })
-    await expect(proceedButton).toBeVisible({ timeout: 10000 })
+    await expect(proceedButton).toBeVisible()
     await proceedButton.click()
 
     // Wait for code upload page
-    await page.waitForURL(/\/code$/, { timeout: 15000 })
-    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
+    await page.waitForURL(/\/code$/)
+    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible()
     await expect(page.getByText('STEP 4 of 4')).toBeVisible()
 
     // Verify Previous on code upload navigates back to agreements
     await page.getByRole('link', { name: /Previous/i }).click()
-    await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+    await page.waitForURL(/\/agreements$/)
 
     // Navigate back to code upload for the next step
     const proceedButton2 = page.getByRole('button', { name: /Proceed to Step 4/i })
     await proceedButton2.scrollIntoViewIfNeeded()
     await proceedButton2.click()
-    await page.waitForURL(/\/code$/, { timeout: 15000 })
+    await page.waitForURL(/\/code$/)
 }
 
 // ============================================================================
@@ -311,16 +311,16 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
     const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
-    await expect(privateKeyTextarea).toBeVisible({ timeout: 10000 })
+    await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
     // Click "Decrypt Files" to decrypt
     const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled({ timeout: 15000 })
+    await expect(decryptButton).toBeEnabled()
     await decryptButton.click()
 
     // Wait for decryption to complete — View buttons appear in the file table
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
 
     // Select the error log file to share with the researcher
     const checkbox = page.getByRole('checkbox', { name: /Select Code Run Log/i })
@@ -329,16 +329,16 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Wait for approve button to be enabled and click it
     const approveButton = page.getByRole('button', { name: /approve/i }).last()
-    await expect(approveButton).toBeEnabled({ timeout: 15000 })
+    await expect(approveButton).toBeEnabled()
     await approveButton.click()
 
     // Wait for mutation to complete and redirect to dashboard
-    await page.waitForURL('**/dashboard', { timeout: 15000 })
+    await page.waitForURL('**/dashboard')
 
     // Full-page reload clears Router Cache so study details re-fetches from DB
     await goto(page, '/openstax/dashboard')
     await viewStudyDetails(page, studyTitle)
-    await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Approved on/).last()).toBeVisible()
 }
 
 async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
@@ -346,7 +346,7 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 30000 })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible()
 
     // Navigate to study details
     await viewStudyDetails(page, studyTitle)
@@ -358,7 +358,7 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     await expect(page.getByText(/Job ID/i)).toBeVisible()
 
     // Verify logs section exists (async-loaded via JobResults)
-    await expect(page.getByText(/Code Run Log:/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/Code Run Log:/i)).toBeVisible()
 }
 
 // ============================================================================
@@ -372,11 +372,11 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 
     // Click the resubmit button on the study details page
     const resubmitLink = page.getByRole('link', { name: /Resubmit study code/i })
-    await expect(resubmitLink).toBeVisible({ timeout: 10000 })
+    await expect(resubmitLink).toBeVisible()
     await resubmitLink.click()
 
     // Wait for resubmit page to load
-    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
     // Click "Upload your files" button to open modal
     await page.getByRole('button', { name: /Upload your files/i }).click()
@@ -395,13 +395,13 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     await expect(page.getByRole('dialog')).not.toBeVisible()
 
     // Wait for review page
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
 
     // Submit the resubmission
     await page.getByRole('button', { name: /Resubmit study code/i }).click()
 
     // Wait for redirect
-    await page.waitForURL('**/view', { timeout: 15000 })
+    await page.waitForURL('**/view')
 
     return mainFileName
 }
@@ -447,14 +447,14 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         // Currently on the CodeOnlyView (study details page)
         // Click Previous → should go to agreements
         await page.getByRole('link', { name: /Previous/i }).click()
-        await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+        await page.waitForURL(/\/agreements$/)
 
         // Agreements should show "Back to Study Details" (not "Proceed to Step 4")
-        await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible()
 
         // Click Previous on agreements → should go to dashboard
         await page.getByRole('button', { name: /Previous/i }).click()
-        await page.waitForURL(/\/dashboard$/, { timeout: 10000 })
+        await page.waitForURL(/\/dashboard$/)
     })
 
     await test.step('reviewer approves code', async () => {
@@ -548,20 +548,20 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expect(page.getByText(studyTitle)).toBeVisible()
 
         await page.getByRole('button', { name: /Reject request/i }).click()
-        await page.waitForURL('**/dashboard', { timeout: 15000 })
+        await page.waitForURL('**/dashboard')
     })
 
     await test.step('reviewer sees rejected status on dashboard', async () => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
     })
 
@@ -569,7 +569,7 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
     })
 
@@ -579,8 +579,8 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await viewLink.click()
 
         // Should land on /view and see ResearcherProposalView
-        await page.waitForURL(/\/view$/, { timeout: 10000 })
-        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible({ timeout: 10000 })
+        await page.waitForURL(/\/view$/)
+        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
         await expect(page.getByText(studyTitle)).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
@@ -614,16 +614,16 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         // Wait for Reject button (requires CODE-SCANNED)
         const rejectButton = page.getByRole('button', { name: 'Reject' })
-        await expect(rejectButton).toBeVisible({ timeout: 45000 })
+        await expect(rejectButton).toBeVisible()
         await rejectButton.click()
 
-        await page.waitForURL('**/dashboard', { timeout: 15000 })
+        await page.waitForURL('**/dashboard')
         await goto(page, '/openstax/dashboard')
     })
 
     await test.step('reviewer sees rejected status on dashboard', async () => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
     })
 
@@ -631,11 +631,11 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        await expect(page.getByText(/not been approved/i)).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(/not been approved/i)).toBeVisible()
         await expect(page.getByRole('link', { name: /Resubmit study code/i })).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
@@ -643,7 +643,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
     await test.step('researcher resubmits code', async () => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
 
-        await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
         await page.getByRole('button', { name: /Upload your files/i }).click()
         await expect(page.getByRole('dialog')).toBeVisible()
@@ -654,11 +654,11 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await page.getByRole('button', { name: 'Done' }).click()
         await expect(page.getByRole('dialog')).not.toBeVisible()
 
-        await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
         await page.getByRole('button', { name: /Resubmit study code/i }).click()
 
-        await page.waitForURL('**/view', { timeout: 30000 })
-        await expect(page.getByText(/successfully resubmitted/i)).toBeVisible({ timeout: 10000 })
+        await page.waitForURL('**/view')
+        await expect(page.getByText(/successfully resubmitted/i)).toBeVisible()
     })
 })
 
@@ -674,11 +674,11 @@ test('ProposalReviewView for study without code', async ({ page, studyFeatures }
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible({ timeout: 15000 })
+        await expect(studyRow).toBeVisible()
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
 
         await expect(page.getByText('Study title', { exact: true })).toBeVisible()
