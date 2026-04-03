@@ -98,11 +98,7 @@ export const JobStatusHelpText: FC<{
                 </Text>
             )
         }
-        return (
-            <Text>
-                The study code has been rejected. The researcher may revise and resubmit updated code.
-            </Text>
-        )
+        return <Text>The study code has been rejected. The researcher may revise and resubmit updated code.</Text>
     }
 
     if (isErrored) {
