@@ -10,7 +10,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await sql`
         UPDATE org_code_env SET
             command_lines = jsonb_build_object(
-                CASE WHEN language = 'R' THEN 'r' WHEN language = 'PYTHON' THEN 'py' END,
+                CASE WHEN language::text = 'R' THEN 'r' WHEN language::text = 'PYTHON' THEN 'py' END,
                 cmd_line
             ),
             starter_code_file_names = ARRAY[regexp_replace(starter_code_path, '^.*/', '')]
@@ -29,7 +29,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     await sql`
         UPDATE org_code_env SET
             cmd_line = COALESCE(command_lines ->> (
-                CASE WHEN language = 'R' THEN 'r' WHEN language = 'PYTHON' THEN 'py' END
+                CASE WHEN language::text = 'R' THEN 'r' WHEN language::text = 'PYTHON' THEN 'py' END
             ), ''),
             starter_code_path = COALESCE(starter_code_file_names[1], '')
     `.execute(db)
