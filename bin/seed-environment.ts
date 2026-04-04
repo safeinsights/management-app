@@ -8,7 +8,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '@/database'
-import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/mutations'
+import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import type { UserInfo } from '@/lib/types'
 
@@ -18,23 +18,30 @@ interface TestUserConfig {
     role: TestUserRole
     email: string | undefined
     password: string | undefined
+    fixedUserId: string
 }
 
+// Fixed UUIDs so that concurrent CI runs sharing the same Clerk instance
+// always write identical publicMetadata (same user.id) and don't stomp
+// on each other.
 const TEST_USERS: TestUserConfig[] = [
+    {
+        role: 'admin',
+        email: process.env.CLERK_ADMIN_EMAIL,
+        password: process.env.CLERK_ADMIN_PASSWORD,
+        fixedUserId: '00000000-0000-4000-8000-000000000001',
+    },
     {
         role: 'researcher',
         email: process.env.CLERK_RESEARCHER_EMAIL,
         password: process.env.CLERK_RESEARCHER_PASSWORD,
+        fixedUserId: '00000000-0000-4000-8000-000000000002',
     },
     {
         role: 'reviewer',
         email: process.env.CLERK_REVIEWER_EMAIL,
         password: process.env.CLERK_REVIEWER_PASSWORD,
-    },
-    {
-        role: 'admin',
-        email: process.env.CLERK_ADMIN_EMAIL,
-        password: process.env.CLERK_ADMIN_PASSWORD,
+        fixedUserId: '00000000-0000-4000-8000-000000000003',
     },
 ]
 
@@ -265,16 +272,25 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
 }
 
 async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: TestUserConfig): Promise<string> {
-    const { role, email } = config
+    const { role, email, fixedUserId } = config
     const firstName = `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`
 
     console.log(`\n📊 Setting up SI database for ${role}...`)
 
-    const siUserId = await findOrCreateSiUserId(clerkUserId, {
-        firstName,
-        lastName: 'User',
-        email,
-    })
+    const existing = await db.selectFrom('user').select('id').where('id', '=', fixedUserId).executeTakeFirst()
+    if (existing) {
+        await db
+            .updateTable('user')
+            .set({ clerkId: clerkUserId, firstName, lastName: 'User', email })
+            .where('id', '=', fixedUserId)
+            .execute()
+    } else {
+        await db
+            .insertInto('user')
+            .values({ id: fixedUserId, clerkId: clerkUserId, firstName, lastName: 'User', email })
+            .execute()
+    }
+    const siUserId = fixedUserId
     console.log(`✅ SI user ID: ${siUserId}`)
 
     if (role === 'admin' || role === 'reviewer') {
@@ -384,6 +400,7 @@ async function setupOrganizations() {
         singleLangOrg = await db
             .insertInto('org')
             .values({
+                id: '00000000-0000-4000-8000-000000000105',
                 slug: 'single-lang-r-enclave',
                 name: 'Single-Lang R Enclave',
                 type: 'enclave',
@@ -429,6 +446,7 @@ async function setupOrganizations() {
         reviewerAdminOrg = await db
             .insertInto('org')
             .values({
+                id: '00000000-0000-4000-8000-000000000106',
                 slug: 'reviewer-is-org-admin',
                 name: 'Reviewer Admin Enclave',
                 type: 'enclave',
