@@ -29,19 +29,19 @@ const TEST_USERS: TestUserConfig[] = [
         role: 'admin',
         email: process.env.CLERK_ADMIN_EMAIL,
         password: process.env.CLERK_ADMIN_PASSWORD,
-        fixedUserId: '00000000-0000-0000-0000-000000000001',
+        fixedUserId: '00000000-0000-4000-8000-000000000001',
     },
     {
         role: 'researcher',
         email: process.env.CLERK_RESEARCHER_EMAIL,
         password: process.env.CLERK_RESEARCHER_PASSWORD,
-        fixedUserId: '00000000-0000-0000-0000-000000000002',
+        fixedUserId: '00000000-0000-4000-8000-000000000002',
     },
     {
         role: 'reviewer',
         email: process.env.CLERK_REVIEWER_EMAIL,
         password: process.env.CLERK_REVIEWER_PASSWORD,
-        fixedUserId: '00000000-0000-0000-0000-000000000003',
+        fixedUserId: '00000000-0000-4000-8000-000000000003',
     },
 ]
 
@@ -400,7 +400,7 @@ async function setupOrganizations() {
         singleLangOrg = await db
             .insertInto('org')
             .values({
-                id: '00000000-0000-0000-0000-000000000105',
+                id: '00000000-0000-4000-8000-000000000105',
                 slug: 'single-lang-r-enclave',
                 name: 'Single-Lang R Enclave',
                 type: 'enclave',
@@ -446,7 +446,7 @@ async function setupOrganizations() {
         reviewerAdminOrg = await db
             .insertInto('org')
             .values({
-                id: '00000000-0000-0000-0000-000000000106',
+                id: '00000000-0000-4000-8000-000000000106',
                 slug: 'reviewer-is-org-admin',
                 name: 'Reviewer Admin Enclave',
                 type: 'enclave',

@@ -6,10 +6,10 @@ const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.to
 // Fixed UUIDs so that concurrent CI runs sharing the same Clerk instance
 // always produce identical publicMetadata and don't stomp on each other.
 const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
-    { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-0000-0000-000000000101' },
-    { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-0000-0000-000000000102' },
-    { slug: 'openstax', type: 'enclave', id: '00000000-0000-0000-0000-000000000103' },
-    { slug: 'openstax-lab', type: 'lab', id: '00000000-0000-0000-0000-000000000104' },
+    { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
+    { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
+    { slug: 'openstax', type: 'enclave', id: '00000000-0000-4000-8000-000000000103' },
+    { slug: 'openstax-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000104' },
 ]
 
 export async function seed(db: Kysely<DB>): Promise<void> {
