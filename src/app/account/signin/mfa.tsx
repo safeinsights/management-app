@@ -64,10 +64,10 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
+                await auth.getToken({ skipCache: true })
 
                 try {
                     const result = actionResult(await onUserSignInAction())
-                    await auth.getToken({ skipCache: true })
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
