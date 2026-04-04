@@ -41,6 +41,9 @@ export function AddSMSMFA() {
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor(), {
         onNeedsReverification: ({ complete }) => complete(),
     })
+    const createBackupCode = useReverification(() => user?.createBackupCode(), {
+        onNeedsReverification: ({ complete }) => complete(),
+    })
 
     const phoneForm = useForm({
         initialValues: {
@@ -144,7 +147,7 @@ export function AddSMSMFA() {
                 // Then, generate backup codes
                 try {
                     if (user && !user.backupCodeEnabled) {
-                        const resource = await user?.createBackupCode()
+                        const resource = await createBackupCode()
                         setBackupCodes(resource?.codes || [])
                     }
                 } catch (err) {

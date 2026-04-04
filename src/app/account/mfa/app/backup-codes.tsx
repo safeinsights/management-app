@@ -63,8 +63,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                         </Stack>
                     ) : (
                         <Text size="sm" c="dimmed">
-                            Recovery codes could not be generated automatically. You can generate them from your account
-                            settings.
+                            Generating recovery codes...
                         </Text>
                     )}
                 </Box>
