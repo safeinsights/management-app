@@ -14,7 +14,9 @@ interface UseCodeUploadModalOptions {
 
 export function useCodeUploadModal({ onConfirm, onClose, isAddingFiles = false }: UseCodeUploadModalOptions) {
     const { codeFiles, setCodeFiles, removeCodeFile, setMainCodeFile, clearCodeFiles } = useStudyRequest()
-    const [selectedMainFile, setSelectedMainFile] = useState<string>('')
+    const [selectedMainFile, setSelectedMainFile] = useState<string>(() =>
+        codeFiles.mainFile ? getFileName(codeFiles.mainFile) : '',
+    )
 
     const allFiles: FileRef[] = useMemo(
         () => [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles],

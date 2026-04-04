@@ -78,7 +78,7 @@ describe('StudyCodeUploadRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
-    it('enables submit when existing code files are present', async () => {
+    it('keeps submit disabled on upload screen even when existing code files are present', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -103,7 +103,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
