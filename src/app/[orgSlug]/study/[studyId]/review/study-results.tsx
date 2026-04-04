@@ -24,8 +24,12 @@ export const StudyResults: FC<{
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
         const statuses = job?.statusChanges.map((sc) => sc.status) ?? []
         const awaitingScan = statuses.includes('CODE-SUBMITTED') && !statuses.includes('CODE-SCANNED')
+        const codeApproved = statuses.includes('CODE-APPROVED')
+
         let message = 'Study results will become available once the proposal and code are approved and processed.'
-        if (awaitingScan) {
+        if (codeApproved) {
+            message = 'Code has been approved and is being processed. Results will appear here once the run completes.'
+        } else if (awaitingScan) {
             message = 'Code has been uploaded and is being scanned. Approve with caution after manually reviewing it'
         }
 
@@ -79,10 +83,22 @@ export const JobStatusHelpText: FC<{
     job: LatestJobForStudy
     hasEncryptedLogs: boolean
 }> = ({ job, hasEncryptedLogs }) => {
-    const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
+    const { isComplete, isErrored, isApproved, isRejected, isFilesRejected } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
         return <Text>The results and logs have been approved and shared with the researcher.</Text>
+    }
+
+    if (isRejected) {
+        if (isFilesRejected) {
+            return (
+                <Text>
+                    The results have been rejected and will not be shared with the researcher. The researcher may
+                    resubmit updated code.
+                </Text>
+            )
+        }
+        return <Text>The study code has been rejected. The researcher may revise and resubmit updated code.</Text>
     }
 
     if (isErrored) {

@@ -2,6 +2,7 @@
 
 import { AppShell, AppShellFooter, AppShellHeader, AppShellMain, Group, Text, useMantineTheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
+import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import type { Route } from 'next'
 import { usePathname, useRouter } from 'next/navigation'
@@ -22,7 +23,7 @@ export function FocusedLayoutShell({ children }: Props) {
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-            <Notifications position="top-right" />
+            <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
             <AppShellHeader bg="purple.8" withBorder={false}>

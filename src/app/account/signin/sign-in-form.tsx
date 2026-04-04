@@ -26,6 +26,7 @@ export const SignInForm: FC<{
 }> = ({ mfa, onComplete }) => {
     const { signOut, getToken } = useAuth()
     const [signedInRecently, setSignedInRecently] = useState(false)
+    const [isSigningOut, setIsSigningOut] = useState(false)
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
@@ -58,10 +59,14 @@ export const SignInForm: FC<{
     })
 
     useEffect(() => {
-        if (isSignedIn && !signedInRecently) signOut()
+        if (isSignedIn && !signedInRecently) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setIsSigningOut(true)
+            signOut().finally(() => setIsSigningOut(false))
+        }
     }, [isSignedIn, signOut, signedInRecently])
 
-    if (isSignedIn || !signIn || mfa) return null
+    if (isSignedIn || isSigningOut || !signIn || mfa) return null
 
     const rawRedirect = searchParams.get('redirect_url')
     const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
