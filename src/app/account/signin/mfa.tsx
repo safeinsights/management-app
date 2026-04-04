@@ -1,8 +1,8 @@
 'use client'
 import { useMutation } from '@/common'
-import { errorToString, isActionError } from '@/lib/errors'
+import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { actionResult, safeRedirectUrl, sleep } from '@/lib/utils'
+import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -64,17 +64,10 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-                await auth.getToken({ skipCache: true })
 
                 try {
-                    // setActive() syncs the session client-side but the cookie
-                    // may not reach the server yet; retry to handle the race
-                    let response = await onUserSignInAction()
-                    for (let i = 0; i < 2 && isActionError(response); i++) {
-                        await sleep({ 500: 'ms' })
-                        response = await onUserSignInAction()
-                    }
-                    const result = actionResult(response)
+                    const result = actionResult(await onUserSignInAction())
+                    await auth.getToken({ skipCache: true })
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
