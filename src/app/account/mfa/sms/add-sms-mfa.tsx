@@ -31,13 +31,15 @@ export function AddSMSMFA() {
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
     const [isVerifyingCode, setIsVerifyingCode] = useState(false)
-    const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
-    const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
-        phone.setReservedForSecondFactor({ reserved: true }),
+    const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }), {
+        onNeedsReverification: ({ complete }) => complete(),
+    })
+    const setReservedForSecondFactor = useReverification(
+        (phone: PhoneNumberResource) => phone.setReservedForSecondFactor({ reserved: true }),
+        { onNeedsReverification: ({ complete }) => complete() },
     )
-    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
-    const createBackupCode = useReverification(() => user?.createBackupCode(), {
-        onNeedsReverification: ({ cancel }) => cancel(),
+    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor(), {
+        onNeedsReverification: ({ complete }) => complete(),
     })
 
     const phoneForm = useForm({
@@ -142,7 +144,7 @@ export function AddSMSMFA() {
                 // Then, generate backup codes
                 try {
                     if (user && !user.backupCodeEnabled) {
-                        const resource = await createBackupCode()
+                        const resource = await user?.createBackupCode()
                         setBackupCodes(resource?.codes || [])
                     }
                 } catch (err) {
