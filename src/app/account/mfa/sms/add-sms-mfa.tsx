@@ -35,7 +35,6 @@ export function AddSMSMFA() {
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
     )
-    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
     const phoneForm = useForm({
@@ -130,7 +129,6 @@ export function AddSMSMFA() {
                 // First, enable this phone as a second factor
                 try {
                     await setReservedForSecondFactor(phoneObj)
-                    await makeDefaultSecondFactor(phoneObj)
                     notifications.show({ message: 'MFA enabled', color: 'green' })
                 } catch (error) {
                     console.error(error)

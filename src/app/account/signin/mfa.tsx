@@ -28,6 +28,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
     const auth = useAuth()
+    const logMfaDebug = (message: string, details?: Record<string, unknown>) => {
+        console.warn('[mfa-debug]', message, details ?? {})
+    }
 
     // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
@@ -63,12 +66,31 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         },
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
+                logMfaDebug('attemptSecondFactor complete', {
+                    strategy: method,
+                    isLoaded,
+                    isSignedIn,
+                    hasSessionId: Boolean(signInAttempt.createdSessionId),
+                })
                 await setActive({ session: signInAttempt.createdSessionId })
+                logMfaDebug('setActive complete')
 
                 try {
+                    const tokenAfterSetActive = await auth.getToken({ skipCache: true })
+                    logMfaDebug('token fetched immediately after setActive', {
+                        hasToken: Boolean(tokenAfterSetActive),
+                        tokenLength: tokenAfterSetActive?.length ?? 0,
+                    })
+
                     const result = actionResult(await onUserSignInAction())
-                    await auth.getToken({ skipCache: true })
+                    const tokenAfterSignInAction = await auth.getToken({ skipCache: true })
+                    logMfaDebug('token fetched after onUserSignInAction', {
+                        hasToken: Boolean(tokenAfterSignInAction),
+                        tokenLength: tokenAfterSignInAction?.length ?? 0,
+                        redirectToReviewerKey: Boolean(result?.redirectToReviewerKey),
+                    })
                     if (result?.redirectToReviewerKey) {
+                        logMfaDebug('navigating to reviewer key page', { route: Routes.accountKeys })
                         router.push(Routes.accountKeys)
                     } else {
                         let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
@@ -94,20 +116,28 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     color: 'green',
                                     message: `You've successfully linked your SafeInsights accounts under ${email}.`,
                                 })
-                                await auth.getToken({ skipCache: true })
+                                const tokenAfterInviteJoin = await auth.getToken({ skipCache: true })
+                                logMfaDebug('token fetched after invite join', {
+                                    hasToken: Boolean(tokenAfterInviteJoin),
+                                    tokenLength: tokenAfterInviteJoin?.length ?? 0,
+                                    redirectUrl,
+                                })
                             } catch {
                                 notifications.show({
                                     color: 'red',
                                     message: `Failed to link your SafeInsights accounts. Please try again.`,
                                 })
+                                logMfaDebug('invite join flow failed')
                             }
                         }
+                        logMfaDebug('navigating to redirectUrl', { redirectUrl })
                         router.push(redirectUrl)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
+                    logMfaDebug('onUserSignInAction failed, using fallback redirect')
                     router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
                 }
             } else {
