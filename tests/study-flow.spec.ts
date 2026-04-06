@@ -174,17 +174,27 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     await viewStudyDetails(page, studyTitle)
 
-    // Wait for code scan to complete — Approve button appears
+    // With code submitted, the reviewer is redirected to the agreements page
+    await page.waitForURL(/\/agreements$/)
+    await expect(page.getByText('STEP 2A')).toBeVisible()
+    await expect(page.getByText('STEP 2B')).toBeVisible()
+    await expect(page.getByText('STEP 2C')).toBeVisible()
+
+    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+
+    // Proceed to code review — Approve button appears after scan completes
+    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+    await page.waitForURL(/\/review\?from=agreements-proceed$/)
+
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible()
 
-    // Click Previous to navigate to agreements page
+    // Click Previous to navigate back to agreements page
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
     await page.waitForURL(/\/agreements$/)
 
-    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
     await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
