@@ -71,8 +71,7 @@ export function ResubmitCodeProvider({ children, study }: ResubmitCodeProviderPr
 
     const uploadLastModified = useMemo(() => {
         if (uploadFilesFromHook.length === 0) return null
-        const maxTimestamp = Math.max(...uploadFilesFromHook.map((f) => f.lastModified))
-        return dayjs(maxTimestamp).format('MMM D, YYYY h:mm:ss A')
+        return dayjs().format('MMM D, YYYY h:mm:ss A')
     }, [uploadFilesFromHook])
 
     const resubmitStudy = useCallback(() => {
