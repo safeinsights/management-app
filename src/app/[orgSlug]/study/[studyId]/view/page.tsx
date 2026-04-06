@@ -41,8 +41,8 @@ export default async function StudyReviewPage(props: {
             <Title order={1}>Study Details</Title>
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                    <Group justify="space-between" align="center" wrap="nowrap">
+                        <Title order={4} size="xl" style={{ flex: 1, minWidth: 0 }}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />

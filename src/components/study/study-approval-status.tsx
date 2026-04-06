@@ -12,7 +12,7 @@ const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ 
     const statusDisplay = status === 'APPROVED' ? 'Approved' : 'Rejected'
 
     return (
-        <Group c={color} gap="xs" align="center">
+        <Group c={color} gap="xs" align="center" wrap="nowrap">
             {status === 'APPROVED' ? (
                 <CheckCircleIcon weight="fill" size={24} />
             ) : (

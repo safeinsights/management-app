@@ -36,8 +36,8 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                     <Divider />
                     <Text size="sm">You have a new data use request. You may review and approve or reject it.</Text>
 
-                    <Group justify="space-between" align="flex-start" mt="md">
-                        <Stack gap={4}>
+                    <Group justify="space-between" align="flex-start" wrap="nowrap" mt="md">
+                        <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
                             <Text fw={600} size="sm">
                                 Study title
                             </Text>
