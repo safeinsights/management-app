@@ -36,7 +36,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
 
             additionalContent = (
                 <Group justify="flex-start" align="center">
-                    <Text size="xs" fw="bold">
+                    <Text size="sm" fw={600}>
                         Job ID:
                     </Text>
                     <CopyingInput value={job.id} tooltipLabel="Copy" />
