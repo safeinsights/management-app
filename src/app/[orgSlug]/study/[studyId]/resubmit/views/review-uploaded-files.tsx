@@ -59,7 +59,11 @@ export function ReviewUploadedFiles() {
                                         onChange={(event) => setUploadMainFile(event.currentTarget.value)}
                                     />
                                 </Table.Td>
-                                <Table.Td>{file.name}</Table.Td>
+                                <Table.Td style={{ maxWidth: 300 }}>
+                                    <Text size="sm" truncate>
+                                        {file.name}
+                                    </Text>
+                                </Table.Td>
                                 <Table.Td>
                                     <ActionIcon
                                         variant="subtle"

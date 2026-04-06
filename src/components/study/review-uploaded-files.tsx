@@ -54,7 +54,11 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
                     onChange={(event) => setMainFile(event.currentTarget.value)}
                 />
             </Table.Td>
-            <Table.Td>{file.name}</Table.Td>
+            <Table.Td style={{ maxWidth: 300 }}>
+                <Text size="sm" truncate>
+                    {file.name}
+                </Text>
+            </Table.Td>
             <Table.Td>
                 <ActionIcon variant="subtle" color="gray" onClick={() => handleDelete(file)}>
                     <TrashIcon weight="fill" />
