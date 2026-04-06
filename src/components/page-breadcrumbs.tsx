@@ -16,12 +16,26 @@ export const PageBreadcrumbs: FC<{
                             c="blue.7"
                             href={href as Route}
                             key={index}
-                            style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
+                            style={{
+                                maxWidth: 300,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
                         >
                             {title}
                         </Link>
                     ) : (
-                        <Text c="grey.5" key={index} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                        <Text
+                            c="grey.5"
+                            key={index}
+                            style={{
+                                maxWidth: 300,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
                             {title}
                         </Text>
                     ),

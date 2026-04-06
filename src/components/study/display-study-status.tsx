@@ -28,7 +28,7 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
             bdrs={100}
             px={16}
             py={4}
-            style={{ display: 'inline-flex', cursor: tooltip ? 'pointer' : 'default' }}
+            style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}
         >
             {showResultsIcon && <TrophyIcon size={12} weight="fill" />}
             <Text size="xs" fw={500}>

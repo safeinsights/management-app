@@ -46,7 +46,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
         <TableTr fz={14} style={highlightStyle}>
             {/* Study Name - common to all */}
             <TableTd>
-                <InfoTooltip label={study.title}>
+                <InfoTooltip label={study.title} multiline maw={400}>
                     <Text
                         lineClamp={2}
                         style={{ cursor: 'pointer', overflowWrap: 'break-word' }}
