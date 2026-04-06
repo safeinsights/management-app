@@ -47,7 +47,8 @@ export async function getStudyJobInfo(studyJobId: string) {
                     .selectFrom('jobStatusChange')
                     .select(['status', 'createdAt'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .orderBy('createdAt', 'desc'),
+                    .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc'),
             ).as('statusChanges'),
             jsonArrayFrom(
                 eb
@@ -94,6 +95,7 @@ function latestJobForStudyQuery(studyId: string) {
                     .selectFrom('jobStatusChange')
                     .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
                     .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc')
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),
             jsonArrayFrom(

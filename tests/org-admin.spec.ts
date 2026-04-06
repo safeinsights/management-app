@@ -52,7 +52,7 @@ test.describe('Organization Admin', () => {
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
         await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
+        await expect(page.getByText('You must be signed out to accept invitations', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: /sign out/i }).click()
         await page.waitForTimeout(1000)
 
@@ -77,9 +77,7 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await submitBtn.click()
 
-        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible({
-            timeout: 15000,
-        })
+        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
@@ -89,9 +87,9 @@ test.describe('Organization Admin', () => {
             url: '/reviewer-is-org-admin/admin/settings',
         })
 
-        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/, { timeout: 10000 })
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
 
-        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /code environments/i })).toBeVisible()
 
         const codeEnvName = `E2E Code Env ${faker.string.alpha(6)}`
@@ -122,7 +120,7 @@ test.describe('Organization Admin', () => {
         // Save the new code environment
         await page.getByRole('button', { name: /save code environment/i }).click()
 
-        await expect(page.getByRole('dialog', { name: /add code environment/i })).toBeHidden({ timeout: 10000 })
+        await expect(page.getByRole('dialog', { name: /add code environment/i })).toBeHidden()
 
         // Wait for the new code environment to appear
         await expect(page.getByText(codeEnvName)).toBeVisible()
@@ -142,7 +140,7 @@ test.describe('Organization Admin', () => {
         // Submit the update
         await editDialog.getByRole('button', { name: /update code environment/i }).click()
 
-        await expect(editDialog).toBeHidden({ timeout: 10000 })
+        await expect(editDialog).toBeHidden()
 
         // Ensure the updated code environment name is present
         await expect(page.getByText(updatedName)).toBeVisible()
@@ -156,7 +154,7 @@ test.describe('Organization Admin', () => {
 
         // Verify the code viewer modal opens with the file content
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
-        await expect(codeViewerDialog).toBeVisible({ timeout: 10000 })
+        await expect(codeViewerDialog).toBeVisible()
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
 })

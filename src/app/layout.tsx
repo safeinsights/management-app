@@ -22,6 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
         icons: {
             icon: '/icon.png',
         },
+        other: {
+            google: 'notranslate',
+        },
     }
 }
 
@@ -31,7 +34,7 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     return (
-        <html lang="en" className={globalFont.className}>
+        <html lang="en" translate="no" className={globalFont.className}>
             <body>
                 <Providers>
                     <Suspense fallback={<GlobalLoading />}>{children}</Suspense>

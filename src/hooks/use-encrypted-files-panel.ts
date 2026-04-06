@@ -27,6 +27,7 @@ export type UnifiedFileRow = {
     key: string
     label: string
     name: string
+    bytes: number | null
     fileType: FileType
     state: FileRowState
     file: JobFile | null
@@ -125,6 +126,17 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         return map
     }, [decryptedFiles])
 
+    const metadataByFileType = useMemo(() => {
+        const map = new Map<FileType, { name: string; totalBytes: number }>()
+        for (const file of encryptedFiles ?? []) {
+            if (file.metadata.length === 0) continue
+            const totalBytes = file.metadata.reduce((sum, f) => sum + f.bytes, 0)
+            const name = file.metadata.length === 1 ? file.metadata[0].path : `${file.metadata.length} files`
+            map.set(file.fileType, { name, totalBytes })
+        }
+        return map
+    }, [encryptedFiles])
+
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         const rows: UnifiedFileRow[] = []
 
@@ -141,6 +153,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
             const approvedFile = approvedFilesByType.get(approvedType)
             const decryptedFile = decryptedFilesByType.get(approvedType)
+            const meta = metadataByFileType.get(f.fileType)
 
             let state: FileRowState
             let file: JobFile | null = null
@@ -158,7 +171,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             rows.push({
                 key: `${f.fileType}-${f.name}`,
                 label: logLabel(f.fileType),
-                name: decryptedFile?.path ?? approvedFile?.path ?? f.name,
+                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.name ?? f.name,
+                bytes: meta?.totalBytes ?? null,
                 fileType: f.fileType,
                 state,
                 file,
@@ -166,7 +180,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         }
 
         return rows
-    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType])
+    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType, metadataByFileType])
 
     const hasFileRows = fileRows.length > 0
 

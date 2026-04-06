@@ -71,6 +71,44 @@ describe('EncryptedFilesPanel', () => {
         expect(screen.getByRole('button', { name: 'Decrypt Files' })).toBeDefined()
     })
 
+    it('shows file names and sizes from metadata before decryption', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                blob: new Blob(),
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                metadata: [{ path: 'results.csv', bytes: 2048 }],
+            },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('results.csv')).toBeDefined()
+            expect(screen.getByText('2.0 KB')).toBeDefined()
+        })
+
+        // Still locked — no View or Download
+        expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+        expect(screen.queryByTestId('download-link')).toBeNull()
+    })
+
     it('decrypts and shows file table with View and Download', async () => {
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
         const fingerprint = await fingerprintKeyData(publicKey)
@@ -87,6 +125,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'results.csv', bytes: 15 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
@@ -146,6 +185,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'results.csv', bytes: 15 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
@@ -204,6 +244,7 @@ describe('EncryptedFilesPanel', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' as FileType,
+            metadata: [{ path: 'scan-log.txt', bytes: 40 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])

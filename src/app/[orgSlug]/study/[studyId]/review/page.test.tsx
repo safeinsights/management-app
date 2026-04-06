@@ -107,6 +107,6 @@ describe('StudyReviewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('Study request')).toBeInTheDocument()
+        expect(screen.getByText('Review Study')).toBeInTheDocument()
     })
 })

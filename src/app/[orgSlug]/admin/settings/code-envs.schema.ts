@@ -30,6 +30,27 @@ const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
 export const identifierRegex = /^[a-z0-9_]+$/
 
+// Docker image reference per OCI distribution spec:
+//   [HOST[:PORT]/]PATH[:TAG|@DIGEST]
+//
+// HOST:  DNS hostname, optional port (e.g., harbor.safeinsights.org:443)
+// PATH:  slash-separated components, each lowercase alphanumeric with [._-] separators
+//        (double __ also allowed, multiple hyphens allowed)
+// TAG:   alphanumeric, [._-], max 128 chars (e.g., :latest, :2025-05-15)
+// DIGEST: algorithm:hex, at least 32 hex chars (e.g., @sha256:9cacb7...)
+const dnsLabel = String.raw`[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?`
+const domain = String.raw`(?:${dnsLabel}(?:\.${dnsLabel})*(?::[0-9]+)?\/)`
+const pathComponent = String.raw`[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*`
+const tag = String.raw`:[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}`
+const digest = String.raw`@[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-fA-F0-9]{32,}`
+
+const dockerImageRefRegex = new RegExp(`^${domain}?${pathComponent}(?:/${pathComponent})*(?:${tag})?(?:${digest})?$`)
+
+export const dockerImageRefSchema = z
+    .string()
+    .nonempty('Image reference is required')
+    .regex(dockerImageRefRegex, 'Must be a valid Docker image reference (e.g., registry.example.com/org/image:tag)')
+
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
     name: z.string().nonempty(),
@@ -39,7 +60,7 @@ const codeEnvFieldsSchema = z.object({
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
     cmdLine: z.string().nonempty(),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
-    url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
+    url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.default({ environment: [] }),
     sampleDataPath: z

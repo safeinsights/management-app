@@ -120,14 +120,25 @@ export function UploadFilesModal({ isOpen, onClose, language, onConfirmAndProcee
                             <Radio.Group value={selectedMainFile} onChange={setSelectedMainFile}>
                                 <Stack gap="xs">
                                     {files.map((file) => (
-                                        <Group key={file.name} gap="md" w="100%" justify="space-between">
-                                            <Group gap="sm">
-                                                <Radio value={file.name} label={file.name} />
+                                        <Group key={file.name} gap="md" w="100%" justify="space-between" wrap="nowrap">
+                                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0, overflow: 'hidden' }}>
+                                                <Radio
+                                                    value={file.name}
+                                                    label={file.name}
+                                                    styles={{
+                                                        label: {
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                        },
+                                                    }}
+                                                />
                                             </Group>
                                             <ActionIcon
                                                 variant="transparent"
                                                 aria-label={`Remove file ${file.name}`}
                                                 onClick={() => removeFile(file)}
+                                                style={{ flexShrink: 0 }}
                                             >
                                                 <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
                                             </ActionIcon>

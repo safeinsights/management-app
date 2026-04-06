@@ -7,12 +7,14 @@ import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 interface ProposalHeaderProps {
     orgSlug: string
     title: string
+    studyId?: string
+    studyTitle?: string
 }
 
-export const ProposalHeader: FC<ProposalHeaderProps> = ({ orgSlug, title }) => {
+export const ProposalHeader: FC<ProposalHeaderProps> = ({ orgSlug, title, studyId, studyTitle }) => {
     return (
         <>
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, current: title }} />
+            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, studyTitle, current: title }} />
             <Title order={1}>{title}</Title>
         </>
     )
@@ -20,8 +22,10 @@ export const ProposalHeader: FC<ProposalHeaderProps> = ({ orgSlug, title }) => {
 
 interface StudyRequestPageHeaderProps {
     orgSlug: string
+    studyId?: string
+    studyTitle?: string
 }
 
-export const StudyRequestPageHeader: FC<StudyRequestPageHeaderProps> = ({ orgSlug }) => {
-    return <ProposalHeader orgSlug={orgSlug} title="Request data use" />
+export const StudyRequestPageHeader: FC<StudyRequestPageHeaderProps> = ({ orgSlug, studyId, studyTitle }) => {
+    return <ProposalHeader orgSlug={orgSlug} title="Request data use" studyId={studyId} studyTitle={studyTitle} />
 }

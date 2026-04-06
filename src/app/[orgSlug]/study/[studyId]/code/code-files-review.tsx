@@ -55,8 +55,10 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
             <Table.Td>
                 <Radio checked={isSelected} onChange={onSelect} aria-label={`Select ${fileName} as main file`} />
             </Table.Td>
-            <Table.Td>
-                <Text size="sm">{fileName}</Text>
+            <Table.Td style={{ maxWidth: 300 }}>
+                <Text size="sm" truncate>
+                    {fileName}
+                </Text>
             </Table.Td>
             <Table.Td>
                 <Text size="sm" c="dimmed">
@@ -89,7 +91,10 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : ''
     const [selectedMainOverride, setSelectedMainOverride] = useState('')
-    const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
+    const allFiles: FileRef[] = [
+        ...(codeFiles.mainFile ? [codeFiles.mainFile] : []),
+        ...codeFiles.additionalFiles,
+    ].sort((a, b) => getFileName(a).localeCompare(getFileName(b)))
 
     // Use user override if set, otherwise fall back to context main file.
     // This handles async hydration: selectedMainOverride starts empty, mainFileName
@@ -130,7 +135,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
     return (
         <>
             <Paper p="xl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                <Text fz="sm" fw={700} c="gray.7" pb="sm">
                     STEP 4 of 4
                 </Text>
                 <Title order={4}>Study code</Title>

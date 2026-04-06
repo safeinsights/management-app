@@ -25,11 +25,11 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
                 crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Data use request / Review study proposal']]}
             />
 
-            <Title order={2}>Study request</Title>
+            <Title order={2}>Review Study</Title>
 
             <Paper bg="white" p="xxl">
                 <Stack gap="md">
-                    <Text fz="xs" fw={700} c="gray.6">
+                    <Text fz="xs" fw={700} c="gray.7">
                         STEP 1
                     </Text>
                     <Title order={4}>Review study proposal</Title>

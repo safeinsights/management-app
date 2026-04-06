@@ -35,7 +35,7 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
 
             <Paper bg="white" p="xxl">
                 <Stack gap="md">
-                    <Text fz="xs" fw={700} c="gray.6">
+                    <Text fz="xs" fw={700} c="gray.7">
                         STEP 2
                     </Text>
                     <Title order={4}>Study proposal</Title>

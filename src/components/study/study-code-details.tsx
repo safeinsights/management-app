@@ -43,13 +43,17 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
             <Text>View the code files that you uploaded to run against the dataset.</Text>
             {mainCodeFileChip && (
                 <Group>
-                    <Text fw={650}>Main code file:</Text>
+                    <Text size="sm" fw={600}>
+                        Main code file:
+                    </Text>
                     {mainCodeFileChip}
                 </Group>
             )}
             {supplementalCodeFiles.length > 0 && (
                 <Group>
-                    <Text fw={650}>Additional file(s):</Text>
+                    <Text size="sm" fw={600}>
+                        Additional file(s):
+                    </Text>
                     <Group gap="md">{supplementalCodeFileChips}</Group>
                 </Group>
             )}

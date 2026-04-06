@@ -51,7 +51,9 @@ describe('View Study Results', () => {
 
     it('shows results rejected state', async () => {
         await insertAndRender('PENDING-REVIEW', 'FILES-REJECTED')
-        expect(screen.queryByText('Latest results rejected')).toBeDefined()
+        expect(
+            screen.getByText(/The results have been rejected and will not be shared with the researcher/),
+        ).toBeDefined()
     })
 
     it('renders the results if the job has been approved', async () => {
@@ -63,7 +65,7 @@ describe('View Study Results', () => {
 
     it('renders the form to unlock results', async () => {
         await insertAndRender('PENDING-REVIEW', 'RUN-COMPLETE')
-        expect(screen.queryByText('Latest results rejected')).toBeDefined()
+        expect(screen.getByText(/Review results before these can be released/)).toBeDefined()
     })
 
     it('shows no logs message and hides decrypt UI when JOB-ERRORED has no encrypted logs', async () => {
@@ -130,6 +132,7 @@ describe('View Study Results', () => {
             blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'test.data', bytes: 4 }],
         }
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
