@@ -206,6 +206,7 @@ export interface Study {
     researchQuestions: Json | null
     reviewerId: string | null
     status: Generated<StudyStatus>
+    submittedAt: Timestamp | null
     submittedByOrgId: string
     title: string
 }

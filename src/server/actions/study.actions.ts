@@ -52,6 +52,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.rejectedAt',
             'study.containerLocation',
             'study.createdAt',
+            'study.submittedAt',
             'study.datasets',
             'study.dataSources',
             'study.irbProtocols',
@@ -73,7 +74,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'latestStudyJob.jobId as latestStudyJobId',
         ])
 
-        .orderBy('study.createdAt', 'desc')
+        .orderBy(sql`coalesce(study.submitted_at, study.created_at)`, 'desc')
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
