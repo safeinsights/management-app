@@ -314,11 +314,19 @@ function uploadErrorLogs(jobId: string): void {
     execSync(cmd, { stdio: 'inherit' })
 }
 
+async function navigateReviewerToCodeReview(page: Page, studyTitle: string): Promise<void> {
+    await viewStudyDetails(page, studyTitle)
+    // With code submitted, reviewer is redirected to agreements — proceed through to code review
+    await page.waitForURL(/\/agreements$/)
+    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+    await page.waitForURL(/\/review\?from=agreements-proceed$/)
+}
+
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle)
+    await navigateReviewerToCodeReview(page, studyTitle)
 
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
@@ -349,7 +357,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Full-page reload clears Router Cache so study details re-fetches from DB
     await goto(page, '/openstax/dashboard')
-    await viewStudyDetails(page, studyTitle)
+    await navigateReviewerToCodeReview(page, studyTitle)
     await expect(page.getByText(/Approved on/).last()).toBeVisible()
 }
 
