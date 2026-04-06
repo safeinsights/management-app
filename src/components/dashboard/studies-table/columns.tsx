@@ -4,11 +4,12 @@ import { Audience, Scope } from './types'
 type ColumnDef = {
     id: string
     header: string
+    width?: string
 }
 
 // Researcher columns (5)
 const RESEARCHER_COLUMNS: ColumnDef[] = [
-    { id: 'studyName', header: 'Study Name' },
+    { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedTo', header: 'Submitted To' },
     { id: 'status', header: 'Status' },
@@ -17,7 +18,7 @@ const RESEARCHER_COLUMNS: ColumnDef[] = [
 
 // Reviewer org columns (6) - has "Reviewed By" which shows orgSlug
 const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
-    { id: 'studyName', header: 'Study Name' },
+    { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'reviewedBy', header: 'Reviewed By' },
@@ -27,7 +28,7 @@ const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
 
 // Reviewer user columns (6) - has "Organization" which shows orgName
 const REVIEWER_USER_COLUMNS: ColumnDef[] = [
-    { id: 'studyName', header: 'Study Name' },
+    { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'submittedOn', header: 'Submitted On' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'organization', header: 'Organization' },
@@ -49,7 +50,12 @@ export function TableHeader({ audience, scope }: { audience: Audience; scope: Sc
         <TableThead>
             <TableTr>
                 {columns.map((col, index) => (
-                    <TableTh key={col.id} fw={600} ta={index === columns.length - 1 ? 'center' : undefined}>
+                    <TableTh
+                        key={col.id}
+                        fw={600}
+                        ta={index === columns.length - 1 ? 'center' : undefined}
+                        w={col.width}
+                    >
                         {col.header}
                     </TableTh>
                 ))}
