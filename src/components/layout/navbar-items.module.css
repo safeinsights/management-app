@@ -5,3 +5,15 @@
 .navLinkProfileHover:hover {
     background-color: var(--mantine-color-blue-8);
 }
+
+.profileMenuSection {
+    position: relative;
+}
+
+.profileMenuCollapse {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--mantine-color-purple-9);
+}

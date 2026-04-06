@@ -60,8 +60,8 @@ export function NavbarProfileMenu() {
     }, [opened, toggle, menuRef])
 
     return (
-        <AppShellSection ref={menuRef}>
-            <Collapse in={opened} bg="purple.9" id="profile-menu" role="menu">
+        <AppShellSection ref={menuRef} className={styles.profileMenuSection}>
+            <Collapse in={opened} id="profile-menu" role="menu" className={styles.profileMenuCollapse}>
                 <Protect role={AuthRole.Researcher}>
                     <NavLink
                         label="Profile"
