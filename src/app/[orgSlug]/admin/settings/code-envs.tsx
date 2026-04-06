@@ -39,7 +39,6 @@ import { Refresher } from '@/components/refresher'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
-import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
@@ -101,36 +100,50 @@ const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
     </Grid>
 )
 
-const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isLoadingCode: boolean }> = ({
-    image,
-    onViewCode,
-    isLoadingCode,
-}) => {
+const CodeEnvDetailPanel: React.FC<{
+    image: CodeEnv
+    onViewCode: (fileName: string) => void
+    isLoadingCode: boolean
+}> = ({ image, onViewCode, isLoadingCode }) => {
     const envVars =
         ((image.settings as OrgCodeEnvSettings)?.environment || []).map((v) => `${v.name}=${v.value}`).join(', ') || '-'
+
+    const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
+    const commandLines = (image.commandLines ?? {}) as Record<string, string>
 
     return (
         <Box p="md" bg="gray.0">
             <Stack gap="xs">
                 <DetailRow label="Identifier">{image.identifier}</DetailRow>
                 <DetailRow label="URL">{image.url}</DetailRow>
-                <DetailRow label="Command Line">{image.cmdLine}</DetailRow>
+                <DetailRow label="Command Lines">
+                    {Object.entries(commandLines).length > 0
+                        ? Object.entries(commandLines)
+                              .map(([ext, cmd]) => `${ext}=${cmd}`)
+                              .join(', ')
+                        : '-'}
+                </DetailRow>
                 <DetailRow label="Starter Code">
-                    <Group gap="sm">
-                        <span>{basename(image.starterCodePath)}</span>
-                        <Tooltip label="View Starter Code" withArrow>
-                            <ActionIcon
-                                size="sm"
-                                variant="subtle"
-                                color="blue"
-                                onClick={onViewCode}
-                                loading={isLoadingCode}
-                                aria-label="View Starter Code"
-                            >
-                                <FileMagnifyingGlassIcon />
-                            </ActionIcon>
-                        </Tooltip>
-                    </Group>
+                    <Stack gap={4}>
+                        {starterCodeFileNames.map((fileName) => (
+                            <Group key={fileName} gap="sm">
+                                <span>{fileName}</span>
+                                <Tooltip label={`View ${fileName}`} withArrow>
+                                    <ActionIcon
+                                        size="sm"
+                                        variant="subtle"
+                                        color="blue"
+                                        onClick={() => onViewCode(fileName)}
+                                        loading={isLoadingCode}
+                                        aria-label={`View ${fileName}`}
+                                    >
+                                        <FileMagnifyingGlassIcon />
+                                    </ActionIcon>
+                                </Tooltip>
+                            </Group>
+                        ))}
+                        {starterCodeFileNames.length === 0 && '-'}
+                    </Stack>
                 </DetailRow>
                 <DetailRow label="Sample Data Path">{image.sampleDataPath || '-'}</DetailRow>
                 <DetailRow label="Data Source Type">
@@ -155,7 +168,7 @@ const CodeEnvRow: React.FC<{
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
     const [scanResultsOpened, { open: openScanResults, close: closeScanResults }] = useDisclosure(false)
     const [detailOpened, { toggle: toggleDetail }] = useDisclosure(false)
-    const [starterCode, setStarterCode] = useState<string | null>(null)
+    const [starterCode, setStarterCode] = useState<{ content: string; fileName: string } | null>(null)
     const [isLoadingCode, setIsLoadingCode] = useState(false)
 
     const deleteMutation = useMutation({
@@ -174,17 +187,22 @@ const CodeEnvRow: React.FC<{
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
-    const handleViewCode = async () => {
+    const handleViewCode = async (fileName?: string) => {
+        const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
+        const targetFileName = fileName || starterCodeFileNames[0]
+        if (!targetFileName) return
+
         setIsLoadingCode(true)
         try {
             const result = await fetchStarterCodeAction({
                 orgSlug,
                 codeEnvId: image.id,
+                fileName: targetFileName,
             })
             if (isActionError(result)) {
                 reportError(result)
             } else {
-                setStarterCode(result.content)
+                setStarterCode({ content: result.content, fileName: result.fileName })
                 openCodeViewer()
             }
         } catch (error) {
@@ -220,7 +238,7 @@ const CodeEnvRow: React.FC<{
                         />
                     </ActionIcon>
                     <Text fw={500}>{image.name}</Text>
-                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={handleViewCode}>
+                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={() => handleViewCode()}>
                         {image.language}
                     </Badge>
                     {image.isTesting && (
@@ -255,14 +273,14 @@ const CodeEnvRow: React.FC<{
             <AppModal
                 isOpen={codeViewerOpened}
                 onClose={closeCodeViewer}
-                title={`Starter Code: ${basename(image.starterCodePath)}`}
+                title={`Starter Code: ${starterCode?.fileName ?? ''}`}
                 size="xl"
             >
                 {starterCode ? (
                     <CodeViewer
-                        code={starterCode}
+                        code={starterCode.content}
                         language={image.language.toLowerCase() as 'python' | 'r'}
-                        fileName={basename(image.starterCodePath)}
+                        fileName={starterCode.fileName}
                     />
                 ) : (
                     <LoadingMessage message="Loading starter code..." />

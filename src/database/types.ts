@@ -3,7 +3,7 @@
  * Please do not edit it manually.
  */
 
-import type { OrgCodeEnvSettings } from './types-manual'
+import type { CommandLines, OrgCodeEnvSettings } from './types-manual'
 import type { ColumnType } from 'kysely'
 
 export type AuditEventType =
@@ -111,7 +111,7 @@ export interface Org {
 }
 
 export interface OrgCodeEnv {
-    cmdLine: string
+    commandLines: CommandLines
     createdAt: Generated<Timestamp>
     dataSourceType: string | null
     id: Generated<string>
@@ -122,7 +122,7 @@ export interface OrgCodeEnv {
     orgId: string
     sampleDataPath: string | null
     settings: Generated<OrgCodeEnvSettings>
-    starterCodePath: string
+    starterCodeFileNames: Generated<string[]>
     url: string
 }
 
@@ -268,4 +268,4 @@ export interface DB {
 export type FileType = StudyJobFileType
 
 // Re-export manual types for convenience
-export type { EnvVar, OrgCodeEnvSettings } from './types-manual'
+export type { EnvVar, OrgCodeEnvSettings, CommandLines } from './types-manual'

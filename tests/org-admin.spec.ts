@@ -103,7 +103,9 @@ test.describe('Organization Admin', () => {
         // Fill in code environment details
         await page.getByLabel(/identifier/i).fill(codeEnvIdentifier)
         await page.getByRole('textbox', { name: /^name$/i }).fill(codeEnvName)
-        await page.getByLabel(/command line/i).fill('Rscript %f')
+        await page.getByPlaceholder(/extension/i).fill('r')
+        await page.getByPlaceholder(/command.*%f/i).fill('Rscript %f')
+        await page.getByLabel(/add command line/i).click()
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
 
         // Choose language (R) - it defaults to R, so we just verify it
@@ -149,8 +151,8 @@ test.describe('Organization Admin', () => {
         const updatedRow = page.getByText(updatedName, { exact: true }).locator('xpath=../../..')
         await updatedRow.getByRole('button').first().click()
 
-        // Click the "View Starter Code" icon button within this row's detail panel
-        await updatedRow.getByLabel(/view starter code/i).click()
+        // Click the "View" icon button for the starter code file
+        await updatedRow.getByLabel(/view main\.r/i).click()
 
         // Verify the code viewer modal opens with the file content
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
