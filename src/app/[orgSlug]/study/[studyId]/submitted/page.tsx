@@ -23,7 +23,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={orgSlug} />
+            <StudyRequestPageHeader orgSlug={orgSlug} studyId={studyId} studyTitle={result.title} />
             <Paper p="xl">
                 <Stack align="center" gap="md" py="xl">
                     <CheckCircleIcon size={60} weight="fill" color="var(--mantine-color-green-9)" />
