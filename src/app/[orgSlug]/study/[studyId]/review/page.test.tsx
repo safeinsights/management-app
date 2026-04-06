@@ -35,7 +35,26 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
-    it('renders CodeReviewView for enclave with code submitted', async () => {
+    it('redirects enclave to agreements page when code submitted and not coming from agreements', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/agreements'))
+    })
+
+    it('renders CodeReviewView for enclave with code submitted when coming from agreements', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -46,7 +65,7 @@ describe('StudyReviewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
+            searchParams: Promise.resolve({ from: 'agreements-proceed' }),
         })
         expect(page?.type).toBe(CodeReviewView)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
