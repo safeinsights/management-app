@@ -52,6 +52,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             id="studyOrg"
                             data-testid="org-select"
                             key={form.key('orgSlug')}
+                            allowDeselect={false}
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             placeholder="Select a Data Organization"
                             disabled={isExistingDraft || isLoading}
