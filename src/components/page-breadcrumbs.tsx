@@ -58,7 +58,7 @@ export const ResearcherBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.orgDashboard({ orgSlug })]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.dashboard]]
     if (studyTitle && studyId) {
         crumbs.push([studyTitle, Routes.studyView({ orgSlug, studyId })])
     }
