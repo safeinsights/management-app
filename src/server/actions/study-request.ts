@@ -264,18 +264,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
         const userId = session.user.id
 
-        await db
-            .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
-
-        if (status === 'APPROVED') {
-            onStudyCodeSubmitted({ userId, studyId })
-        } else {
-            onStudyCreated({ userId, studyId })
-        }
-
         const latestJob = await db
             .selectFrom('studyJob')
             .select('id')
