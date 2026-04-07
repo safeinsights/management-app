@@ -8,7 +8,6 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { StudyRequestProvider } from '@/contexts/study-request'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 
@@ -25,7 +24,7 @@ const renderRoute = async (orgSlug: string, studyId: string) => {
     const page = await StudyCodeUploadRoute({
         params: Promise.resolve({ orgSlug, studyId }),
     })
-    renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
+    renderWithProviders(page!)
 }
 
 describe('StudyCodeUploadRoute', () => {
@@ -39,7 +38,7 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByRole('heading', { name: /upload your study code/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /provide your study code/i })).toBeInTheDocument()
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
@@ -78,36 +77,7 @@ describe('StudyCodeUploadRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
-    it('keeps submit disabled on upload screen even when existing code files are present', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'DRAFT',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values([
-                { studyJobId: job.id, name: 'main.R', path: '/code/main.R', fileType: 'MAIN-CODE', sourceId: null },
-                {
-                    studyJobId: job.id,
-                    name: 'helper.R',
-                    path: '/code/helper.R',
-                    fileType: 'SUPPLEMENTAL-CODE',
-                    sourceId: null,
-                },
-            ])
-            .execute()
-
-        await renderRoute(org.slug, study.id)
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-        })
-    })
-
-    it('keeps submit disabled when no code files exist', async () => {
+    it('shows empty state when no workspace files exist', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -117,6 +87,8 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+        })
     })
 })
