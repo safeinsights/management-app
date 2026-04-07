@@ -279,7 +279,11 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             triggerCodeScan(latestJob.id, orgSlug, studyId)
         }
 
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+        await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .where('id', '=', studyId)
+            .execute()
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId })
@@ -410,7 +414,11 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+        await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .where('id', '=', studyId)
+            .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
 
@@ -464,7 +472,11 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+        await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .where('id', '=', studyId)
+            .execute()
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId })

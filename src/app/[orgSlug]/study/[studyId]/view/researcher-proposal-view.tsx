@@ -41,8 +41,8 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
                     <Title order={4}>Study proposal</Title>
                     <Divider />
 
-                    <Group justify="space-between" align="flex-start" mt="md">
-                        <Stack gap={4}>
+                    <Group justify="space-between" align="flex-start" wrap="nowrap" mt="md">
+                        <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
                             <Text fw={600} size="sm">
                                 Study title
                             </Text>

@@ -46,7 +46,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
         <TableTr fz={14} style={highlightStyle}>
             {/* Study Name - common to all */}
             <TableTd>
-                <InfoTooltip label={study.title}>
+                <InfoTooltip label={study.title} multiline maw={400}>
                     <Text
                         lineClamp={2}
                         style={{ cursor: 'pointer', overflowWrap: 'break-word' }}
@@ -59,7 +59,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
             </TableTd>
 
             {/* Submitted On - common to all */}
-            <TableTd>{study.status !== 'DRAFT' ? dayjs(study.createdAt).format('MMM DD, YYYY') : '-'}</TableTd>
+            <TableTd>{study.submittedAt ? dayjs(study.submittedAt).format('MMM DD, YYYY') : '-'}</TableTd>
 
             {/* Third column differs by audience */}
             {audience === 'researcher' ? <TableTd>{submittedTo}</TableTd> : <TableTd>{submittedBy}</TableTd>}
