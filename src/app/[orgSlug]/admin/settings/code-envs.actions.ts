@@ -497,25 +497,37 @@ export const createAthenaTablesAction = new Action('createAthenaTablesAction', {
     .middleware(codeEnvFromId)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ codeEnv }) => {
+        if (codeEnv.dataSourceType !== 'athena' || SIMULATE_CODE_BUILD) return
+
         const bucket = testDataBucketName()
-        if (codeEnv.dataSourceType !== 'athena' || SIMULATE_CODE_BUILD || !bucket) return
+        if (!bucket) {
+            logger.error('TEST_DATA_BUCKET_NAME not configured, cannot create Athena tables. Deploy IAC changes first.', {
+                codeEnvId: codeEnv.id,
+            })
+            return
+        }
 
-        const dbName = toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier)
-        const sourcePrefix = pathForSampleData({
-            orgSlug: codeEnv.orgSlug,
-            codeEnvId: codeEnv.id,
-            sampleDataPath: codeEnv.sampleDataPath ?? undefined,
-        })
-        const targetPrefix = `${codeEnv.orgSlug}/${codeEnv.identifier}`
+        try {
+            const dbName = toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier)
+            const sourcePrefix = pathForSampleData({
+                orgSlug: codeEnv.orgSlug,
+                codeEnvId: codeEnv.id,
+                sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+            })
+            const targetPrefix = `${codeEnv.orgSlug}/${codeEnv.identifier}`
 
-        await deleteAllAthenaTables(dbName)
+            await deleteAllAthenaTables(dbName)
 
-        const tables = await copyToTestDataBucket(sourcePrefix, targetPrefix)
+            const tables = await copyToTestDataBucket(sourcePrefix, targetPrefix)
 
-        for (const { tableName, sourceKey } of tables) {
-            const columns = await inferColumnsFromCsv(sourceKey)
-            const s3Location = `s3://${bucket}/${targetPrefix}/${tableName}/`
-            await createAthenaTable(dbName, tableName, columns, s3Location)
+            for (const { tableName, sourceKey } of tables) {
+                const columns = await inferColumnsFromCsv(sourceKey)
+                const s3Location = `s3://${bucket}/${targetPrefix}/${tableName}/`
+                await createAthenaTable(dbName, tableName, columns, s3Location)
+            }
+        } catch (err) {
+            logger.error('Failed to create Athena tables', err, { codeEnvId: codeEnv.id })
+            throw new Error('Failed to create Athena tables from uploaded CSVs. The code environment was saved but tables were not created.')
         }
     })
 

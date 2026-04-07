@@ -197,7 +197,7 @@ export type CopiedTable = { tableName: string; sourceKey: string }
 export async function copyToTestDataBucket(sourcePrefix: string, targetPrefix: string): Promise<CopiedTable[]> {
     const bucket = testDataBucketName()
     if (!bucket) {
-        logger.warn('TEST_DATA_BUCKET_NAME not configured, skipping copy to test-data bucket')
+        logger.error('TEST_DATA_BUCKET_NAME not configured, skipping copy to test-data bucket')
         return []
     }
 
