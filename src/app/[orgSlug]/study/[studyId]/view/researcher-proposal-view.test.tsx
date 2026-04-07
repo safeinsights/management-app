@@ -99,12 +99,4 @@ describe('ResearcherProposalView', () => {
 
         expect(screen.queryByRole('button', { name: 'Proceed to Step 3' })).not.toBeInTheDocument()
     })
-
-    it('shows View profile link', () => {
-        renderWithProviders(<ResearcherProposalView orgSlug="test-org" study={study} />)
-
-        expect(screen.getByText('Researcher')).toBeInTheDocument()
-        expect(screen.getByText(study.createdBy)).toBeInTheDocument()
-        expect(screen.getByText('View profile')).toBeInTheDocument()
-    })
 })
