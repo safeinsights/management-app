@@ -501,9 +501,12 @@ export const createAthenaTablesAction = new Action('createAthenaTablesAction', {
 
         const bucket = testDataBucketName()
         if (!bucket) {
-            logger.error('TEST_DATA_BUCKET_NAME not configured, cannot create Athena tables. Deploy IAC changes first.', {
-                codeEnvId: codeEnv.id,
-            })
+            logger.error(
+                'TEST_DATA_BUCKET_NAME not configured, cannot create Athena tables. Deploy IAC changes first.',
+                {
+                    codeEnvId: codeEnv.id,
+                },
+            )
             return
         }
 
@@ -517,6 +520,7 @@ export const createAthenaTablesAction = new Action('createAthenaTablesAction', {
             const targetPrefix = `${codeEnv.orgSlug}/${codeEnv.identifier}`
 
             await deleteAllAthenaTables(dbName)
+            await deleteTestDataBucketPrefix(targetPrefix)
 
             const tables = await copyToTestDataBucket(sourcePrefix, targetPrefix)
 
@@ -527,7 +531,9 @@ export const createAthenaTablesAction = new Action('createAthenaTablesAction', {
             }
         } catch (err) {
             logger.error('Failed to create Athena tables', err, { codeEnvId: codeEnv.id })
-            throw new Error('Failed to create Athena tables from uploaded CSVs. The code environment was saved but tables were not created.')
+            throw new Error(
+                'Failed to create Athena tables from uploaded CSVs. The code environment was saved but tables were not created.',
+            )
         }
     })
 
