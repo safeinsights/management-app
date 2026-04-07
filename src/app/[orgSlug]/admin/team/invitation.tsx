@@ -40,8 +40,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     })
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
-        mutationFn: (invite: InviteUserFormValues) =>
-            orgAdminInviteUserAction({ invite, orgSlug }),
+        mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data) {
             studyProposalForm.reset()
@@ -94,12 +93,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 </Radio.Group>
             </Flex>
 
-            <Button
-                type="submit"
-                mt="sm"
-                loading={isInviting}
-                disabled={!studyProposalForm.isValid() || !isLoaded}
-            >
+            <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid() || !isLoaded}>
                 Send invitation
             </Button>
         </form>
