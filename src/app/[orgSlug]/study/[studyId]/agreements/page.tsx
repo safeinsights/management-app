@@ -38,7 +38,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
                 <Title order={1}>Study request</Title>
                 <AgreementsPage
                     isReviewer
-                    proceedHref={Routes.studyReview({ orgSlug, studyId })}
+                    proceedHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements-proceed`}
                     previousHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements`}
                     previousLabel="Previous"
                 />

@@ -174,17 +174,27 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     await viewStudyDetails(page, studyTitle)
 
-    // Wait for code scan to complete — Approve button appears
+    // With code submitted, the reviewer is redirected to the agreements page
+    await page.waitForURL(/\/agreements$/)
+    await expect(page.getByText('STEP 2A')).toBeVisible()
+    await expect(page.getByText('STEP 2B')).toBeVisible()
+    await expect(page.getByText('STEP 2C')).toBeVisible()
+
+    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+
+    // Proceed to code review — Approve button appears after scan completes
+    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+    await page.waitForURL(/\/review\?from=agreements-proceed$/)
+
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible()
 
-    // Click Previous to navigate to agreements page
+    // Click Previous to navigate back to agreements page
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
     await page.waitForURL(/\/agreements$/)
 
-    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
     await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
@@ -196,8 +206,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible()
 
     // Navigate back to code review for approval
-    await goto(page, `${studyBaseUrl}/review`)
-
+    await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
     await page.getByRole('button', { name: /^Approve$/i }).click()
 
     // Wait for the approval mutation to complete and redirect to dashboard
@@ -305,11 +314,19 @@ function uploadErrorLogs(jobId: string): void {
     execSync(cmd, { stdio: 'inherit' })
 }
 
+async function navigateReviewerToCodeReview(page: Page, studyTitle: string): Promise<void> {
+    await viewStudyDetails(page, studyTitle)
+    // With code submitted, reviewer is redirected to agreements — proceed through to code review
+    await page.waitForURL(/\/agreements$/)
+    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+    await page.waitForURL(/\/review\?from=agreements-proceed$/)
+}
+
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle)
+    await navigateReviewerToCodeReview(page, studyTitle)
 
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
@@ -340,7 +357,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Full-page reload clears Router Cache so study details re-fetches from DB
     await goto(page, '/openstax/dashboard')
-    await viewStudyDetails(page, studyTitle)
+    await navigateReviewerToCodeReview(page, studyTitle)
     await expect(page.getByText(/Approved on/).last()).toBeVisible()
 }
 
@@ -612,6 +629,13 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await expect(page.getByText('Review Studies')).toBeVisible()
 
         await viewStudyDetails(page, studyTitle)
+
+        // Reviewer is auto-redirected to agreements when code has been submitted
+        await page.waitForURL(/\/agreements$/, { timeout: 10000 })
+        const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+
+        // Navigate to code review via agreements-proceed to bypass the agreements redirect
+        await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
 
         // Wait for Reject button (requires CODE-SCANNED)
         const rejectButton = page.getByRole('button', { name: 'Reject' })
