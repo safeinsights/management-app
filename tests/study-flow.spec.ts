@@ -92,22 +92,18 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
-    await page.getByRole('button', { name: /Upload your files/i }).click()
+    const submitButton = page.getByRole('button', { name: /Submit code/i })
+    await expect(submitButton).toBeDisabled()
 
-    await expect(page.getByRole('dialog')).toBeVisible()
-
+    // Upload files via the hidden Dropzone file input
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
 
-    // Close the modal first
-    await page.getByRole('button', { name: 'Done' }).click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
-
-    // Now on the review page, select the main file
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
-
+    // Wait for files to appear in the review table, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
-    await page.getByRole('radio', { name: mainFileName }).click()
+    const mainFileRow = page.getByRole('row').filter({ hasText: mainFileName })
+    await expect(mainFileRow).toBeVisible()
+    await mainFileRow.getByRole('radio').click()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
@@ -117,7 +113,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 }
 
 async function uploadCodeViaIDE(page: Page) {
-    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
+    const launchButton = page.getByRole('button', { name: /Edit files in IDE/i })
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
@@ -256,17 +252,16 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // Wait for code upload page
     await page.waitForURL(/\/code$/)
-    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Provide your study code/i })).toBeVisible()
     await expect(page.getByText('STEP 4 of 4')).toBeVisible()
 
     // Verify Previous on code upload navigates back to agreements
     await page.getByRole('link', { name: /Previous/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
 
-    // Navigate back to code upload for the next step
-    const proceedButton2 = page.getByRole('button', { name: /Proceed to Step 4/i })
-    await proceedButton2.scrollIntoViewIfNeeded()
-    await proceedButton2.click()
+    // Navigate back to code upload — ensureBaselineJob may have created a job,
+    // so the button is now "Back to Study Details" instead of "Proceed to Step 4"
+    await page.goBack()
     await page.waitForURL(/\/code$/)
 }
 
@@ -398,24 +393,15 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     // Wait for resubmit page to load
     await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-    // Click "Upload your files" button to open modal
-    await page.getByRole('button', { name: /Upload your files/i }).click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-
-    // Upload files
+    // Upload files via the hidden Dropzone file input
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
 
-    // Select main file
+    // Wait for files to appear, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
-    await page.getByRole('radio', { name: mainFileName }).click()
-
-    // Confirm and proceed
-    await page.getByRole('button', { name: 'Done' }).click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
-
-    // Wait for review page
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
+    const mainFileRow = page.getByRole('row').filter({ hasText: mainFileName })
+    await expect(mainFileRow).toBeVisible()
+    await mainFileRow.getByRole('radio').click()
 
     // Submit the resubmission
     await page.getByRole('button', { name: /Resubmit study code/i }).click()
@@ -670,20 +656,19 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-        await page.getByRole('button', { name: /Upload your files/i }).click()
-        await expect(page.getByRole('dialog')).toBeVisible()
-
+        // Upload files via the hidden Dropzone file input
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(['tests/coder-files/main.r', 'tests/coder-files/code.r'])
 
-        await page.getByRole('button', { name: 'Done' }).click()
-        await expect(page.getByRole('dialog')).not.toBeVisible()
+        // Wait for files to appear, then select the main file
+        const mainFileRow = page.getByRole('row').filter({ hasText: 'main.r' })
+        await expect(mainFileRow).toBeVisible()
+        await mainFileRow.getByRole('radio').click()
 
-        await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
         await page.getByRole('button', { name: /Resubmit study code/i }).click()
 
         await page.waitForURL('**/view')
-        await expect(page.getByText(/successfully resubmitted/i)).toBeVisible()
+        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     })
 })
 
