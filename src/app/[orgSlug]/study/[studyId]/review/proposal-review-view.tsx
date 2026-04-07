@@ -1,6 +1,7 @@
 'use client'
 
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
 import { stringifyJson } from '@/lib/string'
@@ -8,6 +9,7 @@ import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { usePopover } from '@/hooks/use-popover'
+import { NewProposalReviewView } from './new-proposal-review-view'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
 type ProposalReviewViewProps = {
@@ -19,7 +21,7 @@ type ProposalReviewViewProps = {
 export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
     const { getPopoverProps } = usePopover()
 
-    return (
+    const existingView = (
         <Stack px="xl" gap="xl">
             <PageBreadcrumbs
                 crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Data use request / Review study proposal']]}
@@ -71,5 +73,12 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
 
             <ProposalReviewButtons study={study} orgSlug={orgSlug} agreementsHref={agreementsHref} />
         </Stack>
+    )
+
+    return (
+        <ProposalReviewFeatureFlag
+            defaultContent={existingView}
+            optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} />}
+        />
     )
 }

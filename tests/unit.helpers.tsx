@@ -11,6 +11,7 @@ import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from 
 import { faker } from '@faker-js/faker'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
+import { SpyModeProvider } from '@/components/spy-mode-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
@@ -70,7 +71,9 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
     return render(
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
-                <ModalsProvider>{ui}</ModalsProvider>
+                <SpyModeProvider>
+                    <ModalsProvider>{ui}</ModalsProvider>
+                </SpyModeProvider>
             </MantineProvider>
         </QueryClientProvider>,
         options,
