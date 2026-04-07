@@ -12,14 +12,14 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
         z.object({
             orgSlug: z.string(),
             invite: inviteUserSchema,
-            invitedByUserId: z.string(),
         }),
     )
     .middleware(async ({ params: { orgSlug }, db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
     .requireAbilityTo('invite', 'User')
-    .handler(async ({ params: { invite, invitedByUserId }, orgId, db }) => {
+    .handler(async ({ params: { invite }, orgId, db, session }) => {
+        const invitedByUserId = session.user.id
         // clerk normalizes the email to lowercase, do the same here to avoid case-insensitive matching issues
         invite.email = invite.email.toLowerCase()
         // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
