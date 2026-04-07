@@ -8,22 +8,21 @@ import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-
 import { ButtonLink } from '@/components/links'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
-import { OpenStaxOnly } from '@/components/openstax-only'
+import { FileDropOverlay } from './file-drop-overlay'
 
-interface StudyCodeFromIDEProps {
+interface StudyCodeProps {
     studyId: string
-    studyOrgSlug: string
     previousHref: Route
-    onGoBack: () => void
+    onSubmitSuccess?: () => void
 }
 
-export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack }: StudyCodeFromIDEProps) => {
-    const ide = useIDEFiles({ studyId, onGoBack })
+export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+    const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
     let launchButton = (
         <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={ide.launchWorkspace}>
-            Launch IDE
+            Edit files in IDE
         </Button>
     )
     if (ide.launchError) {
@@ -41,21 +40,25 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack
     }
 
     let body = (
-        <FileReviewTable
-            files={ide.files}
-            mainFile={ide.mainFile}
-            onMainFileChange={ide.setMainFile}
-            onRemoveFile={ide.removeFile}
-            lastModified={ide.lastModified}
-        />
+        <FileDropOverlay onDrop={ide.uploadFiles} disabled={ide.isUploading}>
+            <FileReviewTable
+                files={ide.files}
+                mainFile={ide.mainFile}
+                onMainFileChange={ide.setMainFile}
+                onRemoveFile={ide.removeFile}
+                lastModified={ide.lastModified}
+            />
+        </FileDropOverlay>
     )
     if (ide.showEmptyState) {
         body = (
-            <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
-                <Stack align="center" gap="md">
-                    <Text c="dimmed">{ide.isLoadingFiles ? 'Loading files...' : 'No files found in workspace.'}</Text>
-                </Stack>
-            </Box>
+            <FileDropOverlay onDrop={ide.uploadFiles} disabled={ide.isUploading}>
+                <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
+                    <Stack align="center" gap="md">
+                        <Text c="dimmed">{ide.isLoadingFiles ? 'Loading files...' : 'No files found yet.'}</Text>
+                    </Stack>
+                </Box>
+            </FileDropOverlay>
         )
     }
 
@@ -68,10 +71,8 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
                 <Group justify="space-between" align="center" mb="md">
-                    <Text fw={600}>Review files from IDE</Text>
-                    <OpenStaxOnly orgSlug={studyOrgSlug}>
-                        <Group>{launchButton}</Group>
-                    </OpenStaxOnly>
+                    <Text fw={600}>Review files</Text>
+                    <Group>{launchButton}</Group>
                 </Group>
 
                 {body}
@@ -81,10 +82,12 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack
                 <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
                     Previous
                 </ButtonLink>
-                <Group>
-                    <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={ide.goBack}>
-                        Back to upload
-                    </Button>
+                <Stack align="flex-end" gap="xs">
+                    {ide.submitDisabledReason && (
+                        <Text size="sm" c="dimmed">
+                            {ide.submitDisabledReason}
+                        </Text>
+                    )}
                     <Button
                         variant="primary"
                         disabled={!ide.canSubmit}
@@ -93,7 +96,7 @@ export const StudyCodeFromIDE = ({ studyId, studyOrgSlug, previousHref, onGoBack
                     >
                         Submit code
                     </Button>
-                </Group>
+                </Stack>
             </Group>
         </>
     )

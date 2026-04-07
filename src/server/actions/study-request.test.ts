@@ -21,7 +21,7 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
-    submitStudyFromIDEAction,
+    submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { lexicalJson } from '@/lib/word-count'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
@@ -359,7 +359,7 @@ describe('Request Study Actions', () => {
         })
     })
 
-    describe('submitStudyFromIDEAction', () => {
+    describe('submitStudyCodeAction', () => {
         it('creates job files, uploads workspace files, and moves the study to PENDING-REVIEW', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -371,7 +371,7 @@ describe('Request Study Actions', () => {
             })
 
             const result = actionResult(
-                await submitStudyFromIDEAction({
+                await submitStudyCodeAction({
                     studyId: study.id,
                     mainFileName: 'main.R',
                     fileNames: ['main.R', 'helper.R'],
@@ -404,7 +404,7 @@ describe('Request Study Actions', () => {
                 'helper.R': 'print("helper")',
             })
 
-            const result = await submitStudyFromIDEAction({
+            const result = await submitStudyCodeAction({
                 studyId: study.id,
                 mainFileName: 'main.R',
                 fileNames: ['helper.R'],

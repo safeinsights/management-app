@@ -430,7 +430,7 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         return { studyJobId, urlForCodeUpload }
     })
 
-export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', { performsMutations: true })
+export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
