@@ -11,6 +11,7 @@ import {
     fetchOrgCodeEnvsAction,
     getSampleDataUploadUrlAction,
     getStarterCodeUploadUrlAction,
+    createAthenaTablesAction,
 } from './code-envs.actions'
 import {
     createOrgCodeEnvSchema,
@@ -151,6 +152,9 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
         if (values.sampleDataPath) {
             await uploadSampleData(result.id, sampleDataFiles)
+            if (values.dataSourceType === 'athena') {
+                await createAthenaTablesAction({ codeEnvId: result.id })
+            }
         }
         return result
     }
@@ -160,6 +164,9 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         const starterCodeUploaded = !!starterCodes?.length
 
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
+        if (sampleDataUploaded && image!.dataSourceType === 'athena') {
+            await createAthenaTablesAction({ codeEnvId: image!.id })
+        }
 
         const result = await updateOrgCodeEnvAction({
             orgSlug,

@@ -14,6 +14,12 @@ import {
     triggerScanForCodeEnv,
     createAthenaDatabase,
     deleteAthenaDatabase,
+    deleteAllAthenaTables,
+    deleteTestDataBucketPrefix,
+    copyToTestDataBucket,
+    inferColumnsFromCsv,
+    createAthenaTable,
+    testDataBucketName,
     toAthenaDbName,
     createPgDatabase,
     deletePgDatabase,
@@ -266,7 +272,9 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                     fieldValues.dataSourceType === 'athena' ? toAthenaDbName(orgSlug, fieldValues.identifier) : null
 
                 if (oldAthenaName && oldAthenaName !== newAthenaName) {
+                    await deleteAllAthenaTables(oldAthenaName)
                     await deleteAthenaDatabase(oldAthenaName)
+                    await deleteTestDataBucketPrefix(`${prevOrgSlug}/${prevIdentifier}`)
                 }
                 if (newAthenaName && newAthenaName !== oldAthenaName) {
                     await createAthenaDatabase(newAthenaName)
@@ -405,7 +413,10 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
 
         if (!SIMULATE_CODE_BUILD) {
             if (codeEnv.dataSourceType === 'athena') {
-                await deleteAthenaDatabase(toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier))
+                const dbName = toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier)
+                await deleteAllAthenaTables(dbName)
+                await deleteAthenaDatabase(dbName)
+                await deleteTestDataBucketPrefix(`${codeEnv.orgSlug}/${codeEnv.identifier}`)
             } else if (codeEnv.dataSourceType === 'postgres') {
                 await deletePgDatabase(toPgDbName(codeEnv.orgSlug, codeEnv.identifier))
             }
@@ -450,7 +461,14 @@ const codeEnvFromId = async ({ params: { codeEnvId }, db }: { params: { codeEnvI
     const codeEnv = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select(['orgCodeEnv.id', 'orgCodeEnv.sampleDataPath', 'org.slug as orgSlug', 'org.id as orgId'])
+        .select([
+            'orgCodeEnv.id',
+            'orgCodeEnv.sampleDataPath',
+            'orgCodeEnv.identifier',
+            'orgCodeEnv.dataSourceType',
+            'org.slug as orgSlug',
+            'org.id as orgId',
+        ])
         .where('orgCodeEnv.id', '=', codeEnvId)
         .executeTakeFirstOrThrow()
 
@@ -468,6 +486,37 @@ export const getSampleDataUploadUrlAction = new Action('getSampleDataUploadUrlAc
             sampleDataPath: codeEnv.sampleDataPath ?? undefined,
         })
         return await createSignedUploadUrl(prefix)
+    })
+
+const createAthenaTablesSchema = z.object({
+    codeEnvId: z.string(),
+})
+
+export const createAthenaTablesAction = new Action('createAthenaTablesAction', { performsMutations: true })
+    .params(createAthenaTablesSchema)
+    .middleware(codeEnvFromId)
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ codeEnv }) => {
+        const bucket = testDataBucketName()
+        if (codeEnv.dataSourceType !== 'athena' || SIMULATE_CODE_BUILD || !bucket) return
+
+        const dbName = toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier)
+        const sourcePrefix = pathForSampleData({
+            orgSlug: codeEnv.orgSlug,
+            codeEnvId: codeEnv.id,
+            sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+        })
+        const targetPrefix = `${codeEnv.orgSlug}/${codeEnv.identifier}`
+
+        await deleteAllAthenaTables(dbName)
+
+        const tables = await copyToTestDataBucket(sourcePrefix, targetPrefix)
+
+        for (const { tableName, sourceKey } of tables) {
+            const columns = await inferColumnsFromCsv(sourceKey)
+            const s3Location = `s3://${bucket}/${targetPrefix}/${tableName}/`
+            await createAthenaTable(dbName, tableName, columns, s3Location)
+        }
     })
 
 const getStarterCodeUploadUrlSchema = z.object({
