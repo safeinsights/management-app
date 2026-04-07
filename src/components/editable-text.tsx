@@ -7,6 +7,7 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
+import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
@@ -15,7 +16,8 @@ import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
-import { FloatingToolbar } from './editable-text/toolbar'
+import { Toolbar } from './editable-text/toolbar'
+import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
 import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
 
 export interface EditableTextProps {
@@ -141,52 +143,57 @@ export const EditableText: FC<EditableTextProps> = ({
             <LexicalComposer initialConfig={initialConfig}>
                 <Box
                     style={{
-                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
                         border: borderless ? 'none' : `1px solid ${borderColor}`,
                         borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
                         minHeight: borderless ? undefined : minHeight,
                         maxHeight,
-                        overflow: maxHeight || resizable ? 'auto' : undefined,
                         resize: borderless ? undefined : resizable ? 'vertical' : undefined,
                         backgroundColor: disabled ? 'var(--mantine-color-gray-1)' : undefined,
                     }}
                 >
-                    <RichTextPlugin
-                        contentEditable={
-                            <ContentEditable
-                                id={id}
-                                aria-label={ariaLabel}
-                                style={{
-                                    outline: 'none',
-                                    padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
-                                    minHeight: borderless ? undefined : minHeight,
-                                }}
-                                onFocus={handleFocus}
-                                onBlur={handleBlur}
-                            />
-                        }
-                        placeholder={
-                            <Box
-                                style={{
-                                    position: 'absolute',
-                                    top: 'var(--mantine-spacing-sm)',
-                                    left: 'var(--mantine-spacing-sm)',
-                                    color: 'var(--mantine-color-placeholder)',
-                                    pointerEvents: 'none',
-                                    userSelect: 'none',
-                                }}
-                            >
-                                {placeholder}
-                            </Box>
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
-                    <HistoryPlugin />
-                    <ListPlugin />
-                    <LinkPlugin validateUrl={isValidUrl} />
-                    <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
-                    {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
-                    {isEditable && <FloatingToolbar />}
+                    <Box style={{ position: 'relative', flex: 1, overflow: 'auto' }}>
+                        <RichTextPlugin
+                            contentEditable={
+                                <ContentEditable
+                                    id={id}
+                                    aria-label={ariaLabel}
+                                    style={{
+                                        outline: 'none',
+                                        padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
+                                        minHeight: borderless ? undefined : minHeight,
+                                    }}
+                                    onFocus={handleFocus}
+                                    onBlur={handleBlur}
+                                />
+                            }
+                            placeholder={
+                                <Box
+                                    style={{
+                                        position: 'absolute',
+                                        top: 'var(--mantine-spacing-sm)',
+                                        left: 'var(--mantine-spacing-sm)',
+                                        color: 'var(--mantine-color-placeholder)',
+                                        pointerEvents: 'none',
+                                        userSelect: 'none',
+                                    }}
+                                >
+                                    {placeholder}
+                                </Box>
+                            }
+                            ErrorBoundary={LexicalErrorBoundary}
+                        />
+                        <HistoryPlugin />
+                        <ListPlugin />
+                        <TabIndentationPlugin />
+                        <EscapeFocusPlugin />
+                        <LinkPlugin validateUrl={isValidUrl} />
+                        <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
+                        {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
+                    </Box>
+                    {isEditable && <Toolbar />}
                 </Box>
             </LexicalComposer>
             {error && typeof error !== 'boolean' && (
