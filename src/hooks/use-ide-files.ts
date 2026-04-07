@@ -81,9 +81,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading
     const canSubmit = mainFile !== '' && fileNames.length > 0 && !filesUnchanged
 
-    const submitDisabledReason = filesUnchanged
-        ? 'Code is unchanged since last submission. Edit or add files to submit.'
-        : null
+    const submitDisabledReason = filesUnchanged ? 'Code is unchanged, edit or add files to submit' : null
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)
