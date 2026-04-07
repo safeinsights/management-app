@@ -1,6 +1,8 @@
 import { useQuery } from '@/common'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
+export type WorkspaceFileInfo = { name: string; size: number; mtime: string }
+
 export interface UseWorkspaceFilesOptions {
     studyId: string
     enabled: boolean
@@ -8,7 +10,7 @@ export interface UseWorkspaceFilesOptions {
 }
 
 export interface UseWorkspaceFilesReturn {
-    files: string[]
+    files: WorkspaceFileInfo[]
     suggestedMain: string | null
     lastModified: string | null
     isLoading: boolean

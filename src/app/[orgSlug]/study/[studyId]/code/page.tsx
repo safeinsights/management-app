@@ -3,6 +3,7 @@
 import { Stack, Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
+import { ensureBaselineJobAction } from '@/server/actions/workspaces.actions'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { Routes } from '@/lib/routes'
@@ -10,18 +11,17 @@ import { Routes } from '@/lib/routes'
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
 
-    // Fetch draft study data
     const result = await getDraftStudyAction({ studyId })
 
     if ('error' in result) {
         redirect(Routes.studyView({ orgSlug, studyId }))
     }
 
-    // Verify language is set (required for code upload)
     if (!result.language) {
-        // If no language, redirect back to edit to complete proposal
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
+
+    await ensureBaselineJobAction({ studyId })
 
     return (
         <Stack p="xl" gap="xl">
@@ -30,16 +30,12 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                     orgSlug,
                     studyId,
                     studyTitle: result.title,
-                    current: 'Upload code',
+                    current: 'Provide code',
                 }}
             />
-            <Title order={1}>Upload your study code</Title>
+            <Title order={1}>Provide your study code</Title>
             <CodeUploadPage
                 studyId={studyId}
-                orgSlug={result.orgSlug}
-                language={result.language}
-                existingMainFile={result.mainCodeFileName}
-                existingAdditionalFiles={result.additionalCodeFileNames}
                 previousHref={
                     result.status === 'APPROVED'
                         ? Routes.studyAgreements({ orgSlug, studyId })
