@@ -11,3 +11,5 @@ export type EnvVar = {
 export type OrgCodeEnvSettings = {
     environment: EnvVar[]
 }
+
+export type CommandLines = Record<string, string>

@@ -344,8 +344,8 @@ async function setupOrganizations() {
                         identifier: 'r-base',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
-                        cmdLine: 'Rscript main.r',
-                        starterCodePath: 'main.r',
+                        commandLines: { r: 'Rscript main.r' },
+                        starterCodeFileNames: ['main.r'],
                         isTesting: false,
                     },
                     {
@@ -354,8 +354,8 @@ async function setupOrganizations() {
                         identifier: 'python-base',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
-                        cmdLine: 'python main.py',
-                        starterCodePath: 'main.py',
+                        commandLines: { py: 'python main.py' },
+                        starterCodeFileNames: ['main.py'],
                         isTesting: false,
                     },
                 ])
@@ -426,8 +426,8 @@ async function setupOrganizations() {
                 identifier: 'r-base',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
-                cmdLine: 'Rscript main.r',
-                starterCodePath: 'main.r',
+                commandLines: { r: 'Rscript main.r' },
+                starterCodeFileNames: ['main.r'],
                 isTesting: false,
             })
             .execute()

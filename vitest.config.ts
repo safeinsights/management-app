@@ -9,6 +9,8 @@ const IS_CI = !!process.env.CI
 export default defineConfig({
     plugins: [react(), tsconfigPaths()],
     test: {
+        // Prevent AWS SSO profile from overriding local S3 credentials (from .env)
+        env: { AWS_PROFILE: '' },
         mockReset: true,
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',

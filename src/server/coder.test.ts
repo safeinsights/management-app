@@ -241,7 +241,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -342,7 +342,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -433,7 +433,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -484,7 +484,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: {},
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
 
         await expect(createUserAndWorkspace('study123')).rejects.toThrow(
