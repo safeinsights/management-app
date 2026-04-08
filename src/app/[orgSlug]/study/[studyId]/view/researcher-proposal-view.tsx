@@ -1,14 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { DatasetsField, LexicalProposalField, PIField } from '@/components/study/proposal-fields'
+import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
+import { usePopover } from '@/hooks/use-popover'
 import { stringifyJson } from '@/lib/string'
-import { Routes } from '@/lib/routes'
-import { Anchor, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 
@@ -19,7 +17,7 @@ type ResearcherProposalViewProps = {
 }
 
 export function ResearcherProposalView({ orgSlug, study, agreementsHref }: ResearcherProposalViewProps) {
-    const [piPopoverOpen, setPiPopoverOpen] = useState(false)
+    const { getPopoverProps } = usePopover()
 
     return (
         <Stack px="xl" gap="xl">
@@ -63,44 +61,18 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
                         label="Additional notes or requests"
                         value={stringifyJson(study.additionalNotes)}
                     />
-                    <PIField
+                    <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
+                    <ResearcherField
                         study={study}
                         orgSlug={orgSlug}
                         size="sm"
-                        opened={piPopoverOpen}
-                        onOpenChange={setPiPopoverOpen}
+                        {...getPopoverProps('researcher')}
+                        mt="md"
                     />
-                    <ResearcherProfileLink study={study} />
                 </Stack>
             </Paper>
 
             <ProceedButton href={agreementsHref} />
-        </Stack>
-    )
-}
-
-function ResearcherProfileLink({ study }: { study: SelectedStudy }) {
-    return (
-        <Stack gap={4} mt="md">
-            <Text fw={600} size="sm">
-                Researcher
-            </Text>
-            <Group align="center" gap="md">
-                <Text size="sm">{study.createdBy}</Text>
-                <Anchor
-                    href={Routes.researcherProfile}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="sm"
-                    c="blue.7"
-                    fw={600}
-                >
-                    <Group gap={4} wrap="nowrap">
-                        View profile
-                        <ArrowSquareOutIcon size={16} weight="bold" />
-                    </Group>
-                </Anchor>
-            </Group>
         </Stack>
     )
 }
