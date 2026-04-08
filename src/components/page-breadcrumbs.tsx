@@ -4,7 +4,6 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 
-
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
