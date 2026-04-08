@@ -81,7 +81,7 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('Review files')).toBeInTheDocument()
-            expect(screen.getByText('No files found yet.')).toBeInTheDocument()
+            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
@@ -238,7 +238,7 @@ describe('StudyCode component', () => {
             { backdate = true }: { backdate?: boolean } = {},
         ) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
-            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodePath: 'test/path/to/main.R' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['test/path/to/main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             if (files) {
                 await createBaselineJob(study.id, { backdate })
@@ -260,7 +260,7 @@ describe('StudyCode component', () => {
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-                expect(screen.getByText('Edit or upload files to submit')).toBeInTheDocument()
+                expect(screen.getByText('Modify a file or upload new ones before submitting')).toBeInTheDocument()
             })
         })
 
@@ -280,13 +280,13 @@ describe('StudyCode component', () => {
             })
         })
 
-        it('shows download starter code link when starterCodeUrl is available', async () => {
+        it('shows starter code download chips when available', async () => {
             await renderWithCodeEnv()
 
             await waitFor(() => {
-                const link = screen.getByRole('link', { name: /download starter code/i })
-                expect(link).toBeInTheDocument()
-                expect(link).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+                expect(screen.getByText(/starter code file/i)).toBeInTheDocument()
+                const chip = screen.getByRole('link', { name: /main\.R/i })
+                expect(chip).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
             })
         })
     })
