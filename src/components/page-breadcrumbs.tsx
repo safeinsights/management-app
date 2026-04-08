@@ -17,6 +17,7 @@ export const PageBreadcrumbs: FC<{
                             href={href as Route}
                             key={index}
                             style={{
+                                display: 'inline-block',
                                 maxWidth: 300,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
