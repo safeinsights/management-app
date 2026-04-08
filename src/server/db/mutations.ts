@@ -36,6 +36,9 @@ export async function ensureBaselineJob(
 
     if (existingJob) return
 
+    // Submit is enabled when any file's mtime > job.createdAt.
+    // Backdate by 1s for uploads so the file written after has a newer mtime.
+    // Future-date by 1s for IDE launch so the starter file written immediately after appears unchanged.
     const createdAt = backdate ? new Date(Date.now() - 1000) : new Date(Date.now() + 1000)
 
     const studyJob = await db

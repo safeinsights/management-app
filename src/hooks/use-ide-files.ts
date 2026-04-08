@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
-import { errorToString } from '@/lib/errors'
+import { reportMutationError } from '@/components/errors'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import { uploadWorkspaceFileAction, deleteWorkspaceFileAction } from '@/server/actions/workspace-files.actions'
@@ -68,7 +68,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    const submitDisabledReason = !filesChanged && fileNames.length > 0 ? 'Edit or upload files to submit' : null
+    const submitDisabledReason =
+        !filesChanged && fileNames.length > 0 ? 'Modify a file or upload new ones before submitting' : null
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)
@@ -86,9 +87,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             }
         },
         onSuccess: () => invalidateFiles(),
-        onError: (error) => {
-            notifications.show({ color: 'red', title: 'Failed to delete file', message: errorToString(error) })
-        },
+        onError: reportMutationError('Failed to delete file'),
     })
 
     const removeFile = useCallback(
@@ -112,9 +111,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             invalidateFiles()
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
         },
-        onError: (error) => {
-            notifications.show({ color: 'red', title: 'Failed to upload files', message: errorToString(error) })
-        },
+        onError: reportMutationError('Failed to upload files'),
     })
 
     const uploadFiles = useCallback(
@@ -156,13 +153,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 router.push(Routes.dashboard)
             }
         },
-        onError: (error) => {
-            notifications.show({
-                color: 'red',
-                title: 'Unable to Submit Study',
-                message: errorToString(error.message),
-            })
-        },
+        onError: reportMutationError('Unable to submit study'),
     })
 
     const submitDirectly = useCallback(() => {
@@ -199,6 +190,6 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         submitDirectly,
         isDirectSubmitting: submitMutation.isPending,
 
-        starterCodeUrl: starterCodeInfo?.starterCodeUrl ?? null,
+        starterFiles: starterCodeInfo?.starterFiles ?? [],
     }
 }

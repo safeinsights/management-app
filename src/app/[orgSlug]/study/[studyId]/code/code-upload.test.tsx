@@ -40,6 +40,17 @@ const setupStudy = async (orgSlug = 'openstax') => {
     return { study }
 }
 
+const createBaselineJob = async (studyId: string) => {
+    const createdAt = new Date(Date.now() - 1000)
+    const job = await db
+        .insertInto('studyJob')
+        .values({ studyId, createdAt })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
+}
+
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
     renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
@@ -78,13 +89,14 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('No files found yet.')).toBeInTheDocument()
+            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
     it('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
+        await createBaselineJob(study.id)
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -121,6 +133,7 @@ describe('CodeUploadPage', () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
         const { study } = await setupStudy()
+        await createBaselineJob(study.id)
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
