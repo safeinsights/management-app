@@ -4,7 +4,12 @@ import type { Route } from 'next'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import {
+    ArrowSquareOutIcon,
+    CaretLeftIcon,
+    DownloadSimpleIcon,
+    WarningCircleIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
@@ -72,7 +77,19 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
                 <Divider my="sm" mt="sm" mb="md" />
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files</Text>
-                    <Group>{launchButton}</Group>
+                    <Group>
+                        {ide.starterCodeUrl && (
+                            <Button
+                                component="a"
+                                href={ide.starterCodeUrl}
+                                variant="subtle"
+                                rightSection={<DownloadSimpleIcon size={16} />}
+                            >
+                                Download starter code
+                            </Button>
+                        )}
+                        {launchButton}
+                    </Group>
                 </Group>
 
                 {body}

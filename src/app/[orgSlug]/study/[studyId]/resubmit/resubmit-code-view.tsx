@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, DownloadSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { CompactStatusButton } from '@/components/study/compact-status-button'
@@ -77,7 +77,19 @@ export function ResubmitCodeView({ studyId, submittingOrgSlug }: ResubmitCodeVie
                 <Divider my="sm" mt="sm" mb="md" />
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files</Text>
-                    <Group>{launchButton}</Group>
+                    <Group>
+                        {ide.starterCodeUrl && (
+                            <Button
+                                component="a"
+                                href={ide.starterCodeUrl}
+                                variant="subtle"
+                                rightSection={<DownloadSimpleIcon size={16} />}
+                            >
+                                Download starter code
+                            </Button>
+                        )}
+                        {launchButton}
+                    </Group>
                 </Group>
 
                 {body}

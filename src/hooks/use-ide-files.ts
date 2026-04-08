@@ -8,7 +8,7 @@ import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import { uploadWorkspaceFileAction, deleteWorkspaceFileAction } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
-import { getLastSubmissionInfoAction } from '@/server/actions/workspaces.actions'
+import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -39,6 +39,17 @@ function areFilesUnchanged(
     return workspaceFiles.every((f) => new Date(f.mtime).getTime() <= submittedAt)
 }
 
+function hasOnlyUnmodifiedStarterFiles(
+    workspaceFiles: WorkspaceFileInfo[],
+    starterFileName: string | undefined,
+    lastSubmission: LastSubmissionInfo | null | undefined,
+): boolean {
+    if (lastSubmission) return false
+    if (!starterFileName) return false
+    if (workspaceFiles.length !== 1) return false
+    return workspaceFiles[0].name === starterFileName
+}
+
 export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const router = useRouter()
@@ -65,6 +76,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         },
     })
 
+    const { data: starterCodeInfo } = useQuery({
+        queryKey: ['starter-code-info', studyId],
+        queryFn: () => getStarterCodeInfoAction({ studyId }),
+    })
+
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const mainFile = useMemo(() => {
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
@@ -77,11 +93,20 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         [workspace.files, mainFile, lastSubmission],
     )
 
+    const starterFilesOnly = useMemo(
+        () => hasOnlyUnmodifiedStarterFiles(workspace.files, starterCodeInfo?.starterFileName, lastSubmission),
+        [workspace.files, starterCodeInfo?.starterFileName, lastSubmission],
+    )
+
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading
-    const canSubmit = mainFile !== '' && fileNames.length > 0 && !filesUnchanged
+    const canSubmit = mainFile !== '' && fileNames.length > 0 && !filesUnchanged && !starterFilesOnly
 
-    const submitDisabledReason = filesUnchanged ? 'Code is unchanged, edit or add files to submit' : null
+    const submitDisabledReason = filesUnchanged
+        ? 'Code is unchanged, edit or add files to submit'
+        : starterFilesOnly
+          ? 'Edit the starter file or upload your own files to submit'
+          : null
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)
@@ -208,5 +233,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         submitDisabledReason,
         submitDirectly,
         isDirectSubmitting: submitMutation.isPending,
+
+        starterCodeUrl: starterCodeInfo?.starterCodeUrl ?? null,
     }
 }

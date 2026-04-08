@@ -176,6 +176,20 @@ export const ensureBaselineJobAction = new Action('ensureBaselineJobAction', { p
         await ensureBaselineJob(db, studyId)
     })
 
+export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ params: { studyId } }) => {
+        const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
+        const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+        const { signedUrlForFile } = await import('@/server/aws')
+        const starterCodeUrl = await signedUrlForFile(codeEnv.starterCodePath)
+        const { basename } = await import('@/lib/paths')
+        const starterFileName = basename(codeEnv.starterCodePath)
+        return { starterFileName, starterCodeUrl }
+    })
+
 export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoAction', {})
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
