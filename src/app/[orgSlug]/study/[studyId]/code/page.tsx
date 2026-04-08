@@ -1,14 +1,17 @@
 'use server'
 
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
+import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { Routes } from '@/lib/routes'
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
+
+    await cleanupCoderDevFiles()
 
     const result = await getDraftStudyAction({ studyId })
 
@@ -30,7 +33,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                     current: 'Provide code',
                 }}
             />
-            <Title order={1}>Provide your study code</Title>
             <CodeUploadPage
                 studyId={studyId}
                 previousHref={

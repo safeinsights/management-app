@@ -257,7 +257,6 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // Wait for code upload page
     await page.waitForURL(/\/code$/)
-    await expect(page.getByRole('heading', { name: /Provide your study code/i })).toBeVisible()
     await expect(page.getByText('STEP 4 of 4')).toBeVisible()
 
     // Verify Previous on code upload navigates back to agreements

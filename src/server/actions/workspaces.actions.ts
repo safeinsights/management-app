@@ -124,12 +124,20 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
         const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
+        // Studies are always created from a code env — if this throws, it's a data integrity issue
         const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+        const fileNames = codeEnv.starterCodeFileNames ?? []
+        if (fileNames.length === 0) return { starterFiles: [] }
+
         const { signedUrlForFile } = await import('@/server/aws')
-        const starterCodeUrl = await signedUrlForFile(codeEnv.starterCodePath)
         const { basename } = await import('@/lib/paths')
-        const starterFileName = basename(codeEnv.starterCodePath)
-        return { starterFileName, starterCodeUrl }
+        const starterFiles = await Promise.all(
+            fileNames.map(async (filePath: string) => ({
+                name: basename(filePath),
+                url: await signedUrlForFile(filePath),
+            })),
+        )
+        return { starterFiles }
     })
 
 export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoAction', {})

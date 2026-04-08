@@ -38,7 +38,6 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByRole('heading', { name: /provide your study code/i })).toBeInTheDocument()
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
 
         const previousLink = screen.getByRole('link', { name: /previous/i })

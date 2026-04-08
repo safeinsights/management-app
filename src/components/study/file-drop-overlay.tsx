@@ -118,7 +118,7 @@ export function FileDropOverlay({ onDrop, children, disabled }: FileDropOverlayP
             )}
 
             <Text fs="italic" size="sm" c="dimmed" mt="xs">
-                Include additional files by dropping them onto the table or by{' '}
+                Include additional files by dropping them above or by{' '}
                 <Anchor component="button" type="button" size="sm" fs="italic" onClick={() => openRef.current?.()}>
                     clicking here
                 </Anchor>
