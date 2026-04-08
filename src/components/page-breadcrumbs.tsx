@@ -4,39 +4,26 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 
+const truncateStyle = {
+    maxWidth: 300,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+} as const
+
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
     return (
         <>
-            <Breadcrumbs separator="/">
+            <Breadcrumbs separator="/" style={{ flexWrap: 'nowrap' }}>
                 {crumbs.map(([title, href], index) =>
                     href ? (
-                        <Link
-                            c="blue.7"
-                            href={href as Route}
-                            key={index}
-                            style={{
-                                display: 'inline-block',
-                                maxWidth: 300,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
+                        <Link c="blue.7" href={href as Route} key={index} display="block" style={truncateStyle}>
                             {title}
                         </Link>
                     ) : (
-                        <Text
-                            c="grey.5"
-                            key={index}
-                            style={{
-                                maxWidth: 300,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
+                        <Text c="grey.5" key={index} display="block" style={truncateStyle}>
                             {title}
                         </Text>
                     ),
