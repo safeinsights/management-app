@@ -4,12 +4,6 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 
-const truncateStyle = {
-    maxWidth: 300,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-} as const
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
@@ -19,11 +13,11 @@ export const PageBreadcrumbs: FC<{
             <Breadcrumbs separator="/" style={{ flexWrap: 'nowrap' }}>
                 {crumbs.map(([title, href], index) =>
                     href ? (
-                        <Link c="blue.7" href={href as Route} key={index} display="block" style={truncateStyle}>
+                        <Link c="blue.7" href={href as Route} key={index} truncate maw="300">
                             {title}
                         </Link>
                     ) : (
-                        <Text c="grey.5" key={index} display="block" style={truncateStyle}>
+                        <Text c="grey.5" key={index} display="block" truncate maw="300">
                             {title}
                         </Text>
                     ),
