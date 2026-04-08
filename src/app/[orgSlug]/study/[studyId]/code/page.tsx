@@ -3,7 +3,6 @@
 import { Stack, Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { ensureBaselineJobAction } from '@/server/actions/workspaces.actions'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { Routes } from '@/lib/routes'
@@ -20,8 +19,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     if (!result.language) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
-
-    await ensureBaselineJobAction({ studyId })
 
     return (
         <Stack p="xl" gap="xl">
