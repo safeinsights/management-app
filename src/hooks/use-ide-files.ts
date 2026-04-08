@@ -15,39 +15,19 @@ interface UseIDEFilesOptions {
     onSubmitSuccess?: () => void
 }
 
-type LastSubmissionInfo = {
-    submittedAt: string
+type LastJobInfo = {
+    createdAt: string
     mainFileName: string | null
     fileNames: string[]
 }
 
-function areFilesUnchanged(
+function hasFilesChangedSinceJob(
     workspaceFiles: WorkspaceFileInfo[],
-    mainFile: string,
-    lastSubmission: LastSubmissionInfo | null | undefined,
+    lastJob: LastJobInfo | null | undefined,
 ): boolean {
-    if (!lastSubmission) return false
-
-    const currentNames = workspaceFiles.map((f) => f.name).sort()
-    const previousNames = [...lastSubmission.fileNames].sort()
-    if (currentNames.length !== previousNames.length) return false
-    if (currentNames.some((name, i) => name !== previousNames[i])) return false
-
-    if (mainFile !== lastSubmission.mainFileName) return false
-
-    const submittedAt = new Date(lastSubmission.submittedAt).getTime()
-    return workspaceFiles.every((f) => new Date(f.mtime).getTime() <= submittedAt)
-}
-
-function hasOnlyUnmodifiedStarterFiles(
-    workspaceFiles: WorkspaceFileInfo[],
-    starterFileName: string | undefined,
-    lastSubmission: LastSubmissionInfo | null | undefined,
-): boolean {
-    if (lastSubmission) return false
-    if (!starterFileName) return false
-    if (workspaceFiles.length !== 1) return false
-    return workspaceFiles[0].name === starterFileName
+    if (!lastJob) return false
+    const jobCreatedAt = new Date(lastJob.createdAt).getTime()
+    return workspaceFiles.some((f) => new Date(f.mtime).getTime() > jobCreatedAt)
 }
 
 export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
@@ -65,15 +45,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 5000 })
 
-    const { data: lastSubmission } = useQuery({
-        queryKey: ['last-submission', studyId],
-        queryFn: async () => {
-            const result = await getLastSubmissionInfoAction({ studyId })
-            if (result && 'error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
+    const { data: lastJob } = useQuery({
+        queryKey: ['last-job', studyId],
+        queryFn: () => getLastSubmissionInfoAction({ studyId }),
     })
 
     const { data: starterCodeInfo } = useQuery({
@@ -88,25 +62,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         return fileNames[0] ?? ''
     }, [mainFileOverride, workspace.suggestedMain, fileNames])
 
-    const filesUnchanged = useMemo(
-        () => areFilesUnchanged(workspace.files, mainFile, lastSubmission),
-        [workspace.files, mainFile, lastSubmission],
-    )
-
-    const starterFilesOnly = useMemo(
-        () => hasOnlyUnmodifiedStarterFiles(workspace.files, starterCodeInfo?.starterFileName, lastSubmission),
-        [workspace.files, starterCodeInfo?.starterFileName, lastSubmission],
-    )
+    const filesChanged = useMemo(() => hasFilesChangedSinceJob(workspace.files, lastJob), [workspace.files, lastJob])
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading
-    const canSubmit = mainFile !== '' && fileNames.length > 0 && !filesUnchanged && !starterFilesOnly
+    const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    const submitDisabledReason = filesUnchanged
-        ? 'Code is unchanged, edit or add files to submit'
-        : starterFilesOnly
-          ? 'Edit the starter file or upload your own files to submit'
-          : null
+    const submitDisabledReason = !filesChanged && fileNames.length > 0 ? 'Edit or upload files to submit' : null
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)
@@ -146,7 +108,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 }
             }
         },
-        onSuccess: () => invalidateFiles(),
+        onSuccess: () => {
+            invalidateFiles()
+            queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+        },
         onError: (error) => {
             notifications.show({ color: 'red', title: 'Failed to upload files', message: errorToString(error) })
         },
@@ -176,7 +141,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-            queryClient.invalidateQueries({ queryKey: ['last-submission', studyId] })
+            queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
 
             notifications.show({
                 title: 'Study Code Submitted',

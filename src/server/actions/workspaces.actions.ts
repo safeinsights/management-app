@@ -6,8 +6,7 @@ import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
-import type { DB } from '@/database/types'
-import type { Kysely } from 'kysely'
+import { ensureBaselineJob } from '@/server/db/mutations'
 
 const isMainFile = (filename: string): boolean => {
     const basename = path.basename(filename, path.extname(filename))
@@ -71,65 +70,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         }
     })
 
-async function readWorkspaceFileNames(studyId: string): Promise<string[]> {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
-
-    const fileNames: string[] = []
-    try {
-        const entries = await fs.readdir(coderFilesPath)
-        for (const entry of entries) {
-            if (entry.startsWith('.')) continue
-            const filePath = path.join(coderFilesPath, entry)
-            const stats = await fs.lstat(filePath).catch(() => null)
-            if (stats && stats.isFile() && stats.size > 0) {
-                fileNames.push(entry)
-            }
-        }
-    } catch {
-        // Directory may not exist yet
-    }
-    return fileNames
-}
-
-async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
-    const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
-
-    if (existingJob) return
-
-    const fileNames = await readWorkspaceFileNames(studyId)
-    if (fileNames.length === 0) return
-
-    const studyJob = await db
-        .insertInto('studyJob')
-        .values({ studyId })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: studyJob.id, status: 'INITIATED' })
-        .executeTakeFirstOrThrow()
-
-    const mainFileName = fileNames.find(isMainFile) ?? fileNames[0]
-    await db
-        .insertInto('studyJobFile')
-        .values({ name: mainFileName, path: '', studyJobId: studyJob.id, fileType: 'MAIN-CODE' })
-        .executeTakeFirstOrThrow()
-
-    for (const fileName of fileNames.filter((f) => f !== mainFileName)) {
-        await db
-            .insertInto('studyJobFile')
-            .values({ name: fileName, path: '', studyJobId: studyJob.id, fileType: 'SUPPLEMENTAL-CODE' })
-            .executeTakeFirstOrThrow()
-    }
-
-    return studyJob
-}
-
-export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', {})
+export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string().nonempty(),
@@ -137,8 +78,9 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId }, session }) => {
+    .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
+        await ensureBaselineJob(db, studyId)
         if (CODER_DISABLED) {
             return {
                 success: true,
@@ -211,7 +153,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             .execute()
 
         return {
-            submittedAt: studyJob.createdAt.toISOString(),
+            createdAt: studyJob.createdAt.toISOString(),
             mainFileName: files.find((f) => f.fileType === 'MAIN-CODE')?.name ?? null,
             fileNames: files.map((f) => f.name),
         }

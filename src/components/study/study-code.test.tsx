@@ -41,9 +41,21 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
     return { org, user, study }
 }
 
+const createBaselineJob = async (studyId: string, { backdate = true }: { backdate?: boolean } = {}) => {
+    const createdAt = backdate ? new Date(Date.now() - 1000) : new Date(Date.now() + 1000)
+    const job = await db
+        .insertInto('studyJob')
+        .values({ studyId, createdAt })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
+}
+
 const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, string>) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
+        await createBaselineJob(study.id)
         const root = await createWorkspaceDir('study-code')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, files)
@@ -221,11 +233,15 @@ describe('StudyCode component', () => {
     })
 
     describe('starter code', () => {
-        const renderWithCodeEnv = async (files?: Record<string, string>) => {
+        const renderWithCodeEnv = async (
+            files?: Record<string, string>,
+            { backdate = true }: { backdate?: boolean } = {},
+        ) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodePath: 'test/path/to/main.R' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             if (files) {
+                await createBaselineJob(study.id, { backdate })
                 const root = await createWorkspaceDir('study-code')
                 workspaceRoots.push(root)
                 await writeWorkspaceFiles(root, study.id, files)
@@ -235,8 +251,8 @@ describe('StudyCode component', () => {
             return { study }
         }
 
-        it('disables submit when only the starter file is present', async () => {
-            await renderWithCodeEnv({ 'main.R': 'print("starter")' })
+        it('disables submit when starter file has not been modified since IDE launch', async () => {
+            await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
@@ -244,11 +260,11 @@ describe('StudyCode component', () => {
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-                expect(screen.getByText('Edit the starter file or upload your own files to submit')).toBeInTheDocument()
+                expect(screen.getByText('Edit or upload files to submit')).toBeInTheDocument()
             })
         })
 
-        it('enables submit when additional file uploaded alongside starter file', async () => {
+        it('enables submit when files are newer than baseline job', async () => {
             await renderWithCodeEnv({
                 'main.R': 'print("starter")',
                 'helper.R': 'print("helper")',
@@ -279,6 +295,7 @@ describe('StudyCode component', () => {
         it('submits successfully after unmount and fresh remount with same studyId', async () => {
             const orgSlug = 'openstax-lab'
             const { study } = await setupStudy(orgSlug)
+            await createBaselineJob(study.id)
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
