@@ -9,33 +9,14 @@ export const PageBreadcrumbs: FC<{
 }> = ({ crumbs }) => {
     return (
         <>
-            <Breadcrumbs separator="/">
+            <Breadcrumbs separator="/" style={{ flexWrap: 'nowrap' }}>
                 {crumbs.map(([title, href], index) =>
                     href ? (
-                        <Link
-                            c="blue.7"
-                            href={href as Route}
-                            key={index}
-                            style={{
-                                maxWidth: 300,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
+                        <Link c="blue.7" href={href as Route} key={index} truncate maw="300">
                             {title}
                         </Link>
                     ) : (
-                        <Text
-                            c="grey.5"
-                            key={index}
-                            style={{
-                                maxWidth: 300,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
+                        <Text c="grey.5" key={index} display="block" truncate maw="300">
                             {title}
                         </Text>
                     ),
