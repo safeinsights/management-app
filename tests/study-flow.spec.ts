@@ -117,8 +117,13 @@ async function uploadCodeViaIDE(page: Page) {
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
-    // Wait for files to appear (auto-sync)
+    // Starter file appears after IDE launch
     await expect(page.getByText(/main.r/i)).toBeVisible()
+
+    // Submit is disabled with only starter files — upload an additional file
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(['tests/coder-files/code.r'])
+    await expect(page.getByText(/code.r/i)).toBeVisible()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
@@ -259,9 +264,10 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await page.getByRole('link', { name: /Previous/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
 
-    // Navigate back to code upload — ensureBaselineJob may have created a job,
-    // so the button is now "Back to Study Details" instead of "Proceed to Step 4"
-    await page.goBack()
+    // Navigate back to code upload — no job exists yet so button is still "Proceed to Step 4"
+    const proceedAgain = page.getByRole('button', { name: /Proceed to Step 4/i })
+    await expect(proceedAgain).toBeVisible()
+    await proceedAgain.click()
     await page.waitForURL(/\/code$/)
 }
 

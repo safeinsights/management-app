@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestCodeEnv,
     it,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -28,6 +29,7 @@ vi.mock('@/server/aws', async () => {
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
+        signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
     }
 })
 
@@ -216,6 +218,61 @@ describe('StudyCode component', () => {
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', previousHref)
+    })
+
+    describe('starter code', () => {
+        const renderWithCodeEnv = async (files?: Record<string, string>) => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodePath: 'test/path/to/main.R' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            if (files) {
+                const root = await createWorkspaceDir('study-code')
+                workspaceRoots.push(root)
+                await writeWorkspaceFiles(root, study.id, files)
+            }
+            const previousHref = `/test-org/study/${study.id}/agreements` as Route
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            return { study }
+        }
+
+        it('disables submit when only the starter file is present', async () => {
+            await renderWithCodeEnv({ 'main.R': 'print("starter")' })
+
+            await waitFor(() => {
+                expect(screen.getByText('main.R')).toBeInTheDocument()
+            })
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+                expect(screen.getByText('Edit the starter file or upload your own files to submit')).toBeInTheDocument()
+            })
+        })
+
+        it('enables submit when additional file uploaded alongside starter file', async () => {
+            await renderWithCodeEnv({
+                'main.R': 'print("starter")',
+                'helper.R': 'print("helper")',
+            })
+
+            await waitFor(() => {
+                expect(screen.getByText('main.R')).toBeInTheDocument()
+                expect(screen.getByText('helper.R')).toBeInTheDocument()
+            })
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            })
+        })
+
+        it('shows download starter code link when starterCodeUrl is available', async () => {
+            await renderWithCodeEnv()
+
+            await waitFor(() => {
+                const link = screen.getByRole('link', { name: /download starter code/i })
+                expect(link).toBeInTheDocument()
+                expect(link).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+            })
+        })
     })
 
     describe('session timeout regression', () => {
