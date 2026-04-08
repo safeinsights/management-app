@@ -34,12 +34,15 @@ vi.mock('@/server/aws', async () => {
 
 const workspaceRoots: string[] = []
 
-const renderPage = async (orgSlug = 'openstax') => {
+const setupStudy = async (orgSlug = 'openstax') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+    return { study }
+}
 
+const renderPage = async (orgSlug = 'openstax') => {
+    const { study } = await setupStudy(orgSlug)
     renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
-
     return { study }
 }
 
@@ -81,13 +84,15 @@ describe('CodeUploadPage', () => {
     })
 
     it('shows workspace files and allows submission', async () => {
-        const { study } = await renderPage()
+        const { study } = await setupStudy()
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
             'main.r': 'print("main")',
             'helper.r': 'print("helper")',
         })
+
+        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
@@ -115,12 +120,14 @@ describe('CodeUploadPage', () => {
     it('shows error notification when IDE file upload to S3 fails', async () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
-        const { study } = await renderPage()
+        const { study } = await setupStudy()
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
             'main.R': 'print("main")',
         })
+
+        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
