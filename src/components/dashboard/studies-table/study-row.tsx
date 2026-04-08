@@ -59,7 +59,11 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
             </TableTd>
 
             {/* Submitted On - common to all */}
-            <TableTd>{study.submittedAt ? dayjs(study.submittedAt).format('MMM DD, YYYY') : '-'}</TableTd>
+            <TableTd>
+                {study.status !== 'DRAFT'
+                    ? dayjs(study.submittedAt ?? study.createdAt).format('MMM DD, YYYY')
+                    : '-'}
+            </TableTd>
 
             {/* Third column differs by audience */}
             {audience === 'researcher' ? <TableTd>{submittedTo}</TableTd> : <TableTd>{submittedBy}</TableTd>}
