@@ -36,7 +36,10 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const statuses = study.jobStatusChanges.map((s) => s.status)
+        const codeSubmitted = statuses.includes('CODE-SUBMITTED')
+        const codeAlreadyReviewed = statuses.some((s) => s === 'CODE-APPROVED' || s === 'CODE-REJECTED')
+
         // When a reviewer navigates back from the agreements step, show the proposal
         // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
@@ -50,7 +53,8 @@ export default async function StudyReviewPage(props: {
         }
 
         if (codeSubmitted) {
-            if (searchParams.from !== 'agreements-proceed') {
+            // Only gate through agreements when code is awaiting its first review
+            if (!codeAlreadyReviewed && searchParams.from !== 'agreements-proceed') {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />

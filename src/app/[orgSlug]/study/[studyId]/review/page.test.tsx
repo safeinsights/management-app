@@ -97,6 +97,23 @@ describe('StudyReviewPage', () => {
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
+    it('renders CodeReviewView directly when code is already reviewed (no agreements redirect)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-APPROVED',
+        })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+        expect(page?.type).toBe(CodeReviewView)
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
     it('renders ProposalReviewView for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
