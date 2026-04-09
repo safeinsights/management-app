@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import { CODER_DISABLED, DEV_ENV, getConfigValue } from '@/server/config'
 
 export async function cleanupCoderDevFiles() {
@@ -27,6 +28,7 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
         const s3Path = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
         const fileData = await fetchFileContents(s3Path)
         const targetPath = `${coderFilesPath}/${fileName}`
+        await fs.mkdir(path.dirname(targetPath), { recursive: true })
         await fs.writeFile(targetPath, Buffer.from(await fileData.arrayBuffer()))
         await fs.utimes(targetPath, pastDate, pastDate)
     }
