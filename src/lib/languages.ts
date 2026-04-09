@@ -12,6 +12,18 @@ const ACCEPTED_FILE_TYPE_LABELS: Record<Language, string[]> = {
     PYTHON: ['.py', '.ipynb'],
 }
 
+const HIGHLIGHT_LANGUAGES: Record<string, 'python' | 'r'> = {
+    '.r': 'r',
+    '.rmd': 'r',
+    '.py': 'python',
+    '.ipynb': 'python',
+}
+
+export function highlightLanguageForFile(fileName: string): 'python' | 'r' {
+    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
+    return HIGHLIGHT_LANGUAGES[ext] ?? 'r'
+}
+
 export const getAcceptedFormatsForLanguage = (language: Language): string => {
     const extensions = ACCEPTED_FILE_TYPE_LABELS[language]
     if (extensions) {

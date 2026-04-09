@@ -19,7 +19,11 @@ export interface UseWorkspaceFilesReturn {
 
 export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspaceFilesReturn {
     const { studyId, enabled } = props
-    const { data, isFetching, refetch } = useQuery({
+    const {
+        data,
+        isLoading: isInitialLoad,
+        refetch,
+    } = useQuery({
         queryKey: ['workspace-files', studyId],
         queryFn: async () => {
             const result = await listWorkspaceFilesAction({ studyId })
@@ -36,7 +40,7 @@ export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspace
         files: data?.files ?? [],
         suggestedMain: data?.suggestedMain ?? null,
         lastModified: data?.lastModified ?? null,
-        isLoading: isFetching,
+        isLoading: isInitialLoad,
         refetch,
     }
 }

@@ -4,6 +4,9 @@ import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { Alert, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, LightbulbIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FileChip } from '@/components/file-chip'
+import { highlightLanguageForFile } from '@/lib/languages'
+import { CodeViewer } from '@/components/code-viewer'
+import { AppModal } from '@/components/modal'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
 import { FileDropOverlay } from './file-drop-overlay'
@@ -41,25 +44,27 @@ export const StudyCodePanel = ({ ide, stepLabel, footer }: StudyCodePanelProps) 
     }
 
     const starterCodeChips = ide.starterFiles.length > 0 && (
-        <Group gap="sm">
-            <Text size="sm" c="dimmed">
-                If uploading, you may wish to base your code off our{' '}
-                {pluralize(ide.starterFiles.length, 'starter code file')}:
-            </Text>
-            {ide.starterFiles.map((file) => (
-                <FileChip key={file.name} href={file.url} filename={file.name} />
+        <Text size="sm" c="dimmed">
+            If uploading, you may wish to base your code off our{' '}
+            {pluralize(ide.starterFiles.length, 'starter code file')}:{' '}
+            {ide.starterFiles.map((file, i) => (
+                <span key={file.name}>
+                    <FileChip href={file.url} filename={file.name} style={{ verticalAlign: 'middle' }} />
+                    {i < ide.starterFiles.length - 1 && ' '}
+                </span>
             ))}
-        </Group>
+        </Text>
     )
 
     let body = (
         <FileDropOverlay onDrop={ide.uploadFiles} disabled={ide.isUploading}>
             <FileReviewTable
-                files={ide.files}
+                files={ide.fileDetails}
                 mainFile={ide.mainFile}
                 onMainFileChange={ide.setMainFile}
                 onRemoveFile={ide.removeFile}
-                lastModified={ide.lastModified}
+                onViewFile={ide.viewFile}
+                jobCreatedAt={ide.jobCreatedAt}
             />
         </FileDropOverlay>
     )
@@ -92,18 +97,33 @@ export const StudyCodePanel = ({ ide, stepLabel, footer }: StudyCodePanelProps) 
                 <Alert variant="light" color="blue" icon={<LightbulbIcon size={16} />} mb="md">
                     The IDE is configured to help you write, edit, and test your code against sample data.
                 </Alert>
-                <Group justify="space-between" align="center" mb="md">
-                    <Stack gap={4}>
+                <Group justify="space-between" align="center" mb="md" wrap="nowrap">
+                    <Stack gap={4} style={{ minWidth: 0 }}>
                         <Text fw={600}>Upload or edit files</Text>
                         {starterCodeChips}
                     </Stack>
-                    <Group>{launchButton}</Group>
+                    <Group style={{ flexShrink: 0 }}>{launchButton}</Group>
                 </Group>
 
                 {body}
             </Paper>
 
             {footer}
+
+            {ide.viewingFile && (
+                <AppModal
+                    isOpen
+                    onClose={ide.closeFileViewer}
+                    title={ide.viewingFile.name}
+                    size="xl"
+                    styles={{ body: { padding: 0 } }}
+                >
+                    <CodeViewer
+                        code={ide.viewingFile.contents}
+                        language={highlightLanguageForFile(ide.viewingFile.name)}
+                    />
+                </AppModal>
+            )}
         </>
     )
 }

@@ -6,7 +6,11 @@ import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
-import { uploadWorkspaceFileAction, deleteWorkspaceFileAction } from '@/server/actions/workspace-files.actions'
+import {
+    uploadWorkspaceFileAction,
+    deleteWorkspaceFileAction,
+    readWorkspaceFileAction,
+} from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
 import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 
@@ -35,15 +39,21 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const router = useRouter()
 
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
+    const [viewingFile, setViewingFile] = useState<{ name: string; contents: string } | null>(null)
+
+    const onLaunchSuccess = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+        queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+    }, [queryClient, studyId])
 
     const {
         launchWorkspace,
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
-    } = useWorkspaceLauncher({ studyId })
+    } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
 
-    const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 5000 })
+    const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
 
     const { data: lastJob } = useQuery({
         queryKey: ['last-job', studyId],
@@ -97,6 +107,17 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         },
         [deleteMutation],
     )
+
+    const viewFile = useCallback(
+        async (fileName: string) => {
+            const result = await readWorkspaceFileAction({ studyId, fileName })
+            if ('error' in result) return
+            setViewingFile({ name: result.fileName, contents: result.contents })
+        },
+        [studyId],
+    )
+
+    const closeFileViewer = useCallback(() => setViewingFile(null), [])
 
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
@@ -178,9 +199,14 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         lastModified: workspace.lastModified,
 
         files: fileNames,
+        fileDetails: workspace.files,
+        jobCreatedAt: lastJob?.createdAt ?? null,
         mainFile,
         setMainFile,
         removeFile,
+        viewFile,
+        viewingFile,
+        closeFileViewer,
         uploadFiles,
         isUploading: uploadMutation.isPending,
         isDeleting: deleteMutation.isPending,
