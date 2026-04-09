@@ -6,9 +6,9 @@ const PARAMS = { orgSlug: 'test-org', studyId: faker.string.uuid() }
 const BASE = `/${PARAMS.orgSlug}/study/${PARAMS.studyId}`
 
 describe('useStudyHref', () => {
-    it('routes to /view when there is job activity regardless of status', () => {
+    it('routes based on status when there is job activity', () => {
         expect(useStudyHref('PENDING-REVIEW', true, PARAMS)).toBe(`${BASE}/view`)
-        expect(useStudyHref('APPROVED', true, PARAMS)).toBe(`${BASE}/view`)
+        expect(useStudyHref('APPROVED', true, PARAMS)).toBe(`${BASE}/code`)
         expect(useStudyHref('REJECTED', true, PARAMS)).toBe(`${BASE}/view`)
     })
 

@@ -77,7 +77,7 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/agreements`)
         })
 
-        it('links to study view page for APPROVED studies with job activity', () => {
+        it('links to code page for APPROVED studies with job activity', () => {
             const study = mockStudyRow({
                 status: 'APPROVED' as StudyStatus,
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
@@ -93,7 +93,7 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/code`)
         })
 
         it('uses submittedByOrgSlug when available', () => {

@@ -409,7 +409,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     await mainFileRow.getByRole('radio').click()
 
     // Submit the resubmission
-    await page.getByRole('button', { name: /Resubmit study code/i }).click()
+    await page.getByRole('button', { name: /Submit code/i }).click()
 
     // Wait for redirect
     await page.waitForURL('**/view')
@@ -670,7 +670,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await expect(mainFileRow).toBeVisible()
         await mainFileRow.getByRole('radio').click()
 
-        await page.getByRole('button', { name: /Resubmit study code/i }).click()
+        await page.getByRole('button', { name: /Submit code/i }).click()
 
         await page.waitForURL('**/view')
         await expect(page.getByText(/successfully submitted/i)).toBeVisible()

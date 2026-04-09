@@ -13,6 +13,15 @@ import { FileDropOverlay } from './file-drop-overlay'
 
 const pluralize = (count: number, word: string) => (count === 1 ? word : `${word}s`)
 
+function FilePreviewModal({ file, onClose }: { file: { name: string; contents: string } | null; onClose: () => void }) {
+    if (!file) return null
+    return (
+        <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
+            <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
+        </AppModal>
+    )
+}
+
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 
 interface StudyCodePanelProps {
@@ -110,20 +119,7 @@ export const StudyCodePanel = ({ ide, stepLabel, footer }: StudyCodePanelProps) 
 
             {footer}
 
-            {ide.viewingFile && (
-                <AppModal
-                    isOpen
-                    onClose={ide.closeFileViewer}
-                    title={ide.viewingFile.name}
-                    size="xl"
-                    styles={{ body: { padding: 0 } }}
-                >
-                    <CodeViewer
-                        code={ide.viewingFile.contents}
-                        language={highlightLanguageForFile(ide.viewingFile.name)}
-                    />
-                </AppModal>
-            )}
+            <FilePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
         </>
     )
 }
