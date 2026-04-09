@@ -97,6 +97,7 @@ describe('StudyCode component', () => {
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
             expect(screen.getByText('helper.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         expect(screen.getByText('Main file')).toBeInTheDocument()
@@ -106,7 +107,6 @@ describe('StudyCode component', () => {
         expect(radios).toHaveLength(2)
         expect(screen.getByDisplayValue('main.r')).toBeChecked()
         expect(screen.getByDisplayValue('helper.r')).not.toBeChecked()
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
     it('updates the selected main file', async () => {
