@@ -705,4 +705,11 @@ describe('generateCoderUsername', () => {
         // Should only contain alphanumeric, underscores, and exactly one hyphen before hash
         expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
     })
+
+    it('should avoid including -- when input email otherwise generates it', () => {
+        const result = generateCoderUsername('ab45---123456790@test.org')
+        // should not contain multiple '-' characters
+        expect(result).not.toMatch(/-{2,}/)
+        expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
+    })
 })

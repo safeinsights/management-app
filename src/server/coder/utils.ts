@@ -12,7 +12,9 @@ export function generateCoderUsername(researcherEmail: string): string {
     // 31 total - 1 hyphen - 8 hash = 22 max for sanitized email
     const maxSanitizedLength = 22
     const truncatedSanitized = sanitized.slice(0, maxSanitizedLength)
-    return `${truncatedSanitized}-${hash}`
+    // Do a pass over the final username structure to convert multiple '-' into single
+    const finalSanitized = `${truncatedSanitized}-${hash}`.replace(/-{2,}/g, '-')
+    return finalSanitized
 }
 
 export function generateWorkspaceName(studyId: string): string {
