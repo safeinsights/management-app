@@ -97,7 +97,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     // Upload files via the hidden Dropzone file input
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
+    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     // Wait for files to appear in the review table, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
@@ -122,7 +122,7 @@ async function uploadCodeViaIDE(page: Page) {
 
     // Submit is disabled with only starter files — upload an additional file
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles(['tests/coder-files/code.r'])
+    await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
     await expect(page.getByText(/code.r/i)).toBeVisible()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
@@ -400,7 +400,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 
     // Upload files via the hidden Dropzone file input
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
+    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     // Wait for files to appear, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
@@ -442,7 +442,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher uploads code files and submits', async () => {
-        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
@@ -490,7 +490,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher resubmits code via file upload', async () => {
         // Already on study details page from verifyFailedStatusDisplay
-        await resubmitCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await resubmitCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 })
 
@@ -611,7 +611,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
     await test.step('researcher uploads code and submits', async () => {
         await researcherNavigatesToCodeUpload(page, studyTitle)
-        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 
     await test.step('reviewer waits for code scan and rejects code', async () => {
@@ -663,7 +663,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         // Upload files via the hidden Dropzone file input
         const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/coder-files/main.r', 'tests/coder-files/code.r'])
+        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
         // Wait for files to appear, then select the main file
         const mainFileRow = page.getByRole('row').filter({ hasText: 'main.r' })

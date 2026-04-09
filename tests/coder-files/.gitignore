@@ -1,7 +1,0 @@
-# Ignore starter code files copied here during dev (CODER_FILES dir)
-*
-# Keep the test fixture files used by E2E tests
-!.gitignore
-!main.r
-!main.py
-!code.r
