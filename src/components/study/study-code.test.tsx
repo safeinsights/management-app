@@ -21,6 +21,7 @@ import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
+import { signedUrlForFile } from '@/server/aws'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -70,6 +71,7 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
 describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
+        vi.mocked(signedUrlForFile).mockResolvedValue('https://mock-s3-url.example.com/starter.R')
     })
 
     afterEach(async () => {
@@ -80,7 +82,7 @@ describe('StudyCode component', () => {
         await renderIDE()
 
         await waitFor(() => {
-            expect(screen.getByText('Review files')).toBeInTheDocument()
+            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
             expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
@@ -172,9 +174,8 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
-
-        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
 
@@ -199,6 +200,7 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         expect(screen.getByDisplayValue('analysis.r')).toBeChecked()

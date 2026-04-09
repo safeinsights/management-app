@@ -72,7 +72,7 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
             expect(screen.getByText('Study code')).toBeInTheDocument()
-            expect(screen.getByText('Review files')).toBeInTheDocument()
+            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
         })
     })
@@ -151,7 +151,7 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Unable to Submit Study' }),
+                expect.objectContaining({ color: 'red', title: 'Unable to submit study' }),
             )
         })
 
