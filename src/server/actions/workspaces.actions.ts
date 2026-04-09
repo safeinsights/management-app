@@ -6,7 +6,8 @@ import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
-import { ensureBaselineJob } from '@/server/db/mutations'
+import { ensureBaselineJob, resetBaselineJob } from '@/server/db/mutations'
+import { initializeDevWorkspaceFiles } from '@/server/dev'
 
 const isMainFile = (filename: string): boolean => {
     const basename = path.basename(filename, path.extname(filename))
@@ -80,8 +81,9 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
-        await ensureBaselineJob(db, studyId)
+        await resetBaselineJob(db, studyId)
         if (CODER_DISABLED) {
+            await initializeDevWorkspaceFiles(studyId)
             return {
                 success: true,
                 workspace: { id: `dev-workspace-${studyId}` },

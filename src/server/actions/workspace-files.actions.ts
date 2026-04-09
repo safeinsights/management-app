@@ -21,7 +21,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId, file } }) => {
-        await ensureBaselineJob(db, studyId, { backdate: true })
+        await ensureBaselineJob(db, studyId)
 
         const coderFilesPath = await getStudyFilesPath(studyId)
         await fs.mkdir(coderFilesPath, { recursive: true })
@@ -32,6 +32,18 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
         await fs.writeFile(filePath, buffer)
 
         return { fileName }
+    })
+
+export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
+    .params(z.object({ studyId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ params: { studyId, fileName } }) => {
+        const coderFilesPath = await getStudyFilesPath(studyId)
+        const sanitized = sanitizeFileName(fileName)
+        const filePath = path.join(coderFilesPath, sanitized)
+        const contents = await fs.readFile(filePath, 'utf-8')
+        return { fileName: sanitized, contents }
     })
 
 export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction', { performsMutations: true })

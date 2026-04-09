@@ -27,20 +27,7 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     return user.id
 }
 
-export async function ensureBaselineJob(
-    db: Kysely<DB>,
-    studyId: string,
-    { backdate }: { backdate: boolean } = { backdate: false },
-) {
-    const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
-
-    if (existingJob) return
-
-    // Submit is enabled when any file's mtime > job.createdAt.
-    // Backdate by 1s for uploads so the file written after has a newer mtime.
-    // Future-date by 1s for IDE launch so the starter file written immediately after appears unchanged.
-    const createdAt = backdate ? new Date(Date.now() - 1000) : new Date(Date.now() + 1000)
-
+async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Date) {
     const studyJob = await db
         .insertInto('studyJob')
         .values({ studyId, createdAt })
@@ -53,4 +40,18 @@ export async function ensureBaselineJob(
         .executeTakeFirstOrThrow()
 
     return studyJob
+}
+
+// Submit is enabled when any file's mtime > latest job's createdAt.
+
+/** Creates a job if none exists so uploaded files (written after) have newer mtime. */
+export async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
+    const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
+    if (existingJob) return
+    return createBaselineJob(db, studyId, new Date())
+}
+
+/** Always creates a fresh job for IDE launch. Starter files should have their mtime backdated. */
+export async function resetBaselineJob(db: Kysely<DB>, studyId: string) {
+    return createBaselineJob(db, studyId, new Date())
 }

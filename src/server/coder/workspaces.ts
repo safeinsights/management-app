@@ -216,6 +216,9 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
 
+    // Backdate mtime so starter files appear as "unchanged" relative to the baseline job
+    const pastDate = new Date(Date.now() - 60_000)
+
     for (const fileName of codeEnv.starterCodeFileNames) {
         const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
         const fileData = await fetchFileContents(filePath)
@@ -225,5 +228,6 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
         await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
         await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+        await fs.utimes(targetFilePath, pastDate, pastDate)
     }
 }
