@@ -10,6 +10,7 @@ import { handleMutationErrorsWithForm, InputError, reportError } from '@/compone
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { TermsCheckbox } from '@/components/terms-checkbox'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
@@ -57,6 +58,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const router = useRouter()
     const [step, setStep] = useState<SignupStep>('form')
     const [mfaState, setMfaState] = useState<MFAState>(false)
+    const [termsAccepted, setTermsAccepted] = useState(false)
 
     const form = useForm({
         validate: zodResolver(formSchema),
@@ -192,15 +194,21 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         </Alert>
                     )}
 
+                    <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} />
+
                     <Flex mt="sm">
                         <Button
                             type="submit"
                             loading={isCreating}
-                            disabled={!form.isValid()}
+                            disabled={!form.isValid() || !termsAccepted}
                             w="100%"
                             size="lg"
-                            bg={!form.isValid() ? 'grey.1' : undefined}
-                            styles={!form.isValid() ? { label: { color: theme.colors.grey[7] } } : undefined}
+                            bg={!form.isValid() || !termsAccepted ? 'grey.1' : undefined}
+                            styles={
+                                !form.isValid() || !termsAccepted
+                                    ? { label: { color: theme.colors.grey[7] } }
+                                    : undefined
+                            }
                         >
                             Create Account
                         </Button>

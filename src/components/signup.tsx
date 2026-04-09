@@ -3,19 +3,8 @@
 import { useState } from 'react'
 import { reportError } from './errors'
 import { isClerkApiError } from '@/lib/errors'
-import {
-    Anchor,
-    Button,
-    Group,
-    Loader,
-    PasswordInput,
-    Stack,
-    Text,
-    TextInput,
-    Paper,
-    CloseButton,
-    Checkbox,
-} from '@mantine/core'
+import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Paper, CloseButton } from '@mantine/core'
+import { TermsCheckbox } from './terms-checkbox'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignUp } from '@clerk/nextjs'
@@ -183,16 +172,15 @@ export function SignUp() {
                         placeholder="Password"
                         aria-label="Password"
                     />
-                    <Checkbox
-                        mt="md"
-                        label="I agree to the terms of service"
-                        key={form.key('termsOfService')}
-                        {...form.getInputProps('termsOfService', {
-                            type: 'checkbox',
-                        })}
+                    <TermsCheckbox
+                        checked={form.values.termsOfService}
+                        onChange={(checked) => form.setFieldValue('termsOfService', checked)}
+                        error={form.errors.termsOfService}
                     />
                     <Stack align="center" mt={15}>
-                        <Button type="submit">Sign Up</Button>
+                        <Button type="submit" disabled={!form.values.termsOfService}>
+                            Sign Up
+                        </Button>
                         <Anchor href={Routes.home}>Already have an account? Sign In</Anchor>
                     </Stack>
                 </Paper>
