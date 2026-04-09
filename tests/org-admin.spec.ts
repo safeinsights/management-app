@@ -71,6 +71,8 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
+        await page.getByRole('checkbox', { name: /terms of service/i }).check()
+
         const submitBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled
         await expect(submitBtn).toBeEnabled()
