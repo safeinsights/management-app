@@ -9,6 +9,7 @@ import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejec
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
+import { bareExtension } from '@/lib/paths'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file
@@ -52,6 +53,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.rejectedAt',
             'study.containerLocation',
             'study.createdAt',
+            'study.submittedAt',
             'study.datasets',
             'study.dataSources',
             'study.irbProtocols',
@@ -73,7 +75,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'latestStudyJob.jobId as latestStudyJobId',
         ])
 
-        .orderBy('study.createdAt', 'desc')
+        .orderBy(sql`coalesce(study.submitted_at, study.created_at)`, 'desc')
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
@@ -197,12 +199,17 @@ async function approveJobCode({
             .where('orgId', '=', study.orgId)
             .where('isTesting', '=', useTestImage || false)
             .orderBy('orgCodeEnv.createdAt', 'desc')
-            .select(['url', 'cmdLine'])
+            .select(['url', 'commandLines'])
             .executeTakeFirstOrThrow(
                 throwNotFound(`no code environment found for org ${orgSlug} and language ${job.language}`),
             )
 
         const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
+        const ext = bareExtension(mainCode.name)
+        const cmdLine = image.commandLines[ext]
+        if (!cmdLine) {
+            throw new Error(`No command line configured for extension ".${ext}" in code environment`)
+        }
 
         await triggerBuildImageForJob({
             studyJobId: job.id,
@@ -210,7 +217,7 @@ async function approveJobCode({
             orgSlug,
             containerLocation: study.containerLocation,
             codeEntryPointFileName: mainCode.name,
-            cmdLine: image.cmdLine,
+            cmdLine,
             codeEnvURL: image.url,
         })
     }

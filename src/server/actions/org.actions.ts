@@ -87,7 +87,13 @@ export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEncla
             .execute()
     })
 
-type LanguageOption = { value: Language; label: string; starterCodeUrl: string }
+type StarterCodeUrl = { fileName: string; url: string }
+type LanguageOption = {
+    value: Language
+    label: string
+    starterCodeUrls: StarterCodeUrl[]
+    commandLines: Record<string, string>
+}
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
@@ -104,7 +110,12 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
 
         const rows = await db
             .selectFrom('orgCodeEnv')
-            .select(['orgCodeEnv.language', 'orgCodeEnv.starterCodePath'])
+            .select([
+                'orgCodeEnv.id',
+                'orgCodeEnv.language',
+                'orgCodeEnv.starterCodeFileNames',
+                'orgCodeEnv.commandLines',
+            ])
             .where('orgCodeEnv.orgId', '=', org.id)
             .where('orgCodeEnv.isTesting', '=', false)
             .distinctOn('orgCodeEnv.language')
@@ -112,11 +123,19 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
             .orderBy('orgCodeEnv.createdAt', 'desc')
             .execute()
 
+        const { pathForStarterCode } = await import('@/lib/paths')
+
         const languages = await Promise.all(
             rows.map(async (l) => ({
                 value: l.language,
                 label: languageLabels[l.language],
-                starterCodeUrl: await signedUrlForFile(l.starterCodePath),
+                starterCodeUrls: await Promise.all(
+                    l.starterCodeFileNames.map(async (fileName) => ({
+                        fileName,
+                        url: await signedUrlForFile(pathForStarterCode({ orgSlug, codeEnvId: l.id, fileName })),
+                    })),
+                ),
+                commandLines: l.commandLines,
             })),
         )
 
@@ -131,25 +150,31 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
     .params(z.object({ orgSlug: z.string(), language: z.string() }))
     .handler(async ({ db, params: { orgSlug, language } }) => {
         const { signedUrlForFile } = await import('@/server/aws')
+        const { pathForStarterCode } = await import('@/lib/paths')
 
         const org = await db.selectFrom('org').select(['id']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
 
         const row = await db
             .selectFrom('orgCodeEnv')
-            .select(['orgCodeEnv.starterCodePath'])
+            .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodeFileNames'])
             .where('orgCodeEnv.orgId', '=', org.id)
             .where('orgCodeEnv.language', '=', language as Language)
             .where('orgCodeEnv.isTesting', '=', false)
             .orderBy('orgCodeEnv.createdAt', 'desc')
             .executeTakeFirst()
 
-        if (!row?.starterCodePath) {
-            return { starterCodeUrl: null }
+        if (!row?.starterCodeFileNames?.length) {
+            return { starterCodeUrls: [] as StarterCodeUrl[] }
         }
 
-        const starterCodeUrl = await signedUrlForFile(row.starterCodePath)
+        const starterCodeUrls = await Promise.all(
+            row.starterCodeFileNames.map(async (fileName) => ({
+                fileName,
+                url: await signedUrlForFile(pathForStarterCode({ orgSlug, codeEnvId: row.id, fileName })),
+            })),
+        )
 
-        return { starterCodeUrl }
+        return { starterCodeUrls }
     })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')

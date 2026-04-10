@@ -1,10 +1,10 @@
 import {
-    basename,
     coderWorkspaceBuildPath,
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
     pathForSampleData,
+    pathForStarterCode,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } from '../aws'
@@ -216,12 +216,14 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
 
-    const fileData = await fetchFileContents(codeEnv.starterCodePath)
-    const fileName = basename(codeEnv.starterCodePath)
-    const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
+    for (const fileName of codeEnv.starterCodeFileNames) {
+        const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
+        const fileData = await fetchFileContents(filePath)
+        const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
 
-    logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
+        logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
 
-    await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-    await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+        await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+        await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+    }
 }

@@ -273,7 +273,12 @@ describe('Org Actions', () => {
             const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: testOrg.slug }))
             expect(langs.languages).toEqual(
                 expect.arrayContaining([
-                    expect.objectContaining({ label: 'R', value: 'R', starterCodeUrl: expect.any(String) }),
+                    expect.objectContaining({
+                        label: 'R',
+                        value: 'R',
+                        starterCodeUrls: expect.any(Array),
+                        commandLines: expect.any(Object),
+                    }),
                 ]),
             )
         })

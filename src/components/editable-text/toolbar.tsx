@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Box, Paper, Portal, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -11,14 +11,16 @@ import {
     LinkIcon,
     ListBulletsIcon,
     ListNumbersIcon,
+    TextIndentIcon,
+    TextOutdentIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     $getSelection,
     $isRangeSelection,
-    BLUR_COMMAND,
-    FOCUS_COMMAND,
     FORMAT_TEXT_COMMAND,
+    INDENT_CONTENT_COMMAND,
+    OUTDENT_CONTENT_COMMAND,
     SELECTION_CHANGE_COMMAND,
     COMMAND_PRIORITY_LOW,
     TextFormatType,
@@ -33,13 +35,6 @@ import {
     ListNode,
 } from '@lexical/list'
 import { $getNearestNodeOfType, mergeRegister } from '@lexical/utils'
-
-// inspiration from https://konstantin.digital/blog/how-to-build-a-floating-menu-with-lexical-react
-
-interface ToolbarPosition {
-    top: number
-    left: number
-}
 
 interface FormatState {
     isBold: boolean
@@ -78,16 +73,8 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
 
-function getEditorPosition(editor: ReturnType<typeof useLexicalComposerContext>[0]): ToolbarPosition | null {
-    const root = editor.getRootElement()
-    if (!root) return null
-    const rect = root.getBoundingClientRect()
-    return { top: rect.bottom + window.scrollY, left: rect.left }
-}
-
-export const FloatingToolbar = () => {
+export const Toolbar = () => {
     const [editor] = useLexicalComposerContext()
-    const [isFocused, setIsFocused] = useState(false)
     const [formatState, setFormatState] = useState<FormatState>({
         isBold: false,
         isItalic: false,
@@ -97,32 +84,14 @@ export const FloatingToolbar = () => {
     })
 
     const linkEditor = useLinkEditor(editor)
-    const position = getEditorPosition(editor)
-
-    useEffect(() => {
-        return mergeRegister(
-            editor.registerCommand(
-                FOCUS_COMMAND,
-                () => {
-                    setIsFocused(true)
-                    return false
-                },
-                COMMAND_PRIORITY_LOW,
-            ),
-            editor.registerCommand(
-                BLUR_COMMAND,
-                () => {
-                    setIsFocused(false)
-                    return false
-                },
-                COMMAND_PRIORITY_LOW,
-            ),
-        )
-    }, [editor])
 
     const updateToolbar = useCallback(() => {
         const selection = $getSelection()
-        if (!$isRangeSelection(selection)) return
+
+        if (!$isRangeSelection(selection)) {
+            setFormatState({ isBold: false, isItalic: false, isUnderline: false, isLink: false, listType: null })
+            return
+        }
 
         const anchorNode = selection.anchor.getNode()
         const parent = anchorNode.getParent()
@@ -188,47 +157,43 @@ export const FloatingToolbar = () => {
         }
     }
 
-    if (!isFocused && !linkEditor.isEditing) return null
-    if (!position) return null
+    const indent = () => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
+    const outdent = () => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
 
     return (
-        <Portal>
-            <Paper
-                shadow="md"
-                p={4}
-                onMouseDown={(e: React.MouseEvent) => {
-                    if (!(e.target instanceof HTMLInputElement)) {
-                        e.preventDefault()
-                    }
-                }}
-                style={{
-                    position: 'absolute',
-                    top: position.top,
-                    left: position.left,
-                    zIndex: 50,
-                    display: 'flex',
-                    gap: 4,
-                    alignItems: 'center',
-                }}
-            >
-                {linkEditor.isEditing ? (
-                    <LinkInput
-                        url={linkEditor.url}
-                        onChange={linkEditor.setUrl}
-                        onSubmit={linkEditor.submitLink}
-                        onCancel={linkEditor.cancelLink}
-                        inputRef={linkEditor.inputRef}
-                    />
-                ) : (
-                    <FormatButtons
-                        formatState={formatState}
-                        onFormatText={formatText}
-                        onToggleLink={toggleLink}
-                        onToggleList={toggleList}
-                    />
-                )}
-            </Paper>
-        </Portal>
+        <Box
+            p={4}
+            onMouseDown={(e: React.MouseEvent) => {
+                if (!(e.target instanceof HTMLInputElement)) {
+                    e.preventDefault()
+                }
+            }}
+            style={{
+                borderTop: '1px solid var(--mantine-color-gray-3)',
+                display: 'flex',
+                gap: 4,
+                alignItems: 'center',
+            }}
+        >
+            {linkEditor.isEditing ? (
+                <LinkInput
+                    url={linkEditor.url}
+                    onChange={linkEditor.setUrl}
+                    onSubmit={linkEditor.submitLink}
+                    onCancel={linkEditor.cancelLink}
+                    inputRef={linkEditor.inputRef}
+                />
+            ) : (
+                <FormatButtons
+                    formatState={formatState}
+                    onFormatText={formatText}
+                    onToggleLink={toggleLink}
+                    onToggleList={toggleList}
+                    onIndent={indent}
+                    onOutdent={outdent}
+                />
+            )}
+        </Box>
     )
 }
 
@@ -278,11 +243,15 @@ function FormatButtons({
     onFormatText,
     onToggleLink,
     onToggleList,
+    onIndent,
+    onOutdent,
 }: {
     formatState: FormatState
     onFormatText: (format: TextFormatType) => void
     onToggleLink: () => void
     onToggleList: (type: 'bullet' | 'number') => void
+    onIndent: () => void
+    onOutdent: () => void
 }) {
     return (
         <>
@@ -339,6 +308,26 @@ function FormatButtons({
                 aria-label="Numbered list"
             >
                 <ListNumbersIcon size={16} weight={formatState.listType === 'number' ? 'bold' : 'regular'} />
+            </ActionIcon>
+            <ActionIcon
+                variant="subtle"
+                color="charcoal.4"
+                size="sm"
+                onClick={onIndent}
+                aria-label="Indent"
+                disabled={!formatState.listType}
+            >
+                <TextIndentIcon size={16} />
+            </ActionIcon>
+            <ActionIcon
+                variant="subtle"
+                color="charcoal.4"
+                size="sm"
+                onClick={onOutdent}
+                aria-label="Outdent"
+                disabled={!formatState.listType}
+            >
+                <TextOutdentIcon size={16} />
             </ActionIcon>
         </>
     )
