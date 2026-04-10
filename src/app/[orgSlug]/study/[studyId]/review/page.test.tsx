@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect, useParams } from 'next/navigation'
 import {
+    db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -99,12 +100,17 @@ describe('StudyReviewPage', () => {
 
     it('renders CodeReviewView directly when code is already reviewed (no agreements redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({
+        const { study, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'APPROVED',
-            jobStatus: 'CODE-APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
         })
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, userId: user.id, status: 'CODE-APPROVED' })
+            .execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
