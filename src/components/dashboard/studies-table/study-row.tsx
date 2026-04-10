@@ -74,7 +74,13 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
 
             {/* Action Link - common to all */}
             <TableTd ta="center">
-                <StudyActionLink study={study} audience={audience} orgSlug={orgSlug} isHighlighted={isHighlighted} />
+                <StudyActionLink
+                    study={study}
+                    audience={audience}
+                    scope={scope}
+                    orgSlug={orgSlug}
+                    isHighlighted={isHighlighted}
+                />
             </TableTd>
         </TableTr>
     )

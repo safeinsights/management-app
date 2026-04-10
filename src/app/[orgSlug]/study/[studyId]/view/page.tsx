@@ -20,13 +20,22 @@ export default async function StudyReviewPage(props: {
 
     const job = await latestJobForStudyOrNull(studyId)
 
-    if (job) return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} />
+    const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+
+    if (job) return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
 
     const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED'
     if (showProposalView) {
         const agreementsHref =
             searchParams.from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
-        return <ResearcherProposalView orgSlug={orgSlug} study={study} agreementsHref={agreementsHref} />
+        return (
+            <ResearcherProposalView
+                orgSlug={orgSlug}
+                study={study}
+                agreementsHref={agreementsHref}
+                dashboardHref={dashboardHref}
+            />
+        )
     }
 
     return (
@@ -36,6 +45,7 @@ export default async function StudyReviewPage(props: {
                     studyId,
                     orgSlug,
                     current: 'Study Details',
+                    dashboardHref,
                 }}
             />
             <Title order={1}>Study Details</Title>
