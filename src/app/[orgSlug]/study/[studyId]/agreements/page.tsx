@@ -32,9 +32,13 @@ export default async function StudyAgreementsRoute(props: {
 
     if (isReviewer) {
         const statuses = study.jobStatusChanges.map((s) => s.status)
-        const codeSubmitted = statuses.includes('CODE-SUBMITTED')
-        const codeAlreadyReviewed = statuses.some((s) => s === 'CODE-APPROVED' || s === 'CODE-REJECTED')
-        if (!codeSubmitted || codeAlreadyReviewed) {
+        const latestSubmittedIdx = statuses.findIndex((s) => s === 'CODE-SUBMITTED')
+        const latestReviewedIdx = statuses.findIndex((s) => s === 'CODE-APPROVED' || s === 'CODE-REJECTED')
+        // statuses is ordered newest-first; lower index = more recent
+        // Show agreements only when code is awaiting review (submitted more recently than any review decision)
+        const awaitingCodeReview =
+            latestSubmittedIdx !== -1 && (latestReviewedIdx === -1 || latestSubmittedIdx < latestReviewedIdx)
+        if (!awaitingCodeReview) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
