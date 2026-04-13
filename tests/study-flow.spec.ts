@@ -451,16 +451,17 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher navigates back via previous buttons', async () => {
         // Currently on the CodeOnlyView (study details page)
-        // Click Previous → should go to agreements
+        // Click Previous → should go to agreements (via ?from=previous)
         await page.getByRole('link', { name: /Previous/i }).click()
-        await page.waitForURL(/\/agreements(\?.*)?$/)
+        await page.waitForURL(/\/agreements/)
 
-        // Agreements should show "Back to Study Details" (not "Proceed to Step 4")
-        await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible()
+        // Agreements are accessible via Previous even after acknowledgment
+        await expect(page.getByText('STEP 3A')).toBeVisible()
+        await expect(page.getByRole('button', { name: /Proceed to Step 4/i })).toBeVisible()
 
-        // Click Previous on agreements → should go to dashboard
+        // Click Previous on agreements → should go to proposal view
         await page.getByRole('button', { name: /Previous/i }).click()
-        await page.waitForURL(/\/dashboard$/)
+        await page.waitForURL(/\/view/)
     })
 
     await test.step('reviewer approves code', async () => {
