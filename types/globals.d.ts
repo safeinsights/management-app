@@ -29,7 +29,8 @@ declare global {
         }
     }
 
-    type UserPublicMetadata = UserInfo
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges with Clerk's UserPublicMetadata interface
+    interface UserPublicMetadata extends UserInfo {}
 
     interface UserPreferences {
         currentOrgSlug?: string

@@ -29,6 +29,7 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
         firstName: clerkUser.firstName ?? '',
         lastName: clerkUser.lastName ?? '',
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+        metadataUserId: clerkUser.publicMetadata?.user?.id,
     }
 
     const { id: userId } = await syncUserToDatabaseWithConflictResolution(userAttrs, async (previousUserId) => {
