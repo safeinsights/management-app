@@ -70,6 +70,7 @@ describe('StudyAgreementsRoute', () => {
         await expect(
             StudyAgreementsRoute({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow('NEXT_REDIRECT')
 
@@ -83,6 +84,7 @@ describe('StudyAgreementsRoute', () => {
         await expect(
             StudyAgreementsRoute({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow('NEXT_REDIRECT')
 

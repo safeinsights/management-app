@@ -4,9 +4,10 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { db } from '@/database'
+import { getStudyJobCount } from '@/server/db/queries'
 import { Stack, Title } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
@@ -32,9 +33,8 @@ export default async function StudyAgreementsRoute(props: {
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
-        const statuses = study.jobStatusChanges.map((s) => s.status)
-        const codeSubmitted = statuses.includes('CODE-SUBMITTED')
-        const codeReviewed = statuses.includes('CODE-APPROVED') || statuses.includes('CODE-REJECTED')
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+        const codeReviewed = studyHasJobStatus(study, 'CODE-APPROVED') || studyHasJobStatus(study, 'CODE-REJECTED')
 
         // Skip agreements if code hasn't been submitted or has already been reviewed
         if (!codeSubmitted || codeReviewed) {
@@ -42,12 +42,8 @@ export default async function StudyAgreementsRoute(props: {
         }
 
         // Skip agreements on resubmission — reviewer has already seen them
-        const jobCount = await db
-            .selectFrom('studyJob')
-            .where('studyId', '=', studyId)
-            .select(db.fn.countAll().as('count'))
-            .executeTakeFirstOrThrow()
-        if (Number(jobCount.count) > 1) {
+        const jobCount = await getStudyJobCount(studyId)
+        if (jobCount > 1) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
