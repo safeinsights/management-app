@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { sendInviteEmail } from '@/server/mailer'
-import { actionResult, faker, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { actionResult, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { clerkClient } from '@clerk/nextjs/server'
 import { Mock, describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
@@ -32,7 +32,7 @@ describe('Admin Users Actions', () => {
             permission: 'admin' as const,
         }
 
-        await orgAdminInviteUserAction({ orgSlug: org.slug, invite, invitedByUserId: faker.string.uuid() })
+        await orgAdminInviteUserAction({ orgSlug: org.slug, invite })
 
         const pendingUser = await db
             .selectFrom('pendingUser')
@@ -64,7 +64,6 @@ describe('Admin Users Actions', () => {
         const result = await orgAdminInviteUserAction({
             orgSlug: org.slug,
             invite,
-            invitedByUserId: user.id,
         })
 
         expect(result).toEqual({
@@ -73,7 +72,7 @@ describe('Admin Users Actions', () => {
     })
 
     it('orgAdminInviteUserAction allows invite when user exists in Clerk but not in this org', async () => {
-        const { org, user } = await mockSessionWithTestData({ isAdmin: true })
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         // Mock Clerk to return a different user (not in this org)
         mockClerkClient.mockResolvedValue({
@@ -90,7 +89,7 @@ describe('Admin Users Actions', () => {
             permission: 'contributor' as const,
         }
 
-        await orgAdminInviteUserAction({ orgSlug: org.slug, invite, invitedByUserId: user.id })
+        await orgAdminInviteUserAction({ orgSlug: org.slug, invite })
 
         const pendingUser = await db
             .selectFrom('pendingUser')

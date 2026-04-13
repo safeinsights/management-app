@@ -8,7 +8,7 @@ export const LoadingMessage: React.FC<{ message: string; isVisible?: boolean } &
     if (isVisible === false) return null
 
     return (
-        <Flex align="center">
+        <Flex align="center" gap="sm">
             <Spinner color={'blue'} />
             <Text component="span" {...textProps}>
                 {message}

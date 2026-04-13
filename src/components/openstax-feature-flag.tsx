@@ -53,4 +53,7 @@ export {
     useOpenStaxFeatureFlag as useUnusedOpenStaxFeatureFlag,
     OpenStaxFeatureFlag as UnusedOpenStaxFeatureFlag,
     FeatureFlagRequiredAlert as UnusedFeatureFlagRequiredAlert,
+    // Card 64: DO Proposal Review redesign
+    useOpenStaxFeatureFlag as useProposalReviewFeatureFlag,
+    OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
 }

@@ -80,7 +80,11 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     })
 
     if (isLoading || !org || !user) {
-        return <LoadingMessage message="Loading account invitation" />
+        return (
+            <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+                <LoadingMessage message="Loading account invitation" />
+            </Paper>
+        )
     }
 
     if (emailMismatch) {
@@ -112,8 +116,10 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     You’ve been invited to join {org.name}.
                 </Title>
                 <Text size="md">
-                    {org.invitingUserFirstName} {org.invitingUserLastName} has invited you to join {org.name} as a{' '}
-                    {org.isAdmin ? 'admin' : 'contributor'}.
+                    {org.invitingUserFirstName
+                        ? `${org.invitingUserFirstName} ${org.invitingUserLastName} has invited you`
+                        : 'You have been invited'}{' '}
+                    to join {org.name} as {org.isAdmin ? 'an admin' : 'a contributor'}.
                 </Text>
                 <Text size="md">
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
