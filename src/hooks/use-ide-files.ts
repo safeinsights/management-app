@@ -37,14 +37,15 @@ function hasChangedSinceLastJob(
     const filesModified = workspaceFiles.some((f) => new Date(f.mtime).getTime() > jobCreatedAt)
     if (filesModified) return true
 
-    // Check if the main file selection changed
-    if (lastJob.mainFileName && mainFile !== lastJob.mainFileName) return true
+    // File set / main file comparison only applies after a real submission (not a baseline job)
+    if (lastJob.fileNames.length > 0) {
+        if (lastJob.mainFileName && mainFile !== lastJob.mainFileName) return true
 
-    // Check if the file set changed (added or removed files)
-    const currentNames = workspaceFiles.map((f) => f.name).sort()
-    const previousNames = [...lastJob.fileNames].sort()
-    if (currentNames.length !== previousNames.length) return true
-    if (currentNames.some((name, i) => name !== previousNames[i])) return true
+        const currentNames = workspaceFiles.map((f) => f.name).sort()
+        const previousNames = [...lastJob.fileNames].sort()
+        if (currentNames.length !== previousNames.length) return true
+        if (currentNames.some((name, i) => name !== previousNames[i])) return true
+    }
 
     return false
 }
