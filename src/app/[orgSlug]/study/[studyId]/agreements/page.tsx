@@ -70,7 +70,7 @@ export default async function StudyAgreementsRoute(props: {
         redirect(dest)
     }
 
-    if (study.status !== 'APPROVED') {
+    if (study.status !== 'APPROVED' && !isDirectAccess) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
