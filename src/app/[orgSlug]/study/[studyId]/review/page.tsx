@@ -6,6 +6,7 @@ import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { getStudyJobCount } from '@/server/db/queries'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -54,9 +55,12 @@ export default async function StudyReviewPage(props: {
         }
 
         if (codeSubmitted) {
-            // Only gate through agreements when code is awaiting its first review
+            // Only gate through agreements on first submission, not resubmissions
             if (!codeAlreadyReviewed && searchParams.from !== 'agreements-proceed') {
-                return redirect(Routes.studyAgreements({ orgSlug, studyId }))
+                const jobCount = await getStudyJobCount(studyId)
+                if (jobCount <= 1) {
+                    return redirect(Routes.studyAgreements({ orgSlug, studyId }))
+                }
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
