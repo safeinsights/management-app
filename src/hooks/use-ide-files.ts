@@ -111,7 +111,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const viewFile = useCallback(
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
-            if ('error' in result) return
+            if ('error' in result) {
+                reportMutationError('Failed to read file')(result.error)
+                return
+            }
             setViewingFile({ name: result.fileName, contents: result.contents })
         },
         [studyId],
@@ -128,7 +131,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 }
             }
         },
-        onSuccess: () => {
+        onSettled: () => {
             invalidateFiles()
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
         },
