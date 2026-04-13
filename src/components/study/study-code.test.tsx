@@ -257,10 +257,7 @@ describe('StudyCode component', () => {
             await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
 
             await waitFor(() => {
-                expect(screen.getByText('main.R')).toBeInTheDocument()
-            })
-
-            await waitFor(() => {
+                expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
                 expect(screen.getByText('Modify a file or upload new ones before submitting')).toBeInTheDocument()
             })
