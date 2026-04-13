@@ -170,7 +170,9 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         const starterCodeUrls = await Promise.all(
             row.starterCodeFileNames.map(async (fileName) => ({
                 fileName,
-                url: await signedUrlForFile(pathForStarterCode({ orgSlug, codeEnvId: row.id, fileName })),
+                url: await signedUrlForFile(pathForStarterCode({ orgSlug, codeEnvId: row.id, fileName }), {
+                    ResponseContentDisposition: 'inline',
+                }),
             })),
         )
 

@@ -70,12 +70,12 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                     </Text>
                     {starterCodeUrls.length > 0 && (
                         <Group gap="xs">
-                            <Text size="sm" c="blue.7" fw="bold">
-                                Starter Code:
-                            </Text>
                             {starterCodeUrls.map((entry) => (
                                 <Anchor key={entry.fileName} href={entry.url} target="_blank">
                                     <Group gap={4}>
+                                        <Text size="sm" c="blue.7" fw="bold">
+                                            Starter Code:
+                                        </Text>
                                         <Text size="sm">{entry.fileName}</Text>
                                         <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
                                     </Group>
