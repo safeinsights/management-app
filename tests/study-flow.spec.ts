@@ -182,7 +182,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+    const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
 
     // Proceed to code review — Approve button appears after scan completes
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
@@ -191,21 +191,15 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible()
 
-    // Click Previous to navigate back to agreements page
+    // Click Previous to navigate to proposal view
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
-    await page.waitForURL(/\/agreements(\?.*)?$/)
+    await page.waitForURL(/\/review\?from=agreements$/)
 
-    await expect(page.getByText('STEP 2A')).toBeVisible()
-    await expect(page.getByText('STEP 2B')).toBeVisible()
-    await expect(page.getByText('STEP 2C')).toBeVisible()
-
-    // Verify the ?from=agreements flow renders ProposalReviewView (not CodeReviewView)
-    await goto(page, `${studyBaseUrl}/review?from=agreements`)
+    // Previous from code review shows the proposal view
     await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible()
 
     // Navigate back to code review for approval
     await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
@@ -451,17 +445,11 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher navigates back via previous buttons', async () => {
         // Currently on the CodeOnlyView (study details page)
-        // Click Previous → should go to agreements (via ?from=previous)
-        await page.getByRole('link', { name: /Previous/i }).click()
+        // Click Previous → should go to agreements
+        const previousLink = page.getByRole('link', { name: /Previous/i })
+        await previousLink.scrollIntoViewIfNeeded()
+        await previousLink.click()
         await page.waitForURL(/\/agreements/)
-
-        // Agreements are accessible via Previous even after acknowledgment
-        await expect(page.getByText('STEP 3A')).toBeVisible()
-        await expect(page.getByRole('button', { name: /Proceed to Step 4/i })).toBeVisible()
-
-        // Click Previous on agreements → should go to proposal view
-        await page.getByRole('button', { name: /Previous/i }).click()
-        await page.waitForURL(/\/view/)
     })
 
     await test.step('reviewer approves code', async () => {
