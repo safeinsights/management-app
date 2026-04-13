@@ -107,7 +107,7 @@ describe('CodeUploadPage', () => {
         renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
-            expect(screen.getByText('main.r')).toBeInTheDocument()
+            expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
             expect(screen.getByText('helper.r')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
@@ -144,7 +144,8 @@ describe('CodeUploadPage', () => {
         renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
-            expect(screen.getByText('main.R')).toBeInTheDocument()
+            expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         const user = userEvent.setup()
