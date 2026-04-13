@@ -315,7 +315,6 @@ function uploadErrorLogs(jobId: string): void {
     execSync(cmd, { stdio: 'inherit' })
 }
 
-
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
