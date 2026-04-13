@@ -12,7 +12,13 @@ describe('StudyActionLink', () => {
         it('links to edit page for DRAFT studies', () => {
             const study = mockStudyRow({ status: 'DRAFT' as StudyStatus })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /edit draft study/i })
@@ -23,7 +29,13 @@ describe('StudyActionLink', () => {
         it('links to view page for PENDING-REVIEW studies without job activity', () => {
             const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
@@ -36,7 +48,13 @@ describe('StudyActionLink', () => {
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
             })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
@@ -46,7 +64,13 @@ describe('StudyActionLink', () => {
         it('links to agreements page for APPROVED studies with no job activity', () => {
             const study = mockStudyRow({ status: 'APPROVED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
@@ -59,7 +83,13 @@ describe('StudyActionLink', () => {
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
             })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
@@ -72,7 +102,13 @@ describe('StudyActionLink', () => {
                 submittedByOrgSlug: 'lab-org',
             })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
@@ -87,7 +123,13 @@ describe('StudyActionLink', () => {
                 jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus, userId: null }],
             })
             renderWithProviders(
-                <StudyActionLink study={study} audience="reviewer" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="reviewer"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view/i })

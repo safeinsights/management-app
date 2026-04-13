@@ -51,6 +51,8 @@ export const dockerImageRefSchema = z
     .nonempty('Image reference is required')
     .regex(dockerImageRefRegex, 'Must be a valid Docker image reference (e.g., registry.example.com/org/image:tag)')
 
+const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < MAX_FILE_SIZE
+
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
     name: z.string().nonempty(),
@@ -58,7 +60,7 @@ const codeEnvFieldsSchema = z.object({
         .string()
         .nonempty('Identifier is required')
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
-    cmdLine: z.string().nonempty(),
+    commandLines: z.record(z.string(), z.string().nonempty()),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),
@@ -70,6 +72,7 @@ const codeEnvFieldsSchema = z.object({
         .optional(),
     dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
     dataSourceIds: z.array(z.string().uuid()).default([]),
+    existingStarterCodeFileNames: z.array(z.string()).default([]),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)
@@ -84,26 +87,33 @@ const newEnvVarFieldsSchema = z.object({
         .string()
         .default('')
         .transform((val) => val.trim()),
+    newCmdExt: z
+        .string()
+        .default('')
+        .transform((val) => val.trim().toLowerCase().replace(/^\./, '')),
+    newCmdValue: z
+        .string()
+        .default('')
+        .transform((val) => val.trim()),
 })
 
 export const createOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
-    starterCode: z
-        .instanceof(File)
-        .refine((file) => file && file.size > 0, { message: 'Starter code must be set' })
-        .refine((file) => file && file.size < MAX_FILE_SIZE, {
-            message: `starter code file size must be less than ${MAX_FILE_SIZE_STR}`,
+    starterCodes: z
+        .array(z.instanceof(File))
+        .min(1, 'At least one starter code file is required')
+        .refine((files) => files.every(fileWithSizeRefine), {
+            message: `Each starter code file must be non-empty and less than ${MAX_FILE_SIZE_STR}`,
         }),
     sampleDataUploaded: z.boolean().optional(),
 })
 
 export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
-    starterCode: z
-        .instanceof(File)
-        .refine((file) => file.size < MAX_FILE_SIZE, {
-            message: `starter code file size must be less than ${MAX_FILE_SIZE_STR}`,
+    starterCodes: z
+        .array(z.instanceof(File))
+        .refine((files) => files.every((f) => f.size < MAX_FILE_SIZE), {
+            message: `Each starter code file must be less than ${MAX_FILE_SIZE_STR}`,
         })
-        .optional()
-        .or(z.undefined()),
+        .optional(),
     sampleDataUploaded: z.boolean().optional(),
 })
 
@@ -123,12 +133,48 @@ const rejectDuplicateEnvVarName = (
     }
 }
 
+function bareExtension(fileName: string): string {
+    return fileName.split('.').pop()?.toLowerCase() ?? ''
+}
+
+const requireCommandLineForEachExtension = (
+    data: {
+        starterCodes?: File[]
+        commandLines: Record<string, string>
+        existingStarterCodeFileNames: string[]
+        newCmdExt: string
+        newCmdValue: string
+    },
+    ctx: z.RefinementCtx,
+) => {
+    const newFileNames = (data.starterCodes ?? []).map((f) => f.name)
+    const fileNames = newFileNames.length > 0 ? newFileNames : data.existingStarterCodeFileNames
+    if (!fileNames.length) return
+
+    const cmdLines = { ...data.commandLines }
+    if (data.newCmdExt && data.newCmdValue) {
+        cmdLines[data.newCmdExt] = data.newCmdValue
+    }
+
+    const missingExts = [...new Set(fileNames.map(bareExtension).filter(Boolean))].filter((ext) => !cmdLines[ext])
+
+    if (missingExts.length > 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Missing command line for extension(s): .${missingExts.join(', .')}`,
+            path: ['starterCodes'],
+        })
+    }
+}
+
 export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine(rejectDuplicateEnvVarName)
+    .superRefine(requireCommandLineForEachExtension)
 
 export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine(rejectDuplicateEnvVarName)
+    .superRefine(requireCommandLineForEachExtension)
 
 export const orgCodeEnvSchema = createOrgCodeEnvSchema

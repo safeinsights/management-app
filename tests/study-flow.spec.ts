@@ -175,7 +175,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await viewStudyDetails(page, studyTitle)
 
     // With code submitted, the reviewer is redirected to the agreements page
-    await page.waitForURL(/\/agreements$/)
+    await page.waitForURL(/\/agreements(\?.*)?$/)
     await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
@@ -193,7 +193,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
-    await page.waitForURL(/\/agreements$/)
+    await page.waitForURL(/\/agreements(\?.*)?$/)
 
     await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
@@ -221,7 +221,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await clickViewLink(page, studyRow)
 
     // Should land on agreements page
-    await page.waitForURL(/\/agreements$/)
+    await page.waitForURL(/\/agreements(\?.*)?$/)
 
     await expect(page.getByText('STEP 3A')).toBeVisible()
     await expect(page.getByText('STEP 3B')).toBeVisible()
@@ -246,7 +246,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await proceedToStep3.click()
 
     // Should navigate back to agreements
-    await page.waitForURL(/\/agreements$/)
+    await page.waitForURL(/\/agreements(\?.*)?$/)
     await expect(page.getByText('STEP 3A')).toBeVisible()
 
     // Click through agreements to code upload
@@ -261,7 +261,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // Verify Previous on code upload navigates back to agreements
     await page.getByRole('link', { name: /Previous/i }).click()
-    await page.waitForURL(/\/agreements$/)
+    await page.waitForURL(/\/agreements(\?.*)?$/)
 
     // Navigate back to code upload for the next step
     const proceedButton2 = page.getByRole('button', { name: /Proceed to Step 4/i })
@@ -312,6 +312,14 @@ function uploadErrorLogs(jobId: string): void {
     // This handles encryption and sets status to JOB-ERRORED
     const cmd = `npx tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
     execSync(cmd, { stdio: 'inherit' })
+}
+
+async function navigateReviewerToCodeReview(page: Page, studyTitle: string): Promise<void> {
+    await viewStudyDetails(page, studyTitle)
+    // With code submitted, reviewer is redirected to agreements — proceed through to code review
+    await page.waitForURL(/\/agreements(\?.*)?$/)
+    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+    await page.waitForURL(/\/review\?from=agreements-proceed$/)
 }
 
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
@@ -462,7 +470,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         // Currently on the CodeOnlyView (study details page)
         // Click Previous → should go to agreements
         await page.getByRole('link', { name: /Previous/i }).click()
-        await page.waitForURL(/\/agreements$/)
+        await page.waitForURL(/\/agreements(\?.*)?$/)
 
         // Agreements should show "Back to Study Details" (not "Proceed to Step 4")
         await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible()
@@ -592,7 +600,7 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await viewLink.click()
 
         // Should land on /view and see ResearcherProposalView
-        await page.waitForURL(/\/view$/)
+        await page.waitForURL(/\/view(\?.*)?$/)
         await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
         await expect(page.getByText(studyTitle)).toBeVisible()

@@ -30,10 +30,11 @@ type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
 type EditFormSchema = z.infer<typeof editOrgCodeEnvFormSchema>
 type FormValues = CreateFormSchema | EditFormSchema
 
-async function uploadStarterCode(orgSlug: string, codeEnvId: string, file: File) {
+async function uploadStarterCodes(orgSlug: string, codeEnvId: string, files: File[]) {
+    if (files.length === 0) return
     const presignedUrl = await getStarterCodeUploadUrlAction({ orgSlug, codeEnvId })
     if (isActionError(presignedUrl)) throw new Error('Failed to get starter code upload URL')
-    await uploadFiles([[file, presignedUrl]])
+    await uploadFiles(files.map((file) => [file, presignedUrl]))
 }
 
 async function uploadSampleData(codeEnvId: string, files: File[]): Promise<boolean> {
@@ -55,11 +56,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         initialValues: {
             name: image?.name || '',
             identifier: image?.identifier || '',
-            cmdLine: image?.cmdLine || '',
+            commandLines: image?.commandLines ?? {},
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
-            starterCode: undefined,
+            starterCodes: undefined,
             sampleDataPath: image?.sampleDataPath || '',
             dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
             dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
@@ -68,9 +69,37 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             },
             newEnvKey: '',
             newEnvValue: '',
+            newCmdExt: '',
+            newCmdValue: '',
+            existingStarterCodeFileNames: image?.starterCodeFileNames ?? [],
         },
         validate: zodResolver(formSchema),
     })
+
+    const setStarterCodes = (files: File[]) => {
+        form.setFieldValue('starterCodes', files)
+    }
+
+    const removeStarterCode = (fileName: string) => {
+        const current = (form.values.starterCodes as File[] | undefined) || []
+        setStarterCodes(current.filter((f) => f.name !== fileName))
+    }
+
+    const addCommandLine = (ext: string, cmd: string) => {
+        if (!ext || !cmd) return
+        form.setFieldValue('commandLines', { ...form.values.commandLines, [ext]: cmd })
+        form.setFieldValue('newCmdExt', '')
+        form.setFieldValue('newCmdValue', '')
+    }
+
+    const updateCommandLine = (ext: string, cmd: string) => {
+        form.setFieldValue('commandLines', { ...form.values.commandLines, [ext]: cmd })
+    }
+
+    const removeCommandLine = (ext: string) => {
+        const { [ext]: _, ...rest } = form.values.commandLines
+        form.setFieldValue('commandLines', rest)
+    }
 
     const addEnvVar = () => {
         if (!form.values.newEnvKey || !form.values.newEnvValue) return
@@ -109,16 +138,16 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     }
 
     const handleCreate = async (values: CreateFormValues) => {
-        const { starterCode, ...rest } = values
+        const { starterCodes, ...rest } = values
 
         const result = await createOrgCodeEnvAction({
             orgSlug,
             ...rest,
-            starterCodeFileName: starterCode.name,
+            starterCodeFileNames: starterCodes.map((f) => f.name),
         })
         if (isActionError(result)) throw result
 
-        await uploadStarterCode(orgSlug, result.id, starterCode)
+        await uploadStarterCodes(orgSlug, result.id, starterCodes)
 
         if (values.sampleDataPath) {
             await uploadSampleData(result.id, sampleDataFiles)
@@ -127,8 +156,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     }
 
     const handleEdit = async (values: EditFormValues) => {
-        const { starterCode, ...rest } = values
-        const starterCodeUploaded = !!starterCode
+        const { starterCodes, ...rest } = values
+        const starterCodeUploaded = !!starterCodes?.length
 
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
@@ -136,14 +165,14 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             orgSlug,
             codeEnvId: image!.id,
             ...rest,
-            starterCodeFileName: starterCode?.name,
+            starterCodeFileNames: starterCodes?.map((f) => f.name),
             starterCodeUploaded,
             sampleDataUploaded,
         })
         if (isActionError(result)) throw result
 
-        if (starterCode) {
-            await uploadStarterCode(orgSlug, image!.id, starterCode)
+        if (starterCodes?.length) {
+            await uploadStarterCodes(orgSlug, image!.id, starterCodes)
         }
 
         return result
@@ -164,15 +193,20 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         },
     })
 
-    const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
-        if (newEnvKey && newEnvValue) {
-            values.settings = {
-                ...values.settings,
-                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+    const onSubmit = form.onSubmit(
+        ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
+            if (newEnvKey && newEnvValue) {
+                values.settings = {
+                    ...values.settings,
+                    environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+                }
             }
-        }
-        saveCodeEnv(values as CreateFormValues | EditFormValues)
-    })
+            if (newCmdExt && newCmdValue) {
+                values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
+            }
+            saveCodeEnv(values as CreateFormValues | EditFormValues)
+        },
+    )
 
     return {
         form,
@@ -181,6 +215,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         onSubmit,
         sampleDataFiles,
         setSampleDataFiles,
+        starterCodeActions: { setStarterCodes, removeStarterCode },
+        commandLineActions: { addCommandLine, updateCommandLine, removeCommandLine },
         envVarActions: { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar },
     }
 }

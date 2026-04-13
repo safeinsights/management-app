@@ -25,6 +25,7 @@ describe('StudyAgreementsRoute', () => {
 
         const page = await StudyAgreementsRoute({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
         })
         renderWithProviders(page!)
 
@@ -41,6 +42,7 @@ describe('StudyAgreementsRoute', () => {
         await expect(
             StudyAgreementsRoute({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow('NEXT_REDIRECT')
 
@@ -93,6 +95,7 @@ describe('StudyAgreementsRoute', () => {
 
         const page = await StudyAgreementsRoute({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
         })
         renderWithProviders(page!)
 
@@ -108,6 +111,7 @@ describe('StudyAgreementsRoute', () => {
 
         const page = await StudyAgreementsRoute({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
         })
         renderWithProviders(page!)
 
@@ -120,6 +124,7 @@ describe('StudyAgreementsRoute', () => {
 
         const page = await StudyAgreementsRoute({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
         })
         renderWithProviders(page!)
 
@@ -135,6 +140,7 @@ describe('StudyAgreementsRoute', () => {
         await expect(
             StudyAgreementsRoute({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow('NEXT_REDIRECT')
 

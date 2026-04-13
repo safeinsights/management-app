@@ -35,10 +35,10 @@ const mockCodeEnv = {
     identifier: 'test_env',
     name: 'Test Env',
     language: 'PYTHON' as const,
-    cmdLine: 'python %f',
+    commandLines: { py: 'python %f' },
     url: 'python:3.11',
     isTesting: false,
-    starterCodePath: 'code-env/test-org/code-env-1/starter-code/main.py',
+    starterCodeFileNames: ['main.py'],
     sampleDataPath: null,
     dataSourceType: null,
     settings: { environment: [] },
@@ -97,9 +97,9 @@ describe('useCodeEnvForm', () => {
         act(() => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
-            result.current.form.setFieldValue('cmdLine', 'python %f')
+            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
-            result.current.form.setFieldValue('starterCode', starterCode)
+            result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
         act(() => result.current.onSubmit())
@@ -108,7 +108,7 @@ describe('useCodeEnvForm', () => {
             expect(createOrgCodeEnvAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     orgSlug: TEST_ORG_SLUG,
-                    starterCodeFileName: 'main.py',
+                    starterCodeFileNames: ['main.py'],
                 }),
             )
             expect(getStarterCodeUploadUrlAction).toHaveBeenCalledWith({
@@ -134,9 +134,9 @@ describe('useCodeEnvForm', () => {
         act(() => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
-            result.current.form.setFieldValue('cmdLine', 'python %f')
+            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
-            result.current.form.setFieldValue('starterCode', starterCode)
+            result.current.form.setFieldValue('starterCodes', [starterCode])
             result.current.form.setFieldValue('sampleDataPath', 'data/sample.csv')
             result.current.setSampleDataFiles([sampleFile])
         })
@@ -161,9 +161,9 @@ describe('useCodeEnvForm', () => {
         act(() => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
-            result.current.form.setFieldValue('cmdLine', 'python %f')
+            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
-            result.current.form.setFieldValue('starterCode', starterCode)
+            result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
         act(() => result.current.onSubmit())
@@ -185,7 +185,7 @@ describe('useCodeEnvForm', () => {
 
         const newStarterCode = new File(['new code'], 'updated.py')
         act(() => {
-            result.current.form.setFieldValue('starterCode', newStarterCode)
+            result.current.form.setFieldValue('starterCodes', [newStarterCode])
         })
 
         act(() => result.current.onSubmit())
@@ -199,7 +199,7 @@ describe('useCodeEnvForm', () => {
                 expect.objectContaining({
                     orgSlug: TEST_ORG_SLUG,
                     codeEnvId: mockCodeEnv.id,
-                    starterCodeFileName: 'updated.py',
+                    starterCodeFileNames: ['updated.py'],
                     starterCodeUploaded: true,
                 }),
             )
@@ -221,7 +221,7 @@ describe('useCodeEnvForm', () => {
             expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     starterCodeUploaded: false,
-                    starterCodeFileName: undefined,
+                    starterCodeFileNames: undefined,
                 }),
             )
         })

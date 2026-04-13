@@ -11,8 +11,12 @@ import { Stack, Title } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
 
-export default async function StudyAgreementsRoute(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
+export default async function StudyAgreementsRoute(props: {
+    params: Promise<{ orgSlug: string; studyId: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const { orgSlug, studyId } = await props.params
+    const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
@@ -74,9 +78,11 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         : `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements`
     const previousLabel = hasJobActivity ? undefined : 'Previous'
 
+    const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
+            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements', dashboardHref }} />
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}

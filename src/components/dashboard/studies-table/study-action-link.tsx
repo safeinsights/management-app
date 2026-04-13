@@ -1,11 +1,12 @@
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Audience, StudyRow } from './types'
+import { Audience, Scope, StudyRow } from './types'
 import { useStudyHref } from '@/hooks/use-study-href'
 
 type StudyActionLinkProps = {
     study: StudyRow
     audience: Audience
+    scope: Scope
     orgSlug: string
     isHighlighted: boolean
 }
@@ -13,16 +14,19 @@ type StudyActionLinkProps = {
 function ResearcherLink({
     study,
     orgSlug,
+    scope,
     isHighlighted,
 }: {
     study: StudyRow
     orgSlug: string
+    scope: Scope
     isHighlighted: boolean
 }) {
     const labSlug = study.submittedByOrgSlug || orgSlug
     const hasJobActivity = study.jobStatusChanges.length > 0
     const studyParams = { orgSlug: labSlug, studyId: study.id }
-    const href = useStudyHref(study.status, hasJobActivity, studyParams)
+    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams)
+    const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
 
     if (study.status === 'DRAFT') {
         return (
@@ -53,9 +57,9 @@ function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgS
     )
 }
 
-export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
+export function StudyActionLink({ study, audience, scope, orgSlug, isHighlighted }: StudyActionLinkProps) {
     if (audience === 'researcher') {
-        return <ResearcherLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} />
+        return <ResearcherLink study={study} orgSlug={orgSlug} scope={scope} isHighlighted={isHighlighted} />
     }
 
     return <ReviewerLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} />

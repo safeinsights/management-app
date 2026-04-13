@@ -241,7 +241,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -342,7 +342,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -433,7 +433,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [] },
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -484,7 +484,7 @@ describe('createUserAndWorkspace', () => {
             slug: 'test-org',
             url: 'test-image:latest',
             settings: {},
-            starterCodePath: 'starter-code/test-org/main.R',
+            starterCodeFileNames: ['main.R'],
         })
 
         await expect(createUserAndWorkspace('study123')).rejects.toThrow(
@@ -703,6 +703,13 @@ describe('generateCoderUsername', () => {
     it('should produce alphanumeric usernames with underscores and one hyphen', () => {
         const result = generateCoderUsername('ANY.email@test.org')
         // Should only contain alphanumeric, underscores, and exactly one hyphen before hash
+        expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
+    })
+
+    it('should avoid including -- when input email otherwise generates it', () => {
+        const result = generateCoderUsername('ab45---123456790@test.org')
+        // should not contain multiple '-' characters
+        expect(result).not.toMatch(/-{2,}/)
         expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
     })
 })

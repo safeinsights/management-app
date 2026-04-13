@@ -294,7 +294,7 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
             'orgCodeEnv.dataSourceType',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
-            'orgCodeEnv.starterCodePath',
+            'orgCodeEnv.starterCodeFileNames',
             'orgCodeEnv.sampleDataPath',
             'org.slug',
         ])

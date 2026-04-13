@@ -12,9 +12,10 @@ type CodeOnlyViewProps = {
     orgSlug: string
     study: SelectedStudy
     job: LatestJobForStudy
+    dashboardHref?: string
 }
 
-export function CodeOnlyView({ orgSlug, study, job }: CodeOnlyViewProps) {
+export function CodeOnlyView({ orgSlug, study, job, dashboardHref }: CodeOnlyViewProps) {
     return (
         <Stack px="xl" gap="xl">
             <ResearcherBreadcrumbs
@@ -22,6 +23,7 @@ export function CodeOnlyView({ orgSlug, study, job }: CodeOnlyViewProps) {
                     studyId: study.id,
                     orgSlug,
                     current: 'Study Details',
+                    dashboardHref,
                 }}
             />
             <Title order={2} size="h4" fw={500}>
