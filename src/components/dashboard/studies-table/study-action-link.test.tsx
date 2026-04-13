@@ -105,7 +105,13 @@ describe('StudyActionLink', () => {
                 ],
             })
             renderWithProviders(
-                <StudyActionLink study={study} audience="researcher" orgSlug={ORG_SLUG} isHighlighted={false} />,
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
