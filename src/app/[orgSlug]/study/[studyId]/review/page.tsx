@@ -3,10 +3,8 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { getStudyJobCount } from '@/server/db/queries'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -38,12 +36,9 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-        const codeAlreadyReviewed =
-            studyHasJobStatus(study, 'CODE-APPROVED') || studyHasJobStatus(study, 'CODE-REJECTED')
+        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
 
         // When a reviewer navigates back from the agreements step, show the proposal
-        // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
                 <ProposalReviewView
@@ -55,12 +50,9 @@ export default async function StudyReviewPage(props: {
         }
 
         if (codeSubmitted) {
-            // Only gate through agreements on first submission, not resubmissions
-            if (!codeAlreadyReviewed && searchParams.from !== 'agreements-proceed') {
-                const jobCount = await getStudyJobCount(studyId)
-                if (jobCount <= 1) {
-                    return redirect(Routes.studyAgreements({ orgSlug, studyId }))
-                }
+            // Gate through agreements if the reviewer hasn't acknowledged them yet
+            if (!study.reviewerAgreementsAckedAt && searchParams.from !== 'agreements-proceed') {
+                return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
