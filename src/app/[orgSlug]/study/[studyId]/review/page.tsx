@@ -38,7 +38,8 @@ export default async function StudyReviewPage(props: {
 
     if (currentOrg.type === 'enclave') {
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-        const codeAlreadyReviewed = studyHasJobStatus(study, 'CODE-APPROVED') || studyHasJobStatus(study, 'CODE-REJECTED')
+        const codeAlreadyReviewed =
+            studyHasJobStatus(study, 'CODE-APPROVED') || studyHasJobStatus(study, 'CODE-REJECTED')
 
         // When a reviewer navigates back from the agreements step, show the proposal
         // instead of the code review — they've already reviewed code and need to revisit the proposal
