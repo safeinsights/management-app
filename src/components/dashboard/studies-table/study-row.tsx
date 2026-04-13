@@ -4,6 +4,7 @@ import { useStudyStatus } from '@/hooks/use-study-status'
 import { TableTd, TableTr, Text, useMantineTheme } from '@mantine/core'
 import dayjs from 'dayjs'
 import { StudyActionLink } from './study-action-link'
+import { studyHasJobStatus } from '@/lib/studies'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
 
 type StudyRowProps = {
@@ -15,7 +16,7 @@ type StudyRowProps = {
 
 function shouldHighlight(study: StudyRowType, audience: Audience): boolean {
     if (audience === 'researcher') {
-        return study.jobStatusChanges.some((c) => c.status === 'FILES-APPROVED')
+        return studyHasJobStatus(study, 'FILES-APPROVED')
     }
     return study.status === 'PENDING-REVIEW'
 }
