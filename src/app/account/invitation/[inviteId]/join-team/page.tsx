@@ -119,7 +119,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     {org.invitingUserFirstName
                         ? `${org.invitingUserFirstName} ${org.invitingUserLastName} has invited you`
                         : 'You have been invited'}{' '}
-                    to join {org.name} as a {org.isAdmin ? 'admin' : 'contributor'}.
+                    to join {org.name} as {org.isAdmin ? 'an admin' : 'a contributor'}.
                 </Text>
                 <Text size="md">
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in

@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
-
-function countWords(text: string): number {
-    return text.split(/\s+/).filter(Boolean).length
-}
+import { countWords } from '@/lib/word-count'
 
 export function useReviewFeedback() {
     const [value, setValue] = useState('')
