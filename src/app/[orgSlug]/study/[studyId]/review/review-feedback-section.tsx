@@ -1,5 +1,6 @@
-import { Paper, Skeleton, Text } from '@mantine/core'
+import { Group, Paper, Skeleton, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { WordCounter } from '@/components/word-counter'
 
 type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
@@ -8,9 +9,10 @@ type ReviewFeedbackSectionProps = {
 export function ReviewFeedbackSection({ feedback }: ReviewFeedbackSectionProps) {
     return (
         <Paper p="xl" data-testid="review-feedback-section">
-            <Text fw={600} mb="sm">
-                Feedback — {feedback.wordCount}/{feedback.maxWords} words
-            </Text>
+            <Group gap="xs" mb="sm">
+                <Text fw={600}>Feedback</Text>
+                <WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />
+            </Group>
             <Skeleton height={160} radius="md" />
         </Paper>
     )
