@@ -13,9 +13,9 @@ import StudyReviewPage from './page'
 const defaultSearchParams = Promise.resolve({})
 
 describe('StudyViewPage', () => {
-    it('renders CodeOnlyView when job exists', async () => {
+    it('renders CodeOnlyView when job has CODE-SUBMITTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),

@@ -23,7 +23,7 @@ function ResearcherLink({
     isHighlighted: boolean
 }) {
     const labSlug = study.submittedByOrgSlug || orgSlug
-    const hasJobActivity = study.jobStatusChanges.some((c) => c.status === 'CODE-SUBMITTED')
+    const hasJobActivity = study.jobStatusChanges.length > 0
     const studyParams = { orgSlug: labSlug, studyId: study.id }
     const jobStatuses = study.jobStatusChanges.map((c) => c.status)
     const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses)
