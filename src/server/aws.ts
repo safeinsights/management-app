@@ -239,10 +239,15 @@ export const storeS3File = async (
     await uploader.done()
 }
 
-export async function signedUrlForFile(Key: string) {
-    return await getSignedUrl(getS3BrowserClient(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
-        expiresIn: 3600,
-    })
+export async function signedUrlForFile(
+    Key: string,
+    commandOverrides: Partial<{ ResponseContentDisposition: string }> = {},
+) {
+    return await getSignedUrl(
+        getS3BrowserClient(),
+        new GetObjectCommand({ Bucket: s3BucketName(), Key, ...commandOverrides }),
+        { expiresIn: 3600 },
+    )
 }
 
 export const createSignedUploadUrl = async (path: string) => {
