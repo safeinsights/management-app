@@ -143,6 +143,7 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
