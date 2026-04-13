@@ -40,7 +40,7 @@ describe('CodeReviewView', () => {
         await expect(CodeReviewView({ orgSlug: org.slug, study })).rejects.toThrow(NotFoundError)
     })
 
-    it('renders Previous button linking to Agreements', async () => {
+    it('renders Previous button linking to proposal view', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
@@ -48,6 +48,6 @@ describe('CodeReviewView', () => {
 
         const previousButton = screen.getByRole('link', { name: /previous/i })
         expect(previousButton).toBeInTheDocument()
-        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/agreements'))
+        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/review?from=agreements'))
     })
 })
