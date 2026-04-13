@@ -52,7 +52,7 @@ export function CodeOnlyView({ orgSlug, study, job }: CodeOnlyViewProps) {
             </Paper>
             <Group>
                 <ButtonLink
-                    href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
+                    href={Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })}
                     variant="subtle"
                     leftSection={<CaretLeftIcon />}
                 >

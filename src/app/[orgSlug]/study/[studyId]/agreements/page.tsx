@@ -10,8 +10,12 @@ import { Stack, Title } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
 
-export default async function StudyAgreementsRoute(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
+export default async function StudyAgreementsRoute(props: {
+    params: Promise<{ orgSlug: string; studyId: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const { orgSlug, studyId } = await props.params
+    const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
@@ -26,9 +30,13 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
 
     const isReviewer = currentOrg.type === 'enclave'
 
+    // Allow direct access when navigating back via Previous button
+    const isDirectAccess = searchParams.from === 'previous'
+
     if (isReviewer) {
         // Once the reviewer has acknowledged agreements, skip straight to review
-        if (study.reviewerAgreementsAckedAt) {
+        // (unless they navigated back here intentionally)
+        if (study.reviewerAgreementsAckedAt && !isDirectAccess) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
@@ -53,9 +61,8 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
-    // Researcher flow
-    if (study.researcherAgreementsAckedAt) {
-        // Already acknowledged — go to code upload or study details
+    // Researcher flow — skip if already acknowledged (unless navigating back)
+    if (study.researcherAgreementsAckedAt && !isDirectAccess) {
         const hasJobActivity = study.jobStatusChanges.length > 0
         const dest = hasJobActivity
             ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
