@@ -118,7 +118,10 @@ async function uploadCodeViaIDE(page: Page) {
     // Starter file appears in the file table after IDE launch
     await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
 
-    // Submit is disabled with only starter files — upload an additional file
+    // Submit is disabled with only unmodified starter files
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeDisabled()
+
+    // Upload an additional file to enable submit
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
     await expect(page.getByText(/code.r/i)).toBeVisible()

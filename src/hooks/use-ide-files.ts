@@ -25,13 +25,28 @@ type LastJobInfo = {
     fileNames: string[]
 }
 
-function hasFilesChangedSinceJob(
+function hasChangedSinceLastJob(
     workspaceFiles: WorkspaceFileInfo[],
+    mainFile: string,
     lastJob: LastJobInfo | null | undefined,
 ): boolean {
     if (!lastJob) return false
+
+    // Check if any file was modified after the job was created
     const jobCreatedAt = new Date(lastJob.createdAt).getTime()
-    return workspaceFiles.some((f) => new Date(f.mtime).getTime() > jobCreatedAt)
+    const filesModified = workspaceFiles.some((f) => new Date(f.mtime).getTime() > jobCreatedAt)
+    if (filesModified) return true
+
+    // Check if the main file selection changed
+    if (lastJob.mainFileName && mainFile !== lastJob.mainFileName) return true
+
+    // Check if the file set changed (added or removed files)
+    const currentNames = workspaceFiles.map((f) => f.name).sort()
+    const previousNames = [...lastJob.fileNames].sort()
+    if (currentNames.length !== previousNames.length) return true
+    if (currentNames.some((name, i) => name !== previousNames[i])) return true
+
+    return false
 }
 
 export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
@@ -72,7 +87,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         return fileNames[0] ?? ''
     }, [mainFileOverride, workspace.suggestedMain, fileNames])
 
-    const filesChanged = useMemo(() => hasFilesChangedSinceJob(workspace.files, lastJob), [workspace.files, lastJob])
+    const filesChanged = useMemo(
+        () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
+        [workspace.files, mainFile, lastJob],
+    )
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading

@@ -6,7 +6,7 @@ import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
-import { ensureBaselineJob, resetBaselineJob } from '@/server/db/mutations'
+import { resetBaselineJob } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
 const isMainFile = (filename: string): boolean => {
@@ -110,14 +110,6 @@ export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
             return `https://coder.dev.example.com/workspace/${studyId}`
         }
         return await getCoderWorkspaceUrl(studyId, workspaceId)
-    })
-
-export const ensureBaselineJobAction = new Action('ensureBaselineJobAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('load', 'IDE')
-    .handler(async ({ db, params: { studyId } }) => {
-        await ensureBaselineJob(db, studyId)
     })
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})

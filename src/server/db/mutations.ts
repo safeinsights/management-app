@@ -44,11 +44,11 @@ async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Dat
 
 // Submit is enabled when any file's mtime > latest job's createdAt.
 
-/** Creates a job if none exists so uploaded files (written after) have newer mtime. */
+/** Creates a backdated job if none exists so uploaded files (written after) have newer mtime. */
 export async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
     const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
     if (existingJob) return
-    return createBaselineJob(db, studyId, new Date())
+    return createBaselineJob(db, studyId, new Date(Date.now() - 1000))
 }
 
 /** Always creates a fresh job for IDE launch. Starter files should have their mtime backdated. */
