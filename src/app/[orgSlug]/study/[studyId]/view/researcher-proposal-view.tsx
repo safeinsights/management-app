@@ -14,9 +14,10 @@ type ResearcherProposalViewProps = {
     orgSlug: string
     study: SelectedStudy
     agreementsHref?: string
+    dashboardHref?: string
 }
 
-export function ResearcherProposalView({ orgSlug, study, agreementsHref }: ResearcherProposalViewProps) {
+export function ResearcherProposalView({ orgSlug, study, agreementsHref, dashboardHref }: ResearcherProposalViewProps) {
     const { getPopoverProps } = usePopover()
 
     return (
@@ -26,6 +27,7 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref }: Resea
                     studyId: study.id,
                     orgSlug,
                     current: 'Study proposal',
+                    dashboardHref,
                 }}
             />
 
