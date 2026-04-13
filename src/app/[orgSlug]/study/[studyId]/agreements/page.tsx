@@ -30,9 +30,13 @@ export default async function StudyAgreementsRoute(props: {
 
     const isReviewer = currentOrg.type === 'enclave'
 
+    // Allow direct access when navigating back via Previous button
+    const isDirectAccess = searchParams.from === 'previous'
+
     if (isReviewer) {
         // Once the reviewer has acknowledged agreements, skip straight to review
-        if (study.reviewerAgreementsAckedAt) {
+        // (unless they navigated back here intentionally)
+        if (study.reviewerAgreementsAckedAt && !isDirectAccess) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
@@ -57,9 +61,8 @@ export default async function StudyAgreementsRoute(props: {
         )
     }
 
-    // Researcher flow
-    if (study.researcherAgreementsAckedAt) {
-        // Already acknowledged — go to code upload or study details
+    // Researcher flow — skip if already acknowledged (unless navigating back)
+    if (study.researcherAgreementsAckedAt && !isDirectAccess) {
         const hasJobActivity = study.jobStatusChanges.length > 0
         const dest = hasJobActivity
             ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
