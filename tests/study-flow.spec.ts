@@ -115,8 +115,8 @@ async function uploadCodeViaIDE(page: Page) {
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
-    // Starter file appears after IDE launch
-    await expect(page.getByText(/main.r/i)).toBeVisible()
+    // Starter file appears in the file table after IDE launch
+    await expect(page.getByRole('cell', { name: /main.r/i })).toBeVisible()
 
     // Submit is disabled with only starter files — upload an additional file
     const fileInput = page.locator('input[type="file"]')
