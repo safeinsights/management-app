@@ -70,6 +70,8 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.additionalNotes',
             'study.status',
             'study.title',
+            'study.researcherAgreementsAckedAt',
+            'study.reviewerAgreementsAckedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -162,6 +164,27 @@ export const getStudyAction = new Action('getStudyAction')
     })
 
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
+
+export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string(), role: z.enum(['researcher', 'reviewer']) }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId, role }, db }) => {
+        const column = role === 'researcher' ? 'researcherAgreementsAckedAt' : 'reviewerAgreementsAckedAt'
+        await db
+            .updateTable('study')
+            .set({ [column]: new Date() })
+            .where('id', '=', studyId)
+            .where(column, 'is', null)
+            .execute()
+    })
 
 async function approveJobCode({
     db,

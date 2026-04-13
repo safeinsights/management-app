@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
+import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
 
 interface AgreementsPageProps {
     isReviewer: boolean
+    studyId: string
     proceedHref: string
     previousHref: string
     proceedLabel?: string
@@ -91,6 +93,7 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
 
 export function AgreementsPage({
     isReviewer,
+    studyId,
     proceedHref,
     previousHref,
     proceedLabel,
@@ -101,7 +104,10 @@ export function AgreementsPage({
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
     const resolvedProceedLabel = proceedLabel ?? (isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4')
 
-    const handleProceed = () => router.push(proceedHref as Route)
+    const handleProceed = async () => {
+        await ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' })
+        router.push(proceedHref as Route)
+    }
     const handlePrevious = () => router.push(previousHref as Route)
 
     return (
