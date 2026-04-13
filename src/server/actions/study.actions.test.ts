@@ -12,6 +12,7 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
+    ackAgreementsAction,
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForOrgAction,
@@ -346,5 +347,63 @@ describe('Study Actions', () => {
         await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
+    })
+})
+
+describe('ackAgreementsAction', () => {
+    it('sets researcherAgreementsAckedAt for researcher role', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researcherAgreementsAckedAt).not.toBeNull()
+        expect(updated.reviewerAgreementsAckedAt).toBeNull()
+    })
+
+    it('sets reviewerAgreementsAckedAt for reviewer role', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.reviewerAgreementsAckedAt).not.toBeNull()
+        expect(updated.researcherAgreementsAckedAt).toBeNull()
+    })
+
+    it('does not overwrite an existing ack timestamp', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+
+        const first = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        // Call again — should not change the timestamp
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+
+        const second = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
     })
 })
