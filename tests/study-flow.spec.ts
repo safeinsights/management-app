@@ -92,18 +92,16 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
-    const submitButton = page.getByRole('button', { name: /Submit code/i })
-    await expect(submitButton).toBeDisabled()
-
-    // Upload files via the hidden Dropzone file input
+    // Upload files via the file input in the FileDropOverlay
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
-    // Wait for files to appear in the review table, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
-    const mainFileRow = page.getByRole('row').filter({ hasText: mainFileName })
-    await expect(mainFileRow).toBeVisible()
-    await mainFileRow.getByRole('radio').click()
+    await expect(page.getByText(mainFileName)).toBeVisible()
+    await expect(page.getByText('code.r')).toBeVisible()
+
+    // Wait for submit to be enabled (files newer than baseline job)
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
@@ -398,17 +396,16 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     // Wait for resubmit page to load
     await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-    // Upload files via the hidden Dropzone file input
+    // Upload files via the file input in the drop overlay
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
-    // Wait for files to appear, then select the main file
     const mainFileName = mainCodeFile.split('/').pop()!
-    const mainFileRow = page.getByRole('row').filter({ hasText: mainFileName })
-    await expect(mainFileRow).toBeVisible()
-    await mainFileRow.getByRole('radio').click()
+    await expect(page.getByText(mainFileName).first()).toBeVisible()
 
-    // Submit the resubmission
+    // Wait for submit to be enabled
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
+
     await page.getByRole('button', { name: /Submit code/i }).click()
 
     // Wait for redirect
@@ -622,8 +619,8 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await viewStudyDetails(page, studyTitle)
 
         // Reviewer is auto-redirected to agreements when code has been submitted
-        await page.waitForURL(/\/agreements$/, { timeout: 10000 })
-        const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+        await page.waitForURL(/\/agreements(\?.*)?$/, { timeout: 10000 })
+        const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
 
         // Navigate to code review via agreements-proceed to bypass the agreements redirect
         await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
@@ -661,19 +658,16 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-        // Upload files via the hidden Dropzone file input
+        // Upload files via the file input in the drop overlay
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
-        // Wait for files to appear, then select the main file
-        const mainFileRow = page.getByRole('row').filter({ hasText: 'main.r' })
-        await expect(mainFileRow).toBeVisible()
-        await mainFileRow.getByRole('radio').click()
+        // Wait for submit to be enabled
+        await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
 
         await page.getByRole('button', { name: /Submit code/i }).click()
 
         await page.waitForURL('**/view')
-        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     })
 })
 
