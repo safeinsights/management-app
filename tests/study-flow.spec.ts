@@ -92,22 +92,16 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
-    await page.getByRole('button', { name: /Upload your files/i }).click()
-
-    await expect(page.getByRole('dialog')).toBeVisible()
-
+    // Upload files via the file input in the FileDropOverlay
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
-
-    // Close the modal first
-    await page.getByRole('button', { name: 'Done' }).click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
-
-    // Now on the review page, select the main file
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
+    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
-    await page.getByRole('radio', { name: mainFileName }).click()
+    await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+
+    // Wait for submit to be enabled (files newer than baseline job)
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
@@ -117,12 +111,20 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 }
 
 async function uploadCodeViaIDE(page: Page) {
-    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
+    const launchButton = page.getByRole('button', { name: /Edit files in IDE/i })
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
-    // Wait for files to appear (auto-sync)
-    await expect(page.getByText(/main.r/i)).toBeVisible()
+    // Starter file appears in the file table after IDE launch
+    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
+
+    // Submit is disabled with only unmodified starter files
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeDisabled()
+
+    // Upload an additional file to enable submit
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
+    await expect(page.getByText(/code.r/i)).toBeVisible()
 
     await page.getByRole('button', { name: /Submit code/i }).click()
 
@@ -256,17 +258,16 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
 
     // Wait for code upload page
     await page.waitForURL(/\/code$/)
-    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible()
     await expect(page.getByText('STEP 4 of 4')).toBeVisible()
 
     // Verify Previous on code upload navigates back to agreements
     await page.getByRole('link', { name: /Previous/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
 
-    // Navigate back to code upload for the next step
-    const proceedButton2 = page.getByRole('button', { name: /Proceed to Step 4/i })
-    await proceedButton2.scrollIntoViewIfNeeded()
-    await proceedButton2.click()
+    // Navigate back to code upload — no job exists yet so button is still "Proceed to Step 4"
+    const proceedAgain = page.getByRole('button', { name: /Proceed to Step 4/i })
+    await expect(proceedAgain).toBeVisible()
+    await proceedAgain.click()
     await page.waitForURL(/\/code$/)
 }
 
@@ -398,27 +399,17 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     // Wait for resubmit page to load
     await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-    // Click "Upload your files" button to open modal
-    await page.getByRole('button', { name: /Upload your files/i }).click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-
-    // Upload files
+    // Upload files via the file input in the drop overlay
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
+    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
-    // Select main file
     const mainFileName = mainCodeFile.split('/').pop()!
-    await page.getByRole('radio', { name: mainFileName }).click()
+    await expect(page.getByText(mainFileName).first()).toBeVisible()
 
-    // Confirm and proceed
-    await page.getByRole('button', { name: 'Done' }).click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
+    // Wait for submit to be enabled
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
 
-    // Wait for review page
-    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
-
-    // Submit the resubmission
-    await page.getByRole('button', { name: /Resubmit study code/i }).click()
+    await page.getByRole('button', { name: /Submit code/i }).click()
 
     // Wait for redirect
     await page.waitForURL('**/view')
@@ -451,7 +442,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher uploads code files and submits', async () => {
-        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 
     await test.step('researcher verifies study in dashboard', async () => {
@@ -499,7 +490,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher resubmits code via file upload', async () => {
         // Already on study details page from verifyFailedStatusDisplay
-        await resubmitCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await resubmitCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 })
 
@@ -620,7 +611,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
     await test.step('researcher uploads code and submits', async () => {
         await researcherNavigatesToCodeUpload(page, studyTitle)
-        await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
     })
 
     await test.step('reviewer waits for code scan and rejects code', async () => {
@@ -631,8 +622,8 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await viewStudyDetails(page, studyTitle)
 
         // Reviewer is auto-redirected to agreements when code has been submitted
-        await page.waitForURL(/\/agreements$/, { timeout: 10000 })
-        const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+        await page.waitForURL(/\/agreements(\?.*)?$/, { timeout: 10000 })
+        const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
 
         // Navigate to code review via agreements-proceed to bypass the agreements redirect
         await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
@@ -670,20 +661,16 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
 
-        await page.getByRole('button', { name: /Upload your files/i }).click()
-        await expect(page.getByRole('dialog')).toBeVisible()
-
+        // Upload files via the file input in the drop overlay
         const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/coder-files/main.r', 'tests/coder-files/code.r'])
+        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
-        await page.getByRole('button', { name: 'Done' }).click()
-        await expect(page.getByRole('dialog')).not.toBeVisible()
+        // Wait for submit to be enabled
+        await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
 
-        await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible()
-        await page.getByRole('button', { name: /Resubmit study code/i }).click()
+        await page.getByRole('button', { name: /Submit code/i }).click()
 
         await page.waitForURL('**/view')
-        await expect(page.getByText(/successfully resubmitted/i)).toBeVisible()
     })
 })
 

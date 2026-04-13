@@ -1,2 +1,2 @@
 export { ResubmitCodeProvider, useResubmitCode } from './resubmit-code-context'
-export type { ResubmitCodeContextValue, ResubmitViewMode, ResubmitStudyData } from './resubmit-code-types'
+export type { ResubmitCodeContextValue, ResubmitStudyData } from './resubmit-code-types'

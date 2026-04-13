@@ -1,10 +1,9 @@
 export { StudyRequestProvider, useStudyRequest } from './study-request-context'
 export type {
     StudyRequestContextValue,
-    CodeUploadViewMode,
     DraftStudyData,
     ExistingFiles,
     StudyProposalFormValues,
     MutationOptions,
 } from './study-request-types'
-export { initialFormValues, initialCodeFilesState, initialDocumentFilesState } from './study-request-types'
+export { initialFormValues, initialDocumentFilesState } from './study-request-types'

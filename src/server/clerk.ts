@@ -95,6 +95,7 @@ export const syncCurrentClerkUser = async () => {
         firstName: clerkUser.firstName ?? '',
         lastName: clerkUser.lastName ?? '',
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+        metadataUserId: clerkUser.publicMetadata?.user?.id,
     }
 
     return await syncUserToDatabaseWithConflictResolution(userAttrs)

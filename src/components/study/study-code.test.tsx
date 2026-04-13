@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestCodeEnv,
     it,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -16,11 +17,11 @@ import {
     waitFor,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
-import { StudyRequestProvider } from '@/contexts/study-request'
-import { StudyCodeFromIDE } from './study-code-from-ide'
+import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
+import { signedUrlForFile } from '@/server/aws'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -28,6 +29,8 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
+        signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
     }
 })
 
@@ -39,32 +42,36 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
     return { org, user, study }
 }
 
+const createBaselineJob = async (studyId: string, { backdate = true }: { backdate?: boolean } = {}) => {
+    const createdAt = backdate ? new Date(Date.now() - 1000) : new Date(Date.now() + 1000)
+    const job = await db
+        .insertInto('studyJob')
+        .values({ studyId, createdAt })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
+}
+
 const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, string>) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
-        const root = await createWorkspaceDir('study-code-from-ide')
+        await createBaselineJob(study.id)
+        const root = await createWorkspaceDir('study-code')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, files)
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(
-        <StudyRequestProvider submittingOrgSlug={studyOrgSlug} initialStudyId={study.id}>
-            <StudyCodeFromIDE
-                studyId={study.id}
-                studyOrgSlug={studyOrgSlug}
-                previousHref={previousHref}
-                onGoBack={vi.fn()}
-            />
-        </StudyRequestProvider>,
-    )
+    renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
     return { study, previousHref }
 }
 
-describe('StudyCodeFromIDE', () => {
+describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
+        vi.mocked(signedUrlForFile).mockResolvedValue('https://mock-s3-url.example.com/starter.R')
     })
 
     afterEach(async () => {
@@ -75,8 +82,8 @@ describe('StudyCodeFromIDE', () => {
         await renderIDE()
 
         await waitFor(() => {
-            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
-            expect(screen.getByText('No files found in workspace.')).toBeInTheDocument()
+            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
+            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
@@ -90,6 +97,7 @@ describe('StudyCodeFromIDE', () => {
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
             expect(screen.getByText('helper.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         expect(screen.getByText('Main file')).toBeInTheDocument()
@@ -99,7 +107,6 @@ describe('StudyCodeFromIDE', () => {
         expect(radios).toHaveLength(2)
         expect(screen.getByDisplayValue('main.r')).toBeChecked()
         expect(screen.getByDisplayValue('helper.r')).not.toBeChecked()
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
     it('updates the selected main file', async () => {
@@ -119,22 +126,12 @@ describe('StudyCodeFromIDE', () => {
         expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
-    it('shows the Launch IDE button for OpenStax orgs only', async () => {
-        await renderIDE('openstax')
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
-        })
-    })
-
-    it('hides the Launch IDE button for non-OpenStax orgs', async () => {
+    it('shows the Edit files in IDE button for all orgs', async () => {
         await renderIDE('some-other-org')
 
         await waitFor(() => {
-            expect(screen.getByText('Review files from IDE')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
         })
-
-        expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
     })
 
     it('submits IDE files and persists study job records', async () => {
@@ -146,6 +143,7 @@ describe('StudyCodeFromIDE', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
@@ -169,143 +167,6 @@ describe('StudyCodeFromIDE', () => {
         )
     })
 
-    it('removes the suggested main file and submits with fallback main', async () => {
-        const user = userEvent.setup()
-        const { study } = await renderIDE('openstax-lab', {
-            'main.r': 'print("main")',
-            'helper.r': 'print("helper")',
-            'utils.r': 'print("utils")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('main.r')).toBeInTheDocument()
-        })
-
-        expect(screen.getByDisplayValue('main.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: 'Remove main.r' }))
-
-        await waitFor(() => {
-            expect(screen.queryByText('main.r')).not.toBeInTheDocument()
-        })
-
-        expect(screen.getByDisplayValue('helper.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'helper.r', fileType: 'MAIN-CODE' },
-            { name: 'utils.r', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
-    })
-
-    it('removes a supplemental file and submits with correct records', async () => {
-        const user = userEvent.setup()
-        const { study } = await renderIDE('openstax-lab', {
-            'main.r': 'print("main")',
-            'helper.r': 'print("helper")',
-            'utils.r': 'print("utils")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('utils.r')).toBeInTheDocument()
-        })
-
-        await user.click(screen.getByRole('button', { name: 'Remove utils.r' }))
-
-        await waitFor(() => {
-            expect(screen.queryByText('utils.r')).not.toBeInTheDocument()
-        })
-
-        expect(screen.getByDisplayValue('main.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'main.r', fileType: 'MAIN-CODE' },
-            { name: 'helper.r', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
-    })
-
-    it('disables submit after removing all files', async () => {
-        const user = userEvent.setup()
-        await renderIDE('openstax-lab', {
-            'main.r': 'print("main")',
-            'helper.r': 'print("helper")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('main.r')).toBeInTheDocument()
-        })
-
-        await user.click(screen.getByRole('button', { name: 'Remove main.r' }))
-        await user.click(screen.getByRole('button', { name: 'Remove helper.r' }))
-
-        await waitFor(() => {
-            expect(screen.getByText('No files found in workspace.')).toBeInTheDocument()
-        })
-
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-    })
-
-    it('removes manually-overridden main and falls back to suggestedMain', async () => {
-        const user = userEvent.setup()
-        const { study } = await renderIDE('openstax-lab', {
-            'main.r': 'print("main")',
-            'helper.r': 'print("helper")',
-            'utils.r': 'print("utils")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('helper.r')).toBeInTheDocument()
-        })
-
-        await user.click(screen.getByDisplayValue('helper.r'))
-        expect(screen.getByDisplayValue('helper.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: 'Remove helper.r' }))
-
-        await waitFor(() => {
-            expect(screen.queryByText('helper.r')).not.toBeInTheDocument()
-        })
-
-        expect(screen.getByDisplayValue('main.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'main.r', fileType: 'MAIN-CODE' },
-            { name: 'utils.r', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
-    })
-
     it('submits a single file as main', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
@@ -314,9 +175,8 @@ describe('StudyCodeFromIDE', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
-
-        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
 
@@ -341,6 +201,7 @@ describe('StudyCodeFromIDE', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
@@ -372,14 +233,67 @@ describe('StudyCodeFromIDE', () => {
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', previousHref)
-        expect(screen.getByRole('button', { name: /back to upload/i })).toBeInTheDocument()
     })
 
-    describe('OTTER-467 session timeout regression', () => {
+    describe('starter code', () => {
+        const renderWithCodeEnv = async (
+            files?: Record<string, string>,
+            { backdate = true }: { backdate?: boolean } = {},
+        ) => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['test/path/to/main.R'] })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            if (files) {
+                await createBaselineJob(study.id, { backdate })
+                const root = await createWorkspaceDir('study-code')
+                workspaceRoots.push(root)
+                await writeWorkspaceFiles(root, study.id, files)
+            }
+            const previousHref = `/test-org/study/${study.id}/agreements` as Route
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            return { study }
+        }
+
+        it('disables submit when starter file has not been modified since IDE launch', async () => {
+            await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
+
+            await waitFor(() => {
+                expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+                expect(screen.getByText('Modify a file or upload new ones before submitting')).toBeInTheDocument()
+            })
+        })
+
+        it('enables submit when files are newer than baseline job', async () => {
+            await renderWithCodeEnv({
+                'main.R': 'print("starter")',
+                'helper.R': 'print("helper")',
+            })
+
+            await waitFor(() => {
+                expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
+                expect(screen.getByText('helper.R')).toBeInTheDocument()
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            })
+        })
+
+        it('shows starter code download chips when available', async () => {
+            await renderWithCodeEnv()
+
+            await waitFor(() => {
+                expect(screen.getByText(/starter code file/i)).toBeInTheDocument()
+                const chip = screen.getByRole('link', { name: /main\.R/i })
+                expect(chip).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+            })
+        })
+    })
+
+    describe('session timeout regression', () => {
         it('submits successfully after unmount and fresh remount with same studyId', async () => {
             const orgSlug = 'openstax-lab'
             const { study } = await setupStudy(orgSlug)
-            const root = await createWorkspaceDir('study-code-from-ide')
+            await createBaselineJob(study.id)
+            const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
                 'main.R': 'print("main")',
@@ -387,39 +301,19 @@ describe('StudyCodeFromIDE', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const onGoBack = vi.fn()
-            const { unmount } = renderWithProviders(
-                <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
-                    <StudyCodeFromIDE
-                        studyId={study.id}
-                        studyOrgSlug={orgSlug}
-                        previousHref={previousHref}
-                        onGoBack={onGoBack}
-                    />
-                </StudyRequestProvider>,
-            )
+            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
             })
 
-            // Simulate session timeout / page reload: destroy the entire React tree
             unmount()
 
-            // Fresh mount with same studyId (as if re-login redirected back to same URL)
-            renderWithProviders(
-                <StudyRequestProvider submittingOrgSlug={orgSlug} initialStudyId={study.id}>
-                    <StudyCodeFromIDE
-                        studyId={study.id}
-                        studyOrgSlug={orgSlug}
-                        previousHref={previousHref}
-                        onGoBack={onGoBack}
-                    />
-                </StudyRequestProvider>,
-            )
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
 
             const user = userEvent.setup()
@@ -441,9 +335,6 @@ describe('StudyCodeFromIDE', () => {
 
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
-            )
-            expect(notifications.show).not.toHaveBeenCalledWith(
-                expect.objectContaining({ message: 'Study ID is required to submit' }),
             )
         })
     })

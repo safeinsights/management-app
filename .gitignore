@@ -27,6 +27,7 @@ next-env.d.ts
 /.clerk/
 
 volume/
+tests/coder-files/
 
 # Claude Code local settings (user-specific, not shared)
 .claude/settings.local.json

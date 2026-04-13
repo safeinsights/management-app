@@ -22,7 +22,10 @@ export default async function StudyReviewPage(props: {
 
     const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
-    if (job) return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+    // Only show CodeOnlyView if code was actually submitted (not just a baseline job from IDE launch)
+    const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+    if (job && codeSubmitted)
+        return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
 
     const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED'
     if (showProposalView) {

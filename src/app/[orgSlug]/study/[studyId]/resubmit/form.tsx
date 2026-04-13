@@ -1,18 +1,10 @@
 'use client'
 
 import { useResubmitCode } from '@/contexts/resubmit-code'
-import { UploadOrLaunch, ImportFromIDE, ReviewUploadedFiles } from './views'
+import { ResubmitCodeView } from './resubmit-code-view'
 
 export function ResubmitStudyCodeForm() {
-    const { viewMode } = useResubmitCode()
+    const { studyId, submittingOrgSlug } = useResubmitCode()
 
-    if (viewMode === 'review') {
-        return <ReviewUploadedFiles />
-    }
-
-    if (viewMode === 'import-ide') {
-        return <ImportFromIDE />
-    }
-
-    return <UploadOrLaunch />
+    return <ResubmitCodeView studyId={studyId} submittingOrgSlug={submittingOrgSlug} />
 }

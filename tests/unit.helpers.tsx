@@ -813,13 +813,17 @@ export const expectStudyJobRecords = async (
     studyId: string,
     expectedFiles: Array<{ name: string; fileType: string }>,
 ) => {
-    const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', studyId).execute()
-    expect(jobs).toHaveLength(1)
+    const latestJob = await db
+        .selectFrom('studyJob')
+        .select(['id'])
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .executeTakeFirstOrThrow()
 
     const jobFiles = await db
         .selectFrom('studyJobFile')
         .select(['name', 'fileType'])
-        .where('studyJobId', '=', jobs[0].id)
+        .where('studyJobId', '=', latestJob.id)
         .orderBy('fileType', 'asc')
         .execute()
     expect(jobFiles).toEqual(expectedFiles)
@@ -827,7 +831,7 @@ export const expectStudyJobRecords = async (
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status'])
-        .where('studyJobId', '=', jobs[0].id)
+        .where('studyJobId', '=', latestJob.id)
         .orderBy('createdAt', 'asc')
         .execute()
     expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])

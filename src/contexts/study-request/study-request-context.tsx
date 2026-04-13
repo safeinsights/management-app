@@ -14,10 +14,8 @@ import {
     type MutationOptions,
     initialFormValues,
 } from './study-request-types'
-import { useCodeFiles } from '@/contexts/shared'
 import { useDocumentFiles } from './hooks/use-document-files'
 import { useSaveDraft } from './hooks/use-save-draft'
-import { useSubmitStudy } from './hooks/use-submit-study'
 
 const StudyRequestContext = createContext<StudyRequestContextValue | null>(null)
 
@@ -61,14 +59,7 @@ export function StudyRequestProvider({
         ],
     })
 
-    const codeFilesHook = useCodeFiles()
     const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
-
-    const codeSource = codeFilesHook.source ?? 'upload'
-    const setCodeFiles = codeFilesHook.setUploadedFiles
-    const setExistingFiles = codeFilesHook.setExistingFiles
-    const setIDECodeFiles = codeFilesHook.setIDEFiles
-    const clearCodeFiles = codeFilesHook.clear
 
     const step1Values = form.getValues()
     const isStep1Valid = step1ReadinessSchema.safeParse({
@@ -86,20 +77,11 @@ export function StudyRequestProvider({
         (preserveStudyId?: string) => {
             setStudyId(preserveStudyId ?? null)
             setOrgSlug('')
-            clearCodeFiles()
             resetDocumentFiles()
             form.reset()
         },
-        [form, clearCodeFiles, resetDocumentFiles],
+        [form, resetDocumentFiles],
     )
-
-    const { submitStudy, isSubmitting } = useSubmitStudy({
-        studyId,
-        mainFileName: codeFilesHook.mainFileName,
-        additionalFileNames: codeFilesHook.additionalFileNames,
-        codeSource,
-        codeFiles: codeFilesHook.codeFiles,
-    })
 
     const saveDraft = useCallback(
         (options?: MutationOptions) => {
@@ -128,16 +110,8 @@ export function StudyRequestProvider({
                 irbDocPath: draft.irbDocPath,
                 agreementDocPath: draft.agreementDocPath,
             })
-
-            if (draft.mainCodeFileName) {
-                codeFilesHook.setExistingFiles(draft.mainCodeFileName, [
-                    draft.mainCodeFileName,
-                    ...(draft.additionalCodeFileNames || []),
-                ])
-            }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- using stable setExistingFiles reference to avoid infinite loops
-        [form, initDocumentFilesFromPaths, codeFilesHook.setExistingFiles],
+        [form, initDocumentFilesFromPaths],
     )
 
     useEffect(() => {
@@ -155,20 +129,6 @@ export function StudyRequestProvider({
             form,
             isStep1Valid,
 
-            codeFiles: codeFilesHook.codeFiles,
-            codeFilesLastUpdated: codeFilesHook.lastUpdated,
-            mainFileName: codeFilesHook.mainFileName,
-            additionalFileNames: codeFilesHook.additionalFileNames,
-            canSubmit: codeFilesHook.canProceed,
-            setMainCodeFile: codeFilesHook.setMainFile,
-            removeCodeFile: codeFilesHook.removeFile,
-
-            codeSource,
-            setCodeFiles,
-            setExistingFiles,
-            setIDECodeFiles,
-            clearCodeFiles,
-
             ...documentFiles,
 
             setStudyId,
@@ -177,9 +137,6 @@ export function StudyRequestProvider({
 
             saveDraft,
             isSaving,
-
-            submitStudy,
-            isSubmitting,
         }),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- using individual stable properties instead of whole objects
         [
@@ -188,18 +145,6 @@ export function StudyRequestProvider({
             submittingOrgSlug,
             form,
             isStep1Valid,
-            codeFilesHook.codeFiles,
-            codeFilesHook.lastUpdated,
-            codeFilesHook.mainFileName,
-            codeFilesHook.additionalFileNames,
-            codeFilesHook.canProceed,
-            codeFilesHook.setMainFile,
-            codeFilesHook.removeFile,
-            codeSource,
-            setCodeFiles,
-            setExistingFiles,
-            setIDECodeFiles,
-            clearCodeFiles,
             documentFiles.documentFiles,
             documentFiles.existingFiles,
             documentFiles.setDocumentFile,
@@ -208,8 +153,6 @@ export function StudyRequestProvider({
             reset,
             saveDraft,
             isSaving,
-            submitStudy,
-            isSubmitting,
         ],
     )
 

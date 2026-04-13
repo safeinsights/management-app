@@ -1,9 +1,7 @@
 import type { UseFormReturnType } from '@mantine/form'
-import type { Language } from '@/database/types'
-import type { CodeFileState, DocumentFileState } from '@/contexts/shared/file-types'
+import type { DocumentFileState } from '@/contexts/shared/file-types'
 import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
-
-export type CodeUploadViewMode = 'upload' | 'review' | 'ide-review'
+import type { Language } from '@/database/types'
 
 export type { StudyProposalFormValues }
 
@@ -38,20 +36,8 @@ export interface StudyRequestContextValue {
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
     isStep1Valid: boolean
-    codeFiles: CodeFileState
-    codeFilesLastUpdated: Date | null
-    codeSource: 'upload' | 'ide'
     documentFiles: DocumentFileState
-    mainFileName: string | null
-    additionalFileNames: string[]
-    canSubmit: boolean
     setStudyId: (id: string) => void
-    setCodeFiles: (main: File | null, additional: File[]) => void
-    setExistingFiles: (mainFileName: string | null, fileNames: string[]) => void
-    setIDECodeFiles: (mainFileName: string, fileNames: string[]) => void
-    setMainCodeFile: (fileName: string) => void
-    removeCodeFile: (fileName: string) => void
-    clearCodeFiles: () => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
     setExistingDocuments: (docs: {
         description?: string | null
@@ -62,9 +48,6 @@ export interface StudyRequestContextValue {
     reset: (studyId?: string) => void
     saveDraft: (options?: MutationOptions) => void
     isSaving: boolean
-
-    submitStudy: (options?: { onSettled?: () => void }) => void
-    isSubmitting: boolean
 }
 
 export const initialFormValues: StudyProposalFormValues = {
@@ -81,11 +64,6 @@ export const initialFormValues: StudyProposalFormValues = {
     createdStudyId: null,
     ideMainFile: '',
     ideFiles: [],
-}
-
-export const initialCodeFilesState: CodeFileState = {
-    mainFile: null,
-    additionalFiles: [],
 }
 
 export const initialDocumentFilesState: DocumentFileState = {

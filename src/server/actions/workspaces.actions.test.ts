@@ -83,8 +83,11 @@ describe('Workspace Actions', () => {
 
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
 
-        expect(result.files).toContain('main.py')
-        expect(result.files).toContain('README.md')
+        const fileNames = result.files.map((f: { name: string }) => f.name)
+        expect(fileNames).toContain('main.py')
+        expect(fileNames).toContain('README.md')
         expect(result.files).toHaveLength(3) // main.py, README.md, data.csv
+        expect(result.files[0]).toHaveProperty('size')
+        expect(result.files[0]).toHaveProperty('mtime')
     })
 })

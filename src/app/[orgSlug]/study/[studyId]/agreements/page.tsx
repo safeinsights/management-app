@@ -50,7 +50,8 @@ export default async function StudyAgreementsRoute(props: {
         )
     }
 
-    const hasJobActivity = study.jobStatusChanges.length > 0
+    // Baseline jobs (IDE launch / file upload) don't count — only actual submissions
+    const hasJobActivity = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
     if (study.status !== 'APPROVED' && !hasJobActivity) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }

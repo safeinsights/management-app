@@ -41,6 +41,7 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),
+    utimes: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Mock fetch globally

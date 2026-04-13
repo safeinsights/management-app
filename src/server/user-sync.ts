@@ -7,6 +7,7 @@ export type UserSyncAttrs = {
     firstName: string
     lastName: string
     email: string
+    metadataUserId?: string
 }
 
 export type SyncResult = {
@@ -49,8 +50,36 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         return { id: existingByClerkId.id }
     }
 
-    // User not found by clerkId - need to create
-    // Check for email conflict first (case-insensitive)
+    // Non-production: check if publicMetadata contains a userId that matches a DB user
+    if (!PROD_ENV && attrs.metadataUserId) {
+        const existingByMetadataId = await executor
+            .selectFrom('user')
+            .select(['id', 'clerkId'])
+            .where('id', '=', attrs.metadataUserId)
+            .executeTakeFirst()
+
+        if (existingByMetadataId) {
+            logger.info(
+                `Matched user ${existingByMetadataId.id} via publicMetadata userId. ` +
+                    `Reassigning from clerkId ${existingByMetadataId.clerkId} to ${attrs.clerkId}.`,
+            )
+
+            await executor
+                .updateTable('user')
+                .set({
+                    clerkId: attrs.clerkId,
+                    firstName: attrs.firstName,
+                    lastName: attrs.lastName,
+                    email: attrs.email,
+                })
+                .where('id', '=', existingByMetadataId.id)
+                .execute()
+
+            return { id: existingByMetadataId.id }
+        }
+    }
+
+    // Check for email conflict (case-insensitive)
     const existingByEmail = await executor
         .selectFrom('user')
         .select(['id', 'clerkId'])
