@@ -49,6 +49,46 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
     })
 
+    it('redirects reviewer to review page on resubmission (second job)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-REJECTED' })
+
+        // Create a second job (resubmission) with CODE-SUBMITTED
+        const resubJob = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                { studyJobId: resubJob.id, status: 'INITIATED' },
+                { studyJobId: resubJob.id, status: 'CODE-SUBMITTED' },
+            ])
+            .execute()
+
+        await expect(
+            StudyAgreementsRoute({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
+    })
+
+    it('redirects reviewer when code has been approved', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-APPROVED' })
+
+        await expect(
+            StudyAgreementsRoute({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
+    })
+
     it('renders researcher sections and proceed to code for APPROVED researcher with no job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })

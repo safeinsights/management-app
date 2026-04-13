@@ -6,6 +6,7 @@ import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { db } from '@/database'
 import { Stack, Title } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
@@ -32,13 +33,21 @@ export default async function StudyAgreementsRoute(props: {
 
     if (isReviewer) {
         const statuses = study.jobStatusChanges.map((s) => s.status)
-        const latestSubmittedIdx = statuses.findIndex((s) => s === 'CODE-SUBMITTED')
-        const latestReviewedIdx = statuses.findIndex((s) => s === 'CODE-APPROVED' || s === 'CODE-REJECTED')
-        // statuses is ordered newest-first; lower index = more recent
-        // Show agreements only when code is awaiting review (submitted more recently than any review decision)
-        const awaitingCodeReview =
-            latestSubmittedIdx !== -1 && (latestReviewedIdx === -1 || latestSubmittedIdx < latestReviewedIdx)
-        if (!awaitingCodeReview) {
+        const codeSubmitted = statuses.includes('CODE-SUBMITTED')
+        const codeReviewed = statuses.includes('CODE-APPROVED') || statuses.includes('CODE-REJECTED')
+
+        // Skip agreements if code hasn't been submitted or has already been reviewed
+        if (!codeSubmitted || codeReviewed) {
+            redirect(Routes.studyReview({ orgSlug, studyId }))
+        }
+
+        // Skip agreements on resubmission — reviewer has already seen them
+        const jobCount = await db
+            .selectFrom('studyJob')
+            .where('studyId', '=', studyId)
+            .select(db.fn.countAll().as('count'))
+            .executeTakeFirstOrThrow()
+        if (Number(jobCount.count) > 1) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
