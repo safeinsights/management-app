@@ -1,16 +1,5 @@
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { pemToArrayBuffer } from 'si-encryption/util/keypair'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-function readTestSupportFile(file: string): string {
-    return fs.readFileSync(path.join(__dirname, '../../../tests/support', file), 'utf8')
-}
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -26,9 +15,17 @@ const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
 ]
 
 const TEST_USERS = [
-    { role: 'admin', id: '00000000-0000-4000-8000-000000000001' },
-    { role: 'researcher', id: '00000000-0000-4000-8000-000000000002' },
-    { role: 'reviewer', id: '00000000-0000-4000-8000-000000000003' },
+    { role: 'admin', id: '00000000-0000-4000-8000-000000000001', email: 'si-adm-tester-dbfyq3@mailinator.com' },
+    {
+        role: 'researcher',
+        id: '00000000-0000-4000-8000-000000000002',
+        email: 'si-research-tester-dbfyq3@mailinator.com',
+    },
+    {
+        role: 'reviewer',
+        id: '00000000-0000-4000-8000-000000000003',
+        email: 'si-member-tester-dbfyq3@mailinator.com',
+    },
 ] as const
 
 type TestUserRole = (typeof TEST_USERS)[number]['role']
@@ -43,10 +40,6 @@ const ORG_MEMBERSHIPS: { role: TestUserRole; slug: string; isAdmin: boolean }[] 
 
 export async function seed(db: Kysely<DB>): Promise<void> {
     if (process.env.NO_TESTING_DATA) return
-
-    const pubKeyStr = readTestSupportFile('public_key.pem')
-    const fingerprint = readTestSupportFile('public_key.sig').trim()
-    const pubKeyBuffer = Buffer.from(pemToArrayBuffer(pubKeyStr))
 
     // Upsert orgs
     for (const org of ORGS) {
@@ -74,7 +67,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                   ? 'Enclave where the reviewer is an admin'
                   : null
 
-        const settings = isEnclave ? { publicKey: pubKeyStr } : {}
+        const settings = isEnclave ? { publicKey: 'BAD KEY, UPDATE ME' } : {}
 
         await db
             .insertInto('org')
@@ -166,37 +159,27 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Upsert test users
+    // Find-or-create test users by id
     for (const user of TEST_USERS) {
         const firstName = `Test ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`
+        const existing = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
 
-        await db
-            .insertInto('user')
-            .values({
-                id: user.id,
-                clerkId: `test-clerk-${user.role}`,
-                firstName,
-                lastName: 'User',
-                email: `test-${user.role}@safeinsights.org`,
-            })
-            .onConflict((oc) =>
-                oc.column('id').doUpdateSet((eb) => ({
-                    firstName: eb.ref('excluded.firstName'),
-                    lastName: eb.ref('excluded.lastName'),
-                    email: eb.ref('excluded.email'),
-                })),
-            )
-            .execute()
-    }
-
-    // Public keys for admin and reviewer
-    for (const user of TEST_USERS.filter((u) => u.role === 'admin' || u.role === 'reviewer')) {
-        const existing = await db.selectFrom('userPublicKey').where('userId', '=', user.id).executeTakeFirst()
-
-        if (!existing) {
+        if (existing) {
             await db
-                .insertInto('userPublicKey')
-                .values({ fingerprint, userId: user.id, publicKey: pubKeyBuffer })
+                .updateTable('user')
+                .set({ firstName, lastName: 'User', email: user.email })
+                .where('id', '=', user.id)
+                .execute()
+        } else {
+            await db
+                .insertInto('user')
+                .values({
+                    id: user.id,
+                    clerkId: `test-clerk-${user.role}`,
+                    firstName,
+                    lastName: 'User',
+                    email: user.email,
+                })
                 .execute()
         }
     }
