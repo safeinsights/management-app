@@ -97,8 +97,8 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
-    await expect(page.getByText(mainFileName)).toBeVisible()
-    await expect(page.getByText('code.r')).toBeVisible()
+    await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
     // Wait for submit to be enabled (files newer than baseline job)
     await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
@@ -116,7 +116,7 @@ async function uploadCodeViaIDE(page: Page) {
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
     // Starter file appears in the file table after IDE launch
-    await expect(page.getByRole('cell', { name: /main.r/i })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
 
     // Submit is disabled with only starter files — upload an additional file
     const fileInput = page.locator('input[type="file"]')
