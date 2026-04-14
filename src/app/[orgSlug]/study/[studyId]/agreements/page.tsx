@@ -4,6 +4,7 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
@@ -41,7 +42,7 @@ export default async function StudyAgreementsRoute(props: {
         }
 
         // No code submitted yet — nothing to review, show proposal instead
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
         if (!codeSubmitted) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }

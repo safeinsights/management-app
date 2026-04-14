@@ -3,6 +3,7 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -36,7 +37,7 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
 
         // When a reviewer navigates back from the agreements step, show the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
