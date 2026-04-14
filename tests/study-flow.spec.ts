@@ -191,13 +191,18 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible()
 
-    // Click Previous to navigate to proposal view
+    // Click Previous to navigate to agreements page
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
-    await page.waitForURL(/\/review\?from=agreements$/)
+    await page.waitForURL(/\/agreements\?from=previous$/)
 
-    // Previous from code review shows the proposal view
+    // Previous from code review shows the agreements page
+    await expect(page.getByText('STEP 2A')).toBeVisible()
+
+    // Click Previous again to navigate to proposal view
+    await page.getByRole('button', { name: /Previous/i }).click()
+    await page.waitForURL(/\/review\?from=agreements$/)
     await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
 

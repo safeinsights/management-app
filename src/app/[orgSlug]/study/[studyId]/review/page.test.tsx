@@ -77,7 +77,7 @@ describe('StudyReviewPage', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
             'href',
-            expect.stringContaining('/review?from=agreements'),
+            expect.stringContaining('/agreements?from=previous'),
         )
     })
 

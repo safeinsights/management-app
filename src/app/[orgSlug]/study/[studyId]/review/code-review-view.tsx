@@ -42,7 +42,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
             <StudyResultsWithReview job={job} study={study} />
             <Group>
                 <ButtonLink
-                    href={`${Routes.studyReview({ orgSlug, studyId: study.id })}?from=agreements`}
+                    href={Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })}
                     variant="subtle"
                     leftSection={<CaretLeftIcon />}
                 >
