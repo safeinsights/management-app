@@ -48,6 +48,6 @@ describe('CodeReviewView', () => {
 
         const previousButton = screen.getByRole('link', { name: /previous/i })
         expect(previousButton).toBeInTheDocument()
-        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/review?from=agreements'))
+        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/agreements?from=previous'))
     })
 })
