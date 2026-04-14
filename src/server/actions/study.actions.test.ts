@@ -351,11 +351,11 @@ describe('Study Actions', () => {
 })
 
 describe('ackAgreementsAction', () => {
-    it('sets researcherAgreementsAckedAt for researcher role', async () => {
+    it('sets researcherAgreementsAckedAt when called by lab member', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+        await ackAgreementsAction({ studyId: study.id })
 
         const updated = await db
             .selectFrom('study')
@@ -367,11 +367,11 @@ describe('ackAgreementsAction', () => {
         expect(updated.reviewerAgreementsAckedAt).toBeNull()
     })
 
-    it('sets reviewerAgreementsAckedAt for reviewer role', async () => {
+    it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
+        await ackAgreementsAction({ studyId: study.id })
 
         const updated = await db
             .selectFrom('study')
@@ -387,7 +387,7 @@ describe('ackAgreementsAction', () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+        await ackAgreementsAction({ studyId: study.id })
 
         const first = await db
             .selectFrom('study')
@@ -396,7 +396,7 @@ describe('ackAgreementsAction', () => {
             .executeTakeFirstOrThrow()
 
         // Call again — should not change the timestamp
-        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+        await ackAgreementsAction({ studyId: study.id })
 
         const second = await db
             .selectFrom('study')

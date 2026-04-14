@@ -342,12 +342,3 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         return { publicKey: arrayBuffer, fingerprint }
     })
 }
-
-export async function getStudyJobCount(studyId: string): Promise<number> {
-    const result = await Action.db
-        .selectFrom('studyJob')
-        .where('studyId', '=', studyId)
-        .select(Action.db.fn.countAll().as('count'))
-        .executeTakeFirstOrThrow()
-    return Number(result.count)
-}

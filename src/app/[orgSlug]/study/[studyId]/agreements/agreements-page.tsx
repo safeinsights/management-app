@@ -105,7 +105,7 @@ export function AgreementsPage({
     const resolvedProceedLabel = proceedLabel ?? (isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4')
 
     const handleProceed = async () => {
-        await ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' })
+        await ackAgreementsAction({ studyId })
         router.push(proceedHref as Route)
     }
     const handlePrevious = () => router.push(previousHref as Route)
