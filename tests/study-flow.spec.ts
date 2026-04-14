@@ -445,11 +445,11 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher navigates back via previous buttons', async () => {
         // Currently on the CodeOnlyView (study details page)
-        // Click Previous → should go to agreements
+        // Click Previous → agreements redirects to /view (study is PENDING-REVIEW, not APPROVED)
         const previousLink = page.getByRole('link', { name: /Previous/i })
         await previousLink.scrollIntoViewIfNeeded()
         await previousLink.click()
-        await page.waitForURL(/\/agreements/)
+        await page.waitForURL(/\/view/)
     })
 
     await test.step('reviewer approves code', async () => {

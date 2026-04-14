@@ -166,7 +166,7 @@ export const getStudyAction = new Action('getStudyAction')
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
 export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string(), role: z.enum(['researcher', 'reviewer']) }))
+    .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
@@ -176,14 +176,28 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId, role }, db }) => {
-        const column = role === 'researcher' ? 'researcherAgreementsAckedAt' : 'reviewerAgreementsAckedAt'
-        await db
-            .updateTable('study')
-            .set({ [column]: new Date() })
-            .where('id', '=', studyId)
-            .where(column, 'is', null)
-            .execute()
+    .handler(async ({ params: { studyId }, db, session }) => {
+        // Derive role from the user's org type — no need to trust the client
+        const orgs = Object.values(session?.orgs ?? {})
+        const isReviewer = orgs.some((org) => org.type === 'enclave')
+        const isResearcher = orgs.some((org) => org.type === 'lab')
+
+        if (isReviewer) {
+            await db
+                .updateTable('study')
+                .set({ reviewerAgreementsAckedAt: new Date() })
+                .where('id', '=', studyId)
+                .where('reviewerAgreementsAckedAt', 'is', null)
+                .execute()
+        }
+        if (isResearcher) {
+            await db
+                .updateTable('study')
+                .set({ researcherAgreementsAckedAt: new Date() })
+                .where('id', '=', studyId)
+                .where('researcherAgreementsAckedAt', 'is', null)
+                .execute()
+        }
     })
 
 async function approveJobCode({
