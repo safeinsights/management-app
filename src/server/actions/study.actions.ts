@@ -177,12 +177,10 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study, params: { studyId }, db, session }) => {
-        const orgs = session?.orgs ?? {}
+        const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
 
-        // Check if user belongs to the study's reviewing org (enclave) → reviewer
-        const isReviewer = Object.values(orgs).some((org) => org.id === study.orgId)
-        // Check if user belongs to the study's submitting org (lab) → researcher
-        const isResearcher = Object.values(orgs).some((org) => org.id === study.submittedByOrgId)
+        const isReviewer = userOrgIds.has(study.orgId)
+        const isResearcher = userOrgIds.has(study.submittedByOrgId)
 
         if (isReviewer) {
             await db
