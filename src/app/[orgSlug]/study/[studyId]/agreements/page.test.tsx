@@ -104,6 +104,20 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
+    it('allows direct access via Previous button when study is not APPROVED', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'REJECTED' }).where('id', '=', study.id).execute()
+
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'previous' }),
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
+    })
+
     it('allows direct access via Previous button even after acknowledging', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
