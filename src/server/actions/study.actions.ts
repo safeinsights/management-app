@@ -176,11 +176,13 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db, session }) => {
-        // Derive role from the user's org type — no need to trust the client
-        const orgs = Object.values(session?.orgs ?? {})
-        const isReviewer = orgs.some((org) => org.type === 'enclave')
-        const isResearcher = orgs.some((org) => org.type === 'lab')
+    .handler(async ({ study, params: { studyId }, db, session }) => {
+        const orgs = session?.orgs ?? {}
+
+        // Check if user belongs to the study's reviewing org (enclave) → reviewer
+        const isReviewer = Object.values(orgs).some((org) => org.id === study.orgId)
+        // Check if user belongs to the study's submitting org (lab) → researcher
+        const isResearcher = Object.values(orgs).some((org) => org.id === study.submittedByOrgId)
 
         if (isReviewer) {
             await db

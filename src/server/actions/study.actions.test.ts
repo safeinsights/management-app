@@ -352,8 +352,11 @@ describe('Study Actions', () => {
 
 describe('ackAgreementsAction', () => {
     it('sets researcherAgreementsAckedAt when called by lab member', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
         await ackAgreementsAction({ studyId: study.id })
 
@@ -368,8 +371,10 @@ describe('ackAgreementsAction', () => {
     })
 
     it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const { org: enclaveOrg, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
         await ackAgreementsAction({ studyId: study.id })
 
