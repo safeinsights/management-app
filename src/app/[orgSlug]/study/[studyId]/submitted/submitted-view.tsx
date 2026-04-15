@@ -45,7 +45,15 @@ export function SubmittedView({ orgSlug, study, orgName }: SubmittedViewProps) {
     return (
         <PostSubmissionFeatureFlag
             defaultContent={existingView}
-            optInContent={<ProposalSubmitted orgSlug={orgSlug} studyId={study.id} study={study} submittedAt={study.submittedAt} orgName={orgName} />}
+            optInContent={
+                <ProposalSubmitted
+                    orgSlug={orgSlug}
+                    studyId={study.id}
+                    study={study}
+                    submittedAt={study.submittedAt}
+                    orgName={orgName}
+                />
+            }
         />
     )
 }
