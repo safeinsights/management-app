@@ -14,19 +14,17 @@ import { Link } from '@/components/links'
 
 interface ProposalSubmittedProps {
     orgSlug: string
-    studyId: string
     study: SelectedStudy
-    submittedAt: Date | string | null
     orgName: string
 }
 
-export function ProposalSubmitted({ orgSlug, studyId, study, submittedAt, orgName }: ProposalSubmittedProps) {
+export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmittedProps) {
     const [expanded, setExpanded] = useState(false)
     const { getPopoverProps } = usePopover()
 
     return (
         <Stack p="xl" gap="xl">
-            <ProposalHeader orgSlug={orgSlug} title="Study proposal" studyId={studyId} studyTitle={study.title} />
+            <ProposalHeader orgSlug={orgSlug} title="Study proposal" studyId={study.id} studyTitle={study.title} />
             <Stack gap="xxl">
                 <Paper p="xxl">
                     <Text fz={10} fw={700} c="charcoal.7" pb={4}>
@@ -37,9 +35,9 @@ export function ProposalSubmitted({ orgSlug, studyId, study, submittedAt, orgNam
                     </Title>
                     <Group justify="space-between" align="center">
                         <Text c="charcoal.9">Title: {study.title}</Text>
-                        {submittedAt && (
+                        {study.submittedAt && (
                             <Text fz={12} c="charcoal.7">
-                                Submitted on {dayjs(submittedAt).format('MMM DD, YYYY')}
+                                Submitted on {dayjs(study.submittedAt).format('MMM DD, YYYY')}
                             </Text>
                         )}
                     </Group>
@@ -56,7 +54,8 @@ export function ProposalSubmitted({ orgSlug, studyId, study, submittedAt, orgNam
                         fw={700}
                         onClick={() => setExpanded((prev) => !prev)}
                         mt="md"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        display="inline-flex"
+                        style={{ alignItems: 'center', gap: 4 }}
                     >
                         {expanded ? 'Hide full initial request' : 'View full initial request'}
                         <CaretRightIcon

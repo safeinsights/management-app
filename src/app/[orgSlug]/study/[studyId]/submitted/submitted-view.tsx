@@ -1,5 +1,3 @@
-'use client'
-
 import { Button, Paper, Stack, Text, Title } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { Link } from '@/components/links'
@@ -45,15 +43,7 @@ export function SubmittedView({ orgSlug, study, orgName }: SubmittedViewProps) {
     return (
         <PostSubmissionFeatureFlag
             defaultContent={existingView}
-            optInContent={
-                <ProposalSubmitted
-                    orgSlug={orgSlug}
-                    studyId={study.id}
-                    study={study}
-                    submittedAt={study.submittedAt}
-                    orgName={orgName}
-                />
-            }
+            optInContent={<ProposalSubmitted orgSlug={orgSlug} study={study} orgName={orgName} />}
         />
     )
 }

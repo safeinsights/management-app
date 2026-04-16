@@ -54,7 +54,7 @@ export function DatasetsField({
             <Group gap="md">
                 {datasets.map((id) => (
                     <Box key={id} bg="grey.10" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
-                        <Text size={size} c="#0D0D0D">
+                        <Text size={size} c="charcoal.9">
                             {nameMap[id] || id}
                         </Text>
                     </Box>
