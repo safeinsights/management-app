@@ -54,7 +54,7 @@ export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewP
                 </Title>
 
                 <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
-                <ProposalSection study={study} />
+                <ProposalSection study={study} orgSlug={orgSlug} />
                 <ReviewFeedbackSection feedback={feedback} />
                 <ReviewDecisionSection decision={decision} />
 
