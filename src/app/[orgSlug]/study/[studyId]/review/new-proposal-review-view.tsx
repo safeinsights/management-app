@@ -100,11 +100,12 @@ function useNewProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: 
 type ReviewActionsBarProps = {
     study: StudyForReview
     canSubmit: boolean
+    isPending: boolean
     onBack: () => void
     onSubmit: () => void
 }
 
-const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, onBack, onSubmit }) => {
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPending, onBack, onSubmit }) => {
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
         return null
     }
@@ -113,7 +114,7 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, onBack,
             <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
                 Back
             </Button>
-            <Button disabled={!canSubmit} onClick={onSubmit}>
+            <Button disabled={!canSubmit || isPending} onClick={onSubmit}>
                 Submit review
             </Button>
         </Group>
@@ -128,7 +129,15 @@ type SubmitReviewModalProps = {
 }
 
 const SubmitReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Confirm review submission?" size={720}>
+    <AppModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Confirm review submission?"
+        size={720}
+        closeOnClickOutside={!isPending}
+        closeOnEscape={!isPending}
+        withCloseButton={!isPending}
+    >
         <Stack>
             <Text size="md">
                 Please confirm you are ready to submit your review. Other teammates may still be working on it and
@@ -147,7 +156,15 @@ const SubmitReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConf
 )
 
 const RejectReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Reject initial request?" size={720}>
+    <AppModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Reject initial request?"
+        size={720}
+        closeOnClickOutside={!isPending}
+        closeOnEscape={!isPending}
+        withCloseButton={!isPending}
+    >
         <Stack>
             <Text size="md">
                 Please confirm you are ready to submit your review. Other teammates may still be working on it and
@@ -204,7 +221,13 @@ export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewP
                 <ReviewFeedbackSection feedback={feedback} />
                 <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
 
-                <ReviewActionsBar study={study} canSubmit={canSubmit} onBack={handleBack} onSubmit={handleSubmit} />
+                <ReviewActionsBar
+                    study={study}
+                    canSubmit={canSubmit}
+                    isPending={isPending}
+                    onBack={handleBack}
+                    onSubmit={handleSubmit}
+                />
             </Stack>
 
             <SubmitReviewModal
