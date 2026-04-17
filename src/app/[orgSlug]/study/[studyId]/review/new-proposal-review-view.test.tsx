@@ -16,13 +16,6 @@ import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NewProposalReviewView } from './new-proposal-review-view'
 
-vi.mock('@/server/events', () => ({
-    onStudyApproved: vi.fn(),
-    onStudyCodeApproved: vi.fn(),
-    onStudyCodeRejected: vi.fn(),
-    onStudyRejected: vi.fn(),
-}))
-
 vi.mock('@/hooks/use-review-feedback', async (importOriginal) => {
     const original = await importOriginal<typeof import('@/hooks/use-review-feedback')>()
     return {
