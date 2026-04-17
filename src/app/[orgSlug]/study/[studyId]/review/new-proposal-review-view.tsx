@@ -1,11 +1,19 @@
 'use client'
 
+import { useMutation, useQueryClient } from '@/common'
+import { reportMutationError } from '@/components/errors'
+import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { Routes } from '@/lib/routes'
-import { Box, Button, Group, Stack, Title } from '@mantine/core'
+import { approveStudyProposalAction, rejectStudyProposalAction } from '@/server/actions/study.actions'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
+import type { FC } from 'react'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -17,26 +25,164 @@ type NewProposalReviewViewProps = {
     study: StudyForReview
 }
 
-function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
+function useNewProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: string }) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
+    const queryClient = useQueryClient()
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+    const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
 
     const canSubmit = feedback.isValid && decision.selected !== null
+    const backPath = Routes.orgDashboard({ orgSlug })
+
+    const { mutate: submitReview, isPending } = useMutation({
+        mutationFn: async () => {
+            if (decision.selected === 'approve') {
+                return approveStudyProposalAction({ orgSlug, studyId })
+            }
+            if (decision.selected === 'reject') {
+                return rejectStudyProposalAction({ orgSlug, studyId })
+            }
+            // TODO(OTTER-493): replace with submitProposalReviewAction({ decision: 'needs-clarification', feedback })
+            // once the `proposal change requested` status and feedback storage land.
+            console.warn('[OTTER-492] Needs clarification submission is blocked pending OTTER-493 backend work')
+            return { placeholder: true } as const
+        },
+        onError: reportMutationError('Failed to submit review'),
+        onSuccess: (result) => {
+            if (result && typeof result === 'object' && 'placeholder' in result) {
+                closeConfirm()
+                notifications.show({
+                    title: 'Not yet available',
+                    message:
+                        'The "Needs clarification" flow will be enabled once backend work (OTTER-493) is complete.',
+                    color: 'blue',
+                })
+                return
+            }
+            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            router.push(backPath)
+        },
+    })
 
     const handleBack = () => {
-        router.push(Routes.orgDashboard({ orgSlug }))
+        router.push(backPath)
     }
 
     const handleSubmit = () => {
-        // Will be implemented in a future ticket
+        if (decision.selected === 'reject') {
+            openReject()
+        } else {
+            openConfirm()
+        }
     }
 
-    return { feedback, decision, canSubmit, handleBack, handleSubmit }
+    const handleConfirmSubmit = () => {
+        submitReview()
+    }
+
+    return {
+        feedback,
+        decision,
+        canSubmit,
+        handleBack,
+        handleSubmit,
+        confirmOpen,
+        closeConfirm,
+        rejectOpen,
+        closeReject,
+        handleConfirmSubmit,
+        isPending,
+    }
 }
 
+type ReviewActionsBarProps = {
+    study: StudyForReview
+    canSubmit: boolean
+    onBack: () => void
+    onSubmit: () => void
+}
+
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, onBack, onSubmit }) => {
+    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+        return null
+    }
+    return (
+        <Group justify="space-between">
+            <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
+                Back
+            </Button>
+            <Button disabled={!canSubmit} onClick={onSubmit}>
+                Submit review
+            </Button>
+        </Group>
+    )
+}
+
+type SubmitReviewModalProps = {
+    isOpen: boolean
+    onClose: () => void
+    onConfirm: () => void
+    isPending: boolean
+}
+
+const SubmitReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
+    <AppModal isOpen={isOpen} onClose={onClose} title="Confirm review submission?" size={720}>
+        <Stack>
+            <Text size="md">
+                Please confirm you are ready to submit your review. Other teammates may still be working on it and
+                further edits are not permitted once submitted.
+            </Text>
+            <Group justify="flex-end">
+                <Button variant="outline" onClick={onClose} disabled={isPending}>
+                    Cancel
+                </Button>
+                <Button onClick={onConfirm} loading={isPending}>
+                    Yes, submit review
+                </Button>
+            </Group>
+        </Stack>
+    </AppModal>
+)
+
+const RejectReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
+    <AppModal isOpen={isOpen} onClose={onClose} title="Reject initial request?" size={720}>
+        <Stack>
+            <Text size="md">
+                Please confirm you are ready to submit your review. Other teammates may still be working on it and
+                further edits are not permitted once submitted.
+            </Text>
+            <Text size="md" fw={600} c="#c70000">
+                Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study.
+                This action cannot be undone.
+            </Text>
+            <Group justify="flex-end">
+                <Button variant="outline" onClick={onClose} disabled={isPending}>
+                    Cancel
+                </Button>
+                <Button color="red" onClick={onConfirm} loading={isPending}>
+                    Reject initial request
+                </Button>
+            </Group>
+        </Stack>
+    </AppModal>
+)
+
 export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewProps) {
-    const { feedback, decision, canSubmit, handleBack, handleSubmit } = useNewProposalReview({ orgSlug })
+    const {
+        feedback,
+        decision,
+        canSubmit,
+        handleBack,
+        handleSubmit,
+        confirmOpen,
+        closeConfirm,
+        rejectOpen,
+        closeReject,
+        handleConfirmSubmit,
+        isPending,
+    } = useNewProposalReview({ orgSlug, studyId: study.id })
 
     return (
         <Box bg="grey.10">
@@ -56,17 +202,23 @@ export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewP
                 <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
                 <ProposalSection study={study} />
                 <ReviewFeedbackSection feedback={feedback} />
-                <ReviewDecisionSection decision={decision} />
+                <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
 
-                <Group justify="space-between">
-                    <Button variant="outline" onClick={handleBack}>
-                        Back
-                    </Button>
-                    <Button disabled={!canSubmit} onClick={handleSubmit}>
-                        Submit review
-                    </Button>
-                </Group>
+                <ReviewActionsBar study={study} canSubmit={canSubmit} onBack={handleBack} onSubmit={handleSubmit} />
             </Stack>
+
+            <SubmitReviewModal
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={handleConfirmSubmit}
+                isPending={isPending}
+            />
+            <RejectReviewModal
+                isOpen={rejectOpen}
+                onClose={closeReject}
+                onConfirm={handleConfirmSubmit}
+                isPending={isPending}
+            />
         </Box>
     )
 }

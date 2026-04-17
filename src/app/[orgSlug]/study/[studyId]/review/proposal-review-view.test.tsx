@@ -10,8 +10,25 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import type { ReactNode } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
+
+const featureFlagState = { useOptIn: false }
+
+vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
+    const original = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
+    return {
+        ...original,
+        ProposalReviewFeatureFlag: ({
+            defaultContent,
+            optInContent,
+        }: {
+            defaultContent: ReactNode
+            optInContent: ReactNode
+        }) => (featureFlagState.useOptIn ? optInContent : defaultContent),
+    }
+})
 
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
@@ -117,5 +134,38 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
+    })
+
+    describe('agreementsHref bypass', () => {
+        const agreementsHref = '/test-org/study/123/agreements'
+
+        beforeEach(() => {
+            featureFlagState.useOptIn = false
+        })
+
+        it('renders "Proceed to Step 2" when agreementsHref is provided (flag off)', () => {
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
+
+            expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Study proposal', level: 1 })).not.toBeInTheDocument()
+        })
+
+        it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
+            featureFlagState.useOptIn = true
+
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
+
+            expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Study proposal', level: 1 })).not.toBeInTheDocument()
+        })
+
+        it('renders the new flow when agreementsHref is absent and feature flag is ON', () => {
+            featureFlagState.useOptIn = true
+
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Proceed to Step 2' })).not.toBeInTheDocument()
+        })
     })
 })
