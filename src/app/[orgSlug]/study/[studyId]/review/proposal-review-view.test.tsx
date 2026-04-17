@@ -147,7 +147,7 @@ describe('ProposalReviewView', () => {
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Study proposal', level: 1 })).not.toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
         })
 
         it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
@@ -156,7 +156,7 @@ describe('ProposalReviewView', () => {
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Study proposal', level: 1 })).not.toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
         })
 
         it('renders the new flow when agreementsHref is absent and feature flag is ON', () => {
@@ -164,7 +164,7 @@ describe('ProposalReviewView', () => {
 
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Proceed to Step 2' })).not.toBeInTheDocument()
         })
     })

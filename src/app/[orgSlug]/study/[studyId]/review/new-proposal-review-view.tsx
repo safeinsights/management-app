@@ -190,13 +190,13 @@ export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewP
                 <PageBreadcrumbs
                     crumbs={[
                         ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Study proposal', Routes.studyReview({ orgSlug, studyId: study.id })],
+                        ['Data use request', Routes.studyReview({ orgSlug, studyId: study.id })],
                         ['Review initial request'],
                     ]}
                 />
 
                 <Title order={1} fz={40} fw={700}>
-                    Study proposal
+                    Review initial request
                 </Title>
 
                 <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />

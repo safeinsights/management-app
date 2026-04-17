@@ -87,7 +87,7 @@ describe('NewProposalReviewView', () => {
     it('renders the page title', () => {
         renderWithProviders(<NewProposalReviewView orgSlug="test-org" study={study} />)
 
-        expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
     })
 
     it('renders the study title in proposal section', () => {
