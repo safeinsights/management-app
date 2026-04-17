@@ -7,7 +7,7 @@ export const dialect = new PostgresDialect({
         const config = await databaseURL()
         return new PG.Pool({
             connectionString: config,
-            ...(DEPLOYED_ENV && { ssl: true }),
+            ...(DEPLOYED_ENV && { ssl: { rejectUnauthorized: false } }),
         })
     },
 })
