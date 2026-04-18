@@ -1,6 +1,6 @@
 'use client'
 
-import { Divider, Stack, Text } from '@mantine/core'
+import { Box, Divider, Group, Stack, Text } from '@mantine/core'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -51,7 +51,15 @@ export function DatasetsField({
             <Text fw={600} size="sm">
                 Dataset(s) of interest
             </Text>
-            <Text size={size}>{datasets.map((id) => nameMap[id] || id).join(', ')}</Text>
+            <Group gap="md">
+                {datasets.map((id) => (
+                    <Box key={id} bg="grey.10" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
+                        <Text size={size} c="charcoal.9">
+                            {nameMap[id] || id}
+                        </Text>
+                    </Box>
+                ))}
+            </Group>
         </Stack>
     )
 }
