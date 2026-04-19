@@ -16,9 +16,10 @@ type ProposalReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
     agreementsHref?: string
+    wsUrl: string
 }
 
-export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
+export function ProposalReviewView({ orgSlug, study, agreementsHref, wsUrl }: ProposalReviewViewProps) {
     const { getPopoverProps } = usePopover()
 
     const existingView = (
@@ -78,7 +79,7 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
     return (
         <ProposalReviewFeatureFlag
             defaultContent={existingView}
-            optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} />}
+            optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} wsUrl={wsUrl} />}
         />
     )
 }

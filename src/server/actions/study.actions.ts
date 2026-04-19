@@ -148,6 +148,7 @@ export const getStudyAction = new Action('getStudyAction')
             .select([
                 'org.slug as orgSlug',
                 'submittingOrg.slug as submittedByOrgSlug',
+                'submittingOrg.name as submittingOrgName',
                 'study.descriptionDocPath',
                 'study.irbDocPath',
                 'study.agreementDocPath',

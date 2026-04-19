@@ -15,6 +15,7 @@ import { REVIEW_STEPS, type StudyForReview } from './review-types'
 type NewProposalReviewViewProps = {
     orgSlug: string
     study: StudyForReview
+    wsUrl: string
 }
 
 function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
@@ -35,7 +36,7 @@ function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
     return { feedback, decision, canSubmit, handleBack, handleSubmit }
 }
 
-export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewProps) {
+export function NewProposalReviewView({ orgSlug, study, wsUrl }: NewProposalReviewViewProps) {
     const { feedback, decision, canSubmit, handleBack, handleSubmit } = useNewProposalReview({ orgSlug })
 
     return (
@@ -55,7 +56,12 @@ export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewP
 
                 <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
                 <ProposalSection study={study} />
-                <ReviewFeedbackSection feedback={feedback} />
+                <ReviewFeedbackSection
+                    feedback={feedback}
+                    submittingOrgName={study.submittingOrgName}
+                    studyId={study.id}
+                    wsUrl={wsUrl}
+                />
                 <ReviewDecisionSection decision={decision} />
 
                 <Group justify="space-between">

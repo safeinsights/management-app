@@ -5,6 +5,7 @@ import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { WS_URL } from '@/server/config'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -45,6 +46,7 @@ export default async function StudyReviewPage(props: {
                     orgSlug={orgSlug}
                     study={study}
                     agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
+                    wsUrl={WS_URL}
                 />
             )
         }
@@ -55,7 +57,7 @@ export default async function StudyReviewPage(props: {
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
-        return <ProposalReviewView orgSlug={orgSlug} study={study} />
+        return <ProposalReviewView orgSlug={orgSlug} study={study} wsUrl={WS_URL} />
     }
 
     return <AlertNotFound title="Study was not found" message="no such study exists" />

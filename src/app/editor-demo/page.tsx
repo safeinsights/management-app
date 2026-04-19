@@ -1,8 +1,6 @@
-import { DEPLOYED_ENV } from '@/server/config'
+import { WS_URL } from '@/server/config'
 import { EditorDemoLoader } from './editor-demo-loader'
 
 export default function EditorDemoPage() {
-    const wsUrl = DEPLOYED_ENV ? '/ws' : 'ws://localhost:1234'
-
-    return <EditorDemoLoader wsUrl={wsUrl} />
+    return <EditorDemoLoader wsUrl={WS_URL} />
 }
