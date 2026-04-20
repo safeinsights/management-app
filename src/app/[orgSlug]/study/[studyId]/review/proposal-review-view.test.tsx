@@ -10,23 +10,16 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
 
-const featureFlagState = { useOptIn: false }
+const spyModeState = { isSpyMode: false }
 
-vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
-    const original = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
+vi.mock('@/components/spy-mode-context', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
     return {
-        ...original,
-        ProposalReviewFeatureFlag: ({
-            defaultContent,
-            optInContent,
-        }: {
-            defaultContent: ReactNode
-            optInContent: ReactNode
-        }) => (featureFlagState.useOptIn ? optInContent : defaultContent),
+        ...actual,
+        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
     }
 })
 
@@ -34,7 +27,8 @@ describe('ProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        spyModeState.isSpyMode = false
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -137,34 +131,30 @@ describe('ProposalReviewView', () => {
     })
 
     describe('agreementsHref bypass', () => {
-        const agreementsHref = '/test-org/study/123/agreements'
-
-        beforeEach(() => {
-            featureFlagState.useOptIn = false
-        })
+        const agreementsHref = '/openstax/study/123/agreements'
 
         it('renders "Proceed to Step 2" when agreementsHref is provided (flag off)', () => {
-            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
+            renderWithProviders(<ProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />)
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
             expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
         })
 
         it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
-            featureFlagState.useOptIn = true
+            spyModeState.isSpyMode = true
 
-            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} agreementsHref={agreementsHref} />)
+            renderWithProviders(<ProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />)
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
             expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
         })
 
-        it('renders the new flow when agreementsHref is absent and feature flag is ON', () => {
-            featureFlagState.useOptIn = true
+        it('renders the new flow when agreementsHref is absent and feature flag is ON', async () => {
+            spyModeState.isSpyMode = true
 
-            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+            renderWithProviders(<ProposalReviewView orgSlug="openstax" study={study} />)
 
-            expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
+            expect(await screen.findByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Proceed to Step 2' })).not.toBeInTheDocument()
         })
     })

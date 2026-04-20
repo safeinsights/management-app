@@ -170,7 +170,7 @@ const RejectReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConf
                 Please confirm you are ready to submit your review. Other teammates may still be working on it and
                 further edits are not permitted once submitted.
             </Text>
-            <Text size="md" fw={600} c="#c70000">
+            <Text size="md" fw={600} c="red.9">
                 Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study.
                 This action cannot be undone.
             </Text>

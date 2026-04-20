@@ -10,9 +10,13 @@ type ReviewDecisionSectionProps = {
     labName: string
 }
 
-function renderOptionDescription(option: DecisionOption): ReactNode {
+function OptionDescription({ option }: { option: DecisionOption }): ReactNode {
     if (!option.warning) {
-        return option.description
+        return (
+            <Text component="span" size="sm" c="grey.7">
+                {option.description}
+            </Text>
+        )
     }
     return (
         <Text component="span" size="sm" c="grey.7">
@@ -24,6 +28,11 @@ function renderOptionDescription(option: DecisionOption): ReactNode {
     )
 }
 
+const RADIO_STYLES = {
+    label: { fontWeight: 600, fontSize: 16 },
+    description: { fontSize: 14 },
+}
+
 export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisionSectionProps) {
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
         return null
@@ -32,6 +41,16 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
     const handleChange = (value: string) => {
         decision.onSelect(value as Decision)
     }
+
+    const radioOptions = DECISION_OPTIONS.map((option) => (
+        <Radio
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            description={<OptionDescription option={option} />}
+            styles={RADIO_STYLES}
+        />
+    ))
 
     return (
         <Paper p="xl" data-testid="review-decision-section">
@@ -45,18 +64,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
             </Text>
             <Radio.Group value={decision.selected ?? ''} onChange={handleChange} name="review-decision">
                 <Stack gap="md" mt="xs">
-                    {DECISION_OPTIONS.map((option) => (
-                        <Radio
-                            key={option.value}
-                            value={option.value}
-                            label={option.label}
-                            description={renderOptionDescription(option)}
-                            styles={{
-                                label: { fontWeight: 600, fontSize: 16 },
-                                description: { fontSize: 14 },
-                            }}
-                        />
-                    ))}
+                    {radioOptions}
                 </Stack>
             </Radio.Group>
         </Paper>
