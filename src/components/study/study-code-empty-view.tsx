@@ -1,5 +1,3 @@
-'use client'
-
 import { Anchor, Box, Divider, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'

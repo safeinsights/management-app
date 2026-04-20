@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
