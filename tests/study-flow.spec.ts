@@ -92,6 +92,18 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
+    // The empty view should show a working starter-code download link when a code env
+    // with starter files is configured for the study's org (the openstax seed does).
+    // Shared CODER_FILES state in CI can land us in the review view (which has no link),
+    // so only assert the link when the empty-view card is visible.
+    const uploadCardHeading = page.getByText('Upload your files')
+    if (await uploadCardHeading.isVisible()) {
+        const starterLink = page.getByRole('link', { name: /Starter code/i })
+        await expect(starterLink).toBeVisible()
+        await expect(starterLink).toHaveAttribute('href', /./)
+        await expect(starterLink).toHaveAttribute('target', '_blank')
+    }
+
     // Upload files via the file input in the FileDropOverlay
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])

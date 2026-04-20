@@ -1,9 +1,11 @@
+import { useRef } from 'react'
 import { Anchor, Box, Divider, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'
 import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
+import { UploadFilesButton } from './upload-files-button'
 
 interface StarterFile {
     name: string
@@ -27,6 +29,7 @@ export function StudyCodeEmptyView({
     isUploading,
     starterFiles,
 }: StudyCodeEmptyViewProps) {
+    const openRef = useRef<() => void>(null)
     const starterLink = starterFiles[0]
 
     return (
@@ -63,21 +66,14 @@ export function StudyCodeEmptyView({
 
             <Divider label="OR" labelPosition="center" my="sm" />
 
-            <FileDropOverlay onDrop={uploadFiles} disabled={isUploading} showHelperText={false}>
+            <FileDropOverlay onDrop={uploadFiles} disabled={isUploading} showHelperText={false} openRef={openRef}>
                 <Paper withBorder p="lg" radius="md">
                     <Stack gap="sm">
                         <Text fw={700}>Upload your files</Text>
                         <Text size="sm" c="dimmed">
-                            Make sure that your main file contains the{' '}
-                            {starterLink ? (
-                                <Anchor href={starterLink.url} target="_blank">
-                                    Starter code
-                                </Anchor>
-                            ) : (
-                                'starter code'
-                            )}{' '}
-                            provided by the Data Organization for accessing their datasets. You may also continue to
-                            edit your uploaded files in the IDE before submitting them to the Data Organization.
+                            Make sure that your main file contains the <StarterCodeLink file={starterLink} /> provided
+                            by the Data Organization for accessing their datasets. You may also continue to edit your
+                            uploaded files in the IDE before submitting them to the Data Organization.
                         </Text>
                         <Box mt="sm">
                             <Stack gap="xs" align="flex-start">
@@ -91,11 +87,21 @@ export function StudyCodeEmptyView({
                                 <Text size="xs" c="dimmed">
                                     10MB max
                                 </Text>
+                                <UploadFilesButton openRef={openRef} disabled={isUploading} />
                             </Stack>
                         </Box>
                     </Stack>
                 </Paper>
             </FileDropOverlay>
         </Stack>
+    )
+}
+
+function StarterCodeLink({ file }: { file: StarterFile | undefined }) {
+    if (!file) return <>starter code</>
+    return (
+        <Anchor href={file.url} target="_blank">
+            Starter code
+        </Anchor>
     )
 }
