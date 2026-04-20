@@ -111,21 +111,22 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 }
 
 async function uploadCodeViaIDE(page: Page) {
-    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
+    // The IDE button label depends on whether the workspace already has files:
+    // "Launch IDE" in the empty view, "Edit files in IDE" in the review view.
+    // Shared CODER_FILES dir in CI means a prior test's files can land us in the review view.
+    const launchButton = page.getByRole('button', { name: /(Launch IDE|Edit files in IDE)/i })
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
     // Starter file appears in the file table after IDE launch
     await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
 
-    // Submit is disabled with only unmodified starter files
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeDisabled()
-
-    // Upload an additional file to enable submit
+    // Upload an additional file to ensure submit is enabled
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
     await expect(page.getByText(/code.r/i)).toBeVisible()
 
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
     await page.getByRole('button', { name: /Submit code/i }).click()
 
     await page.waitForURL('**/dashboard')
