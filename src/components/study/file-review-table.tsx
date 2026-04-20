@@ -1,7 +1,7 @@
 'use client'
 
-import { ActionIcon, Divider, Group, Radio, Table, Text } from '@mantine/core'
-import { EyeIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Divider, Group, Radio, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { EyeIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 
 interface FileReviewTableProps {
@@ -24,6 +24,32 @@ function formatModified(mtime: string, jobCreatedAt: string | null): string {
     })
 }
 
+interface MainFileStarProps {
+    fileName: string
+    isSelected: boolean
+    onSelect: (fileName: string) => void
+}
+
+function MainFileStar({ fileName, isSelected, onSelect }: MainFileStarProps) {
+    return (
+        <Tooltip label={isSelected ? 'Main file' : 'Set as main file'}>
+            <UnstyledButton
+                role="radio"
+                aria-label={`Main file: ${fileName}`}
+                aria-checked={isSelected}
+                onClick={() => onSelect(fileName)}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+                <StarIcon
+                    size={20}
+                    weight={isSelected ? 'fill' : 'regular'}
+                    color={isSelected ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'}
+                />
+            </UnstyledButton>
+        </Tooltip>
+    )
+}
+
 export const FileReviewTable = ({
     files,
     mainFile,
@@ -40,7 +66,7 @@ export const FileReviewTable = ({
                         <Table.Tr>
                             <Table.Th w={100}>Main file</Table.Th>
                             <Table.Th>File name</Table.Th>
-                            <Table.Th w={140}>Last modified</Table.Th>
+                            <Table.Th w={200}>Last updated</Table.Th>
                             <Table.Th w={80}>Actions</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
@@ -48,9 +74,19 @@ export const FileReviewTable = ({
                         {files.map((file) => (
                             <Table.Tr key={file.name}>
                                 <Table.Td>
-                                    <Radio value={file.name} />
+                                    <MainFileStar
+                                        fileName={file.name}
+                                        isSelected={mainFile === file.name}
+                                        onSelect={onMainFileChange}
+                                    />
                                 </Table.Td>
-                                <Table.Td>{file.name}</Table.Td>
+                                <Table.Td>
+                                    <Tooltip label={file.name} disabled={file.name.length <= 48}>
+                                        <Text truncate="end" maw={380}>
+                                            {file.name}
+                                        </Text>
+                                    </Tooltip>
+                                </Table.Td>
                                 <Table.Td>
                                     <Text size="sm" c="dimmed">
                                         {formatModified(file.mtime, jobCreatedAt)}
