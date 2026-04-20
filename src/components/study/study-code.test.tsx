@@ -82,13 +82,13 @@ describe('StudyCode component', () => {
         await renderIDE()
 
         await waitFor(() => {
-            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
-            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+            expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
-    it('renders workspace files and selects the suggested main file', async () => {
+    it('renders workspace files with no main file selected by default', async () => {
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
             'helper.r': 'print("helper")',
@@ -97,19 +97,19 @@ describe('StudyCode component', () => {
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
             expect(screen.getByText('helper.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
 
         expect(screen.getByText('Main file')).toBeInTheDocument()
         expect(screen.getByText('File name')).toBeInTheDocument()
 
-        const radios = screen.getAllByRole('radio')
-        expect(radios).toHaveLength(2)
-        expect(screen.getByDisplayValue('main.r')).toBeChecked()
-        expect(screen.getByDisplayValue('helper.r')).not.toBeChecked()
+        const stars = screen.getAllByRole('radio')
+        expect(stars).toHaveLength(2)
+        expect(stars[0]).toHaveAttribute('aria-checked', 'false')
+        expect(stars[1]).toHaveAttribute('aria-checked', 'false')
     })
 
-    it('updates the selected main file', async () => {
+    it('selects a main file when the star is clicked', async () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
@@ -120,17 +120,17 @@ describe('StudyCode component', () => {
             expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
 
-        const radios = screen.getAllByRole('radio')
-        await user.click(radios[1])
-        expect(radios[1]).toBeChecked()
+        const stars = screen.getAllByRole('radio')
+        await user.click(stars[0])
+        expect(stars[0]).toHaveAttribute('aria-checked', 'true')
         expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
-    it('shows the Edit files in IDE button for all orgs', async () => {
+    it('shows the Launch IDE button for all orgs', async () => {
         await renderIDE('some-other-org')
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
     })
 
@@ -143,6 +143,11 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('radio', { name: /Main file: main\.R/i })) // select main.R as main file
+
+        await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -175,6 +180,12 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+        })
+
+        const stars = screen.getAllByRole('radio')
+        await user.click(stars[0])
+
+        await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -190,37 +201,6 @@ describe('StudyCode component', () => {
         })
 
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
-    })
-
-    it('auto-selects first file when no suggestedMain matches', async () => {
-        const user = userEvent.setup()
-        const { study } = await renderIDE('openstax-lab', {
-            'analysis.r': 'print("analysis")',
-            'helper.r': 'print("helper")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('analysis.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'analysis.r', fileType: 'MAIN-CODE' },
-            { name: 'helper.r', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
     })
 
     it('renders the page chrome and previous link', async () => {
@@ -254,17 +234,34 @@ describe('StudyCode component', () => {
             return { study }
         }
 
+        it('shows the inline starter code link when available', async () => {
+            await renderWithCodeEnv()
+
+            await waitFor(() => {
+                const link = screen.getByRole('link', { name: /starter code/i })
+                expect(link).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+            })
+        })
+
         it('disables submit when starter file has not been modified since IDE launch', async () => {
+            const user = userEvent.setup()
             await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
 
             await waitFor(() => {
                 expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
+            })
+
+            const stars = screen.getAllByRole('radio')
+            await user.click(stars[0])
+
+            await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
                 expect(screen.getByText('Modify a file or upload new ones before submitting')).toBeInTheDocument()
             })
         })
 
         it('enables submit when files are newer than baseline job', async () => {
+            const user = userEvent.setup()
             await renderWithCodeEnv({
                 'main.R': 'print("starter")',
                 'helper.R': 'print("helper")',
@@ -273,17 +270,13 @@ describe('StudyCode component', () => {
             await waitFor(() => {
                 expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
                 expect(screen.getByText('helper.R')).toBeInTheDocument()
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
-        })
 
-        it('shows starter code download chips when available', async () => {
-            await renderWithCodeEnv()
+            const stars = screen.getAllByRole('radio')
+            await user.click(stars[0])
 
             await waitFor(() => {
-                expect(screen.getByText(/starter code file/i)).toBeInTheDocument()
-                const chip = screen.getByRole('link', { name: /main\.R/i })
-                expect(chip).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
         })
     })
@@ -315,10 +308,15 @@ describe('StudyCode component', () => {
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
 
             const user = userEvent.setup()
+            await user.click(screen.getByRole('radio', { name: /Main file: main\.R/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            })
+
             await user.click(screen.getByRole('button', { name: /submit code/i }))
 
             await waitFor(async () => {
