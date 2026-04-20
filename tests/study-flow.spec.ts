@@ -111,7 +111,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 }
 
 async function uploadCodeViaIDE(page: Page) {
-    const launchButton = page.getByRole('button', { name: /Edit files in IDE/i })
+    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 

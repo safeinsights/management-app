@@ -154,15 +154,10 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
-        })
-
-        const user = userEvent.setup()
-        await user.click(screen.getByRole('radio', { name: /main file: main\.r/i }))
-
-        await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
+        const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
 
         await waitFor(() => {
