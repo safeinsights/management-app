@@ -1,11 +1,13 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
+import * as RouterMock from 'next-router-mock'
 import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import StudyAgreementsRoute from './page'
@@ -83,6 +85,22 @@ describe('StudyAgreementsRoute', () => {
 
         await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/code'))
+    })
+
+    it('Previous button targets the proposal view for researcher with job activity', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Previous/ }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { asPath } = (RouterMock as any).memoryRouter
+        expect(asPath).toContain(`/${org.slug}/study/${study.id}/view`)
+        expect(asPath).toContain('from=agreements')
     })
 
     it('renders Previous button for researcher', async () => {

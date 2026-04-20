@@ -26,6 +26,22 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('Previous')).toBeInTheDocument()
     })
 
+    it('renders ResearcherProposalView when code is submitted but from=agreements is set', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'agreements' }),
+        })
+        renderWithProviders(page!)
+
+        // Proposal view shows STEP 2 / "Study proposal" and the Proceed button back to agreements.
+        expect(screen.getByText('STEP 2')).toBeInTheDocument()
+        expect(screen.getByText('Study proposal')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+    })
+
     it('renders ResearcherProposalView for APPROVED study without job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
