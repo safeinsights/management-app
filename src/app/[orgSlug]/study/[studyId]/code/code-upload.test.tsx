@@ -53,7 +53,7 @@ const createBaselineJob = async (studyId: string) => {
 
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+    renderWithProviders(<CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />)
     return { study }
 }
 
@@ -104,7 +104,9 @@ describe('CodeUploadPage', () => {
             'helper.r': 'print("helper")',
         })
 
-        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
@@ -141,7 +143,9 @@ describe('CodeUploadPage', () => {
             'main.R': 'print("main")',
         })
 
-        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
