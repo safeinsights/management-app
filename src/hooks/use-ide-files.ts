@@ -84,9 +84,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const mainFile = useMemo(() => {
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
-        if (workspace.suggestedMain && fileNames.includes(workspace.suggestedMain)) return workspace.suggestedMain
-        return fileNames[0] ?? ''
-    }, [mainFileOverride, workspace.suggestedMain, fileNames])
+        return ''
+    }, [mainFileOverride, fileNames])
 
     const filesChanged = useMemo(
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
