@@ -2,7 +2,7 @@
 
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
-import { throwNotFound } from '@/lib/errors'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
@@ -181,6 +181,10 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
 
         const isReviewer = userOrgIds.has(study.orgId)
         const isResearcher = userOrgIds.has(study.submittedByOrgId)
+
+        if (!isReviewer && !isResearcher) {
+            throw new ActionFailure({ user: 'not a member of the study reviewer or submitter org' })
+        }
 
         if (isReviewer) {
             await db

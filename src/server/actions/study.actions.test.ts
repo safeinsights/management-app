@@ -411,4 +411,26 @@ describe('ackAgreementsAction', () => {
 
         expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
     })
+
+    it('fails when user is neither reviewer nor researcher org member', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'acker-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        await expect(ackAgreementsAction({ studyId: study.id })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.any(String) }),
+        })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.researcherAgreementsAckedAt).toBeNull()
+        expect(after.reviewerAgreementsAckedAt).toBeNull()
+    })
 })
