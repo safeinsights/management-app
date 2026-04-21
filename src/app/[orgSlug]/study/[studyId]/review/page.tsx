@@ -3,6 +3,7 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -36,9 +37,9 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+
         // When a reviewer navigates back from the agreements step, show the proposal
-        // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
                 <ProposalReviewView
@@ -50,7 +51,8 @@ export default async function StudyReviewPage(props: {
         }
 
         if (codeSubmitted) {
-            if (searchParams.from !== 'agreements-proceed') {
+            // Gate through agreements if the reviewer hasn't acknowledged them yet
+            if (!study.reviewerAgreementsAckedAt && searchParams.from !== 'agreements-proceed') {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />

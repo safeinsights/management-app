@@ -202,8 +202,10 @@ export interface Study {
     piUserId: string | null
     projectSummary: Json | null
     rejectedAt: Timestamp | null
+    researcherAgreementsAckedAt: Timestamp | null
     researcherId: string
     researchQuestions: Json | null
+    reviewerAgreementsAckedAt: Timestamp | null
     reviewerId: string | null
     status: Generated<StudyStatus>
     submittedAt: Timestamp | null
