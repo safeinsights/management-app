@@ -11,9 +11,9 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ProposalReviewView } from './proposal-review-view'
+import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 
-describe('ProposalReviewView', () => {
+describe('LegacyProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
@@ -35,7 +35,7 @@ describe('ProposalReviewView', () => {
     })
 
     it('renders proposal fields', async () => {
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={study} />)
 
         await waitFor(() => {
             expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
@@ -70,7 +70,7 @@ describe('ProposalReviewView', () => {
         const nullStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={nullStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={nullStudy} />)
 
         expect(screen.queryByText('Research question(s)')).not.toBeInTheDocument()
         expect(screen.queryByText('Project summary')).not.toBeInTheDocument()
@@ -92,7 +92,7 @@ describe('ProposalReviewView', () => {
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
 
         await waitFor(() => {
             expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
@@ -103,7 +103,7 @@ describe('ProposalReviewView', () => {
     it('shows approval status when study is APPROVED', () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
         expect(screen.getByText('Approved on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
@@ -113,7 +113,7 @@ describe('ProposalReviewView', () => {
     it('shows rejection status when study is REJECTED', () => {
         const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
 
         expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()

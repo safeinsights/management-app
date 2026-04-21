@@ -11,7 +11,7 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewView } from './code-review-view'
-import { NewProposalReviewView } from './new-proposal-review-view'
+import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import { ProposalReviewView } from './proposal-review-view'
 
@@ -83,7 +83,7 @@ describe('StudyReviewPage', () => {
         )
     })
 
-    it('renders ProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
+    it('renders LegacyProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -96,7 +96,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
-        expect(page?.type).toBe(ProposalReviewView)
+        expect(page?.type).toBe(LegacyProposalReviewView)
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
@@ -133,11 +133,11 @@ describe('StudyReviewPage', () => {
         })
 
         expect(page?.type).toBe(ProposalReviewFeatureFlag)
-        expect(page?.props.defaultContent.type).toBe(ProposalReviewView)
-        expect(page?.props.optInContent.type).toBe(NewProposalReviewView)
+        expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
+        expect(page?.props.optInContent.type).toBe(ProposalReviewView)
     })
 
-    it('renders the legacy ProposalReviewView for non-OpenStax enclave orgs by default', async () => {
+    it('renders the LegacyProposalReviewView for non-OpenStax enclave orgs by default', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 

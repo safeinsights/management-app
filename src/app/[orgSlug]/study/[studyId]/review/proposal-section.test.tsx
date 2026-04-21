@@ -93,23 +93,23 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByTestId('proposal-body')).toBeInTheDocument()
-        expect(screen.getAllByText('Hide full initial request')).toHaveLength(2)
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
+        expect(screen.getByTestId('proposal-toggle-body')).toHaveTextContent('Hide full initial request')
     })
 
     it('collapses the proposal body when the header toggle is clicked', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        const toggleButtons = screen.getAllByTestId('proposal-toggle')
-        fireEvent.click(toggleButtons[0])
+        fireEvent.click(screen.getByTestId('proposal-toggle-header'))
 
-        expect(screen.getAllByText('Show full initial request')[0]).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Show full initial request')
     })
 
     it('toggles between hide and show text on repeated clicks', async () => {
         const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        const [headerToggle] = screen.getAllByTestId('proposal-toggle')
+        const headerToggle = screen.getByTestId('proposal-toggle-header')
         expect(headerToggle).toHaveTextContent('Hide full initial request')
 
         await user.click(headerToggle)

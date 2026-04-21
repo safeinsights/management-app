@@ -41,12 +41,12 @@ function formatSubmittedDate(date: Date | null | undefined): string | null {
     return dayjs(date).format('MMM DD, YYYY')
 }
 
-function ToggleLink({ isExpanded, onToggle }: { isExpanded: boolean; onToggle: () => void }) {
+function ToggleLink({ isExpanded, onToggle, testId }: { isExpanded: boolean; onToggle: () => void; testId: string }) {
     const label = isExpanded ? 'Hide full initial request' : 'Show full initial request'
     const Icon = isExpanded ? CaretUpIcon : CaretDownIcon
 
     return (
-        <Anchor component="button" onClick={onToggle} c="blue" size="sm" data-testid="proposal-toggle">
+        <Anchor component="button" onClick={onToggle} c="blue" size="sm" data-testid={testId}>
             <Group gap={4} align="center">
                 {label}
                 <Icon size={14} />
@@ -82,106 +82,68 @@ function StatusBanner({ labName }: { labName: string }) {
     )
 }
 
-function SectionHeader({
-    study,
-    isExpanded,
-    onToggle,
-}: {
-    study: StudyForReview
-    isExpanded: boolean
-    onToggle: () => void
-}) {
+export function ProposalSection({ study, orgSlug }: ProposalSectionProps) {
+    const { isExpanded, toggle, getPopoverProps } = useProposalSection()
     const submittedDate = formatSubmittedDate(study.submittedAt)
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
-        <Paper p="xl" data-testid="proposal-section-header">
-            <Stack gap="md">
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={4}>
-                        <Text fz="xs" fw={700} c="gray.6">
-                            STEP 1
-                        </Text>
-                        <Title order={2} fz={20} fw={700}>
-                            Review initial request
-                        </Title>
-                        <Text size="sm">Title: {study.title}</Text>
-                    </Stack>
-                    {submittedDate && (
-                        <Text fz={12} c="gray.6" style={{ whiteSpace: 'nowrap' }}>
-                            Submitted on {submittedDate}
-                        </Text>
-                    )}
-                </Group>
-
-                <Divider />
-
-                <StatusBanner labName={labName} />
-
-                <ToggleLink isExpanded={isExpanded} onToggle={onToggle} />
-            </Stack>
-        </Paper>
-    )
-}
-
-function ProposalBody({
-    study,
-    orgSlug,
-    isExpanded,
-    onToggle,
-    getPopoverProps,
-}: {
-    study: StudyForReview
-    orgSlug: string
-    isExpanded: boolean
-    onToggle: () => void
-    getPopoverProps: ReturnType<typeof usePopover>['getPopoverProps']
-}) {
-    return (
-        <Collapse in={isExpanded}>
-            <Paper p="xl" data-testid="proposal-body">
+        <Stack gap="md" data-testid="proposal-section">
+            <Paper p="xl" data-testid="proposal-section-header">
                 <Stack gap="md">
-                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
-                    <LexicalProposalField
-                        label="Research question(s)"
-                        value={stringifyJson(study.researchQuestions)}
-                        divider="default"
-                    />
-                    <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
-                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
-                    <LexicalProposalField
-                        label="Additional notes or requests"
-                        value={stringifyJson(study.additionalNotes)}
-                    />
-                    <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
-                    <ResearcherField
-                        study={study}
-                        orgSlug={orgSlug}
-                        size="sm"
-                        mt="md"
-                        {...getPopoverProps('researcher')}
-                    />
+                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <Stack gap={4}>
+                            <Text fz="xs" fw={700} c="gray.6">
+                                STEP 1
+                            </Text>
+                            <Title order={2} fz={20} fw={700}>
+                                Review initial request
+                            </Title>
+                            <Text size="sm">Title: {study.title}</Text>
+                        </Stack>
+                        {submittedDate && (
+                            <Text fz={12} c="gray.6" style={{ whiteSpace: 'nowrap' }}>
+                                Submitted on {submittedDate}
+                            </Text>
+                        )}
+                    </Group>
+
                     <Divider />
-                    <ToggleLink isExpanded={isExpanded} onToggle={onToggle} />
+
+                    <StatusBanner labName={labName} />
+
+                    <ToggleLink isExpanded={isExpanded} onToggle={toggle} testId="proposal-toggle-header" />
                 </Stack>
             </Paper>
-        </Collapse>
-    )
-}
 
-export function ProposalSection({ study, orgSlug }: ProposalSectionProps) {
-    const { isExpanded, toggle, getPopoverProps } = useProposalSection()
-
-    return (
-        <Stack gap="md" data-testid="proposal-section">
-            <SectionHeader study={study} isExpanded={isExpanded} onToggle={toggle} />
-            <ProposalBody
-                study={study}
-                orgSlug={orgSlug}
-                isExpanded={isExpanded}
-                onToggle={toggle}
-                getPopoverProps={getPopoverProps}
-            />
+            <Collapse in={isExpanded}>
+                <Paper p="xl" data-testid="proposal-body">
+                    <Stack gap="md">
+                        <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
+                        <LexicalProposalField
+                            label="Research question(s)"
+                            value={stringifyJson(study.researchQuestions)}
+                            divider="default"
+                        />
+                        <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
+                        <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
+                        <LexicalProposalField
+                            label="Additional notes or requests"
+                            value={stringifyJson(study.additionalNotes)}
+                        />
+                        <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
+                        <ResearcherField
+                            study={study}
+                            orgSlug={orgSlug}
+                            size="sm"
+                            mt="md"
+                            {...getPopoverProps('researcher')}
+                        />
+                        <Divider />
+                        <ToggleLink isExpanded={isExpanded} onToggle={toggle} testId="proposal-toggle-body" />
+                    </Stack>
+                </Paper>
+            </Collapse>
         </Stack>
     )
 }

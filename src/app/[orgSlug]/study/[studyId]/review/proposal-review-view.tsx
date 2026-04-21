@@ -12,12 +12,12 @@ import { ReviewFeedbackSection } from './review-feedback-section'
 import { ReviewProgressBar } from './review-progress-bar'
 import { REVIEW_STEPS, type StudyForReview } from './review-types'
 
-type NewProposalReviewViewProps = {
+type ProposalReviewViewProps = {
     orgSlug: string
     study: StudyForReview
 }
 
-function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
+function useProposalReview({ orgSlug }: { orgSlug: string }) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
@@ -35,8 +35,8 @@ function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
     return { feedback, decision, canSubmit, handleBack, handleSubmit }
 }
 
-export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewProps) {
-    const { feedback, decision, canSubmit, handleBack, handleSubmit } = useNewProposalReview({ orgSlug })
+export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
+    const { feedback, decision, canSubmit, handleBack, handleSubmit } = useProposalReview({ orgSlug })
 
     return (
         <Box bg="grey.10">

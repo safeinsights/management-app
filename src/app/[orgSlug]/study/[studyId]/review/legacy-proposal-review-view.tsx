@@ -9,16 +9,16 @@ import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { usePopover } from '@/hooks/use-popover'
-import { NewProposalReviewView } from './new-proposal-review-view'
+import { ProposalReviewView } from './proposal-review-view'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
-type ProposalReviewViewProps = {
+type LegacyProposalReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
     agreementsHref?: string
 }
 
-export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
+export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: LegacyProposalReviewViewProps) {
     const { getPopoverProps } = usePopover()
 
     const existingView = (
@@ -78,7 +78,7 @@ export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalR
     return (
         <ProposalReviewFeatureFlag
             defaultContent={existingView}
-            optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} />}
+            optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
         />
     )
 }
