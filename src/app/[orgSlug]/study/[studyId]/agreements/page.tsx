@@ -75,6 +75,10 @@ export default async function StudyAgreementsRoute(props: {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
+    // Preserve org-scoped breadcrumb context through the Previous → proposal → agreements roundtrip
+    const returnToSuffix = searchParams.returnTo === 'org' ? '&returnTo=org' : ''
+    const previousHref = `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements${returnToSuffix}`
+
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
@@ -83,7 +87,7 @@ export default async function StudyAgreementsRoute(props: {
                 isReviewer={false}
                 studyId={studyId}
                 proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
-                previousHref={`${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements`}
+                previousHref={previousHref}
                 previousLabel="Previous"
             />
         </Stack>
