@@ -31,12 +31,12 @@ interface MainFileStarProps {
 }
 
 function MainFileStar({ fileName, isSelected, onSelect }: MainFileStarProps) {
+    const label = isSelected ? `${fileName} is the main file` : `Set ${fileName} as main file`
     return (
         <Tooltip label={isSelected ? 'Main file' : 'Set as main file'}>
             <UnstyledButton
-                role="radio"
-                aria-label={`Main file: ${fileName}`}
-                aria-checked={isSelected}
+                aria-label={label}
+                aria-pressed={isSelected}
                 onClick={() => onSelect(fileName)}
                 style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
@@ -60,7 +60,7 @@ export const FileReviewTable = ({
 }: FileReviewTableProps) => {
     return (
         <>
-            <Table highlightOnHover verticalSpacing="md" role="radiogroup" aria-label="Main file">
+            <Table highlightOnHover verticalSpacing="md">
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th w={100}>Main file</Table.Th>

@@ -100,8 +100,14 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
-        expect(screen.getByRole('radio', { name: /Main file: main\.r/i })).toHaveAttribute('aria-checked', 'true')
-        expect(screen.getByRole('radio', { name: /Main file: helper\.r/i })).toHaveAttribute('aria-checked', 'false')
+        expect(screen.getByRole('button', { name: /main\.r is the main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        )
+        expect(screen.getByRole('button', { name: /set helper\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
     })
 
     it('leaves no main file selected when there is no main.* and more than one file', async () => {
@@ -116,9 +122,14 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
 
-        const stars = screen.getAllByRole('radio')
-        expect(stars[0]).toHaveAttribute('aria-checked', 'false')
-        expect(stars[1]).toHaveAttribute('aria-checked', 'false')
+        expect(screen.getByRole('button', { name: /set alpha\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
+        expect(screen.getByRole('button', { name: /set beta\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
     })
 
     it('overrides the auto-selected main file when a different star is clicked', async () => {
@@ -132,10 +143,16 @@ describe('StudyCode component', () => {
             expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
 
-        const helperStar = screen.getByRole('radio', { name: /Main file: helper\.r/i })
+        const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
-        expect(helperStar).toHaveAttribute('aria-checked', 'true')
-        expect(screen.getByRole('radio', { name: /Main file: main\.r/i })).toHaveAttribute('aria-checked', 'false')
+        expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        )
+        expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
         expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
@@ -156,11 +173,11 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
-        })
-
-        await user.click(screen.getByRole('radio', { name: /Main file: main\.R/i })) // select main.R as main file
-
-        await waitFor(() => {
+            // main.R is auto-selected as the main file based on filename
+            expect(screen.getByRole('button', { name: /main\.R is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -193,8 +210,8 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
-            expect(screen.getByRole('radio', { name: /Main file: analysis\.r/i })).toHaveAttribute(
-                'aria-checked',
+            expect(screen.getByRole('button', { name: /analysis\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
                 'true',
             )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -305,15 +322,10 @@ describe('StudyCode component', () => {
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
-            })
-
-            const user = userEvent.setup()
-            await user.click(screen.getByRole('radio', { name: /Main file: main\.R/i }))
-
-            await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
 
+            const user = userEvent.setup()
             await user.click(screen.getByRole('button', { name: /submit code/i }))
 
             await waitFor(async () => {
