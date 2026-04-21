@@ -18,7 +18,6 @@ const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const ANON_ROUTES: Array<string> = [
     '/about',
     '/account/reset-password',
-    '/account/signup',
     '/account/signin',
     '/account/invitation',
     '/editor-demo',
