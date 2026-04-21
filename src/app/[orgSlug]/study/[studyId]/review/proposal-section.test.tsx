@@ -105,16 +105,18 @@ describe('ProposalSection', () => {
         expect(screen.getAllByText('Show full initial request')[0]).toBeInTheDocument()
     })
 
-    it('toggles between hide and show text on repeated clicks', () => {
+    it('toggles between hide and show text on repeated clicks', async () => {
+        const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const [headerToggle] = screen.getAllByTestId('proposal-toggle')
+        expect(headerToggle).toHaveTextContent('Hide full initial request')
 
-        fireEvent.click(headerToggle)
-        expect(screen.getAllByText('Show full initial request')).toHaveLength(1)
+        await user.click(headerToggle)
+        expect(headerToggle).toHaveTextContent('Show full initial request')
 
-        fireEvent.click(headerToggle)
-        expect(screen.getAllByText('Hide full initial request')).toHaveLength(2)
+        await user.click(headerToggle)
+        expect(headerToggle).toHaveTextContent('Hide full initial request')
     })
 
     it('opens the PI popover when the info icon is hovered', async () => {
