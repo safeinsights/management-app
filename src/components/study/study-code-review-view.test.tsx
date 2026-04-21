@@ -40,8 +40,7 @@ describe('StudyCodeReviewView', () => {
         const user = userEvent.setup()
         const setMainFile = vi.fn()
         renderWithProviders(<StudyCodeReviewView {...baseProps} setMainFile={setMainFile} />)
-        const stars = screen.getAllByRole('radio')
-        await user.click(stars[0])
+        await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
         expect(setMainFile).toHaveBeenCalledWith('main.R')
     })
 
