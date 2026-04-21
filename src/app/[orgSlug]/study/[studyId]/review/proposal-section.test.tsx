@@ -7,6 +7,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
@@ -116,24 +117,30 @@ describe('ProposalSection', () => {
         expect(screen.getAllByText('Hide full initial request')).toHaveLength(2)
     })
 
-    it('renders the PI info icon for popover access', async () => {
+    it('opens the PI popover when the info icon is hovered', async () => {
+        const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
-
-        await waitFor(() => {
-            expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
-        })
 
         expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
+        await user.hover(screen.getByText('Dr. Smith'))
+
+        // The PI in this fixture has no linked userId, so the popover shows the not-available state.
+        await waitFor(() => {
+            expect(screen.getByText('Profile not available')).toBeInTheDocument()
+        })
     })
 
-    it('renders the researcher info icon for popover access', async () => {
+    it('opens the Researcher popover when the info icon is hovered', async () => {
+        const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        await waitFor(() => {
-            expect(screen.getByText(study.createdBy)).toBeInTheDocument()
-        })
-
         expect(screen.getByText('Researcher')).toBeInTheDocument()
+        await user.hover(screen.getByText(study.createdBy))
+
+        // Researcher has no detailed profile inserted, so popover shows the minimal-profile state.
+        await waitFor(() => {
+            expect(screen.getByText('This user has no detailed profile information')).toBeInTheDocument()
+        })
     })
 
     it('renders submitted date when study has been submitted', () => {
