@@ -10,7 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewView } from './code-review-view'
-import { ProposalReviewView } from './proposal-review-view'
+import { OldProposalReviewView } from './old-proposal-review-view'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -80,7 +80,7 @@ describe('StudyReviewPage', () => {
         )
     })
 
-    it('renders ProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
+    it('renders OldProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -93,11 +93,11 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
-        expect(page?.type).toBe(ProposalReviewView)
+        expect(page?.type).toBe(OldProposalReviewView)
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
-    it('renders ProposalReviewView for enclave without code', async () => {
+    it('renders OldProposalReviewView for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
