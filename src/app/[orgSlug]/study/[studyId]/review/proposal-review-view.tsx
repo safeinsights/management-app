@@ -1,84 +1,72 @@
 'use client'
 
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
-import { stringifyJson } from '@/lib/string'
+import { useReviewDecision } from '@/hooks/use-review-decision'
+import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import type { SelectedStudy } from '@/server/actions/study.actions'
-import { usePopover } from '@/hooks/use-popover'
-import { NewProposalReviewView } from './new-proposal-review-view'
-import { ProposalReviewButtons } from './proposal-review-buttons'
+import { Box, Button, Group, Stack, Title } from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import { ProposalSection } from './proposal-section'
+import { ReviewDecisionSection } from './review-decision-section'
+import { ReviewFeedbackSection } from './review-feedback-section'
+import { ReviewProgressBar } from './review-progress-bar'
+import { REVIEW_STEPS, type StudyForReview } from './review-types'
 
-type ProposalReviewViewProps = {
+type NewProposalReviewViewProps = {
     orgSlug: string
-    study: SelectedStudy
-    agreementsHref?: string
+    study: StudyForReview
 }
 
-export function ProposalReviewView({ orgSlug, study, agreementsHref }: ProposalReviewViewProps) {
-    const { getPopoverProps } = usePopover()
+function useNewProposalReview({ orgSlug }: { orgSlug: string }) {
+    const feedback = useReviewFeedback()
+    const decision = useReviewDecision()
+    const router = useRouter()
 
-    const existingView = (
-        <Stack px="xl" gap="xl">
-            <PageBreadcrumbs
-                crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Data use request / Review study proposal']]}
-            />
+    const canSubmit = feedback.isValid && decision.selected !== null
 
-            <Title order={2}>Review Study</Title>
+    const handleBack = () => {
+        router.push(Routes.orgDashboard({ orgSlug }))
+    }
 
-            <Paper bg="white" p="xxl">
-                <Stack gap="md">
-                    <Text fz="xs" fw={700} c="gray.7">
-                        STEP 1
-                    </Text>
-                    <Title order={4}>Review study proposal</Title>
-                    <Divider />
-                    <Text size="sm">You have a new data use request. You may review and approve or reject it.</Text>
+    const handleSubmit = () => {
+        // Will be implemented in a future ticket
+    }
 
-                    <Group justify="space-between" align="flex-start" wrap="nowrap" mt="md">
-                        <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-                            <Text fw={600} size="sm">
-                                Study title
-                            </Text>
-                            <Text size="sm">{study.title}</Text>
-                        </Stack>
-                        <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
-                    </Group>
+    return { feedback, decision, canSubmit, handleBack, handleSubmit }
+}
 
-                    <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
-                    <LexicalProposalField
-                        label="Research question(s)"
-                        value={stringifyJson(study.researchQuestions)}
-                        divider="default"
-                    />
-                    <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
-                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
-                    <LexicalProposalField
-                        label="Additional notes or requests"
-                        value={stringifyJson(study.additionalNotes)}
-                    />
-                    <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
-                    <ResearcherField
-                        study={study}
-                        orgSlug={orgSlug}
-                        size="sm"
-                        {...getPopoverProps('researcher')}
-                        mt="md"
-                    />
-                </Stack>
-            </Paper>
-
-            <ProposalReviewButtons study={study} orgSlug={orgSlug} agreementsHref={agreementsHref} />
-        </Stack>
-    )
+export function NewProposalReviewView({ orgSlug, study }: NewProposalReviewViewProps) {
+    const { feedback, decision, canSubmit, handleBack, handleSubmit } = useNewProposalReview({ orgSlug })
 
     return (
-        <ProposalReviewFeatureFlag
-            defaultContent={existingView}
-            optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} />}
-        />
+        <Box bg="grey.10">
+            <Stack px="xl" gap="xl" py="xl">
+                <PageBreadcrumbs
+                    crumbs={[
+                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
+                        ['Study proposal', Routes.studyReview({ orgSlug, studyId: study.id })],
+                        ['Review initial request'],
+                    ]}
+                />
+
+                <Title order={1} fz={40} fw={700}>
+                    Study proposal
+                </Title>
+
+                <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
+                <ProposalSection study={study} orgSlug={orgSlug} />
+                <ReviewFeedbackSection feedback={feedback} />
+                <ReviewDecisionSection decision={decision} />
+
+                <Group justify="space-between">
+                    <Button variant="outline" onClick={handleBack}>
+                        Back
+                    </Button>
+                    <Button disabled={!canSubmit} onClick={handleSubmit}>
+                        Submit review
+                    </Button>
+                </Group>
+            </Stack>
+        </Box>
     )
 }
