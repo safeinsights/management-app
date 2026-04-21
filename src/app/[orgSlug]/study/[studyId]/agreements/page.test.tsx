@@ -87,6 +87,33 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/code'))
     })
 
+    it('redirects acked researcher with baseline job (no CODE-SUBMITTED) to /code, not /view', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'JOB-READY' })
+        await db
+            .updateTable('study')
+            .set({ researcherAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/code'))
+        expect(mockRedirect).not.toHaveBeenCalledWith(expect.stringContaining('/view'))
+    })
+
+    it('redirects acked researcher with CODE-SUBMITTED job to /view', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+        await db
+            .updateTable('study')
+            .set({ researcherAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
+    })
+
     it('Previous button targets the proposal view for researcher with job activity', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
