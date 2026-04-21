@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import * as RouterMock from 'next-router-mock'
 import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -68,6 +70,25 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+    })
+
+    it('agreementsHref preserves returnTo=org through the proposal view', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'agreements', returnTo: 'org' }),
+        })
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: 'Proceed to Step 3' }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { asPath } = (RouterMock as any).memoryRouter
+        expect(asPath).toContain(`/${org.slug}/study/${study.id}/agreements`)
+        expect(asPath).toContain('returnTo=org')
     })
 
     it('renders ResearcherProposalView without agreementsHref when from is absent', async () => {

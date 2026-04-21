@@ -33,7 +33,13 @@ export default async function StudyReviewPage(props: {
 
     const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED' || codeSubmitted
     if (showProposalView) {
-        const agreementsHref = fromAgreements ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
+        const agreementsHref = fromAgreements
+            ? Routes.studyAgreements({
+                  orgSlug,
+                  studyId,
+                  returnTo: searchParams.returnTo === 'org' ? 'org' : undefined,
+              })
+            : undefined
         return (
             <ResearcherProposalView
                 orgSlug={orgSlug}

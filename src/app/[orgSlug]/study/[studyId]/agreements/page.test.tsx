@@ -103,6 +103,25 @@ describe('StudyAgreementsRoute', () => {
         expect(asPath).toContain('from=agreements')
     })
 
+    it('Previous button preserves returnTo=org through the agreements flow', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ returnTo: 'org' }),
+        })
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Previous/ }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { asPath } = (RouterMock as any).memoryRouter
+        expect(asPath).toContain('from=agreements')
+        expect(asPath).toContain('returnTo=org')
+    })
+
     it('renders Previous button for researcher', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
