@@ -11,7 +11,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import type { FC } from 'react'
+import type { FC, ReactNode } from 'react'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -105,70 +105,63 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPendi
     )
 }
 
-type SubmitReviewModalProps = {
+type ReviewConfirmationModalProps = {
     isOpen: boolean
     onClose: () => void
     onConfirm: () => void
     isPending: boolean
+    title: string
+    confirmLabel: string
+    variant?: 'default' | 'destructive'
+    warning?: ReactNode
 }
 
-const SubmitReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
-    <AppModal
-        isOpen={isOpen}
-        onClose={onClose}
-        title="Confirm review submission?"
-        size={720}
-        closeOnClickOutside={!isPending}
-        closeOnEscape={!isPending}
-        withCloseButton={!isPending}
-    >
-        <Stack>
-            <Text size="md">
-                Please confirm you are ready to submit your review. Other teammates may still be working on it and
-                further edits are not permitted once submitted.
-            </Text>
-            <Group justify="flex-end">
-                <Button variant="outline" onClick={onClose} disabled={isPending}>
-                    Cancel
-                </Button>
-                <Button onClick={onConfirm} loading={isPending}>
-                    Yes, submit review
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
+const REJECTION_WARNING = (
+    <Text size="md" fw={600} c="red.9">
+        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
+        action cannot be undone.
+    </Text>
 )
 
-const RejectReviewModal: FC<SubmitReviewModalProps> = ({ isOpen, onClose, onConfirm, isPending }) => (
-    <AppModal
-        isOpen={isOpen}
-        onClose={onClose}
-        title="Reject initial request?"
-        size={720}
-        closeOnClickOutside={!isPending}
-        closeOnEscape={!isPending}
-        withCloseButton={!isPending}
-    >
-        <Stack>
-            <Text size="md">
-                Please confirm you are ready to submit your review. Other teammates may still be working on it and
-                further edits are not permitted once submitted.
-            </Text>
-            <Text size="md" fw={600} c="red.9">
-                Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study.
-                This action cannot be undone.
-            </Text>
-            <Group justify="flex-end">
-                <Button variant="outline" onClick={onClose} disabled={isPending}>
-                    Cancel
-                </Button>
-                <Button color="red" onClick={onConfirm} loading={isPending}>
-                    Reject initial request
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
-)
+const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    isPending,
+    title,
+    confirmLabel,
+    variant = 'default',
+    warning,
+}) => {
+    const isDestructive = variant === 'destructive'
+    return (
+        <AppModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={title}
+            size={720}
+            closeOnClickOutside={!isPending}
+            closeOnEscape={!isPending}
+            withCloseButton={!isPending}
+        >
+            <Stack>
+                <Text size="md">
+                    Please confirm you are ready to submit your review. Other teammates may still be working on it and
+                    further edits are not permitted once submitted.
+                </Text>
+                {warning}
+                <Group justify="flex-end">
+                    <Button variant="outline" onClick={onClose} disabled={isPending}>
+                        Cancel
+                    </Button>
+                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
+                        {confirmLabel}
+                    </Button>
+                </Group>
+            </Stack>
+        </AppModal>
+    )
+}
 
 export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
     const {
@@ -214,17 +207,23 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                 />
             </Stack>
 
-            <SubmitReviewModal
+            <ReviewConfirmationModal
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
                 isPending={isPending}
+                title="Confirm review submission?"
+                confirmLabel="Yes, submit review"
             />
-            <RejectReviewModal
+            <ReviewConfirmationModal
                 isOpen={rejectOpen}
                 onClose={closeReject}
                 onConfirm={handleConfirmSubmit}
                 isPending={isPending}
+                title="Reject initial request?"
+                confirmLabel="Reject initial request"
+                variant="destructive"
+                warning={REJECTION_WARNING}
             />
         </Box>
     )
