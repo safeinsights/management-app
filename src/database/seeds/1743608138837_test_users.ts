@@ -1,5 +1,5 @@
 import type { DB } from '@/database/types'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -167,17 +167,28 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Find-or-create test users by id
+    // Find-or-create test users. Existing deployments may have rows with
+    // these emails but different (pre-fixed-UUID) ids — match by id OR by
+    // lower(email) so we update in place instead of hitting the unique
+    // `user_email_lower_unique` index.
+    const userIdByRole = new Map<TestUserRole, string>()
+
     for (const user of TEST_USERS) {
         const firstName = `Test ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`
-        const existing = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+
+        const existing = await db
+            .selectFrom('user')
+            .select('id')
+            .where((eb) => eb.or([eb('id', '=', user.id), eb(sql`lower(email)`, '=', user.email.toLowerCase())]))
+            .executeTakeFirst()
 
         if (existing) {
             await db
                 .updateTable('user')
                 .set({ firstName, lastName: 'User', email: user.email })
-                .where('id', '=', user.id)
+                .where('id', '=', existing.id)
                 .execute()
+            userIdByRole.set(user.role, existing.id)
         } else {
             await db
                 .insertInto('user')
@@ -189,12 +200,13 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                     email: user.email,
                 })
                 .execute()
+            userIdByRole.set(user.role, user.id)
         }
     }
 
     // Org memberships
     for (const membership of ORG_MEMBERSHIPS) {
-        const userId = TEST_USERS.find((u) => u.role === membership.role)!.id
+        const userId = userIdByRole.get(membership.role)!
         const orgId = orgIdBySlug.get(membership.slug)!
 
         const existing = await db
