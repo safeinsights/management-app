@@ -1,12 +1,14 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
+import { NewProposalReviewView } from './new-proposal-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
@@ -55,7 +57,12 @@ export default async function StudyReviewPage(props: {
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
-        return <ProposalReviewView orgSlug={orgSlug} study={study} />
+        return (
+            <ProposalReviewFeatureFlag
+                defaultContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={<NewProposalReviewView orgSlug={orgSlug} study={study} />}
+            />
+        )
     }
 
     return <AlertNotFound title="Study was not found" message="no such study exists" />
