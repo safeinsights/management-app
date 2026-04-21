@@ -48,6 +48,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
             value={option.value}
             label={option.label}
             description={<OptionDescription option={option} />}
+            disabled={option.disabled}
             styles={RADIO_STYLES}
         />
     ))

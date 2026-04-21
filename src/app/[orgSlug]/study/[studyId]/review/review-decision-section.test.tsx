@@ -81,6 +81,19 @@ describe('ReviewDecisionSection', () => {
         expect(screen.getByRole('radio', { name: /Approve/ })).not.toBeChecked()
     })
 
+    it('renders needs clarification as disabled', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Wrapper study={study} />)
+
+        const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
+
+        expect(needsClarification).toBeDisabled()
+
+        await user.click(needsClarification)
+
+        expect(needsClarification).not.toBeChecked()
+    })
+
     it('returns null when study is APPROVED', () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const }
         renderWithProviders(<Wrapper study={approvedStudy} />)

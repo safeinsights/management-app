@@ -55,6 +55,12 @@ describe('ProposalReviewView', () => {
         expect(screen.getByRole('button', { name: /Back/ })).toBeInTheDocument()
     })
 
+    it('renders submit review as disabled initially', () => {
+        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+        expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+    })
+
     describe('already-decided guard', () => {
         it('hides decision section and action bar when study is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }

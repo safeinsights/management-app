@@ -8,7 +8,6 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { Routes } from '@/lib/routes'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import type { FC, ReactNode } from 'react'
@@ -29,8 +28,9 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
+    const isSubmittableDecision = decision.selected === 'approve' || decision.selected === 'reject'
 
-    const canSubmit = feedback.isValid && decision.selected !== null
+    const canSubmit = feedback.isValid && isSubmittableDecision
     const backPath = Routes.orgDashboard({ orgSlug })
 
     const { updateStudy, isPending } = useProposalReviewMutation({ studyId, orgSlug })
@@ -40,6 +40,10 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     }
 
     const handleSubmit = () => {
+        if (!isSubmittableDecision) {
+            return
+        }
+
         if (decision.selected === 'reject') {
             openReject()
         } else {
@@ -56,14 +60,6 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
             updateStudy('REJECTED')
             return
         }
-        // TODO(OTTER-493): replace with submitProposalReviewAction({ decision: 'needs-clarification', feedback })
-        // once the `proposal change requested` status and feedback storage land.
-        closeConfirm()
-        notifications.show({
-            title: 'Not yet available',
-            message: 'The "Needs clarification" flow will be enabled once backend work (OTTER-493) is complete.',
-            color: 'blue',
-        })
     }
 
     return {

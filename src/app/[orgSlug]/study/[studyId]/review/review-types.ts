@@ -22,6 +22,7 @@ export type DecisionOption = {
     label: string
     description: string
     warning?: string
+    disabled?: boolean
 }
 
 export const DECISION_OPTIONS: DecisionOption[] = [
@@ -35,6 +36,7 @@ export const DECISION_OPTIONS: DecisionOption[] = [
         label: 'Needs clarification',
         description:
             'Request clarifications or specific revisions to this initial request. The researcher will be able to view your feedback and may choose to revise and resubmit.',
+        disabled: true,
     },
     {
         value: 'reject',
