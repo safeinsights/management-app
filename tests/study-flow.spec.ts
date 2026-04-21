@@ -235,7 +235,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await previousButton.click()
 
     // Should land on /view?from=agreements and show ResearcherProposalView
-    await page.waitForURL(/\/view\?from=agreements$/)
+    await page.waitForURL(/\/view\?from=agreements(&|$)/)
     await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
     await expect(page.getByText(studyTitle)).toBeVisible()
