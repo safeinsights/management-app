@@ -46,7 +46,6 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
             }
             // TODO(OTTER-493): replace with submitProposalReviewAction({ decision: 'needs-clarification', feedback })
             // once the `proposal change requested` status and feedback storage land.
-            console.warn('[OTTER-492] Needs clarification submission is blocked pending OTTER-493 backend work')
             return { placeholder: true } as const
         },
         onError: reportMutationError('Failed to submit review'),

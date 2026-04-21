@@ -208,9 +208,8 @@ describe('ProposalReviewView', () => {
             })
         })
 
-        it('Needs clarification → confirm logs console.warn and leaves study unchanged (placeholder path)', async () => {
+        it('Needs clarification → confirm leaves study unchanged (placeholder path)', async () => {
             mockedUseReviewFeedback.mockReturnValue(validFeedbackState())
-            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
             const user = userEvent.setup()
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
@@ -218,19 +217,15 @@ describe('ProposalReviewView', () => {
             await user.click(screen.getByRole('button', { name: 'Submit review' }))
             await user.click(await screen.findByRole('button', { name: 'Yes, submit review' }))
 
-            await waitFor(() => {
-                expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('OTTER-492'))
+            await waitFor(async () => {
+                const updated = await db
+                    .selectFrom('study')
+                    .select(['status'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+                expect(updated.status).toBe('PENDING-REVIEW')
             })
-
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
             expect(memoryRouter.asPath).not.toBe('/test-org/dashboard')
-
-            warnSpy.mockRestore()
         })
 
         // TODO(OTTER-493): unskip once 'PROPOSAL-CHANGE-REQUESTED' status is added to the
