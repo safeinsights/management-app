@@ -7,7 +7,16 @@ import {
     ListObjectsV2Command,
     S3Client,
 } from '@aws-sdk/client-s3'
-import { GlueClient, CreateDatabaseCommand, DeleteDatabaseCommand, type DatabaseInput } from '@aws-sdk/client-glue'
+import {
+    GlueClient,
+    CreateDatabaseCommand,
+    DeleteDatabaseCommand,
+    CreateTableCommand,
+    DeleteTableCommand,
+    GetTablesCommand,
+    type DatabaseInput,
+    type Column,
+} from '@aws-sdk/client-glue'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -23,6 +32,8 @@ import {
 } from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { strToAscii } from '@/lib/string'
+import { parseCsv } from '@/lib/file-content-helpers'
+import logger from '@/lib/logger'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo } from '@/lib/types'
@@ -95,6 +106,134 @@ export async function deleteAthenaDatabase(dbName: string) {
         if (err instanceof Error && err.name === 'EntityNotFoundException') return
         throw err
     }
+}
+
+export const testDataBucketName = (): string | null => process.env.TEST_DATA_BUCKET_NAME || null
+
+export function sanitizeColumnName(raw: string): string {
+    let name = raw
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+    if (!name || /^\d/.test(name)) name = `col_${name}`
+    return name
+}
+
+export async function inferColumnsFromCsv(s3Key: string): Promise<Column[]> {
+    const result = await getS3Client().send(
+        new GetObjectCommand({
+            Bucket: s3BucketName(),
+            Key: s3Key,
+            Range: 'bytes=0-8192',
+        }),
+    )
+    const text = await result.Body?.transformToString()
+    if (!text) throw new Error(`Empty file at ${s3Key}`)
+
+    const headerLine = text.split('\n')[0]
+    const { headers } = parseCsv(headerLine)
+
+    const seen = new Set<string>()
+    return headers.map((raw) => {
+        let name = sanitizeColumnName(raw)
+        while (seen.has(name)) name = `${name}_dup`
+        seen.add(name)
+        return { Name: name, Type: 'string' }
+    })
+}
+
+export async function createAthenaTable(dbName: string, tableName: string, columns: Column[], s3Location: string) {
+    try {
+        await getGlueClient().send(
+            new CreateTableCommand({
+                DatabaseName: dbName,
+                TableInput: {
+                    Name: tableName,
+                    TableType: 'EXTERNAL_TABLE',
+                    Parameters: {
+                        classification: 'csv',
+                        'skip.header.line.count': '1',
+                    },
+                    StorageDescriptor: {
+                        Columns: columns,
+                        Location: s3Location,
+                        InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
+                        OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat',
+                        SerdeInfo: {
+                            SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
+                            Parameters: {
+                                separatorChar: ',',
+                                quoteChar: '"',
+                                escapeChar: '\\',
+                            },
+                        },
+                    },
+                },
+            }),
+        )
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AlreadyExistsException') return
+        throw err
+    }
+}
+
+export async function deleteAllAthenaTables(dbName: string) {
+    try {
+        const result = await getGlueClient().send(new GetTablesCommand({ DatabaseName: dbName }))
+        for (const table of result.TableList || []) {
+            if (table.Name) {
+                await getGlueClient().send(new DeleteTableCommand({ DatabaseName: dbName, Name: table.Name }))
+            }
+        }
+    } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'EntityNotFoundException') return
+        throw err
+    }
+}
+
+export type CopiedTable = { tableName: string; sourceKey: string }
+
+export async function copyToTestDataBucket(sourcePrefix: string, targetPrefix: string): Promise<CopiedTable[]> {
+    const bucket = testDataBucketName()
+    if (!bucket) {
+        logger.error('TEST_DATA_BUCKET_NAME not configured, skipping copy to test-data bucket')
+        return []
+    }
+
+    const sourceBucket = s3BucketName()
+    const listed = await getS3Client().send(new ListObjectsV2Command({ Bucket: sourceBucket, Prefix: sourcePrefix }))
+    if (!listed.Contents?.length) return []
+
+    const tables: CopiedTable[] = []
+    for (const obj of listed.Contents) {
+        if (!obj.Key) continue
+        const fileName = obj.Key.split('/').pop() || ''
+        if (!fileName.toLowerCase().endsWith('.csv')) continue
+        const tableName = sanitizeColumnName(fileName.replace(/\.csv$/i, ''))
+        tables.push({ tableName, sourceKey: obj.Key })
+
+        const targetKey = `${targetPrefix}/${tableName}/${fileName}`
+        await getS3Client().send(
+            new CopyObjectCommand({
+                Bucket: bucket,
+                CopySource: `${sourceBucket}/${obj.Key}`,
+                Key: targetKey,
+            }),
+        )
+    }
+    return tables
+}
+
+export async function deleteTestDataBucketPrefix(prefix: string) {
+    const bucket = testDataBucketName()
+    if (!bucket) return
+
+    const listed = await getS3Client().send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }))
+    if (!listed.Contents?.length) return
+
+    const objectsToDelete = listed.Contents.map(({ Key }) => ({ Key }))
+    await getS3Client().send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objectsToDelete } }))
 }
 
 async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {

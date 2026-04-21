@@ -330,6 +330,7 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
             if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
             if (key === 'CODER_ATHENA_WORK_GROUP') return Promise.resolve('my-workgroup')
+            if (key === 'ATHENA_RESULTS_BUCKET_NAME') return Promise.resolve(null)
             return Promise.resolve('https://api.coder.com')
         })
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
@@ -365,6 +366,7 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'TEST_ENV_DATABASE_URL', value: expectedDbUrl })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
         expect(envVars).toContainEqual({ name: 'AWS_ATHENA_WORK_GROUP', value: 'my-workgroup' })
+        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_DATABASE_NAME', value: 'test_org_test_env' })
         expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
