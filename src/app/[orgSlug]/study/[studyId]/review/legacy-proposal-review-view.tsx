@@ -12,13 +12,13 @@ import { usePopover } from '@/hooks/use-popover'
 import { ProposalReviewView } from './proposal-review-view'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
-type OldProposalReviewViewProps = {
+type LegacyProposalReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
     agreementsHref?: string
 }
 
-export function OldProposalReviewView({ orgSlug, study, agreementsHref }: OldProposalReviewViewProps) {
+export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: LegacyProposalReviewViewProps) {
     const { getPopoverProps } = usePopover()
 
     const existingView = (

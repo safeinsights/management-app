@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect, useParams } from 'next/navigation'
 import {
+    db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -10,7 +11,9 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewView } from './code-review-view'
-import { OldProposalReviewView } from './old-proposal-review-view'
+import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
+import { ProposalReviewView } from './proposal-review-view'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -76,11 +79,11 @@ describe('StudyReviewPage', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
             'href',
-            expect.stringContaining('/agreements'),
+            expect.stringContaining('/agreements?from=previous'),
         )
     })
 
-    it('renders OldProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
+    it('renders LegacyProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -93,11 +96,48 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
-        expect(page?.type).toBe(OldProposalReviewView)
+        expect(page?.type).toBe(LegacyProposalReviewView)
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
-    it('renders OldProposalReviewView for enclave without code', async () => {
+    it('renders CodeReviewView directly when agreements already acknowledged (no redirect)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .updateTable('study')
+            .set({ reviewerAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+        expect(page?.type).toBe(CodeReviewView)
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it('renders the proposal review feature flag swap for enclave without code', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(ProposalReviewFeatureFlag)
+        expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
+        expect(page?.props.optInContent.type).toBe(ProposalReviewView)
+    })
+
+    it('renders the LegacyProposalReviewView for non-OpenStax enclave orgs by default', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 

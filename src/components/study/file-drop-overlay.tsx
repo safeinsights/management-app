@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type ReactNode, type DragEvent } from 'react'
+import { useRef, useState, type ReactNode, type DragEvent, type RefObject } from 'react'
 import { Anchor, Box, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { Dropzone, type FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
@@ -18,14 +18,72 @@ function hasAcceptedExtension(fileName: string) {
     return ACCEPTED_EXTENSIONS.has(ext)
 }
 
+function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+    return (
+        <Box
+            pos="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="rgba(0, 0, 0, 0.45)"
+            style={{
+                zIndex: 10,
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+            }}
+        >
+            <Paper p="lg" radius="md" shadow="md">
+                <Stack align="center" gap="xs">
+                    <ThemeIcon variant="light" color="blue" size="xl" radius="xl">
+                        <FileArrowUpIcon size={28} />
+                    </ThemeIcon>
+                    <Text fw={600} size="md">
+                        Drop files to include
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        {ACCEPTED_FILE_FORMATS_TEXT}
+                    </Text>
+                </Stack>
+            </Paper>
+        </Box>
+    )
+}
+
+function HelperText({ isVisible, openRef }: { isVisible: boolean; openRef: RefObject<(() => void) | null> }) {
+    if (!isVisible) return null
+    return (
+        <Text fs="italic" size="sm" c="dimmed" mt="xs">
+            Include additional files by dropping them above or by{' '}
+            <Anchor component="button" type="button" size="sm" fs="italic" onClick={() => openRef.current?.()}>
+                clicking here
+            </Anchor>
+            .
+        </Text>
+    )
+}
+
 interface FileDropOverlayProps {
     onDrop: (files: FileWithPath[]) => void
     children: ReactNode
     disabled?: boolean
+    showHelperText?: boolean
+    openRef?: RefObject<(() => void) | null>
 }
 
-export function FileDropOverlay({ onDrop, children, disabled }: FileDropOverlayProps) {
-    const openRef = useRef<() => void>(null)
+export function FileDropOverlay({
+    onDrop,
+    children,
+    disabled,
+    showHelperText = true,
+    openRef: externalOpenRef,
+}: FileDropOverlayProps) {
+    const internalOpenRef = useRef<() => void>(null)
+    const openRef = externalOpenRef ?? internalOpenRef
     const [isDragging, setIsDragging] = useState(false)
     const dragCounter = useRef(0)
 
@@ -84,46 +142,9 @@ export function FileDropOverlay({ onDrop, children, disabled }: FileDropOverlayP
                 {children}
             </Dropzone>
 
-            {isDragging && !disabled && (
-                <Box
-                    pos="absolute"
-                    top={0}
-                    left={0}
-                    right={0}
-                    bottom={0}
-                    bg="rgba(0, 0, 0, 0.45)"
-                    style={{
-                        zIndex: 10,
-                        borderRadius: 8,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pointerEvents: 'none',
-                    }}
-                >
-                    <Paper p="lg" radius="md" shadow="md">
-                        <Stack align="center" gap="xs">
-                            <ThemeIcon variant="light" color="blue" size="xl" radius="xl">
-                                <FileArrowUpIcon size={28} />
-                            </ThemeIcon>
-                            <Text fw={600} size="md">
-                                Drop files to include
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                                {ACCEPTED_FILE_FORMATS_TEXT}
-                            </Text>
-                        </Stack>
-                    </Paper>
-                </Box>
-            )}
+            <DragOverlayBanner isVisible={isDragging && !disabled} />
 
-            <Text fs="italic" size="sm" c="dimmed" mt="xs">
-                Include additional files by dropping them above or by{' '}
-                <Anchor component="button" type="button" size="sm" fs="italic" onClick={() => openRef.current?.()}>
-                    clicking here
-                </Anchor>
-                .
-            </Text>
+            <HelperText isVisible={showHelperText} openRef={openRef} />
         </Box>
     )
 }

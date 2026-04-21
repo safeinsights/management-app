@@ -22,15 +22,24 @@ export default async function StudyReviewPage(props: {
 
     const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
-    // Only show CodeOnlyView if code was actually submitted (not just a baseline job from IDE launch)
+    const fromAgreements = searchParams.from === 'agreements'
+
+    // Only show CodeOnlyView if code was actually submitted (not just a baseline job from IDE launch).
+    // When the researcher navigates back from agreements (?from=agreements), show the read-only
+    // proposal view instead so they can reach the proposal even after submitting code.
     const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
-    if (job && codeSubmitted)
+    if (job && codeSubmitted && !fromAgreements)
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
 
-    const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED'
+    const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED' || codeSubmitted
     if (showProposalView) {
-        const agreementsHref =
-            searchParams.from === 'agreements' ? Routes.studyAgreements({ orgSlug, studyId }) : undefined
+        const agreementsHref = fromAgreements
+            ? Routes.studyAgreements({
+                  orgSlug,
+                  studyId,
+                  returnTo: searchParams.returnTo === 'org' ? 'org' : undefined,
+              })
+            : undefined
         return (
             <ResearcherProposalView
                 orgSlug={orgSlug}

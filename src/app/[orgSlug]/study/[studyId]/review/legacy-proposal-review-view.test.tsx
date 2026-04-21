@@ -14,7 +14,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { OldProposalReviewView } from './old-proposal-review-view'
+import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 
 vi.mock('@/components/spy-mode-context', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
@@ -24,7 +24,7 @@ vi.mock('@/components/spy-mode-context', async (importOriginal) => {
     }
 })
 
-describe('OldProposalReviewView', () => {
+describe('LegacyProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
@@ -47,7 +47,7 @@ describe('OldProposalReviewView', () => {
     })
 
     it('renders proposal fields', async () => {
-        renderWithProviders(<OldProposalReviewView orgSlug="test-org" study={study} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={study} />)
 
         await waitFor(() => {
             expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
@@ -82,7 +82,7 @@ describe('OldProposalReviewView', () => {
         const nullStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
-        renderWithProviders(<OldProposalReviewView orgSlug="test-org" study={nullStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={nullStudy} />)
 
         expect(screen.queryByText('Research question(s)')).not.toBeInTheDocument()
         expect(screen.queryByText('Project summary')).not.toBeInTheDocument()
@@ -104,7 +104,7 @@ describe('OldProposalReviewView', () => {
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
-        renderWithProviders(<OldProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
 
         await waitFor(() => {
             expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
@@ -115,7 +115,7 @@ describe('OldProposalReviewView', () => {
     it('shows approval status when study is APPROVED', () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<OldProposalReviewView orgSlug="test-org" study={approvedStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
         expect(screen.getByText('Approved on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('OldProposalReviewView', () => {
     it('shows rejection status when study is REJECTED', () => {
         const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<OldProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
 
         expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
@@ -137,7 +137,7 @@ describe('OldProposalReviewView', () => {
 
         it('renders "Proceed to Step 2" when agreementsHref is provided (flag off)', () => {
             renderWithProviders(
-                <OldProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
+                <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
             )
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
@@ -148,7 +148,7 @@ describe('OldProposalReviewView', () => {
             setSpyMode(true)
 
             renderWithProviders(
-                <OldProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
+                <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
             )
 
             expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
@@ -158,7 +158,7 @@ describe('OldProposalReviewView', () => {
         it('renders the new flow when agreementsHref is absent and feature flag is ON', async () => {
             setSpyMode(true)
 
-            renderWithProviders(<OldProposalReviewView orgSlug="openstax" study={study} />)
+            renderWithProviders(<LegacyProposalReviewView orgSlug="openstax" study={study} />)
 
             expect(await screen.findByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Proceed to Step 2' })).not.toBeInTheDocument()
