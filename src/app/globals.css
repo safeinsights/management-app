@@ -85,6 +85,17 @@
     cursor: pointer;
 }
 
+/* Collaborative editor focus border */
+.collaborative-editor-container {
+    border: 1px solid var(--mantine-color-gray-4);
+    transition: border-color 0.15s;
+    border-radius: var(--mantine-radius-sm);
+}
+
+.collaborative-editor-container:focus-within {
+    border-color: var(--mantine-color-blue-filled);
+}
+
 /* Yjs collaboration cursor styles */
 .yjs-cursor {
     position: relative;

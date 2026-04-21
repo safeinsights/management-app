@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Badge, Group, Paper, Text, type PaperProps } from '@mantine/core'
+import { Badge, Group, Paper, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -121,7 +121,7 @@ export type CollaborativeEditorProps = {
     wsUrl: string
     contentClassName?: string
     contentStyle?: React.CSSProperties
-    containerProps?: PaperProps
+    placeholder?: string
     onChange?: (json: string) => void
 }
 
@@ -130,7 +130,7 @@ export function CollaborativeEditor({
     wsUrl,
     contentClassName,
     contentStyle,
-    containerProps,
+    placeholder,
     onChange,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
@@ -142,15 +142,35 @@ export function CollaborativeEditor({
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
-                <Paper p={0} style={{ overflow: 'hidden' }} {...containerProps}>
+                <Paper
+                    p={0}
+                    className="collaborative-editor-container"
+                    style={{ overflow: 'hidden', position: 'relative' }}
+                >
                     <RichTextPlugin
                         contentEditable={<ContentEditable className={contentClassName} style={contentStyle} />}
+                        placeholder={
+                            placeholder ? (
+                                <Text
+                                    c="dimmed"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        padding: contentStyle?.padding,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    {placeholder}
+                                </Text>
+                            ) : null
+                        }
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <CollaborationPlugin
                         id={id}
                         providerFactory={providerFactory}
-                        shouldBootstrap={true}
+                        shouldBootstrap={false}
                         username={username}
                         cursorColor={cursorColor}
                     />

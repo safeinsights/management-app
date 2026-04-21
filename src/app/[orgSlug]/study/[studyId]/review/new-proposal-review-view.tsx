@@ -58,7 +58,7 @@ export function NewProposalReviewView({ orgSlug, study, wsUrl }: NewProposalRevi
                 <ProposalSection study={study} />
                 <ReviewFeedbackSection
                     feedback={feedback}
-                    submittingOrgName={study.submittingOrgName}
+                    submittingLabName={study.submittingLabName}
                     studyId={study.id}
                     wsUrl={wsUrl}
                 />
