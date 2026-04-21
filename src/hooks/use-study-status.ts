@@ -31,13 +31,25 @@ const LABELS: Record<'reviewer' | 'researcher', Partial<Record<AllStatus, Status
 }
 
 export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
+    // Researchers must not see "Errored" until the reviewer has reviewed the error logs
+    // and recorded a FILES-APPROVED/FILES-REJECTED decision. Until then, hide JOB-ERRORED
+    // so the pill falls back to the prior state (typically CODE-APPROVED). Reviewers
+    // always see JOB-ERRORED immediately so they can act on the logs.
+    const hasReviewerDecision = jobStatusChanges.some(
+        (c) => c.status === 'FILES-APPROVED' || c.status === 'FILES-REJECTED',
+    )
+    const visibleJobChanges =
+        audience === 'researcher' && !hasReviewerDecision
+            ? jobStatusChanges.filter((c) => c.status !== 'JOB-ERRORED')
+            : jobStatusChanges
+
     // add studyStatus as the last entry as a fallback in case a job hasn't started yet
-    const statuses: AllStatus[] = [...jobStatusChanges.map((change) => change.status), studyStatus]
+    const statuses: AllStatus[] = [...visibleJobChanges.map((change) => change.status), studyStatus]
 
     const statusKeys = STATUS_KEYS[audience]
     const labels = LABELS[audience]
 
-    // JOB-ERRORED always takes precedence if present
+    // JOB-ERRORED always takes precedence if present (after any researcher-specific filtering above)
     if (statuses.includes('JOB-ERRORED')) {
         return labels['JOB-ERRORED']!
     }

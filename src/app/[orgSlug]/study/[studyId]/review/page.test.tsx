@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect, useParams } from 'next/navigation'
 import {
+    db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -78,7 +79,7 @@ describe('StudyReviewPage', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
             'href',
-            expect.stringContaining('/agreements'),
+            expect.stringContaining('/agreements?from=previous'),
         )
     })
 
@@ -97,6 +98,29 @@ describe('StudyReviewPage', () => {
         })
         expect(page?.type).toBe(ProposalReviewView)
         expect(page?.props.agreementsHref).toContain('/agreements')
+    })
+
+    it('renders CodeReviewView directly when agreements already acknowledged (no redirect)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .updateTable('study')
+            .set({ reviewerAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+        expect(page?.type).toBe(CodeReviewView)
+        expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('renders the proposal review feature flag swap for enclave without code', async () => {

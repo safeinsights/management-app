@@ -12,6 +12,7 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
+    ackAgreementsAction,
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForOrgAction,
@@ -346,5 +347,90 @@ describe('Study Actions', () => {
         await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
+    })
+})
+
+describe('ackAgreementsAction', () => {
+    it('sets researcherAgreementsAckedAt when called by lab member', async () => {
+        const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researcherAgreementsAckedAt).not.toBeNull()
+        expect(updated.reviewerAgreementsAckedAt).toBeNull()
+    })
+
+    it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
+        const { org: enclaveOrg, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.reviewerAgreementsAckedAt).not.toBeNull()
+        expect(updated.researcherAgreementsAckedAt).toBeNull()
+    })
+
+    it('does not overwrite an existing ack timestamp', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const first = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        // Call again — should not change the timestamp
+        await ackAgreementsAction({ studyId: study.id })
+
+        const second = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
+    })
+
+    it('fails when user is neither reviewer nor researcher org member', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'acker-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        await expect(ackAgreementsAction({ studyId: study.id })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.any(String) }),
+        })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.researcherAgreementsAckedAt).toBeNull()
+        expect(after.reviewerAgreementsAckedAt).toBeNull()
     })
 })

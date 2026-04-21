@@ -23,7 +23,9 @@ const COLORS = {
 
 // ORDER MATTERS in the below lists
 // The LAST status found will be displayed
-// EXCEPT for 'JOB-ERRORED' which takes precedence over all other statuses if it exists
+// EXCEPT for 'JOB-ERRORED' which takes precedence over all other statuses if it exists,
+// with one caveat: for researchers, JOB-ERRORED is hidden until the reviewer posts a
+// FILES-APPROVED/FILES-REJECTED decision on the error logs (see useStudyStatus).
 
 // Proposal -> Code -> Results
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
