@@ -5,15 +5,16 @@ import {
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
+    resetSpyMode,
     screen,
+    setSpyMode,
+    spyModeState,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OldProposalReviewView } from './old-proposal-review-view'
-
-const spyModeState = { isSpyMode: false }
 
 vi.mock('@/components/spy-mode-context', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
@@ -27,7 +28,7 @@ describe('OldProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
-        spyModeState.isSpyMode = false
+        resetSpyMode()
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
@@ -144,7 +145,7 @@ describe('OldProposalReviewView', () => {
         })
 
         it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
-            spyModeState.isSpyMode = true
+            setSpyMode(true)
 
             renderWithProviders(
                 <OldProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
@@ -155,7 +156,7 @@ describe('OldProposalReviewView', () => {
         })
 
         it('renders the new flow when agreementsHref is absent and feature flag is ON', async () => {
-            spyModeState.isSpyMode = true
+            setSpyMode(true)
 
             renderWithProviders(<OldProposalReviewView orgSlug="openstax" study={study} />)
 

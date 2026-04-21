@@ -840,6 +840,19 @@ export const expectStudyJobRecords = async (
     expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
 }
 
+// Pair this with a `vi.mock('@/components/spy-mode-context', ...)` in your test file
+// whose factory reads from `spyModeState`. Drive it from tests with setSpyMode()/resetSpyMode().
+// See old-proposal-review-view.test.tsx for an example of the vi.mock factory wiring.
+export const spyModeState = { isSpyMode: false }
+
+export const setSpyMode = (value: boolean) => {
+    spyModeState.isSpyMode = value
+}
+
+export const resetSpyMode = () => {
+    spyModeState.isSpyMode = false
+}
+
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     id: '11111111-1111-4111-8111-111111111111',
     title: 'Test Study',
