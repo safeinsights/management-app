@@ -1,13 +1,11 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { Routes } from '@/lib/routes'
-import { approveStudyProposalAction, rejectStudyProposalAction } from '@/server/actions/study.actions'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -29,41 +27,13 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
-    const queryClient = useQueryClient()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
 
     const canSubmit = feedback.isValid && decision.selected !== null
     const backPath = Routes.orgDashboard({ orgSlug })
 
-    const { mutate: submitReview, isPending } = useMutation({
-        mutationFn: async () => {
-            if (decision.selected === 'approve') {
-                return approveStudyProposalAction({ orgSlug, studyId })
-            }
-            if (decision.selected === 'reject') {
-                return rejectStudyProposalAction({ orgSlug, studyId })
-            }
-            // TODO(OTTER-493): replace with submitProposalReviewAction({ decision: 'needs-clarification', feedback })
-            // once the `proposal change requested` status and feedback storage land.
-            return { placeholder: true } as const
-        },
-        onError: reportMutationError('Failed to submit review'),
-        onSuccess: (result) => {
-            if (result && typeof result === 'object' && 'placeholder' in result) {
-                closeConfirm()
-                notifications.show({
-                    title: 'Not yet available',
-                    message:
-                        'The "Needs clarification" flow will be enabled once backend work (OTTER-493) is complete.',
-                    color: 'blue',
-                })
-                return
-            }
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            router.push(backPath)
-        },
-    })
+    const { updateStudy, isPending } = useProposalReviewMutation({ studyId, orgSlug })
 
     const handleBack = () => {
         router.push(backPath)
@@ -78,7 +48,22 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     }
 
     const handleConfirmSubmit = () => {
-        submitReview()
+        if (decision.selected === 'approve') {
+            updateStudy('APPROVED')
+            return
+        }
+        if (decision.selected === 'reject') {
+            updateStudy('REJECTED')
+            return
+        }
+        // TODO(OTTER-493): replace with submitProposalReviewAction({ decision: 'needs-clarification', feedback })
+        // once the `proposal change requested` status and feedback storage land.
+        closeConfirm()
+        notifications.show({
+            title: 'Not yet available',
+            message: 'The "Needs clarification" flow will be enabled once backend work (OTTER-493) is complete.',
+            color: 'blue',
+        })
     }
 
     return {
