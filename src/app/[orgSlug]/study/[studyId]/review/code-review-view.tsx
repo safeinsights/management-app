@@ -42,7 +42,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                <CodeSummarySection summary={codeSummary?.summary} isVisible={true} />
+                <CodeSummarySection summary={codeSummary?.summary} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>

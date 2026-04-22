@@ -4,12 +4,9 @@ import { Divider, Stack, Text, Title } from '@mantine/core'
 
 type CodeSummarySectionProps = {
     summary: Json | null | undefined
-    isVisible: boolean
 }
 
-export function CodeSummarySection({ summary, isVisible }: CodeSummarySectionProps) {
-    if (!isVisible) return null
-
+export function CodeSummarySection({ summary }: CodeSummarySectionProps) {
     if (!summary) {
         return (
             <Stack>
