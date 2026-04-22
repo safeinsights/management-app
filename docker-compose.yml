@@ -74,6 +74,11 @@ services:
         build:
             context: .
             dockerfile: ./Dockerfile.editor-service
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
         networks:
             - mgmnt-app
         ports:
