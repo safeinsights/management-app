@@ -19,7 +19,6 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
     return (...args: Args) => {
         after(() =>
             handler(...args).catch((error: unknown) => {
-                console.error('[deferred] handler failed:', error)
                 logger.warn(String(error))
                 Sentry.captureException(error)
             }),
