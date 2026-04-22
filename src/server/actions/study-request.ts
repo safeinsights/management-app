@@ -262,7 +262,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
-        console.log('[finalizeStudySubmissionAction] enter', { studyId, status })
         const userId = session.user.id
 
         const latestJob = await db
@@ -403,7 +402,6 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainCodeFileName, codeFileNames }, session, db }) => {
-        console.log('[addJobToStudyAction] enter', { studyId, mainCodeFileName, extra: codeFileNames.length })
         const userId = session.user.id
 
         const { studyJobId, urlForCodeUpload } = await addStudyJob(
@@ -439,7 +437,6 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
-        console.log('[submitStudyCodeAction] enter', { studyId, fileCount: fileNames.length, status })
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }

@@ -47,13 +47,7 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     await email.sendStudyProposalEmails(studyId)
 })
 
-export const onCodeSummaryRequested = (args: { studyJobId: string }) => {
-    console.log('[onCodeSummaryRequested] scheduling via after()', args)
-    return onCodeSummaryRequestedDeferred(args)
-}
-
-const onCodeSummaryRequestedDeferred = deferred(async ({ studyJobId }: { studyJobId: string }) => {
-    console.log('[onCodeSummaryRequested] after() firing — running code summary', { studyJobId })
+export const onCodeSummaryRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {
     await generateAndStoreCodeSummary(studyJobId)
 })
 
