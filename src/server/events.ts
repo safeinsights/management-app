@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
+import { generateAndStoreCodeSummary } from './claude/code-summary'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -18,6 +19,7 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
     return (...args: Args) => {
         after(() =>
             handler(...args).catch((error: unknown) => {
+                console.error('[deferred] handler failed:', error)
                 logger.warn(String(error))
                 Sentry.captureException(error)
             }),
@@ -43,6 +45,16 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+})
+
+export const onCodeSummaryRequested = (args: { studyJobId: string }) => {
+    console.log('[onCodeSummaryRequested] scheduling via after()', args)
+    return onCodeSummaryRequestedDeferred(args)
+}
+
+const onCodeSummaryRequestedDeferred = deferred(async ({ studyJobId }: { studyJobId: string }) => {
+    console.log('[onCodeSummaryRequested] after() firing — running code summary', { studyJobId })
+    await generateAndStoreCodeSummary(studyJobId)
 })
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {

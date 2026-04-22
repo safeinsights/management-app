@@ -18,7 +18,7 @@ import {
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
-import { deferred, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
+import { deferred, onCodeSummaryRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -262,6 +262,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
+        console.log('[finalizeStudySubmissionAction] enter', { studyId, status })
         const userId = session.user.id
 
         const latestJob = await db
@@ -277,6 +278,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
                 .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
                 .execute()
             triggerCodeScan(latestJob.id, orgSlug, studyId)
+            onCodeSummaryRequested({ studyJobId: latestJob.id })
         }
 
         await db
@@ -401,6 +403,7 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainCodeFileName, codeFileNames }, session, db }) => {
+        console.log('[addJobToStudyAction] enter', { studyId, mainCodeFileName, extra: codeFileNames.length })
         const userId = session.user.id
 
         const { studyJobId, urlForCodeUpload } = await addStudyJob(
@@ -421,6 +424,7 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
             .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
+        onCodeSummaryRequested({ studyJobId })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
@@ -435,6 +439,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
+        console.log('[submitStudyCodeAction] enter', { studyId, fileCount: fileNames.length, status })
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }
@@ -483,6 +488,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         } else {
             onStudyCreated({ userId, studyId })
         }
+
+        onCodeSummaryRequested({ studyJobId })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

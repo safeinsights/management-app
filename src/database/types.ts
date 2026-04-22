@@ -211,6 +211,14 @@ export interface Study {
     title: string
 }
 
+export interface StudyCodeSummary {
+    createdAt: Generated<Timestamp>
+    generatedAt: Timestamp
+    id: Generated<string>
+    studyJobId: string
+    summary: Json
+}
+
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -260,6 +268,7 @@ export interface DB {
     researcherPosition: ResearcherPosition
     researcherProfile: ResearcherProfile
     study: Study
+    studyCodeSummary: StudyCodeSummary
     studyJob: StudyJob
     studyJobFile: StudyJobFile
     user: User

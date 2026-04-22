@@ -8,7 +8,8 @@ export { sql, jsonArrayFrom }
 
 const kyselyOpts: KyselyConfig = {
     dialect,
-    log: DEV_ENV ? ['error', 'query'] : ['error'],
+    log: ['error']
+    // log: DEV_ENV ? ['error', 'query'] : ['error'],
 }
 
 export const db = new Kysely<DB>({

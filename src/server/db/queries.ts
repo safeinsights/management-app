@@ -342,3 +342,13 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         return { publicKey: arrayBuffer, fingerprint }
     })
 }
+
+export async function getCodeSummaryForJob(studyJobId: string) {
+    return await Action.db
+        .selectFrom('studyCodeSummary')
+        .select(['summary', 'generatedAt'])
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+}
