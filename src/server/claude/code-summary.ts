@@ -6,19 +6,18 @@ import { fetchFileContents } from '@/server/storage'
 
 const MAX_FILE_SIZE_BYTES = 100_000
 
-export interface CodeSummaryQuestion {
-    id: string
+export interface CodeSummaryItem {
     question: string
     answer: string
 }
 
-const SUMMARY_QUESTIONS: Omit<CodeSummaryQuestion, 'answer'>[] = [
+const SUMMARY_QUESTIONS = [
     { id: 'q1', question: 'What is this code doing at a high level?' },
     { id: 'q2', question: 'What data sources does this code access or use?' },
     { id: 'q3', question: 'What outputs or results does this code produce?' },
     { id: 'q4', question: 'What external libraries or packages does this code rely on?' },
     { id: 'q5', question: 'Are there any potential data privacy or security concerns in this code?' },
-]
+] as const
 
 async function fetchCodeFiles(studyJobId: string): Promise<{ name: string; content: string }[]> {
     const files = await db
@@ -105,8 +104,8 @@ export async function generateAndStoreCodeSummary(studyJobId: string): Promise<v
 
     const { answers } = toolUse.input as { answers: { id: string; answer: string }[] }
 
-    const questions: CodeSummaryQuestion[] = SUMMARY_QUESTIONS.map((q) => ({
-        ...q,
+    const items: CodeSummaryItem[] = SUMMARY_QUESTIONS.map((q) => ({
+        question: q.question,
         answer: answers.find((a) => a.id === q.id)?.answer ?? '',
     }))
 
@@ -115,7 +114,7 @@ export async function generateAndStoreCodeSummary(studyJobId: string): Promise<v
         .values({
             studyJobId,
             generatedAt: new Date(),
-            summary: JSON.stringify(questions),
+            summary: JSON.stringify(items),
         })
         .execute()
 

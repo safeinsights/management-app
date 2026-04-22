@@ -1,9 +1,8 @@
-import type { CodeSummaryQuestion } from '@/server/claude/code-summary'
-import type { Json } from '@/database/types'
+import type { CodeSummaryItem } from '@/server/claude/code-summary'
 import { Divider, Stack, Text, Title } from '@mantine/core'
 
 type CodeSummarySectionProps = {
-    summary: Json | null | undefined
+    summary: CodeSummaryItem[] | null
 }
 
 export function CodeSummarySection({ summary }: CodeSummarySectionProps) {
@@ -21,20 +20,18 @@ export function CodeSummarySection({ summary }: CodeSummarySectionProps) {
         )
     }
 
-    const questions = summary as unknown as CodeSummaryQuestion[]
-
     return (
         <Stack>
             <Title order={4} size="xl">
                 Code Summary
             </Title>
             <Divider c="dimmed" />
-            {questions.map((q) => (
-                <Stack key={q.id} gap="xs">
+            {summary.map((item, i) => (
+                <Stack key={i} gap="xs">
                     <Text fw={600} size="sm">
-                        {q.question}
+                        {item.question}
                     </Text>
-                    <Text size="sm">{q.answer}</Text>
+                    <Text size="sm">{item.answer}</Text>
                 </Stack>
             ))}
         </Stack>
