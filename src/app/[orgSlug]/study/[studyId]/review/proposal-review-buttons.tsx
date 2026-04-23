@@ -1,15 +1,8 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
-import type { StudyStatus } from '@/database/types'
+import { useLegacyProposalReviewMutation } from '@/hooks/use-legacy-proposal-review-mutation'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
-import { Routes } from '@/lib/routes'
-import {
-    approveStudyProposalAction,
-    rejectStudyProposalAction,
-    type SelectedStudy,
-} from '@/server/actions/study.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { Button, Group } from '@mantine/core'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
@@ -23,26 +16,9 @@ type ProposalReviewButtonsProps = {
 
 export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, orgSlug, agreementsHref }) => {
     const router = useRouter()
-    const queryClient = useQueryClient()
-    const backPath = Routes.orgDashboard({ orgSlug })
-
-    const {
-        mutate: updateStudy,
-        isPending,
-        isSuccess,
-        variables: pendingStatus,
-    } = useMutation({
-        mutationFn: (status: StudyStatus) => {
-            if (status === 'APPROVED') {
-                return approveStudyProposalAction({ orgSlug, studyId: study.id })
-            }
-            return rejectStudyProposalAction({ orgSlug, studyId: study.id })
-        },
-        onError: reportMutationError('Failed to update study status'),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            router.push(backPath)
-        },
+    const { updateStudy, isPending, isSuccess, pendingStatus } = useLegacyProposalReviewMutation({
+        studyId: study.id,
+        orgSlug,
     })
 
     // When navigating from agreements, show only the forward navigation button —
