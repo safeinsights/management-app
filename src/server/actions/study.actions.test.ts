@@ -548,10 +548,10 @@ describe('submitProposalReviewAction', () => {
     const buildFeedback = (wordCount: number) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
     const validFeedback = buildFeedback(60)
 
-    const loadReviewRows = (studyId: string) =>
+    const loadFeedbackRows = (studyId: string) =>
         db
-            .selectFrom('studyProposalReview')
-            .select(['decision', 'feedback', 'reviewerId'])
+            .selectFrom('studyProposalFeedback')
+            .select(['authorId', 'authorRole', 'body', 'decision', 'entryType'])
             .where('studyId', '=', studyId)
             .execute()
 
@@ -566,10 +566,12 @@ describe('submitProposalReviewAction', () => {
             feedback: validFeedback,
         })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
         expect(rows[0].decision).toBe('APPROVE')
-        expect(rows[0].reviewerId).toBe(user.id)
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].authorRole).toBe('REVIEWER')
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -611,9 +613,12 @@ describe('submitProposalReviewAction', () => {
             feedback: validFeedback,
         })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
         expect(rows[0].decision).toBe('NEEDS-CLARIFICATION')
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].authorRole).toBe('REVIEWER')
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -657,9 +662,12 @@ describe('submitProposalReviewAction', () => {
             feedback: validFeedback,
         })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
         expect(rows[0].decision).toBe('REJECT')
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].authorRole).toBe('REVIEWER')
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -700,7 +708,7 @@ describe('submitProposalReviewAction', () => {
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(0)
 
         const unchanged = await db
@@ -724,7 +732,7 @@ describe('submitProposalReviewAction', () => {
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(0)
     })
 
@@ -739,10 +747,10 @@ describe('submitProposalReviewAction', () => {
             feedback: validFeedback,
         })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
-        expect(rows[0].feedback).toMatchObject({ root: { type: 'root' } })
-        expect(JSON.stringify(rows[0].feedback)).toContain('word1')
+        expect(rows[0].body).toMatchObject({ root: { type: 'root' } })
+        expect(JSON.stringify(rows[0].body)).toContain('word1')
     })
 
     it('accepts pre-formatted Lexical JSON feedback as-is', async () => {
@@ -758,9 +766,9 @@ describe('submitProposalReviewAction', () => {
             feedback: lexical,
         })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
-        expect(rows[0].feedback).toEqual(JSON.parse(lexical))
+        expect(rows[0].body).toEqual(JSON.parse(lexical))
     })
 
     it.each(['APPROVED', 'REJECTED', 'ARCHIVED', 'PROPOSAL-CHANGE-REQUESTED'] as const)(
@@ -783,7 +791,7 @@ describe('submitProposalReviewAction', () => {
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
 
-            const rows = await loadReviewRows(study.id)
+            const rows = await loadFeedbackRows(study.id)
             expect(rows).toHaveLength(0)
 
             const unchanged = await db
@@ -815,7 +823,7 @@ describe('submitProposalReviewAction', () => {
 
         expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(1)
         expect(rows[0].decision).toBe('NEEDS-CLARIFICATION')
 
@@ -850,7 +858,7 @@ describe('submitProposalReviewAction', () => {
 
         expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
 
-        const rows = await loadReviewRows(study.id)
+        const rows = await loadFeedbackRows(study.id)
         expect(rows).toHaveLength(0)
 
         const unchanged = await db

@@ -492,12 +492,14 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         }
 
         await db
-            .insertInto('studyProposalReview')
+            .insertInto('studyProposalFeedback')
             .values({
                 studyId,
-                reviewerId: userId,
+                authorId: userId,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
                 decision: DECISION_TO_ENUM[decision],
-                feedback: JSON.parse(json),
+                body: JSON.parse(json),
             })
             .executeTakeFirstOrThrow()
 

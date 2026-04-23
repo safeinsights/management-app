@@ -39,6 +39,10 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
+export type ProposalFeedbackAuthorRole = 'RESEARCHER' | 'REVIEWER'
+
+export type ProposalFeedbackEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
@@ -238,12 +242,14 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
-export interface StudyProposalReview {
+export interface StudyProposalFeedback {
+    authorId: string
+    authorRole: ProposalFeedbackAuthorRole
+    body: Json
     createdAt: Generated<Timestamp>
-    decision: ReviewDecision
-    feedback: Json
+    decision: ReviewDecision | null
+    entryType: ProposalFeedbackEntryType
     id: Generated<string>
-    reviewerId: string
     studyId: string
 }
 
@@ -282,7 +288,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
-    studyProposalReview: StudyProposalReview
+    studyProposalFeedback: StudyProposalFeedback
     user: User
     userPublicKey: UserPublicKey
 }
