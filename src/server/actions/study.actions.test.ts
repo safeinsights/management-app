@@ -679,9 +679,8 @@ describe('submitProposalReviewAction', () => {
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
 
-        // insertTestStudyJobData creates a job, so reject runs the CODE-REJECTED path which still audits as REJECTED
         const job = await latestJobForStudy(study.id)
-        expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
+        expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
 
         await waitFor(async () => {
             const audit = await getAuditEntries(study.id, 'STUDY')
@@ -833,6 +832,37 @@ describe('submitProposalReviewAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('PROPOSAL-CHANGE-REQUESTED')
+    })
+
+    it('rejects review submission for code-review studies without writing a review row', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+
+        const rows = await loadFeedbackRows(study.id)
+        expect(rows).toHaveLength(0)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('PENDING-REVIEW')
+        expect(unchanged.approvedAt).toBeTruthy()
     })
 
     it('denies callers without review ability on the study org', async () => {

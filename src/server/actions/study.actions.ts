@@ -348,10 +348,12 @@ async function performStudyProposalRejection({
     db,
     studyId,
     userId,
+    rejectCode,
 }: {
     db: DBExecutor
     studyId: string
     userId: string
+    rejectCode: boolean
 }) {
     await db
         .updateTable('study')
@@ -366,7 +368,7 @@ async function performStudyProposalRejection({
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    if (latestJob) {
+    if (rejectCode && latestJob) {
         await db
             .insertInto('jobStatusChange')
             .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
@@ -424,7 +426,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
-        await performStudyProposalRejection({ db, studyId, userId: session.user.id })
+        await performStudyProposalRejection({ db, studyId, userId: session.user.id, rejectCode: true })
     })
 
 const DECISION_TO_ENUM = {
@@ -484,11 +486,12 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .set({ reviewerId: userId })
             .where('id', '=', studyId)
             .where('status', '=', 'PENDING-REVIEW')
+            .where('approvedAt', 'is', null)
             .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
             .executeTakeFirst()
 
         if (!claimedStudy) {
-            throw new ActionFailure({ study: 'must be pending review before submitting a proposal review' })
+            throw new ActionFailure({ study: 'must be in initial proposal review before submitting a proposal review' })
         }
 
         await db
@@ -509,7 +512,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         }
 
         if (decision === 'reject') {
-            await performStudyProposalRejection({ db, studyId, userId })
+            await performStudyProposalRejection({ db, studyId, userId, rejectCode: false })
             return
         }
 
