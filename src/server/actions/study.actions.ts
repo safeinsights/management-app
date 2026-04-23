@@ -513,7 +513,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             return
         }
 
-        // needs-clarification: proposal-state transition only; no job_status_change row
+        // Clarification requests only change the proposal status. Job status rows are reserved for code review.
         await db
             .updateTable('study')
             .set({
