@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
@@ -59,6 +60,29 @@ describe('ProposalReviewView', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
         expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+    })
+
+    describe('needs-clarification', () => {
+        it('renders the needs-clarification option as selectable', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
+            expect(needsClarification).not.toBeDisabled()
+
+            await user.click(needsClarification)
+            expect(needsClarification).toBeChecked()
+        })
+
+        it('keeps submit disabled when needs-clarification is selected without valid feedback', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            await user.click(screen.getByRole('radio', { name: /Needs clarification/ }))
+
+            // Feedback editor is still skeleton until OTTER-491 lands, so submit stays gated on invalid feedback
+            expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+        })
     })
 
     describe('already-decided guard', () => {
