@@ -5,19 +5,31 @@ import {
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
+    resetSpyMode,
     screen,
+    setSpyMode,
+    spyModeState,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+
+vi.mock('@/components/spy-mode-context', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
+    return {
+        ...actual,
+        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
+    }
+})
 
 describe('LegacyProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        resetSpyMode()
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -118,5 +130,38 @@ describe('LegacyProposalReviewView', () => {
         expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
+    })
+
+    describe('agreementsHref bypass', () => {
+        const agreementsHref = '/openstax/study/123/agreements'
+
+        it('renders "Proceed to Step 2" when agreementsHref is provided (flag off)', () => {
+            renderWithProviders(
+                <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
+            )
+
+            expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
+        })
+
+        it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
+            setSpyMode(true)
+
+            renderWithProviders(
+                <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
+            )
+
+            expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review initial request', level: 1 })).not.toBeInTheDocument()
+        })
+
+        it('renders the new flow when agreementsHref is absent and feature flag is ON', async () => {
+            setSpyMode(true)
+
+            renderWithProviders(<LegacyProposalReviewView orgSlug="openstax" study={study} />)
+
+            expect(await screen.findByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Proceed to Step 2' })).not.toBeInTheDocument()
+        })
     })
 })
