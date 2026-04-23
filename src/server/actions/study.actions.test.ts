@@ -1,21 +1,17 @@
 import logger from '@/lib/logger'
-import {
-    onStudyApproved,
-    onStudyCodeApproved,
-    onStudyCodeRejected,
-    onStudyNeedsClarification,
-    onStudyRejected,
-} from '@/server/events'
+import { deliver } from '@/server/mailgun'
 import {
     db,
+    getAuditEntries,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    waitFor,
 } from '@/tests/unit.helpers'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
     ackAgreementsAction,
@@ -28,21 +24,42 @@ import {
 } from './study.actions'
 import { lexicalJson } from '@/lib/word-count'
 
-vi.mock('@/server/events', () => ({
-    onStudyApproved: vi.fn(),
-    onStudyCodeApproved: vi.fn(),
-    onStudyCodeRejected: vi.fn(),
-    onStudyRejected: vi.fn(),
-    onStudyNeedsClarification: vi.fn(),
+vi.mock('@/server/mailgun', () => ({
+    deliver: vi.fn(),
 }))
 
+const deliverMock = deliver as unknown as Mock
+
 describe('Study Actions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     // Approving a proposal sends "proposal approved" email to the researcher
     it('successfully approves a study proposal', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-        expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+        await waitFor(async () => {
+            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                eventType: 'APPROVED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: user.email,
+                    template: 'vb - research proposal approved',
+                }),
+            )
+        })
+
         const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
@@ -99,8 +116,21 @@ describe('Study Actions', () => {
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
         ])
 
-        // Check that onStudyApproved was only called once
-        expect(onStudyApproved).toHaveBeenCalledOnce()
+        await waitFor(async () => {
+            const auditEntries = await getAuditEntries(study.id, 'STUDY')
+            expect(auditEntries.filter((entry) => entry.eventType === 'APPROVED')).toHaveLength(1)
+        })
+
+        await waitFor(() => {
+            expect(
+                deliverMock.mock.calls.filter(
+                    ([message]) =>
+                        message &&
+                        typeof message === 'object' &&
+                        (message as { template?: string }).template === 'vb - research proposal approved',
+                ),
+            ).toHaveLength(1)
+        })
     })
 
     it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
@@ -115,8 +145,28 @@ describe('Study Actions', () => {
 
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
-        expect(onStudyCodeApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        expect(onStudyApproved).not.toHaveBeenCalled()
+        await waitFor(async () => {
+            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                eventType: 'APPROVED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: user.email,
+                    template: 'vb - code approved',
+                }),
+            )
+        })
+        expect(deliverMock).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+                template: 'vb - research proposal approved',
+            }),
+        )
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -179,7 +229,23 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
 
-            expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'REJECTED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - code rejected',
+                    }),
+                )
+            })
 
             const job = await latestJobForStudy(study.id)
             expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
@@ -222,7 +288,24 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeTruthy()
             expect(updatedStudy.rejectedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
-            expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'APPROVED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - research proposal approved',
+                    }),
+                )
+            })
 
             const jobStatusChanges = await db
                 .selectFrom('jobStatusChange')
@@ -249,7 +332,24 @@ describe('Study Actions', () => {
             expect(updatedStudy.rejectedAt).toBeTruthy()
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
-            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'REJECTED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - research proposal rejected',
+                    }),
+                )
+            })
 
             const jobStatusChanges = await db
                 .selectFrom('jobStatusChange')
@@ -455,7 +555,7 @@ describe('submitProposalReviewAction', () => {
             .where('studyId', '=', studyId)
             .execute()
 
-    it('approve decision writes review row, approves study, fires onStudyApproved', async () => {
+    it('approve decision writes review row, approves study, emits approval audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
@@ -480,12 +580,20 @@ describe('submitProposalReviewAction', () => {
         expect(updatedStudy.approvedAt).toBeTruthy()
         expect(updatedStudy.reviewerId).toBe(user.id)
 
-        expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        expect(onStudyNeedsClarification).not.toHaveBeenCalled()
-        expect(onStudyRejected).not.toHaveBeenCalled()
+        await waitFor(async () => {
+            const audit = await getAuditEntries(study.id, 'STUDY')
+            expect(audit).toContainEqual({
+                eventType: 'APPROVED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+            expect(audit.some((e) => e.eventType === 'CLARIFICATION_REQUESTED')).toBe(false)
+            expect(audit.some((e) => e.eventType === 'REJECTED')).toBe(false)
+        })
     })
 
-    it('needs-clarification writes review row, moves study to PROPOSAL-CHANGE-REQUESTED, fires only clarification event', async () => {
+    it('needs-clarification writes review row, moves study to PROPOSAL-CHANGE-REQUESTED, writes only clarification audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
@@ -517,10 +625,17 @@ describe('submitProposalReviewAction', () => {
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
 
-        expect(onStudyNeedsClarification).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        expect(onStudyApproved).not.toHaveBeenCalled()
-        expect(onStudyRejected).not.toHaveBeenCalled()
-        expect(onStudyCodeRejected).not.toHaveBeenCalled()
+        await waitFor(async () => {
+            const audit = await getAuditEntries(study.id, 'STUDY')
+            expect(audit).toContainEqual({
+                eventType: 'CLARIFICATION_REQUESTED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+            expect(audit.some((e) => e.eventType === 'APPROVED')).toBe(false)
+            expect(audit.some((e) => e.eventType === 'REJECTED')).toBe(false)
+        })
 
         const jobStatusAfter = await db
             .selectFrom('jobStatusChange')
@@ -531,7 +646,7 @@ describe('submitProposalReviewAction', () => {
         expect(jobStatusAfter.length).toBe(jobStatusBefore.length)
     })
 
-    it('reject decision writes review row, rejects study, fires rejection event', async () => {
+    it('reject decision writes review row, rejects study, emits rejection audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
@@ -556,9 +671,20 @@ describe('submitProposalReviewAction', () => {
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
 
-        // insertTestStudyJobData creates a job, so reject fires onStudyCodeRejected per existing semantics
-        expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        expect(onStudyApproved).not.toHaveBeenCalled()
+        // insertTestStudyJobData creates a job, so reject runs the CODE-REJECTED path which still audits as REJECTED
+        const job = await latestJobForStudy(study.id)
+        expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
+
+        await waitFor(async () => {
+            const audit = await getAuditEntries(study.id, 'STUDY')
+            expect(audit).toContainEqual({
+                eventType: 'REJECTED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+            expect(audit.some((e) => e.eventType === 'APPROVED')).toBe(false)
+        })
     })
 
     it('rejects feedback below minimum word count', async () => {

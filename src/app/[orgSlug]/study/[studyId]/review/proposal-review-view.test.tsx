@@ -7,6 +7,7 @@ import {
     screen,
     type Mock,
 } from '@/tests/unit.helpers'
+import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
@@ -15,6 +16,7 @@ describe('ProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
+        memoryRouter.setCurrentUrl('/')
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
@@ -26,7 +28,7 @@ describe('ProposalReviewView', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
-    it('renders all stub sections', () => {
+    it('renders all sections', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
         expect(screen.getByTestId('review-progress-bar')).toBeInTheDocument()
@@ -38,7 +40,7 @@ describe('ProposalReviewView', () => {
     it('renders the page title', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
-        expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
     })
 
     it('renders the study title in proposal section', () => {
@@ -47,15 +49,35 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText(/Test Study Title/)).toBeInTheDocument()
     })
 
-    it('renders the submit button as disabled initially', () => {
+    it('renders the back button', () => {
+        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+        expect(screen.getByRole('button', { name: /Back/ })).toBeInTheDocument()
+    })
+
+    it('renders submit review as disabled initially', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
         expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
     })
 
-    it('renders the back button', () => {
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+    describe('already-decided guard', () => {
+        it('hides decision section and action bar when study is APPROVED', () => {
+            const approvedStudy = { ...study, status: 'APPROVED' as const }
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
 
-        expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+            expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+        })
+
+        it('hides decision section and action bar when study is REJECTED', () => {
+            const rejectedStudy = { ...study, status: 'REJECTED' as const }
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+
+            expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+        })
     })
 })
