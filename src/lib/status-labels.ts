@@ -18,6 +18,7 @@ const COLORS = {
     underReview: { bg: 'yellow.0', c: 'dark.9' },
     rejected: { bg: 'red.1', c: 'red.8' },
     approved: { bg: 'green.1', c: 'green.8' },
+    clarification: { bg: 'blue.1', c: 'blue.8' },
     default: { bg: 'gray.1', c: 'dark.5' },
 }
 
@@ -52,6 +53,13 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         tooltip:
             "This study proposal has been rejected. It's now on the Researcher to revise and submit an updated version of their proposal. You'll receive an email once it's ready.",
         colors: COLORS.rejected,
+    },
+    'PROPOSAL-CHANGE-REQUESTED': {
+        stage: 'Proposal',
+        label: 'Proposal change requested',
+        tooltip:
+            "You've asked the Researcher to clarify or revise this proposal. You'll receive an email once they've responded.",
+        colors: COLORS.clarification,
     },
 
     // Code
@@ -154,6 +162,12 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         label: 'Rejected',
         tooltip: 'Your study proposal needs revision. Open your study for more details.',
         colors: COLORS.rejected,
+    },
+    'PROPOSAL-CHANGE-REQUESTED': {
+        stage: 'Proposal',
+        label: 'Proposal change requested',
+        tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',
+        colors: COLORS.underReview,
     },
 
     // Code

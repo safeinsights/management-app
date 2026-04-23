@@ -9,6 +9,7 @@ import type { ColumnType } from 'kysely'
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
     | 'APPROVED'
+    | 'CLARIFICATION_REQUESTED'
     | 'CREATED'
     | 'DELETED'
     | 'INVITED'
@@ -37,6 +38,8 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
+
+export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
 
@@ -67,7 +70,13 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
+export type StudyStatus =
+    | 'APPROVED'
+    | 'ARCHIVED'
+    | 'DRAFT'
+    | 'PENDING-REVIEW'
+    | 'PROPOSAL-CHANGE-REQUESTED'
+    | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -229,6 +238,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyProposalReview {
+    createdAt: Generated<Timestamp>
+    decision: ReviewDecision
+    feedback: Json
+    id: Generated<string>
+    reviewerId: string
+    studyId: string
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -264,6 +282,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyProposalReview: StudyProposalReview
     user: User
     userPublicKey: UserPublicKey
 }

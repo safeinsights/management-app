@@ -1,5 +1,11 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import {
+    onStudyApproved,
+    onStudyCodeApproved,
+    onStudyCodeRejected,
+    onStudyNeedsClarification,
+    onStudyRejected,
+} from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -18,13 +24,16 @@ import {
     fetchStudiesForOrgAction,
     getStudyAction,
     rejectStudyProposalAction,
+    submitProposalReviewAction,
 } from './study.actions'
+import { lexicalJson } from '@/lib/word-count'
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
     onStudyCodeApproved: vi.fn(),
     onStudyCodeRejected: vi.fn(),
     onStudyRejected: vi.fn(),
+    onStudyNeedsClarification: vi.fn(),
 }))
 
 describe('Study Actions', () => {
@@ -432,5 +441,233 @@ describe('ackAgreementsAction', () => {
             .executeTakeFirstOrThrow()
         expect(after.researcherAgreementsAckedAt).toBeNull()
         expect(after.reviewerAgreementsAckedAt).toBeNull()
+    })
+})
+
+describe('submitProposalReviewAction', () => {
+    const buildFeedback = (wordCount: number) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
+    const validFeedback = buildFeedback(60)
+
+    const loadReviewRows = (studyId: string) =>
+        db
+            .selectFrom('studyProposalReview')
+            .select(['decision', 'feedback', 'reviewerId'])
+            .where('studyId', '=', studyId)
+            .execute()
+
+    it('approve decision writes review row, approves study, fires onStudyApproved', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+        })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('APPROVE')
+        expect(rows[0].reviewerId).toBe(user.id)
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.reviewerId).toBe(user.id)
+
+        expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        expect(onStudyNeedsClarification).not.toHaveBeenCalled()
+        expect(onStudyRejected).not.toHaveBeenCalled()
+    })
+
+    it('needs-clarification writes review row, moves study to PROPOSAL-CHANGE-REQUESTED, fires only clarification event', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const jobStatusBefore = await db
+            .selectFrom('jobStatusChange')
+            .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+            .where('studyJob.studyId', '=', study.id)
+            .select('jobStatusChange.id')
+            .execute()
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+        })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('NEEDS-CLARIFICATION')
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('PROPOSAL-CHANGE-REQUESTED')
+        expect(updatedStudy.approvedAt).toBeNull()
+        expect(updatedStudy.rejectedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
+
+        expect(onStudyNeedsClarification).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        expect(onStudyApproved).not.toHaveBeenCalled()
+        expect(onStudyRejected).not.toHaveBeenCalled()
+        expect(onStudyCodeRejected).not.toHaveBeenCalled()
+
+        const jobStatusAfter = await db
+            .selectFrom('jobStatusChange')
+            .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+            .where('studyJob.studyId', '=', study.id)
+            .select('jobStatusChange.id')
+            .execute()
+        expect(jobStatusAfter.length).toBe(jobStatusBefore.length)
+    })
+
+    it('reject decision writes review row, rejects study, fires rejection event', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'reject',
+            feedback: validFeedback,
+        })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('REJECT')
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('REJECTED')
+        expect(updatedStudy.rejectedAt).toBeTruthy()
+        expect(updatedStudy.approvedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
+
+        // insertTestStudyJobData creates a job, so reject fires onStudyCodeRejected per existing semantics
+        expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        expect(onStudyApproved).not.toHaveBeenCalled()
+    })
+
+    it('rejects feedback below minimum word count', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: buildFeedback(10),
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(0)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('PENDING-REVIEW')
+    })
+
+    it('rejects feedback above maximum word count', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: buildFeedback(501),
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(0)
+    })
+
+    it('normalizes plain-text feedback into Lexical JSON on ingest', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+        })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].feedback).toMatchObject({ root: { type: 'root' } })
+        expect(JSON.stringify(rows[0].feedback)).toContain('word1')
+    })
+
+    it('accepts pre-formatted Lexical JSON feedback as-is', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const lexical = lexicalJson(validFeedback)
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: lexical,
+        })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].feedback).toEqual(JSON.parse(lexical))
+    })
+
+    it('denies callers without review ability on the study org', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'reviewer-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, studyStatus: 'PENDING-REVIEW' })
+
+        const outsiderOrg = await insertTestOrg({ slug: 'outsider-lab', type: 'lab' })
+        const { user: outsider } = await insertTestUser({ org: outsiderOrg })
+        mockClerkSession({
+            clerkUserId: outsider.clerkId,
+            orgSlug: outsiderOrg.slug,
+            userId: outsider.id,
+            orgId: outsiderOrg.id,
+        })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: outsiderOrg.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const rows = await loadReviewRows(study.id)
+        expect(rows).toHaveLength(0)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('PENDING-REVIEW')
     })
 })

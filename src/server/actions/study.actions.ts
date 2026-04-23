@@ -4,8 +4,17 @@ import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
+import type { StudyStatus } from '@/database/types'
+import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import {
+    onStudyApproved,
+    onStudyCodeApproved,
+    onStudyCodeRejected,
+    onStudyNeedsClarification,
+    onStudyRejected,
+} from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
@@ -273,6 +282,101 @@ async function approveJobCode({
     }
 }
 
+type StudyForApproval = { status: StudyStatus; approvedAt: Date | null; orgId: string; containerLocation: string }
+
+async function performStudyProposalApproval({
+    db,
+    study,
+    studyId,
+    userId,
+    orgSlug,
+    useTestImage,
+    jobFiles,
+}: {
+    db: DBExecutor
+    study: StudyForApproval
+    studyId: string
+    userId: string
+    orgSlug: string
+    useTestImage?: boolean
+    jobFiles?: z.infer<typeof jobFileSchema>[]
+}) {
+    const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
+    const isCodeReapproval = !isFirstApproval
+
+    if (isFirstApproval) {
+        await db
+            .updateTable('study')
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+            .where('id', '=', studyId)
+            .execute()
+
+        onStudyApproved({ studyId, userId })
+    }
+
+    const latestJob = await db
+        .selectFrom('studyJob')
+        .select('id')
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .executeTakeFirst()
+
+    if (!latestJob) return
+
+    const job = await latestJobForStudy(studyId)
+    const latestJobStatus = job.statusChanges.at(0)?.status
+
+    if (isCodeReapproval) {
+        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
+    }
+
+    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+
+    // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
+    if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
+        await db
+            .updateTable('study')
+            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+            .where('id', '=', studyId)
+            .execute()
+
+        onStudyCodeApproved({ studyId, userId })
+    }
+}
+
+async function performStudyProposalRejection({
+    db,
+    studyId,
+    userId,
+}: {
+    db: DBExecutor
+    studyId: string
+    userId: string
+}) {
+    await db
+        .updateTable('study')
+        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+        .where('id', '=', studyId)
+        .execute()
+
+    const latestJob = await db
+        .selectFrom('studyJob')
+        .select('id')
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .executeTakeFirst()
+
+    if (latestJob) {
+        await db
+            .insertInto('jobStatusChange')
+            .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
+            .executeTakeFirstOrThrow()
+        onStudyCodeRejected({ studyId, userId })
+    } else {
+        onStudyRejected({ studyId, userId })
+    }
+}
+
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -292,49 +396,15 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
-        const userId = session.user.id
-        const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
-        const isCodeReapproval = !isFirstApproval
-
-        if (isFirstApproval) {
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .execute()
-
-            onStudyApproved({ studyId, userId })
-        }
-
-        const latestJob = await db
-            .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
-
-        if (!latestJob) return
-
-        const job = await latestJobForStudy(studyId)
-        const latestJobStatus = job.statusChanges.at(0)?.status
-
-        // For code re-approval, only proceed if code has been submitted or scanned
-        if (isCodeReapproval) {
-            if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
-        }
-
-        await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
-
-        // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
-        if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .execute()
-
-            onStudyCodeApproved({ studyId, userId })
-        }
+        await performStudyProposalApproval({
+            db,
+            study,
+            studyId,
+            userId: session.user.id,
+            orgSlug,
+            useTestImage,
+            jobFiles,
+        })
     })
 
 export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })
@@ -354,34 +424,94 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
+        await performStudyProposalRejection({ db, studyId, userId: session.user.id })
+    })
+
+const DECISION_TO_ENUM = {
+    approve: 'APPROVE',
+    'needs-clarification': 'NEEDS-CLARIFICATION',
+    reject: 'REJECT',
+} as const
+
+function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(raw)
+    } catch {
+        parsed = null
+    }
+
+    const looksLikeLexicalRoot =
+        parsed != null &&
+        typeof parsed === 'object' &&
+        'root' in (parsed as Record<string, unknown>) &&
+        typeof (parsed as { root: unknown }).root === 'object'
+
+    const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
+    return { json, wordCount: countWordsFromLexical(json) }
+}
+
+export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string(),
+            orgSlug: z.string(),
+            feedback: z.string(),
+            decision: z.enum(['approve', 'needs-clarification', 'reject']),
+        }),
+    )
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'orgId', 'containerLocation'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId }
+    })
+    .requireAbilityTo('review', 'Study')
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision }, study, session, db }) => {
         const userId = session.user.id
+        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+
+        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+            throw new ActionFailure({
+                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+            })
+        }
 
         await db
+            .insertInto('studyProposalReview')
+            .values({
+                studyId,
+                reviewerId: userId,
+                decision: DECISION_TO_ENUM[decision],
+                feedback: JSON.parse(json),
+            })
+            .executeTakeFirstOrThrow()
+
+        if (decision === 'approve') {
+            await performStudyProposalApproval({ db, study, studyId, userId, orgSlug })
+            return
+        }
+
+        if (decision === 'reject') {
+            await performStudyProposalRejection({ db, studyId, userId })
+            return
+        }
+
+        // needs-clarification: proposal-state transition only; no job_status_change row
+        await db
             .updateTable('study')
-            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+            .set({
+                status: 'PROPOSAL-CHANGE-REQUESTED',
+                reviewerId: userId,
+                approvedAt: null,
+                rejectedAt: null,
+            })
             .where('id', '=', studyId)
             .execute()
 
-        const latestJob = await db
-            .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
-
-        if (latestJob) {
-            await db
-                .insertInto('jobStatusChange')
-                .values({
-                    userId,
-                    status: 'CODE-REJECTED',
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-            onStudyCodeRejected({ studyId, userId })
-        } else {
-            onStudyRejected({ studyId, userId })
-        }
+        onStudyNeedsClarification({ studyId, userId })
     })
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
