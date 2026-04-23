@@ -344,22 +344,29 @@ async function performStudyProposalApproval({
     }
 }
 
-async function performStudyProposalRejection({
-    db,
-    studyId,
-    userId,
-    rejectCode,
-}: {
-    db: DBExecutor
-    studyId: string
-    userId: string
-    rejectCode: boolean
-}) {
+async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
     await db
         .updateTable('study')
         .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
         .where('id', '=', studyId)
         .execute()
+}
+
+async function performStudyProposalRejection({
+    db,
+    studyId,
+    userId,
+}: {
+    db: DBExecutor
+    studyId: string
+    userId: string
+}) {
+    await markStudyRejected({ db, studyId, userId })
+    onStudyRejected({ studyId, userId })
+}
+
+async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
+    await markStudyRejected({ db, studyId, userId })
 
     const latestJob = await db
         .selectFrom('studyJob')
@@ -368,7 +375,7 @@ async function performStudyProposalRejection({
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    if (rejectCode && latestJob) {
+    if (latestJob) {
         await db
             .insertInto('jobStatusChange')
             .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
@@ -426,7 +433,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
-        await performStudyProposalRejection({ db, studyId, userId: session.user.id, rejectCode: true })
+        await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
 
 const DECISION_TO_ENUM = {
@@ -512,7 +519,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         }
 
         if (decision === 'reject') {
-            await performStudyProposalRejection({ db, studyId, userId, rejectCode: false })
+            await performStudyProposalRejection({ db, studyId, userId })
             return
         }
 
