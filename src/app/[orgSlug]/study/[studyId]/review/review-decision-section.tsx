@@ -1,7 +1,9 @@
 import { Paper, Radio, Stack, Text } from '@mantine/core'
 import type { ReactNode } from 'react'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
-import type { Decision, DecisionOption, StudyForReview } from './review-types'
+import type { Decision } from '@/lib/proposal-review'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
+import type { DecisionOption, StudyForReview } from './review-types'
 import { DECISION_OPTIONS } from './review-types'
 
 type ReviewDecisionSectionProps = {
@@ -34,7 +36,7 @@ const RADIO_STYLES = {
 }
 
 export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisionSectionProps) {
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+    if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
 

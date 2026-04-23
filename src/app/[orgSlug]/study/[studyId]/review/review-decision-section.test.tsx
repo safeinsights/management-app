@@ -107,4 +107,11 @@ describe('ReviewDecisionSection', () => {
 
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
+
+    it('returns null when study is PROPOSAL-CHANGE-REQUESTED', () => {
+        const clarificationStudy = { ...study, status: 'PROPOSAL-CHANGE-REQUESTED' as const }
+        renderWithProviders(<Wrapper study={clarificationStudy} />)
+
+        expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
+    })
 })

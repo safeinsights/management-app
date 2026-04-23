@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import type { Decision } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
+import type { Decision } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { submitProposalReviewAction } from '@/server/actions/study.actions'
 import { useRouter } from 'next/navigation'

@@ -5,6 +5,7 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -81,7 +82,7 @@ type ReviewActionsBarProps = {
 }
 
 const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPending, onBack, onSubmit }) => {
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+    if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (

@@ -10,14 +10,45 @@ import {
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
+
+const proposalReviewMocks = vi.hoisted(() => ({
+    feedback: {
+        value: '',
+        wordCount: 0,
+        isValid: false,
+    },
+    submitReview: vi.fn(),
+}))
+
+vi.mock('@/hooks/use-review-feedback', () => ({
+    useReviewFeedback: () => ({
+        value: proposalReviewMocks.feedback.value,
+        onChange: vi.fn(),
+        wordCount: proposalReviewMocks.feedback.wordCount,
+        minWords: 50,
+        maxWords: 500,
+        isValid: proposalReviewMocks.feedback.isValid,
+    }),
+}))
+
+vi.mock('@/hooks/use-proposal-review-mutation', () => ({
+    useProposalReviewMutation: () => ({
+        submitReview: proposalReviewMocks.submitReview,
+        isPending: false,
+    }),
+}))
 
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
         memoryRouter.setCurrentUrl('/')
+        proposalReviewMocks.feedback.value = ''
+        proposalReviewMocks.feedback.wordCount = 0
+        proposalReviewMocks.feedback.isValid = false
+        proposalReviewMocks.submitReview.mockReset()
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
@@ -85,6 +116,59 @@ describe('ProposalReviewView', () => {
         })
     })
 
+    describe('submit wiring', () => {
+        beforeEach(() => {
+            proposalReviewMocks.feedback.value = 'valid feedback '.repeat(60).trim()
+            proposalReviewMocks.feedback.wordCount = 120
+            proposalReviewMocks.feedback.isValid = true
+        })
+
+        it('submits approve through the unified mutation after confirmation', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            await user.click(screen.getByRole('radio', { name: /Approve/ }))
+            await user.click(screen.getByRole('button', { name: 'Submit review' }))
+            await user.click(screen.getByRole('button', { name: 'Yes, submit review' }))
+
+            expect(proposalReviewMocks.submitReview).toHaveBeenCalledWith({
+                decision: 'approve',
+                feedback: proposalReviewMocks.feedback.value,
+            })
+        })
+
+        it('submits needs clarification through the unified mutation after confirmation', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            await user.click(screen.getByRole('radio', { name: /Needs clarification/ }))
+            await user.click(screen.getByRole('button', { name: 'Submit review' }))
+            await user.click(screen.getByRole('button', { name: 'Yes, submit review' }))
+
+            expect(proposalReviewMocks.submitReview).toHaveBeenCalledWith({
+                decision: 'needs-clarification',
+                feedback: proposalReviewMocks.feedback.value,
+            })
+        })
+
+        it('submits reject through the destructive modal', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            await user.click(screen.getByRole('radio', { name: /Reject/ }))
+            await user.click(screen.getByRole('button', { name: 'Submit review' }))
+
+            expect(screen.getByText('Reject initial request?')).toBeInTheDocument()
+
+            await user.click(screen.getByRole('button', { name: 'Reject initial request' }))
+
+            expect(proposalReviewMocks.submitReview).toHaveBeenCalledWith({
+                decision: 'reject',
+                feedback: proposalReviewMocks.feedback.value,
+            })
+        })
+    })
+
     describe('already-decided guard', () => {
         it('hides decision section and action bar when study is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
@@ -98,6 +182,15 @@ describe('ProposalReviewView', () => {
         it('hides decision section and action bar when study is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+
+            expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+        })
+
+        it('hides decision section and action bar when study is PROPOSAL-CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'PROPOSAL-CHANGE-REQUESTED' as const }
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()

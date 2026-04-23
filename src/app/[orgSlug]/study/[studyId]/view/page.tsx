@@ -31,7 +31,11 @@ export default async function StudyReviewPage(props: {
     if (job && codeSubmitted && !fromAgreements)
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
 
-    const showProposalView = study.status === 'REJECTED' || study.status === 'APPROVED' || codeSubmitted
+    const showProposalView =
+        study.status === 'REJECTED' ||
+        study.status === 'APPROVED' ||
+        study.status === 'PROPOSAL-CHANGE-REQUESTED' ||
+        codeSubmitted
     if (showProposalView) {
         const agreementsHref = fromAgreements
             ? Routes.studyAgreements({

@@ -6,7 +6,7 @@ import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import {
     onStudyApproved,
@@ -469,7 +469,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, feedback, decision }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision }, session, db }) => {
         const userId = session.user.id
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
 
@@ -477,6 +477,18 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             throw new ActionFailure({
                 feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
             })
+        }
+
+        const claimedStudy = await db
+            .updateTable('study')
+            .set({ reviewerId: userId })
+            .where('id', '=', studyId)
+            .where('status', '=', 'PENDING-REVIEW')
+            .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
+            .executeTakeFirst()
+
+        if (!claimedStudy) {
+            throw new ActionFailure({ study: 'must be pending review before submitting a proposal review' })
         }
 
         await db
@@ -490,7 +502,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .executeTakeFirstOrThrow()
 
         if (decision === 'approve') {
-            await performStudyProposalApproval({ db, study, studyId, userId, orgSlug })
+            await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
             return
         }
 

@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import type { StudyStatus } from '@/database/types'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import {
     approveStudyProposalAction,
@@ -54,7 +55,7 @@ export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, o
         )
     }
 
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+    if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
 
