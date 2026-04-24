@@ -6,7 +6,7 @@ import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import {
     onStudyApproved,
@@ -436,12 +436,6 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
         await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
 
-const DECISION_TO_ENUM = {
-    approve: 'APPROVE',
-    'needs-clarification': 'NEEDS-CLARIFICATION',
-    reject: 'REJECT',
-} as const
-
 function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
     let parsed: unknown
     try {
@@ -458,6 +452,57 @@ function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: num
 
     const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
     return { json, wordCount: countWordsFromLexical(json) }
+}
+
+async function claimInitialProposalReviewStudy({
+    db,
+    studyId,
+    userId,
+}: {
+    db: DBExecutor
+    studyId: string
+    userId: string
+}) {
+    const study = await db
+        .updateTable('study')
+        .set({ reviewerId: userId })
+        .where('id', '=', studyId)
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
+        .executeTakeFirst()
+
+    if (!study) {
+        throw new ActionFailure({ study: 'must be in initial proposal review before submitting a proposal review' })
+    }
+
+    return study
+}
+
+async function insertReviewerProposalFeedback({
+    db,
+    studyId,
+    userId,
+    decision,
+    body,
+}: {
+    db: DBExecutor
+    studyId: string
+    userId: string
+    decision: Decision
+    body: string
+}) {
+    await db
+        .insertInto('studyProposalFeedback')
+        .values({
+            studyId,
+            authorId: userId,
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            decision: toReviewDecision(decision),
+            body: JSON.parse(body),
+        })
+        .executeTakeFirstOrThrow()
 }
 
 export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
@@ -488,30 +533,8 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             })
         }
 
-        const claimedStudy = await db
-            .updateTable('study')
-            .set({ reviewerId: userId })
-            .where('id', '=', studyId)
-            .where('status', '=', 'PENDING-REVIEW')
-            .where('approvedAt', 'is', null)
-            .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
-            .executeTakeFirst()
-
-        if (!claimedStudy) {
-            throw new ActionFailure({ study: 'must be in initial proposal review before submitting a proposal review' })
-        }
-
-        await db
-            .insertInto('studyProposalFeedback')
-            .values({
-                studyId,
-                authorId: userId,
-                authorRole: 'REVIEWER',
-                entryType: 'REVIEWER-FEEDBACK',
-                decision: DECISION_TO_ENUM[decision],
-                body: JSON.parse(json),
-            })
-            .executeTakeFirstOrThrow()
+        const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
+        await insertReviewerProposalFeedback({ db, studyId, userId, decision, body: json })
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
