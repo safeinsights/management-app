@@ -24,6 +24,12 @@ vi.mock('@/server/aws', async () => {
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
         createAthenaDatabase: vi.fn().mockResolvedValue(undefined),
         deleteAthenaDatabase: vi.fn().mockResolvedValue(undefined),
+        deleteAllAthenaTables: vi.fn().mockResolvedValue(undefined),
+        deleteTestDataBucketPrefix: vi.fn().mockResolvedValue(undefined),
+        copyToTestDataBucket: vi.fn().mockResolvedValue([]),
+        inferColumnsFromCsv: vi.fn().mockResolvedValue([]),
+        createAthenaTable: vi.fn().mockResolvedValue(undefined),
+        testDataBucketName: vi.fn().mockReturnValue(null),
         createPgDatabase: vi.fn().mockResolvedValue(undefined),
         deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }

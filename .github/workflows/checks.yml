@@ -38,12 +38,11 @@ jobs:
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
-            # SonarQube disabled — certificate issues with hosted instance
-            # - name: Run SonarQube SAST Scan
-            #   uses: SonarSource/sonarqube-scan-action@v7
-            #   env:
-            #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-            #       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+            - name: Run SonarQube SAST Scan
+              uses: SonarSource/sonarqube-scan-action@v7
+              env:
+                  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+                  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
     test:
         timeout-minutes: 20

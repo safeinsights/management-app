@@ -1,17 +1,20 @@
 import logger from '@/lib/logger'
-import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import { deliver } from '@/server/mailgun'
 import {
     db,
+    getAuditEntries,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    waitFor,
 } from '@/tests/unit.helpers'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
+    ackAgreementsAction,
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForOrgAction,
@@ -19,20 +22,42 @@ import {
     rejectStudyProposalAction,
 } from './study.actions'
 
-vi.mock('@/server/events', () => ({
-    onStudyApproved: vi.fn(),
-    onStudyCodeApproved: vi.fn(),
-    onStudyCodeRejected: vi.fn(),
-    onStudyRejected: vi.fn(),
+vi.mock('@/server/mailgun', () => ({
+    deliver: vi.fn(),
 }))
 
+const deliverMock = deliver as unknown as Mock
+
 describe('Study Actions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     // Approving a proposal sends "proposal approved" email to the researcher
     it('successfully approves a study proposal', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-        expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+        await waitFor(async () => {
+            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                eventType: 'APPROVED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: user.email,
+                    template: 'vb - research proposal approved',
+                }),
+            )
+        })
+
         const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
@@ -89,8 +114,21 @@ describe('Study Actions', () => {
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
         ])
 
-        // Check that onStudyApproved was only called once
-        expect(onStudyApproved).toHaveBeenCalledOnce()
+        await waitFor(async () => {
+            const auditEntries = await getAuditEntries(study.id, 'STUDY')
+            expect(auditEntries.filter((entry) => entry.eventType === 'APPROVED')).toHaveLength(1)
+        })
+
+        await waitFor(() => {
+            expect(
+                deliverMock.mock.calls.filter(
+                    ([message]) =>
+                        message &&
+                        typeof message === 'object' &&
+                        (message as { template?: string }).template === 'vb - research proposal approved',
+                ),
+            ).toHaveLength(1)
+        })
     })
 
     it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
@@ -105,8 +143,28 @@ describe('Study Actions', () => {
 
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
-        expect(onStudyCodeApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        expect(onStudyApproved).not.toHaveBeenCalled()
+        await waitFor(async () => {
+            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                eventType: 'APPROVED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: user.email,
+                    template: 'vb - code approved',
+                }),
+            )
+        })
+        expect(deliverMock).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+                template: 'vb - research proposal approved',
+            }),
+        )
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -169,7 +227,23 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
 
-            expect(onStudyCodeRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'REJECTED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - code rejected',
+                    }),
+                )
+            })
 
             const job = await latestJobForStudy(study.id)
             expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
@@ -212,7 +286,24 @@ describe('Study Actions', () => {
             expect(updatedStudy.approvedAt).toBeTruthy()
             expect(updatedStudy.rejectedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
-            expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'APPROVED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - research proposal approved',
+                    }),
+                )
+            })
 
             const jobStatusChanges = await db
                 .selectFrom('jobStatusChange')
@@ -239,7 +330,24 @@ describe('Study Actions', () => {
             expect(updatedStudy.rejectedAt).toBeTruthy()
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
-            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            await waitFor(async () => {
+                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                    eventType: 'REJECTED',
+                    recordType: 'STUDY',
+                    recordId: study.id,
+                    userId: user.id,
+                })
+            })
+
+            await waitFor(() => {
+                expect(deliverMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        to: user.email,
+                        template: 'vb - research proposal rejected',
+                    }),
+                )
+            })
 
             const jobStatusChanges = await db
                 .selectFrom('jobStatusChange')
@@ -346,5 +454,90 @@ describe('Study Actions', () => {
         await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
+    })
+})
+
+describe('ackAgreementsAction', () => {
+    it('sets researcherAgreementsAckedAt when called by lab member', async () => {
+        const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researcherAgreementsAckedAt).not.toBeNull()
+        expect(updated.reviewerAgreementsAckedAt).toBeNull()
+    })
+
+    it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
+        const { org: enclaveOrg, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.reviewerAgreementsAckedAt).not.toBeNull()
+        expect(updated.researcherAgreementsAckedAt).toBeNull()
+    })
+
+    it('does not overwrite an existing ack timestamp', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id })
+
+        const first = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        // Call again — should not change the timestamp
+        await ackAgreementsAction({ studyId: study.id })
+
+        const second = await db
+            .selectFrom('study')
+            .select('researcherAgreementsAckedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
+    })
+
+    it('fails when user is neither reviewer nor researcher org member', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'acker-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        await expect(ackAgreementsAction({ studyId: study.id })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.any(String) }),
+        })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.researcherAgreementsAckedAt).toBeNull()
+        expect(after.reviewerAgreementsAckedAt).toBeNull()
     })
 })

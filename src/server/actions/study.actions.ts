@@ -2,7 +2,7 @@
 
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
-import { throwNotFound } from '@/lib/errors'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
@@ -70,6 +70,8 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.additionalNotes',
             'study.status',
             'study.title',
+            'study.researcherAgreementsAckedAt',
+            'study.reviewerAgreementsAckedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -163,6 +165,45 @@ export const getStudyAction = new Action('getStudyAction')
     })
 
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
+
+export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ study, params: { studyId }, db, session }) => {
+        const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
+
+        const isReviewer = userOrgIds.has(study.orgId)
+        const isResearcher = userOrgIds.has(study.submittedByOrgId)
+
+        if (!isReviewer && !isResearcher) {
+            throw new ActionFailure({ user: 'not a member of the study reviewer or submitter org' })
+        }
+
+        if (isReviewer) {
+            await db
+                .updateTable('study')
+                .set({ reviewerAgreementsAckedAt: new Date() })
+                .where('id', '=', studyId)
+                .where('reviewerAgreementsAckedAt', 'is', null)
+                .execute()
+        }
+        if (isResearcher) {
+            await db
+                .updateTable('study')
+                .set({ researcherAgreementsAckedAt: new Date() })
+                .where('id', '=', studyId)
+                .where('researcherAgreementsAckedAt', 'is', null)
+                .execute()
+        }
+    })
 
 async function approveJobCode({
     db,

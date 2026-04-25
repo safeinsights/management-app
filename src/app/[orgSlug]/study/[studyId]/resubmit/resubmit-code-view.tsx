@@ -10,10 +10,11 @@ import { StudyCodePanel } from '@/components/study/study-code-panel'
 
 interface ResubmitCodeViewProps {
     studyId: string
+    studyTitle: string
     submittingOrgSlug: string
 }
 
-export function ResubmitCodeView({ studyId, submittingOrgSlug }: ResubmitCodeViewProps) {
+export function ResubmitCodeView({ studyId, studyTitle, submittingOrgSlug }: ResubmitCodeViewProps) {
     const router = useRouter()
 
     const onSubmitSuccess = useCallback(() => {
@@ -42,5 +43,5 @@ export function ResubmitCodeView({ studyId, submittingOrgSlug }: ResubmitCodeVie
         </Group>
     )
 
-    return <StudyCodePanel ide={ide} footer={footer} />
+    return <StudyCodePanel ide={ide} studyTitle={studyTitle} footer={footer} />
 }

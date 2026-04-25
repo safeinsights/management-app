@@ -9,11 +9,12 @@ import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
     studyId: string
+    studyTitle: string
     previousHref: Route
     onSubmitSuccess?: () => void
 }
 
-export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
 
     const footer = (
@@ -39,5 +40,5 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
         </Group>
     )
 
-    return <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" footer={footer} />
+    return <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" studyTitle={studyTitle} footer={footer} />
 }

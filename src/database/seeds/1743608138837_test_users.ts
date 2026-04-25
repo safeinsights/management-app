@@ -1,5 +1,5 @@
 import type { DB } from '@/database/types'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -41,7 +41,13 @@ const ORG_MEMBERSHIPS: { role: TestUserRole; slug: string; isAdmin: boolean }[] 
 export async function seed(db: Kysely<DB>): Promise<void> {
     if (process.env.NO_TESTING_DATA) return
 
-    // Upsert orgs
+    // Upsert orgs and capture the actual persisted id for each slug.
+    // Existing deployments may already have rows for these slugs with
+    // different (random) ids — the onConflict update cannot change the
+    // primary key, so we must use whatever id the DB returns when
+    // inserting child rows below.
+    const orgIdBySlug = new Map<string, string>()
+
     for (const org of ORGS) {
         const isEnclave = org.type === 'enclave'
         const name =
@@ -69,7 +75,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
 
         const settings = isEnclave ? { publicKey: 'BAD KEY, UPDATE ME' } : {}
 
-        await db
+        const persisted = await db
             .insertInto('org')
             .values({ id: org.id, slug: org.slug, name, email, type: org.type, settings, description })
             .onConflict((oc) =>
@@ -78,12 +84,14 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                     name: eb.ref('excluded.name'),
                 })),
             )
-            .returningAll()
+            .returning('id')
             .executeTakeFirstOrThrow()
+
+        orgIdBySlug.set(org.slug, persisted.id)
     }
 
     // Code environments for openstax
-    const openstaxId = ORGS.find((o) => o.slug === 'openstax')!.id
+    const openstaxId = orgIdBySlug.get('openstax')!
     const existingOpenstaxEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', openstaxId).execute()
 
     if (existingOpenstaxEnvs.length === 0) {
@@ -140,7 +148,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     }
 
     // Code environment for single-lang-r-enclave
-    const singleLangId = ORGS.find((o) => o.slug === 'single-lang-r-enclave')!.id
+    const singleLangId = orgIdBySlug.get('single-lang-r-enclave')!
     const existingSingleLangEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', singleLangId).execute()
 
     if (existingSingleLangEnvs.length === 0) {
@@ -159,17 +167,28 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Find-or-create test users by id
+    // Find-or-create test users. Existing deployments may have rows with
+    // these emails but different (pre-fixed-UUID) ids — match by id OR by
+    // lower(email) so we update in place instead of hitting the unique
+    // `user_email_lower_unique` index.
+    const userIdByRole = new Map<TestUserRole, string>()
+
     for (const user of TEST_USERS) {
         const firstName = `Test ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`
-        const existing = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+
+        const existing = await db
+            .selectFrom('user')
+            .select('id')
+            .where((eb) => eb.or([eb('id', '=', user.id), eb(sql`lower(email)`, '=', user.email.toLowerCase())]))
+            .executeTakeFirst()
 
         if (existing) {
             await db
                 .updateTable('user')
                 .set({ firstName, lastName: 'User', email: user.email })
-                .where('id', '=', user.id)
+                .where('id', '=', existing.id)
                 .execute()
+            userIdByRole.set(user.role, existing.id)
         } else {
             await db
                 .insertInto('user')
@@ -181,13 +200,14 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                     email: user.email,
                 })
                 .execute()
+            userIdByRole.set(user.role, user.id)
         }
     }
 
     // Org memberships
     for (const membership of ORG_MEMBERSHIPS) {
-        const userId = TEST_USERS.find((u) => u.role === membership.role)!.id
-        const orgId = ORGS.find((o) => o.slug === membership.slug)!.id
+        const userId = userIdByRole.get(membership.role)!
+        const orgId = orgIdBySlug.get(membership.slug)!
 
         const existing = await db
             .selectFrom('orgUser')

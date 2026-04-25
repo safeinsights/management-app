@@ -92,6 +92,18 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // ============================================================================
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
+    // The empty view should show a working starter-code download link when a code env
+    // with starter files is configured for the study's org (the openstax seed does).
+    // Shared CODER_FILES state in CI can land us in the review view (which has no link),
+    // so only assert the link when the empty-view card is visible.
+    const uploadCardHeading = page.getByText('Upload your files')
+    if (await uploadCardHeading.isVisible()) {
+        const starterLink = page.getByRole('link', { name: /Starter code/i })
+        await expect(starterLink).toBeVisible()
+        await expect(starterLink).toHaveAttribute('href', /./)
+        await expect(starterLink).toHaveAttribute('target', '_blank')
+    }
+
     // Upload files via the file input in the FileDropOverlay
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
@@ -111,21 +123,22 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 }
 
 async function uploadCodeViaIDE(page: Page) {
-    const launchButton = page.getByRole('button', { name: /Edit files in IDE/i })
+    // The IDE button label depends on whether the workspace already has files:
+    // "Launch IDE" in the empty view, "Edit files in IDE" in the review view.
+    // Shared CODER_FILES dir in CI means a prior test's files can land us in the review view.
+    const launchButton = page.getByRole('button', { name: /(Launch IDE|Edit files in IDE)/i })
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
     // Starter file appears in the file table after IDE launch
     await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
 
-    // Submit is disabled with only unmodified starter files
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeDisabled()
-
-    // Upload an additional file to enable submit
+    // Upload an additional file to ensure submit is enabled
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
     await expect(page.getByText(/code.r/i)).toBeVisible()
 
+    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
     await page.getByRole('button', { name: /Submit code/i }).click()
 
     await page.waitForURL('**/dashboard')
@@ -182,7 +195,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    const studyBaseUrl = page.url().replace(/\/agreements$/, '')
+    const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
 
     // Proceed to code review — Approve button appears after scan completes
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
@@ -191,21 +204,20 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const approveButton = page.getByRole('button', { name: /^Approve$/i })
     await expect(approveButton).toBeVisible()
 
-    // Click Previous to navigate back to agreements page
+    // Click Previous to navigate to agreements page
     const previousLink = page.getByRole('link', { name: /Previous/i })
     await previousLink.scrollIntoViewIfNeeded()
     await previousLink.click()
-    await page.waitForURL(/\/agreements(\?.*)?$/)
+    await page.waitForURL(/\/agreements\?from=previous$/)
 
+    // Previous from code review shows the agreements page
     await expect(page.getByText('STEP 2A')).toBeVisible()
-    await expect(page.getByText('STEP 2B')).toBeVisible()
-    await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    // Verify the ?from=agreements flow renders ProposalReviewView (not CodeReviewView)
-    await goto(page, `${studyBaseUrl}/review?from=agreements`)
+    // Click Previous again to navigate to proposal view
+    await page.getByRole('button', { name: /Previous/i }).click()
+    await page.waitForURL(/\/review\?from=agreements$/)
     await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Proceed to Step 2/i })).toBeVisible()
 
     // Navigate back to code review for approval
     await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
@@ -236,7 +248,7 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await previousButton.click()
 
     // Should land on /view?from=agreements and show ResearcherProposalView
-    await page.waitForURL(/\/view\?from=agreements$/)
+    await page.waitForURL(/\/view\?from=agreements(&|$)/)
     await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
     await expect(page.getByText(studyTitle)).toBeVisible()
@@ -315,19 +327,13 @@ function uploadErrorLogs(jobId: string): void {
     execSync(cmd, { stdio: 'inherit' })
 }
 
-async function navigateReviewerToCodeReview(page: Page, studyTitle: string): Promise<void> {
-    await viewStudyDetails(page, studyTitle)
-    // With code submitted, reviewer is redirected to agreements — proceed through to code review
-    await page.waitForURL(/\/agreements(\?.*)?$/)
-    await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
-    await page.waitForURL(/\/review\?from=agreements-proceed$/)
-}
-
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await navigateReviewerToCodeReview(page, studyTitle)
+    // Code was already reviewed — no agreements redirect, go directly to code review
+    await viewStudyDetails(page, studyTitle)
+    await page.waitForURL(/\/review$/)
 
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
@@ -358,7 +364,8 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Full-page reload clears Router Cache so study details re-fetches from DB
     await goto(page, '/openstax/dashboard')
-    await navigateReviewerToCodeReview(page, studyTitle)
+    await viewStudyDetails(page, studyTitle)
+    await page.waitForURL(/\/review$/)
     await expect(page.getByText(/Approved on/).last()).toBeVisible()
 }
 
@@ -456,16 +463,11 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher navigates back via previous buttons', async () => {
         // Currently on the CodeOnlyView (study details page)
-        // Click Previous → should go to agreements
-        await page.getByRole('link', { name: /Previous/i }).click()
-        await page.waitForURL(/\/agreements(\?.*)?$/)
-
-        // Agreements should show "Back to Study Details" (not "Proceed to Step 4")
-        await expect(page.getByRole('button', { name: /Back to Study Details/i })).toBeVisible()
-
-        // Click Previous on agreements → should go to dashboard
-        await page.getByRole('button', { name: /Previous/i }).click()
-        await page.waitForURL(/\/dashboard$/)
+        // Click Previous → agreements redirects to /view (study is PENDING-REVIEW, not APPROVED)
+        const previousLink = page.getByRole('link', { name: /Previous/i })
+        await previousLink.scrollIntoViewIfNeeded()
+        await previousLink.click()
+        await page.waitForURL(/\/view/)
     })
 
     await test.step('reviewer approves code', async () => {

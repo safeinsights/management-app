@@ -109,7 +109,17 @@ export const Routes = {
 
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
-    studyAgreements: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/agreements`, StudyParams),
+    studyAgreements: makeRoute(
+        ({ orgSlug, studyId, from, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/agreements`
+            const params = new URLSearchParams()
+            if (from) params.set('from', from)
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ from: z.string().optional(), returnTo: z.string().optional() }),
+    ),
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 

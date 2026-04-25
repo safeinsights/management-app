@@ -1,13 +1,16 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { WS_URL } from '@/server/config'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
+import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
@@ -37,12 +40,12 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+
         // When a reviewer navigates back from the agreements step, show the proposal
-        // instead of the code review — they've already reviewed code and need to revisit the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
-                <ProposalReviewView
+                <LegacyProposalReviewView
                     orgSlug={orgSlug}
                     study={study}
                     agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
@@ -52,12 +55,18 @@ export default async function StudyReviewPage(props: {
         }
 
         if (codeSubmitted) {
-            if (searchParams.from !== 'agreements-proceed') {
+            // Gate through agreements if the reviewer hasn't acknowledged them yet
+            if (!study.reviewerAgreementsAckedAt && searchParams.from !== 'agreements-proceed') {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
-        return <ProposalReviewView orgSlug={orgSlug} study={study} wsUrl={WS_URL} />
+        return (
+            <ProposalReviewFeatureFlag
+                defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+            />
+        )
     }
 
     return <AlertNotFound title="Study was not found" message="no such study exists" />

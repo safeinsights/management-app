@@ -19,11 +19,11 @@ interface ResubmitCodeProviderProps {
 }
 
 export function ResubmitCodeProvider({ children, study }: ResubmitCodeProviderProps) {
-    const { id: studyId, orgSlug, submittedByOrgSlug: submittingOrgSlug, language } = study
+    const { id: studyId, title: studyTitle, orgSlug, submittedByOrgSlug: submittingOrgSlug, language } = study
 
     const value: ResubmitCodeContextValue = useMemo(
-        () => ({ studyId, orgSlug, submittingOrgSlug, language }),
-        [studyId, orgSlug, submittingOrgSlug, language],
+        () => ({ studyId, studyTitle, orgSlug, submittingOrgSlug, language }),
+        [studyId, studyTitle, orgSlug, submittingOrgSlug, language],
     )
 
     return <ResubmitCodeContext.Provider value={value}>{children}</ResubmitCodeContext.Provider>
