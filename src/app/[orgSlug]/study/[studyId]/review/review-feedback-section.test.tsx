@@ -21,7 +21,6 @@ function FeedbackTestWrapper() {
                 feedback={feedback}
                 submittingLabName="Test Lab"
                 studyId="test-study-id"
-                wsUrl="ws://localhost:1234"
             />
         </>
     )
