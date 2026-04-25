@@ -7,7 +7,6 @@ import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { WS_URL } from '@/server/config'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
@@ -49,7 +48,6 @@ export default async function StudyReviewPage(props: {
                     orgSlug={orgSlug}
                     study={study}
                     agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
-                    wsUrl={WS_URL}
                 />
             )
         }

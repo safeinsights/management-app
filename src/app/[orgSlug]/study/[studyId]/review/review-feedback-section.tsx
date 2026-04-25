@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { Divider, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
+import { WS_URL } from '@/server/config'
 
 const CollaborativeEditor = dynamic(
     () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),
@@ -25,10 +26,9 @@ type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     submittingLabName: string
     studyId: string
-    wsUrl: string
 }
 
-export function ReviewFeedbackSection({ feedback, submittingLabName, studyId, wsUrl }: ReviewFeedbackSectionProps) {
+export function ReviewFeedbackSection({ feedback, submittingLabName, studyId }: ReviewFeedbackSectionProps) {
     return (
         <Paper p="xxl" data-testid="review-feedback-section">
             <Stack gap="lg">
@@ -48,7 +48,7 @@ export function ReviewFeedbackSection({ feedback, submittingLabName, studyId, ws
                     </Text>
                     <CollaborativeEditor
                         id={`review-feedback-${studyId}`}
-                        wsUrl={wsUrl}
+                        wsUrl={WS_URL}
                         contentStyle={contentStyle}
                         onChange={feedback.onChange}
                         placeholder={`For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`}
