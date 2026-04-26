@@ -13,7 +13,8 @@ export function useStudyHref(
     const hasCodeSubmitted = jobStatuses?.some((s) => s === 'CODE-SUBMITTED')
     if (status === 'APPROVED' && hasJobActivity && !hasCodeSubmitted) return Routes.studyCode(studyParams)
 
-    if (hasJobActivity || status === 'PENDING-REVIEW') return Routes.studyView(studyParams)
+    if (hasJobActivity) return Routes.studyView(studyParams)
+    if (status === 'PENDING-REVIEW') return Routes.studySubmitted(studyParams)
     if (status === 'APPROVED') return Routes.studyAgreements(studyParams)
     return Routes.studyView(studyParams)
 }

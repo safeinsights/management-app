@@ -34,7 +34,9 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                         Initial request
                     </Title>
                     <Group justify="space-between" align="center">
-                        <Text c="charcoal.9">Title: {study.title}</Text>
+                        <Text c="charcoal.9" style={{ maxWidth: '60ch', wordBreak: 'break-word' }}>
+                            Title: {study.title}
+                        </Text>
                         {study.submittedAt && (
                             <Text fz={12} c="charcoal.7">
                                 Submitted on {dayjs(study.submittedAt).format('MMM DD, YYYY')}
@@ -62,7 +64,7 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                             size={12}
                             style={{
                                 transition: 'transform 200ms',
-                                transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                transform: expanded ? 'rotate(-90deg)' : 'rotate(0deg)',
                             }}
                         />
                     </Anchor>
@@ -99,7 +101,8 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                                 divider="none"
                                 size="md"
                             />
-                            <Divider />
+
+                            {study.additionalNotes && <Divider />}
 
                             <LexicalProposalField
                                 label="Additional notes or requests"
@@ -124,7 +127,7 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                             >
                                 Hide full initial request
-                                <CaretRightIcon size={12} style={{ transform: 'rotate(90deg)' }} />
+                                <CaretRightIcon size={12} style={{ transform: 'rotate(-90deg)' }} />
                             </Anchor>
                         </Stack>
                     </Paper>
