@@ -1,7 +1,12 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/word-count'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { ReviewFeedbackSection } from './review-feedback-section'
+
+vi.mock('@/server/actions/editor.actions', () => ({
+    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
+}))
 
 const PLACEHOLDER_TEXT = 'This study is feasible with our current data.'
 

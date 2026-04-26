@@ -17,9 +17,138 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
+import { formatTimeAgo } from '@/lib/relative-time'
+import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+
+// These align with the editor service's Server config (debounce: 2000, maxDebounce: 30_000).
+// TYPING_DEBOUNCE_MS waits for typing to stop before showing "Saving progress…".
+// PERSIST_DELAY_MS is the brief window while the server writes to the database.
+// MAX_SAVE_INTERVAL_MS triggers a save indicator during continuous typing.
+const TYPING_DEBOUNCE_MS = 2000
+const PERSIST_DELAY_MS = 1000
+const MAX_SAVE_INTERVAL_MS = 30_000
+
+type SaveState = { status: 'idle' } | { status: 'saving' } | { status: 'saved'; savedAt: Date }
+
+function useSaveStatus(documentId: string, providerRef: React.RefObject<HocuspocusProvider | null>): SaveState {
+    const [state, setState] = useState<SaveState>({ status: 'idle' })
+    const [now, setNow] = useState(() => new Date())
+    const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const lastSaveShownRef = useRef<number>(0)
+    const hasLocalChangesRef = useRef(false)
+
+    useEffect(() => {
+        getYjsDocumentUpdatedAtAction(documentId).then((iso) => {
+            if (iso) {
+                const savedAt = new Date(iso)
+                setState({ status: 'saved', savedAt })
+                setNow(new Date())
+            }
+        })
+    }, [documentId])
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 30_000)
+        return () => clearInterval(id)
+    }, [])
+
+    useEffect(() => {
+        const provider = providerRef.current
+        if (!provider) return
+
+        const clearTimers = () => {
+            if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+            if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+        }
+
+        const showSaved = () => {
+            const saved = new Date()
+            lastSaveShownRef.current = Date.now()
+            setState({ status: 'saved', savedAt: saved })
+            setNow(saved)
+        }
+
+        const onUnsyncedChanges = () => {
+            clearTimers()
+
+            if (provider.unsyncedChanges > 0) {
+                hasLocalChangesRef.current = true
+                return
+            }
+
+            if (!hasLocalChangesRef.current) return
+
+            const sinceLastSave = Date.now() - lastSaveShownRef.current
+            if (lastSaveShownRef.current > 0 && sinceLastSave >= MAX_SAVE_INTERVAL_MS) {
+                showSaved()
+                return
+            }
+
+            typingTimerRef.current = setTimeout(() => {
+                setState({ status: 'saving' })
+                persistTimerRef.current = setTimeout(showSaved, PERSIST_DELAY_MS)
+            }, TYPING_DEBOUNCE_MS)
+        }
+
+        // Wait for initial sync before tracking, otherwise the Yjs document
+        // load triggers unsyncedChanges events that look like local edits.
+        const onSynced = () => {
+            provider.off('synced', onSynced)
+            provider.on('unsyncedChanges', onUnsyncedChanges)
+        }
+
+        if (provider.isSynced) {
+            provider.on('unsyncedChanges', onUnsyncedChanges)
+        } else {
+            provider.on('synced', onSynced)
+        }
+
+        return () => {
+            provider.off('synced', onSynced)
+            provider.off('unsyncedChanges', onUnsyncedChanges)
+            clearTimers()
+        }
+    }, [providerRef])
+
+    if (state.status === 'saved') {
+        const ago = formatTimeAgo(state.savedAt, now)
+        return ago ? state : { status: 'idle' }
+    }
+    return state
+}
+
+function SaveStatus({
+    documentId,
+    providerRef,
+}: {
+    documentId: string
+    providerRef: React.RefObject<HocuspocusProvider | null>
+}) {
+    const state = useSaveStatus(documentId, providerRef)
+
+    if (state.status === 'idle') return null
+
+    if (state.status === 'saving') {
+        return (
+            <Text size="xs" c="dimmed">
+                Saving progress…
+            </Text>
+        )
+    }
+
+    const ago = formatTimeAgo(state.savedAt)
+    if (!ago) return null
+
+    return (
+        <Text size="xs" c="dimmed">
+            Last saved {ago}
+        </Text>
+    )
+}
 
 type ActiveEditor = { name: string; color: string; focusing: boolean }
 
@@ -59,7 +188,7 @@ function ActiveEditorsList({ providerRef }: { providerRef: React.RefObject<Hocus
     if (editors.length === 0) return null
 
     return (
-        <Group mt="xs" gap="xs">
+        <Group gap="xs">
             <Text size="xs" c="dimmed">
                 Also editing:
             </Text>
@@ -181,7 +310,10 @@ export function CollaborativeEditor({
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />
                 </Paper>
-                <ActiveEditorsList providerRef={providerRef} />
+                <Group justify="space-between" mt="xs">
+                    <ActiveEditorsList providerRef={providerRef} />
+                    <SaveStatus documentId={id} providerRef={providerRef} />
+                </Group>
             </LexicalCollaboration>
         </LexicalComposer>
     )

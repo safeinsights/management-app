@@ -9,6 +9,8 @@ const pool = new pg.Pool({
 
 const server = new Server({
     port: 1234,
+    debounce: 2000,
+    maxDebounce: 30_000,
     extensions: [
         new Database({
             fetch: async ({ documentName }) => {
