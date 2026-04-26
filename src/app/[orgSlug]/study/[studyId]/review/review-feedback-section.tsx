@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Divider, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
 import { WS_URL } from '@/server/config'
@@ -53,10 +53,8 @@ export function ReviewFeedbackSection({ feedback, submittingLabName, studyId }: 
                         contentStyle={contentStyle}
                         onChange={feedback.onChange}
                         placeholder={`For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`}
+                        footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
                     />
-                    <Group justify="flex-end">
-                        <WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />
-                    </Group>
                 </Stack>
             </Stack>
         </Paper>

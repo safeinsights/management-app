@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Badge, Group, Paper, Text } from '@mantine/core'
+import { Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -45,6 +45,10 @@ function useSaveStatus(
     const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSaveShownRef = useRef<number>(0)
     const hasLocalChangesRef = useRef(false)
+    // True when the current debounce window contains local typing — drives whether the
+    // settle transition shows the "Saving progress…" choreography (local) or jumps
+    // straight to a refreshed "Last saved" timestamp (remote only).
+    const localEditPendingRef = useRef(false)
 
     useEffect(() => {
         getYjsDocumentUpdatedAtAction({ documentName: documentId, studyId }).then((result) => {
@@ -65,6 +69,8 @@ function useSaveStatus(
         const provider = providerRef.current
         if (!provider) return
 
+        const doc = provider.document
+
         const clearTimers = () => {
             if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
             if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
@@ -77,37 +83,64 @@ function useSaveStatus(
             setNow(saved)
         }
 
-        const onUnsyncedChanges = () => {
+        const scheduleIndicator = () => {
             clearTimers()
-
-            if (provider.unsyncedChanges > 0) {
-                hasLocalChangesRef.current = true
-                return
-            }
-
-            if (!hasLocalChangesRef.current) return
 
             const sinceLastSave = Date.now() - lastSaveShownRef.current
             if (lastSaveShownRef.current > 0 && sinceLastSave >= MAX_SAVE_INTERVAL_MS) {
+                // Periodic heartbeat during continuous typing — refresh the timestamp
+                // without flashing "Saving progress…" regardless of source.
                 showSaved()
                 return
             }
 
             typingTimerRef.current = setTimeout(() => {
-                setState({ status: 'saving' })
-                persistTimerRef.current = setTimeout(showSaved, PERSIST_DELAY_MS)
+                if (localEditPendingRef.current) {
+                    localEditPendingRef.current = false
+                    setState({ status: 'saving' })
+                    persistTimerRef.current = setTimeout(showSaved, PERSIST_DELAY_MS)
+                } else {
+                    // Remote-only window: skip the "Saving progress…" state so passive
+                    // readers don't see UI churn for edits that aren't theirs; just
+                    // refresh "Last saved" since the document was in fact persisted.
+                    showSaved()
+                }
             }, TYPING_DEBOUNCE_MS)
         }
 
+        const onUnsyncedChanges = () => {
+            if (provider.unsyncedChanges > 0) {
+                clearTimers()
+                hasLocalChangesRef.current = true
+                localEditPendingRef.current = true
+                return
+            }
+            if (!hasLocalChangesRef.current) return
+            scheduleIndicator()
+        }
+
+        // Remote edits from other clients arrive as Yjs document updates with the provider
+        // as the transaction origin. We refresh "Last saved" on remote settle but leave
+        // the "Saving progress…" label to local edits only.
+        const onDocUpdate = (_update: Uint8Array, origin: unknown) => {
+            if (origin !== provider) return
+            scheduleIndicator()
+        }
+
+        const start = () => {
+            provider.on('unsyncedChanges', onUnsyncedChanges)
+            doc.on('update', onDocUpdate)
+        }
+
         // Wait for initial sync before tracking, otherwise the Yjs document
-        // load triggers unsyncedChanges events that look like local edits.
+        // load triggers events that look like edits.
         const onSynced = () => {
             provider.off('synced', onSynced)
-            provider.on('unsyncedChanges', onUnsyncedChanges)
+            start()
         }
 
         if (provider.isSynced) {
-            provider.on('unsyncedChanges', onUnsyncedChanges)
+            start()
         } else {
             provider.on('synced', onSynced)
         }
@@ -115,6 +148,7 @@ function useSaveStatus(
         return () => {
             provider.off('synced', onSynced)
             provider.off('unsyncedChanges', onUnsyncedChanges)
+            doc.off('update', onDocUpdate)
             clearTimers()
         }
     }, [providerRef])
@@ -260,6 +294,7 @@ export type CollaborativeEditorProps = {
     contentStyle?: React.CSSProperties
     placeholder?: string
     onChange?: (json: string) => void
+    footerRight?: React.ReactNode
 }
 
 export function CollaborativeEditor({
@@ -270,6 +305,7 @@ export function CollaborativeEditor({
     contentStyle,
     placeholder,
     onChange,
+    footerRight,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const providerRef = useRef<HocuspocusProvider | null>(null)
@@ -319,10 +355,13 @@ export function CollaborativeEditor({
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />
                 </Paper>
-                <Group justify="space-between" mt="xs">
+                <Stack gap={4} mt="xs">
+                    <Group align="center" wrap="nowrap">
+                        <SaveStatus documentId={id} studyId={studyId} providerRef={providerRef} />
+                        {footerRight && <Box ml="auto">{footerRight}</Box>}
+                    </Group>
                     <ActiveEditorsList providerRef={providerRef} />
-                    <SaveStatus documentId={id} studyId={studyId} providerRef={providerRef} />
-                </Group>
+                </Stack>
             </LexicalCollaboration>
         </LexicalComposer>
     )
