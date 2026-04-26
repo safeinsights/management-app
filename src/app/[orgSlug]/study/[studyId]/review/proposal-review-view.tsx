@@ -191,7 +191,11 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
 
                 <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
                 <ProposalSection study={study} orgSlug={orgSlug} />
-                <ReviewFeedbackSection feedback={feedback} />
+                <ReviewFeedbackSection
+                    feedback={feedback}
+                    submittingLabName={study.submittingLabName}
+                    studyId={study.id}
+                />
                 <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
 
                 <ReviewActionsBar

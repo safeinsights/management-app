@@ -32,5 +32,5 @@
         "src/server/actions/f",
         ".next/dev/types/**/*.ts"
     ],
-    "exclude": ["node_modules", "bin/**/*"]
+    "exclude": ["node_modules", "bin/**/*", "services"]
 }

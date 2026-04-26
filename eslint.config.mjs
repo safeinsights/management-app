@@ -24,6 +24,7 @@ const eslintConfig = [
             'src/styles/generated/',
             'test-results/**',
             'tests/coverage/**',
+            'services/**',
         ],
     },
     // Base JavaScript recommended rules
