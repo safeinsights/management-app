@@ -17,6 +17,7 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
+import { isActionError } from '@/lib/errors'
 import { formatTimeAgo } from '@/lib/relative-time'
 import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
@@ -33,7 +34,11 @@ const MAX_SAVE_INTERVAL_MS = 30_000
 
 type SaveState = { status: 'idle' } | { status: 'saving' } | { status: 'saved'; savedAt: Date }
 
-function useSaveStatus(documentId: string, providerRef: React.RefObject<HocuspocusProvider | null>): SaveState {
+function useSaveStatus(
+    documentId: string,
+    studyId: string,
+    providerRef: React.RefObject<HocuspocusProvider | null>,
+): SaveState {
     const [state, setState] = useState<SaveState>({ status: 'idle' })
     const [now, setNow] = useState(() => new Date())
     const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,14 +47,14 @@ function useSaveStatus(documentId: string, providerRef: React.RefObject<Hocuspoc
     const hasLocalChangesRef = useRef(false)
 
     useEffect(() => {
-        getYjsDocumentUpdatedAtAction(documentId).then((iso) => {
-            if (iso) {
-                const savedAt = new Date(iso)
+        getYjsDocumentUpdatedAtAction({ documentName: documentId, studyId }).then((result) => {
+            if (!isActionError(result) && result) {
+                const savedAt = new Date(result)
                 setState({ status: 'saved', savedAt })
                 setNow(new Date())
             }
         })
-    }, [documentId])
+    }, [documentId, studyId])
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 30_000)
@@ -123,12 +128,14 @@ function useSaveStatus(documentId: string, providerRef: React.RefObject<Hocuspoc
 
 function SaveStatus({
     documentId,
+    studyId,
     providerRef,
 }: {
     documentId: string
+    studyId: string
     providerRef: React.RefObject<HocuspocusProvider | null>
 }) {
-    const state = useSaveStatus(documentId, providerRef)
+    const state = useSaveStatus(documentId, studyId, providerRef)
 
     if (state.status === 'idle') return null
 
@@ -247,6 +254,7 @@ const initialConfig = {
 
 export type CollaborativeEditorProps = {
     id: string
+    studyId: string
     wsUrl: string
     contentClassName?: string
     contentStyle?: React.CSSProperties
@@ -256,6 +264,7 @@ export type CollaborativeEditorProps = {
 
 export function CollaborativeEditor({
     id,
+    studyId,
     wsUrl,
     contentClassName,
     contentStyle,
@@ -312,7 +321,7 @@ export function CollaborativeEditor({
                 </Paper>
                 <Group justify="space-between" mt="xs">
                     <ActiveEditorsList providerRef={providerRef} />
-                    <SaveStatus documentId={id} providerRef={providerRef} />
+                    <SaveStatus documentId={id} studyId={studyId} providerRef={providerRef} />
                 </Group>
             </LexicalCollaboration>
         </LexicalComposer>

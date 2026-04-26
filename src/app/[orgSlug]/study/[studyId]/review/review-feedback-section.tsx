@@ -48,6 +48,7 @@ export function ReviewFeedbackSection({ feedback, submittingLabName, studyId }: 
                     </Text>
                     <CollaborativeEditor
                         id={`review-feedback-${studyId}`}
+                        studyId={studyId}
                         wsUrl={WS_URL}
                         contentStyle={contentStyle}
                         onChange={feedback.onChange}
