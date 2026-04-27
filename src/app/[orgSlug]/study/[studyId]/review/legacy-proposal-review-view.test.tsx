@@ -132,6 +132,15 @@ describe('LegacyProposalReviewView', () => {
         expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 
+    it('hides proposal review buttons when study is CHANGE-REQUESTED', () => {
+        const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+
+        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
+
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
+    })
+
     describe('agreementsHref bypass', () => {
         const agreementsHref = '/openstax/study/123/agreements'
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Decision } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
+import type { Decision } from '@/lib/proposal-review'
 
 export function useReviewDecision() {
     const [selected, setSelected] = useState<Decision | null>(null)

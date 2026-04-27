@@ -1,6 +1,5 @@
 import type { SelectedStudy } from '@/server/actions/study.actions'
-
-export type Decision = 'approve' | 'needs-clarification' | 'reject'
+import type { Decision } from '@/lib/proposal-review'
 
 export type StepDef = { label: string; description: string }
 
@@ -13,9 +12,6 @@ export const REVIEW_STEPS: StepDef[] = [
     { label: 'Review agreements', description: 'Review data use agreements' },
     { label: 'Submit review', description: 'Submit your final review' },
 ]
-
-export const FEEDBACK_MIN_WORDS = 50
-export const FEEDBACK_MAX_WORDS = 500
 
 export type DecisionOption = {
     value: Decision
@@ -36,7 +32,6 @@ export const DECISION_OPTIONS: DecisionOption[] = [
         label: 'Needs clarification',
         description:
             'Request clarifications or specific revisions to this initial request. The researcher will be able to view your feedback and may choose to revise and resubmit.',
-        disabled: true,
     },
     {
         value: 'reject',
