@@ -345,32 +345,17 @@ export const getAWSInfo = async () => {
     }
 }
 
-const calculateChecksum = async (body: ReadableStream) => {
-    const hash = createHash('sha256')
-    const reader = body.getReader()
-    let done, value
-    while (!done) {
-        ;({ done, value } = await reader.read())
-        if (value) {
-            hash.update(value)
-        }
-    }
-    return hash.digest('base64')
-}
-
 export const storeS3File = async (
     info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo,
     body: ReadableStream,
     Key: string,
 ) => {
     const [csStream, upStream] = body.tee()
-    const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
         client: getS3Client(),
         tags: objectToAWSTags(info),
         params: {
             Bucket: s3BucketName(),
-            ChecksumSHA256: hash,
             Key,
             Body: upStream,
         },
