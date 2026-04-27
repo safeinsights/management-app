@@ -119,10 +119,10 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('Study proposal')).toBeInTheDocument()
     })
 
-    it('renders ResearcherProposalView for PROPOSAL-CHANGE-REQUESTED study without code placeholder content', async () => {
+    it('renders ResearcherProposalView for CHANGE-REQUESTED study without code placeholder content', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db.updateTable('study').set({ status: 'PROPOSAL-CHANGE-REQUESTED' }).where('id', '=', study.id).execute()
+        await db.updateTable('study').set({ status: 'CHANGE-REQUESTED' }).where('id', '=', study.id).execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),

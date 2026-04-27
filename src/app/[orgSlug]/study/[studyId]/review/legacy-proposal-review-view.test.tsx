@@ -132,8 +132,8 @@ describe('LegacyProposalReviewView', () => {
         expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 
-    it('hides proposal review buttons when study is PROPOSAL-CHANGE-REQUESTED', () => {
-        const clarificationStudy = { ...study, status: 'PROPOSAL-CHANGE-REQUESTED' as const }
+    it('hides proposal review buttons when study is CHANGE-REQUESTED', () => {
+        const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
 
         renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
 

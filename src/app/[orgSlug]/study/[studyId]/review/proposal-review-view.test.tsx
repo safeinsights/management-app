@@ -107,8 +107,8 @@ describe('ProposalReviewView', () => {
             expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
         })
 
-        it('hides decision section and action bar when study is PROPOSAL-CHANGE-REQUESTED', () => {
-            const clarificationStudy = { ...study, status: 'PROPOSAL-CHANGE-REQUESTED' as const }
+        it('hides decision section and action bar when study is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()

@@ -17,7 +17,7 @@ export const FEEDBACK_MAX_WORDS = 500
 
 export const SUBMITTED_PROPOSAL_REVIEW_STATUSES = [
     'APPROVED',
-    'PROPOSAL-CHANGE-REQUESTED',
+    'CHANGE-REQUESTED',
     'REJECTED',
 ] as const satisfies readonly StudyStatus[]
 

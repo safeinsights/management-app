@@ -550,7 +550,7 @@ describe('submitProposalReviewAction', () => {
 
     const loadFeedbackRows = (studyId: string) =>
         db
-            .selectFrom('studyProposalFeedback')
+            .selectFrom('studyProposalComment')
             .select(['authorId', 'authorRole', 'body', 'decision', 'entryType'])
             .where('studyId', '=', studyId)
             .execute()
@@ -595,7 +595,7 @@ describe('submitProposalReviewAction', () => {
         })
     })
 
-    it('needs-clarification writes review row, moves study to PROPOSAL-CHANGE-REQUESTED, writes only clarification audit', async () => {
+    it('needs-clarification writes review row, moves study to CHANGE-REQUESTED, writes only clarification audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
@@ -625,7 +625,7 @@ describe('submitProposalReviewAction', () => {
             .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('PROPOSAL-CHANGE-REQUESTED')
+        expect(updatedStudy.status).toBe('CHANGE-REQUESTED')
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
@@ -770,7 +770,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].body).toEqual(JSON.parse(lexical))
     })
 
-    it.each(['APPROVED', 'REJECTED', 'ARCHIVED', 'PROPOSAL-CHANGE-REQUESTED'] as const)(
+    it.each(['APPROVED', 'REJECTED', 'ARCHIVED', 'CHANGE-REQUESTED'] as const)(
         'rejects review submission for %s studies without writing a review row',
         async (status) => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -831,7 +831,7 @@ describe('submitProposalReviewAction', () => {
             .select('status')
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(unchanged.status).toBe('PROPOSAL-CHANGE-REQUESTED')
+        expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
 
     it('rejects review submission for code-review studies without writing a review row', async () => {

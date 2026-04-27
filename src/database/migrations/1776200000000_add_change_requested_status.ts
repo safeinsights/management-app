@@ -1,7 +1,7 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    await sql`ALTER TYPE study_status ADD VALUE 'PROPOSAL-CHANGE-REQUESTED'`.execute(db)
+    await sql`ALTER TYPE study_status ADD VALUE 'CHANGE-REQUESTED'`.execute(db)
 }
 
 // Postgres does not support removing enum values, so down is a no-op.

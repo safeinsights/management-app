@@ -39,9 +39,9 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
-export type ProposalFeedbackAuthorRole = 'RESEARCHER' | 'REVIEWER'
+export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
-export type ProposalFeedbackEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
@@ -74,13 +74,7 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus =
-    | 'APPROVED'
-    | 'ARCHIVED'
-    | 'DRAFT'
-    | 'PENDING-REVIEW'
-    | 'PROPOSAL-CHANGE-REQUESTED'
-    | 'REJECTED'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'CHANGE-REQUESTED' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -242,13 +236,13 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
-export interface StudyProposalFeedback {
+export interface StudyProposalComment {
     authorId: string
-    authorRole: ProposalFeedbackAuthorRole
+    authorRole: StudyProposalCommentAuthorRole
     body: Json
     createdAt: Generated<Timestamp>
     decision: ReviewDecision | null
-    entryType: ProposalFeedbackEntryType
+    entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
 }
@@ -288,7 +282,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
-    studyProposalFeedback: StudyProposalFeedback
+    studyProposalComment: StudyProposalComment
     user: User
     userPublicKey: UserPublicKey
 }

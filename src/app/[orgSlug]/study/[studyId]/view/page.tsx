@@ -34,7 +34,7 @@ export default async function StudyReviewPage(props: {
     const showProposalView =
         study.status === 'REJECTED' ||
         study.status === 'APPROVED' ||
-        study.status === 'PROPOSAL-CHANGE-REQUESTED' ||
+        study.status === 'CHANGE-REQUESTED' ||
         codeSubmitted
     if (showProposalView) {
         const agreementsHref = fromAgreements

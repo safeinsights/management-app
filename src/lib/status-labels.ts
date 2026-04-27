@@ -54,7 +54,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
             "This study proposal has been rejected. It's now on the Researcher to revise and submit an updated version of their proposal. You'll receive an email once it's ready.",
         colors: COLORS.rejected,
     },
-    'PROPOSAL-CHANGE-REQUESTED': {
+    'CHANGE-REQUESTED': {
         stage: 'Proposal',
         label: 'Proposal change requested',
         tooltip: "You've asked the Researcher to clarify or revise this proposal.",
@@ -162,7 +162,7 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         tooltip: 'Your study proposal needs revision. Open your study for more details.',
         colors: COLORS.rejected,
     },
-    'PROPOSAL-CHANGE-REQUESTED': {
+    'CHANGE-REQUESTED': {
         stage: 'Proposal',
         label: 'Proposal change requested',
         tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',

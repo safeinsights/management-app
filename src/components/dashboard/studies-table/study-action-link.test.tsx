@@ -42,8 +42,8 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
         })
 
-        it('links to view page for PROPOSAL-CHANGE-REQUESTED studies without job activity', () => {
-            const study = mockStudyRow({ status: 'PROPOSAL-CHANGE-REQUESTED' as StudyStatus, jobStatusChanges: [] })
+        it('links to view page for CHANGE-REQUESTED studies without job activity', () => {
+            const study = mockStudyRow({ status: 'CHANGE-REQUESTED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink
                     study={study}

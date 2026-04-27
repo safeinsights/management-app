@@ -480,7 +480,7 @@ async function claimInitialProposalReviewStudy({
     return study
 }
 
-async function insertReviewerProposalFeedback({
+async function insertReviewerProposalComment({
     db,
     studyId,
     userId,
@@ -494,7 +494,7 @@ async function insertReviewerProposalFeedback({
     body: string
 }) {
     await db
-        .insertInto('studyProposalFeedback')
+        .insertInto('studyProposalComment')
         .values({
             studyId,
             authorId: userId,
@@ -535,7 +535,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         }
 
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
-        await insertReviewerProposalFeedback({ db, studyId, userId, decision, body: json })
+        await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
@@ -551,7 +551,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         await db
             .updateTable('study')
             .set({
-                status: 'PROPOSAL-CHANGE-REQUESTED',
+                status: 'CHANGE-REQUESTED',
                 reviewerId: userId,
                 approvedAt: null,
                 rejectedAt: null,

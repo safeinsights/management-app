@@ -55,7 +55,7 @@ describe('useStudyStatus', () => {
         })
 
         it('shows proposal change requested labels for both audiences', () => {
-            const studyStatus: StudyStatus = 'PROPOSAL-CHANGE-REQUESTED'
+            const studyStatus: StudyStatus = 'CHANGE-REQUESTED'
 
             const researcherResult = useStudyStatus(createTestParams(studyStatus, 'researcher'))
             const reviewerResult = useStudyStatus(createTestParams(studyStatus, 'reviewer'))
