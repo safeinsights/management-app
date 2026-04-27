@@ -35,7 +35,6 @@ import { strToAscii } from '@/lib/string'
 import { parseCsv } from '@/lib/file-content-helpers'
 import logger from '@/lib/logger'
 import { Readable } from 'stream'
-import { createHash } from 'crypto'
 import { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
@@ -350,7 +349,7 @@ export const storeS3File = async (
     body: ReadableStream,
     Key: string,
 ) => {
-    const [csStream, upStream] = body.tee()
+    const [_, upStream] = body.tee()
     const uploader = new Upload({
         client: getS3Client(),
         tags: objectToAWSTags(info),
