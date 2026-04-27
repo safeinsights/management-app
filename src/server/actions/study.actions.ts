@@ -4,22 +4,21 @@ import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
-import type { StudyStatus } from '@/database/types'
-import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import {
-    onStudyApproved,
-    onStudyCodeApproved,
-    onStudyCodeRejected,
-    onStudyNeedsClarification,
-    onStudyRejected,
-} from '@/server/events'
+    getProposalFeedbackForStudy,
+    getStudyJobFileOfType,
+    latestJobForStudy,
+    type LatestJobForStudy,
+} from '@/server/db/queries'
+import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { Action, z } from './action'
+import { StudyStatus } from '@/database/types'
+import { Decision, toReviewDecision, FEEDBACK_MIN_WORDS, FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
+import { lexicalJson, countWordsFromLexical } from '@/lib/word-count'
 
 // NOT exported, for internal use by actions in this file
 function fetchStudyQuery(db: DBExecutor) {
@@ -559,8 +558,44 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .where('id', '=', studyId)
             .execute()
 
-        onStudyNeedsClarification({ studyId, userId })
+        const latestJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (latestJob) {
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    userId,
+                    status: 'CODE-REJECTED',
+                    studyJobId: latestJob.id,
+                })
+                .executeTakeFirstOrThrow()
+            onStudyCodeRejected({ studyId, userId })
+        } else {
+            onStudyRejected({ studyId, userId })
+        }
     })
+
+export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId } }) => {
+        return await getProposalFeedbackForStudy(studyId)
+    })
+
+export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))
