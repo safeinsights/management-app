@@ -12,6 +12,7 @@ import type { StudyForReview } from './review-types'
 type ProposalSectionProps = {
     study: StudyForReview
     orgSlug: string
+    initialExpanded?: boolean
 }
 
 const EVALUATION_CRITERIA = [
@@ -30,8 +31,8 @@ const EVALUATION_CRITERIA = [
     },
 ]
 
-function useProposalSection() {
-    const [isExpanded, { toggle }] = useDisclosure(true)
+function useProposalSection(initialExpanded: boolean) {
+    const [isExpanded, { toggle }] = useDisclosure(initialExpanded)
     const { getPopoverProps } = usePopover()
     return { isExpanded, toggle, getPopoverProps }
 }
@@ -82,8 +83,8 @@ function StatusBanner({ labName }: { labName: string }) {
     )
 }
 
-export function ProposalSection({ study, orgSlug }: ProposalSectionProps) {
-    const { isExpanded, toggle, getPopoverProps } = useProposalSection()
+export function ProposalSection({ study, orgSlug, initialExpanded = true }: ProposalSectionProps) {
+    const { isExpanded, toggle, getPopoverProps } = useProposalSection(initialExpanded)
     const submittedDate = formatSubmittedDate(study.submittedAt)
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 

@@ -134,6 +134,25 @@ export const jobInfoForJobId = async (jobId: string) => {
         .executeTakeFirstOrThrow()
 }
 
+export const getProposalFeedbackForStudy = async (studyId: string) => {
+    return await Action.db
+        .selectFrom('studyProposalComment')
+        .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
+        .select([
+            'studyProposalComment.id',
+            'studyProposalComment.authorId',
+            'studyProposalComment.authorRole',
+            'studyProposalComment.entryType',
+            'studyProposalComment.decision',
+            'studyProposalComment.body',
+            'studyProposalComment.createdAt',
+            'author.fullName as authorName',
+        ])
+        .where('studyProposalComment.studyId', '=', studyId)
+        .orderBy('studyProposalComment.createdAt', 'desc')
+        .execute()
+}
+
 export const studyInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
