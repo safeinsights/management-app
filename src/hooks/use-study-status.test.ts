@@ -54,6 +54,26 @@ describe('useStudyStatus', () => {
             expect(reviewerResult?.label).toBe('Needs Review')
         })
 
+        it('shows proposal change requested labels for both audiences', () => {
+            const studyStatus: StudyStatus = 'CHANGE-REQUESTED'
+
+            const researcherResult = useStudyStatus(createTestParams(studyStatus, 'researcher'))
+            const reviewerResult = useStudyStatus(createTestParams(studyStatus, 'reviewer'))
+
+            expect(researcherResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Proposal change requested',
+                }),
+            )
+            expect(reviewerResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Proposal change requested',
+                }),
+            )
+        })
+
         it('uses correct status keys for each audience', () => {
             const params1 = createTestParams('APPROVED', 'researcher', [{ status: 'CODE-APPROVED' }])
             const params2 = createTestParams('APPROVED', 'reviewer', [{ status: 'CODE-APPROVED' }])

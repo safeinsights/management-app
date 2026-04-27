@@ -1,10 +1,11 @@
 'use client'
 
-import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
+import { useLegacyProposalReviewMutation } from '@/hooks/use-legacy-proposal-review-mutation'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { Button, Group } from '@mantine/core'
-import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
 import type { FC } from 'react'
 
 type ProposalReviewButtonsProps = {
@@ -15,7 +16,7 @@ type ProposalReviewButtonsProps = {
 
 export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, orgSlug, agreementsHref }) => {
     const router = useRouter()
-    const { updateStudy, isPending, isSuccess, pendingStatus } = useProposalReviewMutation({
+    const { updateStudy, isPending, isSuccess, pendingStatus } = useLegacyProposalReviewMutation({
         studyId: study.id,
         orgSlug,
     })
@@ -30,7 +31,7 @@ export const ProposalReviewButtons: FC<ProposalReviewButtonsProps> = ({ study, o
         )
     }
 
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+    if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
 
