@@ -444,6 +444,7 @@ function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: num
         parsed = null
     }
 
+    // Loose check: non-Lexical JSON that passes will yield 0 words and fail min-word validation below.
     const looksLikeLexicalRoot =
         parsed != null &&
         typeof parsed === 'object' &&
@@ -517,10 +518,10 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'orgId', 'containerLocation'])
+            .select(['orgId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId }
+        return { orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
     .handler(async ({ params: { studyId, orgSlug, feedback, decision }, session, db }) => {
