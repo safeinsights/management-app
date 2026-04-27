@@ -63,7 +63,7 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+    renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
 
     return { study, previousHref }
 }
@@ -82,13 +82,13 @@ describe('StudyCode component', () => {
         await renderIDE()
 
         await waitFor(() => {
-            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
-            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+            expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
 
-    it('renders workspace files and selects the suggested main file', async () => {
+    it('auto-selects a file named main as the main file', async () => {
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
             'helper.r': 'print("helper")',
@@ -100,16 +100,39 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
-        expect(screen.getByText('Main file')).toBeInTheDocument()
-        expect(screen.getByText('File name')).toBeInTheDocument()
-
-        const radios = screen.getAllByRole('radio')
-        expect(radios).toHaveLength(2)
-        expect(screen.getByDisplayValue('main.r')).toBeChecked()
-        expect(screen.getByDisplayValue('helper.r')).not.toBeChecked()
+        expect(screen.getByRole('button', { name: /main\.r is the main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        )
+        expect(screen.getByRole('button', { name: /set helper\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
     })
 
-    it('updates the selected main file', async () => {
+    it('leaves no main file selected when there is no main.* and more than one file', async () => {
+        await renderIDE('openstax-lab', {
+            'alpha.r': 'print("a")',
+            'beta.r': 'print("b")',
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('alpha.r')).toBeInTheDocument()
+            expect(screen.getByText('beta.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+        })
+
+        expect(screen.getByRole('button', { name: /set alpha\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
+        expect(screen.getByRole('button', { name: /set beta\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
+    })
+
+    it('overrides the auto-selected main file when a different star is clicked', async () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
@@ -120,17 +143,24 @@ describe('StudyCode component', () => {
             expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
 
-        const radios = screen.getAllByRole('radio')
-        await user.click(radios[1])
-        expect(radios[1]).toBeChecked()
+        const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
+        await user.click(helperStar)
+        expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        )
+        expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        )
         expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
     })
 
-    it('shows the Edit files in IDE button for all orgs', async () => {
+    it('shows the Launch IDE button for all orgs', async () => {
         await renderIDE('some-other-org')
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
     })
 
@@ -143,6 +173,11 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
+            // main.R is auto-selected as the main file based on filename
+            expect(screen.getByRole('button', { name: /main\.R is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -167,7 +202,7 @@ describe('StudyCode component', () => {
         )
     })
 
-    it('submits a single file as main', async () => {
+    it('auto-selects the only file as main and submits', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'analysis.r': 'print("only")',
@@ -175,6 +210,10 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /analysis\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -190,37 +229,6 @@ describe('StudyCode component', () => {
         })
 
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
-    })
-
-    it('auto-selects first file when no suggestedMain matches', async () => {
-        const user = userEvent.setup()
-        const { study } = await renderIDE('openstax-lab', {
-            'analysis.r': 'print("analysis")',
-            'helper.r': 'print("helper")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('analysis.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        expect(screen.getByDisplayValue('analysis.r')).toBeChecked()
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
-        })
-
-        await expectStudyJobRecords(study.id, [
-            { name: 'analysis.r', fileType: 'MAIN-CODE' },
-            { name: 'helper.r', fileType: 'SUPPLEMENTAL-CODE' },
-        ])
     })
 
     it('renders the page chrome and previous link', async () => {
@@ -250,9 +258,18 @@ describe('StudyCode component', () => {
                 await writeWorkspaceFiles(root, study.id, files)
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
-            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
             return { study }
         }
+
+        it('shows the inline starter code link when available', async () => {
+            await renderWithCodeEnv()
+
+            await waitFor(() => {
+                const link = screen.getByRole('link', { name: /starter code/i })
+                expect(link).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
+            })
+        })
 
         it('disables submit when starter file has not been modified since IDE launch', async () => {
             await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
@@ -276,16 +293,6 @@ describe('StudyCode component', () => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
         })
-
-        it('shows starter code download chips when available', async () => {
-            await renderWithCodeEnv()
-
-            await waitFor(() => {
-                expect(screen.getByText(/starter code file/i)).toBeInTheDocument()
-                const chip = screen.getByRole('link', { name: /main\.R/i })
-                expect(chip).toHaveAttribute('href', expect.stringContaining('mock-s3-url'))
-            })
-        })
     })
 
     describe('session timeout regression', () => {
@@ -301,7 +308,9 @@ describe('StudyCode component', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            const { unmount } = renderWithProviders(
+                <StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />,
+            )
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
@@ -309,7 +318,7 @@ describe('StudyCode component', () => {
 
             unmount()
 
-            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()

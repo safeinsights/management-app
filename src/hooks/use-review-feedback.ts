@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { countWords } from '@/lib/word-count'
 
 export function useReviewFeedback() {

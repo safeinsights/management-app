@@ -67,7 +67,8 @@ describe('ResearcherProposalView', () => {
         expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
         expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
-        expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
+        expect(screen.getByText('Dataset A')).toBeInTheDocument()
+        expect(screen.getByText('Dataset B')).toBeInTheDocument()
     })
 
     it('shows approval status with date', () => {

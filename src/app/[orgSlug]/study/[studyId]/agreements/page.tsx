@@ -4,6 +4,7 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
@@ -30,8 +31,18 @@ export default async function StudyAgreementsRoute(props: {
 
     const isReviewer = currentOrg.type === 'enclave'
 
+    // Allow direct access when navigating back via Previous button
+    const isDirectAccess = searchParams.from === 'previous'
+
     if (isReviewer) {
-        const codeSubmitted = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        // Once the reviewer has acknowledged agreements, skip straight to review
+        // (unless they navigated back here intentionally)
+        if (study.reviewerAgreementsAckedAt && !isDirectAccess) {
+            redirect(Routes.studyReview({ orgSlug, studyId }))
+        }
+
+        // No code submitted yet — nothing to review, show proposal instead
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
         if (!codeSubmitted) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
@@ -42,6 +53,7 @@ export default async function StudyAgreementsRoute(props: {
                 <Title order={1}>Study request</Title>
                 <AgreementsPage
                     isReviewer
+                    studyId={studyId}
                     proceedHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements-proceed`}
                     previousHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements`}
                     previousLabel="Previous"
@@ -50,32 +62,34 @@ export default async function StudyAgreementsRoute(props: {
         )
     }
 
-    // Baseline jobs (IDE launch / file upload) don't count — only actual submissions
-    const hasJobActivity = study.jobStatusChanges.some((s) => s.status === 'CODE-SUBMITTED')
-    if (study.status !== 'APPROVED' && !hasJobActivity) {
+    // Researcher flow — skip if already acknowledged (unless navigating back)
+    if (study.researcherAgreementsAckedAt && !isDirectAccess) {
+        // Baseline jobs (IDE launch / file upload) don't count, only actual submissions
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+        const dest = codeSubmitted
+            ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+            : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
+        redirect(dest)
+    }
+
+    if (study.status !== 'APPROVED' && !isDirectAccess) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
-    const proceedHref = hasJobActivity
-        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
-        : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
-    const proceedLabel = hasJobActivity ? 'Back to Study Details' : undefined
-    const previousHref = hasJobActivity
-        ? Routes.orgDashboard({ orgSlug: study.submittedByOrgSlug })
-        : `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements`
-    const previousLabel = hasJobActivity ? undefined : 'Previous'
 
-    const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    // Preserve org-scoped breadcrumb context through the Previous → proposal → agreements roundtrip
+    const returnToSuffix = searchParams.returnTo === 'org' ? '&returnTo=org' : ''
+    const previousHref = `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements${returnToSuffix}`
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements', dashboardHref }} />
+            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={proceedHref}
-                proceedLabel={proceedLabel}
+                studyId={studyId}
+                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
                 previousHref={previousHref}
-                previousLabel={previousLabel}
+                previousLabel="Previous"
             />
         </Stack>
     )

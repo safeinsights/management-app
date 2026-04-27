@@ -9,6 +9,7 @@ import type { ColumnType } from 'kysely'
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
     | 'APPROVED'
+    | 'CLARIFICATION_REQUESTED'
     | 'CREATED'
     | 'DELETED'
     | 'INVITED'
@@ -37,6 +38,12 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
+
+export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
+
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
+export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
 
@@ -67,7 +74,7 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'CHANGE-REQUESTED' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -202,8 +209,10 @@ export interface Study {
     piUserId: string | null
     projectSummary: Json | null
     rejectedAt: Timestamp | null
+    researcherAgreementsAckedAt: Timestamp | null
     researcherId: string
     researchQuestions: Json | null
+    reviewerAgreementsAckedAt: Timestamp | null
     reviewerId: string | null
     status: Generated<StudyStatus>
     submittedAt: Timestamp | null
@@ -233,6 +242,17 @@ export interface StudyJobFile {
     path: string
     sourceId: string | null
     studyJobId: string
+}
+
+export interface StudyProposalComment {
+    authorId: string
+    authorRole: StudyProposalCommentAuthorRole
+    body: Json
+    createdAt: Generated<Timestamp>
+    decision: ReviewDecision | null
+    entryType: StudyProposalCommentEntryType
+    id: Generated<string>
+    studyId: string
 }
 
 export interface User {
@@ -271,6 +291,7 @@ export interface DB {
     studyCodeSummary: StudyCodeSummary
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyProposalComment: StudyProposalComment
     user: User
     userPublicKey: UserPublicKey
 }

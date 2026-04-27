@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { triggerBuildImageForJob, triggerScanForStudyJob, toAthenaDbName, toPgDbName } from './aws'
+import {
+    triggerBuildImageForJob,
+    triggerScanForStudyJob,
+    toAthenaDbName,
+    toPgDbName,
+    sanitizeColumnName,
+    testDataBucketName,
+} from './aws'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 
 vi.mock('./config', async (importOriginal) => {
@@ -181,8 +188,52 @@ describe('triggerScanForStudyJob', () => {
         expect(startBuildCommandArgs.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
         expect(startBuildCommandArgs.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
 
-        const codeBuildClientInstance = (CodeBuildClient as unknown as Mock).mock.results[0].value
-        expect(codeBuildClientInstance.send).toHaveBeenCalledTimes(1)
-        expect(codeBuildClientInstance.send).toHaveBeenCalledWith(expect.any(StartBuildCommand))
+        const codeBuildClientInstance2 = (CodeBuildClient as unknown as Mock).mock.results[0].value
+        expect(codeBuildClientInstance2.send).toHaveBeenCalledTimes(1)
+        expect(codeBuildClientInstance2.send).toHaveBeenCalledWith(expect.any(StartBuildCommand))
+    })
+})
+
+describe('sanitizeColumnName', () => {
+    it('should lowercase and replace spaces with underscores', () => {
+        expect(sanitizeColumnName('CLS GRADE AVG')).toBe('cls_grade_avg')
+    })
+
+    it('should collapse multiple underscores', () => {
+        expect(sanitizeColumnName('col  name--here')).toBe('col_name_here')
+    })
+
+    it('should prefix col_ when starting with a digit', () => {
+        expect(sanitizeColumnName('1st_column')).toBe('col_1st_column')
+    })
+
+    it('should prefix col_ when empty after sanitization', () => {
+        expect(sanitizeColumnName('---')).toBe('col_')
+    })
+
+    it('should trim leading and trailing underscores', () => {
+        expect(sanitizeColumnName(' hello ')).toBe('hello')
+    })
+})
+
+describe('testDataBucketName', () => {
+    const originalEnv = process.env.TEST_DATA_BUCKET_NAME
+
+    afterEach(() => {
+        if (originalEnv !== undefined) {
+            process.env.TEST_DATA_BUCKET_NAME = originalEnv
+        } else {
+            delete process.env.TEST_DATA_BUCKET_NAME
+        }
+    })
+
+    it('should return null when not configured', () => {
+        delete process.env.TEST_DATA_BUCKET_NAME
+        expect(testDataBucketName()).toBeNull()
+    })
+
+    it('should return the bucket name when configured', () => {
+        process.env.TEST_DATA_BUCKET_NAME = 'safeinsights-test-data-s3-dev'
+        expect(testDataBucketName()).toBe('safeinsights-test-data-s3-dev')
     })
 })

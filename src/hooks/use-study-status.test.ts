@@ -54,6 +54,26 @@ describe('useStudyStatus', () => {
             expect(reviewerResult?.label).toBe('Needs Review')
         })
 
+        it('shows proposal change requested labels for both audiences', () => {
+            const studyStatus: StudyStatus = 'CHANGE-REQUESTED'
+
+            const researcherResult = useStudyStatus(createTestParams(studyStatus, 'researcher'))
+            const reviewerResult = useStudyStatus(createTestParams(studyStatus, 'reviewer'))
+
+            expect(researcherResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Proposal change requested',
+                }),
+            )
+            expect(reviewerResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Proposal change requested',
+                }),
+            )
+        })
+
         it('uses correct status keys for each audience', () => {
             const params1 = createTestParams('APPROVED', 'researcher', [{ status: 'CODE-APPROVED' }])
             const params2 = createTestParams('APPROVED', 'reviewer', [{ status: 'CODE-APPROVED' }])
@@ -68,37 +88,42 @@ describe('useStudyStatus', () => {
     })
 
     describe('error status handling for researchers', () => {
-        it('shows JOB-ERRORED status for researchers immediately, without waiting for file review', () => {
-            const params = createTestParams('APPROVED', 'researcher', [{ status: 'JOB-ERRORED' }])
+        it('hides JOB-ERRORED from researchers until the reviewer has reviewed the error logs', () => {
+            const params = createTestParams('APPROVED', 'researcher', [
+                { status: 'CODE-APPROVED' },
+                { status: 'JOB-ERRORED' },
+            ])
             const result = useStudyStatus(params)
 
-            expect(result?.label).toBe('Errored')
+            // Researcher should continue to see the last clean state (CODE-APPROVED → "Approved")
+            // until the reviewer posts a FILES-APPROVED or FILES-REJECTED decision.
+            expect(result?.label).toBe('Approved')
+            expect(result.stage).toBe('Code')
         })
 
-        it('shows JOB-ERRORED status for researchers when files have been approved and job has errored', () => {
+        it('shows JOB-ERRORED to researchers once the reviewer has approved the error logs', () => {
             const params = createTestParams('APPROVED', 'researcher', [
+                { status: 'CODE-APPROVED' },
                 { status: 'JOB-ERRORED' },
                 { status: 'FILES-APPROVED' },
             ])
             const result = useStudyStatus(params)
 
-            // JOB-ERRORED is persisted after FILES-APPROVED
             expect(result?.label).toBe('Errored')
         })
 
-        it('shows JOB-ERRORED status for researchers when files have been rejected and job has errored', () => {
+        it('shows JOB-ERRORED to researchers once the reviewer has rejected the error logs', () => {
             const params = createTestParams('APPROVED', 'researcher', [
+                { status: 'CODE-APPROVED' },
                 { status: 'JOB-ERRORED' },
                 { status: 'FILES-REJECTED' },
-                { status: 'JOB-ERRORED' },
             ])
             const result = useStudyStatus(params)
 
-            // JOB-ERRORED is persisted after FILES-REJECTED
             expect(result?.label).toBe('Errored')
         })
 
-        it('does not filter JOB-ERRORED status for reviewers', () => {
+        it('shows JOB-ERRORED to reviewers immediately, without waiting for file review', () => {
             const params = createTestParams('APPROVED', 'reviewer', [{ status: 'JOB-ERRORED' }])
             const result = useStudyStatus(params)
 

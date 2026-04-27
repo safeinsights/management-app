@@ -53,7 +53,7 @@ const createBaselineJob = async (studyId: string) => {
 
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+    renderWithProviders(<CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />)
     return { study }
 }
 
@@ -66,22 +66,22 @@ describe('CodeUploadPage', () => {
         await cleanupWorkspaceDirs(workspaceRoots)
     })
 
-    it('renders the file table directly without a choice screen', async () => {
+    it('renders the page chrome in the empty state', async () => {
         await renderPage()
 
         await waitFor(() => {
             expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
             expect(screen.getByText('Study code')).toBeInTheDocument()
-            expect(screen.getByText('Upload or edit files')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
+            expect(screen.getByText(/write and test your code in ide/i)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
     })
 
-    it('shows the Edit files in IDE button for all orgs', async () => {
+    it('shows the Launch IDE button for all orgs', async () => {
         await renderPage('some-other-org')
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
     })
 
@@ -89,7 +89,7 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('Drop files here to upload')).toBeInTheDocument()
+            expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
@@ -104,11 +104,18 @@ describe('CodeUploadPage', () => {
             'helper.r': 'print("helper")',
         })
 
-        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
             expect(screen.getByText('helper.r')).toBeInTheDocument()
+            // main.r auto-selects as the main file
+            expect(screen.getByRole('button', { name: /main\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -141,7 +148,9 @@ describe('CodeUploadPage', () => {
             'main.R': 'print("main")',
         })
 
-        renderWithProviders(<CodeUploadPage studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
