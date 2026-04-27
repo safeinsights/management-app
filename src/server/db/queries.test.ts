@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { BLANK_UUID, insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
 import {
+    BLANK_UUID,
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestStudyJobUsers,
+    readTestSupportFile,
+} from '@/tests/unit.helpers'
+import { db } from '@/database'
+import {
+    getCodeSummaryForJob,
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
@@ -175,5 +183,28 @@ describe('getOrgPublicKeys', () => {
         expect(files[0].path).toBe('test.txt')
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
+    })
+})
+
+describe('getCodeSummaryForJob', () => {
+    it('returns null when no summary exists for the job', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await getCodeSummaryForJob(job.id)
+        expect(result).toBeNull()
+    })
+
+    it('returns the stored summary items for the job', async () => {
+        const { job } = await insertTestStudyJobData()
+        const items = [
+            { question: 'What does this code do?', answer: 'Runs analysis.' },
+            { question: 'What libraries?', answer: 'pandas.' },
+        ]
+        await db
+            .insertInto('studyCodeSummary')
+            .values({ studyJobId: job.id, generatedAt: new Date(), summary: JSON.stringify(items) })
+            .execute()
+
+        const result = await getCodeSummaryForJob(job.id)
+        expect(result).toEqual(items)
     })
 })

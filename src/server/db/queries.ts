@@ -8,6 +8,7 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { CodeSummaryItem } from '../claude/code-summary'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -341,4 +342,15 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         new Uint8Array(arrayBuffer).set(publicKey)
         return { publicKey: arrayBuffer, fingerprint }
     })
+}
+
+export async function getCodeSummaryForJob(studyJobId: string): Promise<CodeSummaryItem[] | null> {
+    const row = await Action.db
+        .selectFrom('studyCodeSummary')
+        .select((eb) => eb.ref('summary').$castTo<CodeSummaryItem[]>().as('summary'))
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.summary ?? null
 }
