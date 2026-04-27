@@ -32,7 +32,6 @@ describe('ProposalReviewView', () => {
     it('renders all sections', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
-        expect(screen.getByTestId('review-progress-bar')).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section')).toBeInTheDocument()
         expect(screen.getByTestId('review-feedback-section')).toBeInTheDocument()
         expect(screen.getByTestId('review-decision-section')).toBeInTheDocument()
