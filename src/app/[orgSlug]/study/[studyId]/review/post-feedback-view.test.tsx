@@ -75,10 +75,10 @@ describe('PostFeedbackView', () => {
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
-            // "Review initial request" appears twice — once as the page subtitle and once as the
-            // ProposalSection's heading inside the (collapsed) dropdown. Both are expected.
+            // "Review initial request" and the study title both appear twice — once in the
+            // decision header, once in the ProposalSection's collapsed header. Both expected.
             expect(screen.getAllByText('Review initial request').length).toBeGreaterThan(0)
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getAllByText(/Effect of Reading Comprehension Tools/).length).toBeGreaterThan(0)
         })
     })
 
