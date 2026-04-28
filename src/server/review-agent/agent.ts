@@ -10,7 +10,8 @@ const ANALYSIS_TOOL_NAME = 'submit_analysis'
 
 const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     name: ANALYSIS_TOOL_NAME,
-    description: 'Submit the structured review of the research proposal. Always call this tool exactly once with the full report.',
+    description:
+        'Submit the structured review of the research proposal. Always call this tool exactly once with the full report.',
     input_schema: {
         type: 'object',
         properties: {
