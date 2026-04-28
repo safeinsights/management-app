@@ -8,7 +8,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import {
-    getCodeSummaryForJob,
+    getStudyReviewForJob,
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
@@ -186,25 +186,27 @@ describe('getOrgPublicKeys', () => {
     })
 })
 
-describe('getCodeSummaryForJob', () => {
-    it('returns null when no summary exists for the job', async () => {
+describe('getStudyReviewForJob', () => {
+    it('returns null when no review exists for the job', async () => {
         const { job } = await insertTestStudyJobData()
-        const result = await getCodeSummaryForJob(job.id)
+        const result = await getStudyReviewForJob(job.id)
         expect(result).toBeNull()
     })
 
-    it('returns the stored summary items for the job', async () => {
+    it('returns the stored report for the job', async () => {
         const { job } = await insertTestStudyJobData()
-        const items = [
-            { question: 'What does this code do?', answer: 'Runs analysis.' },
-            { question: 'What libraries?', answer: 'pandas.' },
-        ]
+        const report = {
+            proposalSummary: 'Studying student outcomes.',
+            codeExplanation: 'Aggregates scores by school.',
+            alignmentCheck: { isAligned: true, findings: [] },
+            complianceCheck: { isCompliant: true, findings: [] },
+        }
         await db
-            .insertInto('studyCodeSummary')
-            .values({ studyJobId: job.id, generatedAt: new Date(), summary: JSON.stringify(items) })
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, generatedAt: new Date(), report: JSON.stringify(report) })
             .execute()
 
-        const result = await getCodeSummaryForJob(job.id)
-        expect(result).toEqual(items)
+        const result = await getStudyReviewForJob(job.id)
+        expect(result).toEqual(report)
     })
 })

@@ -8,7 +8,7 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
-import type { CodeSummaryItem } from '../claude/code-summary'
+import type { AnalysisReport } from '@/server/review-agent'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -344,13 +344,13 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
     })
 }
 
-export async function getCodeSummaryForJob(studyJobId: string): Promise<CodeSummaryItem[] | null> {
+export async function getStudyReviewForJob(studyJobId: string): Promise<AnalysisReport | null> {
     const row = await Action.db
-        .selectFrom('studyCodeSummary')
-        .select((eb) => eb.ref('summary').$castTo<CodeSummaryItem[]>().as('summary'))
+        .selectFrom('studyReview')
+        .select((eb) => eb.ref('report').$castTo<AnalysisReport>().as('report'))
         .where('studyJobId', '=', studyJobId)
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
-    return row?.summary ?? null
+    return row?.report ?? null
 }

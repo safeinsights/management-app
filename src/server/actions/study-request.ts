@@ -18,7 +18,7 @@ import {
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
-import { deferred, onCodeSummaryRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
+import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -277,7 +277,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
                 .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
                 .execute()
             triggerCodeScan(latestJob.id, orgSlug, studyId)
-            onCodeSummaryRequested({ studyJobId: latestJob.id })
+            onStudyReviewRequested({ studyJobId: latestJob.id })
         }
 
         await db
@@ -422,7 +422,7 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
             .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
-        onCodeSummaryRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
@@ -486,7 +486,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             onStudyCreated({ userId, studyId })
         }
 
-        onCodeSummaryRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

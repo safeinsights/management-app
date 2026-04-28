@@ -1,13 +1,13 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { getCodeSummaryForJob, latestJobForStudy } from '@/server/db/queries'
+import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { CodeSummarySection } from './code-summary-section'
+import { StudyReviewSection } from './study-review-section'
 
 type CodeReviewViewProps = {
     orgSlug: string
@@ -16,7 +16,7 @@ type CodeReviewViewProps = {
 
 export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     const job = await latestJobForStudy(study.id)
-    const codeSummary = await getCodeSummaryForJob(job.id)
+    const review = await getStudyReviewForJob(job.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -42,7 +42,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                <CodeSummarySection summary={codeSummary} />
+                <StudyReviewSection review={review} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>

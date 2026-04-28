@@ -39,10 +39,6 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
-export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
-
-export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
-
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
@@ -74,7 +70,11 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'CHANGE-REQUESTED' | 'REJECTED'
+export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
+
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -220,14 +220,6 @@ export interface Study {
     title: string
 }
 
-export interface StudyCodeSummary {
-    createdAt: Generated<Timestamp>
-    generatedAt: Timestamp
-    id: Generated<string>
-    studyJobId: string
-    summary: Json
-}
-
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -253,6 +245,14 @@ export interface StudyProposalComment {
     entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
+}
+
+export interface StudyReview {
+    createdAt: Generated<Timestamp>
+    generatedAt: Timestamp
+    id: Generated<string>
+    report: Json
+    studyJobId: string
 }
 
 export interface User {
@@ -288,10 +288,10 @@ export interface DB {
     researcherPosition: ResearcherPosition
     researcherProfile: ResearcherProfile
     study: Study
-    studyCodeSummary: StudyCodeSummary
     studyJob: StudyJob
     studyJobFile: StudyJobFile
     studyProposalComment: StudyProposalComment
+    studyReview: StudyReview
     user: User
     userPublicKey: UserPublicKey
 }
