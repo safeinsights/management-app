@@ -1,8 +1,8 @@
-import type { AnalysisReport } from '@/server/review-agent'
-import { Badge, Divider, List, Stack, Text, Title } from '@mantine/core'
+import type { StudyReviewWithMeta } from '@/server/db/queries'
+import { Badge, Divider, Group, List, ListItem, Loader, Stack, Text, Title } from '@mantine/core'
 
 type StudyReviewSectionProps = {
-    review: AnalysisReport | null
+    review: StudyReviewWithMeta | null
 }
 
 export function StudyReviewSection({ review }: StudyReviewSectionProps) {
@@ -13,12 +13,19 @@ export function StudyReviewSection({ review }: StudyReviewSectionProps) {
                     Study Review
                 </Title>
                 <Divider c="dimmed" />
-                <Text c="dimmed" size="sm">
-                    Review unavailable
-                </Text>
+                <Group gap="xs">
+                    <Loader size="sm" />
+                    <Text c="dimmed" size="sm">
+                        Review in progress… refresh to check.
+                    </Text>
+                </Group>
             </Stack>
         )
     }
+
+    const { report, generatedAt, files } = review
+    const fileNames = files.map((f) => f.name).join(', ')
+    const generatedAtLabel = new Date(generatedAt).toISOString()
 
     return (
         <Stack>
@@ -27,40 +34,51 @@ export function StudyReviewSection({ review }: StudyReviewSectionProps) {
             </Title>
             <Divider c="dimmed" />
 
+            <Stack gap={2}>
+                <Text c="dimmed" size="xs">
+                    Generated {generatedAtLabel}
+                </Text>
+                <Text c="dimmed" size="xs">
+                    Files reviewed: {fileNames || '(none)'}
+                </Text>
+            </Stack>
+
             <Stack gap="xs">
                 <Text fw={600} size="sm">
                     Proposal summary
                 </Text>
-                <Text size="sm">{review.proposalSummary}</Text>
+                <Text size="sm">{report.proposalSummary}</Text>
             </Stack>
 
             <Stack gap="xs">
                 <Text fw={600} size="sm">
                     Code explanation
                 </Text>
-                <Text size="sm">{review.codeExplanation}</Text>
+                <Text size="sm">{report.codeExplanation}</Text>
             </Stack>
 
-            {review.resultsSummary ? (
+            {report.resultsSummary ? (
                 <Stack gap="xs">
                     <Text fw={600} size="sm">
                         Results summary
                     </Text>
-                    <Text size="sm">{review.resultsSummary}</Text>
+                    <Text size="sm">{report.resultsSummary}</Text>
                 </Stack>
             ) : null}
 
             <Stack gap="xs">
-                <Text fw={600} size="sm">
-                    Alignment check{' '}
-                    <Badge color={review.alignmentCheck.isAligned ? 'green' : 'red'} ml="xs">
-                        {review.alignmentCheck.isAligned ? 'Aligned' : 'Misaligned'}
+                <Group gap="xs">
+                    <Text fw={600} size="sm">
+                        Alignment check
+                    </Text>
+                    <Badge color={report.alignmentCheck.isAligned ? 'green' : 'red'}>
+                        {report.alignmentCheck.isAligned ? 'Aligned' : 'Misaligned'}
                     </Badge>
-                </Text>
-                {review.alignmentCheck.findings.length > 0 ? (
+                </Group>
+                {report.alignmentCheck.findings.length > 0 ? (
                     <List size="sm">
-                        {review.alignmentCheck.findings.map((finding, i) => (
-                            <List.Item key={i}>{finding}</List.Item>
+                        {report.alignmentCheck.findings.map((finding, i) => (
+                            <ListItem key={i}>{finding}</ListItem>
                         ))}
                     </List>
                 ) : (
@@ -71,16 +89,18 @@ export function StudyReviewSection({ review }: StudyReviewSectionProps) {
             </Stack>
 
             <Stack gap="xs">
-                <Text fw={600} size="sm">
-                    Compliance check{' '}
-                    <Badge color={review.complianceCheck.isCompliant ? 'green' : 'red'} ml="xs">
-                        {review.complianceCheck.isCompliant ? 'Compliant' : 'Non-compliant'}
+                <Group gap="xs">
+                    <Text fw={600} size="sm">
+                        Compliance check
+                    </Text>
+                    <Badge color={report.complianceCheck.isCompliant ? 'green' : 'red'}>
+                        {report.complianceCheck.isCompliant ? 'Compliant' : 'Non-compliant'}
                     </Badge>
-                </Text>
-                {review.complianceCheck.findings.length > 0 ? (
+                </Group>
+                {report.complianceCheck.findings.length > 0 ? (
                     <List size="sm">
-                        {review.complianceCheck.findings.map((finding, i) => (
-                            <List.Item key={i}>{finding}</List.Item>
+                        {report.complianceCheck.findings.map((finding, i) => (
+                            <ListItem key={i}>{finding}</ListItem>
                         ))}
                     </List>
                 ) : (

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { StudyReviewSection } from './study-review-section'
 import type { AnalysisReport } from '@/server/review-agent'
+import type { StudyReviewWithMeta } from '@/server/db/queries'
 
 const baseReport: AnalysisReport = {
     proposalSummary: 'Studying student performance trends.',
@@ -10,9 +11,17 @@ const baseReport: AnalysisReport = {
     complianceCheck: { isCompliant: true, findings: [] },
 }
 
+function withMeta(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewWithMeta {
+    return {
+        report,
+        generatedAt: new Date('2026-04-28T12:00:00Z'),
+        files: files.map((name) => ({ name, fileType: 'MAIN-CODE' as const })),
+    }
+}
+
 describe('StudyReviewSection', () => {
     it('renders summaries and check badges when a review is provided', () => {
-        renderWithProviders(<StudyReviewSection review={baseReport} />)
+        renderWithProviders(<StudyReviewSection review={withMeta(baseReport)} />)
 
         expect(screen.getByText('Studying student performance trends.')).toBeInTheDocument()
         expect(screen.getByText('Aggregates scores grouped by school.')).toBeInTheDocument()
@@ -27,7 +36,7 @@ describe('StudyReviewSection', () => {
             complianceCheck: { isCompliant: false, findings: ['Logs raw student IDs'] },
         }
 
-        renderWithProviders(<StudyReviewSection review={report} />)
+        renderWithProviders(<StudyReviewSection review={withMeta(report)} />)
 
         expect(screen.getByText('Misaligned')).toBeInTheDocument()
         expect(screen.getByText('Code skips step 3 from proposal')).toBeInTheDocument()
@@ -35,10 +44,16 @@ describe('StudyReviewSection', () => {
         expect(screen.getByText('Logs raw student IDs')).toBeInTheDocument()
     })
 
-    it('renders the unavailable state when review is null', () => {
+    it('renders the in-progress state when review is null', () => {
         renderWithProviders(<StudyReviewSection review={null} />)
 
-        expect(screen.getByText('Review unavailable')).toBeInTheDocument()
+        expect(screen.getByText(/Review in progress/)).toBeInTheDocument()
+    })
+
+    it('lists the files the review was generated against', () => {
+        renderWithProviders(<StudyReviewSection review={withMeta(baseReport, ['main.r', 'dragon_art.R'])} />)
+
+        expect(screen.getByText('Files reviewed: main.r, dragon_art.R')).toBeInTheDocument()
     })
 
     it('renders resultsSummary when present', () => {
@@ -47,7 +62,7 @@ describe('StudyReviewSection', () => {
             resultsSummary: 'Median score 82, no anomalies.',
         }
 
-        renderWithProviders(<StudyReviewSection review={report} />)
+        renderWithProviders(<StudyReviewSection review={withMeta(report)} />)
 
         expect(screen.getByText('Median score 82, no anomalies.')).toBeInTheDocument()
     })

@@ -1,6 +1,7 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
+import { AlertNotFound } from '@/components/errors'
+import { getStudyReviewForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
@@ -15,7 +16,13 @@ type CodeReviewViewProps = {
 }
 
 export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
-    const job = await latestJobForStudy(study.id)
+    // Anchor on the latest CODE-SUBMITTED job (skip baseline / IDE-init jobs).
+    // Ensures the code shown, the review row, and the files list are all from
+    // the same most-recent submission.
+    const job = await latestSubmittedJobForStudy(study.id)
+    if (!job) {
+        return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
+    }
     const review = await getStudyReviewForJob(job.id)
 
     return (
@@ -42,6 +49,9 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
+                {/* TODO followup ticket: live updates while review is generating.
+                    Today the page is static — user must refresh to see the
+                    review when the background job finishes. */}
                 <StudyReviewSection review={review} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
