@@ -10,7 +10,13 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
-import { onStudyApproved, onStudyCodeApproved, onStudyCodeRejected, onStudyRejected } from '@/server/events'
+import {
+    onStudyApproved,
+    onStudyCodeApproved,
+    onStudyCodeRejected,
+    onStudyNeedsClarification,
+    onStudyRejected,
+} from '@/server/events'
 import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
@@ -558,26 +564,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .where('id', '=', studyId)
             .execute()
 
-        const latestJob = await db
-            .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
-
-        if (latestJob) {
-            await db
-                .insertInto('jobStatusChange')
-                .values({
-                    userId,
-                    status: 'CODE-REJECTED',
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-            onStudyCodeRejected({ studyId, userId })
-        } else {
-            onStudyRejected({ studyId, userId })
-        }
+        onStudyNeedsClarification({ studyId, userId })
     })
 
 export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
