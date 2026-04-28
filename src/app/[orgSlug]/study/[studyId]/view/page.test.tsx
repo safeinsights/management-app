@@ -119,6 +119,23 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('Study proposal')).toBeInTheDocument()
     })
 
+    it('renders ResearcherProposalView for CHANGE-REQUESTED study without code placeholder content', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'CHANGE-REQUESTED' }).where('id', '=', study.id).execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: defaultSearchParams,
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('STEP 2')).toBeInTheDocument()
+        expect(screen.getByText('Study proposal')).toBeInTheDocument()
+        expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Status will be available after code is uploaded.')).not.toBeInTheDocument()
+    })
+
     it('renders generic layout for DRAFT study without job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })

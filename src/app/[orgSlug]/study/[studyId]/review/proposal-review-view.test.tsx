@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
@@ -61,6 +62,32 @@ describe('ProposalReviewView', () => {
         expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
     })
 
+    describe('needs-clarification', () => {
+        it('renders the needs-clarification option as selectable', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
+            expect(needsClarification).not.toBeDisabled()
+
+            await user.click(needsClarification)
+            expect(needsClarification).toBeChecked()
+        })
+
+        it('keeps submit disabled when needs-clarification is selected without valid feedback', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
+
+            await user.click(screen.getByRole('radio', { name: /Needs clarification/ }))
+
+            expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+        })
+    })
+
+    // Submit-wiring coverage (approve/needs-clarification/reject → mutation call with right decision + feedback)
+    // lives in server/actions/study.actions.test.ts. The UI path will be covered here once OTTER-491
+    // replaces the feedback <Skeleton> with a real editor that tests can type into.
+
     describe('already-decided guard', () => {
         it('hides decision section and action bar when study is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
@@ -74,6 +101,15 @@ describe('ProposalReviewView', () => {
         it('hides decision section and action bar when study is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+
+            expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+        })
+
+        it('hides decision section and action bar when study is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(<ProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()

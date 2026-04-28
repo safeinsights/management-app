@@ -26,8 +26,24 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/edit`)
         })
 
-        it('links to view page for PENDING-REVIEW studies without job activity', () => {
+        it('links to submitted page for PENDING-REVIEW studies without job activity', () => {
             const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
+            renderWithProviders(
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: /view details/i })
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/submitted`)
+        })
+
+        it('links to view page for CHANGE-REQUESTED studies without job activity', () => {
+            const study = mockStudyRow({ status: 'CHANGE-REQUESTED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink
                     study={study}
@@ -134,7 +150,7 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/lab-org/study/${STUDY_ID}/view`)
+            expect(link.getAttribute('href')).toBe(`/lab-org/study/${STUDY_ID}/submitted`)
         })
     })
 

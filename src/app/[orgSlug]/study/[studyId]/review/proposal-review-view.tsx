@@ -5,6 +5,7 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -28,19 +29,18 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
-    const isSubmittableDecision = decision.selected === 'approve' || decision.selected === 'reject'
 
-    const canSubmit = feedback.isValid && isSubmittableDecision
+    const canSubmit = feedback.isValid && decision.selected !== null
     const backPath = Routes.orgDashboard({ orgSlug })
 
-    const { updateStudy, isPending } = useProposalReviewMutation({ studyId, orgSlug })
+    const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug })
 
     const handleBack = () => {
         router.push(backPath)
     }
 
     const handleSubmit = () => {
-        if (!isSubmittableDecision) {
+        if (decision.selected === null) {
             return
         }
 
@@ -52,14 +52,10 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     }
 
     const handleConfirmSubmit = () => {
-        if (decision.selected === 'approve') {
-            updateStudy('APPROVED')
+        if (decision.selected === null) {
             return
         }
-        if (decision.selected === 'reject') {
-            updateStudy('REJECTED')
-            return
-        }
+        submitReview({ decision: decision.selected, feedback: feedback.value })
     }
 
     return {
@@ -86,7 +82,7 @@ type ReviewActionsBarProps = {
 }
 
 const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPending, onBack, onSubmit }) => {
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+    if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (
