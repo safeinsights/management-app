@@ -75,7 +75,9 @@ describe('PostFeedbackView', () => {
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
-            expect(screen.getByText('Review initial request')).toBeInTheDocument()
+            // "Review initial request" appears twice — once as the page subtitle and once as the
+            // ProposalSection's heading inside the (collapsed) dropdown. Both are expected.
+            expect(screen.getAllByText('Review initial request').length).toBeGreaterThan(0)
             expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
     })
@@ -181,7 +183,11 @@ describe('PostFeedbackView', () => {
         })
 
         it('titles researcher entries "Resubmission note"', () => {
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[researcherEntry]} />)
+            // Include a reviewer entry first so the view's decision header can render —
+            // PostFeedbackView returns null when the latest entry has no decision.
+            renderWithProviders(
+                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+            )
 
             const entry = screen.getByTestId('feedback-entry-researcher-1')
             expect(entry).toHaveTextContent('Resubmission note')
@@ -200,13 +206,13 @@ describe('PostFeedbackView', () => {
                 <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
             )
 
-            expect(screen.getAllByTestId('feedback-entry-divider')).toHaveLength(1)
+            expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
         })
 
         it('does not render a divider when there is only one entry', () => {
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />)
 
-            expect(screen.queryByTestId('feedback-entry-divider')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('entry-divider')).not.toBeInTheDocument()
         })
 
         it('toggles entry expansion on caret click', async () => {

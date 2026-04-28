@@ -168,7 +168,7 @@ function FeedbackAndNotesSection({ entries }: { entries: ProposalFeedbackEntry[]
                                 isExpanded={isExpanded(entry.id)}
                                 onToggle={() => toggle(entry.id)}
                             />
-                            {idx < entries.length - 1 && <Divider data-testid="feedback-entry-divider" />}
+                            {idx < entries.length - 1 && <Divider data-testid="entry-divider" />}
                         </Stack>
                     ))}
                 </Stack>
