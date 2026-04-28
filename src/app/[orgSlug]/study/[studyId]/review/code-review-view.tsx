@@ -49,10 +49,11 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                {/* TODO followup ticket: live updates while review is generating.
-                    Today the page is static — user must refresh to see the
-                    review when the background job finishes. */}
-                <StudyReviewSection review={review} />
+                {/* TODO: add explicit `studyReview.status` column
+                    ('PENDING' | 'COMPLETE' | 'FAILED') so the client poller can
+                    distinguish in-progress from a silent failure — today a null
+                    row is always shown as "in progress". */}
+                <StudyReviewSection studyJobId={job.id} initialReview={review} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>
