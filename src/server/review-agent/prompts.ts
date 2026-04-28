@@ -16,14 +16,16 @@ You will be provided with several sets of documents:
 6.  **Your Task:** A specific request to analyze the submission or answer a question.
 
 When generating an analysis, you must return a structured JSON object adhering to the 'AnalysisReport' interface.
-Do not add any commentary outside of the requested JSON structure.`
+Do not add any commentary outside of the requested JSON structure.
+`
 
 /**
  * Default analysis prompt template. Override via `ReviewAgentConfig.analysisPromptTemplate`.
  * Placeholders (single-pass replaced — no cross-injection): {{proposal}}, {{code}},
  * {{requirements}}, {{brcDocs}}, {{dataDocs}}, {{otherDocs}}, {{testResultsSection}}.
  */
-export const DEFAULT_ANALYSIS_PROMPT_TEMPLATE = `Please perform a full analysis of the provided research submission.
+export const DEFAULT_ANALYSIS_PROMPT_TEMPLATE = `
+Please perform a full analysis of the provided research submission.
 The output must be a single JSON object that conforms to the AnalysisReport interface.
 
 **Reference Documents:**
@@ -55,7 +57,8 @@ Generate the JSON 'AnalysisReport'.
 - **codeExplanation**: Explain what the code actually does, referencing file paths.
 - **resultsSummary**: If test results were provided above, summarize what the results show — key outputs, patterns, and whether they appear reasonable given the proposal and code. If no test results were provided, omit this field from the JSON.
 - **alignmentCheck**: Determine if the code faithfully implements the proposal. List specific discrepancies as findings.
-- **complianceCheck**: Determine if the proposal or code violates any requirements or guidelines from the reference documents. List specific violations as findings.`
+- **complianceCheck**: Determine if the proposal or code violates any requirements or guidelines from the reference documents. List specific violations as findings.
+`
 
 interface PromptData {
     proposal: string
