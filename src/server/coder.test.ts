@@ -595,23 +595,41 @@ describe('getCoderTemplateId', () => {
     })
 })
 
-describe('uuidToStr', () => {
-    it('should handle md5hash case with UUID', () => {
+describe('generateWorkspaceName', () => {
+    const user = {
+        id: '00000000-0000-0000-0000-000000000001',
+        username: 'testuser',
+        email: 'test@example.com',
+        name: 'Test User',
+        status: 'active',
+    }
+    const userSuffix = shaHash(user.id).slice(0, 4)
+
+    it('should generate <studyHash>-<userHash> for a UUID studyId', () => {
         const uuid = '550e8400-e29b-41d4-a716-446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('a3a9e1ed97')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`a3a9e1ed97-${userSuffix}`)
     })
 
-    it('should handle md5hash case with UUID without hyphens', () => {
+    it('should generate <studyHash>-<userHash> for a UUID studyId without hyphens', () => {
         const uuid = '550e8400e29b41d4a716446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('140f39b05a')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`140f39b05a-${userSuffix}`)
     })
 
-    it('should handle md5hash case with UUID with mixed case', () => {
+    it('should be case-insensitive on the studyId', () => {
         const uuid = '550E8400-E29B-41D4-A716-446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('a3a9e1ed97')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`a3a9e1ed97-${userSuffix}`)
+    })
+
+    it('should change the suffix when the user id changes', () => {
+        const uuid = '550e8400-e29b-41d4-a716-446655440000'
+        const otherUser = { ...user, id: '00000000-0000-0000-0000-000000000002' }
+        const otherSuffix = shaHash(otherUser.id).slice(0, 4)
+        const result = generateWorkspaceName(uuid, otherUser)
+        expect(result).toBe(`a3a9e1ed97-${otherSuffix}`)
+        expect(otherSuffix).not.toBe(userSuffix)
     })
 })
 

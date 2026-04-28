@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { CoderUser } from './types'
 
 export function shaHash(input: string): string {
     return createHash('sha256').update(input.toLowerCase()).digest('hex')
@@ -17,7 +18,8 @@ export function generateCoderUsername(researcherEmail: string): string {
     return finalSanitized
 }
 
-export function generateWorkspaceName(studyId: string): string {
-    // Workspace names are limited to 10 characters
-    return shaHash(studyId).slice(0, 10)
+export function generateWorkspaceName(studyId: string, user: CoderUser): string {
+    const studyHash = shaHash(studyId).slice(0, 10)
+    const userHash = shaHash(user.id).slice(0, 4)
+    return `${studyHash}-${userHash}`
 }
