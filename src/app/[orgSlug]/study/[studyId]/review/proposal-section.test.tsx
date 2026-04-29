@@ -146,7 +146,7 @@ describe('ProposalSection', () => {
     })
 
     it('renders submitted date when study has been submitted', () => {
-        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T00:00:00Z') }
+        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T12:00:00Z') }
 
         renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" />)
 

@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
-import { Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { useAuth, useUser } from '@clerk/nextjs'
+import { Alert, Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -247,7 +247,12 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
     return null
 }
 
-function useCollaborationProvider(wsUrl: string, providerRef: React.MutableRefObject<HocuspocusProvider | null>) {
+function useCollaborationProvider(
+    wsUrl: string,
+    providerRef: React.MutableRefObject<HocuspocusProvider | null>,
+    getToken: () => Promise<string | null>,
+    onAuthError: (reason: string) => void,
+) {
     return useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
             let doc = yjsDocMap.get(id)
@@ -261,13 +266,15 @@ function useCollaborationProvider(wsUrl: string, providerRef: React.MutableRefOb
                 name: id,
                 document: doc,
                 autoConnect: false,
+                token: async () => (await getToken()) ?? '',
+                onAuthenticationFailed: ({ reason }) => onAuthError(reason),
             } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
             providerRef.current = provider
 
             return provider as unknown as Provider
         },
-        [wsUrl, providerRef],
+        [wsUrl, providerRef, getToken, onAuthError],
     )
 }
 
@@ -305,10 +312,22 @@ export function CollaborativeEditor({
     footerRight,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
+    const { getToken } = useAuth()
     const providerRef = useRef<HocuspocusProvider | null>(null)
+    const [authError, setAuthError] = useState<string | null>(null)
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
-    const providerFactory = useCollaborationProvider(wsUrl, providerRef)
+    const fetchToken = useCallback(async () => getToken(), [getToken])
+    const onAuthError = useCallback((reason: string) => setAuthError(reason || 'Not authorized'), [])
+    const providerFactory = useCollaborationProvider(wsUrl, providerRef, fetchToken, onAuthError)
+
+    if (authError) {
+        return (
+            <Alert color="red" title="Editor unavailable">
+                You don&apos;t have access to this collaborative document.
+            </Alert>
+        )
+    }
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
