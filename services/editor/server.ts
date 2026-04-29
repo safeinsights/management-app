@@ -2,6 +2,7 @@ import { Server } from '@hocuspocus/server'
 import { Database } from '@hocuspocus/extension-database'
 import pg from 'pg'
 import type { IncomingMessage, ServerResponse } from 'http'
+import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 
 const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
@@ -11,8 +12,8 @@ type DocumentContext = { studyId: string }
 
 const server = new Server({
     port: 1234,
-    debounce: 2000,
-    maxDebounce: 30_000,
+    debounce: TYPING_DEBOUNCE_MS,
+    maxDebounce: MAX_SAVE_INTERVAL_MS,
     async onAuthenticate({ token }): Promise<DocumentContext> {
         // The client passes the studyId as the connection token; thread it through
         // the Hocuspocus per-document `context` so the store hook can write the FK.
@@ -27,8 +28,6 @@ const server = new Server({
             },
             store: async ({ documentName, state, context }) => {
                 const { studyId } = context as DocumentContext
-                // The yjs_document.name is a global PK, so we need a naming scheme that includes the studyId
-                // to prevent collisions across studies
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,

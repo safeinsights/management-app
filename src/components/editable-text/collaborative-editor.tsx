@@ -23,14 +23,7 @@ import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
-
-// These align with the editor service's Server config (debounce: 2000, maxDebounce: 30_000).
-// TYPING_DEBOUNCE_MS waits for typing to stop before showing "Saving progress…".
-// PERSIST_DELAY_MS is the brief window while the server writes to the database.
-// MAX_SAVE_INTERVAL_MS triggers a save indicator during continuous typing.
-const TYPING_DEBOUNCE_MS = 2000
-const PERSIST_DELAY_MS = 1000
-const MAX_SAVE_INTERVAL_MS = 30_000
+import { TYPING_DEBOUNCE_MS, PERSIST_DELAY_MS, MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 
 type SaveState = { status: 'idle' } | { status: 'saving' } | { status: 'saved'; savedAt: Date }
 
