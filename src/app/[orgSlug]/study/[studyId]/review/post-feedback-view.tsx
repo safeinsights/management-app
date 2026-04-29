@@ -70,7 +70,7 @@ function entryBodyText(entry: ProposalFeedbackEntry): string {
 function DecisionBanner({ decision }: { decision: ReviewDecision }) {
     const { banner } = DECISION_COPY[decision]
     return (
-        <Box bg={banner.bg} p="md" style={{ borderRadius: 'var(--mantine-radius-sm)' }} data-testid={banner.testId}>
+        <Box bg={banner.bg} p="md" bdrs="sm" data-testid={banner.testId}>
             <Text c={banner.color} size="sm">
                 {banner.copy}
             </Text>
