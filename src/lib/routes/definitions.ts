@@ -175,8 +175,8 @@ export const Routes = {
 // ============================================================================
 
 export const ExternalLinks = {
-    dataCatalog: 'https://kb.safeinsights.org/data-catalog',
-    resourceCenter: 'https://kb.safeinsights.org/resource-center',
+    dataCatalog: 'https://dev-docs.sandbox.safeinsights.org/data-catalog/',
+    resourceCenter: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
 } as const
 
 // ============================================================================
