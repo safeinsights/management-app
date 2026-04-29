@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
-import { Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { useAuth, useUser } from '@clerk/nextjs'
+import { Alert, Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -250,8 +250,9 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 function useCollaborationProvider(
     wsUrl: string | undefined,
     websocketProvider: HocuspocusProviderWebsocket | undefined,
-    studyId: string,
     providerRef: React.MutableRefObject<HocuspocusProvider | null>,
+    getToken: () => Promise<string | null>,
+    onAuthError: (reason: string) => void,
 ) {
     return useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
@@ -265,7 +266,8 @@ function useCollaborationProvider(
                 name: id,
                 document: doc,
                 autoConnect: false,
-                token: studyId,
+                token: async () => (await getToken()) ?? '',
+                onAuthenticationFailed: ({ reason }: { reason: string }) => onAuthError(reason),
             }
 
             const options = websocketProvider ? { ...baseOptions, websocketProvider } : { ...baseOptions, url: wsUrl }
@@ -284,8 +286,16 @@ function useCollaborationProvider(
 
             return provider as unknown as Provider
         },
-        [wsUrl, websocketProvider, studyId, providerRef],
+        [wsUrl, websocketProvider, providerRef, getToken, onAuthError],
     )
+}
+
+const initialConfig = {
+    namespace: 'collaborative-editor',
+    theme: lexicalTheme,
+    nodes: lexicalNodes,
+    editorState: null,
+    onError: (error: Error) => console.error('Lexical error:', error),
 }
 
 export type CollaborativeEditorProps = {
@@ -334,20 +344,21 @@ export function CollaborativeEditor({
     footerRight,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
+    const { getToken } = useAuth()
     const providerRef = useRef<HocuspocusProvider | null>(null)
+    const [authError, setAuthError] = useState<string | null>(null)
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
-    const providerFactory = useCollaborationProvider(wsUrl, websocketProvider, studyId, providerRef)
+    const fetchToken = useCallback(async () => getToken(), [getToken])
+    const onAuthError = useCallback((reason: string) => setAuthError(reason || 'Not authorized'), [])
+    const providerFactory = useCollaborationProvider(wsUrl, websocketProvider, providerRef, fetchToken, onAuthError)
 
-    // Lexical's collaboration guide is explicit: initialConfig.editorState MUST be null
-    // when CollaborationPlugin is in use; the plugin owns the Y.Doc seeding via its own
-    // initialEditorState prop (passed below).
-    const initialConfig = {
-        namespace: 'collaborative-editor',
-        theme: lexicalTheme,
-        nodes: lexicalNodes,
-        editorState: null,
-        onError: (error: Error) => console.error('Lexical error:', error),
+    if (authError) {
+        return (
+            <Alert color="red" title="Editor unavailable">
+                You don&apos;t have access to this collaborative document.
+            </Alert>
+        )
     }
 
     return (

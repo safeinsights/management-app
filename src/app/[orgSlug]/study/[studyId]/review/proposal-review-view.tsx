@@ -17,8 +17,7 @@ import { useState, type FC, type ReactNode } from 'react'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
-import { ReviewProgressBar } from './review-progress-bar'
-import { REVIEW_STEPS, type StudyForReview } from './review-types'
+import { type StudyForReview } from './review-types'
 
 type ProposalReviewViewProps = {
     orgSlug: string
@@ -208,7 +207,6 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     Review initial request
                 </Title>
 
-                <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
                 <ProposalSection study={study} orgSlug={orgSlug} />
                 <ReviewFeedbackSection
                     feedback={feedback}

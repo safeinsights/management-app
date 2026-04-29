@@ -1,15 +1,17 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostSubmissionFeatureFlag, ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { getStudyAction } from '@/server/actions/study.actions'
+import { getProposalFeedbackForStudyAction, getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 export default async function StudyReviewPage(props: {
@@ -59,6 +61,20 @@ export default async function StudyReviewPage(props: {
             }
             return <CodeReviewView orgSlug={orgSlug} study={study} />
         }
+
+        if (isSubmittedProposalReviewStatus(study.status)) {
+            const entries = await getProposalFeedbackForStudyAction({ studyId })
+            if (isActionError(entries)) {
+                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+            }
+            return (
+                <PostSubmissionFeatureFlag
+                    defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
+                    optInContent={<PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />}
+                />
+            )
+        }
+
         return (
             <ProposalReviewFeatureFlag
                 defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}

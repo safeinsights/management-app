@@ -12,7 +12,8 @@ import {
 import StudyReviewPage from './page'
 import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
-import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostSubmissionFeatureFlag, ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 
 const mockRedirect = vi.mocked(redirect)
@@ -126,6 +127,9 @@ describe('StudyReviewPage', () => {
     it('renders the proposal review feature flag swap for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        // insertTestStudyOnly defaults to APPROVED; reset to PENDING-REVIEW so this case
+        // exercises the in-flight review flow rather than OTTER-501's post-decision view.
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -140,6 +144,7 @@ describe('StudyReviewPage', () => {
     it('renders the LegacyProposalReviewView for non-OpenStax enclave orgs by default', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -148,5 +153,25 @@ describe('StudyReviewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByText('Review Study')).toBeInTheDocument()
+    })
+
+    describe('post-feedback branch', () => {
+        it.each(['APPROVED', 'REJECTED', 'CHANGE-REQUESTED'] as const)(
+            'renders the post-submission feature flag swap when status is %s',
+            async (status) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+                await db.updateTable('study').set({ status }).where('id', '=', study.id).execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(PostSubmissionFeatureFlag)
+                expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
+                expect(page?.props.optInContent.type).toBe(PostFeedbackView)
+            },
+        )
     })
 })

@@ -7,7 +7,12 @@ import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import {
+    getProposalFeedbackForStudy,
+    getStudyJobFileOfType,
+    latestJobForStudy,
+    type LatestJobForStudy,
+} from '@/server/db/queries'
 import {
     onStudyApproved,
     onStudyCodeApproved,
@@ -567,6 +572,17 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         onStudyNeedsClarification({ studyId, userId })
         return { submitterFullName: submitter.fullName }
     })
+
+export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => {
+        const { study, entries } = await getProposalFeedbackForStudy(studyId)
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, entries }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ entries }) => entries)
+
+export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))
