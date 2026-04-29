@@ -48,15 +48,6 @@ async function resolvePoolConfig(): Promise<pg.PoolConfig> {
 
 const pool = new pg.Pool(await resolvePoolConfig())
 
-const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function studyIdFromDocumentName(documentName: string): string | null {
-    if (!documentName.startsWith(REVIEW_FEEDBACK_PREFIX)) return null
-    const candidate = documentName.slice(REVIEW_FEEDBACK_PREFIX.length)
-    return UUID_RE.test(candidate) ? candidate : null
-}
-
 const server = new Server({
     port: 1234,
     debounce: TYPING_DEBOUNCE_MS,
