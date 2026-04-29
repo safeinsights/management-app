@@ -1,6 +1,10 @@
 {
     "type": "module",
     "dependencies": {
-        "@hocuspocus/server": "^3.4.4"
+        "@aws-sdk/client-secrets-manager": "^3.893.0",
+        "@clerk/backend": "^2.33.2",
+        "@hocuspocus/extension-database": "^3.4.4",
+        "@hocuspocus/server": "^3.4.4",
+        "pg": "^8.20.0"
     }
 }
