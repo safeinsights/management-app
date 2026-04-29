@@ -5,6 +5,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .createTable('yjs_document')
         .addColumn('name', 'text', (col) => col.primaryKey())
         .addColumn('data', 'bytea', (col) => col.notNull())
+        .addColumn('study_id', 'uuid', (col) => col.notNull().references('study.id'))
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 }

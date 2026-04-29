@@ -39,10 +39,6 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
-export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
-
-export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
-
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
@@ -74,7 +70,11 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'CHANGE-REQUESTED' | 'REJECTED'
+export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
+
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -270,6 +270,7 @@ export interface UserPublicKey {
 export interface YjsDocument {
     data: Buffer
     name: string
+    studyId: string
     updatedAt: Generated<Timestamp>
 }
 

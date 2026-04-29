@@ -1,6 +1,6 @@
 import { describe, expect, it, act, renderHook } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/word-count'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/review/review-types'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { useReviewFeedback } from './use-review-feedback'
 
 const repeatWords = (count: number) => Array.from({ length: count }, (_, i) => `word${i + 1}`).join(' ')
