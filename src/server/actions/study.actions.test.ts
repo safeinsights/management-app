@@ -898,4 +898,33 @@ describe('submitProposalReviewAction', () => {
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('PENDING-REVIEW')
     })
+
+    it('deletes the review-feedback yjs_document so the next round starts fresh', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+            })
+            .execute()
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+        })
+
+        const remaining = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(remaining).toHaveLength(0)
+    })
 })

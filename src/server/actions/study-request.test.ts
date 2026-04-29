@@ -461,6 +461,45 @@ describe('Request Study Actions', () => {
             expect(study.status).toBe('DRAFT')
         })
 
+        it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
+
+            // Simulate Hocuspocus-persisted Y.Doc rows accumulated during the editing session.
+            await db
+                .insertInto('yjsDocument')
+                .values([
+                    {
+                        name: `proposal-${study.id}-fields`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                    {
+                        name: `proposal-${study.id}-research-questions`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                    {
+                        name: `review-feedback-${study.id}`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                ])
+                .execute()
+
+            actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+
+            const remaining = await db
+                .selectFrom('yjsDocument')
+                .select(['name'])
+                .where('studyId', '=', study.id)
+                .execute()
+            const remainingNames = remaining.map((r) => r.name).sort()
+            // Proposal docs gone; review-feedback row untouched (DO submit owns that one).
+            expect(remainingNames).toEqual([`review-feedback-${study.id}`])
+        })
+
         it('onUpdateDraftStudyAction allows another lab member to edit a CHANGE-REQUESTED draft', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-coauthor' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })

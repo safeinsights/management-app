@@ -1,8 +1,9 @@
 import { useCallback } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
-import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
+import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
@@ -21,25 +22,34 @@ interface UseSubmitProposalOptions {
 export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { user } = useUser()
 
     const mutation = useMutation({
-        mutationFn: async () => {
-            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) }))
-            return actionResult(await finalizeStudySubmissionAction({ studyId }))
-        },
+        // Atomic submit: a single transactional UPDATE in finalizeStudySubmissionAction
+        // sets the field snapshot AND flips status. A separate pre-submit
+        // onUpdateDraftStudyAction would let a losing concurrent submitter overwrite
+        // the winner's data between the two transactions.
+        mutationFn: async () =>
+            actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) })),
         onSuccess: (result) => {
             form.resetDirty()
+            const submittedByClerkId = user?.id
+            if (!submittedByClerkId) {
+                router.push(Routes.studySubmitted({ orgSlug, studyId }))
+                return
+            }
             const event: SubmissionEvent = {
                 type: 'proposal-submitted',
                 studyId,
                 submittedByTabId: tabSessionId,
+                submittedByClerkId,
                 submittedByName: result.submitterFullName,
                 orgName: result.orgName,
             }
             const payload = JSON.stringify(event)
-            // Layer 1 — instant push to all connected peers.
+            // Layer 1: instant push to all connected peers.
             yjsForm.provider?.sendStateless(payload)
-            // Layer 2 — sentinel persists in CRDT for briefly-disconnected peers.
+            // Layer 2: sentinel persists in CRDT for briefly-disconnected peers.
             yjsForm.setSubmissionSentinel(event)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },

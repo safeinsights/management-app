@@ -14,6 +14,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const PROPOSAL_TEXT_SLUGS = ['research-questions', 'project-summary', 'impact', 'additional-notes'] as const
 export type ProposalTextSlug = (typeof PROPOSAL_TEXT_SLUGS)[number]
 
+// Mirrors src/database/types.ts:StudyStatus. Same duplication rationale as
+// PROPOSAL_TEXT_SLUGS above.
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
+
+// Mirrors src/lib/proposal-review.ts:SUBMITTED_REVIEW_STATUSES. Used to decide
+// whether a `proposal-review-submitted` stateless event is plausible given the
+// DB study status. Duplicated for the same reason.
+const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
+
 export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string }
     | { kind: 'proposal-fields'; studyId: string }
@@ -51,6 +60,30 @@ export function requiredOrgIdForDocument(
     return parsed.kind === 'review-feedback' ? study.org_id : study.submitted_by_org_id
 }
 
+// Allowed study statuses for editing each document kind. Authentication
+// rejects connections whose study has progressed past the editing window so
+// stale clients (network glitch + reconnect) cannot keep mutating the
+// persisted Yjs state after submission.
+export function editableStatusForKind(kind: ParsedDocumentName['kind']): readonly StudyStatus[] {
+    if (kind === 'review-feedback') return ['PENDING-REVIEW']
+    return ['DRAFT', 'CHANGE-REQUESTED']
+}
+
+// Persist-time gate: returns true when the canonical Yjs state for this
+// document is still allowed to advance. Connection-time auth (`authenticate`)
+// covers new and reconnecting clients, but already-connected clients keep
+// streaming Yjs updates between a status flip and their own kick-out. This
+// gate is the second line of defense so post-flip writes never land in
+// yjs_document. Safe to use as a silent skip because we already reject
+// reconnects when status is non-editable, so no peer can fetch a pre-flip
+// persisted state while other peers still hold post-flip in-memory state.
+export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
+    const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
+    const status = row.rows[0]?.status
+    if (!status) return false
+    return editableStatusForKind(parsed.kind).includes(status)
+}
+
 export type EventType = 'proposal-submitted' | 'proposal-review-submitted'
 
 export type StatelessSubmissionEvent = {
@@ -58,6 +91,12 @@ export type StatelessSubmissionEvent = {
     studyId: string
     submittedByName: string
     submittedByTabId: string
+    /**
+     * Clerk user id of the broadcasting client. The server compares this against
+     * the authenticated `connection.context.user.clerkId` so a forged event from
+     * an authorized but uninvolved collaborator is dropped before rebroadcast.
+     */
+    submittedByClerkId: string
 }
 
 // Server-side validation of stateless events the client emits via
@@ -75,14 +114,15 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
 
     if (!parsed || typeof parsed !== 'object') return null
     const obj = parsed as Record<string, unknown>
-    const { type, studyId, submittedByName, submittedByTabId } = obj
+    const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId } = obj
 
     if (type !== 'proposal-submitted' && type !== 'proposal-review-submitted') return null
     if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
     if (typeof submittedByName !== 'string' || submittedByName.length === 0) return null
     if (typeof submittedByTabId !== 'string' || submittedByTabId.length === 0) return null
+    if (typeof submittedByClerkId !== 'string' || submittedByClerkId.length === 0) return null
 
-    return { type, studyId, submittedByName, submittedByTabId }
+    return { type, studyId, submittedByName, submittedByTabId, submittedByClerkId }
 }
 
 // Returns true when the event type is appropriate for the document kind.
@@ -94,6 +134,29 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
     if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
     return false
+}
+
+// Strict consistency check before rebroadcasting a stateless event:
+// 1. payload-vs-document-kind matches (handled by isStatelessEventValidForDocument)
+// 2. sender's clerk id matches the authenticated user on this connection
+// 3. DB study status is plausible for the claimed event type
+//
+// Without (2) and (3) any authorized collaborator could spoof a kick-out event
+// and redirect the room without an actual submit.
+export function assertStatelessEventConsistent(args: {
+    event: StatelessSubmissionEvent
+    parsed: ParsedDocumentName
+    connectionUserClerkId: string
+    studyStatus: StudyStatus
+}): boolean {
+    const { event, parsed, connectionUserClerkId, studyStatus } = args
+    if (!isStatelessEventValidForDocument(event, parsed)) return false
+    if (event.submittedByClerkId !== connectionUserClerkId) return false
+
+    if (event.type === 'proposal-submitted') {
+        return studyStatus === 'PENDING-REVIEW'
+    }
+    return SUBMITTED_REVIEW_STATUSES.includes(studyStatus)
 }
 
 // pg.Pool-compatible query interface (small surface so tests can pass a
@@ -116,12 +179,16 @@ export interface AuthenticateDeps {
     siAdminOrgSlug: string
 }
 
+export interface AuthenticatedContext {
+    user: { id: string; clerkId: string }
+}
+
 const NA = 'Not authorized'
 
 export async function authenticate(
     args: { token: string | null | undefined; documentName: string },
     deps: AuthenticateDeps,
-): Promise<{ user: { id: string } }> {
+): Promise<AuthenticatedContext> {
     const { token, documentName } = args
     if (!token) throw new Error(`${NA}: missing token`)
 
@@ -140,8 +207,8 @@ export async function authenticate(
     const internalUserId = userRow.rows[0]?.id
     if (!internalUserId) throw new Error(`${NA}: user not provisioned`)
 
-    const studyRow = await deps.db.query<{ org_id: string; submitted_by_org_id: string }>(
-        'SELECT org_id, submitted_by_org_id FROM study WHERE id = $1',
+    const studyRow = await deps.db.query<{ org_id: string; submitted_by_org_id: string; status: StudyStatus }>(
+        'SELECT org_id, submitted_by_org_id, status FROM study WHERE id = $1',
         [parsed.studyId],
     )
     const study = studyRow.rows[0]
@@ -150,10 +217,6 @@ export async function authenticate(
     const requiredOrgId = requiredOrgIdForDocument(parsed, study)
 
     // safe-insights admin bypass OR membership in the kind-required org.
-    // Status-based editing windows are enforced client-side via the kick-out
-    // flow rather than here: hard-rejecting at the server would race a freshly
-    // submitted user against their own redirect, and there is no UI in this
-    // app that connects to a proposal-* doc post-submit.
     const accessRow = await deps.db.query(
         `SELECT 1
            FROM org_user ou
@@ -168,5 +231,16 @@ export async function authenticate(
     )
     if (accessRow.rowCount === 0) throw new Error(`${NA}: no membership in study orgs`)
 
-    return { user: { id: internalUserId } }
+    // Editable-status enforcement closes the stale-tab-reconnect window: a tab
+    // that lost network during submit and reconnects post-flip would otherwise
+    // keep mutating the persisted yjs_document for ~10s before the client-side
+    // status poll catches up. Existing connections are not affected (auth runs
+    // only on connect). The submitter's own tab navigates via router.push
+    // before any new auth attempt fires.
+    const allowed = editableStatusForKind(parsed.kind)
+    if (!allowed.includes(study.status)) {
+        throw new Error(`${NA}: study is not editable (status: ${study.status})`)
+    }
+
+    return { user: { id: internalUserId, clerkId: clerkUserId } }
 }

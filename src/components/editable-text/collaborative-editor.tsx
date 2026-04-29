@@ -316,17 +316,6 @@ export type CollaborativeEditorProps = {
     contentStyle?: React.CSSProperties
     placeholder?: string
     onChange?: (json: string) => void
-    /**
-     * Initial Lexical editor state JSON. Used together with shouldBootstrap to seed a
-     * brand-new Y.Doc from existing DB content the first time it is opened.
-     */
-    initialContent?: string
-    /**
-     * Pass true only when the Y.Doc has no persisted state yet (caller verified via
-     * getYjsDocumentUpdatedAtAction). The CollaborationPlugin will initialize the Y.Doc
-     * from initialContent. Otherwise leave undefined/false and let the doc sync from server.
-     */
-    shouldBootstrap?: boolean
     footerRight?: React.ReactNode
 }
 
@@ -339,8 +328,6 @@ export function CollaborativeEditor({
     contentStyle,
     placeholder,
     onChange,
-    initialContent,
-    shouldBootstrap,
     footerRight,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
@@ -392,8 +379,7 @@ export function CollaborativeEditor({
                     <CollaborationPlugin
                         id={id}
                         providerFactory={providerFactory}
-                        shouldBootstrap={shouldBootstrap ?? false}
-                        initialEditorState={shouldBootstrap ? initialContent : undefined}
+                        shouldBootstrap={false}
                         username={username}
                         cursorColor={cursorColor}
                     />

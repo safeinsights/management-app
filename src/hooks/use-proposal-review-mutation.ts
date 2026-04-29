@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
@@ -30,6 +30,7 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
     const router = useRouter()
     const queryClient = useQueryClient()
     const { getToken } = useAuth()
+    const { user } = useUser()
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
 
     const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
@@ -71,11 +72,13 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
 
-            if (isCollaborationEnabled && broadcastProvider) {
+            const submittedByClerkId = user?.id
+            if (isCollaborationEnabled && broadcastProvider && submittedByClerkId) {
                 const event: SubmissionEvent = {
                     type: 'proposal-review-submitted',
                     studyId,
                     submittedByTabId: tabSessionId,
+                    submittedByClerkId,
                     submittedByName: result.submitterFullName,
                 }
                 broadcastProvider.sendStateless(JSON.stringify(event))

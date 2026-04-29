@@ -31,6 +31,22 @@ const simulateJobScan = deferred(async (studyJobId: string) => {
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
+// Safety-net delete: an in-tx DELETE inside finalizeStudySubmissionAction handles
+// the common case, but a Hocuspocus debounced persist can still commit between
+// the management-app status flip and our in-tx delete (different connections,
+// READ COMMITTED snapshots). Wait long enough for any in-flight persist to land,
+// then re-delete. Once the status-flip is committed, services/editor/auth.ts
+// shouldPersistDocument refuses new writes, so this 5-second window is the
+// upper bound on stragglers.
+const purgeProposalYjsDocsAfterFinalize = deferred(async (studyId: string) => {
+    await sleep({ 5: 'seconds' })
+    await database
+        .deleteFrom('yjsDocument')
+        .where('studyId', '=', studyId)
+        .where('name', 'like', `proposal-${studyId}-%`)
+        .execute()
+})
+
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     if (SIMULATE_CODE_BUILD) {
         simulateJobScan(studyJobId)
@@ -182,21 +198,35 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
-        if (Object.keys(updateValues).length > 0) {
-            // Allow co-authoring within the submitting lab while the proposal is editable.
-            // The CASL check above scopes the user to their orgs; here we filter to the
-            // editable status set so submitted proposals are immutable.
-            const userLabOrgIds = Object.values(session.orgs)
-                .filter((org) => org.type === 'lab')
-                .map((org) => org.id)
+        // Allow co-authoring within the submitting lab while the proposal is editable.
+        // CASL `update Study` is org-type-scoped (any lab member); the row filter below
+        // scopes to the submitting lab + editable status set, and we throw on a 0-row
+        // result so a user outside the lab or operating on a post-submit study gets a
+        // hard rejection instead of a misleading success with signed upload URLs.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
 
-            await db
-                .updateTable('study')
-                .set(updateValues)
-                .where('id', '=', studyId)
-                .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
-                .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
-                .execute()
+        const verified =
+            Object.keys(updateValues).length > 0
+                ? await db
+                      .updateTable('study')
+                      .set(updateValues)
+                      .where('id', '=', studyId)
+                      .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
+                      .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+                      .returning(['id'])
+                      .executeTakeFirst()
+                : await db
+                      .selectFrom('study')
+                      .select('id')
+                      .where('id', '=', studyId)
+                      .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
+                      .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+                      .executeTakeFirst()
+
+        if (!verified) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
         return {
@@ -261,15 +291,29 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
     })
 
 // Finalize study submission after files are uploaded
-// First-submit-wins: the conditional UPDATE ensures only one concurrent caller can
-// transition the proposal from DRAFT/CHANGE-REQUESTED to PENDING-REVIEW. Subsequent
-// callers see no rows updated and receive an ActionFailure that the client maps to
-// the multi-user kick-out flow.
+// First-submit-wins + atomic snapshot: a single conditional UPDATE both writes the
+// caller's field snapshot (when supplied) AND flips the status. This eliminates the
+// race window where two concurrent submitters could each run a separate field-update
+// before one of them flipped status, leaving the winner's row populated with the
+// loser's stale snapshot.
+const finalizeStudySubmissionInfoSchema = z
+    .object({
+        title: z.string().optional(),
+        piName: z.string().optional(),
+        piUserId: z.string().nullable().optional(),
+        datasets: z.array(z.string()).optional(),
+        researchQuestions: z.string().optional(),
+        projectSummary: z.string().optional(),
+        impact: z.string().optional(),
+        additionalNotes: z.string().optional(),
+    })
+    .partial()
+
 export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status }) => {
         const userId = session.user.id
 
         // CASL `update Study` is org-type-scoped (any lab member), so we additionally
@@ -280,11 +324,28 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
+        const snapshotFields: Record<string, unknown> = {}
+        if (studyInfo) {
+            const updatable = [
+                'title',
+                'piName',
+                'piUserId',
+                'datasets',
+                'researchQuestions',
+                'projectSummary',
+                'impact',
+                'additionalNotes',
+            ] as const
+            for (const key of updatable) {
+                if (studyInfo[key] !== undefined) snapshotFields[key] = studyInfo[key]
+            }
+        }
+
         // APPROVED is included to preserve the legacy code re-submission flow where an
         // already-approved proposal moves back to PENDING-REVIEW for a new code review.
         const claimed = await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -294,6 +355,18 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         if (!claimed) {
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
+
+        // The atomic UPDATE above is the canonical post-submit snapshot. Drop the
+        // proposal-* yjs_document rows so a future CHANGE-REQUESTED reopen falls
+        // through to onLoadDocument's seeder (which reads from study columns)
+        // rather than re-loading stale CRDT state from before the submit. The
+        // deferred follow-up below catches any Hocuspocus debounce that lands
+        // between commit time and now.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `proposal-${studyId}-%`)
+            .execute()
 
         const submitter = await db
             .selectFrom('user')
@@ -330,6 +403,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         revalidatePath(`/${orgSlug}/dashboard`)
+
+        purgeProposalYjsDocsAfterFinalize(studyId)
 
         return {
             studyId,

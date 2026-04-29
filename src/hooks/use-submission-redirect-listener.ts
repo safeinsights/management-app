@@ -15,6 +15,8 @@ export type SubmissionEvent =
           studyId: string
           /** Per-mount tab session id of the broadcasting client. Used to skip the broadcaster's own tab. */
           submittedByTabId: string
+          /** Clerk user id of the broadcaster. Server compares against the authenticated connection user. */
+          submittedByClerkId: string
           submittedByName: string
           orgName: string
       }
@@ -22,6 +24,7 @@ export type SubmissionEvent =
           type: 'proposal-review-submitted'
           studyId: string
           submittedByTabId: string
+          submittedByClerkId: string
           submittedByName: string
       }
 
@@ -32,7 +35,12 @@ const isString = (value: unknown): value is string => typeof value === 'string' 
 const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (typeof raw !== 'object' || raw === null) return null
     const obj = raw as Record<string, unknown>
-    if (!isString(obj.studyId) || !isString(obj.submittedByTabId) || !isString(obj.submittedByName)) {
+    if (
+        !isString(obj.studyId) ||
+        !isString(obj.submittedByTabId) ||
+        !isString(obj.submittedByClerkId) ||
+        !isString(obj.submittedByName)
+    ) {
         return null
     }
     if (obj.type === 'proposal-submitted' && isString(obj.orgName)) {
@@ -40,6 +48,7 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
             type: 'proposal-submitted',
             studyId: obj.studyId,
             submittedByTabId: obj.submittedByTabId,
+            submittedByClerkId: obj.submittedByClerkId,
             submittedByName: obj.submittedByName,
             orgName: obj.orgName,
         }
@@ -49,6 +58,7 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
             type: 'proposal-review-submitted',
             studyId: obj.studyId,
             submittedByTabId: obj.submittedByTabId,
+            submittedByClerkId: obj.submittedByClerkId,
             submittedByName: obj.submittedByName,
         }
     }

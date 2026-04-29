@@ -5,7 +5,16 @@ import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-sec
 import pg from 'pg'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
-import { authenticate, isStatelessEventValidForDocument, parseDocumentName, parseStatelessEvent } from './auth.ts'
+import {
+    type AuthenticatedContext,
+    type StudyStatus,
+    assertStatelessEventConsistent,
+    authenticate,
+    parseDocumentName,
+    parseStatelessEvent,
+    shouldPersistDocument,
+} from './auth.ts'
+import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
 
 const jwtKey = process.env.CLERK_JWT_KEY
 if (!jwtKey) {
@@ -56,6 +65,13 @@ const server = new Server({
                 if (!parsed) {
                     throw new Error(`refusing to store ${documentName}: unrecognized name`)
                 }
+                // Persist-time status gate: connection-time auth only covers new
+                // and reconnecting clients. An already-connected client keeps
+                // streaming Yjs updates between a status flip and its own kick-out.
+                // Drop those writes silently so the canonical persisted state is
+                // frozen at the editable-window edge.
+                if (!(await shouldPersistDocument(parsed, pool))) return
+
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,
@@ -77,17 +93,63 @@ const server = new Server({
             },
         )
     },
-    async onStateless({ payload, documentName, document }) {
-        // Defense-in-depth: only re-broadcast events whose shape and document
-        // kind match. Forged or unrecognized payloads are dropped silently;
-        // throwing here would close the connection and disrupt unrelated sync.
+    async onLoadDocument({ documentName, document }) {
+        // Server-side bootstrap of fresh proposal-text Y.Docs from the existing
+        // study column. Hocuspocus serializes `onLoadDocument` per document,
+        // so seeding runs exactly once even when two clients open the page at
+        // the same instant. This eliminates the client-side bootstrap race
+        // where both clients would seed and the CRDT-additive merge would
+        // produce duplicated content.
+        const parsed = parseDocumentName(documentName)
+        if (parsed?.kind !== 'proposal-text') return
+        // The Database extension's `fetch` already populated `document` if a
+        // yjs_document row exists. Seeding only applies to the cold case.
+        if (document.share.size > 0) return
+
+        const column = SLUG_TO_STUDY_COLUMN[parsed.slug]
+        const row = await pool.query<{ value: string | null }>(`SELECT ${column} AS value FROM study WHERE id = $1`, [
+            parsed.studyId,
+        ])
+        const lexicalJson = row.rows[0]?.value
+        if (!lexicalJson) return
+
+        try {
+            seedYDocFromLexical(document, lexicalJson)
+        } catch (error) {
+            console.warn(`onLoadDocument: failed to seed ${documentName} from study.${column}`, error)
+        }
+    },
+    async onStateless({ payload, documentName, document, connection }) {
+        // Defense-in-depth: only re-broadcast events whose shape, document kind,
+        // sender identity, and DB study status all line up. Forged or stale
+        // payloads are dropped silently; throwing here would close the
+        // connection and disrupt unrelated sync.
         const parsedDoc = parseDocumentName(documentName)
         if (!parsedDoc) return
 
         const event = parseStatelessEvent(payload)
         if (!event) return
 
-        if (!isStatelessEventValidForDocument(event, parsedDoc)) return
+        const context = connection.context as AuthenticatedContext | undefined
+        const connectionUserClerkId = context?.user?.clerkId
+        if (!connectionUserClerkId) return
+
+        const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
+            parsedDoc.studyId,
+        ])
+        const studyStatus = statusRow.rows[0]?.status
+        if (!studyStatus) return
+
+        if (
+            !assertStatelessEventConsistent({
+                event,
+                parsed: parsedDoc,
+                connectionUserClerkId,
+                studyStatus,
+            })
+        ) {
+            return
+        }
 
         document.broadcastStateless(payload)
     },

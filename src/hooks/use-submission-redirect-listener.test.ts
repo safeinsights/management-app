@@ -62,6 +62,7 @@ describe('useSubmissionRedirectListener', () => {
                 type: 'proposal-submitted',
                 studyId,
                 submittedByTabId: currentTabId,
+                submittedByClerkId: 'user_alice',
                 submittedByName: 'Alice',
                 orgName: 'Atlas DO',
             }),
@@ -77,6 +78,7 @@ describe('useSubmissionRedirectListener', () => {
                 type: 'proposal-submitted',
                 studyId,
                 submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_alice',
                 submittedByName: 'Alice',
                 orgName: 'Atlas DO',
             }),
@@ -96,6 +98,7 @@ describe('useSubmissionRedirectListener', () => {
                 type: 'proposal-review-submitted',
                 studyId,
                 submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_bob',
                 submittedByName: 'Bob',
             }),
         )
@@ -113,6 +116,7 @@ describe('useSubmissionRedirectListener', () => {
             type: 'proposal-submitted',
             studyId,
             submittedByTabId: otherTabId,
+            submittedByClerkId: 'user_alice',
             submittedByName: 'Alice',
             orgName: 'Atlas DO',
         })
@@ -127,6 +131,7 @@ describe('useSubmissionRedirectListener', () => {
             type: 'proposal-submitted',
             studyId,
             submittedByTabId: otherTabId,
+            submittedByClerkId: 'user_alice',
             submittedByName: 'Alice',
             orgName: 'Atlas DO',
         })
@@ -148,6 +153,7 @@ describe('useSubmissionRedirectListener', () => {
             type: 'proposal-review-submitted',
             studyId,
             submittedByTabId: otherTabId,
+            submittedByClerkId: 'user_bob',
             submittedByName: 'Bob',
         })
 
@@ -162,6 +168,7 @@ describe('useSubmissionRedirectListener', () => {
                 type: 'proposal-submitted',
                 studyId: faker.string.uuid(),
                 submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_alice',
                 submittedByName: 'Alice',
                 orgName: 'Atlas DO',
             }),
@@ -211,6 +218,7 @@ describe('useSubmissionRedirectListener', () => {
                 type: 'proposal-submitted',
                 studyId,
                 submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_alice',
                 submittedByName: 'Alice',
                 orgName: 'Atlas DO',
             }),

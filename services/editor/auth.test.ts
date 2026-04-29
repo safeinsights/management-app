@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+    assertStatelessEventConsistent,
     authenticate,
+    editableStatusForKind,
     isStatelessEventValidForDocument,
     parseDocumentName,
     parseStatelessEvent,
     requiredOrgIdForDocument,
+    shouldPersistDocument,
     type AuthenticateDeps,
     type DbQuery,
+    type StatelessSubmissionEvent,
 } from './auth'
 
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
@@ -75,6 +79,7 @@ describe('parseStatelessEvent', () => {
         studyId: STUDY_ID,
         submittedByName: 'Alice Reviewer',
         submittedByTabId: 'tab-1',
+        submittedByClerkId: 'user_alice',
     }
 
     it('accepts a well-formed proposal-submitted event', () => {
@@ -111,6 +116,15 @@ describe('parseStatelessEvent', () => {
         const { submittedByTabId: _drop, ...incomplete } = baseEvent
         expect(parseStatelessEvent(JSON.stringify(incomplete))).toBeNull()
     })
+
+    it('rejects missing submittedByClerkId', () => {
+        const { submittedByClerkId: _drop, ...incomplete } = baseEvent
+        expect(parseStatelessEvent(JSON.stringify(incomplete))).toBeNull()
+    })
+
+    it('rejects empty submittedByClerkId', () => {
+        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, submittedByClerkId: '' }))).toBeNull()
+    })
 })
 
 describe('isStatelessEventValidForDocument', () => {
@@ -119,6 +133,7 @@ describe('isStatelessEventValidForDocument', () => {
         studyId: STUDY_ID,
         submittedByName: 'Alice',
         submittedByTabId: 'tab-1',
+        submittedByClerkId: 'user_alice',
     }
 
     it('accepts proposal-submitted on proposal-fields document', () => {
@@ -235,7 +250,10 @@ describe('authenticate', () => {
             queries.push({ text, values })
             if (text.includes('FROM "user"')) return { rows: [{ id: 'lab-user' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'DRAFT' }],
+                    rowCount: 1,
+                }
             // membership check: user is in lab-org, but review-feedback requires do-org
             return { rows: [], rowCount: 0 }
         })
@@ -253,7 +271,10 @@ describe('authenticate', () => {
             queries.push({ text, values })
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'DRAFT' }],
+                    rowCount: 1,
+                }
             return { rows: [], rowCount: 0 }
         })
         await expect(
@@ -268,36 +289,45 @@ describe('authenticate', () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'lab-user' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'DRAFT' }],
+                    rowCount: 1,
+                }
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
             authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-fields` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'lab-user' } })
+        ).resolves.toEqual({ user: { id: 'lab-user', clerkId: 'clerk-user-1' } })
     })
 
     it('passes a DO member opening their DO review-feedback document', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
             authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'do-user' } })
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' } })
     })
 
     it('passes a safe-insights admin opening any document', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'admin-user' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'DRAFT' }],
+                    rowCount: 1,
+                }
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
             authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-research-questions` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'admin-user' } })
+        ).resolves.toEqual({ user: { id: 'admin-user', clerkId: 'clerk-user-1' } })
     })
 
     it('forwards authorizedParties only when non-empty', async () => {
@@ -305,7 +335,10 @@ describe('authenticate', () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'u' }], rowCount: 1 }
             if (text.includes('FROM study'))
-                return { rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org' }], rowCount: 1 }
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
             return { rows: [{}], rowCount: 1 }
         })
 
@@ -324,5 +357,178 @@ describe('authenticate', () => {
             'tok',
             expect.objectContaining({ authorizedParties: ['https://app.example'] }),
         )
+    })
+
+    it('rejects a proposal-fields connection when the study has been submitted', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'lab-user' }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-fields` }, baseDeps({ db })),
+        ).rejects.toThrow(/study is not editable.*PENDING-REVIEW/)
+    })
+
+    it('rejects a review-feedback connection after the study has been decided', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'APPROVED' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+        ).rejects.toThrow(/study is not editable.*APPROVED/)
+    })
+})
+
+describe('editableStatusForKind', () => {
+    it('returns DRAFT and CHANGE-REQUESTED for proposal kinds', () => {
+        expect(editableStatusForKind('proposal-fields')).toEqual(['DRAFT', 'CHANGE-REQUESTED'])
+        expect(editableStatusForKind('proposal-text')).toEqual(['DRAFT', 'CHANGE-REQUESTED'])
+    })
+    it('returns PENDING-REVIEW for review-feedback', () => {
+        expect(editableStatusForKind('review-feedback')).toEqual(['PENDING-REVIEW'])
+    })
+})
+
+describe('assertStatelessEventConsistent', () => {
+    const baseEvent: StatelessSubmissionEvent = {
+        type: 'proposal-submitted',
+        studyId: STUDY_ID,
+        submittedByName: 'Alice',
+        submittedByTabId: 'tab-1',
+        submittedByClerkId: 'user_alice',
+    }
+
+    it('accepts a proposal-submitted event when sender matches and status is PENDING-REVIEW', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: baseEvent,
+                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                connectionUserClerkId: 'user_alice',
+                studyStatus: 'PENDING-REVIEW',
+            }),
+        ).toBe(true)
+    })
+
+    it('rejects a proposal-submitted event whose sender does not match the connection user', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: baseEvent,
+                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                connectionUserClerkId: 'user_mallory',
+                studyStatus: 'PENDING-REVIEW',
+            }),
+        ).toBe(false)
+    })
+
+    it('rejects a proposal-submitted event when DB study is still DRAFT', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: baseEvent,
+                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                connectionUserClerkId: 'user_alice',
+                studyStatus: 'DRAFT',
+            }),
+        ).toBe(false)
+    })
+
+    it('accepts a proposal-review-submitted event when status is APPROVED / CHANGE-REQUESTED / REJECTED', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'proposal-review-submitted' }
+        for (const studyStatus of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
+            expect(
+                assertStatelessEventConsistent({
+                    event,
+                    parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                    connectionUserClerkId: 'user_alice',
+                    studyStatus,
+                }),
+            ).toBe(true)
+        }
+    })
+
+    it('rejects a proposal-review-submitted event on a still-PENDING-REVIEW study', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'proposal-review-submitted' }
+        expect(
+            assertStatelessEventConsistent({
+                event,
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                connectionUserClerkId: 'user_alice',
+                studyStatus: 'PENDING-REVIEW',
+            }),
+        ).toBe(false)
+    })
+
+    it('rejects when type and document kind do not match', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: baseEvent,
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                connectionUserClerkId: 'user_alice',
+                studyStatus: 'APPROVED',
+            }),
+        ).toBe(false)
+    })
+})
+
+describe('shouldPersistDocument', () => {
+    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
+        query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
+    })
+
+    it('allows persistence for proposal-fields when study is DRAFT', async () => {
+        await expect(
+            shouldPersistDocument({ kind: 'proposal-fields', studyId: STUDY_ID }, fakeDb([{ status: 'DRAFT' }])),
+        ).resolves.toBe(true)
+    })
+
+    it('allows persistence for proposal-fields when study is CHANGE-REQUESTED', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'proposal-fields', studyId: STUDY_ID },
+                fakeDb([{ status: 'CHANGE-REQUESTED' }]),
+            ),
+        ).resolves.toBe(true)
+    })
+
+    it('blocks persistence for proposal-fields after status flips to PENDING-REVIEW', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'proposal-fields', studyId: STUDY_ID },
+                fakeDb([{ status: 'PENDING-REVIEW' }]),
+            ),
+        ).resolves.toBe(false)
+    })
+
+    it('allows persistence for review-feedback when study is PENDING-REVIEW', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'review-feedback', studyId: STUDY_ID },
+                fakeDb([{ status: 'PENDING-REVIEW' }]),
+            ),
+        ).resolves.toBe(true)
+    })
+
+    it('blocks persistence for review-feedback once a decision is recorded', async () => {
+        for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED', 'ARCHIVED'] as const) {
+            await expect(
+                shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID }, fakeDb([{ status }])),
+            ).resolves.toBe(false)
+        }
+    })
+
+    it('blocks persistence when the study row has been deleted', async () => {
+        await expect(
+            shouldPersistDocument({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' }, fakeDb([])),
+        ).resolves.toBe(false)
     })
 })

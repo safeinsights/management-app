@@ -1,12 +1,14 @@
 'use server'
 
-import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
+import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { sleep } from '@/lib/utils'
 import {
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
@@ -14,6 +16,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import {
+    deferred,
     onStudyApproved,
     onStudyCodeApproved,
     onStudyCodeRejected,
@@ -510,6 +513,18 @@ async function insertReviewerProposalComment({
         .executeTakeFirstOrThrow()
 }
 
+// Safety-net delete: an in-tx DELETE inside the action handles the common case,
+// but a Hocuspocus debounced persist for the review-feedback doc can still
+// commit between the management-app status flip and our in-tx delete (different
+// connections, READ COMMITTED snapshots). Wait long enough for any in-flight
+// persist to land, then re-delete. Once the status-flip is committed,
+// services/editor/auth.ts shouldPersistDocument refuses new writes for review
+// docs whose study has left PENDING-REVIEW.
+const purgeReviewFeedbackYjsDocAfterSubmit = deferred(async (studyId: string) => {
+    await sleep({ 5: 'seconds' })
+    await database.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
+})
+
 export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
     .params(
         z.object({
@@ -547,13 +562,21 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
 
+        // Drop the review-feedback yjs_document so the next round (if any) starts
+        // fresh rather than reopening the previous reviewer's drafted-but-submitted
+        // text. The deferred follow-up below catches any Hocuspocus persist that
+        // commits between status-flip and now.
+        await db.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
+
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
+            purgeReviewFeedbackYjsDocAfterSubmit(studyId)
             return { submitterFullName: submitter.fullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
+            purgeReviewFeedbackYjsDocAfterSubmit(studyId)
             return { submitterFullName: submitter.fullName }
         }
 
@@ -570,6 +593,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .execute()
 
         onStudyNeedsClarification({ studyId, userId })
+        purgeReviewFeedbackYjsDocAfterSubmit(studyId)
         return { submitterFullName: submitter.fullName }
     })
 
