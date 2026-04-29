@@ -247,11 +247,7 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
     return null
 }
 
-function useCollaborationProvider(
-    wsUrl: string,
-    studyId: string,
-    providerRef: React.MutableRefObject<HocuspocusProvider | null>,
-) {
+function useCollaborationProvider(wsUrl: string, providerRef: React.MutableRefObject<HocuspocusProvider | null>) {
     return useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
             let doc = yjsDocMap.get(id)
@@ -265,14 +261,13 @@ function useCollaborationProvider(
                 name: id,
                 document: doc,
                 autoConnect: false,
-                token: studyId,
             } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
             providerRef.current = provider
 
             return provider as unknown as Provider
         },
-        [wsUrl, studyId, providerRef],
+        [wsUrl, providerRef],
     )
 }
 
@@ -313,7 +308,7 @@ export function CollaborativeEditor({
     const providerRef = useRef<HocuspocusProvider | null>(null)
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
-    const providerFactory = useCollaborationProvider(wsUrl, studyId, providerRef)
+    const providerFactory = useCollaborationProvider(wsUrl, providerRef)
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
