@@ -2,7 +2,6 @@
 
 import { FC, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormFieldLabel } from '@/components/form-field-label'
@@ -81,9 +80,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherId = '',
     enclaveOrgSlug,
 }) => {
-    const { studyId, form, saveDraft, isSaving, isCollaborationEnabled, websocketProvider, yjsForm } = useProposal()
+    const { studyId, form, saveDraft, isSaving, isCollaborationEnabled, websocketProvider, yjsForm, tabSessionId } =
+        useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { user } = useUser()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
 
@@ -92,7 +91,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
         fieldsMap: yjsForm.fieldsMap ?? undefined,
         orgSlug,
         studyId,
-        currentUserId: user?.id ?? null,
+        currentTabId: tabSessionId,
         enabled: isCollaborationEnabled,
     })
 

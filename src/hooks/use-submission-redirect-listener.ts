@@ -13,14 +13,15 @@ export type SubmissionEvent =
     | {
           type: 'proposal-submitted'
           studyId: string
-          submittedByUserId: string
+          /** Per-mount tab session id of the broadcasting client. Used to skip the broadcaster's own tab. */
+          submittedByTabId: string
           submittedByName: string
           orgName: string
       }
     | {
           type: 'proposal-review-submitted'
           studyId: string
-          submittedByUserId: string
+          submittedByTabId: string
           submittedByName: string
       }
 
@@ -31,14 +32,14 @@ const isString = (value: unknown): value is string => typeof value === 'string' 
 const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (typeof raw !== 'object' || raw === null) return null
     const obj = raw as Record<string, unknown>
-    if (!isString(obj.studyId) || !isString(obj.submittedByUserId) || !isString(obj.submittedByName)) {
+    if (!isString(obj.studyId) || !isString(obj.submittedByTabId) || !isString(obj.submittedByName)) {
         return null
     }
     if (obj.type === 'proposal-submitted' && isString(obj.orgName)) {
         return {
             type: 'proposal-submitted',
             studyId: obj.studyId,
-            submittedByUserId: obj.submittedByUserId,
+            submittedByTabId: obj.submittedByTabId,
             submittedByName: obj.submittedByName,
             orgName: obj.orgName,
         }
@@ -47,7 +48,7 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
         return {
             type: 'proposal-review-submitted',
             studyId: obj.studyId,
-            submittedByUserId: obj.submittedByUserId,
+            submittedByTabId: obj.submittedByTabId,
             submittedByName: obj.submittedByName,
         }
     }
@@ -79,10 +80,13 @@ type Args = {
     orgSlug: string
     studyId: string
     /**
-     * If the current user submitted, the mutation already navigated; the listener
-     * should still no-op cleanly when the same client receives its own broadcast.
+     * Tab session id for the current mount. Used to skip the broadcaster's own tab so
+     * its mutation onSuccess is the only navigation path. MUST match the value the
+     * broadcaster places on the outgoing event, otherwise the broadcaster's own tab
+     * will double-navigate. Other tabs of the same user have different ids and still
+     * receive the kick-out flow.
      */
-    currentUserId: string | null | undefined
+    currentTabId: string
     enabled?: boolean
 }
 
@@ -91,7 +95,7 @@ export function useSubmissionRedirectListener({
     fieldsMap,
     orgSlug,
     studyId,
-    currentUserId,
+    currentTabId,
     enabled = true,
 }: Args) {
     const router = useRouter()
@@ -103,9 +107,11 @@ export function useSubmissionRedirectListener({
         const handle = (event: SubmissionEvent) => {
             if (hasFiredRef.current) return
             if (event.studyId !== studyId) return
-            // Submitter's own tab navigates from its mutation onSuccess; if the same
-            // tab also receives the broadcast, skip the duplicate toast/redirect.
-            if (event.submittedByUserId === currentUserId) {
+            // The broadcaster's own tab navigates from its mutation onSuccess; if the
+            // same tab also receives the broadcast, skip the duplicate toast/redirect.
+            // Compare on tab id so a same-user OTHER tab still gets the AC-required
+            // kick-out (per the plan's "Same-user multiple tabs: also redirect").
+            if (event.submittedByTabId === currentTabId) {
                 hasFiredRef.current = true
                 return
             }
@@ -157,7 +163,7 @@ export function useSubmissionRedirectListener({
             provider.off('stateless', onStateless)
             target.unobserve(onMapChange)
         }
-    }, [provider, fieldsMap, orgSlug, studyId, currentUserId, enabled, router])
+    }, [provider, fieldsMap, orgSlug, studyId, currentTabId, enabled, router])
 }
 
 export const SUBMISSION_SENTINEL_KEY = SUBMISSION_KEY

@@ -272,6 +272,14 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
         const userId = session.user.id
 
+        // CASL `update Study` is org-type-scoped (any lab member), so we additionally
+        // require the caller to belong to the study's submitting lab. Without this,
+        // a user in a different lab could finalize someone else's draft just by
+        // knowing the studyId.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
         // APPROVED is included to preserve the legacy code re-submission flow where an
         // already-approved proposal moves back to PENDING-REVIEW for a new code review.
         const claimed = await db
@@ -279,6 +287,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id', 'submittedByOrgId'])
             .executeTakeFirst()
 

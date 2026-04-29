@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
@@ -19,10 +18,16 @@ import { WS_URL } from '@/server/config'
 
 export type SubmitReviewArgs = { decision: Decision; feedback: string }
 
-export function useProposalReviewMutation({ studyId, orgSlug }: { studyId: string; orgSlug: string }) {
+interface UseProposalReviewMutationOptions {
+    studyId: string
+    orgSlug: string
+    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
+    tabSessionId: string
+}
+
+export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: UseProposalReviewMutationOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { user } = useUser()
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
 
     const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
@@ -61,7 +66,7 @@ export function useProposalReviewMutation({ studyId, orgSlug }: { studyId: strin
                 const event: SubmissionEvent = {
                     type: 'proposal-review-submitted',
                     studyId,
-                    submittedByUserId: user?.id ?? '',
+                    submittedByTabId: tabSessionId,
                     submittedByName: result.submitterFullName,
                 }
                 broadcastProvider.sendStateless(JSON.stringify(event))

@@ -433,6 +433,34 @@ describe('Request Study Actions', () => {
             expect(updated.status).toBe('PENDING-REVIEW')
         })
 
+        it('finalizeStudySubmissionAction rejects callers outside the submitting lab', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-cross-lab' })
+            const labA = await insertTestOrg({ slug: `${enclave.slug}-lab-a`, type: 'lab' })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            // Lab A user creates the draft.
+            await mockSessionWithTestData({ orgSlug: labA.slug, orgType: 'lab' })
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Cross-lab', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: labA.slug,
+                }),
+            )
+
+            // Lab B user (no membership in lab A) tries to finalize.
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            const result = await finalizeStudySubmissionAction({ studyId: draftResult.studyId })
+
+            expect(result).toHaveProperty('error')
+            const study = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
         it('onUpdateDraftStudyAction allows another lab member to edit a CHANGE-REQUESTED draft', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-coauthor' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })

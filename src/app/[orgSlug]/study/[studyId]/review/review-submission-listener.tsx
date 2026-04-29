@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
@@ -15,6 +14,8 @@ const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 type Props = {
     orgSlug: string
     studyId: string
+    /** Per-tab id shared with the broadcasting mutation hook, used to skip self-kick-out. */
+    tabSessionId: string
     enabled: boolean
 }
 
@@ -23,9 +24,8 @@ type Props = {
  * Separate from the editor's own provider so the listener can be mounted once
  * at the page level and torn down cleanly when the user navigates away.
  */
-export function ReviewSubmissionListener({ orgSlug, studyId, enabled }: Props) {
+export function ReviewSubmissionListener({ orgSlug, studyId, tabSessionId, enabled }: Props) {
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
-    const { user } = useUser()
 
     useEffect(() => {
         if (!enabled) return undefined
@@ -52,7 +52,7 @@ export function ReviewSubmissionListener({ orgSlug, studyId, enabled }: Props) {
         provider,
         orgSlug,
         studyId,
-        currentUserId: user?.id ?? null,
+        currentTabId: tabSessionId,
         enabled,
     })
 

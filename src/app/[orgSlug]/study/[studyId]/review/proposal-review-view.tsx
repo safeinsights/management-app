@@ -13,7 +13,7 @@ import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import type { FC, ReactNode } from 'react'
+import { useState, type FC, type ReactNode } from 'react'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -25,7 +25,15 @@ type ProposalReviewViewProps = {
     study: StudyForReview
 }
 
-function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: string }) {
+function useProposalReview({
+    orgSlug,
+    studyId,
+    tabSessionId,
+}: {
+    orgSlug: string
+    studyId: string
+    tabSessionId: string
+}) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
@@ -35,7 +43,7 @@ function useProposalReview({ orgSlug, studyId }: { orgSlug: string; studyId: str
     const canSubmit = feedback.isValid && decision.selected !== null
     const backPath = Routes.orgDashboard({ orgSlug })
 
-    const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug })
+    const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug, tabSessionId })
 
     const handleBack = () => {
         router.push(backPath)
@@ -158,6 +166,11 @@ const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
 }
 
 export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
+    // One id per mount of the review view. Shared between the broadcaster (mutation
+    // hook) and the listener so the broadcaster's own tab is the only one that skips
+    // the kick-out flow. Same-user other tabs get fresh ids and respond as expected.
+    const [tabSessionId] = useState(() => crypto.randomUUID())
+
     const {
         feedback,
         decision,
@@ -170,7 +183,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
         closeReject,
         handleConfirmSubmit,
         isPending,
-    } = useProposalReview({ orgSlug, studyId: study.id })
+    } = useProposalReview({ orgSlug, studyId: study.id, tabSessionId })
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
     const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
@@ -179,6 +192,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
             <ReviewSubmissionListener
                 orgSlug={orgSlug}
                 studyId={study.id}
+                tabSessionId={tabSessionId}
                 enabled={isCollaborationEnabled && isEditable}
             />
             <Stack px="xl" gap="xl" py="xl">

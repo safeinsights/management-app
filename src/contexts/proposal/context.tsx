@@ -25,6 +25,8 @@ interface ProposalContextValue {
     isCollaborationEnabled: boolean
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
+    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
+    tabSessionId: string
 }
 
 const ProposalContext = createContext<ProposalContextValue | null>(null)
@@ -47,6 +49,11 @@ interface ProposalProviderProps {
 
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
+
+    // One id per mount of the provider. Different tabs get different ids even for
+    // the same Clerk user, which is what the listener compares against to skip
+    // only the broadcaster's own tab.
+    const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(proposalFormSchema),
@@ -76,7 +83,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
     })
 
     const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
-    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm })
+    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 
     const value = useMemo(
         () => ({
@@ -89,6 +96,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             isCollaborationEnabled,
             websocketProvider,
             yjsForm,
+            tabSessionId,
         }),
         [
             studyId,
@@ -100,6 +108,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             isCollaborationEnabled,
             websocketProvider,
             yjsForm,
+            tabSessionId,
         ],
     )
 

@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
@@ -16,12 +15,12 @@ interface UseSubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     yjsForm: ReturnType<typeof useYjsFormMap>
+    tabSessionId: string
 }
 
-export function useSubmitProposal({ studyId, form, yjsForm }: UseSubmitProposalOptions) {
+export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { user } = useUser()
 
     const mutation = useMutation({
         mutationFn: async () => {
@@ -33,7 +32,7 @@ export function useSubmitProposal({ studyId, form, yjsForm }: UseSubmitProposalO
             const event: SubmissionEvent = {
                 type: 'proposal-submitted',
                 studyId,
-                submittedByUserId: user?.id ?? '',
+                submittedByTabId: tabSessionId,
                 submittedByName: result.submitterFullName,
                 orgName: result.orgName,
             }
