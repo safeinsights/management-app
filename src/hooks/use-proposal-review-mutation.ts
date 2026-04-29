@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
@@ -28,17 +29,25 @@ interface UseProposalReviewMutationOptions {
 export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: UseProposalReviewMutationOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
+    const { getToken } = useAuth()
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
 
     const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
     useEffect(() => {
         if (!isCollaborationEnabled) return undefined
         const doc = new Y.Doc()
+        const docName = reviewFeedbackDocName(studyId)
         const provider = new HocuspocusProvider({
             url: WS_URL,
-            name: reviewFeedbackDocName(studyId),
+            name: docName,
             document: doc,
-            token: studyId,
+            token: async () => (await getToken()) ?? '',
+            onAuthenticationFailed: () => {
+                // Auth failures here mean the broadcast event won't go out;
+                // listeners fall through to Layer 2 (Y.Map sentinel via the editor's
+                // own provider) and Layer 3 (status poll). Acceptable degradation.
+                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
+            },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setBroadcastProvider(provider)
@@ -48,7 +57,7 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
 
             setBroadcastProvider(null)
         }
-    }, [isCollaborationEnabled, studyId])
+    }, [isCollaborationEnabled, studyId, getToken])
 
     const {
         mutate: submitReview,

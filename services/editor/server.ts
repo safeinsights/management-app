@@ -5,6 +5,7 @@ import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-sec
 import pg from 'pg'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
+import { authenticate, isStatelessEventValidForDocument, parseDocumentName, parseStatelessEvent } from './auth.ts'
 
 const jwtKey = process.env.CLERK_JWT_KEY
 if (!jwtKey) {
@@ -18,14 +19,6 @@ const authorizedParties = (process.env.CLERK_AUTHORIZED_PARTIES ?? '')
     .filter(Boolean)
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
-const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function studyIdFromDocumentName(documentName: string): string | null {
-    if (!documentName.startsWith(REVIEW_FEEDBACK_PREFIX)) return null
-    const candidate = documentName.slice(REVIEW_FEEDBACK_PREFIX.length)
-    return UUID_RE.test(candidate) ? candidate : null
-}
 
 // Mirrors src/server/config.ts:databaseURL() — accept DATABASE_URL directly for local/dev,
 // otherwise fetch the RDS-managed secret JSON (host/username/password/dbname) and assemble.
@@ -59,61 +52,44 @@ const server = new Server({
                 return result.rows[0]?.data ?? null
             },
             store: async ({ documentName, state }) => {
-                const studyId = studyIdFromDocumentName(documentName)
-                if (!studyId) {
-                    throw new Error(`refusing to store ${documentName}: no recoverable studyId`)
+                const parsed = parseDocumentName(documentName)
+                if (!parsed) {
+                    throw new Error(`refusing to store ${documentName}: unrecognized name`)
                 }
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,
-                    [documentName, Buffer.from(state), studyId],
+                    [documentName, Buffer.from(state), parsed.studyId],
                 )
             },
         }),
     ],
     async onAuthenticate({ token, documentName }) {
-        if (!token) throw new Error('Not authorized: missing token')
-
-        const payload = await verifyToken(token, {
-            jwtKey,
-            secretKey,
-            authorizedParties: authorizedParties.length ? authorizedParties : undefined,
-        })
-        const clerkUserId = payload.sub
-        if (!clerkUserId) throw new Error('Not authorized: token has no subject')
-
-        const studyId = studyIdFromDocumentName(documentName)
-        if (!studyId) throw new Error(`Not authorized: unrecognized document "${documentName}"`)
-
-        const userRow = await pool.query<{ id: string }>('SELECT id FROM "user" WHERE clerk_id = $1', [clerkUserId])
-        const internalUserId = userRow.rows[0]?.id
-        if (!internalUserId) throw new Error('Not authorized: user not provisioned')
-
-        const studyRow = await pool.query<{ org_id: string; submitted_by_org_id: string }>(
-            'SELECT org_id, submitted_by_org_id FROM study WHERE id = $1',
-            [studyId],
+        return authenticate(
+            { token, documentName },
+            {
+                db: pool,
+                verifyToken,
+                jwtKey,
+                secretKey,
+                authorizedParties,
+                siAdminOrgSlug: SI_ADMIN_ORG_SLUG,
+            },
         )
-        const study = studyRow.rows[0]
-        if (!study) throw new Error('Not authorized: study not found')
+    },
+    async onStateless({ payload, documentName, document }) {
+        // Defense-in-depth: only re-broadcast events whose shape and document
+        // kind match. Forged or unrecognized payloads are dropped silently;
+        // throwing here would close the connection and disrupt unrelated sync.
+        const parsedDoc = parseDocumentName(documentName)
+        if (!parsedDoc) return
 
-        // Mirrors src/lib/permissions.ts `view Study` rule plus the SI-admin override
-        // (admin of the `safe-insights` org). All three checks collapse into one query.
-        const accessRow = await pool.query(
-            `SELECT 1
-               FROM org_user ou
-               JOIN org o ON o.id = ou.org_id
-              WHERE ou.user_id = $1
-                AND (
-                    (o.slug = $2 AND ou.is_admin = TRUE)
-                    OR ou.org_id = $3
-                    OR ou.org_id = $4
-                )
-              LIMIT 1`,
-            [internalUserId, SI_ADMIN_ORG_SLUG, study.org_id, study.submitted_by_org_id],
-        )
-        if (accessRow.rowCount === 0) throw new Error('Not authorized: no membership in study orgs')
+        const event = parseStatelessEvent(payload)
+        if (!event) return
 
-        return { user: { id: internalUserId } }
+        if (!isStatelessEventValidForDocument(event, parsedDoc)) return
+
+        document.broadcastStateless(payload)
     },
     async onRequest({ request, response }: { request: IncomingMessage; response: ServerResponse }) {
         if (request.url === '/health') {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
@@ -25,17 +26,24 @@ type Props = {
  * at the page level and torn down cleanly when the user navigates away.
  */
 export function ReviewSubmissionListener({ orgSlug, studyId, tabSessionId, enabled }: Props) {
+    const { getToken } = useAuth()
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
 
     useEffect(() => {
         if (!enabled) return undefined
 
         const doc = new Y.Doc()
+        const docName = reviewFeedbackDocName(studyId)
         const next = new HocuspocusProvider({
             url: WS_URL,
-            name: reviewFeedbackDocName(studyId),
+            name: docName,
             document: doc,
-            token: studyId,
+            token: async () => (await getToken()) ?? '',
+            onAuthenticationFailed: () => {
+                // Auth failure here means the listener won't subscribe to stateless
+                // events; the user falls through to Layer 3 status poll for kick-out.
+                console.warn(`listener HocuspocusProvider auth failed for ${docName}`)
+            },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setProvider(next)
@@ -46,7 +54,7 @@ export function ReviewSubmissionListener({ orgSlug, studyId, tabSessionId, enabl
 
             setProvider(null)
         }
-    }, [enabled, studyId])
+    }, [enabled, studyId, getToken])
 
     useSubmissionRedirectListener({
         provider,

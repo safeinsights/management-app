@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import * as Y from 'yjs'
@@ -44,6 +45,7 @@ const valuesEqual = (a: unknown, b: unknown) => {
 }
 
 export function useYjsFormMap({ studyId, form, websocketProvider, enabled }: Args): Return {
+    const { getToken } = useAuth()
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
     const [fieldsMap, setFieldsMap] = useState<Y.Map<unknown> | null>(null)
     const [isSynced, setIsSynced] = useState(false)
@@ -58,7 +60,14 @@ export function useYjsFormMap({ studyId, form, websocketProvider, enabled }: Arg
             websocketProvider,
             name: docName,
             document: doc,
-            token: studyId,
+            token: async () => (await getToken()) ?? '',
+            onAuthenticationFailed: () => {
+                // Auth failures here mean the proposal-fields Y.Doc never connects.
+                // Local form values continue to work; the broader feature-flag fallback
+                // path renders a non-collaborative form. Log and let cleanup tear the
+                // provider down on unmount or next dep change.
+                console.warn(`HocuspocusProvider auth failed for ${docName}`)
+            },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
         // With a shared websocketProvider the constructor leaves manageSocket=false and
@@ -105,7 +114,7 @@ export function useYjsFormMap({ studyId, form, websocketProvider, enabled }: Arg
         }
         // form intentionally excluded — it's recreated each render but stable via Mantine ref semantics.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabled, websocketProvider, studyId])
+    }, [enabled, websocketProvider, studyId, getToken])
 
     useEffect(() => {
         if (!fieldsMap) return undefined
