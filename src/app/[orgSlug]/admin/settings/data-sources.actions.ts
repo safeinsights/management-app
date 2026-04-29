@@ -9,6 +9,12 @@ import { throwNotFound } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
 
+type DataSourceDocDetails = {
+    id: string
+    url: string | null
+    description: string | null
+}
+
 const fetchOrgDataSourcesSchema = z.object({
     orgSlug: z.string(),
 })
@@ -24,7 +30,6 @@ export const fetchOrgDataSourcesAction = new Action('fetchOrgDataSourcesAction')
                 'orgDataSource.id',
                 'orgDataSource.name',
                 'orgDataSource.description',
-                'orgDataSource.documentationUrl',
                 'orgDataSource.orgId',
                 'orgDataSource.createdAt',
                 jsonArrayFrom(
@@ -34,6 +39,17 @@ export const fetchOrgDataSourcesAction = new Action('fetchOrgDataSourcesAction')
                         .select(['orgCodeEnv.id', 'orgCodeEnv.name'])
                         .whereRef('orgDataSourceCodeEnv.dataSourceId', '=', 'orgDataSource.id'),
                 ).as('codeEnvs'),
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('orgDataSourceDocument')
+                        .select([
+                            'orgDataSourceDocument.id',
+                            'orgDataSourceDocument.url',
+                            'orgDataSourceDocument.description',
+                        ])
+                        .whereRef('orgDataSourceDocument.orgDataSourceId', '=', 'orgDataSource.id')
+                        .orderBy('orgDataSourceDocument.createdAt', 'asc'),
+                ).as('documents'),
             ])
             .where('orgDataSource.orgId', '=', orgId)
             .orderBy('orgDataSource.createdAt', 'desc')
@@ -50,22 +66,37 @@ export const createOrgDataSourceAction = new Action('createOrgDataSourceAction',
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, name, description, documentationUrl } = params
+        const { orgSlug, name, description, documents } = params
 
-        const result = await db
+        const dataSource = await db
             .insertInto('orgDataSource')
             .values({
                 orgId,
                 name,
                 description: description || null,
-                documentationUrl: documentationUrl || null,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
+        const docRows = documents.map((d) => ({
+            ...d,
+            orgDataSourceId: dataSource.id,
+        }))
+
+        const dataSourceDocuments: DataSourceDocDetails[] = []
+
+        if (docRows.length > 0) {
+            const data = await db
+                .insertInto('orgDataSourceDocument')
+                .values(docRows)
+                .returning(['id', 'url', 'description'])
+                .execute()
+            dataSourceDocuments.push(...data)
+        }
+
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        return result
+        return { ...dataSource, documents: dataSourceDocuments }
     })
 
 const updateSchema = z.object({
@@ -79,23 +110,72 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, dataSourceId, name, description, documentationUrl } = params
+        const { orgSlug, dataSourceId, name, description, documents } = params
 
-        const result = await db
+        const updatedDataSource = await db
             .updateTable('orgDataSource')
             .set({
                 name,
                 description: description || null,
-                documentationUrl: documentationUrl || null,
             })
             .where('id', '=', dataSourceId)
             .where('orgId', '=', orgId)
             .returningAll()
             .executeTakeFirstOrThrow(throwNotFound(`Data source with id ${dataSourceId}`))
 
+        // Query existing docs for this source before updating / creating / deleting
+        const existingDocs = await db
+            .selectFrom('orgDataSourceDocument')
+            .select(['id'])
+            .where('orgDataSourceId', '=', dataSourceId)
+            .execute()
+
+        const docsToUpdate = documents.filter((d): d is typeof d & { id: string } => !!d.id)
+        const docsToCreate = documents.filter((d) => !d.id)
+        const docsToUpdateIds = docsToUpdate.map((d) => d.id)
+        const docsToDelete = existingDocs.filter((d) => !docsToUpdateIds.includes(d.id))
+
+        const dataSourceDocResults: DataSourceDocDetails[] = []
+
+        // Update existing docs
+        for (const doc of docsToUpdate) {
+            const updatedDoc = await db
+                .updateTable('orgDataSourceDocument')
+                .set({
+                    url: doc.url,
+                    description: doc.description,
+                })
+                .where('id', '=', doc.id)
+                .returning(['id', 'url', 'description'])
+                .executeTakeFirstOrThrow(throwNotFound(`Data source document with id ${doc.id}`))
+
+            dataSourceDocResults.push(updatedDoc)
+        }
+
+        // Delete docs that are no longer associated with the data source
+        for (const doc of docsToDelete) {
+            await db.deleteFrom('orgDataSourceDocument').where('id', '=', doc.id).execute()
+        }
+
+        // Create new docs if needed
+        const newDocRows = docsToCreate.map((d) => ({
+            ...d,
+            orgDataSourceId: dataSourceId,
+        }))
+
+        if (newDocRows.length > 0) {
+            const data = await db
+                .insertInto('orgDataSourceDocument')
+                .values(newDocRows)
+                .returning(['id', 'url', 'description'])
+                .execute()
+
+            dataSourceDocResults.push(...data)
+        }
+
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        return result
+        return { ...updatedDataSource, documents: dataSourceDocResults }
     })
 
 const deleteSchema = z.object({
