@@ -1,39 +1,50 @@
 import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
+import { useUser } from '@clerk/nextjs'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
+import { reportMutationError } from '@/components/errors'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from './use-save-draft'
 
 interface UseSubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
+    yjsForm: ReturnType<typeof useYjsFormMap>
 }
 
-export function useSubmitProposal({ studyId, form }: UseSubmitProposalOptions) {
+export function useSubmitProposal({ studyId, form, yjsForm }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { user } = useUser()
 
     const mutation = useMutation({
         mutationFn: async () => {
             actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) }))
-            return finalizeStudySubmissionAction({ studyId })
+            return actionResult(await finalizeStudySubmissionAction({ studyId }))
         },
-        onSuccess: () => {
+        onSuccess: (result) => {
             form.resetDirty()
+            const event: SubmissionEvent = {
+                type: 'proposal-submitted',
+                studyId,
+                submittedByUserId: user?.id ?? '',
+                submittedByName: result.submitterFullName,
+                orgName: result.orgName,
+            }
+            const payload = JSON.stringify(event)
+            // Layer 1 — instant push to all connected peers.
+            yjsForm.provider?.sendStateless(payload)
+            // Layer 2 — sentinel persists in CRDT for briefly-disconnected peers.
+            yjsForm.setSubmissionSentinel(event)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: (error) => {
-            notifications.show({
-                title: 'Failed to submit proposal',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
-            })
-        },
+        onError: reportMutationError('Failed to submit proposal'),
     })
 
     const submitProposal = useCallback(() => {

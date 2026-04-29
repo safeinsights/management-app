@@ -13,7 +13,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { HocuspocusProvider } from '@hocuspocus/provider'
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
@@ -248,7 +248,8 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 }
 
 function useCollaborationProvider(
-    wsUrl: string,
+    wsUrl: string | undefined,
+    websocketProvider: HocuspocusProviderWebsocket | undefined,
     studyId: string,
     providerRef: React.MutableRefObject<HocuspocusProvider | null>,
 ) {
@@ -260,28 +261,31 @@ function useCollaborationProvider(
                 yjsDocMap.set(id, doc)
             }
 
-            const provider = new HocuspocusProvider({
-                url: wsUrl,
+            const baseOptions = {
                 name: id,
                 document: doc,
                 autoConnect: false,
                 token: studyId,
-            } as ConstructorParameters<typeof HocuspocusProvider>[0])
+            }
+
+            const options = websocketProvider ? { ...baseOptions, websocketProvider } : { ...baseOptions, url: wsUrl }
+
+            const provider = new HocuspocusProvider(options as ConstructorParameters<typeof HocuspocusProvider>[0])
+
+            // When a shared websocketProvider is passed, the HocuspocusProvider constructor
+            // does NOT auto-attach (manageSocket stays false). We have to register manually
+            // so the shared connection knows to sync this document. URL-based providers
+            // attach themselves from the constructor automatically.
+            if (websocketProvider) {
+                provider.attach()
+            }
 
             providerRef.current = provider
 
             return provider as unknown as Provider
         },
-        [wsUrl, studyId, providerRef],
+        [wsUrl, websocketProvider, studyId, providerRef],
     )
-}
-
-const initialConfig = {
-    namespace: 'collaborative-editor',
-    theme: lexicalTheme,
-    nodes: lexicalNodes,
-    editorState: null,
-    onError: (error: Error) => console.error('Lexical error:', error),
 }
 
 export type CollaborativeEditorProps = {
@@ -291,11 +295,28 @@ export type CollaborativeEditorProps = {
      */
     id: string
     studyId: string
-    wsUrl: string
+    /** Required when websocketProvider is not provided. */
+    wsUrl?: string
+    /**
+     * Optional pre-built shared websocket provider. When supplied, all editors on the page
+     * multiplex over a single TCP/WebSocket connection.
+     */
+    websocketProvider?: HocuspocusProviderWebsocket
     contentClassName?: string
     contentStyle?: React.CSSProperties
     placeholder?: string
     onChange?: (json: string) => void
+    /**
+     * Initial Lexical editor state JSON. Used together with shouldBootstrap to seed a
+     * brand-new Y.Doc from existing DB content the first time it is opened.
+     */
+    initialContent?: string
+    /**
+     * Pass true only when the Y.Doc has no persisted state yet (caller verified via
+     * getYjsDocumentUpdatedAtAction). The CollaborationPlugin will initialize the Y.Doc
+     * from initialContent. Otherwise leave undefined/false and let the doc sync from server.
+     */
+    shouldBootstrap?: boolean
     footerRight?: React.ReactNode
 }
 
@@ -303,17 +324,31 @@ export function CollaborativeEditor({
     id,
     studyId,
     wsUrl,
+    websocketProvider,
     contentClassName,
     contentStyle,
     placeholder,
     onChange,
+    initialContent,
+    shouldBootstrap,
     footerRight,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const providerRef = useRef<HocuspocusProvider | null>(null)
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
-    const providerFactory = useCollaborationProvider(wsUrl, studyId, providerRef)
+    const providerFactory = useCollaborationProvider(wsUrl, websocketProvider, studyId, providerRef)
+
+    // Lexical's collaboration guide is explicit: initialConfig.editorState MUST be null
+    // when CollaborationPlugin is in use; the plugin owns the Y.Doc seeding via its own
+    // initialEditorState prop (passed below).
+    const initialConfig = {
+        namespace: 'collaborative-editor',
+        theme: lexicalTheme,
+        nodes: lexicalNodes,
+        editorState: null,
+        onError: (error: Error) => console.error('Lexical error:', error),
+    }
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
@@ -346,7 +381,8 @@ export function CollaborativeEditor({
                     <CollaborationPlugin
                         id={id}
                         providerFactory={providerFactory}
-                        shouldBootstrap={false}
+                        shouldBootstrap={shouldBootstrap ?? false}
+                        initialEditorState={shouldBootstrap ? initialContent : undefined}
                         username={username}
                         cursorColor={cursorColor}
                     />

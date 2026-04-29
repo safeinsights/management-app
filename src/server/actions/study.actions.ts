@@ -100,18 +100,17 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, orgType, session }) => {
-        const userId = session.user.id
+    .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
             // Reviewer dashboards should not see draft studies
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
         if (orgType === 'lab') {
-            // Lab dashboards: show non-drafts OR user's own drafts
-            query = query
-                .where('study.submittedByOrgId', '=', orgId)
-                .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
+            // Lab dashboards: show every study submitted by the lab (including drafts and
+            // change-requested proposals). Multi-user editing means any lab member can
+            // continue an in-progress draft authored by a colleague.
+            query = query.where('study.submittedByOrgId', '=', orgId)
         }
         return query
             .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
@@ -537,14 +536,20 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
-            return
+            return { submitterFullName: submitter.fullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
-            return
+            return { submitterFullName: submitter.fullName }
         }
 
         // Clarification requests only change the proposal status. Job status rows are reserved for code review.
@@ -560,6 +565,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .execute()
 
         onStudyNeedsClarification({ studyId, userId })
+        return { submitterFullName: submitter.fullName }
     })
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')

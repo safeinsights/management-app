@@ -2,11 +2,13 @@
 
 import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
+import { ReviewSubmissionListener } from './review-submission-listener'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
@@ -169,9 +171,16 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
         handleConfirmSubmit,
         isPending,
     } = useProposalReview({ orgSlug, studyId: study.id })
+    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
+    const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
         <Box bg="grey.10">
+            <ReviewSubmissionListener
+                orgSlug={orgSlug}
+                studyId={study.id}
+                enabled={isCollaborationEnabled && isEditable}
+            />
             <Stack px="xl" gap="xl" py="xl">
                 <PageBreadcrumbs
                     crumbs={[

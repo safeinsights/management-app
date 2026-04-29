@@ -7,7 +7,7 @@ import { throwNotFound } from '@/lib/errors'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
-import { Action, z } from '@/server/actions/action'
+import { Action, ActionFailure, z } from '@/server/actions/action'
 import {
     codeBuildRepositoryUrl,
     deleteFolderContents,
@@ -163,8 +163,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
-        const userId = session.user.id
-
         // Update study fields (only defined values)
         const updatable = [
             'title',
@@ -185,12 +183,19 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         )
 
         if (Object.keys(updateValues).length > 0) {
+            // Allow co-authoring within the submitting lab while the proposal is editable.
+            // The CASL check above scopes the user to their orgs; here we filter to the
+            // editable status set so submitted proposals are immutable.
+            const userLabOrgIds = Object.values(session.orgs)
+                .filter((org) => org.type === 'lab')
+                .map((org) => org.id)
+
             await db
                 .updateTable('study')
                 .set(updateValues)
                 .where('id', '=', studyId)
-                .where('status', '=', 'DRAFT')
-                .where('researcherId', '=', userId)
+                .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
+                .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
                 .execute()
         }
 
@@ -256,13 +261,43 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
     })
 
 // Finalize study submission after files are uploaded
-// This changes the status to PENDING-REVIEW and triggers revalidation
+// First-submit-wins: the conditional UPDATE ensures only one concurrent caller can
+// transition the proposal from DRAFT/CHANGE-REQUESTED to PENDING-REVIEW. Subsequent
+// callers see no rows updated and receive an ActionFailure that the client maps to
+// the multi-user kick-out flow.
 export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId }, session, orgSlug, status }) => {
         const userId = session.user.id
+
+        // APPROVED is included to preserve the legacy code re-submission flow where an
+        // already-approved proposal moves back to PENDING-REVIEW for a new code review.
+        const claimed = await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .where('id', '=', studyId)
+            .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
+            .returning(['id', 'submittedByOrgId'])
+            .executeTakeFirst()
+
+        if (!claimed) {
+            throw new ActionFailure({ submission: 'Proposal has already been submitted' })
+        }
+
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        const reviewerOrg = await db
+            .selectFrom('study')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['org.name as orgName'])
+            .where('study.id', '=', studyId)
+            .executeTakeFirstOrThrow()
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -279,12 +314,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             triggerCodeScan(latestJob.id, orgSlug, studyId)
         }
 
-        await db
-            .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
-
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId })
         } else {
@@ -293,7 +322,11 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
-        return { studyId }
+        return {
+            studyId,
+            submitterFullName: submitter.fullName,
+            orgName: reviewerOrg.orgName,
+        }
     })
 
 // Fetch draft/proposal approved study data for editing
@@ -327,7 +360,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'user.fullName as researcherName',
             ])
             .where('study.id', '=', studyId)
-            .where('study.status', 'in', ['DRAFT', 'APPROVED'])
+            .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
