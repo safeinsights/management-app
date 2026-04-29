@@ -74,10 +74,7 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
                 broadcastProvider.document.transact(() => map.set(SUBMISSION_SENTINEL_KEY, event))
             }
 
-            const redirectTarget = isCollaborationEnabled
-                ? Routes.studyReview({ orgSlug, studyId })
-                : Routes.orgDashboard({ orgSlug })
-            router.push(redirectTarget)
+            router.push(Routes.studyReview({ orgSlug, studyId }))
         },
     })
 
