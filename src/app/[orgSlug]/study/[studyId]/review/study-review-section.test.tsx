@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { StudyReviewSection } from './study-review-section'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
-import type { AnalysisReport } from '@/server/review-agent'
+import type { AnalysisReport } from '@/server/agents/review-agent'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 
 vi.mock('@/server/actions/study-job.actions', () => ({

@@ -8,7 +8,7 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
-import type { AnalysisReport } from '@/server/review-agent'
+import type { AnalysisReport } from '@/server/agents/review-agent'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -111,6 +111,20 @@ function latestJobForStudyQuery(studyId: string) {
         .limit(1)
 }
 
+// Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
+// anchor on real submissions rather than a bare baseline with no files attached.
+function latestSubmittedJobForStudyQuery(studyId: string) {
+    return latestJobForStudyQuery(studyId).where((eb) =>
+        eb.exists(
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.id')
+                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .where('jobStatusChange.status', '!=', 'INITIATED'),
+        ),
+    )
+}
+
 export const latestJobForStudy = async (studyId: string) => {
     return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
@@ -119,49 +133,8 @@ export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJo
     return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
-/**
- * Returns the most recently created studyJob that has progressed past the initial
- * baseline state — i.e. has at least one status change other than INITIATED.
- * Baseline / IDE-init jobs (status sequence: just INITIATED) are skipped, which
- * is what the review page should anchor against so it doesn't get pulled to a
- * bare baseline job that has no files attached.
- */
 export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
-    const row = await Action.db
-        .selectFrom('studyJob')
-        .selectAll('studyJob')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
-                    .orderBy('createdAt', 'desc')
-                    .orderBy('jobStatusChange.id', 'desc')
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
-            ).as('statusChanges'),
-            jsonArrayFrom(
-                eb
-                    .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
-                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
-            ).as('files'),
-        ])
-        .where('studyJob.studyId', '=', studyId)
-        .where((eb) =>
-            eb.exists(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select('jobStatusChange.id')
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .where('jobStatusChange.status', '!=', 'INITIATED'),
-            ),
-        )
-        .orderBy('studyJob.createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-    return row ?? null
+    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -398,21 +371,22 @@ export type StudyReviewWithMeta = {
 export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
     const row = await Action.db
         .selectFrom('studyReview')
-        .select((eb) => [eb.ref('report').$castTo<AnalysisReport>().as('report'), 'generatedAt'])
+        .select((eb) => [
+            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            'generatedAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyReview.studyJobId')
+                    .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    .orderBy('fileType', 'desc')
+                    .orderBy('name', 'asc'),
+            ).as('files'),
+        ])
         .where('studyJobId', '=', studyJobId)
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
-    if (!row) return null
-
-    const files = await Action.db
-        .selectFrom('studyJobFile')
-        .select(['name', 'fileType'])
-        .where('studyJobId', '=', studyJobId)
-        .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
-        .orderBy('fileType', 'desc')
-        .orderBy('name', 'asc')
-        .execute()
-
-    return { report: row.report, generatedAt: row.generatedAt, files }
+    return row ?? null
 }

@@ -1,8 +1,8 @@
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
-import { ReviewAgent } from '@/server/review-agent'
-import type { AnalysisReport, ReviewContent } from '@/server/review-agent'
+import { ReviewAgent } from '.'
+import type { AnalysisReport, ReviewContent } from '.'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 
