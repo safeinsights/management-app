@@ -1,18 +1,16 @@
 import { describe, it, expect, beforeEach, renderHook, faker, type Mock } from '@/tests/unit.helpers'
-import { Doc } from 'yjs'
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 
-import { SUBMISSION_SENTINEL_KEY, useSubmissionRedirectListener } from './use-submission-redirect-listener'
+import { useSubmissionRedirectListener } from './use-submission-redirect-listener'
 
 type Listener = (data: { payload: unknown }) => void
 
 // Minimal Hocuspocus-like provider stand-in for the listener hook. Only implements
-// the surface the hook actually touches: `on('stateless', ...)`, `off`, and `document`.
-function createFakeProvider(doc: Doc) {
+// the surface the hook actually touches: `on('stateless', ...)` and `off`.
+function createFakeProvider() {
     const listeners = new Set<Listener>()
     return {
-        document: doc,
         on(event: string, listener: Listener) {
             if (event === 'stateless') listeners.add(listener)
         },
@@ -31,15 +29,13 @@ describe('useSubmissionRedirectListener', () => {
     let studyId: string
     let currentTabId: string
     let otherTabId: string
-    let doc: Doc
     let provider: ReturnType<typeof createFakeProvider>
 
     beforeEach(() => {
         studyId = faker.string.uuid()
         currentTabId = faker.string.uuid()
         otherTabId = faker.string.uuid()
-        doc = new Doc()
-        provider = createFakeProvider(doc)
+        provider = createFakeProvider()
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
     })
@@ -123,42 +119,6 @@ describe('useSubmissionRedirectListener', () => {
         provider.emitStateless(event)
         provider.emitStateless(event)
         expect(notifications.show).toHaveBeenCalledTimes(1)
-    })
-
-    it('picks up the Y.Map sentinel (Layer 2) on first render', () => {
-        const sentinelMap = doc.getMap(SUBMISSION_SENTINEL_KEY)
-        sentinelMap.set(SUBMISSION_SENTINEL_KEY, {
-            type: 'proposal-submitted',
-            studyId,
-            submittedByTabId: otherTabId,
-            submittedByClerkId: 'user_alice',
-            submittedByName: 'Alice',
-            orgName: 'Atlas DO',
-        })
-
-        mountListener()
-
-        expect(notifications.show).toHaveBeenCalledTimes(1)
-        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/submitted`)
-    })
-
-    it('picks up a late-arriving Y.Map sentinel via observe', () => {
-        mountListener()
-
-        // No sentinel yet → no nav.
-        expect(memoryRouter.asPath).toBe('/start')
-
-        const sentinelMap = doc.getMap(SUBMISSION_SENTINEL_KEY)
-        sentinelMap.set(SUBMISSION_SENTINEL_KEY, {
-            type: 'proposal-review-submitted',
-            studyId,
-            submittedByTabId: otherTabId,
-            submittedByClerkId: 'user_bob',
-            submittedByName: 'Bob',
-        })
-
-        expect(notifications.show).toHaveBeenCalledTimes(1)
-        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 
     it('ignores events for a different studyId', () => {

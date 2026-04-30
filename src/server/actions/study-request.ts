@@ -18,6 +18,7 @@ import {
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
+import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
@@ -35,16 +36,12 @@ const simulateJobScan = deferred(async (studyJobId: string) => {
 // the common case, but a Hocuspocus debounced persist can still commit between
 // the management-app status flip and our in-tx delete (different connections,
 // READ COMMITTED snapshots). Wait long enough for any in-flight persist to land,
-// then re-delete. Once the status-flip is committed, services/editor/auth.ts
-// shouldPersistDocument refuses new writes, so this 5-second window is the
-// upper bound on stragglers.
-const purgeProposalYjsDocsAfterFinalize = deferred(async (studyId: string) => {
+// then re-delete rows whose updatedAt predates the captured submit timestamp.
+// The bound preserves rows from a fast PENDING-REVIEW -> CHANGE-REQUESTED ->
+// reopen-and-edit cycle that lands inside the 5-second window.
+const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
-    await database
-        .deleteFrom('yjsDocument')
-        .where('studyId', '=', studyId)
-        .where('name', 'like', `proposal-${studyId}-%`)
-        .execute()
+    await purgeProposalYjsDocsBeforeAt(database, args)
 })
 
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
@@ -343,9 +340,10 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         // APPROVED is included to preserve the legacy code re-submission flow where an
         // already-approved proposal moves back to PENDING-REVIEW for a new code review.
+        const submittedAt = new Date()
         const claimed = await db
             .updateTable('study')
-            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -404,7 +402,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
-        purgeProposalYjsDocsAfterFinalize(studyId)
+        purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: submittedAt })
 
         return {
             studyId,

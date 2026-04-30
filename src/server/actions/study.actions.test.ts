@@ -22,6 +22,7 @@ import {
     rejectStudyProposalAction,
     submitProposalReviewAction,
 } from './study.actions'
+import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/word-count'
 
 vi.mock('@/server/mailgun', () => ({
@@ -897,6 +898,54 @@ describe('submitProposalReviewAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('PENDING-REVIEW')
+    })
+
+    it('purgeReviewFeedbackYjsDocBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const before = new Date('2026-01-01T00:00:00Z')
+
+        // Stale row from before the captured submit timestamp; should be deleted.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+                updatedAt: before,
+            })
+            .execute()
+
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+        const afterFirstPurge = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(afterFirstPurge).toHaveLength(0)
+
+        // Fresh row from a fast clarification-and-reopen cycle; should survive a bounded purge
+        // whose beforeAt predates this row's updatedAt.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+                updatedAt: new Date('2026-01-01T00:00:10Z'),
+            })
+            .execute()
+
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+        const afterSecondPurge = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(afterSecondPurge).toHaveLength(1)
     })
 
     it('deletes the review-feedback yjs_document so the next round starts fresh', async () => {

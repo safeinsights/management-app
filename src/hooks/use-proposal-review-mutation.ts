@@ -12,7 +12,7 @@ import { useProposalCollaborationFeatureFlag } from '@/components/openstax-featu
 import type { Decision } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
-import { type SubmissionEvent, SUBMISSION_SENTINEL_KEY } from '@/hooks/use-submission-redirect-listener'
+import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitProposalReviewAction } from '@/server/actions/study.actions'
 import { actionResult } from '@/lib/utils'
 import { WS_URL } from '@/server/config'
@@ -44,9 +44,8 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
             document: doc,
             token: async () => (await getToken()) ?? '',
             onAuthenticationFailed: () => {
-                // Auth failures here mean the broadcast event won't go out;
-                // listeners fall through to Layer 2 (Y.Map sentinel via the editor's
-                // own provider) and Layer 3 (status poll). Acceptable degradation.
+                // Auth failures here mean the broadcast event won't go out; listeners
+                // fall through to the status poll for kick-out. Acceptable degradation.
                 console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
             },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
@@ -82,8 +81,6 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
                     submittedByName: result.submitterFullName,
                 }
                 broadcastProvider.sendStateless(JSON.stringify(event))
-                const map = broadcastProvider.document.getMap(SUBMISSION_SENTINEL_KEY)
-                broadcastProvider.document.transact(() => map.set(SUBMISSION_SENTINEL_KEY, event))
             }
 
             router.push(Routes.studyReview({ orgSlug, studyId }))

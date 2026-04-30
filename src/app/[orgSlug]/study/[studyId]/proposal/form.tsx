@@ -88,7 +88,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
-        fieldsMap: yjsForm.fieldsMap ?? undefined,
         orgSlug,
         studyId,
         currentTabId: tabSessionId,

@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
 
 import { Routes } from '@/lib/routes'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
@@ -27,8 +26,6 @@ export type SubmissionEvent =
           submittedByClerkId: string
           submittedByName: string
       }
-
-const SUBMISSION_KEY = '_submission'
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
@@ -78,15 +75,8 @@ const tryDecodeStateless = (payload: unknown): SubmissionEvent | null => {
 }
 
 type Args = {
-    /** Provider whose stateless channel and Y.Doc map carry the submission event. */
+    /** Provider whose stateless channel carries the submission event. */
     provider: HocuspocusProvider | null
-    /**
-     * The form-level Y.Map (already obtained via `ydoc.getMap('fields')`) for Layer 2
-     * sentinel pickup. Pass undefined when the listener is mounted on a doc without
-     * a structured fields map (e.g. the DO review-feedback doc) — Layer 2 falls back
-     * to a sentinel stored under the same key on the root Y.Map of the doc.
-     */
-    fieldsMap?: Y.Map<unknown>
     orgSlug: string
     studyId: string
     /**
@@ -100,14 +90,7 @@ type Args = {
     enabled?: boolean
 }
 
-export function useSubmissionRedirectListener({
-    provider,
-    fieldsMap,
-    orgSlug,
-    studyId,
-    currentTabId,
-    enabled = true,
-}: Args) {
+export function useSubmissionRedirectListener({ provider, orgSlug, studyId, currentTabId, enabled = true }: Args) {
     const router = useRouter()
     const hasFiredRef = useRef(false)
 
@@ -154,26 +137,8 @@ export function useSubmissionRedirectListener({
 
         provider.on('stateless', onStateless)
 
-        const target: Y.Map<unknown> = fieldsMap ?? provider.document.getMap(SUBMISSION_KEY)
-        // Layer 2: late-arriving sync of the persisted CRDT key.
-        const initial = target.get(SUBMISSION_KEY)
-        if (initial !== undefined) {
-            const event = tryDecodeStateless(initial)
-            if (event) handle(event)
-        }
-        const onMapChange = () => {
-            const current = target.get(SUBMISSION_KEY)
-            if (current === undefined) return
-            const event = tryDecodeStateless(current)
-            if (event) handle(event)
-        }
-        target.observe(onMapChange)
-
         return () => {
             provider.off('stateless', onStateless)
-            target.unobserve(onMapChange)
         }
-    }, [provider, fieldsMap, orgSlug, studyId, currentTabId, enabled, router])
+    }, [provider, orgSlug, studyId, currentTabId, enabled, router])
 }
-
-export const SUBMISSION_SENTINEL_KEY = SUBMISSION_KEY

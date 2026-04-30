@@ -15,7 +15,6 @@ export type CollabFieldKey = 'title' | 'datasets' | 'piName' | 'piUserId'
 
 const COLLAB_FIELD_KEYS: CollabFieldKey[] = ['title', 'datasets', 'piName', 'piUserId']
 const FIELDS_MAP_NAME = 'fields'
-const SUBMISSION_KEY = '_submission'
 
 const LOCAL_ORIGIN = Symbol('use-yjs-form-map.local')
 
@@ -33,7 +32,6 @@ type Return = {
     isSynced: boolean
     pushField: <K extends CollabFieldKey>(key: K, value: ProposalFormValues[K]) => void
     pushPI: (piUserId: string, piName: string) => void
-    setSubmissionSentinel: (payload: unknown) => void
 }
 
 const equalArrays = (a: unknown, b: unknown) =>
@@ -147,10 +145,6 @@ export function useYjsFormMap({ studyId, form, websocketProvider, enabled }: Arg
                     fieldsMap.set('piUserId', piUserId)
                     fieldsMap.set('piName', piName)
                 }, LOCAL_ORIGIN)
-            },
-            setSubmissionSentinel(payload) {
-                if (!fieldsMap) return
-                fieldsMap.doc?.transact(() => fieldsMap.set(SUBMISSION_KEY, payload), LOCAL_ORIGIN)
             },
         }),
         [provider, fieldsMap, isSynced],

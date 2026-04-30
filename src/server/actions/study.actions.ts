@@ -15,6 +15,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
+import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
     onStudyApproved,
@@ -517,12 +518,12 @@ async function insertReviewerProposalComment({
 // but a Hocuspocus debounced persist for the review-feedback doc can still
 // commit between the management-app status flip and our in-tx delete (different
 // connections, READ COMMITTED snapshots). Wait long enough for any in-flight
-// persist to land, then re-delete. Once the status-flip is committed,
-// services/editor/auth.ts shouldPersistDocument refuses new writes for review
-// docs whose study has left PENDING-REVIEW.
-const purgeReviewFeedbackYjsDocAfterSubmit = deferred(async (studyId: string) => {
+// persist to land, then re-delete the row only when its updatedAt predates the
+// captured submit timestamp. The bound preserves rows from a fast clarification
+// -> reopen cycle that lands inside the 5-second window.
+const purgeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
-    await database.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
+    await purgeReviewFeedbackYjsDocBeforeAt(database, args)
 })
 
 export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
@@ -553,6 +554,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             })
         }
 
+        const submittedAt = new Date()
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
@@ -570,13 +572,13 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
-            purgeReviewFeedbackYjsDocAfterSubmit(studyId)
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
             return { submitterFullName: submitter.fullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
-            purgeReviewFeedbackYjsDocAfterSubmit(studyId)
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
             return { submitterFullName: submitter.fullName }
         }
 
@@ -593,7 +595,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .execute()
 
         onStudyNeedsClarification({ studyId, userId })
-        purgeReviewFeedbackYjsDocAfterSubmit(studyId)
+        purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
         return { submitterFullName: submitter.fullName }
     })
 

@@ -23,6 +23,7 @@ import {
     finalizeStudySubmissionAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
+import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/word-count'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
@@ -498,6 +499,45 @@ describe('Request Study Actions', () => {
             const remainingNames = remaining.map((r) => r.name).sort()
             // Proposal docs gone; review-feedback row untouched (DO submit owns that one).
             expect(remainingNames).toEqual([`review-feedback-${study.id}`])
+        })
+
+        it('purgeProposalYjsDocsBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org })
+
+            const before = new Date('2026-01-01T00:00:00Z')
+            const after = new Date('2026-01-01T00:00:10Z')
+
+            // Stale row from before the captured submit timestamp; should be deleted.
+            await db
+                .insertInto('yjsDocument')
+                .values({
+                    name: `proposal-${study.id}-fields`,
+                    studyId: study.id,
+                    data: Buffer.from([0]),
+                    updatedAt: before,
+                })
+                .execute()
+
+            // Fresh row from a fast reopen-and-edit cycle; should survive the bounded purge.
+            await db
+                .insertInto('yjsDocument')
+                .values({
+                    name: `proposal-${study.id}-research-questions`,
+                    studyId: study.id,
+                    data: Buffer.from([0]),
+                    updatedAt: after,
+                })
+                .execute()
+
+            await purgeProposalYjsDocsBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+            const remaining = await db
+                .selectFrom('yjsDocument')
+                .select(['name'])
+                .where('studyId', '=', study.id)
+                .execute()
+            expect(remaining.map((r) => r.name)).toEqual([`proposal-${study.id}-research-questions`])
         })
 
         it('onUpdateDraftStudyAction allows another lab member to edit a CHANGE-REQUESTED draft', async () => {

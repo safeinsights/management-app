@@ -47,10 +47,9 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
                 orgName: result.orgName,
             }
             const payload = JSON.stringify(event)
-            // Layer 1: instant push to all connected peers.
+            // Instant push to all connected peers; tabs that miss it fall through to
+            // the 10-second status poll mounted in the proposal form.
             yjsForm.provider?.sendStateless(payload)
-            // Layer 2: sentinel persists in CRDT for briefly-disconnected peers.
-            yjsForm.setSubmissionSentinel(event)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
         onError: reportMutationError('Failed to submit proposal'),
