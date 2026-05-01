@@ -153,7 +153,7 @@ describe('CodePostSubmissionView', () => {
             expect(viewAnchor.getAttribute('href')).toMatch(new RegExp(`/dl/study-code/${job.id}/main.R$`))
         })
 
-        it('collapses when "Hide full study code" is clicked', async () => {
+        it('collapses when the in-section "Hide full study code" anchor is clicked', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
@@ -162,7 +162,14 @@ describe('CodePostSubmissionView', () => {
             await interact.click(toggle)
             expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
-            await interact.click(toggle)
+            // When expanded, "Hide full study code" appears twice: once as the top toggle's
+            // label, once as the in-section anchor at the bottom of the collapse. Click the
+            // in-section one (the entry that is not the toggle button).
+            const hideLabels = screen.getAllByText('Hide full study code')
+            const inSectionHide = hideLabels.find((el) => el.closest('[data-testid="study-code-toggle"]') === null)
+            expect(inSectionHide).toBeDefined()
+            await interact.click(inSectionHide!)
+
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
         })
     })
