@@ -101,10 +101,7 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
  * the user's question, calls `continueChat`, persists the new `messages`
  * back. Stateless — survives process restarts and queue retries.
  */
-export async function generateAnalysis(
-    config: ReviewAgentConfig,
-    content: ReviewContent,
-): Promise<AnalysisResult> {
+export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
 

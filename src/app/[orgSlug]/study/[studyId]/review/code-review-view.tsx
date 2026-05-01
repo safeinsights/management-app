@@ -16,9 +16,6 @@ type CodeReviewViewProps = {
 }
 
 export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
-    // Anchor on the latest CODE-SUBMITTED job (skip baseline / IDE-init jobs).
-    // Ensures the code shown, the review row, and the files list are all from
-    // the same most-recent submission.
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -49,10 +46,6 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                {/* TODO: add explicit `studyReview.status` column
-                    ('PENDING' | 'COMPLETE' | 'FAILED') so the client poller can
-                    distinguish in-progress from a silent failure — today a null
-                    row is always shown as "in progress". */}
                 <StudyReviewSection studyJobId={job.id} initialReview={review} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
