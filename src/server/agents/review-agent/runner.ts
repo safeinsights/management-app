@@ -1,8 +1,8 @@
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
-import { generateAnalysis } from '.'
-import type { AnalysisReport, ReviewContent } from '.'
+import { generateAnalysis } from './agent'
+import type { ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 
@@ -115,7 +115,15 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
     if (!content) return
 
     const apiKey = await getConfigValue('CLAUDE_API_KEY')
-    const report: AnalysisReport = await generateAnalysis({ apiKey }, content)
+
+    // TODO(SI-Admin): once the SI Admin org-level config schema lands, fetch
+    // `systemPrompt` and `analysisPromptTemplate` overrides for `job.orgId`
+    // and pass them through. Agent already honors them — only the lookup is
+    // missing. Until then, both fall back to the bundled defaults.
+    // TODO(chat): persist `messages` alongside `report` (e.g. add a
+    // `conversation jsonb` column on studyReview) once chat follow-up lands
+    // (target: before Oct 2026). Seed for `continueChat`.
+    const { report } = await generateAnalysis({ apiKey }, content)
 
     await db
         .insertInto('studyReview')

@@ -61,3 +61,22 @@ export interface AnalysisReport {
         findings: string[]
     }
 }
+
+/**
+ * Single message in a review conversation. Stored alongside the report so
+ * future follow-up chats (target: before Oct 2026) can resume by appending
+ * a new user turn and calling `continueChat(config, messages, userMessage)`.
+ */
+export interface ReviewMessage {
+    role: 'user' | 'assistant'
+    content: string
+}
+
+/**
+ * Result of `generateAnalysis`. `messages` is the seed conversation
+ * (analysis prompt + serialized report) to persist for chat continuation.
+ */
+export interface AnalysisResult {
+    report: AnalysisReport
+    messages: ReviewMessage[]
+}

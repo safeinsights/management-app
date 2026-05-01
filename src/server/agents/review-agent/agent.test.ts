@@ -27,10 +27,22 @@ describe('generateAnalysis', () => {
     it('returns the structured report from a tool_use block', async () => {
         const { client, create } = makeClient(toolUseBlock)
 
-        const report = await generateAnalysis({ client }, baseContent)
+        const result = await generateAnalysis({ client }, baseContent)
 
-        expect(report).toEqual(baseReport)
+        expect(result.report).toEqual(baseReport)
         expect(create).toHaveBeenCalledOnce()
+    })
+
+    it('returns a conversation seed (messages) for chat continuation', async () => {
+        const { client } = makeClient(toolUseBlock)
+
+        const { messages } = await generateAnalysis({ client }, baseContent)
+
+        expect(messages).toHaveLength(2)
+        expect(messages[0].role).toBe('user')
+        expect(messages[0].content).toContain('main.r')
+        expect(messages[1].role).toBe('assistant')
+        expect(JSON.parse(messages[1].content)).toEqual(baseReport)
     })
 
     it('passes config overrides to the client', async () => {

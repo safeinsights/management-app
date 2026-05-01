@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
-import type { AnalysisReport, ReviewAgentConfig, ReviewContent } from './types'
+import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
 const DEFAULT_MAX_TOKENS = 4096
@@ -85,7 +85,26 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
     return toolUse.input as AnalysisReport
 }
 
-export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisReport> {
+/**
+ * Run a one-shot structured review. Returns the parsed report plus the
+ * conversation seed (`messages`) — persist `messages` to enable chat follow-up.
+ *
+ * Future chat extension (target: before Oct 2026) — add alongside this fn:
+ *
+ *     export async function continueChat(
+ *         config: ReviewAgentConfig,
+ *         messages: ReviewMessage[],
+ *         userMessage: string,
+ *     ): Promise<{ reply: string; messages: ReviewMessage[] }>
+ *
+ * Caller (server action) loads `messages` from the studyReview row, appends
+ * the user's question, calls `continueChat`, persists the new `messages`
+ * back. Stateless — survives process restarts and queue retries.
+ */
+export async function generateAnalysis(
+    config: ReviewAgentConfig,
+    content: ReviewContent,
+): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
 
@@ -98,5 +117,12 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
         messages: [{ role: 'user', content: prompt }],
     })
 
-    return extractReport(response)
+    const report = extractReport(response)
+
+    const messages: ReviewMessage[] = [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: JSON.stringify(report) },
+    ]
+
+    return { report, messages }
 }
