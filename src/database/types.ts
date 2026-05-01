@@ -275,6 +275,13 @@ export interface UserPublicKey {
     userId: string
 }
 
+export interface YjsDocument {
+    data: Buffer
+    name: string
+    studyId: string
+    updatedAt: Generated<Timestamp>
+}
+
 export interface DB {
     audit: Audit
     codeScan: CodeScan
@@ -294,6 +301,7 @@ export interface DB {
     studyReview: StudyReview
     user: User
     userPublicKey: UserPublicKey
+    yjsDocument: YjsDocument
 }
 
 export type FileType = StudyJobFileType
