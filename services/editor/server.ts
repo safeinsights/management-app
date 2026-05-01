@@ -49,7 +49,7 @@ async function resolvePoolConfig(): Promise<pg.PoolConfig> {
 const pool = new pg.Pool(await resolvePoolConfig())
 
 const server = new Server({
-    port: 1234,
+    port: 4001,
     debounce: TYPING_DEBOUNCE_MS,
     maxDebounce: MAX_SAVE_INTERVAL_MS,
     extensions: [

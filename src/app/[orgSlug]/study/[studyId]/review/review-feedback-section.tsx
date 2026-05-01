@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
-import { WS_URL } from '@/server/config'
+import { WS_URL } from '@/lib/config'
 
 const CollaborativeEditor = dynamic(
     () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),

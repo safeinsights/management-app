@@ -1,5 +1,4 @@
-'use server'
-// use server needed to read env vars
+import 'server-only' // will throw if this file is imported into a client component
 
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
@@ -35,7 +34,6 @@ export const PROD_BUILD = process.env.NODE_ENV === 'production'
 export const PROD_ENV = ENVIRONMENT_ID == 'production'
 export const STAGING_ENV = ENVIRONMENT_ID == 'staging'
 export const DEPLOYED_ENV = !CI_ENV && ENVIRONMENT_ID !== 'local'
-export const WS_URL = DEPLOYED_ENV ? '/ws' : 'ws://localhost:1234'
 export const CODER_DISABLED = Boolean(CI_ENV || DEV_ENV)
 
 export const APP_BASE_URL = `http${PROD_BUILD ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
