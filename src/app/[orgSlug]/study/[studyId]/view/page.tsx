@@ -1,13 +1,21 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { latestJobForStudyOrNull } from '@/server/db/queries'
+import { getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import type { StudyJobStatus } from '@/database/types'
+import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
+import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
+
+const CODE_UNDER_REVIEW_STATUSES = ['CODE-SUBMITTED', 'CODE-SCANNED'] satisfies readonly StudyJobStatus[]
+
+const isUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
+    !!status && (CODE_UNDER_REVIEW_STATUSES as readonly StudyJobStatus[]).includes(status)
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -28,8 +36,31 @@ export default async function StudyReviewPage(props: {
     // When the researcher navigates back from agreements (?from=agreements), show the read-only
     // proposal view instead so they can reach the proposal even after submitting code.
     const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
-    if (job && codeSubmitted && !fromAgreements)
+    if (job && codeSubmitted && !fromAgreements) {
+        const latestJobStatus = job.statusChanges[0]?.status
+        const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
+
+        if (isUnderReview) {
+            const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            return (
+                <PostCodeSubmissionFeatureFlag
+                    defaultContent={
+                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+                    }
+                    optInContent={
+                        <CodePostSubmissionView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
+                            reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                        />
+                    }
+                />
+            )
+        }
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+    }
 
     const showProposalView =
         study.status === 'REJECTED' ||
