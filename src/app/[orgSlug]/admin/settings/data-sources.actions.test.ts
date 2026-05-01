@@ -32,16 +32,52 @@ describe('Data Source Actions', () => {
                 orgSlug: org.slug,
                 name: 'Some Records',
                 description: 'De-identified patient data',
-                documentationUrl: 'https://example.com/docs',
+                documents: [],
             }),
         )
 
         expect(result.name).toEqual('Some Records')
         expect(result.description).toEqual('De-identified patient data')
-        expect(result.documentationUrl).toEqual('https://example.com/docs')
+        expect(result.documents).toEqual([])
     })
 
-    it('coerces empty description and documentationUrl to null', async () => {
+    it('creates a data source with documents', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = actionResult(
+            await createOrgDataSourceAction({
+                orgSlug: org.slug,
+                name: 'Some Records',
+                description: 'De-identified patient data',
+                documents: [
+                    {
+                        url: 'https://example.com/docs1',
+                        description: 'Example docs1 desc',
+                    },
+                    {
+                        url: 'https://example.com/docs2',
+                        description: 'Example docs2 desc',
+                    },
+                ],
+            }),
+        )
+
+        expect(result.name).toEqual('Some Records')
+        expect(result.description).toEqual('De-identified patient data')
+        expect(result.documents).toHaveLength(2)
+        expect(result.documents).toContainEqual({
+            id: expect.any(String),
+            url: 'https://example.com/docs1',
+            description: 'Example docs1 desc',
+        })
+        expect(result.documents).toContainEqual({
+            id: expect.any(String),
+            url: 'https://example.com/docs2',
+            description: 'Example docs2 desc',
+        })
+    })
+
+    it('coerces empty description to null', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const result = actionResult(
@@ -49,18 +85,27 @@ describe('Data Source Actions', () => {
                 orgSlug: org.slug,
                 name: 'Minimal Source',
                 description: '',
-                documentationUrl: '',
+                documents: [],
             }),
         )
 
         expect(result.description).toBeNull()
-        expect(result.documentationUrl).toBeNull()
     })
 
-    it('fetches data sources with codeEnvs', async () => {
+    it('fetches data sources with codeEnvs and documents', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, name: 'R 4.3 Env', language: 'R' })
-        await insertTestDataSource({ orgId: org.id, codeEnvIds: [codeEnv.id], name: 'Test DS' })
+        await insertTestDataSource({
+            orgId: org.id,
+            codeEnvIds: [codeEnv.id],
+            name: 'Test DS',
+            documents: [
+                {
+                    url: 'https://example.com/docs',
+                    description: 'Example docs desc',
+                },
+            ],
+        })
 
         const result = actionResult(await fetchOrgDataSourcesAction({ orgSlug: org.slug }))
 
@@ -68,11 +113,26 @@ describe('Data Source Actions', () => {
         expect(result[0].name).toEqual('Test DS')
         expect(result[0].codeEnvs).toHaveLength(1)
         expect(result[0].codeEnvs[0].name).toEqual('R 4.3 Env')
+        expect(result[0].documents).toHaveLength(1)
+        expect(result[0].documents).toContainEqual({
+            id: expect.any(String),
+            url: 'https://example.com/docs',
+            description: 'Example docs desc',
+        })
     })
 
     it('updates data source fields', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const ds = await insertTestDataSource({ orgId: org.id, name: 'Original' })
+        const ds = await insertTestDataSource({
+            orgId: org.id,
+            name: 'Original',
+            documents: [
+                {
+                    url: 'https://example.com/docs',
+                    description: 'Example docs desc',
+                },
+            ],
+        })
 
         const result = actionResult(
             await updateOrgDataSourceAction({
@@ -80,13 +140,68 @@ describe('Data Source Actions', () => {
                 dataSourceId: ds.id,
                 name: 'Updated',
                 description: 'New desc',
-                documentationUrl: 'https://example.com/new',
+                documents: [
+                    {
+                        id: ds.documents[0].id,
+                        url: 'https://example.com/docupdates',
+                        description: 'Updated example docs desc',
+                    },
+                ],
             }),
         )
 
         expect(result.name).toEqual('Updated')
         expect(result.description).toEqual('New desc')
-        expect(result.documentationUrl).toEqual('https://example.com/new')
+        expect(result.documents).toHaveLength(1)
+        expect(result.documents).toContainEqual({
+            id: ds.documents[0].id,
+            url: 'https://example.com/docupdates',
+            description: 'Updated example docs desc',
+        })
+    })
+
+    it('updates data source docs with new entries and removals', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const ds = await insertTestDataSource({
+            orgId: org.id,
+            name: 'Original',
+            documents: [
+                {
+                    url: 'https://example.com/docs',
+                    description: 'Example docs desc',
+                },
+            ],
+        })
+
+        const result = actionResult(
+            await updateOrgDataSourceAction({
+                orgSlug: org.slug,
+                dataSourceId: ds.id,
+                name: 'Updated',
+                documents: [
+                    {
+                        url: 'https://example.com/newdocs',
+                        description: 'New docs desc',
+                    },
+                ],
+            }),
+        )
+
+        expect(result.name).toEqual('Updated')
+        expect(result.documents).toHaveLength(1)
+        expect(result.documents).toContainEqual({
+            id: expect.any(String),
+            url: 'https://example.com/newdocs',
+            description: 'New docs desc',
+        })
+        expect(result.documents[0].id).not.toEqual(ds.documents[0].id)
+
+        const deletedDocument = await db
+            .selectFrom('orgDataSourceDocument')
+            .selectAll('orgDataSourceDocument')
+            .where('id', '=', ds.documents[0].id)
+            .execute()
+        expect(deletedDocument).toHaveLength(0)
     })
 
     it('deletes a data source and cascades join rows', async () => {
@@ -99,12 +214,19 @@ describe('Data Source Actions', () => {
         const deleted = await db.selectFrom('orgDataSource').where('id', '=', ds.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
 
-        const joinRows = await db
+        const joinCodeEnvRows = await db
             .selectFrom('orgDataSourceCodeEnv')
             .selectAll('orgDataSourceCodeEnv')
             .where('dataSourceId', '=', ds.id)
             .execute()
-        expect(joinRows).toHaveLength(0)
+        expect(joinCodeEnvRows).toHaveLength(0)
+
+        const joinDocumentRows = await db
+            .selectFrom('orgDataSourceDocument')
+            .selectAll('orgDataSourceDocument')
+            .where('orgDataSourceId', '=', ds.id)
+            .execute()
+        expect(joinDocumentRows).toHaveLength(0)
     })
 
     it('denies non-admin from creating data sources', async () => {
@@ -113,6 +235,7 @@ describe('Data Source Actions', () => {
         const result = await createOrgDataSourceAction({
             orgSlug: org.slug,
             name: 'Should Fail',
+            documents: [],
         })
 
         expect(isActionError(result)).toBe(true)
