@@ -68,7 +68,12 @@ export function CodePostSubmissionView({
                         )}
                     </Group>
                     <Divider my="md" />
-                    <Alert color="yellow" mt="md" data-testid="code-under-review-banner">
+                    <Alert
+                        color="yellow"
+                        mt="md"
+                        data-testid="code-under-review-banner"
+                        style={{ backgroundColor: '#FFF9E5' }}
+                    >
                         Your study code has been successfully submitted to {displayOrgName(reviewingOrgName)}. They will
                         review it and respond with feedback, follow-up questions, or a decision. You&apos;ll receive
                         email notifications as your code progresses through the review process. Please allow an

@@ -101,6 +101,14 @@ describe('CodePostSubmissionView', () => {
             expect(banner).toHaveTextContent(/7-10 days/)
             expect(banner).toHaveTextContent(/successfully submitted/)
         })
+
+        it('renders the banner with the AC-specified background color #FFF9E5', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job)
+
+            const banner = screen.getByTestId('code-under-review-banner')
+            expect(banner).toHaveStyle({ backgroundColor: '#FFF9E5' })
+        })
     })
 
     describe('submitted code section', () => {
