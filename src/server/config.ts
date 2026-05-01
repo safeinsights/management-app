@@ -1,3 +1,7 @@
+import 'server-only' // Throws when imported into a client component bundle.
+// CLI entry points (kysely migrations, validate-actions, etc.) opt out by running
+// node/tsx with `--conditions=react-server`, which resolves server-only to a no-op.
+
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'

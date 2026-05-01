@@ -156,7 +156,7 @@ jobs:
               run: docker logs seaweedfs 2>&1 || true
               if: failure()
             - name: Delete any test users created
-              run: npx tsx ./bin/delete-clerk-test-users.ts
+              run: NODE_OPTIONS='--conditions=react-server' npx tsx ./bin/delete-clerk-test-users.ts
               if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
