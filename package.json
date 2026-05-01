@@ -33,9 +33,9 @@
         "checks": "concurrently 'npm:typecheck' 'npm:lint' 'npm:validate-actions'",
         "test:e2e": "playwright test",
         "test:e2e:debug": "playwright test --ui --headed --debug",
-        "test:unit": "NODE_OPTIONS='--conditions=react-server' vitest",
+        "test:unit": "vitest",
         "test": "concurrently 'npm:test:*'",
-        "test:coverage": "NODE_OPTIONS='--conditions=react-server' tsx tests/merged-coverage.ts",
+        "test:coverage": "tsx tests/merged-coverage.ts",
         "pre:commit": "npx lint-staged",
         "update-all-packages": "npx npm-check-updates -u"
     },
