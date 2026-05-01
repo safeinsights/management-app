@@ -1,5 +1,3 @@
-import 'server-only' // will throw if this file is imported into a client component
-
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
