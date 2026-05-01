@@ -1,6 +1,6 @@
 import { PostgresDialect } from 'kysely'
 import PG from 'pg'
-import { databaseURL, DEPLOYED_ENV } from '../server/config'
+import { databaseURL, DEPLOYED_ENV } from './env'
 
 export const dialect = new PostgresDialect({
     pool: async () => {
