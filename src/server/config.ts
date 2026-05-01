@@ -1,3 +1,6 @@
+'use server'
+// use server needed to read env vars
+
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
