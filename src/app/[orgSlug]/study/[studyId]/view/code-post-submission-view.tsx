@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState, type FC } from 'react'
 import { Alert, Anchor, Button, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -20,6 +20,27 @@ interface CodePostSubmissionViewProps {
     dashboardHref?: string
 }
 
+function useExpandable(initial = false) {
+    const [expanded, setExpanded] = useState(initial)
+    const toggle = useCallback(() => setExpanded((prev) => !prev), [])
+    const collapse = useCallback(() => setExpanded(false), [])
+    return { expanded, toggle, collapse }
+}
+
+const getCodeSubmittedDate = (job: LatestJobForStudy): string | null => {
+    const row = job.statusChanges.find((s) => s.status === 'CODE-SUBMITTED')
+    return row ? dayjs(row.createdAt).format('MMM DD, YYYY') : null
+}
+
+const SubmittedTimestamp: FC<{ submittedOn: string | null }> = ({ submittedOn }) => {
+    if (!submittedOn) return null
+    return (
+        <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
+            Submitted on {submittedOn}
+        </Text>
+    )
+}
+
 export function CodePostSubmissionView({
     orgSlug,
     study,
@@ -27,11 +48,9 @@ export function CodePostSubmissionView({
     reviewingOrgName,
     dashboardHref,
 }: CodePostSubmissionViewProps) {
-    const [expanded, setExpanded] = useState(false)
+    const { expanded, toggle, collapse } = useExpandable()
 
-    const submittedAtRow = job.statusChanges.find((s) => s.status === 'CODE-SUBMITTED')
-    const submittedOn = submittedAtRow ? dayjs(submittedAtRow.createdAt).format('MMM DD, YYYY') : null
-
+    const submittedOn = getCodeSubmittedDate(job)
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
@@ -43,6 +62,7 @@ export function CodePostSubmissionView({
     ]
 
     const toggleLabel = expanded ? 'Hide full study code' : 'View full study code'
+    const caretRotation = expanded ? 'rotate(-90deg)' : 'rotate(0deg)'
 
     return (
         <Stack p="xl" gap="xl">
@@ -61,11 +81,7 @@ export function CodePostSubmissionView({
                         <Text c="charcoal.9" style={{ maxWidth: '60ch', wordBreak: 'break-word' }}>
                             Title: {study.title}
                         </Text>
-                        {submittedOn && (
-                            <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
-                                Submitted on {submittedOn}
-                            </Text>
-                        )}
+                        <SubmittedTimestamp submittedOn={submittedOn} />
                     </Group>
                     <Divider my="md" />
                     <Alert
@@ -83,7 +99,7 @@ export function CodePostSubmissionView({
                         component="button"
                         size="sm"
                         fw={700}
-                        onClick={() => setExpanded((p) => !p)}
+                        onClick={toggle}
                         mt="md"
                         display="inline-flex"
                         style={{ alignItems: 'center', gap: 4 }}
@@ -91,13 +107,7 @@ export function CodePostSubmissionView({
                         data-testid="study-code-toggle"
                     >
                         {toggleLabel}
-                        <CaretRightIcon
-                            size={12}
-                            style={{
-                                transition: 'transform 200ms',
-                                transform: expanded ? 'rotate(-90deg)' : 'rotate(0deg)',
-                            }}
-                        />
+                        <CaretRightIcon size={12} style={{ transition: 'transform 200ms', transform: caretRotation }} />
                     </Anchor>
                 </Paper>
 
@@ -115,7 +125,7 @@ export function CodePostSubmissionView({
                                 component="button"
                                 size="sm"
                                 fw={700}
-                                onClick={() => setExpanded(false)}
+                                onClick={collapse}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                             >
                                 Hide full study code

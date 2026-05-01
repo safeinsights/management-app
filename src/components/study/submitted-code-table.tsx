@@ -23,18 +23,20 @@ const formatUpdatedAt = (date: Date | string) =>
 
 const SubmittedCodeRow: FC<{ jobId: string; file: SubmittedFile }> = ({ jobId, file }) => {
     const isMain = file.fileType === 'MAIN-CODE'
+    const starWeight = isMain ? 'fill' : 'regular'
+    const starColor = isMain ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'
+    const starLabel = isMain ? 'Main file' : 'Supplemental file'
+    const tooltipDisabled = file.name.length <= 48
+    const fileHref = studyCodeURL(jobId, file.name)
+    const lastUpdated = formatUpdatedAt(file.createdAt)
+
     return (
         <Table.Tr>
             <Table.Td>
-                <StarIcon
-                    size={20}
-                    weight={isMain ? 'fill' : 'regular'}
-                    color={isMain ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'}
-                    aria-label={isMain ? 'Main file' : 'Supplemental file'}
-                />
+                <StarIcon size={20} weight={starWeight} color={starColor} aria-label={starLabel} />
             </Table.Td>
             <Table.Td>
-                <Tooltip label={file.name} disabled={file.name.length <= 48}>
+                <Tooltip label={file.name} disabled={tooltipDisabled}>
                     <Text truncate="end" maw={380}>
                         {file.name}
                     </Text>
@@ -42,14 +44,14 @@ const SubmittedCodeRow: FC<{ jobId: string; file: SubmittedFile }> = ({ jobId, f
             </Table.Td>
             <Table.Td>
                 <Text size="sm" c="dimmed">
-                    {formatUpdatedAt(file.createdAt)}
+                    {lastUpdated}
                 </Text>
             </Table.Td>
             <Table.Td>
                 <Group gap="xs">
                     <ActionIcon
                         component="a"
-                        href={studyCodeURL(jobId, file.name)}
+                        href={fileHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         variant="subtle"
@@ -73,6 +75,8 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
         )
     }
 
+    const rowElements = files.map((file) => <SubmittedCodeRow key={file.name} jobId={jobId} file={file} />)
+
     return (
         <>
             <Table highlightOnHover verticalSpacing="md" data-testid="submitted-code-table">
@@ -84,11 +88,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
                         <Table.Th w={80}>Actions</Table.Th>
                     </Table.Tr>
                 </Table.Thead>
-                <Table.Tbody>
-                    {files.map((file) => (
-                        <SubmittedCodeRow key={file.name} jobId={jobId} file={file} />
-                    ))}
-                </Table.Tbody>
+                <Table.Tbody>{rowElements}</Table.Tbody>
             </Table>
             <Divider />
         </>
