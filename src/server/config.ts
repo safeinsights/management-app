@@ -1,11 +1,4 @@
-import 'server-only' // Throws when imported into a client component bundle.
-// CLI entry points (tsx-driven scripts, vitest) opt out via NODE_OPTIONS=--conditions=react-server.
-// kysely-ctl loads config through jiti, which ignores Node's --conditions flag — its dialect
-// imports databaseURL from src/database/env.ts directly to avoid this file entirely.
-
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
-
-export { databaseURL } from '@/database/env'
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
@@ -77,6 +70,24 @@ export async function getConfigValue(key: string, throwIfNotFound = true): Promi
     if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
 
     return secret[key]
+}
+
+type DBSecrets = {
+    dbClusterIdentifier: string
+    password: string
+    dbname: string
+    engine: string
+    port: string
+    host: string
+    username: string
+}
+
+export async function databaseURL(): Promise<string> {
+    if (process.env['DATABASE_URL']) return process.env['DATABASE_URL']
+
+    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN', 'DATABASE_URL', true)
+
+    return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }
 
 export type SSOCookieConfig = {

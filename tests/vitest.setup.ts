@@ -1,10 +1,5 @@
 import 'dotenv/config' // read .env file before other imports, to match Next.js default
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
-
-// `server-only` throws on import outside React Server Component contexts. Tests run
-// in a Node + happy-dom context that vitest treats as client, so any test file that
-// transitively imports src/server/config.ts would explode at parse time. Stub it.
-vi.mock('server-only', () => ({}))
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/actions/action'
 import { createTempDir } from '@/tests/unit.helpers'
