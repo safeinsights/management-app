@@ -67,11 +67,13 @@ async function resolvePoolConfig(): Promise<pg.PoolConfig> {
 const pool = new pg.Pool(await resolvePoolConfig())
 pool.on('error', (err) => log('db.pool.error', { message: err.message }))
 
-// Background ping: don't block startup so the /health endpoint comes up
-// before the ELB grace period expires.
-pool.query<{ now: Date }>('SELECT now() AS now')
-    .then((ping) => log('db.ping.ok', { now: ping.rows[0]?.now }))
-    .catch((err) => log('db.ping.fail', { message: err instanceof Error ? err.message : String(err) }))
+try {
+    const ping = await pool.query<{ now: Date }>('SELECT now() AS now')
+    log('db.ping.ok', { now: ping.rows[0]?.now })
+} catch (err) {
+    log('db.ping.fail', { message: err instanceof Error ? err.message : String(err) })
+    throw err
+}
 
 const server = new Server({
     port: 4001,
@@ -213,7 +215,5 @@ const server = new Server({
     },
 })
 
-// Don't await: Hocuspocus' listen() resolves on shutdown, not on startup,
-// so awaiting blocks forever and the /health endpoint never starts responding.
-server.listen()
+await server.listen()
 log('listening', { port: 4001 })
