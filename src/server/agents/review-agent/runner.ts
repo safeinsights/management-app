@@ -1,7 +1,7 @@
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
-import { ReviewAgent } from '.'
+import { generateAnalysis } from '.'
 import type { AnalysisReport, ReviewContent } from '.'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
@@ -115,9 +115,7 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
     if (!content) return
 
     const apiKey = await getConfigValue('CLAUDE_API_KEY')
-    const agent = new ReviewAgent({ apiKey })
-    agent.loadContent(content)
-    const report: AnalysisReport = await agent.generateAnalysis()
+    const report: AnalysisReport = await generateAnalysis({ apiKey }, content)
 
     await db
         .insertInto('studyReview')
