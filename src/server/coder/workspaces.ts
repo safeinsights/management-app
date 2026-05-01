@@ -237,14 +237,14 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     // Initialize claude.md
     // TODO: handle missing context files by skipping
-    // const contextPath = pathForContext({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName: 'system.md' })
-    // const contextData = await fetchFileContents(contextPath)
-    // const targetContextFileName = 'CLAUDE.md'
-    // const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
+    const contextPath = pathForContext({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName: 'system.md' })
+    const contextData = await fetchFileContents(contextPath)
+    const targetContextFileName = 'CLAUDE.md'
+    const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
 
-    // logger.info(`Writing ${targetContextFileName} to ${targetContextPath} for study ${studyId}`)
+    logger.info(`Writing ${targetContextFileName} to ${targetContextPath} for study ${studyId}`)
 
-    // await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
-    // await fs.writeFile(targetContextPath, Buffer.from(await contextData.arrayBuffer()))
-    // await fs.utimes(targetContextPath, pastDate, pastDate)
+    await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
+    await fs.writeFile(targetContextPath, Buffer.from(await contextData.arrayBuffer()))
+    await fs.utimes(targetContextPath, pastDate, pastDate)
 }
