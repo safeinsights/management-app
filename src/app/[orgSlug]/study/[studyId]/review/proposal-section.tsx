@@ -1,12 +1,7 @@
 'use client'
 
-import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
-import { usePopover } from '@/hooks/use-popover'
-import { stringifyJson } from '@/lib/string'
-import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
-import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
-import dayjs from 'dayjs'
+import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { Box, Stack, Text } from '@mantine/core'
 import type { StudyForReview } from './review-types'
 
 type ProposalSectionProps = {
@@ -31,31 +26,6 @@ const EVALUATION_CRITERIA = [
     },
 ]
 
-function useProposalSection(initialExpanded: boolean) {
-    const [isExpanded, { toggle }] = useDisclosure(initialExpanded)
-    const { getPopoverProps } = usePopover()
-    return { isExpanded, toggle, getPopoverProps }
-}
-
-function formatSubmittedDate(date: Date | null | undefined): string | null {
-    if (!date) return null
-    return dayjs(date).format('MMM DD, YYYY')
-}
-
-function ToggleLink({ isExpanded, onToggle, testId }: { isExpanded: boolean; onToggle: () => void; testId: string }) {
-    const label = isExpanded ? 'Hide full initial request' : 'Show full initial request'
-    const Icon = isExpanded ? CaretUpIcon : CaretDownIcon
-
-    return (
-        <Anchor component="button" onClick={onToggle} c="blue" size="sm" data-testid={testId}>
-            <Group gap={4} align="center">
-                {label}
-                <Icon size={14} />
-            </Group>
-        </Anchor>
-    )
-}
-
 function CriteriaList() {
     return (
         <Stack gap={4} data-testid="evaluation-criteria">
@@ -70,7 +40,13 @@ function CriteriaList() {
 
 function StatusBanner({ labName }: { labName: string }) {
     return (
-        <Box bg="purple.0" p="md" style={{ borderRadius: 'var(--mantine-radius-sm)' }} data-testid="status-banner">
+        <Box
+            bg="purple.0"
+            p="md"
+            mb="md"
+            style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+            data-testid="status-banner"
+        >
             <Stack gap="xs">
                 <Text size="sm">
                     <strong>{labName}</strong> has submitted an initial request requesting permission to use your data.
@@ -84,67 +60,16 @@ function StatusBanner({ labName }: { labName: string }) {
 }
 
 export function ProposalSection({ study, orgSlug, initialExpanded = true }: ProposalSectionProps) {
-    const { isExpanded, toggle, getPopoverProps } = useProposalSection(initialExpanded)
-    const submittedDate = formatSubmittedDate(study.submittedAt)
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
-        <Stack gap="md" data-testid="proposal-section">
-            <Paper p="xl" data-testid="proposal-section-header">
-                <Stack gap="md">
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <Stack gap={4}>
-                            <Text fz="xs" fw={700} c="gray.6">
-                                STEP 1
-                            </Text>
-                            <Title order={2} fz={20} fw={700}>
-                                Review initial request
-                            </Title>
-                            <Text size="sm">Title: {study.title}</Text>
-                        </Stack>
-                        {submittedDate && (
-                            <Text fz={12} c="gray.6" style={{ whiteSpace: 'nowrap' }}>
-                                Submitted on {submittedDate}
-                            </Text>
-                        )}
-                    </Group>
-
-                    <Divider />
-
-                    <StatusBanner labName={labName} />
-
-                    <ToggleLink isExpanded={isExpanded} onToggle={toggle} testId="proposal-toggle-header" />
-                </Stack>
-            </Paper>
-
-            <Collapse in={isExpanded}>
-                <Paper p="xl" data-testid="proposal-body">
-                    <Stack gap="md">
-                        <DatasetsField datasets={study.datasets ?? []} orgDataSources={study.orgDataSources} />
-                        <LexicalProposalField
-                            label="Research question(s)"
-                            value={stringifyJson(study.researchQuestions)}
-                            divider="default"
-                        />
-                        <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
-                        <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
-                        <LexicalProposalField
-                            label="Additional notes or requests"
-                            value={stringifyJson(study.additionalNotes)}
-                        />
-                        <PIField study={study} orgSlug={orgSlug} size="sm" {...getPopoverProps('pi')} />
-                        <ResearcherField
-                            study={study}
-                            orgSlug={orgSlug}
-                            size="sm"
-                            mt="md"
-                            {...getPopoverProps('researcher')}
-                        />
-                        <Divider />
-                        <ToggleLink isExpanded={isExpanded} onToggle={toggle} testId="proposal-toggle-body" />
-                    </Stack>
-                </Paper>
-            </Collapse>
-        </Stack>
+        <ProposalRequest
+            study={study}
+            orgSlug={orgSlug}
+            stepLabel="STEP 1"
+            heading="Review initial request"
+            banner={<StatusBanner labName={labName} />}
+            initialExpanded={initialExpanded}
+        />
     )
 }
