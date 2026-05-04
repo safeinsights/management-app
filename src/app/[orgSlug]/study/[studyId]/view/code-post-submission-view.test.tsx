@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
+import type { Route } from 'next'
 import {
     actionResult,
     db,
@@ -13,6 +14,7 @@ import {
 } from '@/tests/unit.helpers'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { Routes } from '@/lib/routes'
 import { CodePostSubmissionView } from './code-post-submission-view'
 
 const ORG_SLUG = 'openstax'
@@ -56,7 +58,7 @@ async function setupSubmittedStudy() {
 function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
-    overrides: { dashboardHref?: string; reviewingOrgName?: string } = {},
+    overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
 ) {
     renderWithProviders(
         <CodePostSubmissionView
@@ -185,7 +187,7 @@ describe('CodePostSubmissionView', () => {
     describe('navigation', () => {
         it('renders Previous as a link to studyAgreements with from=previous and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
-            renderView(study, job, { dashboardHref: '/openstax/dashboard' })
+            renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const previousLink = screen.getByRole('link', { name: /previous/i })
             expect(previousLink).toHaveAttribute(

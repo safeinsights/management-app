@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useState, type FC } from 'react'
-import { Alert, Anchor, Button, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { Link, ButtonLink } from '@/components/links'
+import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -17,7 +18,7 @@ interface CodePostSubmissionViewProps {
     study: SelectedStudy
     job: LatestJobForStudy
     reviewingOrgName: string
-    dashboardHref?: string
+    dashboardHref?: Route
 }
 
 function useExpandable(initial = false) {
@@ -134,9 +135,9 @@ export function CodePostSubmissionView({
                     <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
                         Previous
                     </ButtonLink>
-                    <Button component={Link} href={dashboard} size="md">
+                    <ButtonLink href={dashboard} size="md">
                         Go to dashboard
-                    </Button>
+                    </ButtonLink>
                 </Group>
             </Stack>
         </Stack>
