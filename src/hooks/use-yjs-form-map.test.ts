@@ -27,12 +27,12 @@ type Handle = {
 vi.mock('@hocuspocus/provider', () => {
     const constructed: Handle[] = []
 
-class HocuspocusProvider {
-    document: Y.Doc
-    isSynced = false
-    sendStateless = vi.fn()
-    private attached = false
-    private syncListeners: Listener[] = []
+    class HocuspocusProvider {
+        document: Y.Doc
+        isSynced = false
+        sendStateless = vi.fn()
+        private attached = false
+        private syncListeners: Listener[] = []
 
         constructor(opts: { document: Y.Doc }) {
             this.document = opts.document
