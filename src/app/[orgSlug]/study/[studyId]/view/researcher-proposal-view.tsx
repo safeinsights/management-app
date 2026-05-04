@@ -9,6 +9,8 @@ import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
+import { useEditAndResubmitProposalFeatureFlag } from '@/components/openstax-feature-flag'
 
 type ResearcherProposalViewProps = {
     orgSlug: string
@@ -74,6 +76,7 @@ export function ResearcherProposalView({ orgSlug, study, agreementsHref, dashboa
                 </Stack>
             </Paper>
 
+            <EditAndResubmitButton orgSlug={orgSlug} study={study} />
             <ProceedButton href={agreementsHref} />
         </Stack>
     )
@@ -88,6 +91,25 @@ function ProceedButton({ href }: { href?: string }) {
         <Group mt="xxl" justify="flex-end">
             <Button variant="primary" size="md" onClick={() => router.push(href as Route)}>
                 Proceed to Step 3
+            </Button>
+        </Group>
+    )
+}
+
+function EditAndResubmitButton({ orgSlug, study }: { orgSlug: string; study: SelectedStudy }) {
+    const router = useRouter()
+    const isFlagOn = useEditAndResubmitProposalFeatureFlag()
+
+    if (!isFlagOn || study.status !== 'CHANGE-REQUESTED') return null
+
+    return (
+        <Group mt="xxl" justify="flex-end">
+            <Button
+                variant="primary"
+                size="md"
+                onClick={() => router.push(Routes.studyEditAndResubmit({ orgSlug, studyId: study.id }))}
+            >
+                Edit and resubmit
             </Button>
         </Group>
     )

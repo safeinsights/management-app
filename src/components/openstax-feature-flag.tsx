@@ -58,4 +58,7 @@ export {
     OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
     // OTTER-495: Post-submission page
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
+    // OTTER-520: Edit & resubmit proposal (RL) — testing 2026-05-11
+    useOpenStaxFeatureFlag as useEditAndResubmitProposalFeatureFlag,
+    OpenStaxFeatureFlag as EditAndResubmitProposalFeatureFlag,
 }
