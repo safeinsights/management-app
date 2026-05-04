@@ -18,8 +18,9 @@ import * as Y from 'yjs'
 
 import type { ProposalTextSlug } from './auth.ts'
 
-// Mirrors src/components/editable-text/config.ts:lexicalNodes. Duplicated for
-// the same package-boundary reason as PROPOSAL_TEXT_SLUGS in auth.ts.
+// Mirrors src/components/editable-text/config.ts:lexicalNodes. Duplicated
+// because that file pulls in the React lexical packages, which the headless
+// editor service must not depend on.
 const SEED_NODES: Klass<LexicalNode>[] = [ListNode, ListItemNode, LinkNode]
 
 // Slug → snake-cased study column. Duplicated locally; both ends of the slug

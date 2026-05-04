@@ -7,7 +7,14 @@ const PROPOSAL_TEXT_FIELD_KEYS: ProposalTextFieldKey[] = [
     'additionalNotes',
 ]
 
-const FIELD_TO_SLUG: Record<ProposalTextFieldKey, string> = {
+export const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
+export const PROPOSAL_PREFIX = 'proposal-'
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const PROPOSAL_TEXT_SLUGS = ['research-questions', 'project-summary', 'impact', 'additional-notes'] as const
+export type ProposalTextSlug = (typeof PROPOSAL_TEXT_SLUGS)[number]
+
+const FIELD_TO_SLUG: Record<ProposalTextFieldKey, ProposalTextSlug> = {
     researchQuestions: 'research-questions',
     projectSummary: 'project-summary',
     impact: 'impact',
@@ -18,29 +25,27 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
     Object.entries(FIELD_TO_SLUG).map(([key, slug]) => [slug, key as ProposalTextFieldKey]),
 )
 
-export const proposalFieldsDocName = (studyId: string) => `proposal-${studyId}-fields`
+export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
 
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
-    `proposal-${studyId}-${FIELD_TO_SLUG[fieldKey]}`
+    `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
 
-export const reviewFeedbackDocName = (studyId: string) => `review-feedback-${studyId}`
+export const reviewFeedbackDocName = (studyId: string) => `${REVIEW_FEEDBACK_PREFIX}${studyId}`
 
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
     | { kind: 'review-feedback'; studyId: string }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
-    if (name.startsWith('review-feedback-')) {
-        const studyId = name.slice('review-feedback-'.length)
+    if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
+        const studyId = name.slice(REVIEW_FEEDBACK_PREFIX.length)
         if (!UUID_RE.test(studyId)) return null
         return { kind: 'review-feedback', studyId }
     }
 
-    if (!name.startsWith('proposal-')) return null
-    const remainder = name.slice('proposal-'.length)
+    if (!name.startsWith(PROPOSAL_PREFIX)) return null
+    const remainder = name.slice(PROPOSAL_PREFIX.length)
     if (remainder.length < 37) return null
 
     const studyId = remainder.slice(0, 36)
