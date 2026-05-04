@@ -11,13 +11,17 @@ import {
     it,
     mockSessionWithTestData,
     renderWithProviders,
+    resetSpyMode,
     screen,
+    setSpyMode,
+    spyModeState,
     userEvent,
     waitFor,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
 import { storeS3File } from '@/server/aws'
+import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { Route } from 'next'
 import { vi } from 'vitest'
@@ -29,6 +33,14 @@ vi.mock('@/server/aws', async () => {
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
+    }
+})
+
+vi.mock('@/components/spy-mode-context', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
+    return {
+        ...actual,
+        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
     }
 })
 
@@ -53,17 +65,27 @@ const createBaselineJob = async (studyId: string) => {
 
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(<CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />)
+    renderWithProviders(
+        <CodeUploadPage
+            orgSlug={orgSlug}
+            studyId={study.id}
+            studyTitle={study.title}
+            previousHref={'/test' as Route}
+        />,
+    )
     return { study }
 }
 
 describe('CodeUploadPage', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
+        resetSpyMode()
+        memoryRouter.setCurrentUrl('/')
     })
 
     afterEach(async () => {
         await cleanupWorkspaceDirs(workspaceRoots)
+        resetSpyMode()
     })
 
     it('renders the page chrome in the empty state', async () => {
@@ -105,7 +127,12 @@ describe('CodeUploadPage', () => {
         })
 
         renderWithProviders(
-            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
         )
 
         await waitFor(() => {
@@ -137,6 +164,63 @@ describe('CodeUploadPage', () => {
         ])
     })
 
+    describe('post-submit redirect (OTTER-537 flag swap)', () => {
+        const submitSuccessfully = async (orgSlug: string) => {
+            const { study } = await setupStudy(orgSlug)
+            await createBaselineJob(study.id)
+            const root = await createWorkspaceDir('code-upload-page')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.r': 'print("main")',
+            })
+
+            renderWithProviders(
+                <CodeUploadPage
+                    orgSlug={orgSlug}
+                    studyId={study.id}
+                    studyTitle={study.title}
+                    previousHref={'/test' as Route}
+                />,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            })
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+            await waitFor(async () => {
+                const updated = await db
+                    .selectFrom('study')
+                    .select(['status'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+                expect(updated.status).toBe('PENDING-REVIEW')
+            })
+
+            return { study }
+        }
+
+        it('flag off: routes to /dashboard after successful submit (legacy path)', async () => {
+            setSpyMode(false)
+            await submitSuccessfully('openstax')
+
+            await waitFor(() => {
+                expect(memoryRouter.asPath).toBe('/dashboard')
+            })
+        })
+
+        it('flag on: routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
+            setSpyMode(true)
+            const { study } = await submitSuccessfully('openstax')
+
+            await waitFor(() => {
+                expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
+            })
+        })
+    })
+
     it('shows error notification when IDE file upload to S3 fails', async () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
@@ -149,7 +233,12 @@ describe('CodeUploadPage', () => {
         })
 
         renderWithProviders(
-            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
         )
 
         await waitFor(() => {
