@@ -1,39 +1,58 @@
 import { useCallback } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
-import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
+import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
+import { reportMutationError } from '@/components/errors'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from './use-save-draft'
 
 interface UseSubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    tabSessionId: string
 }
 
-export function useSubmitProposal({ studyId, form }: UseSubmitProposalOptions) {
+export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { user } = useUser()
 
     const mutation = useMutation({
-        mutationFn: async () => {
-            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) }))
-            return finalizeStudySubmissionAction({ studyId })
-        },
-        onSuccess: () => {
+        // Atomic submit: a single transactional UPDATE in finalizeStudySubmissionAction
+        // sets the field snapshot AND flips status. A separate pre-submit
+        // onUpdateDraftStudyAction would let a losing concurrent submitter overwrite
+        // the winner's data between the two transactions.
+        mutationFn: async () =>
+            actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) })),
+        onSuccess: (result) => {
             form.resetDirty()
+            const submittedByClerkId = user?.id
+            if (!submittedByClerkId) {
+                router.push(Routes.studySubmitted({ orgSlug, studyId }))
+                return
+            }
+            const event: SubmissionEvent = {
+                type: 'proposal-submitted',
+                studyId,
+                submittedByTabId: tabSessionId,
+                submittedByClerkId,
+                submittedByName: result.submitterFullName,
+                orgName: result.orgName,
+            }
+            const payload = JSON.stringify(event)
+            // Instant push to all connected peers; tabs that miss it fall through to
+            // the 10-second status poll mounted in the proposal form.
+            yjsForm.provider?.sendStateless(payload)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: (error) => {
-            notifications.show({
-                title: 'Failed to submit proposal',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
-            })
-        },
+        onError: reportMutationError('Failed to submit proposal'),
     })
 
     const submitProposal = useCallback(() => {
