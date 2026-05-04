@@ -8,7 +8,7 @@ import * as Y from 'yjs'
 import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { useStudyStatusPoll } from '@/hooks/use-study-status-poll'
-import { WS_URL } from '@/server/config'
+import { WS_URL } from '@/lib/config'
 
 const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 

@@ -15,7 +15,7 @@ import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitProposalReviewAction } from '@/server/actions/study.actions'
 import { actionResult } from '@/lib/utils'
-import { WS_URL } from '@/server/config'
+import { WS_URL } from '@/lib/config'
 
 export type SubmitReviewArgs = { decision: Decision; feedback: string }
 

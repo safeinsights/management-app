@@ -10,7 +10,7 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
-import { WS_URL } from '@/server/config'
+import { WS_URL } from '@/lib/config'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
