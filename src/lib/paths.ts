@@ -26,6 +26,11 @@ export const pathForStarterCodePrefix = (parts: MinimalCodeEnvInfo) => `${pathFo
 export const pathForStarterCode = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
     `${pathForStarterCodePrefix(parts)}/${parts.fileName}`
 
+export const pathForContextPrefix = (parts: MinimalCodeEnvInfo) => `${pathForCodeEnv(parts)}/claude-context`
+
+export const pathForContext = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
+    `${pathForContextPrefix(parts)}/${parts.fileName}`
+
 export const pathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string | null }) => {
     const base = `${pathForCodeEnv(parts)}/sample-data`
     return parts.sampleDataPath ? `${base}/${parts.sampleDataPath}` : base
