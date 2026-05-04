@@ -1,8 +1,11 @@
 'use client'
 
 import { FC, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
@@ -11,10 +14,16 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { DEFAULT_DRAFT_TITLE, WORD_LIMITS } from './schema'
+import { DEFAULT_DRAFT_TITLE, WORD_LIMITS, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
+import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
+import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
+import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
+import { useStudyStatusPoll } from '@/hooks/use-study-status-poll'
+
+const PROPOSAL_EDITABLE_STATUSES = ['DRAFT', 'CHANGE-REQUESTED'] as const
 
 export interface MemberOption {
     value: string
@@ -27,6 +36,41 @@ interface ProposalFormProps {
     researcherName?: string
     researcherId?: string
     enclaveOrgSlug?: string
+}
+
+const EditableTextFieldEntry: FC<{
+    field: EditableTextField
+    form: UseFormReturnType<ProposalFormValues>
+    studyId: string
+    websocketProvider: HocuspocusProviderWebsocket | null
+    isCollaborationEnabled: boolean
+}> = ({ field, form, studyId, websocketProvider, isCollaborationEnabled }) => {
+    const value = form.values[field.id] as string
+    const error = form.errors[field.id] as string | undefined
+    const onChange = (val: string) => form.setFieldValue(field.id, val)
+
+    if (isCollaborationEnabled) {
+        return (
+            <CollaborativeProposalTextField
+                studyId={studyId}
+                field={field as typeof field & { id: ProposalTextFieldKey }}
+                initialValue={value}
+                error={error}
+                onChange={onChange}
+                websocketProvider={websocketProvider}
+            />
+        )
+    }
+
+    return (
+        <ProposalTextField
+            field={field}
+            value={value}
+            error={error}
+            onChange={onChange}
+            onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
+        />
+    )
 }
 
 const ProposalTextField: FC<{
@@ -73,8 +117,27 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherId = '',
     enclaveOrgSlug,
 }) => {
-    const { form, saveDraft, isSaving } = useProposal()
+    const { studyId, form, saveDraft, isSaving, isCollaborationEnabled, websocketProvider, yjsForm, tabSessionId } =
+        useProposal()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const titleWordCount = countWords(form.values.title)
+    const titleInputProps = form.getInputProps('title')
+
+    useSubmissionRedirectListener({
+        provider: yjsForm.provider,
+        orgSlug,
+        studyId,
+        currentTabId: tabSessionId,
+        enabled: isCollaborationEnabled,
+    })
+
+    useStudyStatusPoll({
+        studyId,
+        orgSlug,
+        editableStatuses: PROPOSAL_EDITABLE_STATUSES,
+        redirectTarget: 'studySubmitted',
+        enabled: isCollaborationEnabled,
+    })
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
@@ -105,7 +168,11 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 id="title"
                                 aria-label="Study Title"
                                 placeholder="Ex. Impact of highlighting on student learning outcomes."
-                                {...form.getInputProps('title')}
+                                {...titleInputProps}
+                                onChange={(event) => {
+                                    titleInputProps.onChange?.(event)
+                                    yjsForm.pushField('title', event.currentTarget.value)
+                                }}
                                 value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
                                 error={!!form.errors.title}
                             />
@@ -126,7 +193,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     <DatasetMultiSelect
                                         id="datasets"
                                         value={form.values.datasets}
-                                        onChange={(val) => form.setFieldValue('datasets', val)}
+                                        onChange={(val) => {
+                                            form.setFieldValue('datasets', val)
+                                            yjsForm.pushField('datasets', val)
+                                        }}
                                         orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
@@ -150,13 +220,13 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                 </Paper>
 
                 {editableTextFields.map((field) => (
-                    <ProposalTextField
+                    <EditableTextFieldEntry
                         key={field.id}
                         field={field}
-                        value={form.values[field.id] as string}
-                        error={form.errors[field.id] as string | undefined}
-                        onChange={(val) => form.setFieldValue(field.id, val)}
-                        onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
+                        form={form}
+                        studyId={studyId}
+                        websocketProvider={websocketProvider}
+                        isCollaborationEnabled={isCollaborationEnabled}
                     />
                 ))}
 
@@ -176,8 +246,11 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     data={members}
                                     value={form.values.piUserId || null}
                                     onChange={(id) => {
-                                        form.setFieldValue('piUserId', id ?? '')
-                                        form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
+                                        const piUserId = id ?? ''
+                                        const piName = members.find((m) => m.value === id)?.label ?? ''
+                                        form.setFieldValue('piUserId', piUserId)
+                                        form.setFieldValue('piName', piName)
+                                        yjsForm.pushPI(piUserId, piName)
                                     }}
                                     error={!!form.errors.piName}
                                 />

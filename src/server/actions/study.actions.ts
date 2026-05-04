@@ -1,14 +1,23 @@
 'use server'
 
-import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { getStudyJobFileOfType, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { sleep } from '@/lib/utils'
 import {
+    getProposalFeedbackForStudy,
+    getStudyJobFileOfType,
+    latestJobForStudy,
+    type LatestJobForStudy,
+} from '@/server/db/queries'
+import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import {
+    deferred,
     onStudyApproved,
     onStudyCodeApproved,
     onStudyCodeRejected,
@@ -100,18 +109,17 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, orgType, session }) => {
-        const userId = session.user.id
+    .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
             // Reviewer dashboards should not see draft studies
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
         if (orgType === 'lab') {
-            // Lab dashboards: show non-drafts OR user's own drafts
-            query = query
-                .where('study.submittedByOrgId', '=', orgId)
-                .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
+            // Lab dashboards: show every study submitted by the lab (including drafts and
+            // change-requested proposals). Multi-user editing means any lab member can
+            // continue an in-progress draft authored by a colleague.
+            query = query.where('study.submittedByOrgId', '=', orgId)
         }
         return query
             .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
@@ -506,6 +514,18 @@ async function insertReviewerProposalComment({
         .executeTakeFirstOrThrow()
 }
 
+// Safety-net delete: an in-tx DELETE inside the action handles the common case,
+// but a Hocuspocus debounced persist for the review-feedback doc can still
+// commit between the management-app status flip and our in-tx delete (different
+// connections, READ COMMITTED snapshots). Wait long enough for any in-flight
+// persist to land, then re-delete the row only when its updatedAt predates the
+// captured submit timestamp. The bound preserves rows from a fast clarification
+// -> reopen cycle that lands inside the 5-second window.
+const purgeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId: string; beforeAt: Date }) => {
+    await sleep({ 5: 'seconds' })
+    await purgeReviewFeedbackYjsDocBeforeAt(database, args)
+})
+
 export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
     .params(
         z.object({
@@ -534,17 +554,32 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             })
         }
 
+        const submittedAt = new Date()
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        // Drop the review-feedback yjs_document so the next round (if any) starts
+        // fresh rather than reopening the previous reviewer's drafted-but-submitted
+        // text. The deferred follow-up below catches any Hocuspocus persist that
+        // commits between status-flip and now.
+        await db.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
+
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
-            return
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+            return { submitterFullName: submitter.fullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
-            return
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+            return { submitterFullName: submitter.fullName }
         }
 
         // Clarification requests only change the proposal status. Job status rows are reserved for code review.
@@ -560,7 +595,20 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .execute()
 
         onStudyNeedsClarification({ studyId, userId })
+        purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+        return { submitterFullName: submitter.fullName }
     })
+
+export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => {
+        const { study, entries } = await getProposalFeedbackForStudy(studyId)
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, entries }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ entries }) => entries)
+
+export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))
