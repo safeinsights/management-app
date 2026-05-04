@@ -349,14 +349,13 @@ export const storeS3File = async (
     body: ReadableStream,
     Key: string,
 ) => {
-    const [_, upStream] = body.tee()
     const uploader = new Upload({
         client: getS3Client(),
         tags: objectToAWSTags(info),
         params: {
             Bucket: s3BucketName(),
             Key,
-            Body: upStream,
+            Body: body,
         },
     })
     await uploader.done()

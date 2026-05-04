@@ -8,6 +8,7 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -110,12 +111,30 @@ function latestJobForStudyQuery(studyId: string) {
         .limit(1)
 }
 
+// Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
+// anchor on real submissions rather than a bare baseline with no files attached.
+function latestSubmittedJobForStudyQuery(studyId: string) {
+    return latestJobForStudyQuery(studyId).where((eb) =>
+        eb.exists(
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.id')
+                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .where('jobStatusChange.status', '!=', 'INITIATED'),
+        ),
+    )
+}
+
 export const latestJobForStudy = async (studyId: string) => {
     return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
 export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
     return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
+    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -369,4 +388,33 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         new Uint8Array(arrayBuffer).set(publicKey)
         return { publicKey: arrayBuffer, fingerprint }
     })
+}
+
+export type StudyReviewWithMeta = {
+    report: AnalysisReport
+    generatedAt: Date
+    files: { name: string; fileType: FileType }[]
+}
+
+export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+    const row = await Action.db
+        .selectFrom('studyReview')
+        .select((eb) => [
+            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            'generatedAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyReview.studyJobId')
+                    .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    .orderBy('fileType', 'desc')
+                    .orderBy('name', 'asc'),
+            ).as('files'),
+        ])
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row ?? null
 }

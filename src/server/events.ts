@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
+import { generateAndStoreStudyReview } from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -43,6 +44,10 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+})
+
+export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {
+    await generateAndStoreStudyReview(studyJobId)
 })
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {

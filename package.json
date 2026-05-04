@@ -40,6 +40,7 @@
         "update-all-packages": "npx npm-check-updates -u"
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "^0.90.0",
         "@aws-sdk/client-codebuild": "^3.893.0",
         "@aws-sdk/client-ecr": "^3.893.0",
         "@aws-sdk/client-glue": "^3.893.0",

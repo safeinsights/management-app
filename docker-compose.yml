@@ -112,6 +112,7 @@ services:
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1
+            - CLAUDE_API_KEY=$CLAUDE_API_KEY
         build:
             context: .
             dockerfile: ./Dockerfile.dev
