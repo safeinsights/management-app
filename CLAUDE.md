@@ -9,6 +9,8 @@
 - Comments: Only add comments that explain "why", not "what". Avoid trivial comments like `// Delete users` before `deleteFrom('user')` or `// Create profile` before `insertInto('profile')`. If the code is self-explanatory, no comment is needed.
 - Testing: Write unit tests for new features. Only mock using helpers in tests/unit.helpers.tsx as needed, do not mock out any of our own components or actions.
 - E2E timeouts: Do not set inline timeouts in Playwright tests. Timeouts are configured globally in `playwright.config.ts` using constants from `tests/common.helpers.ts`.
+- Migrations - UUID primary keys: Always default `uuid` id columns to `v7uuid()` (defined in `1727370622500_uuid_fn.ts`), never `gen_random_uuid()`. v7 UUIDs are time-ordered, which gives better index locality and natural insertion order.
+- Migrations - timestamp columns: Always use `'timestamptz'` (timestamp with time zone), never `'timestamp'`. Pattern: `.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql\`now()\`))`.
 
 ## Authority & Links
 
