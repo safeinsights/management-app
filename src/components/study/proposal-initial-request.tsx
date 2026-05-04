@@ -63,7 +63,7 @@ export function ProposalRequest({
                     {heading}
                 </Title>
                 <Group justify="space-between" align="center" wrap="nowrap">
-                    <Text c="charcoal.9" style={{ maxWidth: '100ch', wordBreak: 'break-word' }}>
+                    <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
                         Title: {study.title}
                     </Text>
                     {study.submittedAt && (
