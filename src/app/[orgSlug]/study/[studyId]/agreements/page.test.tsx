@@ -2,14 +2,15 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
 import * as RouterMock from 'next-router-mock'
 import {
+    db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    setTestStudyStatus,
     userEvent,
 } from '@/tests/unit.helpers'
-import { db } from '@/database'
 import StudyAgreementsRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)
@@ -162,7 +163,7 @@ describe('StudyAgreementsRoute', () => {
     it('redirects researcher when study is not APPROVED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'DRAFT')
 
         await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
@@ -171,7 +172,7 @@ describe('StudyAgreementsRoute', () => {
     it('allows direct access via Previous button when study is not APPROVED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db.updateTable('study').set({ status: 'REJECTED' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'REJECTED')
 
         const page = await StudyAgreementsRoute({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),

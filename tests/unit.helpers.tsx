@@ -5,6 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -23,7 +24,7 @@ import os from 'os'
 import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
-import { ReactElement } from 'react'
+import { ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -62,8 +63,23 @@ export const createTestQueryClient = () =>
             queries: {
                 retry: false,
             },
+            mutations: {
+                retry: false,
+            },
         },
     })
+
+// `renderHook(..., { wrapper: createTestQueryWrapper() })` for hooks that depend on
+// useMutation / useQuery. Each call gets a fresh QueryClient so cached state cannot
+// leak between tests.
+export const createTestQueryWrapper = () => {
+    const client = createTestQueryClient()
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    Wrapper.displayName = 'QueryClientWrapper'
+    return Wrapper
+}
 
 export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
     const testQueryClient = createTestQueryClient()
@@ -597,6 +613,49 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 
     return { session, org, user, orgUser, ...mocks }
 }
+
+type CreateTestProposalDraftOptions = {
+    /** Unique enclave slug for this test. The lab counterpart is derived as `${enclaveSlug}-lab`. */
+    enclaveSlug: string
+    studyInfo?: {
+        title?: string
+        piName?: string
+        language?: Language
+    }
+}
+
+// Builds the canonical OTTER-497 fixture shape: enclave + lab + lab-member session +
+// DRAFT study where `submittedByOrgId` is the lab and `orgId` is the enclave. Use this
+// instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
+// the same org and do not match the production submitting-lab vs reviewing-enclave split.
+//
+// `onSaveDraftStudyAction` is lazy-imported because eagerly importing it from this
+// always-loaded helper file would pull `@/server/aws` into every test's module graph,
+// which races with module-level mocks like `aws.test.ts` does for `./config`.
+export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
+    const { onSaveDraftStudyAction } = await import('@/server/actions/study-request')
+    const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
+    const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+    const session = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+    const draft = actionResult(
+        await onSaveDraftStudyAction({
+            orgSlug: enclave.slug,
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
+            submittingOrgSlug: lab.slug,
+        }),
+    )
+
+    return { enclave, lab, studyId: draft.studyId, user: session.user }
+}
+
+export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
+    db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
+
+// Generates a feedback string with `wordCount` whitespace-separated tokens. The
+// proposal-review action requires 50–500 words; default is 60 (a comfortable midpoint).
+// Pass smaller / larger counts to exercise the validation boundaries.
+export const buildFeedback = (wordCount = 60) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
 
 export const createWorkspaceDir = async (prefix: string) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))

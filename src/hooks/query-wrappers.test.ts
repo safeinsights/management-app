@@ -1,25 +1,6 @@
-import {
-    describe,
-    it,
-    expect,
-    vi,
-    beforeEach,
-    renderHook,
-    waitFor,
-    createTestQueryClient,
-    QueryClientProvider,
-} from '@/tests/unit.helpers'
+import { describe, it, expect, vi, beforeEach, renderHook, waitFor, createTestQueryWrapper } from '@/tests/unit.helpers'
 import { useQuery, useMutation } from './query-wrappers'
 import { type ActionResponse } from '@/lib/types'
-import React from 'react'
-
-const createWrapper = () => {
-    const queryClient = createTestQueryClient()
-    const Wrapper = ({ children }: { children: React.ReactNode }) =>
-        React.createElement(QueryClientProvider, { client: queryClient }, children)
-    Wrapper.displayName = 'QueryClientWrapper'
-    return Wrapper
-}
 
 describe('Query Wrappers', () => {
     beforeEach(() => {
@@ -37,7 +18,7 @@ describe('Query Wrappers', () => {
                         queryKey: ['test-error'],
                         queryFn: mockQueryFn,
                     }),
-                { wrapper: createWrapper() },
+                { wrapper: createTestQueryWrapper() },
             )
 
             await waitFor(() => expect(result.current.isError).toBe(true))
@@ -53,7 +34,7 @@ describe('Query Wrappers', () => {
                         queryKey: ['test-raw'],
                         queryFn: mockQueryFn,
                     }),
-                { wrapper: createWrapper() },
+                { wrapper: createTestQueryWrapper() },
             )
 
             await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -75,7 +56,7 @@ describe('Query Wrappers', () => {
                         queryKey: ['test-complex'],
                         queryFn: mockQueryFn,
                     }),
-                { wrapper: createWrapper() },
+                { wrapper: createTestQueryWrapper() },
             )
 
             await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -95,7 +76,7 @@ describe('Query Wrappers', () => {
                     useMutation({
                         mutationFn: mockMutationFn,
                     }),
-                { wrapper: createWrapper() },
+                { wrapper: createTestQueryWrapper() },
             )
 
             result.current.mutate('test-input')
@@ -112,7 +93,7 @@ describe('Query Wrappers', () => {
                     useMutation({
                         mutationFn: mockMutationFn,
                     }),
-                { wrapper: createWrapper() },
+                { wrapper: createTestQueryWrapper() },
             )
 
             result.current.mutate('test-input')

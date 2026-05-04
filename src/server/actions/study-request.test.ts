@@ -2,6 +2,7 @@ import * as aws from '@/server/aws'
 import {
     actionResult,
     cleanupWorkspaceDirs,
+    createTestProposalDraft,
     createWorkspaceDir,
     db,
     expectStudyJobRecords,
@@ -11,11 +12,13 @@ import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
+    setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     addJobToStudyAction,
+    getDraftStudyAction,
     onDeleteStudyAction,
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
@@ -362,19 +365,12 @@ describe('Request Study Actions', () => {
 
     describe('Multi-user proposal collaboration (OTTER-497)', () => {
         it('finalizeStudySubmissionAction returns submitterFullName and DO orgName', async () => {
-            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-meta' })
-            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
-            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-meta',
+                studyInfo: { title: 'Meta' },
+            })
 
-            const draftResult = actionResult(
-                await onSaveDraftStudyAction({
-                    orgSlug: enclave.slug,
-                    studyInfo: { title: 'Meta', piName: 'PI', language: 'R' as const },
-                    submittingOrgSlug: lab.slug,
-                }),
-            )
-
-            const result = actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+            const result = actionResult(await finalizeStudySubmissionAction({ studyId }))
 
             expect(typeof result.submitterFullName).toBe('string')
             expect(result.submitterFullName.length).toBeGreaterThan(0)
@@ -382,21 +378,14 @@ describe('Request Study Actions', () => {
         })
 
         it('finalizeStudySubmissionAction is first-submit-wins: second concurrent caller fails', async () => {
-            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-race' })
-            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
-            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
-
-            const draftResult = actionResult(
-                await onSaveDraftStudyAction({
-                    orgSlug: enclave.slug,
-                    studyInfo: { title: 'Race', piName: 'PI', language: 'R' as const },
-                    submittingOrgSlug: lab.slug,
-                }),
-            )
+            const { studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-race',
+                studyInfo: { title: 'Race' },
+            })
 
             const [first, second] = await Promise.all([
-                finalizeStudySubmissionAction({ studyId: draftResult.studyId }),
-                finalizeStudySubmissionAction({ studyId: draftResult.studyId }),
+                finalizeStudySubmissionAction({ studyId }),
+                finalizeStudySubmissionAction({ studyId }),
             ])
 
             const successes = [first, second].filter((r) => !('error' in r))
@@ -411,7 +400,7 @@ describe('Request Study Actions', () => {
             const study = await db
                 .selectFrom('study')
                 .selectAll('study')
-                .where('id', '=', draftResult.studyId)
+                .where('id', '=', studyId)
                 .executeTakeFirstOrThrow()
             expect(study.status).toBe('PENDING-REVIEW')
         })
@@ -421,7 +410,7 @@ describe('Request Study Actions', () => {
             const { study } = await insertTestStudyOnly({ org })
 
             // Force the test study into CHANGE-REQUESTED status (insertTestStudyOnly defaults to APPROVED)
-            await db.updateTable('study').set({ status: 'CHANGE-REQUESTED' }).where('id', '=', study.id).execute()
+            await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
             const result = actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
             expect(result.studyId).toBe(study.id)
@@ -465,7 +454,7 @@ describe('Request Study Actions', () => {
         it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-            await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
+            await setTestStudyStatus(study.id, 'DRAFT')
 
             // Simulate Hocuspocus-persisted Y.Doc rows accumulated during the editing session.
             await db
@@ -541,24 +530,12 @@ describe('Request Study Actions', () => {
         })
 
         it('onUpdateDraftStudyAction allows another lab member to edit a CHANGE-REQUESTED draft', async () => {
-            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-coauthor' })
-            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-coauthor',
+                studyInfo: { title: 'Original' },
+            })
 
-            // First user creates the draft.
-            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
-            const draftResult = actionResult(
-                await onSaveDraftStudyAction({
-                    orgSlug: enclave.slug,
-                    studyInfo: { title: 'Original', piName: 'PI', language: 'R' as const },
-                    submittingOrgSlug: lab.slug,
-                }),
-            )
-
-            await db
-                .updateTable('study')
-                .set({ status: 'CHANGE-REQUESTED' })
-                .where('id', '=', draftResult.studyId)
-                .execute()
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
 
             // Second user in the same lab updates the draft. mockSessionWithTestData
             // creates a fresh user; the lab-membership middleware should allow the edit.
@@ -566,7 +543,7 @@ describe('Request Study Actions', () => {
 
             actionResult(
                 await onUpdateDraftStudyAction({
-                    studyId: draftResult.studyId,
+                    studyId,
                     studyInfo: { title: 'Coauthored', piName: 'PI', language: 'R' as const },
                 }),
             )
@@ -574,10 +551,150 @@ describe('Request Study Actions', () => {
             const updated = await db
                 .selectFrom('study')
                 .select(['title', 'status'])
-                .where('id', '=', draftResult.studyId)
+                .where('id', '=', studyId)
                 .executeTakeFirstOrThrow()
             expect(updated.title).toBe('Coauthored')
             expect(updated.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('onUpdateDraftStudyAction allows another lab member to edit a DRAFT', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-draft-coauthor',
+                studyInfo: { title: 'Original DRAFT' },
+            })
+
+            // Second user in the same lab.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId,
+                    studyInfo: { title: 'Coauthored DRAFT', piName: 'PI', language: 'R' as const },
+                }),
+            )
+
+            const updated = await db
+                .selectFrom('study')
+                .select(['title', 'status'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(updated.title).toBe('Coauthored DRAFT')
+            expect(updated.status).toBe('DRAFT')
+        })
+
+        it('onUpdateDraftStudyAction rejects a cross-lab user on DRAFT', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-update-cross-draft',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            const result = await onUpdateDraftStudyAction({
+                studyId,
+                studyInfo: { title: 'Hijacked', piName: 'PI', language: 'R' as const },
+            })
+            expect(result).toHaveProperty('error')
+
+            const after = await db
+                .selectFrom('study')
+                .select(['title'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(after.title).toBe('LabA Draft')
+        })
+
+        it('onUpdateDraftStudyAction rejects a cross-lab user on CHANGE-REQUESTED', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'test-otter-497-update-cross-cr',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            const result = await onUpdateDraftStudyAction({
+                studyId,
+                studyInfo: { title: 'Hijacked', piName: 'PI', language: 'R' as const },
+            })
+            expect(result).toHaveProperty('error')
+
+            const after = await db
+                .selectFrom('study')
+                .select(['title', 'status'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(after.title).toBe('LabA Draft')
+            expect(after.status).toBe('CHANGE-REQUESTED')
+        })
+    })
+
+    describe('getDraftStudyAction (OTTER-497)', () => {
+        it('returns the draft for the original creator on DRAFT and CHANGE-REQUESTED', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-creator-enclave',
+                studyInfo: { title: 'Creator Draft', piName: 'Dr. PI' },
+            })
+
+            const onDraft = actionResult(await getDraftStudyAction({ studyId }))
+            expect(onDraft.id).toBe(studyId)
+            expect(onDraft.title).toBe('Creator Draft')
+            expect(onDraft.status).toBe('DRAFT')
+            expect(onDraft.submittedByOrgId).toBe(lab.id)
+            expect(typeof onDraft.researcherName).toBe('string')
+
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            const onChangeRequested = actionResult(await getDraftStudyAction({ studyId }))
+            expect(onChangeRequested.id).toBe(studyId)
+            expect(onChangeRequested.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('returns the draft for a different lab teammate', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-teammate-enclave',
+                studyInfo: { title: 'Teammate Draft' },
+            })
+
+            // Switch to a different user in the same lab.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const onDraft = actionResult(await getDraftStudyAction({ studyId }))
+            expect(onDraft.id).toBe(studyId)
+            expect(onDraft.status).toBe('DRAFT')
+
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            const onChangeRequested = actionResult(await getDraftStudyAction({ studyId }))
+            expect(onChangeRequested.id).toBe(studyId)
+            expect(onChangeRequested.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('rejects a user outside the submitting lab', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-cross-enclave',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            const result = await getDraftStudyAction({ studyId })
+            expect(result).toMatchObject({
+                error: expect.objectContaining({ permission_denied: expect.any(String) }),
+            })
+        })
+
+        it('rejects studies whose status is not in DRAFT/CHANGE-REQUESTED/APPROVED', async () => {
+            const { studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-pending-enclave',
+                studyInfo: { title: 'Soon-PR' },
+            })
+
+            await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+
+            const result = await getDraftStudyAction({ studyId })
+            // Middleware filters status before CASL check; falls into not-found.
+            expect(result).toMatchObject({
+                error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
+            })
         })
     })
 

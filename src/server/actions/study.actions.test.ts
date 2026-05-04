@@ -1,6 +1,9 @@
 import logger from '@/lib/logger'
 import { deliver } from '@/server/mailgun'
 import {
+    actionResult,
+    buildFeedback,
+    createTestProposalDraft,
     db,
     getAuditEntries,
     insertTestOrg,
@@ -9,6 +12,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -458,6 +462,55 @@ describe('Study Actions', () => {
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
     })
+
+    describe('fetchStudiesForOrgAction lab-branch visibility (OTTER-497)', () => {
+        it('lab teammate sees a DRAFT created by another teammate', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-draft-enclave',
+                studyInfo: { title: 'Teammate DRAFT' },
+            })
+
+            // User B in the same lab.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const result = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+
+            expect(Array.isArray(result)).toBe(true)
+            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId, status: 'DRAFT' })]))
+        })
+
+        it('lab teammate sees a CHANGE-REQUESTED study from another teammate', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-changereq-enclave',
+                studyInfo: { title: 'Teammate CHANGE-REQUESTED' },
+            })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const result = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+
+            expect(Array.isArray(result)).toBe(true)
+            expect(result).toEqual(
+                expect.arrayContaining([expect.objectContaining({ id: studyId, status: 'CHANGE-REQUESTED' })]),
+            )
+        })
+
+        it("outside-lab user does not see another lab's draft", async () => {
+            const { enclave, lab: labA } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-cross-enclave',
+                studyInfo: { title: 'Cross-lab DRAFT' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            // User in labB tries to read labA's dashboard. CASL denies cross-org viewing.
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await fetchStudiesForOrgAction({ orgSlug: labA.slug })
+            expect(result).toMatchObject({
+                error: expect.objectContaining({ permission_denied: expect.any(String) }),
+            })
+        })
+    })
 })
 
 describe('ackAgreementsAction', () => {
@@ -546,7 +599,6 @@ describe('ackAgreementsAction', () => {
 })
 
 describe('submitProposalReviewAction', () => {
-    const buildFeedback = (wordCount: number) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
     const validFeedback = buildFeedback(60)
 
     const loadCommentRows = (studyId: string) =>
@@ -560,12 +612,15 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        await submitProposalReviewAction({
+        const result = await submitProposalReviewAction({
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
         })
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+        expect(value.submitterFullName.length).toBeGreaterThan(0)
 
         const rows = await loadCommentRows(study.id)
         expect(rows).toHaveLength(1)

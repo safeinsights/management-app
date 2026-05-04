@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-// eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import React from 'react'
 import { useParams } from 'next/navigation'
+import { createTestQueryWrapper } from '@/tests/unit.helpers'
 import { useCodeEnvForm } from './use-code-env-form'
 
 vi.mock('./code-envs.actions', () => ({
@@ -48,19 +46,6 @@ const mockCodeEnv = {
     dataSources: [] as { id: string; name: string }[],
 }
 
-const createWrapper = () => {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-        },
-    })
-    const Wrapper = ({ children }: { children: React.ReactNode }) =>
-        React.createElement(QueryClientProvider, { client: queryClient }, children)
-    Wrapper.displayName = 'QueryClientWrapper'
-    return Wrapper
-}
-
 describe('useCodeEnvForm', () => {
     beforeEach(() => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: TEST_ORG_SLUG })
@@ -70,7 +55,7 @@ describe('useCodeEnvForm', () => {
 
     it('returns create mode when no image is provided', () => {
         const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         expect(result.current.isEditMode).toBe(false)
@@ -78,7 +63,7 @@ describe('useCodeEnvForm', () => {
 
     it('returns edit mode when image is provided', () => {
         const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         expect(result.current.isEditMode).toBe(true)
@@ -90,7 +75,7 @@ describe('useCodeEnvForm', () => {
 
         const onComplete = vi.fn()
         const { result } = renderHook(() => useCodeEnvForm(undefined, onComplete), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         const starterCode = new File(['code'], 'main.py')
@@ -125,7 +110,7 @@ describe('useCodeEnvForm', () => {
 
         const onComplete = vi.fn()
         const { result } = renderHook(() => useCodeEnvForm(undefined, onComplete), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         const starterCode = new File(['code'], 'main.py')
@@ -154,7 +139,7 @@ describe('useCodeEnvForm', () => {
         ;(createOrgCodeEnvAction as Mock).mockResolvedValue(createdEnv)
 
         const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         const starterCode = new File(['code'], 'main.py')
@@ -180,7 +165,7 @@ describe('useCodeEnvForm', () => {
 
         const onComplete = vi.fn()
         const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, onComplete), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         const newStarterCode = new File(['new code'], 'updated.py')
@@ -211,7 +196,7 @@ describe('useCodeEnvForm', () => {
         ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(updatedEnv)
 
         const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         act(() => result.current.onSubmit())
@@ -231,7 +216,7 @@ describe('useCodeEnvForm', () => {
         ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(mockCodeEnv)
 
         const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
-            wrapper: createWrapper(),
+            wrapper: createTestQueryWrapper(),
         })
 
         const sampleFile = new File(['data'], 'data.csv')
