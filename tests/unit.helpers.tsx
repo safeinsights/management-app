@@ -12,6 +12,7 @@ import { faker } from '@faker-js/faker'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
@@ -72,7 +73,9 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
                 <SpyModeProvider>
-                    <ModalsProvider>{ui}</ModalsProvider>
+                    <YjsWebsocketProvider>
+                        <ModalsProvider>{ui}</ModalsProvider>
+                    </YjsWebsocketProvider>
                 </SpyModeProvider>
             </MantineProvider>
         </QueryClientProvider>,
