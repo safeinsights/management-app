@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretRightIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { stringifyJson } from '@/lib/string'
 import { usePopover } from '@/hooks/use-popover'
@@ -38,7 +38,14 @@ function ToggleLink({ isExpanded, onClick, testId }: { isExpanded: boolean; onCl
             data-testid={testId}
         >
             {isExpanded ? 'Hide full initial request' : 'View full initial request'}
-            {isExpanded ? <CaretUpIcon size={12} weight="bold" /> : <CaretRightIcon size={12} weight="bold" />}
+            <CaretRightIcon
+                size={12}
+                weight="bold"
+                style={{
+                    transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
+                    transition: 'transform 200ms ease',
+                }}
+            />
         </Anchor>
     )
 }
