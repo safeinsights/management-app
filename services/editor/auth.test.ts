@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
     assertStatelessEventConsistent,
     authenticate,
+    AuthFailureError,
     editableStatusForKind,
     isStatelessEventValidForDocument,
     parseDocumentName,
@@ -387,6 +388,37 @@ describe('authenticate', () => {
         await expect(
             authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
         ).rejects.toThrow(/study is not editable.*APPROVED/)
+    })
+
+    it('throws AuthFailureError with stable codes the client can dispatch on', async () => {
+        // Sanity-check a couple of representative codes; the wire format is `CODE: message`.
+        await expect(
+            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}` }, baseDeps()),
+        ).rejects.toMatchObject({ code: 'MISSING_TOKEN', message: expect.stringMatching(/^MISSING_TOKEN: /) })
+
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'lab-user' }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-fields` }, baseDeps({ db })),
+        ).rejects.toMatchObject({
+            code: 'STUDY_NOT_EDITABLE',
+            message: expect.stringMatching(/^STUDY_NOT_EDITABLE: /),
+        })
+    })
+
+    it('AuthFailureError instances carry name and code', () => {
+        const err = new AuthFailureError('NO_MEMBERSHIP', 'no membership in study orgs')
+        expect(err).toBeInstanceOf(Error)
+        expect(err.name).toBe('AuthFailureError')
+        expect(err.code).toBe('NO_MEMBERSHIP')
+        expect(err.message).toBe('NO_MEMBERSHIP: no membership in study orgs')
     })
 })
 
