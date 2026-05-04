@@ -5,9 +5,9 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
-import { db } from '@/database'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 
@@ -65,7 +65,7 @@ describe('StudyCodeUploadRoute', () => {
             researcherId: user.id,
             studyStatus: 'APPROVED',
         })
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         await expect(
             StudyCodeUploadRoute({
