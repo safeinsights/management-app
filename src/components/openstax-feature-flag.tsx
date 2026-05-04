@@ -58,6 +58,9 @@ export {
     OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
     // OTTER-495: Post-submission page
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
+    // OTTER-497: Multi-user proposal collaboration
+    useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
+    OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
     // OTTER-537: post-code-submission page
     useOpenStaxFeatureFlag as usePostCodeSubmissionFeatureFlag,
     OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
