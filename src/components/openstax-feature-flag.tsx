@@ -58,7 +58,7 @@ export {
     OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
     // OTTER-495: Post-submission page
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
-    // OTTER-537: post-code-submission page (QA milestone 2026-05-25)
+    // OTTER-537: post-code-submission page
     useOpenStaxFeatureFlag as usePostCodeSubmissionFeatureFlag,
     OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
 }
