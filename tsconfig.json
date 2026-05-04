@@ -32,5 +32,13 @@
         "src/server/actions/f",
         ".next/dev/types/**/*.ts"
     ],
-    "exclude": ["node_modules", "bin/**/*", "services/**/server.ts", "services/**/build", "services/**/node_modules"]
+    "exclude": [
+        "node_modules",
+        "bin/**/*",
+        "services/**/server.ts",
+        "services/**/lexical-seed.ts",
+        "services/**/lexical-seed.test.ts",
+        "services/**/build",
+        "services/**/node_modules"
+    ]
 }
