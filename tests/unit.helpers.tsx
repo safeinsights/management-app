@@ -657,12 +657,17 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .executeTakeFirstOrThrow()
 }
 
+type TestDataSourceDocument = {
+    url: string
+    description: string
+}
+
 export type InsertTestDataSourceOptions = {
     orgId: string
     codeEnvIds?: string[]
     name?: string
     description?: string | null
-    documentationUrl?: string | null
+    documents?: TestDataSourceDocument[]
 }
 
 export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
@@ -672,7 +677,6 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             orgId: options.orgId,
             name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
             description: options.description ?? null,
-            documentationUrl: options.documentationUrl ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -685,7 +689,23 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             .execute()
     }
 
-    return dataSource
+    const documents = options.documents
+    const createdDocuments = []
+    if (documents?.length) {
+        const docRows = documents.map((d) => ({
+            ...d,
+            orgDataSourceId: dataSource.id,
+        }))
+
+        const res = await db
+            .insertInto('orgDataSourceDocument')
+            .values(docRows)
+            .returning(['id', 'url', 'description'])
+            .execute()
+        createdDocuments.push(...res)
+    }
+
+    return { ...dataSource, documents: createdDocuments }
 }
 
 // Re-export actionResult for backwards compatibility in tests
