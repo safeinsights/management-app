@@ -628,11 +628,10 @@ type CreateTestProposalDraftOptions = {
 // DRAFT study where `submittedByOrgId` is the lab and `orgId` is the enclave. Use this
 // instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
 // the same org and do not match the production submitting-lab vs reviewing-enclave split.
-//
-// `onSaveDraftStudyAction` is lazy-imported because eagerly importing it from this
-// always-loaded helper file would pull `@/server/aws` into every test's module graph,
-// which races with module-level mocks like `aws.test.ts` does for `./config`.
 export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
+    // `onSaveDraftStudyAction` is lazy-imported because eagerly importing it from this
+    // always-loaded helper file would pull `@/server/aws` into every test's module graph,
+    // which races with module-level mocks like `aws.test.ts` does for `./config`.
     const { onSaveDraftStudyAction } = await import('@/server/actions/study-request')
     const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
     const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
