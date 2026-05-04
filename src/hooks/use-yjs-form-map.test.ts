@@ -14,7 +14,7 @@ import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { useYjsFormMap, type CollabFieldKey } from './use-yjs-form-map'
+import { useYjsFormMap } from './use-yjs-form-map'
 
 type Listener = (...args: unknown[]) => void
 
@@ -27,24 +27,28 @@ type Handle = {
 vi.mock('@hocuspocus/provider', () => {
     const constructed: Handle[] = []
 
-    class HocuspocusProvider {
-        document: Y.Doc
-        isSynced = false
-        sendStateless = vi.fn()
-        private syncListeners: Listener[] = []
+class HocuspocusProvider {
+    document: Y.Doc
+    isSynced = false
+    sendStateless = vi.fn()
+    private attached = false
+    private syncListeners: Listener[] = []
 
         constructor(opts: { document: Y.Doc }) {
             this.document = opts.document
             constructed.push({
                 document: opts.document,
                 triggerSync: () => {
+                    if (!this.attached) throw new Error('HocuspocusProvider must be attached before syncing')
                     this.isSynced = true
                     this.syncListeners.forEach((fn) => fn())
                 },
                 sendStateless: this.sendStateless,
             })
         }
-        attach() {}
+        attach() {
+            this.attached = true
+        }
         on(event: string, fn: Listener) {
             if (event === 'synced') this.syncListeners.push(fn)
         }
@@ -229,7 +233,7 @@ describe('useYjsFormMap', () => {
             Y.applyUpdate(peerB, update, origin)
         })
 
-        hookResult.result.current.pushField('datasets' as CollabFieldKey, ['ds-1', 'ds-2'])
+        hookResult.result.current.pushField('datasets', ['ds-1', 'ds-2'])
 
         // Confirm the local write committed before checking propagation.
         expect(handle.document.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2'])
