@@ -102,7 +102,7 @@ describe('ProposalSection', () => {
 
         fireEvent.click(screen.getByTestId('proposal-toggle-header'))
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Show full initial request')
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
     })
 
     it('toggles between hide and show text on repeated clicks', async () => {
@@ -113,7 +113,7 @@ describe('ProposalSection', () => {
         expect(headerToggle).toHaveTextContent('Hide full initial request')
 
         await user.click(headerToggle)
-        expect(headerToggle).toHaveTextContent('Show full initial request')
+        expect(headerToggle).toHaveTextContent('View full initial request')
 
         await user.click(headerToggle)
         expect(headerToggle).toHaveTextContent('Hide full initial request')
