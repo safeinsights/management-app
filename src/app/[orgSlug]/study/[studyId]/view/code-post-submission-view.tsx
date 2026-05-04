@@ -78,18 +78,13 @@ export function CodePostSubmissionView({
                         Study code
                     </Title>
                     <Group justify="space-between" align="center">
-                        <Text c="charcoal.9" style={{ maxWidth: '60ch', wordBreak: 'break-word' }}>
+                        <Text c="charcoal.9" maw="60ch" style={{ wordBreak: 'break-word' }}>
                             Title: {study.title}
                         </Text>
                         <SubmittedTimestamp submittedOn={submittedOn} />
                     </Group>
                     <Divider my="md" />
-                    <Alert
-                        color="yellow"
-                        mt="md"
-                        data-testid="code-under-review-banner"
-                        style={{ backgroundColor: '#FFF9E5' }}
-                    >
+                    <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
                         Your study code has been successfully submitted to {displayOrgName(reviewingOrgName)}. They will
                         review it and respond with feedback, follow-up questions, or a decision. You&apos;ll receive
                         email notifications as your code progresses through the review process. Please allow an
