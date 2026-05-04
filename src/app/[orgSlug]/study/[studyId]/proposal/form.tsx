@@ -4,6 +4,8 @@ import { FC, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
@@ -12,7 +14,7 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { DEFAULT_DRAFT_TITLE, WORD_LIMITS } from './schema'
+import { DEFAULT_DRAFT_TITLE, WORD_LIMITS, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -34,6 +36,41 @@ interface ProposalFormProps {
     researcherName?: string
     researcherId?: string
     enclaveOrgSlug?: string
+}
+
+const EditableTextFieldEntry: FC<{
+    field: EditableTextField
+    form: UseFormReturnType<ProposalFormValues>
+    studyId: string
+    websocketProvider: HocuspocusProviderWebsocket | null
+    isCollaborationEnabled: boolean
+}> = ({ field, form, studyId, websocketProvider, isCollaborationEnabled }) => {
+    const value = form.values[field.id] as string
+    const error = form.errors[field.id] as string | undefined
+    const onChange = (val: string) => form.setFieldValue(field.id, val)
+
+    if (isCollaborationEnabled) {
+        return (
+            <CollaborativeProposalTextField
+                studyId={studyId}
+                field={field as typeof field & { id: ProposalTextFieldKey }}
+                initialValue={value}
+                error={error}
+                onChange={onChange}
+                websocketProvider={websocketProvider}
+            />
+        )
+    }
+
+    return (
+        <ProposalTextField
+            field={field}
+            value={value}
+            error={error}
+            onChange={onChange}
+            onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
+        />
+    )
 }
 
 const ProposalTextField: FC<{
@@ -134,9 +171,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 {...titleInputProps}
                                 onChange={(event) => {
                                     titleInputProps.onChange?.(event)
-                                    if (isCollaborationEnabled) {
-                                        yjsForm.pushField('title', event.currentTarget.value)
-                                    }
+                                    yjsForm.pushField('title', event.currentTarget.value)
                                 }}
                                 value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
                                 error={!!form.errors.title}
@@ -160,9 +195,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         value={form.values.datasets}
                                         onChange={(val) => {
                                             form.setFieldValue('datasets', val)
-                                            if (isCollaborationEnabled) {
-                                                yjsForm.pushField('datasets', val)
-                                            }
+                                            yjsForm.pushField('datasets', val)
                                         }}
                                         orgSlug={enclaveOrgSlug}
                                     />
@@ -186,28 +219,16 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                {editableTextFields.map((field) =>
-                    isCollaborationEnabled ? (
-                        <CollaborativeProposalTextField
-                            key={field.id}
-                            studyId={studyId}
-                            field={field as typeof field & { id: ProposalTextFieldKey }}
-                            initialValue={form.values[field.id] as string}
-                            error={form.errors[field.id] as string | undefined}
-                            onChange={(val) => form.setFieldValue(field.id, val)}
-                            websocketProvider={websocketProvider}
-                        />
-                    ) : (
-                        <ProposalTextField
-                            key={field.id}
-                            field={field}
-                            value={form.values[field.id] as string}
-                            error={form.errors[field.id] as string | undefined}
-                            onChange={(val) => form.setFieldValue(field.id, val)}
-                            onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
-                        />
-                    ),
-                )}
+                {editableTextFields.map((field) => (
+                    <EditableTextFieldEntry
+                        key={field.id}
+                        field={field}
+                        form={form}
+                        studyId={studyId}
+                        websocketProvider={websocketProvider}
+                        isCollaborationEnabled={isCollaborationEnabled}
+                    />
+                ))}
 
                 <Paper p="xxl">
                     <Stack gap="xxl">
@@ -229,9 +250,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         const piName = members.find((m) => m.value === id)?.label ?? ''
                                         form.setFieldValue('piUserId', piUserId)
                                         form.setFieldValue('piName', piName)
-                                        if (isCollaborationEnabled) {
-                                            yjsForm.pushPI(piUserId, piName)
-                                        }
+                                        yjsForm.pushPI(piUserId, piName)
                                     }}
                                     error={!!form.errors.piName}
                                 />

@@ -23,10 +23,9 @@ type Args = {
 }
 
 /**
- * Layer 3 fallback for the multi-user kick-out flow. When a client misses both the
- * Hocuspocus stateless event and the late-arriving Y.Map sentinel (because the
- * editor service is unreachable), this poll detects the status transition and
- * redirects with a generic toast.
+ * Fallback for the multi-user kick-out flow. When a client misses the Hocuspocus
+ * stateless event (e.g. the editor service is unreachable), this poll detects the
+ * status transition and redirects with a generic toast.
  */
 export function useStudyStatusPoll({ studyId, orgSlug, editableStatuses, redirectTarget, enabled = true }: Args) {
     const router = useRouter()

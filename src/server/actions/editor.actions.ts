@@ -25,8 +25,8 @@ export const getYjsDocumentUpdatedAtAction = new Action('getYjsDocumentUpdatedAt
     })
 
 // Status-poll fallback for the multi-user kick-out flow. Used by clients that miss
-// the live stateless event and the late-arriving Y.Map sentinel (e.g. fully
-// disconnected from the editor service) to detect that a proposal has been submitted.
+// the live stateless event (e.g. fully disconnected from the editor service) to
+// detect that a proposal has been submitted.
 export const getStudyStatusAction = new Action('getStudyStatusAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {

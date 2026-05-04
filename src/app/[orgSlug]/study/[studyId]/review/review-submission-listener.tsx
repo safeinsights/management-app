@@ -41,7 +41,7 @@ export function ReviewSubmissionListener({ orgSlug, studyId, tabSessionId, enabl
             token: async () => (await getToken()) ?? '',
             onAuthenticationFailed: () => {
                 // Auth failure here means the listener won't subscribe to stateless
-                // events; the user falls through to Layer 3 status poll for kick-out.
+                // events; the user falls through to the status poll for kick-out.
                 console.warn(`listener HocuspocusProvider auth failed for ${docName}`)
             },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
