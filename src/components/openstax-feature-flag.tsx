@@ -61,4 +61,7 @@ export {
     // OTTER-497: Multi-user proposal collaboration
     useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
     OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
+    // Edit and resubmit proposal
+    useOpenStaxFeatureFlag as useEditAndResubmitProposalFeatureFlag,
+    OpenStaxFeatureFlag as EditAndResubmitProposalFeatureFlag,
 }
