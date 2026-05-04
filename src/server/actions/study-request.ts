@@ -26,6 +26,7 @@ import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { lexicalJson } from '@/lib/word-count'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -605,4 +606,110 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         triggerCodeScan(studyJobId, orgSlug, studyId)
 
         return { studyJobId }
+    })
+
+// OTTER-521: Edit & resubmit proposal — researcher revises the initial request
+// after the DO marked it 'needs clarification' (CHANGE-REQUESTED).
+//
+// The resubmission note is stored in the studyProposalComment table introduced
+// by OTTER-501 (entryType=RESUBMISSION-NOTE, authorRole=RESEARCHER). Auto-save
+// only persists proposal field edits; the note is captured on final submit.
+
+const proposalUpdatableFields = [
+    'title',
+    'piName',
+    'piUserId',
+    'datasets',
+    'researchQuestions',
+    'projectSummary',
+    'impact',
+    'additionalNotes',
+] as const
+
+// Auto-save proposal edits while the study is in CHANGE-REQUESTED. Status
+// transitions only happen on resubmitProposalAction below.
+export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string(), studyInfo: draftStudyApiSchema }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
+        const userId = session.user.id
+
+        const updateValues = Object.fromEntries(
+            proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
+
+        if (Object.keys(updateValues).length > 0) {
+            await db
+                .updateTable('study')
+                .set(updateValues)
+                .where('id', '=', studyId)
+                .where('status', '=', 'CHANGE-REQUESTED')
+                .where('researcherId', '=', userId)
+                .execute()
+        }
+
+        return { studyId }
+    })
+
+// Final resubmission: writes the latest proposal edits, records the
+// resubmission note as a study_proposal_comment row, and transitions
+// CHANGE-REQUESTED -> PENDING-REVIEW.
+export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string(),
+            studyInfo: draftStudyApiSchema,
+            resubmissionNote: z.string().min(1),
+        }),
+    )
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
+        const userId = session.user.id
+
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status'])
+            .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
+            .executeTakeFirst()
+
+        if (!study) throw new Error('Study not found or access denied')
+        if (study.status !== 'CHANGE-REQUESTED') {
+            throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
+        }
+
+        const updateValues = Object.fromEntries(
+            proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
+
+        await db
+            .updateTable('study')
+            .set({
+                ...updateValues,
+                status: 'PENDING-REVIEW',
+                submittedAt: new Date(),
+            })
+            .where('id', '=', studyId)
+            .execute()
+
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                authorId: userId,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: JSON.parse(lexicalJson(resubmissionNote)),
+            })
+            .execute()
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/dashboard`)
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        return { studyId }
     })
