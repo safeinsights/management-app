@@ -10,6 +10,6 @@
         "isolatedModules": true,
         "allowImportingTsExtensions": true
     },
-    "include": ["**/*.ts"],
+    "include": ["**/*.ts", "../../src/lib/collaboration-documents.ts"],
     "exclude": ["node_modules"]
 }

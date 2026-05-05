@@ -13,7 +13,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { HocuspocusProvider } from '@hocuspocus/provider'
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
@@ -248,7 +248,8 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 }
 
 function useCollaborationProvider(
-    wsUrl: string,
+    wsUrl: string | undefined,
+    websocketProvider: HocuspocusProviderWebsocket | undefined,
     providerRef: React.MutableRefObject<HocuspocusProvider | null>,
     getToken: () => Promise<string | null>,
     onAuthError: (reason: string) => void,
@@ -261,20 +262,31 @@ function useCollaborationProvider(
                 yjsDocMap.set(id, doc)
             }
 
-            const provider = new HocuspocusProvider({
-                url: wsUrl,
+            const baseOptions = {
                 name: id,
                 document: doc,
                 autoConnect: false,
                 token: async () => (await getToken()) ?? '',
-                onAuthenticationFailed: ({ reason }) => onAuthError(reason),
-            } as ConstructorParameters<typeof HocuspocusProvider>[0])
+                onAuthenticationFailed: ({ reason }: { reason: string }) => onAuthError(reason),
+            }
+
+            const options = websocketProvider ? { ...baseOptions, websocketProvider } : { ...baseOptions, url: wsUrl }
+
+            const provider = new HocuspocusProvider(options as ConstructorParameters<typeof HocuspocusProvider>[0])
+
+            // When a shared websocketProvider is passed, the HocuspocusProvider constructor
+            // does NOT auto-attach (manageSocket stays false). We have to register manually
+            // so the shared connection knows to sync this document. URL-based providers
+            // attach themselves from the constructor automatically.
+            if (websocketProvider) {
+                provider.attach()
+            }
 
             providerRef.current = provider
 
             return provider as unknown as Provider
         },
-        [wsUrl, providerRef, getToken, onAuthError],
+        [wsUrl, websocketProvider, providerRef, getToken, onAuthError],
     )
 }
 
@@ -293,7 +305,13 @@ export type CollaborativeEditorProps = {
      */
     id: string
     studyId: string
-    wsUrl: string
+    /** Required when websocketProvider is not provided. */
+    wsUrl?: string
+    /**
+     * Optional pre-built shared websocket provider. When supplied, all editors on the page
+     * multiplex over a single TCP/WebSocket connection.
+     */
+    websocketProvider?: HocuspocusProviderWebsocket
     contentClassName?: string
     contentStyle?: React.CSSProperties
     placeholder?: string
@@ -305,6 +323,7 @@ export function CollaborativeEditor({
     id,
     studyId,
     wsUrl,
+    websocketProvider,
     contentClassName,
     contentStyle,
     placeholder,
@@ -319,7 +338,7 @@ export function CollaborativeEditor({
     const cursorColor = pickCursorColor(username)
     const fetchToken = useCallback(async () => getToken(), [getToken])
     const onAuthError = useCallback((reason: string) => setAuthError(reason || 'Not authorized'), [])
-    const providerFactory = useCollaborationProvider(wsUrl, providerRef, fetchToken, onAuthError)
+    const providerFactory = useCollaborationProvider(wsUrl, websocketProvider, providerRef, fetchToken, onAuthError)
 
     if (authError) {
         return (

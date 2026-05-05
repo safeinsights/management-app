@@ -23,6 +23,7 @@ import {
     finalizeStudySubmissionAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
+import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/word-count'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
@@ -356,6 +357,227 @@ describe('Request Study Actions', () => {
                 .where('id', '=', draftResult.studyId)
                 .executeTakeFirst()
             expect(study?.status).toEqual('PENDING-REVIEW')
+        })
+    })
+
+    describe('Multi-user proposal collaboration (OTTER-497)', () => {
+        it('finalizeStudySubmissionAction returns submitterFullName and DO orgName', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-meta' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Meta', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+
+            const result = actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+
+            expect(typeof result.submitterFullName).toBe('string')
+            expect(result.submitterFullName.length).toBeGreaterThan(0)
+            expect(result.orgName).toBe(enclave.name)
+        })
+
+        it('finalizeStudySubmissionAction is first-submit-wins: second concurrent caller fails', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-race' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Race', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+
+            const [first, second] = await Promise.all([
+                finalizeStudySubmissionAction({ studyId: draftResult.studyId }),
+                finalizeStudySubmissionAction({ studyId: draftResult.studyId }),
+            ])
+
+            const successes = [first, second].filter((r) => !('error' in r))
+            const failures = [first, second].filter((r) => 'error' in r)
+
+            expect(successes).toHaveLength(1)
+            expect(failures).toHaveLength(1)
+            expect((failures[0] as { error: unknown }).error).toMatchObject({
+                submission: expect.stringMatching(/already been submitted/i),
+            })
+
+            const study = await db
+                .selectFrom('study')
+                .selectAll('study')
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('PENDING-REVIEW')
+        })
+
+        it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org })
+
+            // Force the test study into CHANGE-REQUESTED status (insertTestStudyOnly defaults to APPROVED)
+            await db.updateTable('study').set({ status: 'CHANGE-REQUESTED' }).where('id', '=', study.id).execute()
+
+            const result = actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+            expect(result.studyId).toBe(study.id)
+
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        it('finalizeStudySubmissionAction rejects callers outside the submitting lab', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-cross-lab' })
+            const labA = await insertTestOrg({ slug: `${enclave.slug}-lab-a`, type: 'lab' })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            // Lab A user creates the draft.
+            await mockSessionWithTestData({ orgSlug: labA.slug, orgType: 'lab' })
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Cross-lab', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: labA.slug,
+                }),
+            )
+
+            // Lab B user (no membership in lab A) tries to finalize.
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            const result = await finalizeStudySubmissionAction({ studyId: draftResult.studyId })
+
+            expect(result).toHaveProperty('error')
+            const study = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await db.updateTable('study').set({ status: 'DRAFT' }).where('id', '=', study.id).execute()
+
+            // Simulate Hocuspocus-persisted Y.Doc rows accumulated during the editing session.
+            await db
+                .insertInto('yjsDocument')
+                .values([
+                    {
+                        name: `proposal-${study.id}-fields`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                    {
+                        name: `proposal-${study.id}-research-questions`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                    {
+                        name: `review-feedback-${study.id}`,
+                        studyId: study.id,
+                        data: Buffer.from([0]),
+                    },
+                ])
+                .execute()
+
+            actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+
+            const remaining = await db
+                .selectFrom('yjsDocument')
+                .select(['name'])
+                .where('studyId', '=', study.id)
+                .execute()
+            const remainingNames = remaining.map((r) => r.name).sort()
+            // Proposal docs gone; review-feedback row untouched (DO submit owns that one).
+            expect(remainingNames).toEqual([`review-feedback-${study.id}`])
+        })
+
+        it('purgeProposalYjsDocsBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org })
+
+            const before = new Date('2026-01-01T00:00:00Z')
+            const after = new Date('2026-01-01T00:00:10Z')
+
+            // Stale row from before the captured submit timestamp; should be deleted.
+            await db
+                .insertInto('yjsDocument')
+                .values({
+                    name: `proposal-${study.id}-fields`,
+                    studyId: study.id,
+                    data: Buffer.from([0]),
+                    updatedAt: before,
+                })
+                .execute()
+
+            // Fresh row from a fast reopen-and-edit cycle; should survive the bounded purge.
+            await db
+                .insertInto('yjsDocument')
+                .values({
+                    name: `proposal-${study.id}-research-questions`,
+                    studyId: study.id,
+                    data: Buffer.from([0]),
+                    updatedAt: after,
+                })
+                .execute()
+
+            await purgeProposalYjsDocsBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+            const remaining = await db
+                .selectFrom('yjsDocument')
+                .select(['name'])
+                .where('studyId', '=', study.id)
+                .execute()
+            expect(remaining.map((r) => r.name)).toEqual([`proposal-${study.id}-research-questions`])
+        })
+
+        it('onUpdateDraftStudyAction allows another lab member to edit a CHANGE-REQUESTED draft', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-otter-497-coauthor' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+
+            // First user creates the draft.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Original', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+
+            await db
+                .updateTable('study')
+                .set({ status: 'CHANGE-REQUESTED' })
+                .where('id', '=', draftResult.studyId)
+                .execute()
+
+            // Second user in the same lab updates the draft. mockSessionWithTestData
+            // creates a fresh user; the lab-membership middleware should allow the edit.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId: draftResult.studyId,
+                    studyInfo: { title: 'Coauthored', piName: 'PI', language: 'R' as const },
+                }),
+            )
+
+            const updated = await db
+                .selectFrom('study')
+                .select(['title', 'status'])
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirstOrThrow()
+            expect(updated.title).toBe('Coauthored')
+            expect(updated.status).toBe('CHANGE-REQUESTED')
         })
     })
 

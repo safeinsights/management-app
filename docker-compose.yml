@@ -85,7 +85,7 @@ services:
         networks:
             - mgmnt-app
         ports:
-            - 1234:1234
+            - 4001:4001
         restart: unless-stopped
     mgmnt-app:
         container_name: mgmnt-app
