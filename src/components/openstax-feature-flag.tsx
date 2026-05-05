@@ -56,12 +56,13 @@ export {
     // Card 64: DO Proposal Review redesign
     useOpenStaxFeatureFlag as useProposalReviewFeatureFlag,
     OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
-    // OTTER-495: Post-submission page
+    // OTTER-495 & 519: Post-submission page
+    useOpenStaxFeatureFlag as usePostSubmissionFeatureFlag,
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
     // OTTER-497: Multi-user proposal collaboration
     useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
     OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
-    // Edit and resubmit proposal
+    // OTTER-521: Edit & resubmit proposal (RL) — testing 2026-05-11
     useOpenStaxFeatureFlag as useEditAndResubmitProposalFeatureFlag,
     OpenStaxFeatureFlag as EditAndResubmitProposalFeatureFlag,
 }

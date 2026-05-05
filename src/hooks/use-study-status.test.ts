@@ -63,13 +63,13 @@ describe('useStudyStatus', () => {
             expect(researcherResult).toEqual(
                 expect.objectContaining({
                     stage: 'Proposal',
-                    label: 'Proposal change requested',
+                    label: 'Change requested',
                 }),
             )
             expect(reviewerResult).toEqual(
                 expect.objectContaining({
                     stage: 'Proposal',
-                    label: 'Proposal change requested',
+                    label: 'Change requested',
                 }),
             )
         })

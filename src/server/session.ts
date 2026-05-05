@@ -3,6 +3,7 @@ import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
+import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { updateClerkUserMetadata } from './clerk'
@@ -73,11 +74,17 @@ export async function marshalSession(
 
     let info: UserInfo | null = (sessionClaims.userMetadata as UserInfo) || null
 
-    const needsUpdate = !info || info.format !== 'v3' || forceUpdate
+    let userMissing = false
+    if (info?.format === 'v3' && info.user?.id && !forceUpdate) {
+        const existing = await db.selectFrom('user').select('id').where('id', '=', info.user.id).executeTakeFirst()
+        userMissing = !existing
+    }
+
+    const needsUpdate = !info || info.format !== 'v3' || forceUpdate || userMissing
 
     if (needsUpdate) {
         logger.info(
-            `clerk user ${clerkUserId} needs metadata update (missing: ${!info}, format: ${info?.format}, forceUpdate: ${forceUpdate})`,
+            `clerk user ${clerkUserId} needs metadata update (missing: ${!info}, format: ${info?.format}, forceUpdate: ${forceUpdate}, userMissing: ${userMissing})`,
         )
 
         info = await syncAndUpdateUserMetadata(clerkUserId)

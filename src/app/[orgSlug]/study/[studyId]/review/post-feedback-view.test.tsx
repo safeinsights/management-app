@@ -128,8 +128,7 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            // ProposalSection's collapsed-state toggle says "Show full initial request"
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Show full initial request')
+            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
         })
     })
 
