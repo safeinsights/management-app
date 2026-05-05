@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import {
     beforeEach,
     createTestProposalDraft,
+    db,
     describe,
     expect,
     faker,
@@ -12,18 +13,9 @@ import {
 import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
 import { createHocuspocusMock, type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
+import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
-
-const yjsDocumentState = vi.hoisted(() => ({ updatedAt: null as Date | null }))
-
-vi.mock('@/server/actions/editor.actions', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/actions/editor.actions')>()
-    return {
-        ...actual,
-        getYjsDocumentUpdatedAtAction: () => yjsDocumentState.updatedAt,
-    }
-})
 
 vi.mock('@hocuspocus/provider', () => createHocuspocusMock({ withYDoc: true }))
 
@@ -70,7 +62,6 @@ const createDraftStudy = (slugTag: string, formTitle = 'Original') =>
 describe('useYjsFormMap', () => {
     beforeEach(() => {
         constructed.length = 0
-        yjsDocumentState.updatedAt = null
     })
 
     it('cold load: seeds the Y.Map from form initial values when no yjsDocument row exists', async () => {
@@ -100,9 +91,20 @@ describe('useYjsFormMap', () => {
         expect(fieldsMap!.get('piUserId')).toBe(piUserId)
     })
 
-    it('applies CRDT state pushed before sync to the form', async () => {
+    it('warm load: applies CRDT state pushed before sync to the form when a yjsDocument row exists', async () => {
         const { studyId } = await createDraftStudy('warm', 'OriginalForm')
-        yjsDocumentState.updatedAt = new Date()
+
+        // The row gates `getYjsDocumentUpdatedAtAction` onto the warm-load branch (non-null
+        // updatedAt). The mocked Hocuspocus provider can't read it back as CRDT bytes, so
+        // the Y.applyUpdate below is what supplies the actual content the form will see.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: proposalFieldsDocName(studyId),
+                studyId,
+                data: Buffer.from([0]),
+            })
+            .execute()
 
         const { form, hookResult } = setupCollabHook({
             studyId,
