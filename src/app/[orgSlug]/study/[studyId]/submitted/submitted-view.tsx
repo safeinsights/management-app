@@ -14,9 +14,10 @@ interface SubmittedViewProps {
     study: SelectedStudy
     orgName: string
     entries: ProposalFeedbackEntry[]
+    feedbackError?: boolean
 }
 
-export function SubmittedView({ orgSlug, study, orgName, entries }: SubmittedViewProps) {
+export function SubmittedView({ orgSlug, study, orgName, entries, feedbackError }: SubmittedViewProps) {
     const existingView = (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={orgSlug} studyId={study.id} studyTitle={study.title} />
@@ -44,7 +45,7 @@ export function SubmittedView({ orgSlug, study, orgName, entries }: SubmittedVie
     return (
         <PostSubmissionFeatureFlag
             defaultContent={existingView}
-            optInContent={<ProposalSubmitted orgSlug={orgSlug} study={study} orgName={orgName} entries={entries} />}
+            optInContent={<ProposalSubmitted orgSlug={orgSlug} study={study} orgName={orgName} entries={entries} feedbackError={feedbackError} />}
         />
     )
 }

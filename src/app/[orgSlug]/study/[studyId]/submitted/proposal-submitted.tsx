@@ -4,6 +4,7 @@ import type { FC } from 'react'
 import { Alert, Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { displayOrgName } from '@/lib/string'
+import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -17,6 +18,7 @@ interface ProposalSubmittedProps {
     study: SelectedStudy
     orgName: string
     entries: ProposalFeedbackEntry[]
+    feedbackError?: boolean
 }
 
 type ProposalBannerConfig = {
@@ -112,7 +114,20 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
     }
 }
 
-export function ProposalSubmitted({ orgSlug, study, orgName, entries }: ProposalSubmittedProps) {
+const STATUSES_EXPECTING_FEEDBACK: StudyStatus[] = ['APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
+
+function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; feedbackError?: boolean }) {
+    if (!feedbackError || !STATUSES_EXPECTING_FEEDBACK.includes(status)) return null
+
+    return (
+        <ErrorAlert
+            error="Unable to load feedback and notes. Please try refreshing the page."
+            data-testid="feedback-error-alert"
+        />
+    )
+}
+
+export function ProposalSubmitted({ orgSlug, study, orgName, entries, feedbackError }: ProposalSubmittedProps) {
     const bannerConfig = PROPOSAL_BANNERS[study.status]
 
     return (
@@ -128,6 +143,7 @@ export function ProposalSubmitted({ orgSlug, study, orgName, entries }: Proposal
                     statusBadge={bannerConfig?.statusBadge}
                     initialExpanded={false}
                 />
+                <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
                 <ProposalNavigation orgSlug={orgSlug} study={study} />
             </Stack>
