@@ -1,0 +1,18 @@
+licenses:
+    - id: LGPL-3.0-or-later
+      statement: |
+          libvips, distributed via @img/sharp-libvips-* and related @img/sharp-*
+          packages (transitive of `sharp`, an optionalDependency of Next.js),
+          is dynamically linked at runtime. LGPL-3.0 obligations are documented
+          in THIRD_PARTY_LICENSES.md and satisfied in the distributed image by
+          including the license texts at licenses/LGPL-3.0.txt and
+          licenses/GPL-3.0.txt, and by preserving the recipient's ability to
+          replace the shared-library binary at
+          node_modules/@img/sharp-libvips-<platform>/lib/libvips-cpp.<v>.<ext>.
+
+          NOTE: this suppression is keyed only by license ID, so a NEW
+          LGPL-3.0-or-later dependency added later will silently bypass the
+          license gate. Audit the production license inventory whenever a
+          non-trivial dependency change lands:
+
+              npx license-checker --production --summary
