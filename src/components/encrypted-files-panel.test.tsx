@@ -109,6 +109,48 @@ describe('EncryptedFilesPanel', () => {
         expect(screen.queryByTestId('download-link')).toBeNull()
     })
 
+    it('shows one row per file when an encrypted archive contains multiple files', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                blob: new Blob(),
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                metadata: [
+                    { path: 'first.csv', bytes: 1024 },
+                    { path: 'second.csv', bytes: 2048 },
+                ],
+            },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('first.csv')).toBeDefined()
+            expect(screen.getByText('second.csv')).toBeDefined()
+            expect(screen.getByText('1.0 KB')).toBeDefined()
+            expect(screen.getByText('2.0 KB')).toBeDefined()
+        })
+
+        // Aggregated "N files" placeholder should not appear
+        expect(screen.queryByText('2 files')).toBeNull()
+    })
+
     it('decrypts and shows file table with View and Download', async () => {
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
         const fingerprint = await fingerprintKeyData(publicKey)
@@ -166,6 +208,77 @@ describe('EncryptedFilesPanel', () => {
                     sourceId: '123',
                 }),
             ])
+        })
+    })
+
+    it('decrypts an archive with multiple files and shows one row per file', async () => {
+        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+        const fingerprint = await fingerprintKeyData(publicKey)
+        const writer = new ResultsWriter([{ publicKey, fingerprint }])
+
+        const csvA = 'name,age\nAlice,30'
+        const csvABuf = Buffer.from(csvA, 'utf-8')
+        const arrayBufA = csvABuf.buffer.slice(csvABuf.byteOffset, csvABuf.byteOffset + csvABuf.length)
+
+        const csvB = 'city,state\nDenver,CO'
+        const csvBBuf = Buffer.from(csvB, 'utf-8')
+        const arrayBufB = csvBBuf.buffer.slice(csvBBuf.byteOffset, csvBBuf.byteOffset + csvBBuf.length)
+
+        await writer.addFile('first.csv', arrayBufA)
+        await writer.addFile('second.csv', arrayBufB)
+        const zip = await writer.generate()
+
+        const file = {
+            blob: new Blob([zip as BlobPart]),
+            sourceId: '123',
+            fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [
+                { path: 'first.csv', bytes: arrayBufA.byteLength },
+                { path: 'second.csv', bytes: arrayBufB.byteLength },
+            ],
+        }
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
+
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        const onFilesApproved = vi.fn()
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+
+        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
+        const privateKey = await readTestSupportFile('private_key.pem')
+
+        fireEvent.change(input, { target: { value: privateKey } })
+        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+
+        await waitFor(() => {
+            expect(screen.getByText('first.csv')).toBeDefined()
+            expect(screen.getByText('second.csv')).toBeDefined()
+            expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(2)
+            expect(screen.getAllByTestId('download-link')).toHaveLength(2)
+        })
+
+        await waitFor(() => {
+            expect(onFilesApproved).toHaveBeenLastCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({ path: 'first.csv', fileType: 'APPROVED-RESULT' }),
+                    expect.objectContaining({ path: 'second.csv', fileType: 'APPROVED-RESULT' }),
+                ]),
+            )
         })
     })
 
