@@ -1,3 +1,21 @@
+# SECURITY (OTTER-545): threat model for this workflow.
+#
+# Trigger gating: every job-level `if:` requires the @claude trigger PLUS an
+# OWNER / MEMBER / COLLABORATOR author_association. CONTRIBUTOR is intentionally
+# excluded — anyone with a single merged typo PR would otherwise become a
+# permanent CONTRIBUTOR and could trigger Claude with their own prompts.
+#
+# Runtime trust (audited from anthropics/claude-code-action@v1 source, 2026-05):
+#   - The action's own `bun install` runs inside ${GITHUB_ACTION_PATH}, NOT the
+#     user's workspace. It does not execute the repo's package.json scripts.
+#   - With `actions/checkout` invoked without a `ref:`, the base ref is checked
+#     out — not the PR head. So even if a PR is open, this workflow does not
+#     execute PR-controlled code.
+#   - The action revokes its own app token at the end of the run.
+# These properties make ANTHROPIC_API_KEY exposure low-risk under default
+# settings. If we ever set `ref: ${{ github.event.pull_request.head.sha }}` on
+# the checkout, or pass `--add-dir` to claude_args pointing at PR code, the
+# threat model changes and this comment block needs to be revisited.
 name: Claude Code
 
 on:
