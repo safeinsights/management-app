@@ -9,7 +9,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         )
         .addColumn('url', 'text')
         .addColumn('description', 'text')
-        .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
+        .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .execute()
 
     await sql`
