@@ -16,6 +16,7 @@ type ProposalRequestProps = {
     heading: string
     banner: ReactNode
     initialExpanded?: boolean
+    statusBadge?: string
 }
 
 function useProposalRequest(initialExpanded: boolean) {
@@ -57,6 +58,7 @@ export function ProposalRequest({
     heading,
     banner,
     initialExpanded = true,
+    statusBadge,
 }: ProposalRequestProps) {
     const { expanded, toggle, collapse, getPopoverProps } = useProposalRequest(initialExpanded)
 
@@ -74,12 +76,12 @@ export function ProposalRequest({
                         Title: {study.title}
                     </Text>
                     {study.submittedAt && (
-                        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }}>
-                            Submitted on {dayjs(study.submittedAt).format('MMM DD, YYYY')}
+                        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
+                            {statusBadge ?? 'Submitted on'} {dayjs(study.submittedAt).format('MMM DD, YYYY')}
                         </Text>
                     )}
                 </Group>
-                <Divider my="md" />
+                <Divider my="md" data-testid="proposal-header-divider" />
                 {banner}
                 <ToggleLink isExpanded={expanded} onClick={toggle} testId="proposal-toggle-header" />
             </Paper>

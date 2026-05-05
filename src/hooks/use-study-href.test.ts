@@ -34,4 +34,18 @@ describe('useStudyHref', () => {
     it('routes to /view for DRAFT without job activity', () => {
         expect(useStudyHref('DRAFT', false, PARAMS)).toBe(`${BASE}/view`)
     })
+
+    describe('post-submission flow', () => {
+        it('routes to /submitted for APPROVED without job activity', () => {
+            expect(useStudyHref('APPROVED', false, PARAMS, undefined, true)).toBe(`${BASE}/submitted`)
+        })
+
+        it('routes to /submitted for REJECTED without job activity', () => {
+            expect(useStudyHref('REJECTED', false, PARAMS, undefined, true)).toBe(`${BASE}/submitted`)
+        })
+
+        it('routes to /submitted for CHANGE-REQUESTED without job activity', () => {
+            expect(useStudyHref('CHANGE-REQUESTED', false, PARAMS, undefined, true)).toBe(`${BASE}/submitted`)
+        })
+    })
 })
