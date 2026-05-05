@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
@@ -33,12 +33,9 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     return (
         <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
             <Group justify="space-between" align="center">
-                <Stack gap={2}>
-                    <Text fw={600}>{title}</Text>
-                    <Text size="sm" c="gray.7">
-                        {entry.authorName} · {date}
-                    </Text>
-                </Stack>
+                <Text fw={700} fz={14}>
+                    {title}
+                </Text>
                 <Anchor
                     component="button"
                     onClick={onToggle}
@@ -50,11 +47,21 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                     <ToggleCaret isExpanded={isExpanded} />
                 </Anchor>
             </Group>
-            <Collapse in={isExpanded}>
-                <Text size="sm" component="div" data-testid={`feedback-body-${entry.id}`}>
-                    <ReadOnlyLexicalContent value={JSON.stringify(entry.body)} />
-                </Text>
-            </Collapse>
+            <Box bg="gray.0" p="lg">
+                <Stack gap="xs">
+                    <Text size="sm" fw={600}>
+                        {entry.authorName}
+                    </Text>
+                    <Text size="sm" c="gray.7">
+                        {date}
+                    </Text>
+                </Stack>
+                <Collapse in={isExpanded}>
+                    <Text size="sm" component="div" mt="sm" data-testid={`feedback-body-${entry.id}`}>
+                        <ReadOnlyLexicalContent value={JSON.stringify(entry.body)} />
+                    </Text>
+                </Collapse>
+            </Box>
         </Stack>
     )
 }
@@ -88,7 +95,7 @@ export function FeedbackAndNotesSection({ entries }: { entries: ProposalFeedback
     if (entries.length === 0) return null
 
     return (
-        <Paper p="xl" data-testid="feedback-and-notes-section">
+        <Paper p="xxl" data-testid="feedback-and-notes-section">
             <Stack gap="md">
                 <Title order={4} fz={20} c="charcoal.9" pb={4}>
                     Feedback and notes
