@@ -56,7 +56,7 @@ function StatusBanner({ orgName, status }: { orgName: string; status: StudyStatu
     if (!config) return null
 
     return (
-        <Alert color={config.color} mb="md">
+        <Alert color={config.color} mb="md" data-testid={`status-banner-${status}`}>
             {config.message(orgName)}
         </Alert>
     )

@@ -76,12 +76,12 @@ export function ProposalRequest({
                         Title: {study.title}
                     </Text>
                     {study.submittedAt && (
-                        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }}>
+                        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
                             {statusBadge ?? 'Submitted on'} {dayjs(study.submittedAt).format('MMM DD, YYYY')}
                         </Text>
                     )}
                 </Group>
-                <Divider my="md" />
+                <Divider my="md" data-testid="proposal-header-divider" />
                 {banner}
                 <ToggleLink isExpanded={expanded} onClick={toggle} testId="proposal-toggle-header" />
             </Paper>
