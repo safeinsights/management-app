@@ -5,7 +5,8 @@ import { Alert, Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { displayOrgName } from '@/lib/string'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
-import type { SelectedStudy } from '@/server/actions/study.actions'
+import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
 import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
@@ -15,6 +16,7 @@ interface ProposalSubmittedProps {
     orgSlug: string
     study: SelectedStudy
     orgName: string
+    entries: ProposalFeedbackEntry[]
 }
 
 type ProposalBannerConfig = {
@@ -110,7 +112,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
     }
 }
 
-export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmittedProps) {
+export function ProposalSubmitted({ orgSlug, study, orgName, entries }: ProposalSubmittedProps) {
     const bannerConfig = PROPOSAL_BANNERS[study.status]
 
     return (
@@ -126,6 +128,7 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                     statusBadge={bannerConfig?.statusBadge}
                     initialExpanded={false}
                 />
+                <FeedbackAndNotesSection entries={entries} />
                 <ProposalNavigation orgSlug={orgSlug} study={study} />
             </Stack>
         </Stack>
