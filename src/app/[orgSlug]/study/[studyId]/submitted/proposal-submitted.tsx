@@ -78,7 +78,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
                     >
                         Back
                     </Button>
-                    {/* TODO: Add a link to the study resubmit page */}
+                    {/* TODO: Add a link to the study resubmit page when ready */}
                     <Button component={Link} href={Routes.studyEdit(studyParams)} size="md">
                         Edit and resubmit
                     </Button>

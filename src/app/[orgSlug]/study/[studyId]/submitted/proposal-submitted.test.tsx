@@ -215,6 +215,61 @@ describe('ProposalSubmitted', () => {
         })
     })
 
+    describe('navigation', () => {
+        it('shows a "Back" button linking to dashboard when status is APPROVED', () => {
+            const approvedStudy = { ...study, status: 'APPROVED' as const }
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+            )
+
+            const backLink = screen.getByRole('link', { name: /back/i })
+            expect(backLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('shows a "Proceed to step 3" button linking to agreements when status is APPROVED', () => {
+            const approvedStudy = { ...study, status: 'APPROVED' as const }
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+            )
+
+            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
+            expect(proceedLink).toHaveAttribute(
+                'href',
+                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements`),
+            )
+        })
+
+        it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+            )
+
+            const backLink = screen.getByRole('link', { name: /back/i })
+            expect(backLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('shows an "Edit and resubmit" button linking to edit page when status is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+            )
+
+            const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
+            expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit`)
+        })
+
+        it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {
+            const rejectedStudy = { ...study, status: 'REJECTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={rejectedStudy} orgName={ORG_NAME} entries={[]} />,
+            )
+
+            const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
+            expect(dashboardLink).toHaveAttribute('href', '/dashboard')
+        })
+    })
+
     describe('feedback and notes', () => {
         const reviewerEntry = buildEntry({
             id: 'reviewer-1',
