@@ -25,7 +25,9 @@ describe('DisplayStudyStatus', () => {
         it.each(cases)('renders %s as "%s"', (statusKey, expectedText) => {
             const status = REVIEWER_STATUS_LABELS[statusKey]!
             renderWithProviders(<DisplayStudyStatus status={status} />)
-            expect(screen.getByText(expectedText)).toBeDefined()
+            const textEl = screen.getByText(expectedText)
+            expect(textEl).toBeDefined()
+            expect(textEl.parentElement?.textContent?.trim()).toBe(expectedText)
         })
     })
 
@@ -49,7 +51,9 @@ describe('DisplayStudyStatus', () => {
         it.each(cases)('renders %s as "%s"', (statusKey, expectedText) => {
             const status = RESEARCHER_STATUS_LABELS[statusKey]!
             renderWithProviders(<DisplayStudyStatus status={status} />)
-            expect(screen.getByText(expectedText)).toBeDefined()
+            const textEl = screen.getByText(expectedText)
+            expect(textEl).toBeDefined()
+            expect(textEl.parentElement?.textContent?.trim()).toBe(expectedText)
         })
     })
 })
