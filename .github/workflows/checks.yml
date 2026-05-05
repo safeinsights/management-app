@@ -75,6 +75,13 @@ jobs:
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
+            # SECURITY (OTTER-545): the CLERK_* secrets below belong to a Clerk
+            # instance dedicated to GitHub CI. That instance contains ONLY the
+            # three Playwright test accounts (researcher, reviewer, admin), is
+            # not connected to any production data, and the credentials are not
+            # shared with any other environment, repo, or developer machine.
+            # If this changes (real users added, instance reused elsewhere), the
+            # exposure model in OTTER-545 needs to be re-evaluated.
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
             CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
