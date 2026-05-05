@@ -1,4 +1,5 @@
 import { lexicalJson } from '@/lib/word-count'
+import { Routes } from '@/lib/routes'
 import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
@@ -235,7 +236,7 @@ describe('ProposalSubmitted', () => {
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
             expect(proceedLink).toHaveAttribute(
                 'href',
-                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements`),
+                Routes.studyAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
             )
         })
 

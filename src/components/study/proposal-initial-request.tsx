@@ -58,7 +58,7 @@ export function ProposalRequest({
     heading,
     banner,
     initialExpanded = true,
-    statusBadge,
+    statusBadge = 'Submitted on',
 }: ProposalRequestProps) {
     const { expanded, toggle, collapse, getPopoverProps } = useProposalRequest(initialExpanded)
 
@@ -77,7 +77,7 @@ export function ProposalRequest({
                     </Text>
                     {study.submittedAt && (
                         <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
-                            {statusBadge ?? 'Submitted on'} {dayjs(study.submittedAt).format('MMM DD, YYYY')}
+                            {statusBadge} {dayjs(study.submittedAt).format('MMM DD, YYYY')}
                         </Text>
                     )}
                 </Group>
