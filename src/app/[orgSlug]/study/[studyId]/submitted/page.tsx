@@ -27,5 +27,13 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
 
     const entries = feedbackError ? [] : feedbackResult
 
-    return <SubmittedView orgSlug={orgSlug} study={result} orgName={orgName} entries={entries} feedbackError={feedbackError} />
+    return (
+        <SubmittedView
+            orgSlug={orgSlug}
+            study={result}
+            orgName={orgName}
+            entries={entries}
+            feedbackError={feedbackError}
+        />
+    )
 }

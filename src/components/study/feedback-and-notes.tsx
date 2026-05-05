@@ -57,8 +57,9 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                     </Text>
                 </Stack>
                 <Collapse in={isExpanded}>
+                    {/* component="div" because Lexical renders block-level elements that can't nest inside <p> */}
                     <Text size="sm" component="div" mt="sm" data-testid={`feedback-body-${entry.id}`}>
-                        <ReadOnlyLexicalContent value={JSON.stringify(entry.body)} />
+                        <ReadOnlyLexicalContent value={entry.body} />
                     </Text>
                 </Collapse>
             </Box>
