@@ -5,6 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
@@ -372,12 +373,6 @@ export const insertTestStudyJobUsers = async ({
     return { study, job, user1, user2, ...rest }
 }
 
-export async function createTempDir() {
-    const ostmpdir = os.tmpdir()
-    const tmpdir = path.join(ostmpdir, 'unit-test-')
-    return await fs.promises.mkdtemp(tmpdir)
-}
-
 export type InsertTestOrgOptions = {
     slug: string
     name?: string
@@ -629,11 +624,6 @@ type CreateTestProposalDraftOptions = {
 // instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
 // the same org and do not match the production submitting-lab vs reviewing-enclave split.
 export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
-    // `onSaveDraftStudyAction` is lazy-imported because eagerly importing it from this
-    // always-loaded helper file would pull `@/server/aws` into every test's module graph,
-    // which races with module-level mocks like `aws.test.ts` does for `./config`.
-    // TODO: switch to a top-level import once @/server/aws no longer self-mocks at module scope.
-    const { onSaveDraftStudyAction } = await import('@/server/actions/study-request')
     const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
     const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
     const session = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })

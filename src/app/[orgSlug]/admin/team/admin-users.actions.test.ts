@@ -5,7 +5,8 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { Mock, describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
 
-vi.mock('@/server/events', () => ({
+vi.mock('@/server/events', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/events')>()),
     onUserInvited: vi.fn(({ invitedEmail, pendingId }) => {
         sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
     }),
