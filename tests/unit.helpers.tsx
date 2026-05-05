@@ -632,6 +632,7 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     // `onSaveDraftStudyAction` is lazy-imported because eagerly importing it from this
     // always-loaded helper file would pull `@/server/aws` into every test's module graph,
     // which races with module-level mocks like `aws.test.ts` does for `./config`.
+    // TODO: switch to a top-level import once @/server/aws no longer self-mocks at module scope.
     const { onSaveDraftStudyAction } = await import('@/server/actions/study-request')
     const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
     const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -896,19 +897,6 @@ export const expectStudyJobRecords = async (
         .orderBy('createdAt', 'asc')
         .execute()
     expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
-}
-
-// Pair this with a `vi.mock('@/components/spy-mode-context', ...)` in your test file
-// whose factory reads from `spyModeState`. Drive it from tests with setSpyMode()/resetSpyMode().
-// See legacy-proposal-review-view.test.tsx for an example of the vi.mock factory wiring.
-export const spyModeState = { isSpyMode: false }
-
-export const setSpyMode = (value: boolean) => {
-    spyModeState.isSpyMode = value
-}
-
-export const resetSpyMode = () => {
-    spyModeState.isSpyMode = false
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({

@@ -1,7 +1,6 @@
 import { vi } from 'vitest'
 import {
     act,
-    afterEach,
     beforeEach,
     buildFeedback,
     createTestQueryWrapper,
@@ -13,67 +12,31 @@ import {
     it,
     mockSessionWithTestData,
     renderHook,
-    resetSpyMode,
-    setSpyMode,
     setTestStudyStatus,
-    spyModeState,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
+import { createHocuspocusMock, type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
 
-vi.mock('@/components/spy-mode-context', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
+const featureFlagState = vi.hoisted(() => ({ enabled: false }))
+
+vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
     return {
         ...actual,
-        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
+        useProposalCollaborationFeatureFlag: () => featureFlagState.enabled,
     }
 })
 
-type Listener = (...args: unknown[]) => void
-
-type ProviderHandle = {
-    sendStateless: ReturnType<typeof vi.fn>
-}
-
-vi.mock('@hocuspocus/provider', () => {
-    const constructed: ProviderHandle[] = []
-
-    class HocuspocusProvider {
-        sendStateless = vi.fn()
-        private syncListeners: Listener[] = []
-
-        constructor() {
-            constructed.push({ sendStateless: this.sendStateless })
-        }
-        attach() {}
-        on(event: string, fn: Listener) {
-            if (event === 'synced') this.syncListeners.push(fn)
-        }
-        off(event: string, fn: Listener) {
-            if (event === 'synced') this.syncListeners = this.syncListeners.filter((l) => l !== fn)
-        }
-        destroy() {}
-    }
-
-    class HocuspocusProviderWebsocket {
-        constructor(_opts?: unknown) {}
-        destroy() {}
-    }
-
-    return {
-        HocuspocusProvider,
-        HocuspocusProviderWebsocket,
-        __constructed: constructed,
-    }
-})
+vi.mock('@hocuspocus/provider', () => createHocuspocusMock())
 
 import * as HocuspocusModule from '@hocuspocus/provider'
 
-const constructed = (HocuspocusModule as unknown as { __constructed: ProviderHandle[] }).__constructed
+const constructed = (HocuspocusModule as unknown as { __constructed: HocuspocusProviderHandle[] }).__constructed
 
 const validFeedback = buildFeedback(60)
 
@@ -83,12 +46,9 @@ describe('useProposalReviewMutation', () => {
     beforeEach(() => {
         tabSessionId = faker.string.uuid()
         constructed.length = 0
+        featureFlagState.enabled = false
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
-    })
-
-    afterEach(() => {
-        resetSpyMode()
     })
 
     it('approve decision broadcasts and navigates when the flag is ON', async () => {
@@ -98,7 +58,7 @@ describe('useProposalReviewMutation', () => {
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        setSpyMode(true)
+        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useProposalReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
@@ -143,7 +103,7 @@ describe('useProposalReviewMutation', () => {
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        setSpyMode(true)
+        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useProposalReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
@@ -216,7 +176,7 @@ describe('useProposalReviewMutation', () => {
         // Force the action's editable-status guard to reject by promoting the study
         // out of PENDING-REVIEW after fixtures are inserted.
         await setTestStudyStatus(study.id, 'APPROVED')
-        setSpyMode(true)
+        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useProposalReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),

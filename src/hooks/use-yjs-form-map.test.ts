@@ -2,7 +2,6 @@ import { vi } from 'vitest'
 import {
     beforeEach,
     createTestProposalDraft,
-    db,
     describe,
     expect,
     faker,
@@ -12,67 +11,27 @@ import {
 } from '@/tests/unit.helpers'
 import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
-import { proposalFieldsDocName } from '@/lib/collaboration-documents'
+import { createHocuspocusMock, type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
 
-type Listener = (...args: unknown[]) => void
+const yjsDocumentState = vi.hoisted(() => ({ updatedAt: null as Date | null }))
 
-type Handle = {
-    document: Y.Doc
-    triggerSync: () => void
-    sendStateless: ReturnType<typeof vi.fn>
-}
-
-vi.mock('@hocuspocus/provider', () => {
-    const constructed: Handle[] = []
-
-    class HocuspocusProvider {
-        document: Y.Doc
-        isSynced = false
-        sendStateless = vi.fn()
-        private attached = false
-        private syncListeners: Listener[] = []
-
-        constructor(opts: { document: Y.Doc }) {
-            this.document = opts.document
-            constructed.push({
-                document: opts.document,
-                triggerSync: () => {
-                    if (!this.attached) throw new Error('HocuspocusProvider must be attached before syncing')
-                    this.isSynced = true
-                    this.syncListeners.forEach((fn) => fn())
-                },
-                sendStateless: this.sendStateless,
-            })
-        }
-        attach() {
-            this.attached = true
-        }
-        on(event: string, fn: Listener) {
-            if (event === 'synced') this.syncListeners.push(fn)
-        }
-        off(event: string, fn: Listener) {
-            if (event === 'synced') this.syncListeners = this.syncListeners.filter((l) => l !== fn)
-        }
-        destroy() {}
-    }
-
-    class HocuspocusProviderWebsocket {
-        constructor(_opts?: unknown) {}
-        destroy() {}
-    }
-
+vi.mock('@/server/actions/editor.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/editor.actions')>()
     return {
-        HocuspocusProvider,
-        HocuspocusProviderWebsocket,
-        __constructed: constructed,
+        ...actual,
+        getYjsDocumentUpdatedAtAction: () => yjsDocumentState.updatedAt,
     }
 })
 
+vi.mock('@hocuspocus/provider', () => createHocuspocusMock({ withYDoc: true }))
+
 import * as HocuspocusModule from '@hocuspocus/provider'
 
-const constructed = (HocuspocusModule as unknown as { __constructed: Handle[] }).__constructed
+const constructed = (HocuspocusModule as unknown as { __constructed: HocuspocusProviderHandle[] }).__constructed
+
+const newWebsocketProvider = () => new HocuspocusModule.HocuspocusProviderWebsocket(undefined as never)
 
 const buildProposalForm = (overrides: Partial<ProposalFormValues> = {}) => {
     const initial = { ...initialProposalValues, ...overrides }
@@ -90,9 +49,7 @@ const setupCollabHook = ({
 }) => {
     const { result: formResult } = buildProposalForm(formInitial)
     const form = formResult.current
-    const websocketProvider = new (HocuspocusModule.HocuspocusProviderWebsocket as unknown as new () => InstanceType<
-        typeof HocuspocusModule.HocuspocusProviderWebsocket
-    >)()
+    const websocketProvider = newWebsocketProvider()
     const hookResult = renderHook(() =>
         useYjsFormMap({
             studyId,
@@ -113,6 +70,7 @@ const createDraftStudy = (slugTag: string, formTitle = 'Original') =>
 describe('useYjsFormMap', () => {
     beforeEach(() => {
         constructed.length = 0
+        yjsDocumentState.updatedAt = null
     })
 
     it('cold load: seeds the Y.Map from form initial values when no yjsDocument row exists', async () => {
@@ -142,17 +100,9 @@ describe('useYjsFormMap', () => {
         expect(fieldsMap!.get('piUserId')).toBe(piUserId)
     })
 
-    it('warm load: applies persisted CRDT state to the form when a yjsDocument row already exists', async () => {
+    it('applies CRDT state pushed before sync to the form', async () => {
         const { studyId } = await createDraftStudy('warm', 'OriginalForm')
-
-        await db
-            .insertInto('yjsDocument')
-            .values({
-                name: proposalFieldsDocName(studyId),
-                studyId,
-                data: Buffer.from([0]),
-            })
-            .execute()
+        yjsDocumentState.updatedAt = new Date()
 
         const { form, hookResult } = setupCollabHook({
             studyId,
@@ -166,7 +116,7 @@ describe('useYjsFormMap', () => {
         // before the synced event fires.
         const seedDoc = new Y.Doc()
         seedDoc.getMap('fields').set('title', 'FromCRDT')
-        Y.applyUpdate(handle.document, Y.encodeStateAsUpdate(seedDoc))
+        Y.applyUpdate(handle.document!, Y.encodeStateAsUpdate(seedDoc))
 
         handle.triggerSync()
 
@@ -196,8 +146,9 @@ describe('useYjsFormMap', () => {
         // Write to the captured Y.Doc with a non-LOCAL_ORIGIN origin so the hook's
         // observe handler treats it as a remote update.
         const remoteOrigin = Symbol('remote')
-        handle.document.transact(() => {
-            handle.document.getMap('fields').set('title', 'Remote')
+        const document = handle.document!
+        document.transact(() => {
+            document.getMap('fields').set('title', 'Remote')
         }, remoteOrigin)
 
         await waitFor(() => expect(form.getValues().title).toBe('Remote'))
@@ -225,10 +176,10 @@ describe('useYjsFormMap', () => {
         const peerB = new Y.Doc()
         // Pre-sync peerB with peerA's current state so the receiving peer has the
         // baseline before applying incremental updates.
-        Y.applyUpdate(peerB, Y.encodeStateAsUpdate(handle.document))
+        Y.applyUpdate(peerB, Y.encodeStateAsUpdate(handle.document!))
 
         const capturedOrigins: unknown[] = []
-        handle.document.on('update', (update: Uint8Array, origin: unknown) => {
+        handle.document!.on('update', (update: Uint8Array, origin: unknown) => {
             capturedOrigins.push(origin)
             Y.applyUpdate(peerB, update, origin)
         })
@@ -236,7 +187,7 @@ describe('useYjsFormMap', () => {
         hookResult.result.current.pushField('datasets', ['ds-1', 'ds-2'])
 
         // Confirm the local write committed before checking propagation.
-        expect(handle.document.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2'])
+        expect(handle.document!.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2'])
 
         await waitFor(() => expect(peerB.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2']))
 

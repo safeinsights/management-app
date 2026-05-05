@@ -677,9 +677,9 @@ describe('Request Study Actions', () => {
 
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             const result = await getDraftStudyAction({ studyId })
-            expect(result).toMatchObject({
-                error: expect.objectContaining({ permission_denied: expect.any(String) }),
-            })
+            const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
+            expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
+            expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
         })
 
         it('rejects studies whose status is not in DRAFT/CHANGE-REQUESTED/APPROVED', async () => {
@@ -691,10 +691,7 @@ describe('Request Study Actions', () => {
             await setTestStudyStatus(studyId, 'PENDING-REVIEW')
 
             const result = await getDraftStudyAction({ studyId })
-            // Middleware filters status before CASL check; falls into not-found.
-            expect(result).toMatchObject({
-                error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
-            })
+            expect(result).toEqual({ error: { user: 'Draft study was not found' } })
         })
     })
 
