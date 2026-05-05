@@ -1,6 +1,8 @@
 'use client'
 
-import { Alert, Button, Stack } from '@mantine/core'
+import type { FC } from 'react'
+import { Alert, Button, Group, Stack } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { displayOrgName } from '@/lib/string'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -58,6 +60,56 @@ function StatusBanner({ orgName, status }: { orgName: string; status: StudyStatu
     )
 }
 
+const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ orgSlug, study }) => {
+    const studyParams = { orgSlug, studyId: study.id }
+
+    switch (study.status) {
+        case 'CHANGE-REQUESTED':
+            return (
+                <Group justify="space-between">
+                    <Button
+                        component={Link}
+                        href={Routes.dashboard}
+                        variant="subtle"
+                        size="md"
+                        leftSection={<CaretLeftIcon />}
+                    >
+                        Back
+                    </Button>
+                    {/* TODO: Add a link to the study resubmit page */}
+                    <Button component={Link} href={Routes.studyEdit(studyParams)} size="md">
+                        Edit and resubmit
+                    </Button>
+                </Group>
+            )
+        case 'APPROVED':
+            return (
+                <Group justify="space-between">
+                    <Button
+                        component={Link}
+                        href={Routes.dashboard}
+                        variant="subtle"
+                        size="md"
+                        leftSection={<CaretLeftIcon />}
+                    >
+                        Back
+                    </Button>
+                    <Button component={Link} href={Routes.studyAgreements(studyParams)} size="md">
+                        Proceed to step 3
+                    </Button>
+                </Group>
+            )
+        default:
+            return (
+                <Group justify="flex-end">
+                    <Button component={Link} href={Routes.dashboard} size="md">
+                        Go to dashboard
+                    </Button>
+                </Group>
+            )
+    }
+}
+
 export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmittedProps) {
     const bannerConfig = PROPOSAL_BANNERS[study.status]
 
@@ -74,11 +126,7 @@ export function ProposalSubmitted({ orgSlug, study, orgName }: ProposalSubmitted
                     statusBadge={bannerConfig?.statusBadge}
                     initialExpanded={false}
                 />
-                <Stack gap="sm" align="flex-end">
-                    <Button component={Link} href={Routes.dashboard} size="md">
-                        Go to dashboard
-                    </Button>
-                </Stack>
+                <ProposalNavigation orgSlug={orgSlug} study={study} />
             </Stack>
         </Stack>
     )
