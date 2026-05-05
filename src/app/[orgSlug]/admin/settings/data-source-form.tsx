@@ -111,7 +111,13 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                                 placeholder="Description of document"
                                 style={{ flex: 1 }}
                             />
-                            <ActionIcon color="blue" variant="subtle" onClick={addDocument} mt={4}>
+                            <ActionIcon
+                                color="blue"
+                                variant="subtle"
+                                aria-label="Add document"
+                                onClick={addDocument}
+                                mt={4}
+                            >
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>

@@ -69,7 +69,13 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
                 </Box>
                 <Group gap={4} wrap="nowrap">
                     <Tooltip label="Edit" withArrow>
-                        <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
+                        <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="green"
+                            onClick={openEditModal}
+                            aria-label="Edit data source"
+                        >
                             <PencilIcon />
                         </ActionIcon>
                     </Tooltip>
@@ -77,7 +83,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
                         onConfirmed={() => deleteMutation.mutate({ orgSlug, dataSourceId: dataSource.id })}
                         message="Are you sure you want to delete this data source? This cannot be undone."
                     >
-                        <TrashIcon />
+                        <TrashIcon aria-label="Delete data source" />
                     </SuretyGuard>
                 </Group>
             </Group>
