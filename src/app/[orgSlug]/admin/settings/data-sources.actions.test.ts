@@ -167,8 +167,12 @@ describe('Data Source Actions', () => {
             name: 'Original',
             documents: [
                 {
-                    url: 'https://example.com/docs',
-                    description: 'Example docs desc',
+                    url: 'https://example1.com/docs1',
+                    description: 'Example docs1 desc',
+                },
+                {
+                    url: 'https://example2.com/docs2',
+                    description: 'Example docs2 desc',
                 },
             ],
         })
@@ -194,14 +198,19 @@ describe('Data Source Actions', () => {
             url: 'https://example.com/newdocs',
             description: 'New docs desc',
         })
-        expect(result.documents[0].id).not.toEqual(ds.documents[0].id)
 
-        const deletedDocument = await db
+        const deletedDocument1 = await db
             .selectFrom('orgDataSourceDocument')
             .selectAll('orgDataSourceDocument')
             .where('id', '=', ds.documents[0].id)
             .execute()
-        expect(deletedDocument).toHaveLength(0)
+        expect(deletedDocument1).toHaveLength(0)
+        const deletedDocument2 = await db
+            .selectFrom('orgDataSourceDocument')
+            .selectAll('orgDataSourceDocument')
+            .where('id', '=', ds.documents[1].id)
+            .execute()
+        expect(deletedDocument2).toHaveLength(0)
     })
 
     it('deletes a data source and cascades join rows', async () => {

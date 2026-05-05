@@ -153,8 +153,15 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
         }
 
         // Delete docs that are no longer associated with the data source
-        for (const doc of docsToDelete) {
-            await db.deleteFrom('orgDataSourceDocument').where('id', '=', doc.id).execute()
+        if (docsToDelete.length > 0) {
+            await db
+                .deleteFrom('orgDataSourceDocument')
+                .where(
+                    'id',
+                    'in',
+                    docsToDelete.map((d) => d.id),
+                )
+                .execute()
         }
 
         // Create new docs if needed
