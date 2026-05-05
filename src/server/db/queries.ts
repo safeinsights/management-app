@@ -392,7 +392,7 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
 
 export type StudyReviewWithMeta = {
     report: AnalysisReport
-    generatedAt: Date
+    createdAt: Date
     files: { name: string; fileType: FileType }[]
 }
 
@@ -401,7 +401,7 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .selectFrom('studyReview')
         .select((eb) => [
             eb.ref('report').$castTo<AnalysisReport>().as('report'),
-            'generatedAt',
+            'createdAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')

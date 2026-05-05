@@ -7,6 +7,7 @@ import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 
 const MAX_FILE_SIZE_BYTES = 100_000
+const MAX_FILE_COUNT = 10
 
 const PLACEHOLDER = '(none provided)'
 
@@ -16,6 +17,9 @@ async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string
         .select(['name', 'path'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+        .orderBy('fileType', 'desc')
+        .orderBy('name', 'asc')
+        .limit(MAX_FILE_COUNT)
         .execute()
 
     const result: Record<string, string> = {}
@@ -111,6 +115,16 @@ async function assembleReviewContent(studyJobId: string): Promise<ReviewContent 
 export async function generateAndStoreStudyReview(studyJobId: string): Promise<void> {
     logger.info(`Generating study review`, { studyJobId })
 
+    const existing = await db
+        .selectFrom('studyReview')
+        .select('id')
+        .where('studyJobId', '=', studyJobId)
+        .executeTakeFirst()
+    if (existing) {
+        logger.info(`Study review already exists, skipping`, { studyJobId })
+        return
+    }
+
     const content = await assembleReviewContent(studyJobId)
     if (!content) return
 
@@ -129,9 +143,9 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
         .insertInto('studyReview')
         .values({
             studyJobId,
-            generatedAt: new Date(),
             report: JSON.stringify(report),
         })
+        .onConflict((oc) => oc.column('studyJobId').doNothing())
         .execute()
 
     logger.info(`Study review generated and stored`, { studyJobId })

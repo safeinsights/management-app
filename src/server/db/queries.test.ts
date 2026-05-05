@@ -193,7 +193,7 @@ describe('getStudyReviewForJob', () => {
         expect(result).toBeNull()
     })
 
-    it('returns the stored report along with generatedAt and files for the job', async () => {
+    it('returns the stored report along with createdAt and files for the job', async () => {
         const { job } = await insertTestStudyJobData()
         const report = {
             proposalSummary: 'Studying student outcomes.',
@@ -201,16 +201,15 @@ describe('getStudyReviewForJob', () => {
             alignmentCheck: { isAligned: true, findings: [] },
             complianceCheck: { isCompliant: true, findings: [] },
         }
-        const generatedAt = new Date()
         await db
             .insertInto('studyReview')
-            .values({ studyJobId: job.id, generatedAt, report: JSON.stringify(report) })
+            .values({ studyJobId: job.id, report: JSON.stringify(report) })
             .execute()
 
         const result = await getStudyReviewForJob(job.id)
         expect(result).not.toBeNull()
         expect(result?.report).toEqual(report)
-        expect(result?.generatedAt).toEqual(generatedAt)
+        expect(result?.createdAt).toBeInstanceOf(Date)
         expect(result?.files).toEqual([])
     })
 })

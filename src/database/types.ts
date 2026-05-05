@@ -249,7 +249,6 @@ export interface StudyProposalComment {
 
 export interface StudyReview {
     createdAt: Generated<Timestamp>
-    generatedAt: Timestamp
     id: Generated<string>
     report: Json
     studyJobId: string

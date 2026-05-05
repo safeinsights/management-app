@@ -14,13 +14,17 @@ type StudyReviewSectionProps = {
 }
 
 export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSectionProps) {
-    const { data: review } = useQuery({
+    const { data: review, error } = useQuery({
         queryKey: ['study-review', studyJobId],
         queryFn: () => getStudyReviewAction({ studyJobId }),
         initialData: initialReview,
-        // Poll while review is still pending; stop once the row arrives.
-        refetchInterval: (query) => (query.state.data ? false : POLL_INTERVAL_MS),
+        // Review job runs async for unknown duration; poll until row arrives or query errors.
+        refetchInterval: (query) => (query.state.data || query.state.error ? false : POLL_INTERVAL_MS),
     })
+
+    if (error) {
+        return <ReviewError />
+    }
 
     if (!review) {
         return <ReviewInProgress />
@@ -43,6 +47,17 @@ function ReviewInProgress() {
     )
 }
 
+function ReviewError() {
+    return (
+        <Stack>
+            <ReviewHeader />
+            <Text c="red" size="sm">
+                Failed to load study review. Please refresh to try again.
+            </Text>
+        </Stack>
+    )
+}
+
 function ReviewHeader() {
     return (
         <>
@@ -55,9 +70,9 @@ function ReviewHeader() {
 }
 
 function ReviewReport({ review }: { review: StudyReviewWithMeta }) {
-    const { report, generatedAt, files } = review
+    const { report, createdAt, files } = review
     const fileNames = files.map((f) => f.name).join(', ') || '(none)'
-    const generatedAtLabel = new Date(generatedAt).toISOString()
+    const generatedAtLabel = new Date(createdAt).toISOString()
 
     return (
         <Stack>

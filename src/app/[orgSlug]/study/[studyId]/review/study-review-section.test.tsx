@@ -23,7 +23,7 @@ const baseReport: AnalysisReport = {
 function withMeta(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewWithMeta {
     return {
         report,
-        generatedAt: new Date('2026-04-28T12:00:00Z'),
+        createdAt: new Date('2026-04-28T12:00:00Z'),
         files: files.map((name) => ({ name, fileType: 'MAIN-CODE' as const })),
     }
 }
