@@ -1,3 +1,18 @@
+# SECURITY (OTTER-545): this workflow runs on `pull_request` and therefore
+# executes PR-controlled code (npm install scripts, build, tests). Two threat
+# model rules apply across every job here:
+#
+#   1. Every `actions/checkout` MUST set `persist-credentials: false` so the
+#      runner does not leave a usable GITHUB_TOKEN on disk that a malicious
+#      preinstall / postinstall / test fixture could read.
+#   2. Every job's `permissions:` block MUST be the minimum required for that
+#      job. The `GITHUB_TOKEN` is still passed via env to actions that ask for
+#      it (e.g. coverage-diff-action), but its blast radius is bounded by the
+#      job's permissions even if it leaks.
+#
+# Third-party actions are pinned to commit SHAs (with the version tag in a
+# trailing comment) so a compromised upstream tag cannot silently change what
+# runs here. Use Dependabot to update the SHAs.
 name: Checks
 on:
     push:
@@ -11,8 +26,10 @@ jobs:
         runs-on: ubuntu-latest
         permissions: {}
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: 22
                   cache: 'npm'
@@ -40,7 +57,9 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              with:
+                  persist-credentials: false
             - name: Run Trivy vulnerability scanner in fs mode
               uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
               with:
@@ -50,7 +69,7 @@ jobs:
             - name: Run SonarQube SAST Scan
               # SONAR_TOKEN is scoped to this single step (not the job env) so that
               # any future steps added above cannot accidentally read it. Keep it here.
-              uses: SonarSource/sonarqube-scan-action@v7
+              uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
               env:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -68,10 +87,15 @@ jobs:
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        # SECURITY (OTTER-545): minimum permissions for this job.
+        #   - pull-requests: write — required by coverage-diff-action to post a
+        #     PR comment with the coverage delta.
+        # Anything else (contents: write, pages: write, etc.) MUST NOT be added
+        # without re-evaluating the threat model: this job runs PR-controlled
+        # code, so any permission granted here is a permission a malicious PR
+        # could exercise via a stolen GITHUB_TOKEN.
         permissions:
             pull-requests: write
-            contents: write
-            pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -80,8 +104,16 @@ jobs:
             # three Playwright test accounts (researcher, reviewer, admin), is
             # not connected to any production data, and the credentials are not
             # shared with any other environment, repo, or developer machine.
-            # If this changes (real users added, instance reused elsewhere), the
-            # exposure model in OTTER-545 needs to be re-evaluated.
+            #
+            # The load-bearing mitigation here is the CI-only Clerk instance,
+            # NOT step- or job-level scoping. Every step that needs Clerk creds
+            # (npm ci, unit tests, e2e tests, coverage) also runs PR-controlled
+            # code, so moving these to step-level env would not reduce exposure
+            # — a malicious PR can put exfil code in any of those steps.
+            #
+            # If the CI Clerk instance ever stops being throwaway-isolated
+            # (real users added, instance reused elsewhere), the exposure model
+            # in OTTER-545 needs to be re-evaluated.
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
             CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
@@ -99,12 +131,14 @@ jobs:
             PORT: '4000'
             NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: 22
                   cache: 'npm'
-            - uses: actions/cache@v4
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               id: cache-all-the-things
               with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
                   key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
@@ -160,7 +194,7 @@ jobs:
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
                   cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
             - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@v5.0.1
+              uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   base-summary-filename: base-summary.json
@@ -175,7 +209,7 @@ jobs:
             - name: Delete any test users created
               run: npx tsx ./bin/delete-clerk-test-users.ts
               if: always()
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               if: failure()
               with:
                   name: playwright-report
