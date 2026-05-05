@@ -2,6 +2,8 @@ import { OrgsAdminTable } from './table'
 // eslint-disable-next-line no-restricted-imports
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import { fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { ClaudeContext } from './claude-context'
+import { Stack } from '@mantine/core'
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
@@ -13,6 +15,8 @@ export default async function OrgsAdministration() {
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>
             <OrgsAdminTable />
+            <br />
+            <ClaudeContext />
         </HydrationBoundary>
     )
 }
