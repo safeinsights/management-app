@@ -1,10 +1,12 @@
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { lexicalJson } from '@/lib/word-count'
+import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -13,6 +15,18 @@ import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
 const ORG_NAME = 'Test Data Organization'
+
+const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFeedbackEntry =>
+    ({
+        id: overrides.id ?? 'entry-1',
+        authorId: overrides.authorId ?? 'author-1',
+        authorName: overrides.authorName ?? 'Reviewer One',
+        authorRole: overrides.authorRole ?? 'REVIEWER',
+        entryType: overrides.entryType ?? 'REVIEWER-FEEDBACK',
+        decision: overrides.decision === undefined ? 'APPROVE' : overrides.decision,
+        body: overrides.body ?? JSON.parse(lexicalJson('Feedback body text.')),
+        createdAt: overrides.createdAt ?? new Date('2026-04-20T12:00:00Z'),
+    }) as ProposalFeedbackEntry
 
 describe('ProposalSubmitted', () => {
     let study: SelectedStudy
@@ -167,6 +181,164 @@ describe('ProposalSubmitted', () => {
             expect(screen.queryByTestId('status-banner-REJECTED')).not.toBeInTheDocument()
             expect(screen.queryByTestId('status-banner-CHANGE-REQUESTED')).not.toBeInTheDocument()
             expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('view full initial request dropdown', () => {
+        it('is collapsed by default on page load', () => {
+            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+
+            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.queryByTestId('proposal-body')).not.toBeVisible()
+        })
+
+        it('expands to display the study proposal when clicked', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+
+            await user.click(screen.getByTestId('proposal-toggle-header'))
+
+            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
+            expect(screen.getByTestId('proposal-body')).toBeVisible()
+            expect(screen.getByText(`Title: ${study.title}`)).toBeInTheDocument()
+        })
+
+        it('displays study proposal content as read-only with no editable fields', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+
+            await user.click(screen.getByTestId('proposal-toggle-header'))
+
+            const body = screen.getByTestId('proposal-body')
+            const inputs = body.querySelectorAll('input, textarea, select, [contenteditable="true"]')
+            expect(inputs).toHaveLength(0)
+        })
+    })
+
+    describe('feedback and notes', () => {
+        const reviewerEntry = buildEntry({
+            id: 'reviewer-1',
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            authorName: 'Dr. Reviewer',
+            decision: 'NEEDS-CLARIFICATION',
+            createdAt: new Date('2026-04-20T12:00:00Z'),
+            body: JSON.parse(lexicalJson('Latest reviewer note.')),
+        })
+
+        const researcherEntry = buildEntry({
+            id: 'researcher-1',
+            authorRole: 'RESEARCHER',
+            entryType: 'RESUBMISSION-NOTE',
+            authorName: 'Dr. Researcher',
+            decision: null,
+            createdAt: new Date('2026-04-18T08:00:00Z'),
+            body: JSON.parse(lexicalJson('Original resubmission note.')),
+        })
+
+        it('displays entries from most recent to oldest', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            const entries = screen.getByTestId('feedback-entries')
+            const rendered = entries.querySelectorAll('[data-testid^="feedback-entry-"]')
+            expect(rendered[0]).toHaveAttribute('data-testid', 'feedback-entry-reviewer-1')
+            expect(rendered[1]).toHaveAttribute('data-testid', 'feedback-entry-researcher-1')
+        })
+
+        it('titles reviewer entries "Reviewer feedback"', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback')
+        })
+
+        it('titles researcher entries "Resubmission note"', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Resubmission note')
+        })
+
+        it('displays the reviewer name on reviewer feedback entries', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Dr. Reviewer')
+        })
+
+        it('displays the researcher name on resubmission note entries', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Dr. Researcher')
+        })
+
+        it('displays the date the reviewer submitted their decision', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Apr 20, 2026')
+        })
+
+        it('displays the date the researcher submitted proposal changes', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Apr 18, 2026')
+        })
+
+        it('expands the latest entry by default', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+        })
+
+        it('collapses older entries by default', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
+            )
+
+            expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
         })
     })
 })
