@@ -38,6 +38,9 @@ jobs:
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) && (github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER' || github.event.issue.author_association == 'COLLABORATOR'))
       )
     runs-on: ubuntu-latest
+    # SECURITY (OTTER-545): cap the job lifetime so a stolen GITHUB_TOKEN's
+    # validity window — which equals the job's actual runtime — is bounded.
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write

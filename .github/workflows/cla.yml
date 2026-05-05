@@ -15,6 +15,9 @@ permissions:
 jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
+    # SECURITY (OTTER-545): cap the job lifetime so a stolen GITHUB_TOKEN's
+    # validity window — which equals the job's actual runtime — is bounded.
+    timeout-minutes: 10
     steps:
       - name: "CLA Assistant"
         if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
