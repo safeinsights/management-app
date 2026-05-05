@@ -25,6 +25,15 @@ jobs:
             - name: validate actions
               run: npm run validate-actions
 
+    # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
+    # exposed to PR-controlled code. This job is safe ONLY because it does not run
+    # `npm ci`, build scripts, or any other PR-supplied code before the Sonar step.
+    # Do NOT:
+    #   - add `npm ci` / `npm install` / build / test steps to this job
+    #   - move SONAR_TOKEN to a job-level or workflow-level `env`
+    #   - reorder steps so PR code executes before the SonarQube scan
+    # If you need to run PR code alongside Sonar, split it into a separate job
+    # that does not have access to SONAR_TOKEN.
     infosec:
         timeout-minutes: 5
         runs-on: ubuntu-latest
@@ -39,6 +48,8 @@ jobs:
                   scan-ref: '.'
                   trivy-config: trivy.yaml
             - name: Run SonarQube SAST Scan
+              # SONAR_TOKEN is scoped to this single step (not the job env) so that
+              # any future steps added above cannot accidentally read it. Keep it here.
               uses: SonarSource/sonarqube-scan-action@v7
               env:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
