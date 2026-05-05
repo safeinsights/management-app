@@ -29,6 +29,12 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   persist-credentials: false
+            - name: Check for bidirectional unicode characters
+              run: |
+                  if git grep -P -I -l '[\x{202A}-\x{202E}\x{2066}-\x{2069}]'; then
+                      echo '::error::Bidirectional unicode characters detected (CVE-2021-42574 Trojan Source)'
+                      exit 1
+                  fi
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 22
@@ -37,6 +43,8 @@ jobs:
               run: npm ci
             - name: show versions
               run: npm ls
+            - name: Verify npm package signatures
+              run: npm audit signatures
             - name: npm run checks
               run: npm run checks
             - name: validate actions
@@ -66,6 +74,15 @@ jobs:
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
+            - name: Run Trivy license scanner
+              uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  scanners: 'license'
+                  severity: 'HIGH,CRITICAL'
+                  exit-code: '1'
+                  trivyignores: '.trivyignore.yaml'
             - name: Run SonarQube SAST Scan
               # SONAR_TOKEN is scoped to this single step (not the job env) so that
               # any future steps added above cannot accidentally read it. Keep it here.
