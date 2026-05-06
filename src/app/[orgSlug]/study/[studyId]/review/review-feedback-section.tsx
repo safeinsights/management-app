@@ -5,6 +5,7 @@ import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 
 const EDITOR_SKELETON = <Skeleton h={600} radius={4} />
 
@@ -34,6 +35,7 @@ const PLACEHOLDER_TEXT = `For e.g., "This study is feasible with our current dat
 
 function FeedbackEditor({ feedback, studyId }: { feedback: ReturnType<typeof useReviewFeedback>; studyId: string }) {
     const websocketProvider = useYjsWebsocket()
+    const publishProvider = usePublishReviewFeedbackProvider()
     if (!websocketProvider) return EDITOR_SKELETON
     return (
         <CollaborativeEditor
@@ -44,6 +46,7 @@ function FeedbackEditor({ feedback, studyId }: { feedback: ReturnType<typeof use
             onChange={feedback.onChange}
             placeholder={PLACEHOLDER_TEXT}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
+            onProviderReady={publishProvider}
         />
     )
 }

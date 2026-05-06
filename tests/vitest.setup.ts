@@ -174,11 +174,15 @@ beforeAll(async () => {
             }
             destroy() {}
         }
+        const providerCtorSpy = vi.fn()
+        const providerInstances: FakeHocuspocusProvider[] = []
         class FakeHocuspocusProvider {
             document: InstanceType<typeof Y.Doc>
             awareness = new FakeAwareness()
             isSynced = false
             unsyncedChanges = 0
+            // Surfaced so tests can assert which document name a provider was created for.
+            configuration: { name?: string } = {}
             attach = vi.fn()
             destroy = vi.fn()
             disconnect = vi.fn()
@@ -187,9 +191,14 @@ beforeAll(async () => {
             off = vi.fn()
             send = vi.fn()
             sendStateless = vi.fn()
-            constructor(opts?: { document?: InstanceType<typeof Y.Doc> }) {
+            constructor(opts?: { document?: InstanceType<typeof Y.Doc>; name?: string }) {
                 this.document = opts?.document ?? new Y.Doc()
+                this.configuration = { name: opts?.name }
+                providerCtorSpy(opts)
+                providerInstances.push(this)
             }
+            static __ctor = providerCtorSpy
+            static __instances = providerInstances
         }
         return {
             HocuspocusProviderWebsocket: FakeHocuspocusProviderWebsocket,

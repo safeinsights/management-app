@@ -1,13 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useAuth } from '@clerk/nextjs'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
-
-import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 
 type Props = {
     orgSlug: string
@@ -18,44 +12,18 @@ type Props = {
 }
 
 /**
- * Listener-only Hocuspocus connection for the DO review-feedback document.
- * Multiplexes over the tab-singleton websocket from `useYjsWebsocket`, so this
- * listener and the editor's own provider share one underlying TCP connection.
+ * Listener for the DO review-feedback document's stateless events.
+ *
+ * Subscribes to the SAME HocuspocusProvider the Lexical editor uses for
+ * `review-feedback-${studyId}` rather than creating its own. Two providers
+ * attached to the shared websocket with the same name collide in
+ * `HocuspocusProviderWebsocket.providerMap` (Map keyed by name) — the second
+ * `attach()` overwrites the first and the loser goes deaf. By multiplexing
+ * the editor and the listener over a single provider, the stateless event
+ * is delivered reliably regardless of mount order.
  */
 export function ReviewSubmissionListener({ orgSlug, studyId, tabSessionId, enabled }: Props) {
-    const { getToken } = useAuth()
-    const sharedSocket = useYjsWebsocket()
-    const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
-
-    useEffect(() => {
-        if (!enabled || !sharedSocket) return undefined
-
-        const doc = new Y.Doc()
-        const docName = reviewFeedbackDocName(studyId)
-        const next = new HocuspocusProvider({
-            websocketProvider: sharedSocket,
-            name: docName,
-            document: doc,
-            token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
-                // Auth failure here means the listener won't subscribe to stateless
-                // events; the user falls through to the status poll for kick-out.
-                console.warn(`listener HocuspocusProvider auth failed for ${docName}`)
-            },
-        } as ConstructorParameters<typeof HocuspocusProvider>[0])
-        // With a shared websocketProvider the constructor leaves manageSocket=false.
-        // Without this attach() the document never registers in providerMap.
-        next.attach()
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setProvider(next)
-
-        return () => {
-            next.destroy()
-            doc.destroy()
-
-            setProvider(null)
-        }
-    }, [enabled, studyId, getToken, sharedSocket])
+    const provider = useReviewFeedbackProvider()
 
     useSubmissionRedirectListener({
         provider,

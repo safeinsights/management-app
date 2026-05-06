@@ -7,6 +7,7 @@ import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { ReviewSubmissionListener } from './review-submission-listener'
@@ -197,62 +198,64 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
             redirectTarget="studyReview"
             enabled={isCollaborationEnabled && isEditable}
         >
-            <Box bg="grey.10">
-                <ReviewSubmissionListener
-                    orgSlug={orgSlug}
-                    studyId={study.id}
-                    tabSessionId={tabSessionId}
-                    enabled={isCollaborationEnabled && isEditable}
-                />
-                <Stack px="xl" gap="xl" py="xl">
-                    <PageBreadcrumbs
-                        crumbs={[
-                            ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                            ['Data use request', Routes.studyReview({ orgSlug, studyId: study.id })],
-                            ['Review initial request'],
-                        ]}
-                    />
-
-                    <Title order={1} fz={40} fw={700}>
-                        Review initial request
-                    </Title>
-
-                    <ProposalSection study={study} orgSlug={orgSlug} />
-                    <ReviewFeedbackSection
-                        feedback={feedback}
-                        submittingLabName={study.submittingLabName}
+            <ReviewFeedbackProviderShare>
+                <Box bg="grey.10">
+                    <ReviewSubmissionListener
+                        orgSlug={orgSlug}
                         studyId={study.id}
+                        tabSessionId={tabSessionId}
+                        enabled={isCollaborationEnabled && isEditable}
                     />
-                    <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
+                    <Stack px="xl" gap="xl" py="xl">
+                        <PageBreadcrumbs
+                            crumbs={[
+                                ['Dashboard', Routes.orgDashboard({ orgSlug })],
+                                ['Data use request', Routes.studyReview({ orgSlug, studyId: study.id })],
+                                ['Review initial request'],
+                            ]}
+                        />
 
-                    <ReviewActionsBar
-                        study={study}
-                        canSubmit={canSubmit}
+                        <Title order={1} fz={40} fw={700}>
+                            Review initial request
+                        </Title>
+
+                        <ProposalSection study={study} orgSlug={orgSlug} />
+                        <ReviewFeedbackSection
+                            feedback={feedback}
+                            submittingLabName={study.submittingLabName}
+                            studyId={study.id}
+                        />
+                        <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
+
+                        <ReviewActionsBar
+                            study={study}
+                            canSubmit={canSubmit}
+                            isPending={isPending}
+                            onBack={handleBack}
+                            onSubmit={handleSubmit}
+                        />
+                    </Stack>
+
+                    <ReviewConfirmationModal
+                        isOpen={confirmOpen}
+                        onClose={closeConfirm}
+                        onConfirm={handleConfirmSubmit}
                         isPending={isPending}
-                        onBack={handleBack}
-                        onSubmit={handleSubmit}
+                        title="Confirm review submission?"
+                        confirmLabel="Yes, submit review"
                     />
-                </Stack>
-
-                <ReviewConfirmationModal
-                    isOpen={confirmOpen}
-                    onClose={closeConfirm}
-                    onConfirm={handleConfirmSubmit}
-                    isPending={isPending}
-                    title="Confirm review submission?"
-                    confirmLabel="Yes, submit review"
-                />
-                <ReviewConfirmationModal
-                    isOpen={rejectOpen}
-                    onClose={closeReject}
-                    onConfirm={handleConfirmSubmit}
-                    isPending={isPending}
-                    title="Reject initial request?"
-                    confirmLabel="Reject initial request"
-                    variant="destructive"
-                    warning={REJECTION_WARNING}
-                />
-            </Box>
+                    <ReviewConfirmationModal
+                        isOpen={rejectOpen}
+                        onClose={closeReject}
+                        onConfirm={handleConfirmSubmit}
+                        isPending={isPending}
+                        title="Reject initial request?"
+                        confirmLabel="Reject initial request"
+                        variant="destructive"
+                        warning={REJECTION_WARNING}
+                    />
+                </Box>
+            </ReviewFeedbackProviderShare>
         </StudyKickOutProvider>
     )
 }

@@ -255,6 +255,7 @@ function useCollaborationProvider(
     providerRef: React.MutableRefObject<HocuspocusProvider | null>,
     getToken: () => Promise<string | null>,
     onAuthError: (reason: string) => void,
+    onProviderReady?: (provider: HocuspocusProvider | null) => void,
 ) {
     return useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
@@ -278,10 +279,11 @@ function useCollaborationProvider(
             provider.attach()
 
             providerRef.current = provider
+            onProviderReady?.(provider)
 
             return provider as unknown as Provider
         },
-        [websocketProvider, providerRef, getToken, onAuthError],
+        [websocketProvider, providerRef, getToken, onAuthError, onProviderReady],
     )
 }
 
@@ -311,6 +313,14 @@ export type CollaborativeEditorProps = {
     placeholder?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
+    /**
+     * Called once Lexical's CollaborationPlugin instantiates the provider, and
+     * again with null on teardown. Consumers (e.g. siblings that need to
+     * subscribe to stateless events on the same document) use this to share
+     * the editor's provider rather than constructing their own — two providers
+     * with the same name on the shared websocket collide in providerMap.
+     */
+    onProviderReady?: (provider: HocuspocusProvider | null) => void
 }
 
 function EditorUnavailable() {
@@ -353,6 +363,7 @@ export function CollaborativeEditor({
     placeholder,
     onChange,
     footerRight,
+    onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
@@ -374,7 +385,21 @@ export function CollaborativeEditor({
         },
         [triggerKickOut],
     )
-    const providerFactory = useCollaborationProvider(websocketProvider, providerRef, fetchToken, onAuthError)
+    const providerFactory = useCollaborationProvider(
+        websocketProvider,
+        providerRef,
+        fetchToken,
+        onAuthError,
+        onProviderReady,
+    )
+
+    useEffect(() => {
+        // Pair the onProviderReady publish with a teardown clear so subscribers
+        // don't hold a destroyed provider after the editor unmounts.
+        return () => {
+            onProviderReady?.(null)
+        }
+    }, [onProviderReady])
 
     // STUDY_NOT_EDITABLE: a peer submitted while we were disconnected. The kick-out
     // flow (toast + redirect) is wired up at the page level; render nothing here so
