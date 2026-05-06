@@ -12,12 +12,19 @@ import {
 } from '@/tests/unit.helpers'
 import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
-import { createHocuspocusMock, type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
+import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
 
-vi.mock('@hocuspocus/provider', () => createHocuspocusMock({ withYDoc: true }))
+// Dynamic import inside the factory so the helper module is resolved at mock
+// time, not at file-init. Using a top-level `import` left the binding in TDZ
+// when vitest hoisted vi.mock above it, throwing "Cannot access __vi_import_N__
+// before initialization" on CI.
+vi.mock('@hocuspocus/provider', async () => {
+    const { createHocuspocusMock } = await import('@/tests/hocuspocus.mock')
+    return createHocuspocusMock({ withYDoc: true })
+})
 
 import * as HocuspocusModule from '@hocuspocus/provider'
 
