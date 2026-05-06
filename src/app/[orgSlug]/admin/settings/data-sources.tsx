@@ -51,17 +51,17 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
                             {dataSource.description}
                         </Text>
                     )}
-                    {dataSource.documents.map(
-                        (d) =>
-                            d.url && (
-                                <Group key={d.id} gap="sm" wrap="nowrap">
+                    {dataSource.urls.map(
+                        (u) =>
+                            u.url && (
+                                <Group key={u.id} gap="sm" wrap="nowrap">
                                     <Text>
-                                        <Anchor size="sm" href={d.url} target="_blank" rel="noopener noreferrer">
-                                            {d.url}
+                                        <Anchor size="sm" href={u.url} target="_blank" rel="noopener noreferrer">
+                                            {u.url}
                                         </Anchor>
                                     </Text>
                                     <Text c="dimmed" size="sm">
-                                        {d.description}
+                                        {u.description}
                                     </Text>
                                 </Group>
                             ),

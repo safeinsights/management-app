@@ -21,46 +21,43 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         initialValues: {
             name: dataSource?.name || '',
             description: dataSource?.description || '',
-            documents:
-                dataSource?.documents.map((d) => ({
-                    id: d.id,
-                    url: d.url ?? '',
-                    description: d.description ?? '',
+            urls:
+                dataSource?.urls.map((u) => ({
+                    id: u.id,
+                    url: u.url ?? '',
+                    description: u.description ?? '',
                 })) || [],
-            newDocumentUrl: '',
-            newDocumentDescription: '',
+            newUrl: '',
+            newUrlDescription: '',
         },
         validate: zodResolver(dataSourceFormSchema),
     })
 
-    const addDocument = () => {
+    const addUrl = () => {
         form.setValues({
             ...form.values,
-            documents: [
-                ...form.values.documents,
-                { url: form.values.newDocumentUrl, description: form.values.newDocumentDescription },
-            ],
-            newDocumentUrl: '',
-            newDocumentDescription: '',
+            urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
+            newUrl: '',
+            newUrlDescription: '',
         })
     }
 
-    const updateDocumentUrl = (index: number, url: string) => {
-        const updated = [...form.values.documents]
+    const updateUrl = (index: number, url: string) => {
+        const updated = [...form.values.urls]
         updated[index] = { ...updated[index], url }
-        form.setFieldValue('documents', updated)
+        form.setFieldValue('urls', updated)
     }
 
-    const updateDocumentDescription = (index: number, description: string) => {
-        const updated = [...form.values.documents]
+    const updateUrlDescription = (index: number, description: string) => {
+        const updated = [...form.values.urls]
         updated[index] = { ...updated[index], description }
-        form.setFieldValue('documents', updated)
+        form.setFieldValue('urls', updated)
     }
 
-    const removeDocument = (index: number) => {
+    const removeUrl = (index: number) => {
         form.setFieldValue(
-            'documents',
-            form.values.documents.filter((_, i) => i !== index),
+            'urls',
+            form.values.urls.filter((_, i) => i !== index),
         )
     }
 
@@ -78,18 +75,18 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         onError: reportMutationError(isEditMode ? 'Failed to update data source' : 'Failed to add data source'),
     })
 
-    const onSubmit = form.onSubmit(({ newDocumentUrl, newDocumentDescription, ...values }) => {
-        // Handle the case where a user may have document data in-progress. We proactively add the
-        // document and then validate to surface errors. If everything is fine, we save().
-        if (newDocumentUrl !== '' || newDocumentDescription !== '') {
-            addDocument()
+    const onSubmit = form.onSubmit(({ newUrl, newUrlDescription, ...values }) => {
+        // Handle the case where a user may have URL data in-progress. We proactively add the
+        // URL and then validate to surface errors. If everything is fine, we save().
+        if (newUrl !== '' || newUrlDescription !== '') {
+            addUrl()
 
             form.validate()
             if (!form.isValid()) {
                 return
             }
 
-            values.documents = form.getValues().documents
+            values.urls = form.getValues().urls
         }
         save(values)
     })
@@ -99,9 +96,9 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         isEditMode,
         isPending,
         onSubmit,
-        updateDocumentUrl,
-        updateDocumentDescription,
-        removeDocument,
-        addDocument,
+        updateUrl,
+        updateUrlDescription,
+        removeUrl,
+        addUrl,
     }
 }

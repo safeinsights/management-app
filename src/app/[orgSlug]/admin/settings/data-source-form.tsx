@@ -14,8 +14,9 @@ interface DataSourceFormProps {
     onCompleteAction: () => void
 }
 
-interface SourceDocumentLineProps {
-    document: { url: string; description: string }
+interface SourceUrlLineProps {
+    url: string
+    description: string
     onUrlChange: (url: string) => void
     onDescriptionChange: (description: string) => void
     urlProps: GetInputPropsReturnType
@@ -23,29 +24,30 @@ interface SourceDocumentLineProps {
     onRemove: () => void
 }
 
-function SourceDocumentLine({
-    document,
+function SourceUrlLine({
+    url,
+    description,
     onUrlChange,
     onDescriptionChange,
     onRemove,
     urlProps,
     descriptionProps,
-}: SourceDocumentLineProps) {
+}: SourceUrlLineProps) {
     return (
         <Group gap="xs" align="flex-start">
             <TextInput
                 {...urlProps}
-                value={document.url}
+                value={url}
                 onChange={(e) => onUrlChange(e.target.value)}
                 style={{ flex: 1 }}
-                placeholder="URL for document"
+                placeholder="URL"
             />
             <TextInput
                 {...descriptionProps}
-                value={document.description}
+                value={description}
                 onChange={(e) => onDescriptionChange(e.target.value)}
                 style={{ flex: 1 }}
-                placeholder="Description of document"
+                placeholder="URL description"
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />
@@ -55,16 +57,8 @@ function SourceDocumentLine({
 }
 
 export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormProps) {
-    const {
-        form,
-        isEditMode,
-        isPending,
-        onSubmit,
-        updateDocumentUrl,
-        updateDocumentDescription,
-        removeDocument,
-        addDocument,
-    } = useDataSourceForm(dataSource, onCompleteAction)
+    const { form, isEditMode, isPending, onSubmit, updateUrl, updateUrlDescription, removeUrl, addUrl } =
+        useDataSourceForm(dataSource, onCompleteAction)
 
     return (
         <form onSubmit={onSubmit}>
@@ -81,43 +75,34 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                 <Divider />
                 <Box>
                     <Title order={5} mb={4}>
-                        Data source documents
+                        Data source URLs
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
-                        Define documents associated with this data source
+                        Define URLs associated with this data source
                     </Text>
 
                     <Stack gap="xs">
-                        {form.values.documents.map((doc, index) => (
-                            <SourceDocumentLine
+                        {form.values.urls.map((u, index) => (
+                            <SourceUrlLine
                                 key={index}
-                                document={doc}
-                                onUrlChange={(name) => updateDocumentUrl(index, name)}
-                                onDescriptionChange={(value) => updateDocumentDescription(index, value)}
-                                onRemove={() => removeDocument(index)}
-                                urlProps={form.getInputProps(`documents.${index}.url`)}
-                                descriptionProps={form.getInputProps(`documents.${index}.description`)}
+                                url={u.url}
+                                description={u.description}
+                                onUrlChange={(value) => updateUrl(index, value)}
+                                onDescriptionChange={(value) => updateUrlDescription(index, value)}
+                                onRemove={() => removeUrl(index)}
+                                urlProps={form.getInputProps(`urls.${index}.url`)}
+                                descriptionProps={form.getInputProps(`urls.${index}.description`)}
                             />
                         ))}
 
                         <Group gap="xs" align="flex-start">
+                            <TextInput {...form.getInputProps('newUrl')} placeholder="URL" style={{ flex: 1 }} />
                             <TextInput
-                                {...form.getInputProps('newDocumentUrl')}
-                                placeholder="URL for document"
+                                {...form.getInputProps('newUrlDescription')}
+                                placeholder="URL description"
                                 style={{ flex: 1 }}
                             />
-                            <TextInput
-                                {...form.getInputProps('newDocumentDescription')}
-                                placeholder="Description of document"
-                                style={{ flex: 1 }}
-                            />
-                            <ActionIcon
-                                color="blue"
-                                variant="subtle"
-                                aria-label="Add document"
-                                onClick={addDocument}
-                                mt={4}
-                            >
+                            <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt={4}>
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>

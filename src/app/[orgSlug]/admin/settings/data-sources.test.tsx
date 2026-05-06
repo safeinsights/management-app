@@ -39,14 +39,14 @@ describe('DataSources', async () => {
             orgId: org.id,
             name: 'Name: Data source 1',
             description: 'Desc: Data source 1',
-            documents: [
+            urls: [
                 {
-                    url: 'https://example.com/docs1',
-                    description: 'Source 1 docs1 desc',
+                    url: 'https://example.com/url1',
+                    description: 'Source 1 url1 desc',
                 },
                 {
-                    url: 'https://example.com/docs2',
-                    description: 'Source 1 docs2 desc',
+                    url: 'https://example.com/url2',
+                    description: 'Source 1 url2 desc',
                 },
             ],
         })
@@ -55,10 +55,10 @@ describe('DataSources', async () => {
         await waitFor(() => {
             expect(screen.getByText(/Name: Data source 1/i)).toBeInTheDocument()
             expect(screen.getByText(/Desc: Data source 1/i)).toBeInTheDocument()
-            expect(screen.getByText(/Source 1 docs1 desc/i)).toBeInTheDocument()
-            expect(screen.getByRole('link', { name: 'https://example.com/docs1' })).toBeInTheDocument()
-            expect(screen.getByText(/Source 1 docs2 desc/i)).toBeInTheDocument()
-            expect(screen.getByRole('link', { name: 'https://example.com/docs2' })).toBeInTheDocument()
+            expect(screen.getByText(/Source 1 url1 desc/i)).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'https://example.com/url1' })).toBeInTheDocument()
+            expect(screen.getByText(/Source 1 url2 desc/i)).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'https://example.com/url2' })).toBeInTheDocument()
         })
     })
 
@@ -80,9 +80,9 @@ describe('DataSources', async () => {
 
         expect(modalQueries.getByLabelText(/name/i)).toBeInTheDocument()
         expect(modalQueries.getByLabelText(/description/i)).toBeInTheDocument()
-        expect(modalQueries.getByRole('heading', { name: /data source documents/i })).toBeInTheDocument()
-        expect(modalQueries.getByPlaceholderText(/url for document/i)).toBeInTheDocument()
-        expect(modalQueries.getByPlaceholderText(/description of document/i)).toBeInTheDocument()
+        expect(modalQueries.getByRole('heading', { name: /data source URLs/i })).toBeInTheDocument()
+        expect(modalQueries.getByPlaceholderText(/^URL$/i)).toBeInTheDocument()
+        expect(modalQueries.getByPlaceholderText(/url description/i)).toBeInTheDocument()
         expect(modalQueries.getByRole('button', { name: /save data source/i })).toBeInTheDocument()
     })
 
@@ -99,11 +99,11 @@ describe('DataSources', async () => {
         await user.type(modalQueries.getByLabelText(/name/i), 'My data source')
         await user.type(modalQueries.getByLabelText(/description/i), 'Description of my data source')
 
-        await user.type(modalQueries.getByPlaceholderText(/url for document/i), 'https://example.com/doc')
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/url')
 
-        await user.type(modalQueries.getByPlaceholderText(/description of document/i), 'Document description')
+        await user.type(modalQueries.getByPlaceholderText(/url description/i), 'URL description text')
 
-        await user.click(modalQueries.getByRole('button', { name: /add document/i }))
+        await user.click(modalQueries.getByRole('button', { name: /add URL/i }))
 
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
 
@@ -118,13 +118,13 @@ describe('DataSources', async () => {
             .execute()
         expect(sources).toEqual([{ name: 'My data source', description: 'Description of my data source' }])
 
-        const docs = await db
-            .selectFrom('orgDataSourceDocument')
-            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceDocument.orgDataSourceId')
-            .select(['orgDataSourceDocument.url', 'orgDataSourceDocument.description'])
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
+            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceUrl.orgDataSourceId')
+            .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
             .where('orgDataSource.orgId', '=', org.id)
             .execute()
-        expect(docs).toEqual([{ url: 'https://example.com/doc', description: 'Document description' }])
+        expect(urls).toEqual([{ url: 'https://example.com/url', description: 'URL description text' }])
     })
 
     it('renders modal form to edit a data source when edit button is clicked', async () => {
@@ -134,7 +134,7 @@ describe('DataSources', async () => {
             orgId: org.id,
             name: 'Existing source',
             description: 'Existing desc',
-            documents: [{ url: 'https://example.com/existing-doc', description: 'Existing doc desc' }],
+            urls: [{ url: 'https://example.com/existing-url', description: 'Existing url desc' }],
         })
 
         renderWithProviders(<DataSources />)
@@ -151,8 +151,8 @@ describe('DataSources', async () => {
         expect(modalQueries.getByRole('heading', { name: /edit data source/i })).toBeInTheDocument()
         expect(modalQueries.getByLabelText(/name/i)).toHaveValue('Existing source')
         expect(modalQueries.getByLabelText(/description/i)).toHaveValue('Existing desc')
-        expect(modalQueries.getByDisplayValue('https://example.com/existing-doc')).toBeInTheDocument()
-        expect(modalQueries.getByDisplayValue('Existing doc desc')).toBeInTheDocument()
+        expect(modalQueries.getByDisplayValue('https://example.com/existing-url')).toBeInTheDocument()
+        expect(modalQueries.getByDisplayValue('Existing url desc')).toBeInTheDocument()
         expect(modalQueries.getByRole('button', { name: /update data source/i })).toBeInTheDocument()
     })
 
@@ -163,7 +163,7 @@ describe('DataSources', async () => {
             orgId: org.id,
             name: 'Original name',
             description: 'Original desc',
-            documents: [{ url: 'https://example.com/orig', description: 'Original doc desc' }],
+            urls: [{ url: 'https://example.com/orig', description: 'Original url desc' }],
         })
 
         renderWithProviders(<DataSources />)
@@ -198,13 +198,13 @@ describe('DataSources', async () => {
             .execute()
         expect(sources).toEqual([{ name: 'Updated name', description: 'Updated desc' }])
 
-        // Existing document is preserved unchanged through the update path
-        const docs = await db
-            .selectFrom('orgDataSourceDocument')
+        // Existing URL is preserved unchanged through the update path
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
             .select(['url', 'description'])
             .where('orgDataSourceId', '=', ds.id)
             .execute()
-        expect(docs).toEqual([{ url: 'https://example.com/orig', description: 'Original doc desc' }])
+        expect(urls).toEqual([{ url: 'https://example.com/orig', description: 'Original url desc' }])
     })
 
     it('deletes expected database rows when delete button is clicked', async () => {
@@ -213,7 +213,7 @@ describe('DataSources', async () => {
         const ds = await insertTestDataSource({
             orgId: org.id,
             name: 'To delete',
-            documents: [{ url: 'https://example.com/dd', description: 'Doomed doc' }],
+            urls: [{ url: 'https://example.com/dd', description: 'Doomed url' }],
         })
 
         renderWithProviders(<DataSources />)
@@ -234,11 +234,11 @@ describe('DataSources', async () => {
         const sources = await db.selectFrom('orgDataSource').where('id', '=', ds.id).execute()
         expect(sources).toEqual([])
 
-        const docs = await db.selectFrom('orgDataSourceDocument').where('orgDataSourceId', '=', ds.id).execute()
-        expect(docs).toEqual([])
+        const urls = await db.selectFrom('orgDataSourceUrl').where('orgDataSourceId', '=', ds.id).execute()
+        expect(urls).toEqual([])
     })
 
-    it('includes doc information if user does not click add document on save', async () => {
+    it('includes URL information if user does not click add URL on save', async () => {
         const user = userEvent.setup()
 
         renderWithProviders(<DataSources />)
@@ -248,9 +248,9 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/name/i), 'Implicit doc source')
-        await user.type(modalQueries.getByPlaceholderText(/url for document/i), 'https://example.com/implicit')
-        await user.type(modalQueries.getByPlaceholderText(/description of document/i), 'Implicit doc desc')
+        await user.type(modalQueries.getByLabelText(/name/i), 'Implicit url source')
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/implicit')
+        await user.type(modalQueries.getByPlaceholderText(/url description/i), 'Implicit url desc')
 
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
 
@@ -258,16 +258,16 @@ describe('DataSources', async () => {
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
 
-        const docs = await db
-            .selectFrom('orgDataSourceDocument')
-            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceDocument.orgDataSourceId')
-            .select(['orgDataSourceDocument.url', 'orgDataSourceDocument.description'])
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
+            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceUrl.orgDataSourceId')
+            .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
             .where('orgDataSource.orgId', '=', org.id)
             .execute()
-        expect(docs).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit doc desc' }])
+        expect(urls).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit url desc' }])
     })
 
-    it('includes doc information if user does not click add document on save but surfaces validation errors when invalid', async () => {
+    it('includes URL information if user does not click add URL on save but surfaces validation errors when invalid', async () => {
         const user = userEvent.setup()
 
         renderWithProviders(<DataSources />)
@@ -277,18 +277,15 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/name/i), 'Invalid doc source')
-        await user.type(modalQueries.getByPlaceholderText(/url for document/i), 'not-a-url')
+        await user.type(modalQueries.getByLabelText(/name/i), 'Invalid url source')
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'not-a-url')
 
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
 
         await waitFor(() => {
             expect(modalQueries.getByDisplayValue('not-a-url')).toHaveAttribute('aria-invalid', 'true')
             // This query assumes "committed" rows are rendered before staged
-            expect(modalQueries.getAllByPlaceholderText(/description of document/i)[0]).toHaveAttribute(
-                'aria-invalid',
-                'true',
-            )
+            expect(modalQueries.getAllByPlaceholderText(/url description/i)[0]).toHaveAttribute('aria-invalid', 'true')
         })
 
         expect(screen.getByRole('dialog')).toBeInTheDocument()

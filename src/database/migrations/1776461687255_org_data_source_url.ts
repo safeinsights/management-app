@@ -2,7 +2,7 @@ import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
-        .createTable('org_data_source_document')
+        .createTable('org_data_source_url')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))
         .addColumn('org_data_source_id', 'uuid', (col) =>
             col.notNull().references('org_data_source.id').onDelete('cascade'),
@@ -13,7 +13,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 
     await sql`
-          INSERT INTO org_data_source_document (org_data_source_id, url)
+          INSERT INTO org_data_source_url (org_data_source_id, url)
           SELECT id, documentation_url
           FROM org_data_source
           WHERE documentation_url IS NOT NULL
@@ -30,11 +30,11 @@ export async function down(db: Kysely<unknown>): Promise<void> {
           SET documentation_url = j.url
           FROM (
               SELECT DISTINCT ON (org_data_source_id) org_data_source_id, url
-              FROM org_data_source_document
+              FROM org_data_source_url
               ORDER BY org_data_source_id, created_at ASC
           ) j
           WHERE org_data_source.id = j.org_data_source_id
       `.execute(db)
 
-    await db.schema.dropTable('org_data_source_document').execute()
+    await db.schema.dropTable('org_data_source_url').execute()
 }
