@@ -9,7 +9,8 @@ import {
 import { FC } from 'react'
 
 // Mock the dependencies
-vi.mock('./spy-mode-context', () => ({
+vi.mock('./spy-mode-context', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('./spy-mode-context')>()),
     useSpyMode: vi.fn(),
 }))
 
