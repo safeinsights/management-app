@@ -28,7 +28,7 @@
         "validate-actions": "tsx tests/validate-actions.ts",
         "lint:fix": "eslint --fix . && prettier --write --log-level warn .",
         "pre:push": "concurrently --kill-others-on-fail 'npm:lint:fix' 'npm:typecheck' 'npm:validate-actions'",
-        "typecheck": "tsc --noEmit --skipLibCheck",
+        "typecheck": "next typegen && tsc --noEmit --skipLibCheck",
         "update-db-types": "kysely-codegen --camel-case --out-file src/database/types.ts",
         "checks": "concurrently 'npm:typecheck' 'npm:lint' 'npm:validate-actions'",
         "test:e2e": "playwright test",
