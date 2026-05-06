@@ -12,8 +12,6 @@ import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { AutoSaveIndicator } from '@/components/study/auto-save-indicator'
-import { useAutoSave } from '@/hooks/use-auto-save'
 import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { DEFAULT_DRAFT_TITLE, WORD_LIMITS, type ProposalFormValues } from './schema'
@@ -119,22 +117,11 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherId = '',
     enclaveOrgSlug,
 }) => {
-    const {
-        studyId,
-        form,
-        saveDraft,
-        isSaving,
-        lastSavedAt,
-        isCollaborationEnabled,
-        websocketProvider,
-        yjsForm,
-        tabSessionId,
-    } = useProposal()
+    const { studyId, form, saveDraft, isSaving, isCollaborationEnabled, websocketProvider, yjsForm, tabSessionId } =
+        useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
-
-    useAutoSave({ isDirty: form.isDirty(), isSaving, saveDraft })
 
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
@@ -155,17 +142,12 @@ export const ProposalForm: FC<ProposalFormProps> = ({
             <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
                 <Stack gap="xxl">
                     <Paper p="xxl">
-                        <Group justify="space-between" align="flex-end">
-                            <Box>
-                                <Text fz={10} fw={700} c="charcoal.7" pb={4}>
-                                    STEP 2
-                                </Text>
-                                <Title fz={20} order={4} c="charcoal.9">
-                                    Study proposal
-                                </Title>
-                            </Box>
-                            <AutoSaveIndicator isSaving={isSaving} lastSavedAt={lastSavedAt} />
-                        </Group>
+                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                            STEP 2
+                        </Text>
+                        <Title fz={20} order={4} c="charcoal.9">
+                            Study proposal
+                        </Title>
                         <Divider my="md" />
 
                         <Text mb="xl">

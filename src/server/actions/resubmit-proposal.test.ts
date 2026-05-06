@@ -93,6 +93,36 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
         expect(Number(commentCount.count)).toBe(0)
     })
+
+    it('rejects when caller is not a member of the submitting lab', async () => {
+        // study belongs to lab A
+        const { org: labA, user: ownerA } = await mockSessionWithTestData({ orgSlug: 'lab-A', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: labA,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Other lab study',
+        })
+
+        // a different user from lab B logs in and tries to resubmit it
+        await mockSessionWithTestData({ orgSlug: 'lab-B', orgType: 'lab' })
+
+        const result = await resubmitProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Hijack attempt' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+
+        expect('error' in result).toBe(true)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.title).toBe('Other lab study')
+        expect(unchanged.status).toBe('CHANGE-REQUESTED')
+    })
 })
 
 describe('onUpdateClarifiedProposalAction', () => {

@@ -64,7 +64,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                         size="md"
                         disabled={!form.isDirty() || isBusy}
                         loading={isSaving}
-                        onClick={() => saveDraft()}
+                        onClick={saveDraft}
                     >
                         Save as draft
                     </Button>

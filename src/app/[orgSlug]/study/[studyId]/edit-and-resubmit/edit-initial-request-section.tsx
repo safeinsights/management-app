@@ -8,7 +8,7 @@ import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords } from '@/lib/word-count'
+import { countWords, countWordsFromLexical } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import {
     DEFAULT_DRAFT_TITLE,
@@ -37,7 +37,7 @@ const EditableField: FC<{
     onChange: (val: string) => void
     onBlur: () => void
 }> = ({ field, value, error, onChange, onBlur }) => {
-    const [wordCount, setWordCount] = useState(0)
+    const [wordCount, setWordCount] = useState(() => countWordsFromLexical(value))
 
     return (
         <Box>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
@@ -6,16 +6,15 @@ import { onUpdateClarifiedProposalAction } from '@/server/actions/study-request'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { buildStudyInfo } from '@/contexts/proposal/hooks/use-save-draft'
 
-// Auto-saves only the proposal field edits. The resubmission note is
-// captured in client state and persisted in resubmitProposalAction.
+// Persists proposal field edits on explicit "Save as draft" clicks. The
+// resubmission note is captured in client state and only sent when
+// resubmitProposalAction runs.
 interface UseResubmitSaveDraftOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
 }
 
 export function useResubmitSaveDraft({ studyId, form }: UseResubmitSaveDraftOptions) {
-    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
-
     const mutation = useMutation({
         mutationFn: () =>
             onUpdateClarifiedProposalAction({
@@ -24,7 +23,11 @@ export function useResubmitSaveDraft({ studyId, form }: UseResubmitSaveDraftOpti
             }),
         onSuccess: () => {
             form.resetDirty()
-            setLastSavedAt(new Date())
+            notifications.show({
+                title: 'Draft Saved',
+                message: 'Your study proposal has been saved as a draft.',
+                color: 'green',
+            })
         },
         onError: (error) => {
             notifications.show({
@@ -44,5 +47,5 @@ export function useResubmitSaveDraft({ studyId, form }: UseResubmitSaveDraftOpti
         }
     }, [mutation])
 
-    return { saveDraft, isSaving: mutation.isPending, lastSavedAt }
+    return { saveDraft, isSaving: mutation.isPending }
 }

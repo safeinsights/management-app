@@ -26,7 +26,11 @@ import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { lexicalJson } from '@/lib/word-count'
+import {
+    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MIN_WORDS,
+} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { countWords, lexicalJson } from '@/lib/word-count'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -612,8 +616,9 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 // after the DO marked it 'needs clarification' (CHANGE-REQUESTED).
 //
 // The resubmission note is stored in the studyProposalComment table introduced
-// by OTTER-501 (entryType=RESUBMISSION-NOTE, authorRole=RESEARCHER). Auto-save
-// only persists proposal field edits; the note is captured on final submit.
+// by OTTER-501 (entryType=RESUBMISSION-NOTE, authorRole=RESEARCHER).
+// Authorization is handled via CASL (requireAbilityTo('update', 'Study')) — we
+// don't add a redundant `where researcherId = userId` filter.
 
 const proposalUpdatableFields = [
     'title',
@@ -626,17 +631,23 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Auto-save proposal edits while the study is in CHANGE-REQUESTED. Status
-// transitions only happen on resubmitProposalAction below.
+const resubmissionNoteParam = z.string().refine(
+    (val) => {
+        const count = countWords(val)
+        return count >= RESUBMIT_NOTE_MIN_WORDS && count <= RESUBMIT_NOTE_MAX_WORDS
+    },
+    { message: `Resubmission note must be between ${RESUBMIT_NOTE_MIN_WORDS} and ${RESUBMIT_NOTE_MAX_WORDS} words.` },
+)
+
+// Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
+// click — auto-save is intentionally out of scope for OTTER-521).
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string(), studyInfo: draftStudyApiSchema }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
-        const userId = session.user.id
-
+    .handler(async ({ db, params: { studyId, studyInfo } }) => {
         const updateValues = Object.fromEntries(
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
@@ -647,7 +658,6 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
                 .set(updateValues)
                 .where('id', '=', studyId)
                 .where('status', '=', 'CHANGE-REQUESTED')
-                .where('researcherId', '=', userId)
                 .execute()
         }
 
@@ -662,7 +672,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         z.object({
             studyId: z.string(),
             studyInfo: draftStudyApiSchema,
-            resubmissionNote: z.string().min(1),
+            resubmissionNote: resubmissionNoteParam,
         }),
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
@@ -674,10 +684,9 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .selectFrom('study')
             .select(['id', 'status'])
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
             .executeTakeFirst()
 
-        if (!study) throw new Error('Study not found or access denied')
+        if (!study) throw new Error('Study not found')
         if (study.status !== 'CHANGE-REQUESTED') {
             throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
         }

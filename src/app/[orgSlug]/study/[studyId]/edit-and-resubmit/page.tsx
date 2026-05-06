@@ -1,14 +1,13 @@
 import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getStudyAction } from '@/server/actions/study.actions'
+import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { getUsersForOrgId } from '@/server/db/queries'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
 import { FeatureFlagGate } from './feature-flag-gate'
-import type { ProposalFeedbackEntry } from './types'
 
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -20,24 +19,8 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // Inlined here rather than importing OTTER-501's getProposalFeedbackForStudyAction
-    // so OTTER-521 ships independently. When 501 lands, swap to that action.
-    const entries: ProposalFeedbackEntry[] = await db
-        .selectFrom('studyProposalComment')
-        .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
-        .select([
-            'studyProposalComment.id',
-            'studyProposalComment.authorId',
-            'studyProposalComment.authorRole',
-            'studyProposalComment.entryType',
-            'studyProposalComment.decision',
-            'studyProposalComment.body',
-            'studyProposalComment.createdAt',
-            'author.fullName as authorName',
-        ])
-        .where('studyProposalComment.studyId', '=', studyId)
-        .orderBy('studyProposalComment.createdAt', 'desc')
-        .execute()
+    const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
+    const entries = 'error' in entriesResult ? [] : entriesResult
 
     const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
 
@@ -45,7 +28,7 @@ export default async function StudyEditAndResubmitRoute(props: {
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
-        <FeatureFlagGate orgSlug={orgSlug} studyId={studyId}>
+        <FeatureFlagGate>
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs
                     crumbs={{ orgSlug, studyId, studyTitle: study.title, current: 'Edit Initial Request' }}

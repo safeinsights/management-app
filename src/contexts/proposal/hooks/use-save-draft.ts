@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback } from 'react'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
@@ -24,23 +24,15 @@ interface UseSaveDraftOptions {
 }
 
 export function useSaveDraft({ studyId, form }: UseSaveDraftOptions) {
-    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
-    // Auto-save calls saveDraft({ silent: true }) so the toast doesn't fire every 2.5s.
-    // Explicit clicks still get the toast confirmation.
-    const isSilentRef = useRef(false)
-
     const mutation = useMutation({
         mutationFn: () => onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) }),
         onSuccess: () => {
             form.resetDirty()
-            setLastSavedAt(new Date())
-            if (!isSilentRef.current) {
-                notifications.show({
-                    title: 'Draft Saved',
-                    message: 'Your study proposal has been saved as a draft.',
-                    color: 'green',
-                })
-            }
+            notifications.show({
+                title: 'Draft Saved',
+                message: 'Your study proposal has been saved as a draft.',
+                color: 'green',
+            })
         },
         onError: (error) => {
             notifications.show({
@@ -51,18 +43,14 @@ export function useSaveDraft({ studyId, form }: UseSaveDraftOptions) {
         },
     })
 
-    const saveDraft = useCallback(
-        async (opts?: { silent?: boolean }) => {
-            isSilentRef.current = opts?.silent ?? false
-            try {
-                await mutation.mutateAsync()
-                return true
-            } catch {
-                return false
-            }
-        },
-        [mutation],
-    )
+    const saveDraft = useCallback(async () => {
+        try {
+            await mutation.mutateAsync()
+            return true
+        } catch {
+            return false
+        }
+    }, [mutation])
 
-    return { saveDraft, isSaving: mutation.isPending, lastSavedAt }
+    return { saveDraft, isSaving: mutation.isPending }
 }

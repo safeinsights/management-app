@@ -29,7 +29,6 @@ interface EditResubmitContextValue {
     resubmit: () => void
     isSaving: boolean
     isSubmitting: boolean
-    lastSavedAt: Date | null
 }
 
 const EditResubmitContext = createContext<EditResubmitContextValue | null>(null)
@@ -59,7 +58,7 @@ export function EditResubmitProvider({ children, studyId, draftData }: EditResub
         validateInputOnChange: true,
     })
 
-    const { saveDraft, isSaving, lastSavedAt } = useResubmitSaveDraft({ studyId, form })
+    const { saveDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
     const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm })
 
     const value = useMemo(
@@ -71,9 +70,8 @@ export function EditResubmitProvider({ children, studyId, draftData }: EditResub
             resubmit,
             isSaving,
             isSubmitting,
-            lastSavedAt,
         }),
-        [studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting, lastSavedAt],
+        [studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting],
     )
 
     return <EditResubmitContext.Provider value={value}>{children}</EditResubmitContext.Provider>

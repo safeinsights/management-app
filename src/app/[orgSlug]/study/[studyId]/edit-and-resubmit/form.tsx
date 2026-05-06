@@ -1,13 +1,11 @@
 'use client'
 
 import { FC } from 'react'
-import { Group, Stack, Title } from '@mantine/core'
+import { Stack, Title } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { AutoSaveIndicator } from '@/components/study/auto-save-indicator'
-import { useAutoSave } from '@/hooks/use-auto-save'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
 import { ResubmissionNoteSection } from './resubmission-note-section'
 import { EditResubmitFooter } from './footer'
@@ -29,18 +27,12 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { form, saveDraft, isSaving, lastSavedAt } = useEditResubmit()
-
-    const isProposalDirty = form.isDirty()
-    useAutoSave({ isDirty: isProposalDirty, isSaving, saveDraft })
+    const { form, saveDraft, isSaving } = useEditResubmit()
 
     return (
-        <ProxyProvider isDirty={isProposalDirty} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
+        <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
             <Stack gap="xxl">
-                <Group justify="space-between" align="center">
-                    <Title order={1}>Edit Initial Request</Title>
-                    <AutoSaveIndicator isSaving={isSaving} lastSavedAt={lastSavedAt} />
-                </Group>
+                <Title order={1}>Edit Initial Request</Title>
 
                 <EditInitialRequestSection
                     orgName={orgName}
