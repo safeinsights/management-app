@@ -7,7 +7,7 @@ import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
-import { ReviewFeedbackProviderProvider } from '@/lib/realtime/review-feedback-provider-context'
+import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { ReviewSubmissionListener } from './review-submission-listener'
@@ -198,7 +198,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
             redirectTarget="studyReview"
             enabled={isCollaborationEnabled && isEditable}
         >
-            <ReviewFeedbackProviderProvider>
+            <ReviewFeedbackProviderShare>
                 <Box bg="grey.10">
                     <ReviewSubmissionListener
                         orgSlug={orgSlug}
@@ -255,7 +255,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                         warning={REJECTION_WARNING}
                     />
                 </Box>
-            </ReviewFeedbackProviderProvider>
+            </ReviewFeedbackProviderShare>
         </StudyKickOutProvider>
     )
 }

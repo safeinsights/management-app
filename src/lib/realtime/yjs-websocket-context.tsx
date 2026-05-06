@@ -50,6 +50,10 @@ if (typeof window !== 'undefined') {
 export function __resetSharedYjsWebsocketForTests(): void {
     sharedSocket?.destroy()
     sharedSocket = null
+    // Belt-and-braces: a leaked subscriber from a previous test (e.g. one that
+    // threw mid-render before its useEffect cleanup ran) would otherwise
+    // receive `pageshow` notifications in subsequent tests.
+    socketSubscribers.clear()
     // Also clear the test mock's instance log if present so per-test
     // `ctorSpy.mock.instances` lookups stay isolated.
     const ctor = HocuspocusProviderWebsocket as unknown as { __instances?: unknown[] }
