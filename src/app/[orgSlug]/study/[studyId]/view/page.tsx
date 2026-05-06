@@ -12,10 +12,10 @@ import { CodeOnlyView } from './code-only-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 
-const CODE_UNDER_REVIEW_STATUSES = ['CODE-SUBMITTED', 'CODE-SCANNED'] satisfies readonly StudyJobStatus[]
+const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
 const isUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
-    !!status && (CODE_UNDER_REVIEW_STATUSES as readonly StudyJobStatus[]).includes(status)
+    !!status && CODE_UNDER_REVIEW_STATUSES.includes(status)
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
