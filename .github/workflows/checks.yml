@@ -211,6 +211,11 @@ jobs:
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
+                  # Disable badge / wiki publish: pushing to the .wiki repo
+                  # requires `contents: write`, which we deliberately do not
+                  # grant this PR-code-running job (OTTER-545). PR comment
+                  # still works without it.
+                  badge-enabled: false
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
