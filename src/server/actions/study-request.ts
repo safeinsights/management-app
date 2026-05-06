@@ -680,11 +680,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        const study = await db
-            .selectFrom('study')
-            .select(['id', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirst()
+        const study = await db.selectFrom('study').select(['id', 'status']).where('id', '=', studyId).executeTakeFirst()
 
         if (!study) throw new Error('Study not found')
         if (study.status !== 'CHANGE-REQUESTED') {
