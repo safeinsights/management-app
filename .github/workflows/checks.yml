@@ -69,7 +69,7 @@ jobs:
             - name: Run SonarQube SAST Scan
               # SONAR_TOKEN is scoped to this single step (not the job env) so that
               # any future steps added above cannot accidentally read it. Keep it here.
-              uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
+              uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
               env:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
