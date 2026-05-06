@@ -29,4 +29,4 @@
 - Ask before creating new migrations
 - Ask before modifying permission rules in `src/lib/permissions.ts`
 - Ask before changing route definitions in `src/lib/routes/definitions.ts`
-- Do not commit planning files unless explicity instructed to do so
+- Do not commit planning files unless explicitly instructed to do so

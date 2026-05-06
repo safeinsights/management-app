@@ -67,7 +67,7 @@ export async function findAvailableTestPhone(clerk: ClerkClient, userId: string,
                 return null
             }
             // Some other error, log and continue trying
-            console.log(`⚠️  Phone ${phoneNumber} unavailable, trying next...`)
+            console.log(`⚠  Phone ${phoneNumber} unavailable, trying next...`)
         }
     }
     console.error(`❌ Could not find available test phone number for ${role}`)
@@ -86,12 +86,12 @@ export async function setupClerkTestUser(
     const { role, email, password } = config
 
     if (!email) {
-        console.log(`⚠️  Skipping ${role}: CLERK_${role.toUpperCase()}_EMAIL not set`)
+        console.log(`⚠  Skipping ${role}: CLERK_${role.toUpperCase()}_EMAIL not set`)
         return null
     }
 
     if (!password) {
-        console.log(`⚠️  Skipping ${role}: CLERK_${role.toUpperCase()}_PASSWORD not set`)
+        console.log(`⚠  Skipping ${role}: CLERK_${role.toUpperCase()}_PASSWORD not set`)
         return null
     }
 
@@ -112,7 +112,7 @@ export async function setupClerkTestUser(
             await clerk.users.updateUser(user.id, { password })
             console.log(`🔑 Updated password for ${role}`)
         } catch (err) {
-            console.error(`⚠️  Failed to update password for ${role}:`, err)
+            console.error(`⚠  Failed to update password for ${role}:`, err)
         }
 
         // Check if user already has a phone for MFA
@@ -124,7 +124,7 @@ export async function setupClerkTestUser(
 
             // Ensure the phone is properly configured
             if (mfaPhone.verification?.status !== 'verified') {
-                console.log(`⚠️  Phone not verified, updating...`)
+                console.log(`⚠  Phone not verified, updating...`)
                 await clerk.phoneNumbers.updatePhoneNumber(mfaPhone.id, {
                     verified: true,
                     reservedForSecondFactor: true,

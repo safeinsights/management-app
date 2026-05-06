@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
@@ -10,7 +10,7 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
-import { WS_URL } from '@/lib/config'
+import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
@@ -61,19 +61,8 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         validateInputOnChange: true,
     })
 
-    const [websocketProvider, setWebsocketProvider] = useState<HocuspocusProviderWebsocket | null>(null)
-
-    useEffect(() => {
-        if (!isCollaborationEnabled) return undefined
-        const provider = new HocuspocusProviderWebsocket({ url: WS_URL })
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setWebsocketProvider(provider)
-        return () => {
-            provider.destroy()
-
-            setWebsocketProvider(null)
-        }
-    }, [isCollaborationEnabled])
+    const sharedSocket = useYjsWebsocket()
+    const websocketProvider: HocuspocusProviderWebsocket | null = isCollaborationEnabled ? sharedSocket : null
 
     const yjsForm = useYjsFormMap({
         studyId,

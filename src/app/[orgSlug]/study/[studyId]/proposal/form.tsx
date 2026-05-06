@@ -21,7 +21,7 @@ import { editableTextFields, type EditableTextField } from './field-config'
 import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
-import { useStudyStatusPoll } from '@/hooks/use-study-status-poll'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 
 const PROPOSAL_EDITABLE_STATUSES = ['DRAFT', 'CHANGE-REQUESTED'] as const
 
@@ -131,171 +131,171 @@ export const ProposalForm: FC<ProposalFormProps> = ({
         enabled: isCollaborationEnabled,
     })
 
-    useStudyStatusPoll({
-        studyId,
-        orgSlug,
-        editableStatuses: PROPOSAL_EDITABLE_STATUSES,
-        redirectTarget: 'studySubmitted',
-        enabled: isCollaborationEnabled,
-    })
-
     return (
-        <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
-            <Stack gap="xxl">
-                <Paper p="xxl">
-                    <Text fz={10} fw={700} c="charcoal.7" pb={4}>
-                        STEP 2
-                    </Text>
-                    <Title fz={20} order={4} c="charcoal.9">
-                        Study proposal
-                    </Title>
-                    <Divider my="md" />
+        <StudyKickOutProvider
+            studyId={studyId}
+            orgSlug={orgSlug}
+            editableStatuses={PROPOSAL_EDITABLE_STATUSES}
+            redirectTarget="studySubmitted"
+            enabled={isCollaborationEnabled}
+        >
+            <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
+                <Stack gap="xxl">
+                    <Paper p="xxl">
+                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                            STEP 2
+                        </Text>
+                        <Title fz={20} order={4} c="charcoal.9">
+                            Study proposal
+                        </Title>
+                        <Divider my="md" />
 
-                    <Text mb="xl">
-                        Use this form to submit your study proposal. The information you share will help {orgName}{' '}
-                        assess the feasibility, scientific value, and potential impact of your proposed research on
-                        instructional practice. On review, they may approve or decline the request.
-                    </Text>
+                        <Text mb="xl">
+                            Use this form to submit your study proposal. The information you share will help {orgName}{' '}
+                            assess the feasibility, scientific value, and potential impact of your proposed research on
+                            instructional practice. On review, they may approve or decline the request.
+                        </Text>
 
-                    <Stack gap="xxl">
-                        <Box>
-                            <FormFieldLabel label="Study title" required inputId="title" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Give your study a short, clear title. This will help identify and reference your project
-                                on SafeInsights.
-                            </Text>
-                            <TextInput
-                                id="title"
-                                aria-label="Study Title"
-                                placeholder="Ex. Impact of highlighting on student learning outcomes."
-                                {...titleInputProps}
-                                onChange={(event) => {
-                                    titleInputProps.onChange?.(event)
-                                    yjsForm.pushField('title', event.currentTarget.value)
-                                }}
-                                value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
-                                error={!!form.errors.title}
-                            />
-                            <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>
-                                {form.errors.title && <InputError error={form.errors.title} />}
-                                <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
-                            </Group>
-                        </Box>
-
-                        <Box>
-                            <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
-                            <Text size="xs" mb="xs" c="charcoal.7">
-                                Select the dataset(s) you&apos;d like to use for your research. You&apos;ll find options
-                                based on the selected Data Organization in Step 1 and its data availability.
-                            </Text>
-                            <Group align="center" gap="xxl">
-                                <Box w="50%">
-                                    <DatasetMultiSelect
-                                        id="datasets"
-                                        value={form.values.datasets}
-                                        onChange={(val) => {
-                                            form.setFieldValue('datasets', val)
-                                            yjsForm.pushField('datasets', val)
-                                        }}
-                                        orgSlug={enclaveOrgSlug}
-                                    />
-                                </Box>
-                                <Anchor
-                                    href={ExternalLinks.dataCatalog}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    size="sm"
-                                    c="blue.7"
-                                    fw={600}
-                                >
-                                    <Group gap={4} wrap="nowrap">
-                                        Explore data catalog
-                                        <ArrowSquareOutIcon size={16} weight="bold" />
-                                    </Group>
-                                </Anchor>
-                            </Group>
-                            <InputError error={form.errors.datasets} />
-                        </Box>
-                    </Stack>
-                </Paper>
-
-                {editableTextFields.map((field) => (
-                    <EditableTextFieldEntry
-                        key={field.id}
-                        field={field}
-                        form={form}
-                        studyId={studyId}
-                        websocketProvider={websocketProvider}
-                        isCollaborationEnabled={isCollaborationEnabled}
-                    />
-                ))}
-
-                <Paper p="xxl">
-                    <Stack gap="xxl">
-                        <Box>
-                            <FormFieldLabel label="Principal Investigator" required inputId="piName" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Select a Principal Investigator from your lab.
-                            </Text>
-                            <Box w="30%">
-                                <Select
-                                    id="piName"
-                                    aria-label="Principal Investigator"
-                                    placeholder="Choose a PI"
-                                    searchable
-                                    data={members}
-                                    value={form.values.piUserId || null}
-                                    onChange={(id) => {
-                                        const piUserId = id ?? ''
-                                        const piName = members.find((m) => m.value === id)?.label ?? ''
-                                        form.setFieldValue('piUserId', piUserId)
-                                        form.setFieldValue('piName', piName)
-                                        yjsForm.pushPI(piUserId, piName)
+                        <Stack gap="xxl">
+                            <Box>
+                                <FormFieldLabel label="Study title" required inputId="title" />
+                                <Text size="xs" c="charcoal.7" mb="xs">
+                                    Give your study a short, clear title. This will help identify and reference your
+                                    project on SafeInsights.
+                                </Text>
+                                <TextInput
+                                    id="title"
+                                    aria-label="Study Title"
+                                    placeholder="Ex. Impact of highlighting on student learning outcomes."
+                                    {...titleInputProps}
+                                    onChange={(event) => {
+                                        titleInputProps.onChange?.(event)
+                                        yjsForm.pushField('title', event.currentTarget.value)
                                     }}
-                                    error={!!form.errors.piName}
+                                    value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
+                                    error={!!form.errors.title}
                                 />
+                                <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>
+                                    {form.errors.title && <InputError error={form.errors.title} />}
+                                    <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
+                                </Group>
                             </Box>
-                        </Box>
 
-                        <Box>
-                            <FormFieldLabel label="Researcher" required inputId="researcher" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Ensure that your profile is complete and updated.
-                            </Text>
-                            <Group align="center" gap="xxl">
+                            <Box>
+                                <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
+                                <Text size="xs" mb="xs" c="charcoal.7">
+                                    Select the dataset(s) you&apos;d like to use for your research. You&apos;ll find
+                                    options based on the selected Data Organization in Step 1 and its data availability.
+                                </Text>
+                                <Group align="center" gap="xxl">
+                                    <Box w="50%">
+                                        <DatasetMultiSelect
+                                            id="datasets"
+                                            value={form.values.datasets}
+                                            onChange={(val) => {
+                                                form.setFieldValue('datasets', val)
+                                                yjsForm.pushField('datasets', val)
+                                            }}
+                                            orgSlug={enclaveOrgSlug}
+                                        />
+                                    </Box>
+                                    <Anchor
+                                        href={ExternalLinks.dataCatalog}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        size="sm"
+                                        c="blue.7"
+                                        fw={600}
+                                    >
+                                        <Group gap={4} wrap="nowrap">
+                                            Explore data catalog
+                                            <ArrowSquareOutIcon size={16} weight="bold" />
+                                        </Group>
+                                    </Anchor>
+                                </Group>
+                                <InputError error={form.errors.datasets} />
+                            </Box>
+                        </Stack>
+                    </Paper>
+
+                    {editableTextFields.map((field) => (
+                        <EditableTextFieldEntry
+                            key={field.id}
+                            field={field}
+                            form={form}
+                            studyId={studyId}
+                            websocketProvider={websocketProvider}
+                            isCollaborationEnabled={isCollaborationEnabled}
+                        />
+                    ))}
+
+                    <Paper p="xxl">
+                        <Stack gap="xxl">
+                            <Box>
+                                <FormFieldLabel label="Principal Investigator" required inputId="piName" />
+                                <Text size="xs" c="charcoal.7" mb="xs">
+                                    Select a Principal Investigator from your lab.
+                                </Text>
                                 <Box w="30%">
-                                    <TextInput
-                                        id="researcher"
-                                        aria-label="Researcher"
-                                        value={researcherName}
-                                        disabled
+                                    <Select
+                                        id="piName"
+                                        aria-label="Principal Investigator"
+                                        placeholder="Choose a PI"
+                                        searchable
+                                        data={members}
+                                        value={form.values.piUserId || null}
+                                        onChange={(id) => {
+                                            const piUserId = id ?? ''
+                                            const piName = members.find((m) => m.value === id)?.label ?? ''
+                                            form.setFieldValue('piUserId', piUserId)
+                                            form.setFieldValue('piName', piName)
+                                            yjsForm.pushPI(piUserId, piName)
+                                        }}
+                                        error={!!form.errors.piName}
                                     />
                                 </Box>
-                                <Anchor
-                                    href={Routes.researcherProfile}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    size="sm"
-                                    c="blue.7"
-                                    fw={600}
-                                >
-                                    <Group gap={4} wrap="nowrap">
-                                        View profile
-                                        <ArrowSquareOutIcon size={16} weight="bold" />
-                                    </Group>
-                                </Anchor>
-                            </Group>
-                        </Box>
-                    </Stack>
-                </Paper>
+                            </Box>
 
-                <ProposalFooter
-                    researcherName={researcherName}
-                    researcherId={researcherId}
-                    piUserId={form.values.piUserId}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
-            </Stack>
-        </ProxyProvider>
+                            <Box>
+                                <FormFieldLabel label="Researcher" required inputId="researcher" />
+                                <Text size="xs" c="charcoal.7" mb="xs">
+                                    Ensure that your profile is complete and updated.
+                                </Text>
+                                <Group align="center" gap="xxl">
+                                    <Box w="30%">
+                                        <TextInput
+                                            id="researcher"
+                                            aria-label="Researcher"
+                                            value={researcherName}
+                                            disabled
+                                        />
+                                    </Box>
+                                    <Anchor
+                                        href={Routes.researcherProfile}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        size="sm"
+                                        c="blue.7"
+                                        fw={600}
+                                    >
+                                        <Group gap={4} wrap="nowrap">
+                                            View profile
+                                            <ArrowSquareOutIcon size={16} weight="bold" />
+                                        </Group>
+                                    </Anchor>
+                                </Group>
+                            </Box>
+                        </Stack>
+                    </Paper>
+
+                    <ProposalFooter
+                        researcherName={researcherName}
+                        researcherId={researcherId}
+                        piUserId={form.values.piUserId}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                    />
+                </Stack>
+            </ProxyProvider>
+        </StudyKickOutProvider>
     )
 }
