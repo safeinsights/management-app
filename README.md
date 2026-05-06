@@ -218,3 +218,7 @@ Examples:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 - [How to package and deploy a Lambda function as a container image](https://dev.to/aws-builders/how-to-package-and-deploy-a-lambda-function-as-a-container-image-3d1a)
 - [Tutorial: Create a serverless Hello World application](https://docs.aws.amazon.com/cdk/v2/guide/serverless_example.html)
+
+## License
+
+This application is released under the [GNU Affero General Public License v3.0](LICENSE). It bundles third-party components covered by separate licenses, including LGPL-3.0-or-later code (`libvips`, transitively via `sharp`). See [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) for the complete list, source-availability information, and notes on how to exercise LGPL rights against the distributed image.

@@ -7,6 +7,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    setTestStudyStatus,
     type Mock,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
@@ -129,7 +130,7 @@ describe('StudyReviewPage', () => {
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         // insertTestStudyOnly defaults to APPROVED; reset to PENDING-REVIEW so this case
         // exercises the in-flight review flow rather than OTTER-501's post-decision view.
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -144,7 +145,7 @@ describe('StudyReviewPage', () => {
     it('renders the LegacyProposalReviewView for non-OpenStax enclave orgs by default', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -161,7 +162,7 @@ describe('StudyReviewPage', () => {
             async (status) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
                 const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-                await db.updateTable('study').set({ status }).where('id', '=', study.id).execute()
+                await setTestStudyStatus(study.id, status)
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),

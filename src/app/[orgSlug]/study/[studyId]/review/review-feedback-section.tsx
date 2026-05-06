@@ -4,13 +4,15 @@ import dynamic from 'next/dynamic'
 import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
-import { WS_URL } from '@/lib/config'
+import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+
+const EDITOR_SKELETON = <Skeleton h={600} radius={4} />
 
 const CollaborativeEditor = dynamic(
     () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),
     {
         ssr: false,
-        loading: () => <Skeleton h={600} radius={4} />,
+        loading: () => EDITOR_SKELETON,
     },
 )
 
@@ -26,6 +28,24 @@ type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     submittingLabName: string
     studyId: string
+}
+
+const PLACEHOLDER_TEXT = `For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`
+
+function FeedbackEditor({ feedback, studyId }: { feedback: ReturnType<typeof useReviewFeedback>; studyId: string }) {
+    const websocketProvider = useYjsWebsocket()
+    if (!websocketProvider) return EDITOR_SKELETON
+    return (
+        <CollaborativeEditor
+            id={`review-feedback-${studyId}`}
+            studyId={studyId}
+            websocketProvider={websocketProvider}
+            contentStyle={contentStyle}
+            onChange={feedback.onChange}
+            placeholder={PLACEHOLDER_TEXT}
+            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
+        />
+    )
 }
 
 export function ReviewFeedbackSection({ feedback, submittingLabName, studyId }: ReviewFeedbackSectionProps) {
@@ -46,15 +66,7 @@ export function ReviewFeedbackSection({ feedback, submittingLabName, studyId }: 
                     <Text fz={14} c="charcoal.7">
                         Minimum {feedback.minWords} words required.
                     </Text>
-                    <CollaborativeEditor
-                        id={`review-feedback-${studyId}`}
-                        studyId={studyId}
-                        wsUrl={WS_URL}
-                        contentStyle={contentStyle}
-                        onChange={feedback.onChange}
-                        placeholder={`For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`}
-                        footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
-                    />
+                    <FeedbackEditor feedback={feedback} studyId={studyId} />
                 </Stack>
             </Stack>
         </Paper>

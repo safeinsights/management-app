@@ -8,7 +8,8 @@ import {
 import { db } from '@/database'
 import logger from '@/lib/logger'
 
-vi.mock('@/server/events', () => ({
+vi.mock('@/server/events', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/events')>()),
     onUserPublicKeyCreated: vi.fn(),
     onUserPublicKeyUpdated: vi.fn(),
 }))
