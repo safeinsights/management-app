@@ -11,10 +11,7 @@ import {
     it,
     mockSessionWithTestData,
     renderWithProviders,
-    resetSpyMode,
     screen,
-    setSpyMode,
-    spyModeState,
     userEvent,
     waitFor,
     writeWorkspaceFiles,
@@ -36,11 +33,13 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-vi.mock('@/components/spy-mode-context', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
+const featureFlagState = vi.hoisted(() => ({ enabled: false }))
+
+vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
     return {
         ...actual,
-        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
+        usePostCodeSubmissionFeatureFlag: () => featureFlagState.enabled,
     }
 })
 
@@ -79,13 +78,13 @@ const renderPage = async (orgSlug = 'openstax') => {
 describe('CodeUploadPage', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
-        resetSpyMode()
+        featureFlagState.enabled = false
         memoryRouter.setCurrentUrl('/')
     })
 
     afterEach(async () => {
         await cleanupWorkspaceDirs(workspaceRoots)
-        resetSpyMode()
+        featureFlagState.enabled = false
     })
 
     it('renders the page chrome in the empty state', async () => {
@@ -203,7 +202,7 @@ describe('CodeUploadPage', () => {
         }
 
         it('flag off: routes to /dashboard after successful submit (legacy path)', async () => {
-            setSpyMode(false)
+            featureFlagState.enabled = false
             await submitSuccessfully('openstax')
 
             await waitFor(() => {
@@ -212,7 +211,7 @@ describe('CodeUploadPage', () => {
         })
 
         it('flag on: routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
-            setSpyMode(true)
+            featureFlagState.enabled = true
             const { study } = await submitSuccessfully('openstax')
 
             await waitFor(() => {

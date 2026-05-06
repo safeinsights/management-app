@@ -2,7 +2,7 @@ import 'dotenv/config' // read .env file before other imports, to match Next.js 
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/actions/action'
-import { createTempDir } from '@/tests/unit.helpers'
+import { createTempDir } from '@/tests/temp-dir'
 import fs from 'fs'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
