@@ -155,12 +155,17 @@ export const ProposalForm: FC<ProposalFormProps> = ({
             <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
                 <Stack gap="xxl">
                     <Paper p="xxl">
-                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
-                            STEP 2
-                        </Text>
-                        <Title fz={20} order={4} c="charcoal.9">
-                            Study proposal
-                        </Title>
+                        <Group justify="space-between" align="flex-end">
+                            <Box>
+                                <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                                    STEP 2
+                                </Text>
+                                <Title fz={20} order={4} c="charcoal.9">
+                                    Study proposal
+                                </Title>
+                            </Box>
+                            <AutoSaveIndicator isSaving={isSaving} lastSavedAt={lastSavedAt} />
+                        </Group>
                         <Divider my="md" />
 
                         <Text mb="xl">
