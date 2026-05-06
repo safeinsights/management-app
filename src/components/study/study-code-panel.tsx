@@ -1,17 +1,56 @@
-import type { ReactNode } from 'react'
-import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { type FC, type ReactNode, useEffect, useState } from 'react'
+import { Anchor, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { CodeViewer } from '@/components/code-viewer'
 import { AppModal } from '@/components/modal'
+import { useCodeDownloadFeatureFlag } from '@/components/openstax-feature-flag'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 
-function FilePreviewModal({ file, onClose }: { file: { name: string; contents: string } | null; onClose: () => void }) {
+const CodeDownloadLink: FC<{ name: string; contents: string }> = ({ name, contents }) => {
+    const [href, setHref] = useState('#')
+
+    useEffect(() => {
+        const blob = new Blob([contents], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHref(url)
+        return () => URL.revokeObjectURL(url)
+    }, [contents])
+
+    return (
+        <Anchor
+            href={href}
+            download={name}
+            data-testid="download-link"
+            style={{ display: 'flex', alignItems: 'center' }}
+        >
+            Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
+        </Anchor>
+    )
+}
+
+export function FilePreviewModal({
+    file,
+    onClose,
+}: {
+    file: { name: string; contents: string } | null
+    onClose: () => void
+}) {
+    const canDownloadCode = useCodeDownloadFeatureFlag()
     if (!file) return null
     return (
         <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
-            <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
+            <Stack gap={0}>
+                {canDownloadCode && (
+                    <Group justify="flex-end" px="md" py="xs">
+                        <CodeDownloadLink name={file.name} contents={file.contents} />
+                    </Group>
+                )}
+                <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
+            </Stack>
         </AppModal>
     )
 }

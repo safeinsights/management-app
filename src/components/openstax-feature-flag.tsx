@@ -62,4 +62,6 @@ export {
     // OTTER-497: Multi-user proposal collaboration
     useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
     OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
+    // OTTER-541: RL Code download in view code modal
+    useOpenStaxFeatureFlag as useCodeDownloadFeatureFlag,
 }
