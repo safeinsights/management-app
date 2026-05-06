@@ -9,6 +9,7 @@ import { useEffect, type FC, type ReactNode } from 'react'
 //
 import { ErrorBoundary } from '@/components/error-boundary'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -55,7 +56,9 @@ export const Providers: FC<Props> = ({ children }) => {
             <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
                 <ModalsProvider>
                     <ErrorBoundary>
-                        <SpyModeProvider>{children}</SpyModeProvider>
+                        <SpyModeProvider>
+                            <YjsWebsocketProvider>{children}</YjsWebsocketProvider>
+                        </SpyModeProvider>
                     </ErrorBoundary>
                 </ModalsProvider>
             </MantineProvider>

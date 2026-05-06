@@ -104,6 +104,104 @@ beforeAll(async () => {
         Notifications: () => null,
     }))
 
+    // Stub out the Hocuspocus client so unit tests don't open real websockets to
+    // the editor service. The fake provider exposes enough of the Yjs/awareness
+    // surface for @lexical/yjs's CollaborationPlugin to mount without crashing.
+    vi.mock('@hocuspocus/provider', async () => {
+        const Y = await import('yjs')
+        const websocketCtorSpy = vi.fn()
+        const websocketInstances: FakeHocuspocusProviderWebsocket[] = []
+        class FakeHocuspocusProviderWebsocket {
+            providerMap = new Map()
+            // Tests treat the socket as already connected so the editor renders fully
+            // without each test having to wire up a status sequence. Tests that need
+            // to drive the reconnect/failed paths can set `socket.status` and call
+            // `__emit('status', { status })`.
+            status: 'connecting' | 'connected' | 'disconnected' = 'connected'
+            _observers = new Map<string, Set<(...args: unknown[]) => void>>()
+            destroy = vi.fn()
+            attach = vi.fn()
+            detach = vi.fn()
+            on(event: string, fn: (...args: unknown[]) => void) {
+                if (!this._observers.has(event)) this._observers.set(event, new Set())
+                this._observers.get(event)!.add(fn)
+            }
+            off(event: string, fn: (...args: unknown[]) => void) {
+                this._observers.get(event)?.delete(fn)
+            }
+            // Test helper: drives the connection-phase state machine in unit tests.
+            __emit(event: string, ...args: unknown[]) {
+                this._observers.get(event)?.forEach((fn) => fn(...args))
+            }
+            constructor(...args: unknown[]) {
+                websocketCtorSpy(...args)
+                websocketInstances.push(this)
+            }
+            static __ctor = websocketCtorSpy
+            static __instances = websocketInstances
+        }
+        class FakeAwareness {
+            clientID = 1
+            states = new Map<number, Record<string, unknown>>()
+            meta = new Map()
+            _localState: Record<string, unknown> | null = null
+            _observers = new Map<string, Set<(...args: unknown[]) => void>>()
+            getStates() {
+                return this.states
+            }
+            getLocalState() {
+                return this._localState
+            }
+            setLocalState(state: Record<string, unknown> | null) {
+                this._localState = state
+                if (state) this.states.set(this.clientID, state)
+                else this.states.delete(this.clientID)
+                this._emit('change', [{ added: [], updated: [this.clientID], removed: [] }, 'local'])
+                this._emit('update', [{ added: [], updated: [this.clientID], removed: [] }, 'local'])
+            }
+            setLocalStateField(field: string, value: unknown) {
+                this.setLocalState({ ...(this._localState ?? {}), [field]: value })
+            }
+            on(event: string, fn: (...args: unknown[]) => void) {
+                if (!this._observers.has(event)) this._observers.set(event, new Set())
+                this._observers.get(event)!.add(fn)
+            }
+            off(event: string, fn: (...args: unknown[]) => void) {
+                this._observers.get(event)?.delete(fn)
+            }
+            _emit(event: string, args: unknown[]) {
+                this._observers.get(event)?.forEach((fn) => fn(...args))
+            }
+            destroy() {}
+        }
+        class FakeHocuspocusProvider {
+            document: InstanceType<typeof Y.Doc>
+            awareness = new FakeAwareness()
+            isSynced = false
+            unsyncedChanges = 0
+            attach = vi.fn()
+            destroy = vi.fn()
+            disconnect = vi.fn()
+            connect = vi.fn()
+            on = vi.fn()
+            off = vi.fn()
+            send = vi.fn()
+            sendStateless = vi.fn()
+            constructor(opts?: { document?: InstanceType<typeof Y.Doc> }) {
+                this.document = opts?.document ?? new Y.Doc()
+            }
+        }
+        return {
+            HocuspocusProviderWebsocket: FakeHocuspocusProviderWebsocket,
+            HocuspocusProvider: FakeHocuspocusProvider,
+            WebSocketStatus: {
+                Connecting: 'connecting',
+                Connected: 'connected',
+                Disconnected: 'disconnected',
+            },
+        }
+    })
+
     // Make sleep instant so deferred simulation callbacks (simulateJobScan, completeFakeCodeScan)
     // complete within the test transaction instead of firing real 1s/30s timers.
     vi.mock('@/lib/utils', async (importOriginal) => ({
@@ -138,6 +236,8 @@ afterEach(async () => {
     await testTransaction.rollback()
     await fs.promises.rm(tmpDir, { recursive: true })
     delete process.env.UPLOAD_TMP_DIRECTORY
+    const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
+    __resetSharedYjsWebsocketForTests()
     cleanup()
 })
 
