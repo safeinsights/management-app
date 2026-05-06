@@ -1,6 +1,9 @@
 import logger from '@/lib/logger'
 import { deliver } from '@/server/mailgun'
 import {
+    actionResult,
+    buildFeedback,
+    createTestProposalDraft,
     db,
     getAuditEntries,
     insertTestOrg,
@@ -9,6 +12,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -22,6 +26,7 @@ import {
     rejectStudyProposalAction,
     submitProposalReviewAction,
 } from './study.actions'
+import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/word-count'
 
 vi.mock('@/server/mailgun', () => ({
@@ -457,6 +462,55 @@ describe('Study Actions', () => {
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
     })
+
+    describe('fetchStudiesForOrgAction lab-branch visibility (OTTER-497)', () => {
+        it('lab teammate sees a DRAFT created by another teammate', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-draft-enclave',
+                studyInfo: { title: 'Teammate DRAFT' },
+            })
+
+            // User B in the same lab.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const result = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+
+            expect(Array.isArray(result)).toBe(true)
+            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId, status: 'DRAFT' })]))
+        })
+
+        it('lab teammate sees a CHANGE-REQUESTED study from another teammate', async () => {
+            const { lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-changereq-enclave',
+                studyInfo: { title: 'Teammate CHANGE-REQUESTED' },
+            })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const result = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+
+            expect(Array.isArray(result)).toBe(true)
+            expect(result).toEqual(
+                expect.arrayContaining([expect.objectContaining({ id: studyId, status: 'CHANGE-REQUESTED' })]),
+            )
+        })
+
+        it("outside-lab user does not see another lab's draft", async () => {
+            const { enclave, lab: labA } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-lab-cross-enclave',
+                studyInfo: { title: 'Cross-lab DRAFT' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+
+            // User in labB tries to read labA's dashboard. CASL denies cross-org viewing.
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await fetchStudiesForOrgAction({ orgSlug: labA.slug })
+            expect(result).toMatchObject({
+                error: expect.objectContaining({ permission_denied: expect.any(String) }),
+            })
+        })
+    })
 })
 
 describe('ackAgreementsAction', () => {
@@ -545,7 +599,6 @@ describe('ackAgreementsAction', () => {
 })
 
 describe('submitProposalReviewAction', () => {
-    const buildFeedback = (wordCount: number) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
     const validFeedback = buildFeedback(60)
 
     const loadCommentRows = (studyId: string) =>
@@ -559,12 +612,15 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        await submitProposalReviewAction({
+        const result = await submitProposalReviewAction({
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
         })
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+        expect(value.submitterFullName.length).toBeGreaterThan(0)
 
         const rows = await loadCommentRows(study.id)
         expect(rows).toHaveLength(1)
@@ -897,5 +953,82 @@ describe('submitProposalReviewAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('PENDING-REVIEW')
+    })
+
+    it('purgeReviewFeedbackYjsDocBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const before = new Date('2026-01-01T00:00:00Z')
+
+        // Stale row from before the captured submit timestamp; should be deleted.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+                updatedAt: before,
+            })
+            .execute()
+
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+        const afterFirstPurge = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(afterFirstPurge).toHaveLength(0)
+
+        // Fresh row from a fast clarification-and-reopen cycle; should survive a bounded purge
+        // whose beforeAt predates this row's updatedAt.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+                updatedAt: new Date('2026-01-01T00:00:10Z'),
+            })
+            .execute()
+
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+
+        const afterSecondPurge = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(afterSecondPurge).toHaveLength(1)
+    })
+
+    it('deletes the review-feedback yjs_document so the next round starts fresh', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state.
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `review-feedback-${study.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+            })
+            .execute()
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+        })
+
+        const remaining = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('name', '=', `review-feedback-${study.id}`)
+            .execute()
+        expect(remaining).toHaveLength(0)
     })
 })

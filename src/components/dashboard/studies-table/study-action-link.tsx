@@ -1,5 +1,6 @@
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
+import { usePostSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
 import { Audience, Scope, StudyRow } from './types'
 import { useStudyHref } from '@/hooks/use-study-href'
 
@@ -22,11 +23,12 @@ function ResearcherLink({
     scope: Scope
     isHighlighted: boolean
 }) {
+    const isPostSubmissionFlow = usePostSubmissionFeatureFlag()
     const labSlug = study.submittedByOrgSlug || orgSlug
     const hasJobActivity = study.jobStatusChanges.length > 0
     const studyParams = { orgSlug: labSlug, studyId: study.id }
     const jobStatuses = study.jobStatusChanges.map((c) => c.status)
-    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses)
+    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses, isPostSubmissionFlow)
     const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
 
     if (study.status === 'DRAFT') {

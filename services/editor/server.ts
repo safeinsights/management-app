@@ -5,6 +5,16 @@ import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-sec
 import pg from 'pg'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
+import {
+    type AuthenticatedContext,
+    type StudyStatus,
+    assertStatelessEventConsistent,
+    authenticate,
+    parseDocumentName,
+    parseStatelessEvent,
+    shouldPersistDocument,
+} from './auth.ts'
+import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
 
 function log(event: string, fields: Record<string, unknown> = {}): void {
     process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + '\n')
@@ -31,14 +41,6 @@ log('startup.config', {
 })
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
-const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function studyIdFromDocumentName(documentName: string): string | null {
-    if (!documentName.startsWith(REVIEW_FEEDBACK_PREFIX)) return null
-    const candidate = documentName.slice(REVIEW_FEEDBACK_PREFIX.length)
-    return UUID_RE.test(candidate) ? candidate : null
-}
 
 // Mirrors src/server/config.ts:databaseURL() — accept DATABASE_URL directly for local/dev,
 // otherwise fetch the RDS-managed secret JSON (host/username/password/dbname) and assemble.
@@ -91,15 +93,22 @@ const server = new Server({
                 return result.rows[0]?.data ?? null
             },
             store: async ({ documentName, state }) => {
-                const studyId = studyIdFromDocumentName(documentName)
-                if (!studyId) {
-                    log('db.store.reject', { documentName, reason: 'unrecoverable-studyId' })
-                    throw new Error(`refusing to store ${documentName}: no recoverable studyId`)
+                const parsed = parseDocumentName(documentName)
+                if (!parsed) {
+                    log('db.store.reject', { documentName, reason: 'unrecognized-name' })
+                    throw new Error(`refusing to store ${documentName}: unrecognized name`)
                 }
+                // Persist-time status gate: connection-time auth only covers new
+                // and reconnecting clients. An already-connected client keeps
+                // streaming Yjs updates between a status flip and its own kick-out.
+                // Drop those writes silently so the canonical persisted state is
+                // frozen at the editable-window edge.
+                if (!(await shouldPersistDocument(parsed, pool))) return
+
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,
-                    [documentName, Buffer.from(state), studyId],
+                    [documentName, Buffer.from(state), parsed.studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
             },
@@ -111,99 +120,98 @@ const server = new Server({
         log('auth.start', {
             documentName,
             tokenLength: token?.length ?? 0,
-            tokenPreview: token ? `${token.slice(0, 8)}…${token.slice(-4)}` : null,
+            tokenPreview: token ? `${token.slice(0, 8)}...${token.slice(-4)}` : null,
             headerKeys,
             paramKeys,
         })
-
-        if (!token) {
-            log('auth.fail', { documentName, reason: 'missing-token' })
-            throw new Error('Not authorized: missing token')
-        }
-
-        let payload
         try {
-            payload = await verifyToken(token, {
-                jwtKey,
-                secretKey,
-                authorizedParties: authorizedParties.length ? authorizedParties : undefined,
-            })
+            const ctx = await authenticate(
+                { token, documentName },
+                {
+                    db: pool,
+                    verifyToken,
+                    jwtKey,
+                    secretKey,
+                    authorizedParties,
+                    siAdminOrgSlug: SI_ADMIN_ORG_SLUG,
+                },
+            )
+            log('auth.ok', { documentName, internalUserId: ctx.user.id, clerkUserId: ctx.user.clerkId })
+            return ctx
         } catch (err) {
             log('auth.fail', {
                 documentName,
-                reason: 'verify-token-threw',
                 message: err instanceof Error ? err.message : String(err),
             })
             throw err
         }
-        const clerkUserId = payload.sub
-        if (!clerkUserId) {
-            log('auth.fail', { documentName, reason: 'token-no-sub' })
-            throw new Error('Not authorized: token has no subject')
-        }
-        log('auth.token-verified', { documentName, clerkUserId })
+    },
+    async onLoadDocument({ documentName, document }) {
+        log('loadDocument', { documentName })
+        // Server-side bootstrap of fresh proposal-text Y.Docs from the existing
+        // study column. Hocuspocus serializes `onLoadDocument` per document,
+        // so seeding runs exactly once even when two clients open the page at
+        // the same instant. This eliminates the client-side bootstrap race
+        // where both clients would seed and the CRDT-additive merge would
+        // produce duplicated content.
+        const parsed = parseDocumentName(documentName)
+        if (parsed?.kind !== 'proposal-text') return
+        // The Database extension's `fetch` already populated `document` if a
+        // yjs_document row exists. Seeding only applies to the cold case.
+        if (document.share.size > 0) return
 
-        const studyId = studyIdFromDocumentName(documentName)
-        if (!studyId) {
-            log('auth.fail', { documentName, reason: 'unrecognized-document', clerkUserId })
-            throw new Error(`Not authorized: unrecognized document "${documentName}"`)
-        }
-        log('auth.document-parsed', { documentName, studyId })
+        const column = SLUG_TO_STUDY_COLUMN[parsed.slug]
+        const row = await pool.query<{ value: string | null }>(`SELECT ${column} AS value FROM study WHERE id = $1`, [
+            parsed.studyId,
+        ])
+        const lexicalJson = row.rows[0]?.value
+        if (!lexicalJson) return
 
-        const userRow = await pool.query<{ id: string }>('SELECT id FROM "user" WHERE clerk_id = $1', [clerkUserId])
-        const internalUserId = userRow.rows[0]?.id
-        if (!internalUserId) {
-            log('auth.fail', { documentName, reason: 'user-not-provisioned', clerkUserId })
-            throw new Error('Not authorized: user not provisioned')
+        try {
+            seedYDocFromLexical(document, lexicalJson)
+        } catch (error) {
+            console.warn(`onLoadDocument: failed to seed ${documentName} from study.${column}`, error)
         }
+    },
+    async onStateless({ payload, documentName, document, connection }) {
+        // Defense-in-depth: only re-broadcast events whose shape, document kind,
+        // sender identity, and DB study status all line up. Forged or stale
+        // payloads are dropped silently; throwing here would close the
+        // connection and disrupt unrelated sync.
+        const parsedDoc = parseDocumentName(documentName)
+        if (!parsedDoc) return
 
-        const studyRow = await pool.query<{ org_id: string; submitted_by_org_id: string }>(
-            'SELECT org_id, submitted_by_org_id FROM study WHERE id = $1',
-            [studyId],
-        )
-        const study = studyRow.rows[0]
-        if (!study) {
-            log('auth.fail', { documentName, reason: 'study-not-found', studyId, internalUserId })
-            throw new Error('Not authorized: study not found')
-        }
+        const event = parseStatelessEvent(payload)
+        if (!event) return
 
-        // Mirrors src/lib/permissions.ts `view Study` rule plus the SI-admin override
-        // (admin of the `safe-insights` org). All three checks collapse into one query.
-        const accessRow = await pool.query(
-            `SELECT 1
-               FROM org_user ou
-               JOIN org o ON o.id = ou.org_id
-              WHERE ou.user_id = $1
-                AND (
-                    (o.slug = $2 AND ou.is_admin = TRUE)
-                    OR ou.org_id = $3
-                    OR ou.org_id = $4
-                )
-              LIMIT 1`,
-            [internalUserId, SI_ADMIN_ORG_SLUG, study.org_id, study.submitted_by_org_id],
-        )
-        if (accessRow.rowCount === 0) {
-            log('auth.fail', {
-                documentName,
-                reason: 'no-org-membership',
-                internalUserId,
-                studyOrgId: study.org_id,
-                submittedByOrgId: study.submitted_by_org_id,
+        const context = connection.context as AuthenticatedContext | undefined
+        const connectionUserClerkId = context?.user?.clerkId
+        if (!connectionUserClerkId) return
+
+        const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
+            parsedDoc.studyId,
+        ])
+        const studyStatus = statusRow.rows[0]?.status
+        if (!studyStatus) return
+
+        if (
+            !assertStatelessEventConsistent({
+                event,
+                parsed: parsedDoc,
+                connectionUserClerkId,
+                studyStatus,
             })
-            throw new Error('Not authorized: no membership in study orgs')
+        ) {
+            return
         }
 
-        log('auth.ok', { documentName, studyId, internalUserId })
-        return { user: { id: internalUserId } }
+        document.broadcastStateless(payload)
     },
     async onConnect({ documentName }) {
         log('connect', { documentName })
     },
     async onDisconnect({ documentName, clientsCount }) {
         log('disconnect', { documentName, clientsCount })
-    },
-    async onLoadDocument({ documentName }) {
-        log('loadDocument', { documentName })
     },
     async onRequest({ request, response }: { request: IncomingMessage; response: ServerResponse }) {
         if (request.url === '/health') {

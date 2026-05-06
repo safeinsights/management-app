@@ -5,22 +5,28 @@ import {
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
-    resetSpyMode,
     screen,
-    setSpyMode,
-    spyModeState,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 
-vi.mock('@/components/spy-mode-context', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/spy-mode-context')>()
+const featureFlagState = vi.hoisted(() => ({ enabled: false }))
+
+vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
     return {
         ...actual,
-        useSpyMode: () => ({ isSpyMode: spyModeState.isSpyMode, toggleSpyMode: vi.fn() }),
+        ProposalReviewFeatureFlag: ({
+            defaultContent,
+            optInContent,
+        }: {
+            defaultContent: ReactNode
+            optInContent: ReactNode
+        }) => (featureFlagState.enabled ? optInContent : defaultContent),
     }
 })
 
@@ -28,7 +34,7 @@ describe('LegacyProposalReviewView', () => {
     let study: SelectedStudy
 
     beforeEach(async () => {
-        resetSpyMode()
+        featureFlagState.enabled = false
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
@@ -154,7 +160,7 @@ describe('LegacyProposalReviewView', () => {
         })
 
         it('renders "Proceed to Step 2" when agreementsHref is provided and feature flag is ON (bypass)', () => {
-            setSpyMode(true)
+            featureFlagState.enabled = true
 
             renderWithProviders(
                 <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
@@ -165,7 +171,7 @@ describe('LegacyProposalReviewView', () => {
         })
 
         it('renders the new flow when agreementsHref is absent and feature flag is ON', async () => {
-            setSpyMode(true)
+            featureFlagState.enabled = true
 
             renderWithProviders(<LegacyProposalReviewView orgSlug="openstax" study={study} />)
 

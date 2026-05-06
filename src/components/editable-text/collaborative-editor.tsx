@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { Alert, Badge, Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Alert, Badge, Box, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -13,13 +13,16 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { HocuspocusProvider } from '@hocuspocus/provider'
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
 import type { Provider } from '@lexical/yjs'
 
 import { isActionError } from '@/lib/errors'
 import { formatTimeAgo } from '@/lib/relative-time'
 import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
+import { parseAuthFailureReason, type AuthFailureCode } from '@/lib/realtime/auth-failure'
+import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
+import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
@@ -248,10 +251,11 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 }
 
 function useCollaborationProvider(
-    wsUrl: string,
+    websocketProvider: HocuspocusProviderWebsocket,
     providerRef: React.MutableRefObject<HocuspocusProvider | null>,
     getToken: () => Promise<string | null>,
     onAuthError: (reason: string) => void,
+    onProviderReady?: (provider: HocuspocusProvider | null) => void,
 ) {
     return useCallback(
         (id: string, yjsDocMap: Map<string, Doc>): Provider => {
@@ -262,19 +266,24 @@ function useCollaborationProvider(
             }
 
             const provider = new HocuspocusProvider({
-                url: wsUrl,
+                websocketProvider,
                 name: id,
                 document: doc,
                 autoConnect: false,
                 token: async () => (await getToken()) ?? '',
-                onAuthenticationFailed: ({ reason }) => onAuthError(reason),
+                onAuthenticationFailed: ({ reason }: { reason: string }) => onAuthError(reason),
             } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
+            // With a shared websocketProvider the constructor leaves manageSocket=false.
+            // Without this attach() the document never registers in providerMap.
+            provider.attach()
+
             providerRef.current = provider
+            onProviderReady?.(provider)
 
             return provider as unknown as Provider
         },
-        [wsUrl, providerRef, getToken, onAuthError],
+        [websocketProvider, providerRef, getToken, onAuthError, onProviderReady],
     )
 }
 
@@ -293,45 +302,122 @@ export type CollaborativeEditorProps = {
      */
     id: string
     studyId: string
-    wsUrl: string
+    /**
+     * Tab-singleton Hocuspocus websocket from `useYjsWebsocket()`. Callers must
+     * gate render until this is non-null (the singleton is created on first
+     * client render, so this is only null during SSR or before hydration).
+     */
+    websocketProvider: HocuspocusProviderWebsocket
     contentClassName?: string
     contentStyle?: React.CSSProperties
     placeholder?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
+    /**
+     * Called once Lexical's CollaborationPlugin instantiates the provider, and
+     * again with null on teardown. Consumers (e.g. siblings that need to
+     * subscribe to stateless events on the same document) use this to share
+     * the editor's provider rather than constructing their own — two providers
+     * with the same name on the shared websocket collide in providerMap.
+     */
+    onProviderReady?: (provider: HocuspocusProvider | null) => void
 }
+
+function EditorUnavailable() {
+    return (
+        <Alert color="red" title="Editor unavailable">
+            We couldn&apos;t connect to the collaboration server. Try refreshing the page — your last saved draft is
+            safe.
+        </Alert>
+    )
+}
+
+function ReconnectingBanner() {
+    return (
+        <Alert color="yellow" mb="sm" title="Working offline">
+            You can keep editing — your changes will sync once we reconnect to the collaboration server.
+        </Alert>
+    )
+}
+
+// Auth-failure codes that are NOT a "study no longer editable" kick-out. Anything
+// in this set means the editor genuinely cannot show — wrong user, missing token,
+// wrong document name. STUDY_NOT_EDITABLE intentionally falls through to the
+// kick-out flow handled by useSubmissionRedirectListener / useStudyStatusOnReconnect.
+const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
+    'MISSING_TOKEN',
+    'INVALID_TOKEN',
+    'UNRECOGNIZED_DOCUMENT',
+    'USER_NOT_PROVISIONED',
+    'STUDY_NOT_FOUND',
+    'NO_MEMBERSHIP',
+    'UNKNOWN',
+])
 
 export function CollaborativeEditor({
     id,
     studyId,
-    wsUrl,
+    websocketProvider,
     contentClassName,
     contentStyle,
     placeholder,
     onChange,
     footerRight,
+    onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
     const providerRef = useRef<HocuspocusProvider | null>(null)
-    const [authError, setAuthError] = useState<string | null>(null)
+    const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
+    const phase = useConnectionPhase()
+    const triggerKickOut = useTriggerStudyKickOut()
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
     const fetchToken = useCallback(async () => getToken(), [getToken])
-    const onAuthError = useCallback((reason: string) => setAuthError(reason || 'Not authorized'), [])
-    const providerFactory = useCollaborationProvider(wsUrl, providerRef, fetchToken, onAuthError)
+    const onAuthError = useCallback(
+        (reason: string) => {
+            const { code } = parseAuthFailureReason(reason)
+            setAuthFailureCode(code)
+            // Belt-and-braces: a per-document auth failure can fire without the shared
+            // websocket dropping (server forcibly closes one handshake), so the page-level
+            // reconnect listener wouldn't run. Drive the kick-out check from here too.
+            if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
+        },
+        [triggerKickOut],
+    )
+    const providerFactory = useCollaborationProvider(
+        websocketProvider,
+        providerRef,
+        fetchToken,
+        onAuthError,
+        onProviderReady,
+    )
 
-    if (authError) {
-        return (
-            <Alert color="red" title="Editor unavailable">
-                You don&apos;t have access to this collaborative document.
-            </Alert>
-        )
-    }
+    useEffect(() => {
+        // Pair the onProviderReady publish with a teardown clear so subscribers
+        // don't hold a destroyed provider after the editor unmounts.
+        return () => {
+            onProviderReady?.(null)
+        }
+    }, [onProviderReady])
+
+    // STUDY_NOT_EDITABLE: a peer submitted while we were disconnected. The kick-out
+    // flow (toast + redirect) is wired up at the page level; render nothing here so
+    // we don't flash a red error before the navigation completes.
+    if (authFailureCode === 'STUDY_NOT_EDITABLE') return null
+
+    // Any other auth failure is genuinely terminal — wrong user, missing token,
+    // unknown document. Replace the editor.
+    if (authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode)) return <EditorUnavailable />
+
+    if (phase === 'failed') return <EditorUnavailable />
+
+    if (phase === 'initial') return <Skeleton h={contentStyle?.minHeight ?? 200} radius={4} />
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
+                {phase === 'reconnecting' && <ReconnectingBanner />}
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
