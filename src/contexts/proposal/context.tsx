@@ -18,10 +18,11 @@ import { useSubmitProposal } from './hooks/use-submit-proposal'
 interface ProposalContextValue {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    saveDraft: () => Promise<boolean>
+    saveDraft: (opts?: { silent?: boolean }) => Promise<boolean>
     submitProposal: () => void
     isSaving: boolean
     isSubmitting: boolean
+    lastSavedAt: Date | null
     isCollaborationEnabled: boolean
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
@@ -82,7 +83,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         enabled: isCollaborationEnabled,
     })
 
-    const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
+    const { saveDraft, isSaving, lastSavedAt } = useSaveDraft({ studyId, form })
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 
     const value = useMemo(
@@ -93,6 +94,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             submitProposal,
             isSaving,
             isSubmitting,
+            lastSavedAt,
             isCollaborationEnabled,
             websocketProvider,
             yjsForm,
@@ -105,6 +107,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             submitProposal,
             isSaving,
             isSubmitting,
+            lastSavedAt,
             isCollaborationEnabled,
             websocketProvider,
             yjsForm,

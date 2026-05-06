@@ -4,13 +4,13 @@ import { FC } from 'react'
 import { Group, Stack, Title } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
-import type { ProposalFeedbackEntry } from './types'
+import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
+import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { AutoSaveIndicator } from '@/components/study/auto-save-indicator'
+import { useAutoSave } from '@/hooks/use-auto-save'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
-import { FeedbackAndNotesSection } from './feedback-and-notes-section'
 import { ResubmissionNoteSection } from './resubmission-note-section'
 import { EditResubmitFooter } from './footer'
-import { AutoSaveIndicator } from './auto-save-indicator'
-import { useAutoSave } from './use-auto-save'
 
 interface EditResubmitFormProps {
     orgName: string

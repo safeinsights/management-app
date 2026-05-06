@@ -10,7 +10,12 @@ const INTERVAL_MS = 45000
 interface UseAutoSaveOptions {
     isDirty: boolean
     isSaving: boolean
-    saveDraft: () => Promise<boolean>
+    /**
+     * The save function. May accept an optional `{ silent }` flag — auto-save
+     * always calls it as silent so a "Draft Saved" toast doesn't fire on every
+     * keystroke. The shared AutoSaveIndicator UI replaces that affordance.
+     */
+    saveDraft: (opts?: { silent?: boolean }) => Promise<boolean>
 }
 
 export function useAutoSave({ isDirty, isSaving, saveDraft }: UseAutoSaveOptions) {
@@ -22,7 +27,7 @@ export function useAutoSave({ isDirty, isSaving, saveDraft }: UseAutoSaveOptions
 
         if (timerRef.current) clearTimeout(timerRef.current)
         timerRef.current = setTimeout(() => {
-            void saveDraft()
+            void saveDraft({ silent: true })
         }, DEBOUNCE_MS)
 
         return () => {
@@ -32,7 +37,7 @@ export function useAutoSave({ isDirty, isSaving, saveDraft }: UseAutoSaveOptions
 
     useEffect(() => {
         intervalRef.current = setInterval(() => {
-            if (isDirty && !isSaving) void saveDraft()
+            if (isDirty && !isSaving) void saveDraft({ silent: true })
         }, INTERVAL_MS)
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current)
