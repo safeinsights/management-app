@@ -42,7 +42,7 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
                     // eslint-disable-next-line no-console
                     console.log(`✅ Deleted ${user.id} ${user.fullName} (${user.primaryEmailAddress?.emailAddress})`)
                 } catch (err) {
-                    console.error(`⚠️  Failed to delete ${user.id}:`, err)
+                    console.error(`⚠  Failed to delete ${user.id}:`, err)
                 }
             }
         }

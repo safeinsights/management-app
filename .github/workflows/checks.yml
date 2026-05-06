@@ -37,6 +37,8 @@ jobs:
               run: npm ci
             - name: show versions
               run: npm ls
+            - name: Verify npm package signatures
+              run: npm audit signatures
             - name: npm run checks
               run: npm run checks
             - name: validate actions
@@ -66,6 +68,15 @@ jobs:
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
+            - name: Run Trivy license scanner
+              uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  scanners: 'license'
+                  severity: 'HIGH,CRITICAL'
+                  exit-code: '1'
+                  trivyignores: '.trivyignore.yaml'
             - name: Run SonarQube SAST Scan
               # SONAR_TOKEN is scoped to this single step (not the job env) so that
               # any future steps added above cannot accidentally read it. Keep it here.
@@ -200,6 +211,11 @@ jobs:
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
+                  # Disable badge / wiki publish: pushing to the .wiki repo
+                  # requires `contents: write`, which we deliberately do not
+                  # grant this PR-code-running job (OTTER-545). PR comment
+                  # still works without it.
+                  badge-enabled: false
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
