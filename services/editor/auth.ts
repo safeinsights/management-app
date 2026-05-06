@@ -186,14 +186,36 @@ export interface AuthenticatedContext {
     user: { id: string; clerkId: string }
 }
 
-const NA = 'Not authorized'
+// Stable codes that survive serialisation to the client via
+// `onAuthenticationFailed.reason`. The wire format is `CODE: message` so the
+// client can split on the first colon and dispatch on `code` rather than
+// pattern-matching the message text.
+export type AuthFailureCode =
+    | 'MISSING_TOKEN'
+    | 'INVALID_TOKEN'
+    | 'UNRECOGNIZED_DOCUMENT'
+    | 'USER_NOT_PROVISIONED'
+    | 'STUDY_NOT_FOUND'
+    | 'NO_MEMBERSHIP'
+    | 'STUDY_NOT_EDITABLE'
+
+export class AuthFailureError extends Error {
+    readonly code: AuthFailureCode
+    constructor(code: AuthFailureCode, message: string) {
+        // The wire format `CODE: message` must be the Error.message because
+        // Hocuspocus only forwards `err.message` to the client.
+        super(`${code}: ${message}`)
+        this.name = 'AuthFailureError'
+        this.code = code
+    }
+}
 
 export async function authenticate(
     args: { token: string | null | undefined; documentName: string },
     deps: AuthenticateDeps,
 ): Promise<AuthenticatedContext> {
     const { token, documentName } = args
-    if (!token) throw new Error(`${NA}: missing token`)
+    if (!token) throw new AuthFailureError('MISSING_TOKEN', 'missing token')
 
     const payload = await deps.verifyToken(token, {
         jwtKey: deps.jwtKey,
@@ -201,21 +223,21 @@ export async function authenticate(
         authorizedParties: deps.authorizedParties && deps.authorizedParties.length ? deps.authorizedParties : undefined,
     })
     const clerkUserId = payload.sub
-    if (!clerkUserId) throw new Error(`${NA}: token has no subject`)
+    if (!clerkUserId) throw new AuthFailureError('INVALID_TOKEN', 'token has no subject')
 
     const parsed = parseDocumentName(documentName)
-    if (!parsed) throw new Error(`${NA}: unrecognized document "${documentName}"`)
+    if (!parsed) throw new AuthFailureError('UNRECOGNIZED_DOCUMENT', `unrecognized document "${documentName}"`)
 
     const userRow = await deps.db.query<{ id: string }>('SELECT id FROM "user" WHERE clerk_id = $1', [clerkUserId])
     const internalUserId = userRow.rows[0]?.id
-    if (!internalUserId) throw new Error(`${NA}: user not provisioned`)
+    if (!internalUserId) throw new AuthFailureError('USER_NOT_PROVISIONED', 'user not provisioned')
 
     const studyRow = await deps.db.query<{ org_id: string; submitted_by_org_id: string; status: StudyStatus }>(
         'SELECT org_id, submitted_by_org_id, status FROM study WHERE id = $1',
         [parsed.studyId],
     )
     const study = studyRow.rows[0]
-    if (!study) throw new Error(`${NA}: study not found`)
+    if (!study) throw new AuthFailureError('STUDY_NOT_FOUND', 'study not found')
 
     const requiredOrgId = requiredOrgIdForDocument(parsed, study)
 
@@ -232,17 +254,16 @@ export async function authenticate(
           LIMIT 1`,
         [internalUserId, deps.siAdminOrgSlug, requiredOrgId],
     )
-    if (accessRow.rowCount === 0) throw new Error(`${NA}: no membership in study orgs`)
+    if (accessRow.rowCount === 0) throw new AuthFailureError('NO_MEMBERSHIP', 'no membership in study orgs')
 
     // Editable-status enforcement closes the stale-tab-reconnect window: a tab
     // that lost network during submit and reconnects post-flip would otherwise
-    // keep mutating the persisted yjs_document for ~10s before the client-side
-    // status poll catches up. Existing connections are not affected (auth runs
-    // only on connect). The submitter's own tab navigates via router.push
-    // before any new auth attempt fires.
+    // keep mutating the persisted yjs_document. The client maps this code to
+    // the kick-out flow (toast + redirect) rather than the generic "editor
+    // unavailable" surface.
     const allowed = editableStatusForKind(parsed.kind)
     if (!allowed.includes(study.status)) {
-        throw new Error(`${NA}: study is not editable (status: ${study.status})`)
+        throw new AuthFailureError('STUDY_NOT_EDITABLE', `study is not editable (status: ${study.status})`)
     }
 
     return { user: { id: internalUserId, clerkId: clerkUserId } }

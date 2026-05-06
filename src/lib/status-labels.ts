@@ -56,7 +56,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     },
     'CHANGE-REQUESTED': {
         stage: 'Proposal',
-        label: 'Proposal change requested',
+        label: 'Change requested',
         tooltip: "You've asked the Researcher to clarify or revise this proposal.",
         colors: COLORS.clarification,
     },
@@ -164,7 +164,7 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
     },
     'CHANGE-REQUESTED': {
         stage: 'Proposal',
-        label: 'Proposal change requested',
+        label: 'Change requested',
         tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',
         colors: COLORS.underReview,
     },

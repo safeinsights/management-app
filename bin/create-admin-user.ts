@@ -79,7 +79,7 @@ async function createAdminUser() {
 
     if (existingUsers.data.length > 0) {
         const existingUser = existingUsers.data[0]
-        console.log(`⚠️  User with email ${email} already exists in Clerk (ID: ${existingUser.id})`)
+        console.log(`⚠  User with email ${email} already exists in Clerk (ID: ${existingUser.id})`)
 
         const { proceed } = await prompts(
             {

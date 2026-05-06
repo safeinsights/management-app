@@ -85,7 +85,7 @@ async function findAvailableTestPhone(clerk: ClerkClient, userId: string, role: 
                 console.log(`📱 User already has MFA phone configured`)
                 return null
             }
-            console.log(`⚠️  Phone ${phoneNumber} unavailable, trying next...`)
+            console.log(`⚠  Phone ${phoneNumber} unavailable, trying next...`)
         }
     }
     console.error(`❌ Could not find available test phone number for ${role}`)
@@ -96,12 +96,12 @@ async function setupClerkUser(clerk: ClerkClient, config: TestUserConfig): Promi
     const { role, email, password } = config
 
     if (!email) {
-        console.log(`⚠️  Skipping ${role}: CLERK_${role.toUpperCase()}_EMAIL not set`)
+        console.log(`⚠  Skipping ${role}: CLERK_${role.toUpperCase()}_EMAIL not set`)
         return null
     }
 
     if (!password) {
-        console.log(`⚠️  Skipping ${role}: CLERK_${role.toUpperCase()}_PASSWORD not set`)
+        console.log(`⚠  Skipping ${role}: CLERK_${role.toUpperCase()}_PASSWORD not set`)
         return null
     }
 
@@ -119,7 +119,7 @@ async function setupClerkUser(clerk: ClerkClient, config: TestUserConfig): Promi
             await clerk.users.updateUser(user.id, { password })
             console.log(`🔑 Updated password for ${role}`)
         } catch (err) {
-            console.error(`⚠️  Failed to update password for ${role}:`, err)
+            console.error(`⚠  Failed to update password for ${role}:`, err)
         }
 
         const mfaPhone = user.phoneNumbers.find((p) => p.reservedForSecondFactor)
@@ -129,7 +129,7 @@ async function setupClerkUser(clerk: ClerkClient, config: TestUserConfig): Promi
             console.log(`   - Reserved for 2FA: ${mfaPhone.reservedForSecondFactor}`)
 
             if (mfaPhone.verification?.status !== 'verified') {
-                console.log(`⚠️  Phone not verified, updating...`)
+                console.log(`⚠  Phone not verified, updating...`)
                 await clerk.phoneNumbers.updatePhoneNumber(mfaPhone.id, {
                     verified: true,
                     reservedForSecondFactor: true,
@@ -304,7 +304,7 @@ async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: Test
 }
 
 async function setupOrganizations() {
-    console.log('\n🏗️  Setting up organizations and code environments...')
+    console.log('\n🏗  Setting up organizations and code environments...')
 
     const pubKeyStr = readTestSupportFile('public_key.pem')
 
@@ -315,7 +315,7 @@ async function setupOrganizations() {
         .executeTakeFirst()
 
     if (!org) {
-        console.log(`⚠️  Org 'openstax' not found - skipping org setup (run database seed first)`)
+        console.log(`⚠  Org 'openstax' not found - skipping org setup (run database seed first)`)
         return
     }
 
