@@ -640,14 +640,19 @@ const resubmissionNoteParam = z.string().refine(
 )
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click — auto-save is intentionally out of scope for OTTER-521).
+// click — auto-save is intentionally out of scope for OTTER-521). The
+// `researcherId = userId` ownership filter is load-bearing: CASL's
+// `permit('update', 'Study')` is unconditional for any researcher, so this
+// is what actually scopes writes to the study's owner.
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string(), studyInfo: draftStudyApiSchema }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo } }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
+        const userId = session.user.id
+
         const updateValues = Object.fromEntries(
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
@@ -658,6 +663,7 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
                 .set(updateValues)
                 .where('id', '=', studyId)
                 .where('status', '=', 'CHANGE-REQUESTED')
+                .where('researcherId', '=', userId)
                 .execute()
         }
 
@@ -680,9 +686,16 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        const study = await db.selectFrom('study').select(['id', 'status']).where('id', '=', studyId).executeTakeFirst()
+        // Same caveat as onUpdateClarifiedProposalAction: pair `requireAbilityTo`
+        // with an explicit ownership filter since CASL doesn't scope by researcher.
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status'])
+            .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
+            .executeTakeFirst()
 
-        if (!study) throw new Error('Study not found')
+        if (!study) throw new Error('Study not found or access denied')
         if (study.status !== 'CHANGE-REQUESTED') {
             throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
         }
@@ -699,6 +712,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 submittedAt: new Date(),
             })
             .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
             .execute()
 
         await db
