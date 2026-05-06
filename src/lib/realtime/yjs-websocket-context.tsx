@@ -21,6 +21,11 @@ const YjsWebsocketContext = createContext<ConnectionState>({ socket: null, phase
 // open a fresh connection if the old one is unusable.
 let sharedSocket: HocuspocusProviderWebsocket | null = null
 
+// Live React setters that should be notified when the singleton is replaced
+// (specifically on `pageshow` after a bfcache restore, where the previous
+// singleton was destroyed by `pagehide` but React state still points at it).
+const socketSubscribers = new Set<(socket: HocuspocusProviderWebsocket) => void>()
+
 function getOrCreateSharedSocket(): HocuspocusProviderWebsocket {
     if (sharedSocket) return sharedSocket
     sharedSocket = new HocuspocusProviderWebsocket({ url: WS_URL })
@@ -31,6 +36,13 @@ if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
         sharedSocket?.destroy()
         sharedSocket = null
+    })
+    window.addEventListener('pageshow', (event) => {
+        // Only act on bfcache restores — ordinary first-loads have no destroyed
+        // socket to recover from and providers are mounting fresh anyway.
+        if (!(event as PageTransitionEvent).persisted) return
+        const next = getOrCreateSharedSocket()
+        socketSubscribers.forEach((notify) => notify(next))
     })
 }
 
@@ -70,10 +82,24 @@ export const YjsWebsocketProvider: FC<Props> = ({
     reconnectingThresholdMs = DEFAULT_RECONNECTING_THRESHOLD_MS,
     failureThresholdMs = DEFAULT_FAILURE_THRESHOLD_MS,
 }) => {
-    const [socket] = useState<HocuspocusProviderWebsocket | null>(() =>
+    const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(() =>
         typeof window === 'undefined' ? null : getOrCreateSharedSocket(),
     )
     const [phase, setPhase] = useState<ConnectionPhase>('initial')
+
+    // Subscribe to bfcache-restore re-creations of the singleton so consumers
+    // re-render against the live socket instead of the destroyed one.
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+        const onSocketReplaced = (next: HocuspocusProviderWebsocket) => {
+            setSocket(next)
+            setPhase('initial')
+        }
+        socketSubscribers.add(onSocketReplaced)
+        return () => {
+            socketSubscribers.delete(onSocketReplaced)
+        }
+    }, [])
 
     useEffect(() => {
         if (!socket) return undefined
