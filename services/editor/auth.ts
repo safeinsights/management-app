@@ -4,6 +4,7 @@
 // network keys. `services/editor/server.ts` wires these into the runtime.
 
 import {
+    CODE_REVIEW_FEEDBACK_PREFIX,
     PROPOSAL_PREFIX,
     PROPOSAL_TEXT_SLUGS,
     REVIEW_FEEDBACK_PREFIX,
@@ -21,17 +22,45 @@ const UUID_LEN = 36
 // service.
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
+// Mirrors src/database/types.ts:StudyJobStatus. Same duplication rationale as StudyStatus.
+export type StudyJobStatus =
+    | 'CODE-APPROVED'
+    | 'CODE-REJECTED'
+    | 'CODE-SCANNED'
+    | 'CODE-SUBMITTED'
+    | 'FILES-APPROVED'
+    | 'FILES-REJECTED'
+    | 'INITIATED'
+    | 'JOB-ERRORED'
+    | 'JOB-PACKAGING'
+    | 'JOB-PROVISIONING'
+    | 'JOB-READY'
+    | 'JOB-RUNNING'
+    | 'RUN-COMPLETE'
+
 // Mirrors src/lib/proposal-review.ts:SUBMITTED_REVIEW_STATUSES. Used to decide
 // whether a `proposal-review-submitted` stateless event is plausible given the
 // DB study status. Duplicated for the same reason.
 const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
 
+const REVIEWABLE_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
+
+const SUBMITTED_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-APPROVED', 'CODE-REJECTED']
+
 export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string }
+    | { kind: 'code-review-feedback'; studyId: string }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
 
 export function parseDocumentName(name: string): ParsedDocumentName | null {
+    // Longer prefix first; otherwise REVIEW_FEEDBACK_PREFIX would mis-match a
+    // code-review-feedback doc name.
+    if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
+        const studyId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
+        return UUID_RE.test(studyId) ? { kind: 'code-review-feedback', studyId } : null
+    }
+
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
         const studyId = name.slice(REVIEW_FEEDBACK_PREFIX.length)
         return UUID_RE.test(studyId) ? { kind: 'review-feedback', studyId } : null
@@ -54,22 +83,57 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     return null
 }
 
-// review-feedback-* documents are owned by the reviewing org (DO).
-// proposal-* documents are owned by the submitting lab.
+// review-feedback-* and code-review-feedback-* documents are owned by the
+// reviewing org (DO). proposal-* documents are owned by the submitting lab.
 export function requiredOrgIdForDocument(
     parsed: ParsedDocumentName,
     study: { org_id: string; submitted_by_org_id: string },
 ): string {
-    return parsed.kind === 'review-feedback' ? study.org_id : study.submitted_by_org_id
+    if (parsed.kind === 'review-feedback' || parsed.kind === 'code-review-feedback') return study.org_id
+    return study.submitted_by_org_id
 }
 
-// Allowed study statuses for editing each document kind. Authentication
-// rejects connections whose study has progressed past the editing window so
-// stale clients (network glitch + reconnect) cannot keep mutating the
-// persisted Yjs state after submission.
-export function editableStatusForKind(kind: ParsedDocumentName['kind']): readonly StudyStatus[] {
-    if (kind === 'review-feedback') return ['PENDING-REVIEW']
-    return ['DRAFT', 'CHANGE-REQUESTED']
+export type StudyEditabilitySnapshot = {
+    status: StudyStatus
+    latestJobStatus: StudyJobStatus | null
+}
+
+// Whether the canonical Yjs state for `parsed` may still be mutated given the
+// current study and (for code review) latest job status. Authentication and
+// the persist-time gate both consult this so stale clients cannot keep
+// streaming updates after a status flip.
+export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditabilitySnapshot): boolean {
+    switch (parsed.kind) {
+        case 'review-feedback':
+            return snap.status === 'PENDING-REVIEW'
+        case 'proposal-fields':
+        case 'proposal-text':
+            return snap.status === 'DRAFT' || snap.status === 'CHANGE-REQUESTED'
+        case 'code-review-feedback':
+            return (
+                snap.status === 'PENDING-REVIEW' &&
+                snap.latestJobStatus !== null &&
+                REVIEWABLE_CODE_JOB_STATUSES.includes(snap.latestJobStatus)
+            )
+    }
+}
+
+// Order matches latestJobForStudy in src/server/db/queries.ts so the auth
+// service and the application code agree on which row is "latest" when two
+// status changes share a created_at.
+const LATEST_JOB_STATUS_SQL = `SELECT jsc.status
+                                 FROM job_status_change jsc
+                                 JOIN study_job sj ON sj.id = jsc.study_job_id
+                                WHERE sj.study_id = $1
+                                ORDER BY jsc.created_at DESC, jsc.id DESC
+                                LIMIT 1`
+
+export async function fetchLatestJobStatus(
+    db: Pick<DbQuery, 'query'>,
+    studyId: string,
+): Promise<StudyJobStatus | null> {
+    const row = await db.query<{ status: StudyJobStatus }>(LATEST_JOB_STATUS_SQL, [studyId])
+    return row.rows[0]?.status ?? null
 }
 
 // Persist-time gate: returns true when the canonical Yjs state for this
@@ -84,10 +148,13 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status
     if (!status) return false
-    return editableStatusForKind(parsed.kind).includes(status)
+
+    const latestJobStatus =
+        parsed.kind === 'code-review-feedback' ? await fetchLatestJobStatus(db, parsed.studyId) : null
+    return isDocumentEditable(parsed, { status, latestJobStatus })
 }
 
-export type EventType = 'proposal-submitted' | 'proposal-review-submitted'
+export type EventType = 'proposal-submitted' | 'proposal-review-submitted' | 'code-review-submitted'
 
 export type StatelessSubmissionEvent = {
     type: EventType
@@ -119,7 +186,9 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
     const obj = parsed as Record<string, unknown>
     const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId } = obj
 
-    if (type !== 'proposal-submitted' && type !== 'proposal-review-submitted') return null
+    if (type !== 'proposal-submitted' && type !== 'proposal-review-submitted' && type !== 'code-review-submitted') {
+        return null
+    }
     if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
     if (typeof submittedByName !== 'string' || submittedByName.length === 0) return null
     if (typeof submittedByTabId !== 'string' || submittedByTabId.length === 0) return null
@@ -131,18 +200,21 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
 // Returns true when the event type is appropriate for the document kind.
 // `proposal-submitted` is broadcast on the proposal-fields doc by the lab
 // submitter; `proposal-review-submitted` is broadcast on the review-feedback
-// doc by the DO submitter. Anything else is suspicious and dropped.
+// doc by the DO submitter; `code-review-submitted` is broadcast on the
+// code-review-feedback doc by the DO submitter. Anything else is dropped.
 export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent, parsed: ParsedDocumentName): boolean {
     if (event.studyId !== parsed.studyId) return false
     if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
+    if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
     return false
 }
 
 // Strict consistency check before rebroadcasting a stateless event:
 // 1. payload-vs-document-kind matches (handled by isStatelessEventValidForDocument)
 // 2. sender's clerk id matches the authenticated user on this connection
-// 3. DB study status is plausible for the claimed event type
+// 3. DB study status (and, for code review, latest job status) is plausible
+//    for the claimed event type
 //
 // Without (2) and (3) any authorized collaborator could spoof a kick-out event
 // and redirect the room without an actual submit.
@@ -151,15 +223,18 @@ export function assertStatelessEventConsistent(args: {
     parsed: ParsedDocumentName
     connectionUserClerkId: string
     studyStatus: StudyStatus
+    latestJobStatus: StudyJobStatus | null
 }): boolean {
-    const { event, parsed, connectionUserClerkId, studyStatus } = args
+    const { event, parsed, connectionUserClerkId, studyStatus, latestJobStatus } = args
     if (!isStatelessEventValidForDocument(event, parsed)) return false
     if (event.submittedByClerkId !== connectionUserClerkId) return false
 
-    if (event.type === 'proposal-submitted') {
-        return studyStatus === 'PENDING-REVIEW'
+    if (event.type === 'proposal-submitted') return studyStatus === 'PENDING-REVIEW'
+    if (event.type === 'proposal-review-submitted') return SUBMITTED_REVIEW_STATUSES.includes(studyStatus)
+    if (event.type === 'code-review-submitted') {
+        return latestJobStatus !== null && SUBMITTED_CODE_JOB_STATUSES.includes(latestJobStatus)
     }
-    return SUBMITTED_REVIEW_STATUSES.includes(studyStatus)
+    return false
 }
 
 // pg.Pool-compatible query interface (small surface so tests can pass a
@@ -261,9 +336,13 @@ export async function authenticate(
     // keep mutating the persisted yjs_document. The client maps this code to
     // the kick-out flow (toast + redirect) rather than the generic "editor
     // unavailable" surface.
-    const allowed = editableStatusForKind(parsed.kind)
-    if (!allowed.includes(study.status)) {
-        throw new AuthFailureError('STUDY_NOT_EDITABLE', `study is not editable (status: ${study.status})`)
+    const latestJobStatus =
+        parsed.kind === 'code-review-feedback' ? await fetchLatestJobStatus(deps.db, parsed.studyId) : null
+    if (!isDocumentEditable(parsed, { status: study.status, latestJobStatus })) {
+        throw new AuthFailureError(
+            'STUDY_NOT_EDITABLE',
+            `study is not editable (status: ${study.status}, latest job: ${latestJobStatus ?? 'none'})`,
+        )
     }
 
     return { user: { id: internalUserId, clerkId: clerkUserId } }

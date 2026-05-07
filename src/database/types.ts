@@ -72,7 +72,7 @@ export type StudyJobStatus =
 
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
-export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+export type StudyProposalCommentEntryType = 'CODE-REVIEWER-FEEDBACK' | 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
@@ -241,10 +241,12 @@ export interface StudyProposalComment {
     authorRole: StudyProposalCommentAuthorRole
     body: Json
     createdAt: Generated<Timestamp>
+    criteria: Json | null
     decision: ReviewDecision | null
     entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
+    studyJobId: string | null
 }
 
 export interface User {

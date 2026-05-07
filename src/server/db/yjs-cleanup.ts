@@ -7,7 +7,7 @@ import type { Kysely } from 'kysely'
 
 import type { DB } from '@/database/types'
 import type { DBExecutor } from '@/database'
-import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { codeReviewFeedbackDocName, reviewFeedbackDocName } from '@/lib/collaboration-documents'
 
 export async function purgeProposalYjsDocsBeforeAt(
     db: Kysely<DB>,
@@ -28,6 +28,17 @@ export async function purgeReviewFeedbackYjsDocBeforeAt(
     await db
         .deleteFrom('yjsDocument')
         .where('name', '=', reviewFeedbackDocName(studyId))
+        .where('updatedAt', '<=', beforeAt)
+        .execute()
+}
+
+export async function purgeCodeReviewFeedbackYjsDocBeforeAt(
+    db: DBExecutor,
+    { studyId, beforeAt }: { studyId: string; beforeAt: Date },
+): Promise<void> {
+    await db
+        .deleteFrom('yjsDocument')
+        .where('name', '=', codeReviewFeedbackDocName(studyId))
         .where('updatedAt', '<=', beforeAt)
         .execute()
 }

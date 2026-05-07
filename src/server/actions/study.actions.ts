@@ -7,7 +7,7 @@ import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { codeReviewFeedbackDocName, reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { sleep } from '@/lib/utils'
 import {
     getProposalFeedbackForStudy,
@@ -15,7 +15,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
-import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import { purgeCodeReviewFeedbackYjsDocBeforeAt, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
     onStudyApproved,
@@ -609,6 +609,130 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .handler(async ({ entries }) => entries)
 
 export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
+
+// Same safety-net rationale as purgeReviewFeedbackYjsDocAfterSubmit, but for the
+// code-review-feedback document. A debounced Hocuspocus persist can race the
+// in-tx delete on a different connection, so wait long enough for any in-flight
+// persist to land and re-delete only rows older than the captured submit time.
+const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId: string; beforeAt: Date }) => {
+    await sleep({ 5: 'seconds' })
+    await purgeCodeReviewFeedbackYjsDocBeforeAt(database, args)
+})
+
+const REVIEWABLE_CODE_JOB_STATUSES = ['CODE-SUBMITTED', 'CODE-SCANNED'] as const
+
+async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
+    const job = await latestJobForStudy(studyId)
+    const latestStatus = job.statusChanges.at(0)?.status
+    if (!latestStatus) {
+        throw new ActionFailure({ study: 'no code job exists for this study' })
+    }
+    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus as (typeof REVIEWABLE_CODE_JOB_STATUSES)[number])) {
+        throw new ActionFailure({ study: 'code is not in a reviewable state' })
+    }
+    return job
+}
+
+const codeReviewCriteriaSchema = z.object({
+    proposalAlignment: z.enum(['yes', 'no']),
+    agreementCompliance: z.enum(['yes', 'no']),
+    securityChecks: z.enum(['yes', 'no']),
+    privacyProtection: z.enum(['yes', 'no']),
+})
+
+export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisionAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string().uuid(),
+            orgSlug: z.string(),
+            feedback: z.string(),
+            decision: z.enum(['approve', 'reject']),
+            criteria: codeReviewCriteriaSchema,
+        }),
+    )
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'status', 'approvedAt', 'containerLocation'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId }
+    })
+    .requireAbilityTo('review', 'Study')
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
+        const userId = session.user.id
+
+        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+            throw new ActionFailure({
+                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+            })
+        }
+
+        const claimedJob = await claimInitialCodeReviewJob({ studyId })
+        const submittedAt = new Date()
+
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                studyJobId: claimedJob.id,
+                authorId: userId,
+                authorRole: 'REVIEWER',
+                entryType: 'CODE-REVIEWER-FEEDBACK',
+                decision: toReviewDecision(decision),
+                body: JSON.parse(json),
+                criteria,
+            })
+            .executeTakeFirstOrThrow()
+
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(studyId)).execute()
+
+        if (decision === 'approve') {
+            await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
+            onStudyCodeApproved({ studyId, userId })
+        } else {
+            await performStudyCodeRejection({ db, studyId, userId })
+        }
+
+        purgeCodeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+
+        return { submitterFullName: submitter.fullName }
+    })
+
+export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) =>
+        db
+            .selectFrom('studyProposalComment')
+            .selectAll('studyProposalComment')
+            .where('studyId', '=', studyId)
+            .where('entryType', '=', 'CODE-REVIEWER-FEEDBACK')
+            .orderBy('createdAt', 'desc')
+            .execute(),
+    )
+
+export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))

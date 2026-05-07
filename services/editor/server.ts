@@ -7,9 +7,11 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
     type AuthenticatedContext,
+    type StudyJobStatus,
     type StudyStatus,
     assertStatelessEventConsistent,
     authenticate,
+    fetchLatestJobStatus,
     parseDocumentName,
     parseStatelessEvent,
     shouldPersistDocument,
@@ -194,12 +196,20 @@ const server = new Server({
         const studyStatus = statusRow.rows[0]?.status
         if (!studyStatus) return
 
+        // Latest job status is only relevant to the code-review flow. Skipping
+        // the second query keeps proposal-flow latency unchanged.
+        let latestJobStatus: StudyJobStatus | null = null
+        if (parsedDoc.kind === 'code-review-feedback') {
+            latestJobStatus = await fetchLatestJobStatus(pool, parsedDoc.studyId)
+        }
+
         if (
             !assertStatelessEventConsistent({
                 event,
                 parsed: parsedDoc,
                 connectionUserClerkId,
                 studyStatus,
+                latestJobStatus,
             })
         ) {
             return
