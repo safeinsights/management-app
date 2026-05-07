@@ -3,6 +3,19 @@ import type { NextConfig } from 'next'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
+const securityHeaders = [
+    // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
+    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN
+    // and we have no in-app frame usage.
+    { key: 'X-Frame-Options', value: 'DENY' },
+    // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
+    { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+    // Prevent MIME-sniffing-based content-type confusion.
+    { key: 'X-Content-Type-Options', value: 'nosniff' },
+    // Limit referrer leakage to cross-origin destinations.
+    { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+]
+
 const nextConfig: NextConfig = {
     cacheComponents: false,
     productionBrowserSourceMaps: true,
@@ -13,6 +26,9 @@ const nextConfig: NextConfig = {
     env: {
         // sets the DSN for Sentry in the client bundle at build time
         NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
+    },
+    async headers() {
+        return [{ source: '/:path*', headers: securityHeaders }]
     },
     experimental: {
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations

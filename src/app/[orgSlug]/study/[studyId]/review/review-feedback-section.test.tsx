@@ -2,6 +2,7 @@ import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor }
 import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/word-count'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { ReviewFeedbackSection } from './review-feedback-section'
 
 vi.mock('@/server/actions/editor.actions', () => ({
@@ -14,7 +15,7 @@ function FeedbackTestWrapper() {
     const feedback = useReviewFeedback()
 
     return (
-        <>
+        <ReviewFeedbackProviderShare>
             <button
                 type="button"
                 data-testid="simulate-input"
@@ -23,7 +24,7 @@ function FeedbackTestWrapper() {
                 simulate input
             </button>
             <ReviewFeedbackSection feedback={feedback} submittingLabName="Test Lab" studyId="test-study-id" />
-        </>
+        </ReviewFeedbackProviderShare>
     )
 }
 

@@ -3,7 +3,8 @@ import { screen } from '@testing-library/react'
 import type { Mock } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
 
-vi.mock('@/components/spy-mode-context', () => ({
+vi.mock(import('@/components/spy-mode-context'), async (importOriginal) => ({
+    ...(await importOriginal()),
     useSpyMode: vi.fn(),
 }))
 
