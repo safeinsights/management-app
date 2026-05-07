@@ -1,12 +1,12 @@
 'use client'
 
 import { useQuery } from '@/common'
+import { CONTEXT_NAMES } from '@/lib/claude-context'
 import { isActionError, errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
-import { Box, Group, Stack, Title, Text, FileButton, Button, Textarea } from '@mantine/core'
+import { Box, Stack, Title, Button, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { FileArrowUpIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
-import React, { useRef, useState } from 'react'
+import { useState } from 'react'
 
 type ContextProps = { name: string; orgId: string | null }
 
@@ -31,7 +31,7 @@ function ClaudeContextEditor(
             return
         }
     }
-
+    // TODO: Update title and label
     return <form action={onSubmit}>
         <Textarea
             label="System context"
@@ -49,19 +49,22 @@ function ClaudeContextDataLoader({name, orgId}: ContextProps) {
         queryFn: () => getClaudeContextAction({ name, orgId})
     })
 
-    if (isLoading || !data) return null
+    if (isLoading) return null
+
+    if (!data) {
+        return <ClaudeContextEditor name={name} orgId={orgId} initialContent='' />
+    }
     return <ClaudeContextEditor name={name} orgId={orgId} initialContent={data.content} />
 }
 
 export function ClaudeContext() {
-    const systemContext = { name: 'system', orgId: null }
-
     return (
         <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
             <Title>System and Language Context for Claude</Title>
             <Stack p="md">
-                {/* TODO: iterate over types of context; a different form for each */}
-                <ClaudeContextDataLoader name={systemContext.name} orgId={systemContext.orgId} />
+                {CONTEXT_NAMES.map((contextName) => {
+                    return <ClaudeContextDataLoader key={contextName} name={contextName} orgId={null} />
+                })}
             </Stack>
         </Box>
     )

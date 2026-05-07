@@ -4,6 +4,7 @@ import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query
 import { fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { ClaudeContext } from './claude-context'
 import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
+import { CONTEXT_NAMES } from '@/lib/claude-context'
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
@@ -11,11 +12,13 @@ export default async function OrgsAdministration() {
         queryKey: ['orgs'],
         queryFn: fetchAdminOrgsWithStatsAction,
     })
-
-    await queryClient.prefetchQuery({
-        queryKey: ['claudeContext', 'system', 'null'],
-        queryFn: () => getClaudeContextAction({name: 'system', orgId: null})
+    CONTEXT_NAMES.map(async (name) => {
+        await queryClient.prefetchQuery({
+            queryKey: ['claudeContext', name, 'null'],
+            queryFn: () => getClaudeContextAction({name: name, orgId: null})
+        })
     })
+
 
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>
