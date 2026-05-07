@@ -4,7 +4,7 @@ import { useQuery } from '@/common'
 import { CONTEXT_NAMES } from '@/lib/claude-context'
 import { isActionError, errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
-import { Box, Stack, Title, Button, Textarea } from '@mantine/core'
+import { Box, Stack, Title, Button, Textarea, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
 
@@ -46,19 +46,14 @@ function ClaudeContextEditor(
 function ClaudeContextDataLoader({name, orgId}: ContextProps) {
     const { data, isLoading, error } = useQuery({
         queryKey: ['claudeContext', name, orgId],
-        queryFn: () => getClaudeContextAction({ name, orgId})
+        queryFn: () => getClaudeContextAction({ name, orgId}),
+        retry: false
     })
 
     if (isLoading) return null
 
     if (error) {
-        notifications.show({
-            color: 'red',
-            title: 'Failed to load existing context for ' + name,
-            message: error.message,
-            autoClose: false
-        })
-        return
+        return <Text c="red">Failed to load context for {name}: {error.message}</Text>
     }
 
     if (!data) {

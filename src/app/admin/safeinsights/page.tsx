@@ -16,7 +16,8 @@ export default async function OrgsAdministration() {
         CONTEXT_NAMES.map((name) => {
             queryClient.prefetchQuery({
                 queryKey: ['claudeContext', name, null],
-                queryFn: () => getClaudeContextAction({name: name, orgId: null})
+                queryFn: () => getClaudeContextAction({name: name, orgId: null}),
+                retry: false
             })
         })
     )
