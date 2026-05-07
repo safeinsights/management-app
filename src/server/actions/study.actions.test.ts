@@ -1059,10 +1059,10 @@ describe('submitCodeReviewDecisionAction', () => {
 
     const loadCodeReviewRows = (studyId: string) =>
         db
-            .selectFrom('studyProposalComment')
-            .select(['authorId', 'authorRole', 'decision', 'entryType', 'studyJobId', 'criteria'])
+            .selectFrom('studyReviewComment')
+            .select(['authorId', 'decision', 'entryType', 'reviewKind', 'studyJobId', 'criteria'])
             .where('studyId', '=', studyId)
-            .where('entryType', '=', 'CODE-REVIEWER-FEEDBACK')
+            .where('reviewKind', '=', 'CODE')
             .execute()
 
     it('approve writes a code-review row, advances the job, and approves the study', async () => {
@@ -1081,8 +1081,8 @@ describe('submitCodeReviewDecisionAction', () => {
         const rows = await loadCodeReviewRows(study.id)
         expect(rows).toHaveLength(1)
         expect(rows[0].decision).toBe('APPROVE')
-        expect(rows[0].entryType).toBe('CODE-REVIEWER-FEEDBACK')
-        expect(rows[0].authorRole).toBe('REVIEWER')
+        expect(rows[0].reviewKind).toBe('CODE')
+        expect(rows[0].entryType).toBe('DECISION')
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].studyJobId).toBe(job.id)
         expect(rows[0].criteria).toEqual(validCriteria)
@@ -1217,7 +1217,7 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
-    it('partial unique index blocks two CODE-REVIEWER-FEEDBACK rows for the same job', async () => {
+    it('composite unique constraint blocks two CODE review rows for the same job', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -1226,13 +1226,13 @@ describe('submitCodeReviewDecisionAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         await db
-            .insertInto('studyProposalComment')
+            .insertInto('studyReviewComment')
             .values({
                 studyId: study.id,
                 studyJobId: job.id,
                 authorId: user.id,
-                authorRole: 'REVIEWER',
-                entryType: 'CODE-REVIEWER-FEEDBACK',
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
                 decision: 'APPROVE',
                 body: { root: { type: 'root', children: [] } },
             })
@@ -1240,18 +1240,68 @@ describe('submitCodeReviewDecisionAction', () => {
 
         await expect(
             db
-                .insertInto('studyProposalComment')
+                .insertInto('studyReviewComment')
                 .values({
                     studyId: study.id,
                     studyJobId: job.id,
                     authorId: user.id,
-                    authorRole: 'REVIEWER',
-                    entryType: 'CODE-REVIEWER-FEEDBACK',
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
                     decision: 'REJECT',
                     body: { root: { type: 'root', children: [] } },
                 })
                 .execute(),
         ).rejects.toThrow(/duplicate key|unique/i)
+    })
+
+    it('CHECK constraint blocks DECISION rows with NULL decision', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: null,
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute(),
+        ).rejects.toThrow(/decision_requires_value|check/i)
+    })
+
+    it('CHECK constraint blocks CODE rows with NULL studyJobId', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: null,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute(),
+        ).rejects.toThrow(/code_requires_job|check/i)
     })
 
     it('denies callers without review ability on the study org', async () => {
@@ -1315,7 +1365,7 @@ describe('submitCodeReviewDecisionAction', () => {
 })
 
 describe('getCodeReviewFeedbackAction', () => {
-    it('returns code-review-feedback rows ordered newest first and excludes other entry types', async () => {
+    it('returns code-review rows ordered newest first and excludes proposal-review rows', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -1324,7 +1374,8 @@ describe('getCodeReviewFeedbackAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        // A proposal-review row that should NOT be returned.
+        // A proposal-review row in the legacy table; getCodeReviewFeedbackAction
+        // reads from studyReviewComment so this should not be returned regardless.
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -1338,13 +1389,13 @@ describe('getCodeReviewFeedbackAction', () => {
             .execute()
 
         const older = await db
-            .insertInto('studyProposalComment')
+            .insertInto('studyReviewComment')
             .values({
                 studyId: study.id,
                 studyJobId: job.id,
                 authorId: user.id,
-                authorRole: 'REVIEWER',
-                entryType: 'CODE-REVIEWER-FEEDBACK',
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
                 decision: 'REJECT',
                 body: { root: { type: 'root', children: [] } },
                 criteria: {
@@ -1358,21 +1409,22 @@ describe('getCodeReviewFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        // partial unique index is per study_job: simulate a re-submitted job
-        // by creating a second job and writing a fresher review against it.
+        // The composite unique is per (study_job_id, review_kind): simulate a
+        // re-submitted job by creating a second job and writing a fresher review
+        // against it.
         const newerJob = await db
             .insertInto('studyJob')
             .values({ studyId: study.id })
             .returning('id')
             .executeTakeFirstOrThrow()
         const newer = await db
-            .insertInto('studyProposalComment')
+            .insertInto('studyReviewComment')
             .values({
                 studyId: study.id,
                 studyJobId: newerJob.id,
                 authorId: user.id,
-                authorRole: 'REVIEWER',
-                entryType: 'CODE-REVIEWER-FEEDBACK',
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
                 decision: 'APPROVE',
                 body: { root: { type: 'root', children: [] } },
                 criteria: validCriteriaFixture(),
@@ -1386,7 +1438,7 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows).toHaveLength(2)
         expect(rows[0].id).toBe(newer.id)
         expect(rows[1].id).toBe(older.id)
-        expect(rows.every((r) => r.entryType === 'CODE-REVIEWER-FEEDBACK')).toBe(true)
+        expect(rows.every((r) => r.reviewKind === 'CODE')).toBe(true)
     })
 })
 

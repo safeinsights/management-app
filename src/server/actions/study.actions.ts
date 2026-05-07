@@ -686,13 +686,13 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         const submittedAt = new Date()
 
         await db
-            .insertInto('studyProposalComment')
+            .insertInto('studyReviewComment')
             .values({
                 studyId,
                 studyJobId: claimedJob.id,
                 authorId: userId,
-                authorRole: 'REVIEWER',
-                entryType: 'CODE-REVIEWER-FEEDBACK',
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
                 decision: toReviewDecision(decision),
                 body: JSON.parse(json),
                 criteria,
@@ -737,10 +737,10 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) =>
         db
-            .selectFrom('studyProposalComment')
-            .selectAll('studyProposalComment')
+            .selectFrom('studyReviewComment')
+            .selectAll('studyReviewComment')
             .where('studyId', '=', studyId)
-            .where('entryType', '=', 'CODE-REVIEWER-FEEDBACK')
+            .where('reviewKind', '=', 'CODE')
             .orderBy('createdAt', 'desc')
             .execute(),
     )
