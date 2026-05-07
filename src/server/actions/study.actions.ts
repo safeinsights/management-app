@@ -4,7 +4,7 @@ import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
-import type { StudyStatus } from '@/database/types'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
 import { codeReviewFeedbackDocName, reviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -620,7 +620,7 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId
     await purgeCodeReviewFeedbackYjsDocBeforeAt(database, args)
 })
 
-const REVIEWABLE_CODE_JOB_STATUSES = ['CODE-SUBMITTED', 'CODE-SCANNED'] as const
+const REVIEWABLE_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
 async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
     // Mirror the editor auth gate: code review requires both PENDING-REVIEW
@@ -637,14 +637,11 @@ async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; stud
     }
 
     const job = await latestJobForStudyOrNull(studyId)
-    if (!job) {
+    const latestStatus = job?.statusChanges.at(0)?.status
+    if (!job || !latestStatus) {
         throw new ActionFailure({ study: 'no code job exists for this study' })
     }
-    const latestStatus = job.statusChanges.at(0)?.status
-    if (!latestStatus) {
-        throw new ActionFailure({ study: 'no code job exists for this study' })
-    }
-    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus as (typeof REVIEWABLE_CODE_JOB_STATUSES)[number])) {
+    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
         throw new ActionFailure({ study: 'code is not in a reviewable state' })
     }
     return job
