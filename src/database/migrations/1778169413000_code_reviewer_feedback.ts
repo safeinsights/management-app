@@ -10,23 +10,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('study_job_id', 'uuid', (col) => col.references('study_job.id').onDelete('cascade'))
         .execute()
 
-    // One code-review per job. Postgres allows multiple NULLs in a unique
-    // index by default, which is exactly what we want: existing
-    // REVIEWER-FEEDBACK / RESUBMISSION-NOTE rows always have study_job_id
-    // NULL, and new CODE-REVIEWER-FEEDBACK rows must have study_job_id set.
-    // A regular unique index avoids referencing the freshly added enum value
-    // 'CODE-REVIEWER-FEEDBACK' in this same migration batch (Postgres rejects
-    // that with "unsafe use of new value of enum type").
-    await db.schema
-        .createIndex('study_proposal_comment_one_code_review_per_job')
-        .on('study_proposal_comment')
-        .column('study_job_id')
-        .unique()
-        .execute()
+    await sql`
+        CREATE FUNCTION study_proposal_comment_entry_type_as_text(study_proposal_comment_entry_type)
+            RETURNS text
+            LANGUAGE sql
+            IMMUTABLE
+            AS 'SELECT $1::text'
+    `.execute(db)
+
+    await sql`
+        CREATE UNIQUE INDEX study_proposal_comment_one_code_review_per_job
+            ON study_proposal_comment (study_job_id)
+            WHERE study_proposal_comment_entry_type_as_text(entry_type) = 'CODE-REVIEWER-FEEDBACK'
+    `.execute(db)
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropIndex('study_proposal_comment_one_code_review_per_job').ifExists().execute()
+    await sql`DROP FUNCTION IF EXISTS study_proposal_comment_entry_type_as_text(study_proposal_comment_entry_type)`.execute(
+        db,
+    )
     await db.schema.alterTable('study_proposal_comment').dropColumn('study_job_id').dropColumn('criteria').execute()
     // Postgres cannot cleanly drop an enum value. Leave it; harmless on rollback.
 }
