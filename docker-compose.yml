@@ -82,6 +82,11 @@ services:
             - CLERK_JWT_KEY=$CLERK_JWT_KEY
             - CLERK_SECRET_KEY=$CLERK_SECRET_KEY
             - CLERK_AUTHORIZED_PARTIES=$CLERK_AUTHORIZED_PARTIES
+        volumes:
+            - ./services/editor:/app/services/editor
+            - editor_node_modules:/app/services/editor/node_modules
+            - ./src/lib/collaboration-documents.ts:/app/src/lib/collaboration-documents.ts
+        command: ['node', '--watch', 'server.ts']
         networks:
             - mgmnt-app
         ports:
@@ -112,6 +117,7 @@ services:
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1
+            - CLAUDE_API_KEY=$CLAUDE_API_KEY
         build:
             context: .
             dockerfile: ./Dockerfile.dev
@@ -134,5 +140,6 @@ networks:
 volumes:
     pgdata:
     node_modules:
+    editor_node_modules:
     dbgate-data:
     seaweedfs-data:

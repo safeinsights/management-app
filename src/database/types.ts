@@ -251,6 +251,13 @@ export interface StudyProposalComment {
     studyId: string
 }
 
+export interface StudyReview {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    report: Json
+    studyJobId: string
+}
+
 export interface StudyReviewComment {
     authorId: string
     body: Json
@@ -307,6 +314,7 @@ export interface DB {
     studyJob: StudyJob
     studyJobFile: StudyJobFile
     studyProposalComment: StudyProposalComment
+    studyReview: StudyReview
     studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
