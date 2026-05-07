@@ -19,7 +19,8 @@ import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { getClaudeContextAction } from '../actions/claude-context.actions'
-import { isActionError } from '@/lib/errors'
+import { errorToString, isActionError } from '@/lib/errors'
+import { ContextName } from '@/lib/claude-context'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -237,18 +238,22 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     }
 
     // Initialize claude.md
-    const response = await getClaudeContextAction({name: 'system', orgId: null})
-    if (isActionError(response)) {
-        logger.info(response)
-        return
+    const workspaceContexts: ContextName[] = ['SYSTEM', codeEnv.language]
+
+    let combinedContextString = ''
+    for (const contextName of workspaceContexts) {
+        const response = await getClaudeContextAction({name: contextName, orgId: null})
+        if (isActionError(response)) {
+            throw new Error(errorToString(response))
+        }
+        combinedContextString = combinedContextString + response.content + '\n'
     }
-    const systemContext = response.content
     const targetContextFileName = 'CLAUDE.md'
     const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
 
     logger.info(`Writing ${targetContextFileName} to ${targetContextPath} for study ${studyId}`)
 
     await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
-    await fs.writeFile(targetContextPath, systemContext, 'utf-8')
+    await fs.writeFile(targetContextPath, combinedContextString, 'utf-8')
     await fs.utimes(targetContextPath, pastDate, pastDate)
 }

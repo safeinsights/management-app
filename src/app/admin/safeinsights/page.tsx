@@ -12,13 +12,14 @@ export default async function OrgsAdministration() {
         queryKey: ['orgs'],
         queryFn: fetchAdminOrgsWithStatsAction,
     })
-    CONTEXT_NAMES.map(async (name) => {
-        await queryClient.prefetchQuery({
-            queryKey: ['claudeContext', name, 'null'],
-            queryFn: () => getClaudeContextAction({name: name, orgId: null})
+    await Promise.all(
+        CONTEXT_NAMES.map((name) => {
+            queryClient.prefetchQuery({
+                queryKey: ['claudeContext', name, null],
+                queryFn: () => getClaudeContextAction({name: name, orgId: null})
+            })
         })
-    })
-
+    )
 
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>

@@ -36,6 +36,9 @@ export const getClaudeContextAction = new Action('getClaudeContext')
         orgId: z.string().uuid().nullable()
     }))
     .handler(async ({ session, db, params: { name, orgId }}) => {
+        if (!session?.user.isSiAdmin) {
+            throw new ActionFailure({ permission_denied: 'Must be SafeInsights admin'})
+        }
         const row = await db
             .selectFrom('claudeContext')
             .select('content')

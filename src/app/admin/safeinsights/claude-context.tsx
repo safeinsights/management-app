@@ -44,12 +44,22 @@ function ClaudeContextEditor(
 }
 
 function ClaudeContextDataLoader({name, orgId}: ContextProps) {
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, error } = useQuery({
         queryKey: ['claudeContext', name, orgId],
         queryFn: () => getClaudeContextAction({ name, orgId})
     })
 
     if (isLoading) return null
+
+    if (error) {
+        notifications.show({
+            color: 'red',
+            title: 'Failed to load existing context for ' + name,
+            message: error.message,
+            autoClose: false
+        })
+        return
+    }
 
     if (!data) {
         return <ClaudeContextEditor name={name} orgId={orgId} initialContent='' />

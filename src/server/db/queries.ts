@@ -291,6 +291,7 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .select([
             'orgCodeEnv.id',
             'orgCodeEnv.identifier',
+            'orgCodeEnv.language',
             'orgCodeEnv.dataSourceType',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
