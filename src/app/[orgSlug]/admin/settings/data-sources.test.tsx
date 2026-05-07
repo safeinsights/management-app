@@ -16,6 +16,7 @@ import { Selectable } from 'kysely'
 import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import { within } from '@testing-library/react'
+import { notifications } from '@mantine/notifications'
 
 describe('DataSources', async () => {
     let org: Selectable<Org>
@@ -267,7 +268,7 @@ describe('DataSources', async () => {
         expect(urls).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit url desc' }])
     })
 
-    it('includes URL information if user does not click add URL on save but surfaces validation errors when invalid', async () => {
+    it('includes URL information if user does not click add URL on save but triggers notification and does not save when invalid', async () => {
         const user = userEvent.setup()
 
         renderWithProviders(<DataSources />)
@@ -283,9 +284,9 @@ describe('DataSources', async () => {
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
 
         await waitFor(() => {
-            expect(modalQueries.getByDisplayValue('not-a-url')).toHaveAttribute('aria-invalid', 'true')
-            // This query assumes "committed" rows are rendered before staged
-            expect(modalQueries.getAllByPlaceholderText(/url description/i)[0]).toHaveAttribute('aria-invalid', 'true')
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Failed to add data source', color: 'red' }),
+            )
         })
 
         expect(screen.getByRole('dialog')).toBeInTheDocument()

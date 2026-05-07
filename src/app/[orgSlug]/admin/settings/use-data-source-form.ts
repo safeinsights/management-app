@@ -76,17 +76,11 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
     })
 
     const onSubmit = form.onSubmit(({ newUrl, newUrlDescription, ...values }) => {
-        // Handle the case where a user may have URL data in-progress. We proactively add the
-        // URL and then validate to surface errors. If everything is fine, we save().
         if (newUrl !== '' || newUrlDescription !== '') {
-            addUrl()
-
-            form.validate()
-            if (!form.isValid()) {
-                return
+            values = {
+                ...values,
+                urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
             }
-
-            values.urls = form.getValues().urls
         }
         save(values)
     })
