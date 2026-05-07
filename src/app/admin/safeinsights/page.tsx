@@ -3,13 +3,18 @@ import { OrgsAdminTable } from './table'
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import { fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { ClaudeContext } from './claude-context'
-import { Stack } from '@mantine/core'
+import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
     await queryClient.prefetchQuery({
         queryKey: ['orgs'],
         queryFn: fetchAdminOrgsWithStatsAction,
+    })
+
+    await queryClient.prefetchQuery({
+        queryKey: ['claudeContext', 'system', 'null'],
+        queryFn: () => getClaudeContextAction({name: 'system', orgId: null})
     })
 
     return (

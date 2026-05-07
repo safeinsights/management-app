@@ -1,61 +1,67 @@
 'use client'
 
+import { useQuery } from '@/common'
 import { isActionError, errorToString } from '@/lib/errors'
-import { uploadClaudeContextAction } from '@/server/actions/claude-context.actions'
-import { Box, Group, Stack, Title, Text, FileButton, Button } from '@mantine/core'
-import { Dropzone } from '@mantine/dropzone'
+import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
+import { Box, Group, Stack, Title, Text, FileButton, Button, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { FileArrowUpIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
-import { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 
-export function ClaudeContext() {
-    const [isUploading, setIsUploading] = useState(false)
-    const resetRef = useRef<() => void>(null)
+type ContextProps = { name: string; orgId: string | null }
 
-    const onChange = async (file: File | null) => {
-        if (!file) return
+function ClaudeContextEditor(
+    {name, orgId, initialContent}:  ContextProps & { initialContent: string}
+) {
+    const [content, setContent] = useState(initialContent)
 
-        setIsUploading(true)
-
-        try {
-            const result = await uploadClaudeContextAction({ file: file })
-            if (isActionError(result)) {
-                notifications.show({
-                    color: 'red',
-                    title: 'Upload failed',
-                    message: errorToString(result),
-                    autoClose: false
-                })
-                return
-            }
-            notifications.show({
-                color: 'green',
-                title: 'Uploaded',
-                message: 'system.md updated',
-            })
-        } catch (err) {
+    const onSubmit = async () => {
+        const result = await writeClaudeContextAction({
+            name: name,
+            content: content,
+            orgId: orgId
+        })
+        if (isActionError(result)) {
             notifications.show({
                 color: 'red',
-                title: 'Upload failed',
-                message: errorToString(err),
+                title: 'Context save failed',
+                message: errorToString(result),
                 autoClose: false
             })
-        } finally {
-            setIsUploading(false)
-            resetRef.current?.() // clear file input history
+            return
         }
     }
+
+    return <form action={onSubmit}>
+        <Textarea
+            label="System context"
+            description="Context about the general SI system"
+            value={content}
+            onChange={(e) => setContent(e.currentTarget.value)}
+        ></Textarea>
+        <Button type="submit">Submit</Button>
+    </form>
+}
+
+function ClaudeContextDataLoader({name, orgId}: ContextProps) {
+    const { data, isLoading } = useQuery({
+        queryKey: ['claudeContext', name, orgId],
+        queryFn: () => getClaudeContextAction({ name, orgId})
+    })
+
+    if (isLoading || !data) return null
+    return <ClaudeContextEditor name={name} orgId={orgId} initialContent={data.content} />
+}
+
+export function ClaudeContext() {
+    const systemContext = { name: 'system', orgId: null }
 
     return (
         <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
             <Title>System and Language Context for Claude</Title>
             <Stack p="md">
-                Edit system context:
-                <FileButton onChange={onChange} resetRef={resetRef} accept=".md,text/markdown" disabled={isUploading}>
-                    {(props) => <Button {...props} loading={isUploading}>
-                        <FileArrowUpIcon />Upload system.md
-                    </Button>}
-                </FileButton>
+                {/* TODO: iterate over types of context; a different form for each */}
+                <ClaudeContextDataLoader name={systemContext.name} orgId={systemContext.orgId} />
             </Stack>
         </Box>
     )

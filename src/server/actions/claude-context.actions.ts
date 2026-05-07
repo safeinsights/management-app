@@ -1,12 +1,49 @@
 'use server'
 
-import { pathForContext } from '@/lib/paths'
-import { storeS3File } from '../aws'
-import { Action } from './action'
+import { Action, ActionFailure } from './action'
 import { z } from 'zod'
+import { sql } from 'kysely'
 
-export const uploadClaudeContextAction = new Action('uploadClaudeContextAction', {})
-    .params(z.object({ file: z.instanceof(File) }))
-    .handler(async ({ params: { file } }) => {
-        return await storeS3File({ orgSlug: 'safeinsights' }, file.stream(), pathForContext({ fileName: 'system.md' }))
+export const writeClaudeContextAction = new Action('writeClaudeContext', { performsMutations: true })
+    .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.string().min(1)})) // todo better types
+    // .middleware(async ({ session }) => ({ id: session?.user.id }))
+    .handler(async ({ session, db, params: { name, content, orgId } }) => {
+        if (!session?.user.isSiAdmin) {
+            throw new ActionFailure({ permission_denied: 'Must be SafeInsights admin'})
+        }
+        const userId = session?.user.id
+        await db
+            .insertInto('claudeContext')
+            .values({
+                name: name,
+                content: content,
+                orgId: orgId,
+                updatedBy: userId
+            })
+            .onConflict((onconflict) => onconflict.columns(['orgId', 'name']).doUpdateSet({
+                content: content,
+                updatedBy: userId,
+                updatedAt: sql`now()`
+            }))
+            .execute()
+
+        return { success: true }
+    })
+
+export const getClaudeContextAction = new Action('getClaudeContext')
+    .params(z.object({
+        name: z.string().min(1),
+        orgId: z.string().uuid().nullable()
+    }))
+    .handler(async ({ session, db, params: { name, orgId }}) => {
+        const userId = session?.user.id
+
+        const row = await db
+            .selectFrom('claudeContext')
+            .select('content')
+            .where('name', '=', name)
+            .where('orgId', orgId === null ? 'is' : '=', orgId)
+            .executeTakeFirst()
+
+        return { content: row?.content ?? ''}
     })
