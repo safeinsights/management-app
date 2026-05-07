@@ -141,6 +141,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         const rows: UnifiedFileRow[] = []
+        const seenApprovedTypes = new Set<FileType>()
 
         for (const f of job.files ?? []) {
             const isEncrypted = isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT'
@@ -152,6 +153,11 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
             // skip if both encrypted and approved entries exist — we'll use the approved one
             if (isEncrypted && approvedFileTypes.has(approvedType)) continue
+
+            // an archive can yield multiple per-file APPROVED-RESULT rows in studyJobFile;
+            // process each fileType once so rows aren't multiplied by N×N
+            if (seenApprovedTypes.has(approvedType)) continue
+            seenApprovedTypes.add(approvedType)
 
             const approvedFilesForType = approvedFilesByType.get(approvedType) ?? []
             const decryptedFilesForType = decryptedFilesByType.get(approvedType) ?? []
