@@ -1,15 +1,16 @@
 import { FileViewer } from '@/components/file-viewers'
 import { AppModal } from '@/components/modal'
 import { InfoTooltip } from '@/components/tooltip'
+import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
 import { decodeFileContents } from '@/lib/file-content-helpers'
 import { logLabel } from '@/lib/file-type-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Anchor, Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
-import { CheckCircleIcon, DownloadSimpleIcon, InfoIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, useEffect, useState } from 'react'
+import { Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
+import { CheckCircleIcon, InfoIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
+import { FC } from 'react'
 
 type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
@@ -136,31 +137,10 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onTo
                     </Button>
                 )}
             </Table.Td>
-            <Table.Td>{hasContents && <FileDownloadLink file={row.file!} />}</Table.Td>
+            <Table.Td>
+                {hasContents && <DownloadBlobLink filename={row.file!.path} fileContent={row.file!.contents} />}
+            </Table.Td>
         </Table.Tr>
-    )
-}
-
-const FileDownloadLink: FC<{ file: JobFile }> = ({ file }) => {
-    const [href, setHref] = useState('#')
-
-    useEffect(() => {
-        const blob = new Blob([file.contents])
-        const url = URL.createObjectURL(blob)
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setHref(url)
-        return () => URL.revokeObjectURL(url)
-    }, [file.contents])
-
-    return (
-        <Anchor
-            href={href}
-            download={file.path}
-            data-testid="download-link"
-            style={{ display: 'flex', alignItems: 'center' }}
-        >
-            Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
-        </Anchor>
     )
 }
 
