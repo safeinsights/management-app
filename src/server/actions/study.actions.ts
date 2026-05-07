@@ -621,7 +621,20 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId
 
 const REVIEWABLE_CODE_JOB_STATUSES = ['CODE-SUBMITTED', 'CODE-SCANNED'] as const
 
-async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
+async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
+    // Mirror the editor auth gate: code review requires both PENDING-REVIEW
+    // study status and a job whose latest status is CODE-SUBMITTED/CODE-SCANNED.
+    // Without the study-status check, a stale APPROVED study with a fresh
+    // CODE-SUBMITTED job would slip through (the job-status check alone would pass).
+    const study = await db
+        .selectFrom('study')
+        .select('status')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound('study'))
+    if (study.status !== 'PENDING-REVIEW') {
+        throw new ActionFailure({ study: `study is not in code review (status: ${study.status})` })
+    }
+
     const job = await latestJobForStudy(studyId)
     const latestStatus = job.statusChanges.at(0)?.status
     if (!latestStatus) {
@@ -669,7 +682,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             })
         }
 
-        const claimedJob = await claimInitialCodeReviewJob({ studyId })
+        const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
         const submittedAt = new Date()
 
         await db

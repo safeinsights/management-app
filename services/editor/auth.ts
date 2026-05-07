@@ -45,7 +45,25 @@ const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-R
 
 const REVIEWABLE_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
-const SUBMITTED_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-APPROVED', 'CODE-REJECTED']
+// Job statuses that prove code review already happened. CODE-APPROVED and
+// CODE-REJECTED are the immediate outcomes, but the latest status can advance
+// further by the time a stateless event reaches the server: SIMULATE_CODE_BUILD
+// inserts JOB-READY synchronously after CODE-APPROVED, and the production
+// approval flow eventually advances through provisioning/packaging/running into
+// terminal RUN-COMPLETE / JOB-ERRORED / FILES-* states. None of the pre-review
+// states (INITIATED / CODE-SUBMITTED / CODE-SCANNED) belong in this list.
+const SUBMITTED_CODE_JOB_STATUSES: readonly StudyJobStatus[] = [
+    'CODE-APPROVED',
+    'CODE-REJECTED',
+    'JOB-READY',
+    'JOB-PROVISIONING',
+    'JOB-PACKAGING',
+    'JOB-RUNNING',
+    'RUN-COMPLETE',
+    'JOB-ERRORED',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+]
 
 export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string }

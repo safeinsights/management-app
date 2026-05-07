@@ -1166,6 +1166,30 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
+    it('rejects when study.status is not PENDING-REVIEW even if the latest job is reviewable', async () => {
+        // Pathological state: study moved off PENDING-REVIEW (e.g. APPROVED) but
+        // the latest job is still CODE-SUBMITTED. The auth gate blocks editor
+        // connections here; the action handler must match.
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.stringMatching(/APPROVED/) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
     it('rejects a duplicate code-review submission for the same job', async () => {
         // First submit approves the code, which advances the job to CODE-APPROVED;
         // a second submit then fails the reviewable-state precondition rather

@@ -680,9 +680,23 @@ describe('assertStatelessEventConsistent', () => {
         ).toBe(false)
     })
 
-    it('accepts code-review-submitted when latest job is CODE-APPROVED or CODE-REJECTED', () => {
+    it('accepts code-review-submitted for any post-review job status', () => {
         const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
-        for (const latestJobStatus of ['CODE-APPROVED', 'CODE-REJECTED'] as const) {
+        const postReviewStatuses = [
+            'CODE-APPROVED',
+            'CODE-REJECTED',
+            // SIMULATE_CODE_BUILD writes JOB-READY synchronously after CODE-APPROVED,
+            // so the kick-out broadcast often races with the latest status moving on.
+            'JOB-READY',
+            'JOB-PROVISIONING',
+            'JOB-PACKAGING',
+            'JOB-RUNNING',
+            'RUN-COMPLETE',
+            'JOB-ERRORED',
+            'FILES-APPROVED',
+            'FILES-REJECTED',
+        ] as const
+        for (const latestJobStatus of postReviewStatuses) {
             expect(
                 assertStatelessEventConsistent({
                     event,
