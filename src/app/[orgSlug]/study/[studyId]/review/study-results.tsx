@@ -2,7 +2,6 @@
 
 import { CopyingInput } from '@/components/copying-input'
 import { EncryptedFilesPanel } from '@/components/encrypted-files-panel'
-import { JobResults } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFileInfo } from '@/lib/types'
@@ -73,7 +72,6 @@ export const StudyResults: FC<{
                         onFilesApproved?.(files)
                     }}
                 />
-                <JobResults job={job} />
             </Stack>
         </Paper>
     )

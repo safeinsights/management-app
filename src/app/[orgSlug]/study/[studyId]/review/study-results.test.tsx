@@ -9,7 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
@@ -57,10 +57,78 @@ describe('View Study Results', () => {
     })
 
     it('renders the results if the job has been approved', async () => {
-        await insertAndRender('APPROVED', 'FILES-APPROVED')
-        await waitFor(() => {
-            expect(screen.getByRole('link', { name: /Download/i })).toBeDefined()
+        const { study, latestJobWithStatus: rawJob } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'APPROVED',
+            jobStatus: 'FILES-APPROVED',
         })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: rawJob.id,
+                name: 'approved.csv',
+                path: `test-org/${study.id}/${rawJob.id}/results/approved/approved.csv`,
+                fileType: 'APPROVED-RESULT',
+            })
+            .execute()
+
+        const job = await latestJobForStudy(study.id)
+        renderWithProviders(<StudyResults job={job} />)
+
+        await waitFor(() => {
+            expect(screen.getByTestId('download-link')).toBeDefined()
+        })
+        // approved files render once per file in the unified table — not duplicated by the legacy JobResults section
+        expect(screen.getAllByTestId('download-link')).toHaveLength(1)
+    })
+
+    it('does not duplicate rows when multiple APPROVED-RESULT files share a fileType', async () => {
+        const { study, latestJobWithStatus: rawJob } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'APPROVED',
+            jobStatus: 'FILES-APPROVED',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                {
+                    studyJobId: rawJob.id,
+                    name: 'results.csv',
+                    path: `test-org/${study.id}/${rawJob.id}/results/approved/results.csv`,
+                    fileType: 'APPROVED-RESULT',
+                },
+                {
+                    studyJobId: rawJob.id,
+                    name: 'results2.csv',
+                    path: `test-org/${study.id}/${rawJob.id}/results/approved/results2.csv`,
+                    fileType: 'APPROVED-RESULT',
+                },
+            ])
+            .execute()
+
+        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
+            {
+                contents: new TextEncoder().encode('a').buffer as ArrayBuffer,
+                path: 'results.csv',
+                fileType: 'APPROVED-RESULT' as FileType,
+            },
+            {
+                contents: new TextEncoder().encode('b').buffer as ArrayBuffer,
+                path: 'results2.csv',
+                fileType: 'APPROVED-RESULT' as FileType,
+            },
+        ])
+
+        const job = await latestJobForStudy(study.id)
+        renderWithProviders(<StudyResults job={job} />)
+
+        await waitFor(() => {
+            expect(screen.getAllByTestId('download-link')).toHaveLength(2)
+        })
+        expect(screen.getAllByText('results.csv')).toHaveLength(1)
+        expect(screen.getAllByText('results2.csv')).toHaveLength(1)
     })
 
     it('renders the form to unlock results', async () => {
