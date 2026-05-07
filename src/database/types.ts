@@ -72,7 +72,7 @@ export type StudyJobStatus =
 
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
-export type StudyProposalCommentEntryType = 'CODE-REVIEWER-FEEDBACK' | 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
 export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
 

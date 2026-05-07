@@ -1145,6 +1145,39 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
+    it('rejects with a friendly error when no code job exists for the study', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const study = await db
+            .insertInto('study')
+            .values({
+                orgId: org.id,
+                submittedByOrgId: org.id,
+                containerLocation: 'test-container',
+                title: 'proposal-only study',
+                researcherId: user.id,
+                piName: 'test',
+                status: 'PENDING-REVIEW',
+                dataSources: ['all'],
+                outputMimeType: 'application/zip',
+                language: 'R',
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/no code job/i) }),
+        })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
     it('rejects when the code job is not in a reviewable state', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({

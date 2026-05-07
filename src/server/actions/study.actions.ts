@@ -13,6 +13,7 @@ import {
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
     latestJobForStudy,
+    latestJobForStudyOrNull,
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { purgeCodeReviewFeedbackYjsDocBeforeAt, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
@@ -635,7 +636,10 @@ async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; stud
         throw new ActionFailure({ study: `study is not in code review (status: ${study.status})` })
     }
 
-    const job = await latestJobForStudy(studyId)
+    const job = await latestJobForStudyOrNull(studyId)
+    if (!job) {
+        throw new ActionFailure({ study: 'no code job exists for this study' })
+    }
     const latestStatus = job.statusChanges.at(0)?.status
     if (!latestStatus) {
         throw new ActionFailure({ study: 'no code job exists for this study' })
