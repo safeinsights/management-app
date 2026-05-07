@@ -3,7 +3,6 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
-    pathForContext,
     pathForSampleData,
     pathForStarterCode,
 } from '@/lib/paths'
