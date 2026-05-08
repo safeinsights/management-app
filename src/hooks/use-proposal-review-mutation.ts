@@ -43,10 +43,10 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
             name: docName,
             document: doc,
             token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
+            onAuthenticationFailed: ({ reason }: { reason: string }) => {
                 // Auth failures here mean the broadcast event won't go out; listeners
                 // fall through to the status poll for kick-out. Acceptable degradation.
-                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
+                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`, reason)
             },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
         // eslint-disable-next-line react-hooks/set-state-in-effect

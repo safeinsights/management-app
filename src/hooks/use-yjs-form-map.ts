@@ -59,12 +59,12 @@ export function useYjsFormMap({ studyId, form, websocketProvider, enabled }: Arg
             name: docName,
             document: doc,
             token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
+            onAuthenticationFailed: ({ reason }: { reason: string }) => {
                 // Auth failures here mean the proposal-fields Y.Doc never connects.
                 // Local form values continue to work; the broader feature-flag fallback
                 // path renders a non-collaborative form. Log and let cleanup tear the
                 // provider down on unmount or next dep change.
-                console.warn(`HocuspocusProvider auth failed for ${docName}`)
+                console.warn(`HocuspocusProvider auth failed for ${docName}`, reason)
             },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
