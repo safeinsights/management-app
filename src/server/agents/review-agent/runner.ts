@@ -1,4 +1,4 @@
-import { db } from '@/database'
+import { db, jsonArrayFrom } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
 import { generateAnalysis } from './agent'
@@ -9,7 +9,7 @@ import { fetchFileContents } from '@/server/storage'
 const MAX_FILE_SIZE_BYTES = 100_000
 const MAX_FILE_COUNT = 10
 
-const PLACEHOLDER = '(none provided)'
+export const PLACEHOLDER = '(none provided)'
 
 async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string>> {
     const files = await db
@@ -42,7 +42,16 @@ function lexicalFieldToText(value: unknown): string {
 async function fetchDataDocs(orgId: string): Promise<string> {
     const sources = await db
         .selectFrom('orgDataSource')
-        .select(['name', 'description', 'documentationUrl'])
+        .select((eb) => [
+            'name',
+            'description',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('orgDataSourceUrl')
+                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id'),
+            ).as('urls'),
+        ])
         .where('orgId', '=', orgId)
         .execute()
 
@@ -50,9 +59,11 @@ async function fetchDataDocs(orgId: string): Promise<string> {
     for (const source of sources) {
         const lines: string[] = [`### ${source.name}`]
         if (source.description) lines.push(source.description)
-        // TODO: fetch and inline the documentation contents from `documentationUrl`
-        // instead of passing the bare URL — agent currently only sees the link string.
-        if (source.documentationUrl) lines.push(`Documentation: ${source.documentationUrl}`)
+
+        for (const url of source.urls) {
+            lines.push(`Documentation: ${url.url} (${url.description})`)
+        }
+
         sections.push(lines.join('\n'))
     }
     return sections.length > 0 ? sections.join('\n\n') : PLACEHOLDER
