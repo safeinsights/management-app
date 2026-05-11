@@ -61,7 +61,9 @@ async function fetchDataDocs(orgId: string): Promise<string> {
         if (source.description) lines.push(source.description)
 
         for (const url of source.urls) {
-            lines.push(`Documentation: ${url.url} (${url.description})`)
+            if (url.url !== null) {
+                lines.push(`Documentation: ${url.url} (${url.description || 'No description provided'})`)
+            }
         }
 
         sections.push(lines.join('\n'))

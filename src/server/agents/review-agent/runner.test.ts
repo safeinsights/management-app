@@ -106,6 +106,44 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored?.studyJobId).toBe(job.id)
     })
 
+    it('handles null field in data doc URLs in an expected manner', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'main.r',
+                path: 'studies/main.r',
+                fileType: 'MAIN-CODE',
+            })
+            .execute()
+
+        await insertTestDataSource({
+            orgId: org.id,
+            name: 'Patients DB',
+            description: 'Patient records',
+            urls: [
+                { url: 'https://docs.example.com/patients', description: null },
+                { url: null, description: null },
+            ],
+        })
+
+        await generateAndStoreStudyReview(job.id)
+
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+
+        expect(content.referenceDocs.dataDocs).toBe(
+            [
+                '### Patients DB',
+                'Patient records',
+                'Documentation: https://docs.example.com/patients (No description provided)',
+            ].join('\n'),
+        )
+    })
+
     it('falls back to a placeholder when the org has no data sources', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })

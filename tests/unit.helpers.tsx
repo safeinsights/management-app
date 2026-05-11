@@ -710,8 +710,8 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
 }
 
 type TestDataSourceUrl = {
-    url: string
-    description: string
+    url: string | null
+    description: string | null
 }
 
 export type InsertTestDataSourceOptions = {
