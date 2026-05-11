@@ -257,6 +257,100 @@ describe('Study Actions', () => {
         })
     })
 
+    // Regression tests for OTTER-471: proposal approve/reject actions must gate on
+    // the study's current state so a stale second tab cannot flip a terminal decision.
+    describe('OTTER-471 proposal review concurrency safety', () => {
+        it('OTTER-471: reject after approve refuses cleanly and leaves study APPROVED', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const rejectResult = await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            expect(rejectResult).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.approvedAt).toBeTruthy()
+            expect(updatedStudy.rejectedAt).toBeNull()
+
+            const auditEntries = await getAuditEntries(study.id, 'STUDY')
+            expect(auditEntries.filter((e) => e.eventType === 'REJECTED')).toHaveLength(0)
+        })
+
+        it('OTTER-471: approve after reject refuses cleanly, leaves study REJECTED, and does not start a job', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const approveResult = await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            expect(approveResult).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('REJECTED')
+            expect(updatedStudy.rejectedAt).toBeTruthy()
+            expect(updatedStudy.approvedAt).toBeNull()
+
+            // After-reject approve must not flip the study back AND must not start the job pipeline.
+            const job = await latestJobForStudy(study.id)
+            expect(job.statusChanges.find((sc) => sc.status === 'JOB-READY')).toBeFalsy()
+
+            const auditEntries = await getAuditEntries(study.id, 'STUDY')
+            // The pre-fix code emits a second APPROVED audit row; after fix there is exactly one (the REJECTED one).
+            expect(auditEntries.filter((e) => e.eventType === 'APPROVED')).toHaveLength(0)
+        })
+
+        it('OTTER-471: parallel approve + reject — exactly one wins, no mixed terminal state', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            const results = await Promise.all([
+                approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+                rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+            ])
+
+            const errorCount = results.filter((r) => r != null && typeof r === 'object' && 'error' in r).length
+            expect(errorCount).toBe(1)
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+
+            // Exactly one terminal state set, never both, never neither.
+            const hasApproved =
+                updatedStudy.status === 'APPROVED' && !!updatedStudy.approvedAt && !updatedStudy.rejectedAt
+            const hasRejected =
+                updatedStudy.status === 'REJECTED' && !!updatedStudy.rejectedAt && !updatedStudy.approvedAt
+            expect(hasApproved || hasRejected).toBe(true)
+            expect(hasApproved && hasRejected).toBe(false)
+        })
+    })
+
     describe('proposal-only studies (no job)', () => {
         async function insertProposalOnlyStudy(org: { id: string }, researcherId: string) {
             return db
