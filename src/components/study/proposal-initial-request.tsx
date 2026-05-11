@@ -17,6 +17,8 @@ type ProposalRequestProps = {
     banner: ReactNode
     initialExpanded?: boolean
     statusBadge?: string
+    /** Overrides study.submittedAt when rendering the timestamp (e.g. a decision date). */
+    timestampDate?: Date | string | null
 }
 
 function useProposalRequest(initialExpanded: boolean) {
@@ -59,8 +61,10 @@ export function ProposalRequest({
     banner,
     initialExpanded = true,
     statusBadge = 'Submitted on',
+    timestampDate,
 }: ProposalRequestProps) {
     const { expanded, toggle, collapse, getPopoverProps } = useProposalRequest(initialExpanded)
+    const renderedTimestamp = timestampDate ?? study.submittedAt
 
     return (
         <Stack gap="md" data-testid="proposal-section">
@@ -75,9 +79,9 @@ export function ProposalRequest({
                     <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
                         Title: {study.title}
                     </Text>
-                    {study.submittedAt && (
+                    {renderedTimestamp && (
                         <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
-                            {statusBadge} {dayjs(study.submittedAt).format('MMM DD, YYYY')}
+                            {statusBadge} {dayjs(renderedTimestamp).format('MMM DD, YYYY')}
                         </Text>
                     )}
                 </Group>
