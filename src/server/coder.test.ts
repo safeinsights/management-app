@@ -9,7 +9,7 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId } from './db/queries'
+import { getStudyAndOrgDisplayInfo, fetchLatestCodeEnvForStudyId } from './db/queries'
 import { fetchFileContents } from './storage'
 
 // Mock external dependencies
@@ -19,7 +19,6 @@ vi.mock('./config', () => ({
 
 vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
-    siUser: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
 }))
 
@@ -49,7 +48,6 @@ global.fetch = vi.fn()
 
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
-const siUserMock = siUser as unknown as Mock
 const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
 
@@ -76,11 +74,8 @@ describe('getOrCreateCoderUser', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-        })
 
-        const result = await getOrCreateCoderUser('study123')
+        const result = await getOrCreateCoderUser({ email: 'john@example.com', fullName: 'John Doe' })
         expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
         expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john%40example.com', {
             method: 'GET',
@@ -119,17 +114,8 @@ describe('getOrCreateCoderUser', () => {
         getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for getCoderOrganization)
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for createCoderUser)
         getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for createCoderUser)
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
-        })
-        siUserMock.mockResolvedValue({
-            id: 'user123',
-            primaryEmailAddress: { emailAddress: 'john@example.com' },
-            fullName: 'John Doe',
-        })
 
-        const result = await getOrCreateCoderUser('study123')
+        const result = await getOrCreateCoderUser({ email: 'john@example.com', fullName: 'John Doe' })
         expect(result).toEqual(mockUsersEmailQueryResponse)
         // Verify the POST call to create a user was made
         expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
@@ -142,7 +128,7 @@ describe('getOrCreateCoderUser', () => {
             body: JSON.stringify({
                 email: 'john@example.com',
                 login_type: 'oidc',
-                name: undefined,
+                name: 'John Doe',
                 username: 'john-example-com-855f96e9',
                 user_status: 'active',
                 organization_ids: ['org'],
@@ -159,12 +145,8 @@ describe('getOrCreateCoderUser', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
-        })
 
-        await expect(getOrCreateCoderUser('study123')).rejects.toThrow(
+        await expect(getOrCreateCoderUser({ email: 'john@example.com', fullName: 'John Doe' })).rejects.toThrow(
             'Failed to query users: 500 Internal server error',
         )
     })
@@ -248,7 +230,7 @@ describe('createUserAndWorkspace', () => {
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        const result = await createUserAndWorkspace('study123')
+        const result = await createUserAndWorkspace('study123', { email: 'john@example.com', fullName: 'John Doe' })
         expect(result).toEqual({
             success: true,
             workspace: mockWorkspaceResponse,
@@ -350,7 +332,7 @@ describe('createUserAndWorkspace', () => {
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        await createUserAndWorkspace('study123')
+        await createUserAndWorkspace('study123', { email: 'john@example.com', fullName: 'John Doe' })
 
         const createWorkspaceCall = mockFetch.mock.calls.find(
             (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
@@ -442,7 +424,7 @@ describe('createUserAndWorkspace', () => {
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        await createUserAndWorkspace('study123')
+        await createUserAndWorkspace('study123', { email: 'john@example.com', fullName: 'John Doe' })
 
         const createWorkspaceCall = mockFetch.mock.calls.find(
             (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
@@ -490,9 +472,9 @@ describe('createUserAndWorkspace', () => {
             starterCodeFileNames: ['main.R'],
         })
 
-        await expect(createUserAndWorkspace('study123')).rejects.toThrow(
-            'Failed to create user and workspace: Failed to query users: 500 Internal server error',
-        )
+        await expect(
+            createUserAndWorkspace('study123', { email: 'john@example.com', fullName: 'John Doe' }),
+        ).rejects.toThrow('Failed to create user and workspace: Failed to query users: 500 Internal server error')
     })
 })
 
@@ -595,23 +577,41 @@ describe('getCoderTemplateId', () => {
     })
 })
 
-describe('uuidToStr', () => {
-    it('should handle md5hash case with UUID', () => {
+describe('generateWorkspaceName', () => {
+    const user = {
+        id: '00000000-0000-0000-0000-000000000001',
+        username: 'testuser',
+        email: 'test@example.com',
+        name: 'Test User',
+        status: 'active',
+    }
+    const userSuffix = shaHash(user.id).slice(0, 4)
+
+    it('should generate <studyHash>-<userHash> for a UUID studyId', () => {
         const uuid = '550e8400-e29b-41d4-a716-446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('a3a9e1ed97')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`a3a9e1ed97-${userSuffix}`)
     })
 
-    it('should handle md5hash case with UUID without hyphens', () => {
+    it('should generate <studyHash>-<userHash> for a UUID studyId without hyphens', () => {
         const uuid = '550e8400e29b41d4a716446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('140f39b05a')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`140f39b05a-${userSuffix}`)
     })
 
-    it('should handle md5hash case with UUID with mixed case', () => {
+    it('should be case-insensitive on the studyId', () => {
         const uuid = '550E8400-E29B-41D4-A716-446655440000'
-        const result = generateWorkspaceName(uuid)
-        expect(result).toBe('a3a9e1ed97')
+        const result = generateWorkspaceName(uuid, user)
+        expect(result).toBe(`a3a9e1ed97-${userSuffix}`)
+    })
+
+    it('should change the suffix when the user id changes', () => {
+        const uuid = '550e8400-e29b-41d4-a716-446655440000'
+        const otherUser = { ...user, id: '00000000-0000-0000-0000-000000000002' }
+        const otherSuffix = shaHash(otherUser.id).slice(0, 4)
+        const result = generateWorkspaceName(uuid, otherUser)
+        expect(result).toBe(`a3a9e1ed97-${otherSuffix}`)
+        expect(otherSuffix).not.toBe(userSuffix)
     })
 })
 
