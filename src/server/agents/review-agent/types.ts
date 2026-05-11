@@ -18,7 +18,7 @@ export interface ReferenceDocs {
  * Mgmt app builds this from:
  * - proposal: composed from Study.projectSummary, .researchQuestions, .impact, .additionalNotes
  * - codeFiles: fetched from S3 via StudyJobFile (MAIN-CODE / SUPPLEMENTAL-CODE)
- * - referenceDocs.dataDocs: fetched from OrgDataSource.documentationUrl entries
+ * - referenceDocs.dataDocs: fetched from OrgDataSource and corresponding OrgDataSourceUrl entries
  * - referenceDocs.requirements / brcDocs / otherDocs: org-level compliance docs (TBD schema)
  */
 export interface ReviewContent {
