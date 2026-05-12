@@ -9,8 +9,12 @@ import {
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
+
+// The global setup mocks @/components/page-breadcrumbs to return null; opt back into
+// the real component here so we can assert the rendered breadcrumb links.
+vi.unmock('@/components/page-breadcrumbs')
 
 const ORG_SLUG = 'test-org'
 
