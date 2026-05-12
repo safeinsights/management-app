@@ -49,7 +49,7 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('decision-timestamp')).toHaveTextContent('Approved on Apr 16, 2026')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 16, 2026')
         })
 
         it('renders "Clarification requested on {date}" for needs-clarification', () => {
@@ -58,7 +58,7 @@ describe('PostFeedbackView', () => {
             ]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('decision-timestamp')).toHaveTextContent(
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
                 'Clarification requested on Apr 16, 2026',
             )
         })
@@ -67,7 +67,7 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('decision-timestamp')).toHaveTextContent('Rejected on Apr 16, 2026')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 16, 2026')
         })
 
         it('renders the page title and study title', () => {
@@ -75,10 +75,8 @@ describe('PostFeedbackView', () => {
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
-            // "Review initial request" and the study title both appear twice — once in the
-            // decision header, once in the ProposalSection's collapsed header. Both expected.
-            expect(screen.getAllByText('Review initial request').length).toBeGreaterThan(0)
-            expect(screen.getAllByText(/Effect of Reading Comprehension Tools/).length).toBeGreaterThan(0)
+            expect(screen.getByText('Review initial request')).toBeInTheDocument()
+            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
     })
 
