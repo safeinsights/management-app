@@ -252,6 +252,7 @@ export interface StudyProposalComment {
     entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
+    version: number | null
 }
 
 export interface StudyReview {
