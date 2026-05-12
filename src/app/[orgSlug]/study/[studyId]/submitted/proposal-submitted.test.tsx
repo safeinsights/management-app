@@ -257,7 +257,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
-            expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit`)
+            expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit-and-resubmit`)
         })
 
         it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {

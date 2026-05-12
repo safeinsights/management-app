@@ -109,6 +109,11 @@ export const Routes = {
 
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
+    studyEditAndResubmit: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit-and-resubmit`,
+        StudyParams,
+    ),
+
     studyAgreements: makeRoute(
         ({ orgSlug, studyId, from, returnTo }) => {
             const base = `/${orgSlug}/study/${studyId}/agreements`
