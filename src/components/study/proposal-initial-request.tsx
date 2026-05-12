@@ -18,7 +18,7 @@ type ProposalRequestProps = {
     initialExpanded?: boolean
     statusBadge?: string
     /** Overrides study.submittedAt when rendering the timestamp (e.g. a decision date). */
-    timestampDate?: Date | string | null
+    timestampDate?: Date | string
 }
 
 function useProposalRequest(initialExpanded: boolean) {
