@@ -73,11 +73,11 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
-        <Paper p="xl" data-testid="code-review-section-header">
+        <Paper p="xxl" data-testid="code-review-section-header">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={4}>
-                        <Text fz="xs" fw={700} c="gray.6">
+                        <Text fz="xs" fw={700} c="charcoal.7">
                             STEP 3
                         </Text>
                         <Title order={2} fz={20} fw={700}>
@@ -85,7 +85,12 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
                         </Title>
                         <Text size="sm">Title: {study.title}</Text>
                     </Stack>
-                    <Text fz={12} c="gray.6" style={{ whiteSpace: 'nowrap' }} data-testid="code-review-submitted-on">
+                    <Text
+                        fz={12}
+                        c="charcoal.7"
+                        style={{ whiteSpace: 'nowrap' }}
+                        data-testid="code-review-submitted-on"
+                    >
                         Submitted on {formatDate(submittedAt)}
                     </Text>
                 </Group>
