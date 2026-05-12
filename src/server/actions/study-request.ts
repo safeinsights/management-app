@@ -721,6 +721,14 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('researcherId', '=', userId)
             .execute()
 
+        const latest = await db
+            .selectFrom('studyProposalComment')
+            .select('version')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -729,6 +737,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
                 body: JSON.parse(lexicalJson(resubmissionNote)),
+                version: (latest?.version ?? 1) + 1,
             })
             .execute()
 

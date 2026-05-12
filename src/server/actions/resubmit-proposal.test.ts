@@ -50,7 +50,7 @@ describe('resubmitProposalAction', () => {
 
         const comments = await db
             .selectFrom('studyProposalComment')
-            .select(['authorRole', 'entryType', 'authorId', 'body'])
+            .select(['authorRole', 'entryType', 'authorId', 'body', 'version'])
             .where('studyId', '=', study.id)
             .execute()
 
@@ -60,6 +60,7 @@ describe('resubmitProposalAction', () => {
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
                 authorId: user.id,
+                version: 2,
             }),
         )
         // body is stored as Lexical JSON; the note words should round-trip
