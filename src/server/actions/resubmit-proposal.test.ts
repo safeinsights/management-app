@@ -43,7 +43,10 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
         expect(updated.title).toBe('Updated title')
-        expect(updated.submittedAt).not.toBeNull()
+        // submittedAt is intentionally NOT bumped on resubmit — the original
+        // first-submission timestamp is preserved; the studyProposalComment
+        // row carries the resubmission timestamp instead.
+        expect(updated.submittedAt).toEqual(study.submittedAt)
 
         const comments = await db
             .selectFrom('studyProposalComment')
