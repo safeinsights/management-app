@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
+import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
@@ -39,6 +40,13 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     },
 }
 
+const RETRY_NUDGE =
+    'Your previous response did not call the `submit_analysis` tool with the exact required shape. ' +
+    'You MUST call `submit_analysis` exactly once. Every required field must be a real value of the ' +
+    'correct type — `alignmentCheck` and `complianceCheck` must each be objects with `isAligned`/' +
+    '`isCompliant` (boolean) and `findings` (array of strings). Do not return XML, parameter tags, ' +
+    'or string fragments — only the structured tool call.'
+
 function resolveClient(config: ReviewAgentConfig): Anthropic {
     if (config.client) return config.client
     if (config.apiKey) {
@@ -72,7 +80,7 @@ function buildPromptForContent(content: ReviewContent, templateOverride?: string
     )
 }
 
-function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
+function extractToolInput(response: Anthropic.Messages.Message): unknown {
     const toolUse = response.content.find(
         (block): block is Anthropic.Messages.ToolUseBlock =>
             block.type === 'tool_use' && block.name === ANALYSIS_TOOL_NAME,
@@ -82,12 +90,22 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
         throw new Error('The model did not return a structured analysis.')
     }
 
-    return toolUse.input as AnalysisReport
+    return toolUse.input
+}
+
+function parseReport(input: unknown): AnalysisReport {
+    return analysisReportSchema.parse(input)
 }
 
 /**
  * Run a one-shot structured review. Returns the parsed report plus the
  * conversation seed (`messages`) — persist `messages` to enable chat follow-up.
+ *
+ * If the first response fails schema validation, retries once with a stricter
+ * nudge appended to the conversation. The retry path was added after a
+ * Sonnet response was observed putting findings at the top level and writing
+ * XML-parameter fragments into the alignmentCheck/complianceCheck slots; the
+ * persisted row then crashed the UI when reading `findings.length`.
  *
  * Future chat extension (target: before Oct 2026) — add alongside this fn:
  *
@@ -104,22 +122,50 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
 export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
+    const model = config.model ?? DEFAULT_MODEL
+    const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS
+    const system = config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION
 
-    const response = await client.messages.create({
-        model: config.model ?? DEFAULT_MODEL,
-        max_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system: config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION,
+    const initialMessages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }]
+
+    const firstResponse = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system,
         tools: [ANALYSIS_TOOL],
         tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
-        messages: [{ role: 'user', content: prompt }],
+        messages: initialMessages,
     })
 
-    const report = extractReport(response)
+    const firstInput = extractToolInput(firstResponse)
+    const firstParse = analysisReportSchema.safeParse(firstInput)
+    if (firstParse.success) {
+        return buildResult(firstParse.data, prompt)
+    }
 
+    const retryMessages: Anthropic.Messages.MessageParam[] = [
+        ...initialMessages,
+        { role: 'assistant', content: JSON.stringify(firstInput) },
+        { role: 'user', content: RETRY_NUDGE },
+    ]
+
+    const retryResponse = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system,
+        tools: [ANALYSIS_TOOL],
+        tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
+        messages: retryMessages,
+    })
+
+    const report = parseReport(extractToolInput(retryResponse))
+    return buildResult(report, prompt)
+}
+
+function buildResult(report: AnalysisReport, prompt: string): AnalysisResult {
     const messages: ReviewMessage[] = [
         { role: 'user', content: prompt },
         { role: 'assistant', content: JSON.stringify(report) },
     ]
-
     return { report, messages }
 }

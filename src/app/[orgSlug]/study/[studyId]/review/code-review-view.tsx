@@ -1,13 +1,16 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { AlertNotFound } from '@/components/errors'
-import { getStudyReviewForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { getStudyReviewAction } from '@/server/actions/study-job.actions'
+import { isActionError } from '@/lib/errors'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import type { StudyReviewResult } from './study-review-types'
 import { StudyReviewSection } from './study-review-section'
 
 type CodeReviewViewProps = {
@@ -20,7 +23,10 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
-    const review = await getStudyReviewForJob(job.id)
+    const reviewResult = await getStudyReviewAction({ studyJobId: job.id })
+    // Soft-fail the seed: if the action errored, render the in-progress state and
+    // let the client poller surface a real error on its next refetch.
+    const initialReview: StudyReviewResult = isActionError(reviewResult) ? { kind: 'missing' } : reviewResult
 
     return (
         <Stack px="xl" gap="xl">
@@ -46,7 +52,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                <StudyReviewSection studyJobId={job.id} initialReview={review} />
+                <StudyReviewSection studyJobId={job.id} initialReview={initialReview} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>

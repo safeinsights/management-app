@@ -8,7 +8,8 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
-import type { AnalysisReport } from '@/server/agents/review-agent/types'
+import { analysisReportSchema, type AnalysisReport } from '@/server/agents/review-agent/types'
+import logger from '@/lib/logger'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -396,11 +397,16 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+export type StudyReviewLookup =
+    | { kind: 'missing' }
+    | { kind: 'malformed'; createdAt: Date }
+    | { kind: 'ok'; review: StudyReviewWithMeta }
+
+export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewLookup> {
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
-            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            eb.ref('report').$castTo<unknown>().as('report'),
             'createdAt',
             jsonArrayFrom(
                 eb
@@ -416,5 +422,18 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
-    return row ?? null
+
+    if (!row) return { kind: 'missing' }
+
+    const parsed = analysisReportSchema.safeParse(row.report)
+    if (!parsed.success) {
+        logger.warn('study_review row failed schema validation', {
+            studyJobId,
+            createdAt: row.createdAt,
+            issues: parsed.error.issues,
+        })
+        return { kind: 'malformed', createdAt: row.createdAt }
+    }
+
+    return { kind: 'ok', review: { report: parsed.data, createdAt: row.createdAt, files: row.files } }
 }

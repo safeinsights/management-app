@@ -3,14 +3,14 @@ import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { StudyReviewSection } from './study-review-section'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
+import type { StudyReviewResult } from './study-review-types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     getStudyReviewAction: vi.fn(),
 }))
 
 beforeEach(() => {
-    vi.mocked(getStudyReviewAction).mockResolvedValue(null)
+    vi.mocked(getStudyReviewAction).mockResolvedValue({ kind: 'missing' })
 })
 
 const baseReport: AnalysisReport = {
@@ -20,17 +20,20 @@ const baseReport: AnalysisReport = {
     complianceCheck: { isCompliant: true, findings: [] },
 }
 
-function withMeta(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewWithMeta {
+function okResult(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewResult {
     return {
-        report,
-        createdAt: new Date('2026-04-28T12:00:00Z'),
-        files: files.map((name) => ({ name, fileType: 'MAIN-CODE' as const })),
+        kind: 'ok',
+        review: {
+            report,
+            createdAt: new Date('2026-04-28T12:00:00Z'),
+            files: files.map((name) => ({ name, fileType: 'MAIN-CODE' as const })),
+        },
     }
 }
 
 describe('StudyReviewSection', () => {
     it('renders summaries and check badges when a review is provided', () => {
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(baseReport)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={okResult(baseReport)} />)
 
         expect(screen.getByText('Studying student performance trends.')).toBeInTheDocument()
         expect(screen.getByText('Aggregates scores grouped by school.')).toBeInTheDocument()
@@ -45,7 +48,7 @@ describe('StudyReviewSection', () => {
             complianceCheck: { isCompliant: false, findings: ['Logs raw student IDs'] },
         }
 
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(report)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={okResult(report)} />)
 
         expect(screen.getByText('Misaligned')).toBeInTheDocument()
         expect(screen.getByText('Code skips step 3 from proposal')).toBeInTheDocument()
@@ -53,15 +56,34 @@ describe('StudyReviewSection', () => {
         expect(screen.getByText('Logs raw student IDs')).toBeInTheDocument()
     })
 
-    it('renders the in-progress state when initialReview is null', () => {
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={null} />)
+    it('renders the in-progress state when the runner has not yet produced a row', () => {
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={{ kind: 'missing' }} />)
 
         expect(screen.getByText('Review in progress…')).toBeInTheDocument()
     })
 
+    it('renders the disabled state when the feature is off in this environment', () => {
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={{ kind: 'disabled' }} />)
+
+        expect(screen.getByTestId('study-review-disabled')).toHaveTextContent('AI review is not enabled')
+    })
+
+    it('renders a non-crashing error state when the stored report is malformed', () => {
+        renderWithProviders(
+            <StudyReviewSection
+                studyJobId="job-1"
+                initialReview={{ kind: 'malformed', createdAt: new Date('2026-04-28T12:00:00Z') }}
+            />,
+        )
+
+        expect(screen.getByTestId('study-review-malformed')).toHaveTextContent(
+            'AI review for this submission could not be displayed',
+        )
+    })
+
     it('lists the files the review was generated against', () => {
         renderWithProviders(
-            <StudyReviewSection studyJobId="job-1" initialReview={withMeta(baseReport, ['main.r', 'dragon_art.R'])} />,
+            <StudyReviewSection studyJobId="job-1" initialReview={okResult(baseReport, ['main.r', 'dragon_art.R'])} />,
         )
 
         expect(screen.getByText('Files reviewed: main.r, dragon_art.R')).toBeInTheDocument()
@@ -73,7 +95,7 @@ describe('StudyReviewSection', () => {
             resultsSummary: 'Median score 82, no anomalies.',
         }
 
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(report)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={okResult(report)} />)
 
         expect(screen.getByText('Median score 82, no anomalies.')).toBeInTheDocument()
     })

@@ -4,11 +4,23 @@ import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
+import { getConfigValue } from '@/server/config'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
+import type { StudyReviewResult } from '@/app/[orgSlug]/study/[studyId]/review/study-review-types'
 import { Action, z } from './action'
+
+/**
+ * Returns the AI study review state for a job, including the `disabled` case
+ * when CLAUDE_API_KEY is not configured. Shared by the server page that seeds
+ * `initialReview` and the action's handler.
+ */
+async function loadStudyReview(studyJobId: string): Promise<StudyReviewResult> {
+    const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
+    if (!apiKey) return { kind: 'disabled' }
+    return await getStudyReviewForJob(studyJobId)
+}
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
     .params(
@@ -99,8 +111,8 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }): Promise<StudyReviewWithMeta | null> => {
-        return await getStudyReviewForJob(studyJobId)
+    .handler(async ({ params: { studyJobId } }): Promise<StudyReviewResult> => {
+        return await loadStudyReview(studyJobId)
     })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')

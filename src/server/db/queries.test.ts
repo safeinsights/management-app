@@ -187,13 +187,13 @@ describe('getOrgPublicKeys', () => {
 })
 
 describe('getStudyReviewForJob', () => {
-    it('returns null when no review exists for the job', async () => {
+    it('returns kind="missing" when no review exists for the job', async () => {
         const { job } = await insertTestStudyJobData()
         const result = await getStudyReviewForJob(job.id)
-        expect(result).toBeNull()
+        expect(result).toEqual({ kind: 'missing' })
     })
 
-    it('returns the stored report along with createdAt and files for the job', async () => {
+    it('returns kind="ok" with the stored report when the row validates', async () => {
         const { job } = await insertTestStudyJobData()
         const report = {
             proposalSummary: 'Studying student outcomes.',
@@ -207,9 +207,32 @@ describe('getStudyReviewForJob', () => {
             .execute()
 
         const result = await getStudyReviewForJob(job.id)
-        expect(result).not.toBeNull()
-        expect(result?.report).toEqual(report)
-        expect(result?.createdAt).toBeInstanceOf(Date)
-        expect(result?.files).toEqual([])
+        expect(result.kind).toBe('ok')
+        if (result.kind !== 'ok') return
+        expect(result.review.report).toEqual(report)
+        expect(result.review.createdAt).toBeInstanceOf(Date)
+        expect(result.review.files).toEqual([])
+    })
+
+    it('returns kind="malformed" when the stored report fails schema validation', async () => {
+        const { job } = await insertTestStudyJobData()
+        // Reproduces the prod bug: findings at the top level, alignmentCheck/complianceCheck
+        // are string fragments instead of objects.
+        const malformed = {
+            proposalSummary: 'summary',
+            codeExplanation: 'explanation',
+            findings: ['top-level finding'],
+            alignmentCheck: '\n<parameter name="isAligned">false',
+            complianceCheck: '\n<parameter name="isCompliant">false',
+        }
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: JSON.stringify(malformed) })
+            .execute()
+
+        const result = await getStudyReviewForJob(job.id)
+        expect(result.kind).toBe('malformed')
+        if (result.kind !== 'malformed') return
+        expect(result.createdAt).toBeInstanceOf(Date)
     })
 })

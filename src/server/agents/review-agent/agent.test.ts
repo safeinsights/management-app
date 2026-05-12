@@ -21,7 +21,31 @@ function makeClient(content: unknown) {
     return { client: { messages: { create } } as unknown as Anthropic, create }
 }
 
+function makeClientWithSequence(responses: unknown[]) {
+    const create = vi.fn()
+    for (const r of responses) {
+        create.mockResolvedValueOnce({ content: r })
+    }
+    return { client: { messages: { create } } as unknown as Anthropic, create }
+}
+
 const toolUseBlock = [{ type: 'tool_use', name: 'submit_analysis', id: '1', input: baseReport }]
+
+const malformedToolUseBlock = [
+    {
+        type: 'tool_use',
+        name: 'submit_analysis',
+        id: '1',
+        input: {
+            proposalSummary: 'summary',
+            codeExplanation: 'explanation',
+            // Malformed: alignmentCheck/complianceCheck are strings, findings at top level.
+            findings: ['top-level finding'],
+            alignmentCheck: '\n<parameter name="isAligned">false',
+            complianceCheck: '\n<parameter name="isCompliant">false',
+        },
+    },
+]
 
 describe('generateAnalysis', () => {
     it('returns the structured report from a tool_use block', async () => {
@@ -89,5 +113,29 @@ describe('generateAnalysis', () => {
 
     it('throws when neither apiKey nor client is provided', async () => {
         await expect(generateAnalysis({}, baseContent)).rejects.toThrow(/apiKey or client/)
+    })
+
+    it('retries once with a stricter nudge when the first response fails validation', async () => {
+        const { client, create } = makeClientWithSequence([malformedToolUseBlock, toolUseBlock])
+
+        const result = await generateAnalysis({ client }, baseContent)
+
+        expect(result.report).toEqual(baseReport)
+        expect(create).toHaveBeenCalledTimes(2)
+
+        const retryArgs = create.mock.calls[1][0]
+        const retryMessages = retryArgs.messages as Array<{ role: string; content: string }>
+        expect(retryMessages).toHaveLength(3)
+        expect(retryMessages[1].role).toBe('assistant')
+        expect(retryMessages[2].role).toBe('user')
+        expect(retryMessages[2].content).toMatch(/submit_analysis/)
+        expect(retryMessages[2].content).toMatch(/findings/)
+    })
+
+    it('throws when both the initial and retry responses fail validation', async () => {
+        const { client, create } = makeClientWithSequence([malformedToolUseBlock, malformedToolUseBlock])
+
+        await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow()
+        expect(create).toHaveBeenCalledTimes(2)
     })
 })

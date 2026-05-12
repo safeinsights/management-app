@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 
 /**
  * Reference documents provided by the reviewing organization.
@@ -46,21 +47,30 @@ export interface ReviewAgentConfig {
 }
 
 /**
+ * Runtime validator for AnalysisReport. The Anthropic tool-use JSON-schema is
+ * advisory — Claude has been observed returning malformed shapes (e.g. string
+ * fragments where objects are required). Use this schema to validate both the
+ * model's response in the agent AND any persisted row before passing it to
+ * the UI, since older rows pre-date the agent-side validation.
+ */
+export const analysisReportSchema = z.object({
+    proposalSummary: z.string(),
+    codeExplanation: z.string(),
+    resultsSummary: z.string().optional(),
+    alignmentCheck: z.object({
+        isAligned: z.boolean(),
+        findings: z.array(z.string()),
+    }),
+    complianceCheck: z.object({
+        isCompliant: z.boolean(),
+        findings: z.array(z.string()),
+    }),
+})
+
+/**
  * Structured analysis output from the ReviewAgent.
  */
-export interface AnalysisReport {
-    proposalSummary: string
-    codeExplanation: string
-    resultsSummary?: string
-    alignmentCheck: {
-        isAligned: boolean
-        findings: string[]
-    }
-    complianceCheck: {
-        isCompliant: boolean
-        findings: string[]
-    }
-}
+export type AnalysisReport = z.infer<typeof analysisReportSchema>
 
 /**
  * Single message in a review conversation. Stored alongside the report so
