@@ -219,7 +219,14 @@ const server = new Server({
             response.end('ok')
             throw null
         }
+        // Suppress Hocuspocus's default "Welcome to Hocuspocus!" greeting on
+        // every path. The greeting confuses DAST scanners (ZAP-10095) and
+        // exposes no value to legitimate clients — this service only serves
+        // WebSocket upgrades plus /health.
         log('http.request', { url: request.url, method: request.method })
+        response.writeHead(404, { 'Content-Type': 'text/plain' })
+        response.end('Not Found')
+        throw null
     },
 })
 
