@@ -4,6 +4,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { captureRouterTransitionStart, replayIntegration } from '@sentry/nextjs'
+import { scrubSentryEvent } from '@/lib/sentry'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
@@ -11,23 +12,25 @@ Sentry.init({
     // Add optional integrations for additional features
     integrations: [
         replayIntegration({
-            maskAllText: false,
+            maskAllText: true,
+            maskAllInputs: true,
+            blockAllMedia: true,
             minReplayDuration: 5000,
         }),
     ],
+
+    beforeSend: scrubSentryEvent,
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
     // Enable logs to be sent to Sentry
     enableLogs: true,
 
-    // Define how likely Replay events are sampled.
-    // This sets the sample rate to be 10%. You may want this to be 100% while
-    // in development and sample at a lower rate in production
-    replaysSessionSampleRate: 1.0,
-
-    // Define how likely Replay events are sampled when an error occurs.
-    replaysOnErrorSampleRate: 1.0,
+    // Replay is only captured for sessions where an error occurs, never proactively.
+    // Reason: study data, names, and emails render as page text, so background recording
+    // is a privacy risk even with masking on.
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0.1,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,

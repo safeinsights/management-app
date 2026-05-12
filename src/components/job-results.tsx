@@ -1,45 +1,15 @@
 'use client'
 
-import React, { FC, useEffect, useMemo, useState } from 'react'
-import { Anchor, AnchorProps, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
-import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import React, { FC, useMemo } from 'react'
+import { Anchor, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
+import { DownloadBlobLink } from '@/components/download-blob-link'
 import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
-
-type DownloadLinkProps = AnchorProps & {
-    filename: string
-    content: ArrayBuffer
-    target?: string
-}
-
-const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, target }) => {
-    const [href, setHref] = useState('#')
-
-    useEffect(() => {
-        const blob = new Blob([content], { type: 'text/csv' })
-        const url = URL.createObjectURL(blob)
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setHref(url)
-
-        return () => URL.revokeObjectURL(url)
-    }, [content])
-
-    return (
-        <Anchor
-            href={href}
-            target={target}
-            data-testid="download-link"
-            download={filename}
-            style={{ display: 'flex', alignItems: 'center' }}
-        >
-            Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
-        </Anchor>
-    )
-}
 
 const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     const handleClick = () => {
@@ -117,7 +87,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
                     borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
                 }}
             ></span>
-            <DownloadResultsLink target="_blank" filename={file.path} content={file.contents} />
+            <DownloadBlobLink target="_blank" filename={file.path} fileContent={file.contents} />
         </Group>
     )
 }

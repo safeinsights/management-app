@@ -51,15 +51,31 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
                             {dataSource.description}
                         </Text>
                     )}
-                    {dataSource.documentationUrl && (
-                        <Anchor size="sm" href={dataSource.documentationUrl} target="_blank" rel="noopener noreferrer">
-                            {dataSource.documentationUrl}
-                        </Anchor>
+                    {dataSource.urls.map(
+                        (u) =>
+                            u.url && (
+                                <Group key={u.id} gap="sm" wrap="nowrap">
+                                    <Text>
+                                        <Anchor size="sm" href={u.url} target="_blank" rel="noopener noreferrer">
+                                            {u.url}
+                                        </Anchor>
+                                    </Text>
+                                    <Text c="dimmed" size="sm">
+                                        {u.description}
+                                    </Text>
+                                </Group>
+                            ),
                     )}
                 </Box>
                 <Group gap={4} wrap="nowrap">
                     <Tooltip label="Edit" withArrow>
-                        <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
+                        <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="green"
+                            onClick={openEditModal}
+                            aria-label="Edit data source"
+                        >
                             <PencilIcon />
                         </ActionIcon>
                     </Tooltip>
@@ -67,7 +83,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
                         onConfirmed={() => deleteMutation.mutate({ orgSlug, dataSourceId: dataSource.id })}
                         message="Are you sure you want to delete this data source? This cannot be undone."
                     >
-                        <TrashIcon />
+                        <TrashIcon aria-label="Delete data source" />
                     </SuretyGuard>
                 </Group>
             </Group>

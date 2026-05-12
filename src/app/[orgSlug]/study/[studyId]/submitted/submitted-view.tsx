@@ -4,7 +4,7 @@ import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { PostSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
-import type { SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { SubmittedProposalPreview } from './submitted-proposal-preview'
 import { ProposalSubmitted } from './proposal-submitted'
@@ -13,9 +13,11 @@ interface SubmittedViewProps {
     orgSlug: string
     study: SelectedStudy
     orgName: string
+    entries: ProposalFeedbackEntry[]
+    feedbackError?: boolean
 }
 
-export function SubmittedView({ orgSlug, study, orgName }: SubmittedViewProps) {
+export function SubmittedView({ orgSlug, study, orgName, entries, feedbackError }: SubmittedViewProps) {
     const existingView = (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={orgSlug} studyId={study.id} studyTitle={study.title} />
@@ -43,7 +45,15 @@ export function SubmittedView({ orgSlug, study, orgName }: SubmittedViewProps) {
     return (
         <PostSubmissionFeatureFlag
             defaultContent={existingView}
-            optInContent={<ProposalSubmitted orgSlug={orgSlug} study={study} orgName={orgName} />}
+            optInContent={
+                <ProposalSubmitted
+                    orgSlug={orgSlug}
+                    study={study}
+                    orgName={orgName}
+                    entries={entries}
+                    feedbackError={feedbackError}
+                />
+            }
         />
     )
 }

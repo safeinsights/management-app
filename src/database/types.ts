@@ -136,7 +136,6 @@ export interface OrgCodeEnv {
 export interface OrgDataSource {
     createdAt: Generated<Timestamp>
     description: string | null
-    documentationUrl: string | null
     id: Generated<string>
     name: string
     orgId: string
@@ -145,6 +144,14 @@ export interface OrgDataSource {
 export interface OrgDataSourceCodeEnv {
     codeEnvId: string
     dataSourceId: string
+}
+
+export interface OrgDataSourceUrl {
+    createdAt: Generated<Timestamp>
+    description: string | null
+    id: Generated<string>
+    orgDataSourceId: string
+    url: string | null
 }
 
 export interface OrgUser {
@@ -247,6 +254,13 @@ export interface StudyProposalComment {
     studyId: string
 }
 
+export interface StudyReview {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    report: Json
+    studyJobId: string
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -282,6 +296,7 @@ export interface DB {
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
     orgDataSourceCodeEnv: OrgDataSourceCodeEnv
+    orgDataSourceUrl: OrgDataSourceUrl
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition
@@ -290,6 +305,7 @@ export interface DB {
     studyJob: StudyJob
     studyJobFile: StudyJobFile
     studyProposalComment: StudyProposalComment
+    studyReview: StudyReview
     user: User
     userPublicKey: UserPublicKey
     yjsDocument: YjsDocument

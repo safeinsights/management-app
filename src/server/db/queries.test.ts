@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { BLANK_UUID, insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
 import {
+    BLANK_UUID,
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestStudyJobUsers,
+    readTestSupportFile,
+} from '@/tests/unit.helpers'
+import { db } from '@/database'
+import {
+    getStudyReviewForJob,
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
@@ -175,5 +183,33 @@ describe('getOrgPublicKeys', () => {
         expect(files[0].path).toBe('test.txt')
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
+    })
+})
+
+describe('getStudyReviewForJob', () => {
+    it('returns null when no review exists for the job', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await getStudyReviewForJob(job.id)
+        expect(result).toBeNull()
+    })
+
+    it('returns the stored report along with createdAt and files for the job', async () => {
+        const { job } = await insertTestStudyJobData()
+        const report = {
+            proposalSummary: 'Studying student outcomes.',
+            codeExplanation: 'Aggregates scores by school.',
+            alignmentCheck: { isAligned: true, findings: [] },
+            complianceCheck: { isCompliant: true, findings: [] },
+        }
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: JSON.stringify(report) })
+            .execute()
+
+        const result = await getStudyReviewForJob(job.id)
+        expect(result).not.toBeNull()
+        expect(result?.report).toEqual(report)
+        expect(result?.createdAt).toBeInstanceOf(Date)
+        expect(result?.files).toEqual([])
     })
 })

@@ -12,7 +12,8 @@ vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
 }))
 
-vi.mock('@/components/spy-mode-context', () => ({
+vi.mock('@/components/spy-mode-context', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/components/spy-mode-context')>()),
     useSpyMode: () => ({ isSpyMode: false, toggleSpyMode: vi.fn() }),
 }))
 

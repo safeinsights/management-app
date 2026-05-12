@@ -1,7 +1,8 @@
 FROM node:24-slim
-WORKDIR /app
+WORKDIR /app/services/editor
 COPY services/editor/package.json services/editor/package-lock.json ./
 RUN npm ci --omit=dev
-COPY services/editor/server.ts services/editor/constants.ts ./
+COPY services/editor/server.ts services/editor/constants.ts services/editor/auth.ts services/editor/lexical-seed.ts ./
+COPY src/lib/collaboration-documents.ts /app/src/lib/collaboration-documents.ts
 EXPOSE 1234
 CMD ["node", "server.ts"]

@@ -5,6 +5,8 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { onSaveDraftStudyAction } from '@/server/actions/study-request'
+import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -12,6 +14,7 @@ import { faker } from '@faker-js/faker'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
@@ -23,7 +26,7 @@ import os from 'os'
 import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
-import { ReactElement } from 'react'
+import { ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -62,8 +65,23 @@ export const createTestQueryClient = () =>
             queries: {
                 retry: false,
             },
+            mutations: {
+                retry: false,
+            },
         },
     })
+
+// `renderHook(..., { wrapper: createTestQueryWrapper() })` for hooks that depend on
+// useMutation / useQuery. Each call gets a fresh QueryClient so cached state cannot
+// leak between tests.
+export const createTestQueryWrapper = () => {
+    const client = createTestQueryClient()
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    Wrapper.displayName = 'QueryClientWrapper'
+    return Wrapper
+}
 
 export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
     const testQueryClient = createTestQueryClient()
@@ -72,7 +90,9 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
                 <SpyModeProvider>
-                    <ModalsProvider>{ui}</ModalsProvider>
+                    <YjsWebsocketProvider>
+                        <ModalsProvider>{ui}</ModalsProvider>
+                    </YjsWebsocketProvider>
                 </SpyModeProvider>
             </MantineProvider>
         </QueryClientProvider>,
@@ -356,12 +376,6 @@ export const insertTestStudyJobUsers = async ({
     return { study, job, user1, user2, ...rest }
 }
 
-export async function createTempDir() {
-    const ostmpdir = os.tmpdir()
-    const tmpdir = path.join(ostmpdir, 'unit-test-')
-    return await fs.promises.mkdtemp(tmpdir)
-}
-
 export type InsertTestOrgOptions = {
     slug: string
     name?: string
@@ -598,6 +612,44 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+type CreateTestProposalDraftOptions = {
+    /** Unique enclave slug for this test. The lab counterpart is derived as `${enclaveSlug}-lab`. */
+    enclaveSlug: string
+    studyInfo?: {
+        title?: string
+        piName?: string
+        language?: Language
+    }
+}
+
+// Builds the canonical OTTER-497 fixture shape: enclave + lab + lab-member session +
+// DRAFT study where `submittedByOrgId` is the lab and `orgId` is the enclave. Use this
+// instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
+// the same org and do not match the production submitting-lab vs reviewing-enclave split.
+export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
+    const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
+    const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+    const session = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+    const draft = actionResult(
+        await onSaveDraftStudyAction({
+            orgSlug: enclave.slug,
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
+            submittingOrgSlug: lab.slug,
+        }),
+    )
+
+    return { enclave, lab, studyId: draft.studyId, user: session.user }
+}
+
+export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
+    db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
+
+// Generates a feedback string with `wordCount` whitespace-separated tokens. The
+// proposal-review action requires 50–500 words; default is 60 (a comfortable midpoint).
+// Pass smaller / larger counts to exercise the validation boundaries.
+export const buildFeedback = (wordCount = 60) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
+
 export const createWorkspaceDir = async (prefix: string) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
     process.env.CODER_FILES = root
@@ -657,12 +709,17 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .executeTakeFirstOrThrow()
 }
 
+type TestDataSourceUrl = {
+    url: string | null
+    description: string | null
+}
+
 export type InsertTestDataSourceOptions = {
     orgId: string
     codeEnvIds?: string[]
     name?: string
     description?: string | null
-    documentationUrl?: string | null
+    urls?: TestDataSourceUrl[]
 }
 
 export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
@@ -672,7 +729,6 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             orgId: options.orgId,
             name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
             description: options.description ?? null,
-            documentationUrl: options.documentationUrl ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -685,7 +741,23 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             .execute()
     }
 
-    return dataSource
+    const urls = options.urls
+    const createdUrls = []
+    if (urls?.length) {
+        const urlRows = urls.map((u) => ({
+            ...u,
+            orgDataSourceId: dataSource.id,
+        }))
+
+        const res = await db
+            .insertInto('orgDataSourceUrl')
+            .values(urlRows)
+            .returning(['id', 'url', 'description'])
+            .execute()
+        createdUrls.push(...res)
+    }
+
+    return { ...dataSource, urls: createdUrls }
 }
 
 // Re-export actionResult for backwards compatibility in tests
@@ -838,19 +910,6 @@ export const expectStudyJobRecords = async (
         .orderBy('createdAt', 'asc')
         .execute()
     expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
-}
-
-// Pair this with a `vi.mock('@/components/spy-mode-context', ...)` in your test file
-// whose factory reads from `spyModeState`. Drive it from tests with setSpyMode()/resetSpyMode().
-// See legacy-proposal-review-view.test.tsx for an example of the vi.mock factory wiring.
-export const spyModeState = { isSpyMode: false }
-
-export const setSpyMode = (value: boolean) => {
-    spyModeState.isSpyMode = value
-}
-
-export const resetSpyMode = () => {
-    spyModeState.isSpyMode = false
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({

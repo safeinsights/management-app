@@ -15,6 +15,7 @@ import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
 import { useEffect, useMemo, useState } from 'react'
 import type { FileType } from '@/database/types'
+import type { FileInfo } from 'si-encryption/job-results/types'
 
 type Options = {
     job: LatestJobForStudy
@@ -110,35 +111,37 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         },
     )
 
-    const approvedFilesByType = useMemo(() => {
-        const map = new Map<FileType, JobFile>()
-        for (const f of previouslyApprovedFiles) {
-            map.set(f.fileType, f)
-        }
-        return map
-    }, [previouslyApprovedFiles])
-
     const decryptedFilesByType = useMemo(() => {
-        const map = new Map<FileType, JobFileInfo>()
+        const map = new Map<FileType, JobFileInfo[]>()
         for (const f of decryptedFiles) {
-            map.set(f.fileType, f)
+            const list = map.get(f.fileType) ?? []
+            list.push(f)
+            map.set(f.fileType, list)
         }
         return map
     }, [decryptedFiles])
 
+    const approvedFilesByType = useMemo(() => {
+        const map = new Map<FileType, JobFile[]>()
+        for (const f of previouslyApprovedFiles) {
+            const list = map.get(f.fileType) ?? []
+            list.push(f)
+            map.set(f.fileType, list)
+        }
+        return map
+    }, [previouslyApprovedFiles])
+
     const metadataByFileType = useMemo(() => {
-        const map = new Map<FileType, { name: string; totalBytes: number }>()
+        const map = new Map<FileType, FileInfo[]>()
         for (const file of encryptedFiles ?? []) {
-            if (file.metadata.length === 0) continue
-            const totalBytes = file.metadata.reduce((sum, f) => sum + f.bytes, 0)
-            const name = file.metadata.length === 1 ? file.metadata[0].path : `${file.metadata.length} files`
-            map.set(file.fileType, { name, totalBytes })
+            map.set(file.fileType, file.metadata)
         }
         return map
     }, [encryptedFiles])
 
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         const rows: UnifiedFileRow[] = []
+        const seenApprovedTypes = new Set<FileType>()
 
         for (const f of job.files ?? []) {
             const isEncrypted = isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT'
@@ -151,32 +154,64 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             // skip if both encrypted and approved entries exist — we'll use the approved one
             if (isEncrypted && approvedFileTypes.has(approvedType)) continue
 
-            const approvedFile = approvedFilesByType.get(approvedType)
-            const decryptedFile = decryptedFilesByType.get(approvedType)
-            const meta = metadataByFileType.get(f.fileType)
+            // an archive can yield multiple per-file APPROVED-RESULT rows in studyJobFile;
+            // process each fileType once so rows aren't multiplied by N×N
+            if (seenApprovedTypes.has(approvedType)) continue
+            seenApprovedTypes.add(approvedType)
 
-            let state: FileRowState
-            let file: JobFile | null = null
+            const approvedFilesForType = approvedFilesByType.get(approvedType) ?? []
+            const decryptedFilesForType = decryptedFilesByType.get(approvedType) ?? []
+            const metaList = metadataByFileType.get(f.fileType) ?? []
+            const label = logLabel(f.fileType)
 
-            if (approvedFile) {
-                state = 'approved'
-                file = approvedFile
-            } else if (decryptedFile) {
-                state = 'decrypted'
-                file = decryptedFile
+            if (approvedFilesForType.length > 0) {
+                for (const approvedFile of approvedFilesForType) {
+                    rows.push({
+                        key: `${f.fileType}-approved-${approvedFile.path}`,
+                        label,
+                        name: approvedFile.path,
+                        bytes: approvedFile.contents.byteLength,
+                        fileType: f.fileType,
+                        state: 'approved',
+                        file: approvedFile,
+                    })
+                }
+            } else if (decryptedFilesForType.length > 0) {
+                for (const decryptedFile of decryptedFilesForType) {
+                    const meta = metaList.find((m) => m.path === decryptedFile.path)
+                    rows.push({
+                        key: `${f.fileType}-decrypted-${decryptedFile.path}`,
+                        label,
+                        name: decryptedFile.path,
+                        bytes: meta?.bytes ?? decryptedFile.contents.byteLength,
+                        fileType: f.fileType,
+                        state: 'decrypted',
+                        file: decryptedFile,
+                    })
+                }
+            } else if (metaList.length > 0) {
+                for (const meta of metaList) {
+                    rows.push({
+                        key: `${f.fileType}-locked-${meta.path}`,
+                        label,
+                        name: meta.path,
+                        bytes: meta.bytes,
+                        fileType: f.fileType,
+                        state: 'locked',
+                        file: null,
+                    })
+                }
             } else {
-                state = 'locked'
+                rows.push({
+                    key: `${f.fileType}-${f.name}`,
+                    label,
+                    name: f.name,
+                    bytes: null,
+                    fileType: f.fileType,
+                    state: 'locked',
+                    file: null,
+                })
             }
-
-            rows.push({
-                key: `${f.fileType}-${f.name}`,
-                label: logLabel(f.fileType),
-                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.name ?? f.name,
-                bytes: meta?.totalBytes ?? null,
-                fileType: f.fileType,
-                state,
-                file,
-            })
         }
 
         return rows

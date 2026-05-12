@@ -31,6 +31,7 @@ const TEST_USERS = [
 type TestUserRole = (typeof TEST_USERS)[number]['role']
 
 const ORG_MEMBERSHIPS: { role: TestUserRole; slug: string; isAdmin: boolean }[] = [
+    { role: 'admin', slug: 'safe-insights', isAdmin: true },
     { role: 'admin', slug: 'openstax', isAdmin: true },
     { role: 'admin', slug: 'openstax-lab', isAdmin: true },
     { role: 'researcher', slug: 'openstax-lab', isAdmin: false },
