@@ -5,6 +5,7 @@ import { fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { ClaudeContext } from './claude-context'
 import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { CONTEXT_NAMES } from '@/lib/claude-context'
+import { Stack } from '@mantine/core'
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
@@ -24,9 +25,10 @@ export default async function OrgsAdministration() {
 
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>
-            <OrgsAdminTable />
-            <br />
-            <ClaudeContext />
+            <Stack gap="xl">
+                <OrgsAdminTable />
+                <ClaudeContext />
+            </Stack>
         </HydrationBoundary>
     )
 }

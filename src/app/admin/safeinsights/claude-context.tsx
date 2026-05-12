@@ -1,52 +1,75 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { CONTEXT_NAMES } from '@/lib/claude-context'
+import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
 import { isActionError, errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
-import { Box, Stack, Title, Button, Textarea, Text } from '@mantine/core'
+import { Box, Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
 
-type ContextProps = { name: string; orgId: string | null }
+type ContextProps = { name: ContextName; orgId: string | null }
 
 function ClaudeContextEditor(
-    {name, orgId, initialContent}:  ContextProps & { initialContent: string}
+    { name, orgId, initialContent }: ContextProps & { initialContent: string }
 ) {
     const [content, setContent] = useState(initialContent)
+    const [lastSavedContent, setLastSavedContent] = useState(initialContent)
+    const [isSaving, setIsSaving] = useState(false)
+    let newContent = content !== lastSavedContent // true if there's a diff,  false if the same as db
 
     const onSubmit = async () => {
-        const result = await writeClaudeContextAction({
-            name: name,
-            content: content,
-            orgId: orgId
-        })
-        if (isActionError(result)) {
+        setIsSaving(true)
+        try {
+            const result = await writeClaudeContextAction({
+                name: name,
+                content: content,
+                orgId: orgId
+            })
+            if (isActionError(result)) {
+                notifications.show({
+                    color: 'red',
+                    title: 'Context save failed',
+                    message: errorToString(result),
+                    autoClose: false
+                })
+                return
+            }
+            setLastSavedContent(content)
+        } catch(error) {
             notifications.show({
                 color: 'red',
                 title: 'Context save failed',
-                message: errorToString(result),
+                message: errorToString(error.message),
                 autoClose: false
             })
             return
+        } finally {
+            setIsSaving(false)
         }
+
     }
+
     // TODO: Update title and label
     return <form action={onSubmit}>
-        <Textarea
-            label="System context"
-            description="Context about the general SI system"
-            value={content}
-            onChange={(e) => setContent(e.currentTarget.value)}
-        ></Textarea>
-        <Button type="submit">Submit</Button>
+        <Stack gap="md">
+            <Textarea autosize minRows={8} maxRows={20}
+                label={CONTEXT_LABELS[name].label}
+                description={CONTEXT_LABELS[name].description}
+                value={content}
+                onChange={(e) => setContent(e.currentTarget.value)}
+            ></Textarea>
+            <Group justify="flex-end">
+                <Button type="submit" loading={isSaving} disabled={!newContent}>Submit</Button>
+            </Group>
+        </Stack>
     </form>
 }
 
-function ClaudeContextDataLoader({name, orgId}: ContextProps) {
+function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
     const { data, isLoading, error } = useQuery({
         queryKey: ['claudeContext', name, orgId],
-        queryFn: () => getClaudeContextAction({ name, orgId}),
+        queryFn: () => getClaudeContextAction({ name, orgId }),
         retry: false
     })
 
@@ -64,13 +87,18 @@ function ClaudeContextDataLoader({name, orgId}: ContextProps) {
 
 export function ClaudeContext() {
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-            <Title>System and Language Context for Claude</Title>
-            <Stack p="md">
+        <Stack gap="md">
+            <Title order={1}>System and Language Context for Claude</Title>
+            <Text c="dimmed" size="sm">
+                Edit the context Claude uses for each language. The system context applies globally; language contexts apply when a study uses that language.
+            </Text>
+            <Stack gap="md">
                 {CONTEXT_NAMES.map((contextName) => {
-                    return <ClaudeContextDataLoader key={contextName} name={contextName} orgId={null} />
+                    return (<Paper key={contextName} p="md" withBorder>
+                        <ClaudeContextDataLoader name={contextName} orgId={null} />
+                    </Paper>)
                 })}
             </Stack>
-        </Box>
+        </Stack>
     )
 }
