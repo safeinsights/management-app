@@ -58,4 +58,6 @@ export {
     OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
     // OTTER-495: Post-submission page
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
+    // Study code review redesign
+    OpenStaxFeatureFlag as CodeReviewFeatureFlag,
 }

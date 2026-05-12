@@ -10,9 +10,14 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
+import { CodeReviewRedesignView } from './code-review-redesign-view'
 import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
-import { PostSubmissionFeatureFlag, ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
+import {
+    CodeReviewFeatureFlag,
+    PostSubmissionFeatureFlag,
+    ProposalReviewFeatureFlag,
+} from '@/components/openstax-feature-flag'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 
@@ -58,7 +63,7 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/agreements'))
     })
 
-    it('renders CodeReviewView for enclave with code submitted when coming from agreements', async () => {
+    it('renders CodeReviewFeatureFlag for enclave with code submitted when coming from agreements', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -71,10 +76,14 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements-proceed' }),
         })
-        expect(page?.type).toBe(CodeReviewView)
+        expect(page?.type).toBe(CodeReviewFeatureFlag)
+        expect(page?.props.defaultContent.type).toBe(CodeReviewView)
+        expect(page?.props.optInContent.type).toBe(CodeReviewRedesignView)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        renderWithProviders(await CodeReviewView(page!.props as Parameters<typeof CodeReviewView>[0]))
+        renderWithProviders(
+            await CodeReviewView(page!.props.defaultContent.props as Parameters<typeof CodeReviewView>[0]),
+        )
 
         expect(screen.getByText('Study Code')).toBeInTheDocument()
         expect(screen.getByText('Study Status')).toBeInTheDocument()
@@ -101,7 +110,7 @@ describe('StudyReviewPage', () => {
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
-    it('renders CodeReviewView directly when agreements already acknowledged (no redirect)', async () => {
+    it('renders CodeReviewFeatureFlag directly when agreements already acknowledged (no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -120,7 +129,28 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({}),
         })
-        expect(page?.type).toBe(CodeReviewView)
+        expect(page?.type).toBe(CodeReviewFeatureFlag)
+        expect(page?.props.defaultContent.type).toBe(CodeReviewView)
+        expect(page?.props.optInContent.type).toBe(CodeReviewRedesignView)
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it('renders PostFeedbackView when from=code-review and code submitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'code-review' }),
+        })
+        expect(page?.type).toBe(PostFeedbackView)
+        expect(page?.props.study.id).toBe(study.id)
+        expect(Array.isArray(page?.props.entries)).toBe(true)
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
