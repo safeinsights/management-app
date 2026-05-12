@@ -20,7 +20,11 @@ export default async function StudyEditAndResubmitRoute(props: {
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
-    const entries = 'error' in entriesResult ? [] : entriesResult
+    // Don't render the page with a silent empty feedback list — the researcher
+    // is being asked to address feedback and we'd be hiding the fact that we
+    // couldn't load it.
+    if ('error' in entriesResult) return notFound()
+    const entries = entriesResult
 
     const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
 

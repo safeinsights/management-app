@@ -704,12 +704,14 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
+        // Don't update study.submittedAt — keep the original first-submission
+        // timestamp. The resubmission timeline lives in studyProposalComment
+        // rows (one per resubmit, with its own createdAt).
         await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
-                submittedAt: new Date(),
             })
             .where('id', '=', studyId)
             .where('researcherId', '=', userId)
