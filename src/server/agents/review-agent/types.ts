@@ -55,11 +55,11 @@ export const analysisReportSchema = z.object({
     resultsSummary: z.string().optional(),
     alignmentCheck: z.object({
         isAligned: z.boolean(),
-        findings: z.array(z.string()),
+        findings: z.array(z.string()).default([]),
     }),
     complianceCheck: z.object({
         isCompliant: z.boolean(),
-        findings: z.array(z.string()),
+        findings: z.array(z.string()).default([]),
     }),
 })
 

@@ -2,14 +2,14 @@
 
 import { useQuery } from '@/common'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
-import type { StudyReviewLookup, StudyReviewWithMeta } from '@/server/db/queries'
+import type { StudyReviewWithMeta } from '@/server/db/queries'
 import { Badge, Divider, Group, List, ListItem, Loader, Stack, Text, Title } from '@mantine/core'
 
 const POLL_INTERVAL_MS = 5_000
 
 type StudyReviewSectionProps = {
     studyJobId: string
-    initialReview: StudyReviewLookup
+    initialReview: StudyReviewWithMeta | null
 }
 
 export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSectionProps) {
@@ -17,13 +17,17 @@ export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSec
         queryKey: ['study-review', studyJobId],
         queryFn: () => getStudyReviewAction({ studyJobId }),
         initialData: initialReview,
-        // Poll only while no row exists yet; 'malformed' and a real review are terminal.
-        refetchInterval: (query) => (query.state.data === null && !query.state.error ? POLL_INTERVAL_MS : false),
+        // Poll until the runner writes a row. A row — including the disabled-key
+        // placeholder — is terminal.
+        refetchInterval: (query) => {
+            if (query.state.error) return false
+            if (query.state.data != null) return false
+            return POLL_INTERVAL_MS
+        },
     })
 
     if (error) return <ReviewError />
     if (result == null) return <ReviewInProgress />
-    if (result === 'malformed') return <ReviewMalformed />
     return <ReviewReport review={result} />
 }
 
@@ -31,7 +35,7 @@ function ReviewInProgress() {
     return (
         <Stack>
             <ReviewHeader />
-            <Group gap="xs" data-testid="study-review-in-progress">
+            <Group gap="xs">
                 <Loader size="sm" />
                 <Text c="dimmed" size="sm">
                     Review in progress…
@@ -45,19 +49,8 @@ function ReviewError() {
     return (
         <Stack>
             <ReviewHeader />
-            <Text c="red" size="sm" data-testid="study-review-error">
+            <Text c="red" size="sm">
                 Failed to load study review. Please refresh to try again.
-            </Text>
-        </Stack>
-    )
-}
-
-function ReviewMalformed() {
-    return (
-        <Stack>
-            <ReviewHeader />
-            <Text c="red" size="sm" data-testid="study-review-malformed">
-                The AI review for this submission could not be displayed. Please contact support.
             </Text>
         </Stack>
     )

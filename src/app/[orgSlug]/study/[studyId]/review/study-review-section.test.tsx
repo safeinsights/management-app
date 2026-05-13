@@ -59,12 +59,16 @@ describe('StudyReviewSection', () => {
         expect(screen.getByText('Review in progress…')).toBeInTheDocument()
     })
 
-    it('renders a non-crashing error state when the stored report is malformed', () => {
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview="malformed" />)
+    it('renders "No findings" when a failing check has an empty findings array', () => {
+        const report: AnalysisReport = {
+            ...baseReport,
+            alignmentCheck: { isAligned: false, findings: [] },
+        }
 
-        expect(screen.getByTestId('study-review-malformed')).toHaveTextContent(
-            'AI review for this submission could not be displayed',
-        )
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(report)} />)
+
+        expect(screen.getByText('Misaligned')).toBeInTheDocument()
+        expect(screen.getAllByText('No findings').length).toBeGreaterThan(0)
     })
 
     it('lists the files the review was generated against', () => {
@@ -87,5 +91,18 @@ describe('StudyReviewSection', () => {
         renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(report)} />)
 
         expect(screen.getByText('Median score 82, no anomalies.')).toBeInTheDocument()
+    })
+
+    it('renders the disabled-key placeholder report like any other review', () => {
+        const disabledReport: AnalysisReport = {
+            proposalSummary: 'AI code review is disabled for this environment — CLAUDE_API_KEY is not configured.',
+            codeExplanation: 'No automated review was generated.',
+            alignmentCheck: { isAligned: true, findings: [] },
+            complianceCheck: { isCompliant: true, findings: [] },
+        }
+
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(disabledReport, [])} />)
+
+        expect(screen.getByText(/AI code review is disabled/)).toBeInTheDocument()
     })
 })

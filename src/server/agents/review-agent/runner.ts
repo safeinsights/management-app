@@ -2,9 +2,16 @@ import { db, jsonArrayFrom } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
 import { generateAnalysis } from './agent'
-import type { ReviewContent } from './types'
+import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
+
+const DISABLED_REPORT: AnalysisReport = {
+    proposalSummary: 'AI code review is disabled for this environment — CLAUDE_API_KEY is not configured.',
+    codeExplanation: 'No automated review was generated.',
+    alignmentCheck: { isAligned: true, findings: [] },
+    complianceCheck: { isCompliant: true, findings: [] },
+}
 
 const MAX_FILE_SIZE_BYTES = 100_000
 const MAX_FILE_COUNT = 10
@@ -138,10 +145,15 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
         return
     }
 
+    const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
+    if (!apiKey) {
+        logger.warn('CLAUDE_API_KEY not configured — writing disabled-review placeholder', { studyJobId })
+        await persistReport(studyJobId, DISABLED_REPORT)
+        return
+    }
+
     const content = await assembleReviewContent(studyJobId)
     if (!content) return
-
-    const apiKey = await getConfigValue('CLAUDE_API_KEY')
 
     // TODO(SI-Admin): once the SI Admin org-level config schema lands, fetch
     // `systemPrompt` and `analysisPromptTemplate` overrides for `job.orgId`
@@ -152,14 +164,14 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
     // (target: before Oct 2026). Seed for `continueChat`.
     const { report } = await generateAnalysis({ apiKey }, content)
 
+    await persistReport(studyJobId, report)
+    logger.info(`Study review generated and stored`, { studyJobId })
+}
+
+async function persistReport(studyJobId: string, report: AnalysisReport): Promise<void> {
     await db
         .insertInto('studyReview')
-        .values({
-            studyJobId,
-            report: JSON.stringify(report),
-        })
+        .values({ studyJobId, report: JSON.stringify(report) })
         .onConflict((oc) => oc.column('studyJobId').doNothing())
         .execute()
-
-    logger.info(`Study review generated and stored`, { studyJobId })
 }
