@@ -94,10 +94,27 @@ export default async function StudyReviewPage(props: {
             )
         }
 
+        // Editable PENDING-REVIEW branch: load prior feedback entries and the
+        // current review round. Round N+1's editor binds to a fresh versioned
+        // Yjs doc (`review-feedback-${studyId}-v${reviewVersion}`), and the
+        // prior rounds render as read-only history above it. We deliberately
+        // fail soft (`safeEntries = []`) so an unrelated query failure doesn't
+        // block the editable surface — the submitted branch above still hard-
+        // errors because that view is defined by the history.
+        const entries = await getProposalFeedbackForStudyAction({ studyId })
+        const safeEntries = isActionError(entries) ? [] : entries
+        const reviewVersion = safeEntries[0]?.version ?? 1
         return (
             <ProposalReviewFeatureFlag
                 defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={
+                    <ProposalReviewView
+                        orgSlug={orgSlug}
+                        study={study}
+                        priorEntries={safeEntries}
+                        reviewVersion={reviewVersion}
+                    />
+                }
             />
         )
     }

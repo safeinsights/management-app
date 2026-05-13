@@ -3,7 +3,8 @@ import {
     parseDocumentName,
     proposalFieldsDocName,
     proposalTextFieldDocName,
-    reviewFeedbackDocName,
+    reviewFeedbackDocNameForVersion,
+    reviewFeedbackLegacyDocName,
 } from './collaboration-documents'
 
 const STUDY_ID = '01949c1a-1aaa-7000-9000-000000000001'
@@ -29,10 +30,27 @@ describe('collaboration document naming', () => {
         }
     })
 
-    it('round-trips review-feedback docs', () => {
-        const name = reviewFeedbackDocName(STUDY_ID)
+    it('round-trips versioned review-feedback docs', () => {
+        for (const version of [1, 2, 17, 123]) {
+            const name = reviewFeedbackDocNameForVersion(STUDY_ID, version)
+            expect(name).toBe(`review-feedback-${STUDY_ID}-v${version}`)
+            expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID, version })
+        }
+    })
+
+    it('parses the legacy unversioned review-feedback name with version null', () => {
+        const name = reviewFeedbackLegacyDocName(STUDY_ID)
         expect(name).toBe(`review-feedback-${STUDY_ID}`)
-        expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID })
+        expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID, version: null })
+    })
+
+    it('rejects malformed review-feedback names', () => {
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v0`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v01`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-foo`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v-1`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-not-a-uuid-v1`)).toBeNull()
     })
 
     it('rejects malformed names', () => {

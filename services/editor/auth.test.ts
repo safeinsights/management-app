@@ -18,10 +18,19 @@ import {
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 
 describe('parseDocumentName', () => {
-    it('parses review-feedback documents', () => {
+    it('parses legacy unversioned review-feedback documents with version null', () => {
         expect(parseDocumentName(`review-feedback-${STUDY_ID}`)).toEqual({
             kind: 'review-feedback',
             studyId: STUDY_ID,
+            version: null,
+        })
+    })
+
+    it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v${version}`)).toEqual({
+            kind: 'review-feedback',
+            studyId: STUDY_ID,
+            version,
         })
     })
 
@@ -49,8 +58,13 @@ describe('parseDocumentName', () => {
         'proposal-not-a-uuid-fields',
         `proposal-${STUDY_ID}-unknown-suffix`,
         `review-feedback-not-a-uuid`,
+        `review-feedback-not-a-uuid-v1`,
         `proposal-${STUDY_ID}`,
         `review-feedback-${STUDY_ID}-extra`,
+        `review-feedback-${STUDY_ID}-v0`,
+        `review-feedback-${STUDY_ID}-v01`,
+        `review-feedback-${STUDY_ID}-v-1`,
+        `review-feedback-${STUDY_ID}-v`,
     ])('rejects malformed name "%s"', (name) => {
         expect(parseDocumentName(name)).toBeNull()
     })
@@ -60,7 +74,9 @@ describe('requiredOrgIdForDocument', () => {
     const study = { org_id: 'do-org', submitted_by_org_id: 'lab-org' }
 
     it('returns DO org for review-feedback', () => {
-        expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID }, study)).toBe('do-org')
+        expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, study)).toBe(
+            'do-org',
+        )
     })
 
     it('returns lab org for proposal-fields', () => {
@@ -142,14 +158,16 @@ describe('isStatelessEventValidForDocument', () => {
     })
 
     it('rejects proposal-submitted on review-feedback document', () => {
-        expect(isStatelessEventValidForDocument(event, { kind: 'review-feedback', studyId: STUDY_ID })).toBe(false)
+        expect(
+            isStatelessEventValidForDocument(event, { kind: 'review-feedback', studyId: STUDY_ID, version: 1 }),
+        ).toBe(false)
     })
 
     it('accepts proposal-review-submitted on review-feedback', () => {
         expect(
             isStatelessEventValidForDocument(
                 { ...event, type: 'proposal-review-submitted' },
-                { kind: 'review-feedback', studyId: STUDY_ID },
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
             ),
         ).toBe(true)
     })
@@ -301,10 +319,26 @@ describe('authenticate', () => {
         ).resolves.toEqual({ user: { id: 'lab-user', clerkId: 'clerk-user-1' } })
     })
 
-    it('passes a DO member opening their DO review-feedback document', async () => {
+    it('passes a DO member opening their DO review-feedback document at the current version', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
-            if (text.includes('FROM study'))
+            if (text.includes('FROM study WHERE'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 1 }], rowCount: 1 }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' } })
+    })
+
+    it('rejects a DO member opening a legacy unversioned review-feedback document', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study WHERE'))
                 return {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
@@ -313,7 +347,23 @@ describe('authenticate', () => {
         })
         await expect(
             authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' } })
+        ).rejects.toThrow(/legacy review-feedback doc no longer accepted/)
+    })
+
+    it('rejects a DO member opening a stale review-feedback version', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study WHERE'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 2 }], rowCount: 1 }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
+        ).rejects.toThrow(/stale review-feedback version 1 \(current 2\)/)
     })
 
     it('passes a safe-insights admin opening any document', async () => {
@@ -335,23 +385,24 @@ describe('authenticate', () => {
         const verifyToken = vi.fn(async () => ({ sub: 'u' }))
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'u' }], rowCount: 1 }
-            if (text.includes('FROM study'))
+            if (text.includes('FROM study WHERE'))
                 return {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
                 }
+            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 1 }], rowCount: 1 }
             return { rows: [{}], rowCount: 1 }
         })
 
         await authenticate(
-            { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+            { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
             baseDeps({ db, verifyToken, authorizedParties: [] }),
         )
         expect(verifyToken).toHaveBeenCalledWith('tok', expect.objectContaining({ authorizedParties: undefined }))
 
         verifyToken.mockClear()
         await authenticate(
-            { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+            { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
             baseDeps({ db, verifyToken, authorizedParties: ['https://app.example'] }),
         )
         expect(verifyToken).toHaveBeenCalledWith(
@@ -480,7 +531,7 @@ describe('assertStatelessEventConsistent', () => {
             expect(
                 assertStatelessEventConsistent({
                     event,
-                    parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                    parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                     connectionUserClerkId: 'user_alice',
                     studyStatus,
                 }),
@@ -493,7 +544,7 @@ describe('assertStatelessEventConsistent', () => {
         expect(
             assertStatelessEventConsistent({
                 event,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'PENDING-REVIEW',
             }),
@@ -504,7 +555,7 @@ describe('assertStatelessEventConsistent', () => {
         expect(
             assertStatelessEventConsistent({
                 event: baseEvent,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'APPROVED',
             }),
@@ -513,8 +564,17 @@ describe('assertStatelessEventConsistent', () => {
 })
 
 describe('shouldPersistDocument', () => {
-    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
-        query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
+    // Routes by query text since review-feedback now needs two reads (study row + latest comment version).
+    const fakeDb = (
+        rows: Array<{ status: string }>,
+        commentRows: Array<{ version: number | null }> = [{ version: 1 }],
+    ): DbQuery => ({
+        query: (async (text: string) => {
+            if (text.includes('FROM study_proposal_comment')) {
+                return { rows: commentRows, rowCount: commentRows.length }
+            }
+            return { rows, rowCount: rows.length }
+        }) as DbQuery['query'],
     })
 
     it('allows persistence for proposal-fields when study is DRAFT', async () => {
@@ -541,11 +601,11 @@ describe('shouldPersistDocument', () => {
         ).resolves.toBe(false)
     })
 
-    it('allows persistence for review-feedback when study is PENDING-REVIEW', async () => {
+    it('allows persistence for review-feedback when status is PENDING-REVIEW and version matches', async () => {
         await expect(
             shouldPersistDocument(
-                { kind: 'review-feedback', studyId: STUDY_ID },
-                fakeDb([{ status: 'PENDING-REVIEW' }]),
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 1 }]),
             ),
         ).resolves.toBe(true)
     })
@@ -553,9 +613,36 @@ describe('shouldPersistDocument', () => {
     it('blocks persistence for review-feedback once a decision is recorded', async () => {
         for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED', 'ARCHIVED'] as const) {
             await expect(
-                shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID }, fakeDb([{ status }])),
+                shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, fakeDb([{ status }])),
             ).resolves.toBe(false)
         }
+    })
+
+    it('blocks persistence for the legacy unversioned review-feedback doc', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'review-feedback', studyId: STUDY_ID, version: null },
+                fakeDb([{ status: 'PENDING-REVIEW' }]),
+            ),
+        ).resolves.toBe(false)
+    })
+
+    it('blocks persistence for a stale review-feedback version after researcher resubmits', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 2 }]),
+            ),
+        ).resolves.toBe(false)
+    })
+
+    it('allows persistence for the new review-feedback version after researcher resubmits', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 2 },
+                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 2 }]),
+            ),
+        ).resolves.toBe(true)
     })
 
     it('blocks persistence when the study row has been deleted', async () => {

@@ -153,6 +153,31 @@ export const jobInfoForJobId = async (jobId: string) => {
         .executeTakeFirstOrThrow()
 }
 
+/**
+ * Current editable review round for a study.
+ *
+ * Reads `studyProposalComment.version` from the most-recently-created comment
+ * row. The column is populated by OTTER-522 (Stella Tetradis's branch):
+ * `insertReviewerProposalComment` inherits `latest?.version ?? 1`, and
+ * `resubmitProposalAction` inserts `(latest?.version ?? 1) + 1` on the new
+ * RESUBMISSION-NOTE. Rounds therefore advance only when the researcher
+ * resubmits — exactly when the editable review-feedback Yjs document needs
+ * to roll over to a fresh per-round name.
+ *
+ * Returns 1 when no comments exist yet (cold round 1 before any reviewer
+ * feedback or resubmission note has been written).
+ */
+export const currentReviewVersion = async (studyId: string): Promise<number> => {
+    const latest = await Action.db
+        .selectFrom('studyProposalComment')
+        .select('version')
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return latest?.version ?? 1
+}
+
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db

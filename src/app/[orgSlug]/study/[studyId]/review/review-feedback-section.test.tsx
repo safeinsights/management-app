@@ -23,7 +23,12 @@ function FeedbackTestWrapper() {
             >
                 simulate input
             </button>
-            <ReviewFeedbackSection feedback={feedback} submittingLabName="Test Lab" studyId="test-study-id" />
+            <ReviewFeedbackSection
+                feedback={feedback}
+                submittingLabName="Test Lab"
+                studyId="test-study-id"
+                reviewVersion={1}
+            />
         </ReviewFeedbackProviderShare>
     )
 }
