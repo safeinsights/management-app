@@ -155,6 +155,80 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
+    it('renders PostFeedbackView with kind=CODE when code-review entries exist', async () => {
+        // studyHasJobStatus(study, 'CODE-SUBMITTED') is what gates the from=code-review
+        // branch — it requires CODE-SUBMITTED in the job status history, not the latest
+        // status. Use CODE-SUBMITTED so the branch fires, then insert the review row.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                criteria: {
+                    proposalAlignment: 'yes',
+                    agreementCompliance: 'yes',
+                    securityChecks: 'yes',
+                    privacyProtection: 'yes',
+                },
+            })
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'code-review' }),
+        })
+        expect(page?.type).toBe(PostFeedbackView)
+        expect(page?.props.kind).toBe('CODE')
+        expect(page?.props.entries).toHaveLength(1)
+        expect(page?.props.entries[0].decision).toBe('APPROVE')
+    })
+
+    it('falls back to proposal entries (kind=PROPOSAL) when from=code-review but no code-review rows exist', async () => {
+        // A reviewer is kicked out to the post-feedback view before any code-review row
+        // has been committed; page.tsx fetches proposal entries instead so the user
+        // lands on a meaningful page instead of an empty banner.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+            })
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'code-review' }),
+        })
+        expect(page?.type).toBe(PostFeedbackView)
+        // No kind prop means it defaults to PROPOSAL in PostFeedbackView.
+        expect(page?.props.kind).toBeUndefined()
+        expect(page?.props.entries).toHaveLength(1)
+        expect(page?.props.entries[0].authorRole).toBe('REVIEWER')
+    })
+
     it('renders the proposal review feature flag swap for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
