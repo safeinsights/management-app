@@ -191,11 +191,11 @@ describe('generateAndStoreStudyReview', () => {
 
         const stored = await db
             .selectFrom('studyReview')
-            .select('report')
+            .select((eb) => eb.ref('report').$castTo<AnalysisReport>().as('report'))
             .where('studyJobId', '=', job.id)
             .executeTakeFirst()
         expect(stored).toBeDefined()
-        const report = JSON.parse(stored!.report as unknown as string)
+        const report = stored!.report
         expect(report.proposalSummary).toMatch(/disabled/i)
         expect(report.alignmentCheck.findings).toEqual([])
         expect(report.complianceCheck.findings).toEqual([])
