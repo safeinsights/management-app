@@ -11,7 +11,7 @@ export const writeClaudeContextAction = new Action('writeClaudeContext', { perfo
         if (!session?.user.isSiAdmin) {
             throw new ActionFailure({ permission_denied: 'Must be SafeInsights admin'})
         }
-        const userId = session?.user.id
+        const userId = session.user.id
         await db
             .insertInto('claudeContext')
             .values({

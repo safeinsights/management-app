@@ -4,7 +4,7 @@ import { useQuery } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
 import { isActionError, errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
-import { Box, Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
+import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
 
@@ -16,7 +16,7 @@ function ClaudeContextEditor(
     const [content, setContent] = useState(initialContent)
     const [lastSavedContent, setLastSavedContent] = useState(initialContent)
     const [isSaving, setIsSaving] = useState(false)
-    let newContent = content !== lastSavedContent // true if there's a diff,  false if the same as db
+    const isDiff = content !== lastSavedContent // true if there's a diff,  false if the same as db
 
     const onSubmit = async () => {
         setIsSaving(true)
@@ -36,14 +36,6 @@ function ClaudeContextEditor(
                 return
             }
             setLastSavedContent(content)
-        } catch(error) {
-            notifications.show({
-                color: 'red',
-                title: 'Context save failed',
-                message: errorToString(error.message),
-                autoClose: false
-            })
-            return
         } finally {
             setIsSaving(false)
         }
@@ -60,7 +52,7 @@ function ClaudeContextEditor(
                 onChange={(e) => setContent(e.currentTarget.value)}
             ></Textarea>
             <Group justify="flex-end">
-                <Button type="submit" loading={isSaving} disabled={!newContent}>Submit</Button>
+                <Button type="submit" loading={isSaving} disabled={!isDiff}>Submit</Button>
             </Group>
         </Stack>
     </form>

@@ -15,7 +15,7 @@ export default async function OrgsAdministration() {
     })
     await Promise.all(
         CONTEXT_NAMES.map((name) => {
-            queryClient.prefetchQuery({
+            return queryClient.prefetchQuery({
                 queryKey: ['claudeContext', name, null],
                 queryFn: () => getClaudeContextAction({name: name, orgId: null}),
                 retry: false
