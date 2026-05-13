@@ -40,7 +40,7 @@ export function useProposalReviewMutation({
     // (services/editor/auth.ts -> if (!connectionUserClerkId) return) reliably
     // passes. A private broadcast provider, by contrast, could still be in
     // its onAuthenticate handshake when sendStateless flushes during the
-    // WS-open queue drain — server drops the message silently.
+    // WS-open queue drain. Server drops the message silently in that case.
     const editorProvider = useReviewFeedbackProvider()
 
     const {

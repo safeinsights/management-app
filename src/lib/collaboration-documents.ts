@@ -31,7 +31,7 @@ export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalText
     `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
 
 /**
- * Versioned review-feedback document name. A round-boundary identifier — the
+ * Versioned review-feedback document name. A round-boundary identifier: the
  * editor for round N binds to a different Yjs document than round N-1, so a
  * stale connected client from round N-1 cannot write into round N.
  */

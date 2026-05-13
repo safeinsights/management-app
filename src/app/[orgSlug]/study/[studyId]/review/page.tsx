@@ -11,6 +11,7 @@ import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getProposalFeedbackForStudyAction, getStudyAction } from '@/server/actions/study.actions'
+import { currentReviewVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -97,13 +98,17 @@ export default async function StudyReviewPage(props: {
         // Editable PENDING-REVIEW branch: load prior feedback entries and the
         // current review round. Round N+1's editor binds to a fresh versioned
         // Yjs doc (`review-feedback-${studyId}-v${reviewVersion}`), and the
-        // prior rounds render as read-only history above it. We deliberately
-        // fail soft (`safeEntries = []`) so an unrelated query failure doesn't
-        // block the editable surface — the submitted branch above still hard-
-        // errors because that view is defined by the history.
+        // prior rounds render as read-only history above it.
+        //
+        // `reviewVersion` MUST come from `currentReviewVersion(studyId)` (not
+        // from the entries action), so an unrelated failure of the entries
+        // action only loses the history rendering. Deriving `reviewVersion`
+        // from `safeEntries` after a failure would silently downgrade the
+        // editor to v1, which the editor service rejects with STUDY_NOT_EDITABLE
+        // whenever the real current version is greater.
+        const reviewVersion = await currentReviewVersion(studyId)
         const entries = await getProposalFeedbackForStudyAction({ studyId })
         const safeEntries = isActionError(entries) ? [] : entries
-        const reviewVersion = safeEntries[0]?.version ?? 1
         return (
             <ProposalReviewFeatureFlag
                 defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}

@@ -226,7 +226,7 @@ describe('useProposalReviewMutation', () => {
         })
         featureFlagState.enabled = true
 
-        // No provider in the share context — simulates the editor not having
+        // No provider in the share context, simulating the editor not having
         // mounted yet. The hook should gracefully skip broadcasting rather
         // than crash.
         const { result } = renderHook(

@@ -91,8 +91,8 @@ export function editableStatusForKind(kind: ParsedDocumentName['kind']): readonl
 // persisted state while other peers still hold post-flip in-memory state.
 //
 // For `review-feedback` docs the gate has a second axis: the doc name carries
-// a per-round `version`. A stale client from round N-1 — still connected when
-// round N opens after researcher resubmission — would otherwise re-persist
+// a per-round `version`. A stale client from round N-1 (still connected when
+// round N opens after researcher resubmission) would otherwise re-persist
 // the old round's state. Refusing persistence whenever the doc name's
 // version is not the latest forces round N to bootstrap empty.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
@@ -311,7 +311,7 @@ export async function authenticate(
     // connecting after researcher resubmission must use the v2 doc name.
     // A stale v1 tab reconnecting after the round transition gets the same
     // STUDY_NOT_EDITABLE flow that the listener already handles. Legacy
-    // unversioned names are no longer accepted — there is exactly one
+    // unversioned names are no longer accepted; there is exactly one
     // current round per study at any moment.
     if (parsed.kind === 'review-feedback') {
         if (parsed.version === null) {

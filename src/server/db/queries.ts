@@ -161,7 +161,7 @@ export const jobInfoForJobId = async (jobId: string) => {
  * `insertReviewerProposalComment` inherits `latest?.version ?? 1`, and
  * `resubmitProposalAction` inserts `(latest?.version ?? 1) + 1` on the new
  * RESUBMISSION-NOTE. Rounds therefore advance only when the researcher
- * resubmits — exactly when the editable review-feedback Yjs document needs
+ * resubmits, which is exactly when the editable review-feedback Yjs document needs
  * to roll over to a fresh per-round name.
  *
  * Returns 1 when no comments exist yet (cold round 1 before any reviewer
