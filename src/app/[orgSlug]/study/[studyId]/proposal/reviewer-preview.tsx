@@ -6,29 +6,32 @@ import { useParams } from 'next/navigation'
 import { EditableText } from '@/components/editable-text'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
 import { extractTextFromLexical } from '@/lib/word-count'
-import { useProposal } from '@/contexts/proposal'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { usePopover } from '@/hooks/use-popover'
-import { DEFAULT_DRAFT_TITLE } from './schema'
+import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from './schema'
 import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
+    studyId: string
+    values: ProposalFormValues
     researcherName: string
     researcherId: string
     piUserId: string
     enclaveOrgSlug?: string
 }
 
+// Pure presentation — accepts form values + studyId as props so it can be
+// rendered from any context (ProposalProvider, EditResubmitProvider, ...).
 export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
+    studyId,
+    values,
     researcherName,
     researcherId,
     piUserId,
     enclaveOrgSlug,
 }) => {
-    const { form, studyId } = useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { options: datasetOptions } = useOrgDataSources(enclaveOrgSlug)
-    const values = form.getValues()
     const { getPopoverProps } = usePopover()
 
     return (

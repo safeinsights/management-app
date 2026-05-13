@@ -87,6 +87,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                 title="View as reviewer"
             >
                 <ReviewerPreview
+                    studyId={studyId}
+                    values={form.getValues()}
                     researcherName={researcherName}
                     researcherId={researcherId}
                     piUserId={piUserId}

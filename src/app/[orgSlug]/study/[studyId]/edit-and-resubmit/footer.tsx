@@ -91,6 +91,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
             <AppModal size="xl" isOpen={isReviewerOpen} onClose={() => setReviewerOpen(false)} title="View as reviewer">
                 <ReviewerPreview
+                    studyId={studyId}
+                    values={form.getValues()}
                     researcherName={researcherName}
                     researcherId={researcherId}
                     piUserId={form.values.piUserId}
