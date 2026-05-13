@@ -179,4 +179,28 @@ describe('generateAndStoreStudyReview', () => {
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
     })
+
+    it('writes the disabled-review placeholder and skips the agent when CLAUDE_API_KEY is unset', async () => {
+        getConfigValueMock.mockResolvedValue(undefined)
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+
+        await generateAndStoreStudyReview(job.id)
+
+        expect(generateAnalysisMock).not.toHaveBeenCalled()
+
+        const stored = await db
+            .selectFrom('studyReview')
+            .select((eb) => eb.ref('report').$castTo<AnalysisReport>().as('report'))
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored).toBeDefined()
+        const report = stored!.report
+        expect(report.proposalSummary).toMatch(/did not run|disabled/i)
+        // Booleans must be false so the UI doesn't render a missing review as passing.
+        expect(report.alignmentCheck.isAligned).toBe(false)
+        expect(report.complianceCheck.isCompliant).toBe(false)
+        expect(report.alignmentCheck.findings.length).toBeGreaterThan(0)
+        expect(report.complianceCheck.findings.length).toBeGreaterThan(0)
+    })
 })
