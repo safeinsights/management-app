@@ -179,4 +179,25 @@ describe('generateAndStoreStudyReview', () => {
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
     })
+
+    it('writes the disabled-review placeholder and skips the agent when CLAUDE_API_KEY is unset', async () => {
+        getConfigValueMock.mockResolvedValue(undefined)
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+
+        await generateAndStoreStudyReview(job.id)
+
+        expect(generateAnalysisMock).not.toHaveBeenCalled()
+
+        const stored = await db
+            .selectFrom('studyReview')
+            .select('report')
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored).toBeDefined()
+        const report = JSON.parse(stored!.report as unknown as string)
+        expect(report.proposalSummary).toMatch(/disabled/i)
+        expect(report.alignmentCheck.findings).toEqual([])
+        expect(report.complianceCheck.findings).toEqual([])
+    })
 })
