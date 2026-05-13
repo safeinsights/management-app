@@ -4,7 +4,10 @@ import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-const DEFAULT_MAX_TOKENS = 4096
+// Sonnet 4.6 supports up to 64K output tokens. The review can contain many
+// long `findings` strings under each check, so we leave headroom rather than
+// risking a `stop_reason: 'max_tokens'` truncation mid-tool-call.
+const DEFAULT_MAX_TOKENS = 64_000
 const DEFAULT_MAX_RETRIES = 3
 
 const ANALYSIS_TOOL_NAME = 'submit_analysis'
@@ -84,6 +87,18 @@ function buildPromptForContent(content: ReviewContent, templateOverride?: string
 }
 
 function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
+    // Structured-outputs doc explicitly calls out two degenerate paths where the
+    // response can be 200 OK but the tool_use block is missing or partial:
+    //   - `stop_reason: 'refusal'` — safety refusal takes precedence over schema
+    //   - `stop_reason: 'max_tokens'` — output truncated mid-tool-call
+    // Surface both with specific messages so Sentry alerts are actionable.
+    if (response.stop_reason === 'refusal') {
+        throw new Error('The model refused to generate an analysis.')
+    }
+    if (response.stop_reason === 'max_tokens') {
+        throw new Error('The model response was truncated by max_tokens — raise the limit.')
+    }
+
     const toolUse = response.content.find(
         (block): block is Anthropic.Messages.ToolUseBlock =>
             block.type === 'tool_use' && block.name === ANALYSIS_TOOL_NAME,
