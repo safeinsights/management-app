@@ -187,13 +187,13 @@ describe('getOrgPublicKeys', () => {
 })
 
 describe('getStudyReviewForJob', () => {
-    it('returns kind="missing" when no review exists for the job', async () => {
+    it('returns null when no review exists for the job', async () => {
         const { job } = await insertTestStudyJobData()
         const result = await getStudyReviewForJob(job.id)
-        expect(result).toEqual({ kind: 'missing' })
+        expect(result).toBeNull()
     })
 
-    it('returns kind="ok" with the stored report when the row validates', async () => {
+    it('returns the review with meta when the stored row validates', async () => {
         const { job } = await insertTestStudyJobData()
         const report = {
             proposalSummary: 'Studying student outcomes.',
@@ -207,14 +207,13 @@ describe('getStudyReviewForJob', () => {
             .execute()
 
         const result = await getStudyReviewForJob(job.id)
-        expect(result.kind).toBe('ok')
-        if (result.kind !== 'ok') return
-        expect(result.review.report).toEqual(report)
-        expect(result.review.createdAt).toBeInstanceOf(Date)
-        expect(result.review.files).toEqual([])
+        if (result === null || result === 'malformed') throw new Error('expected review')
+        expect(result.report).toEqual(report)
+        expect(result.createdAt).toBeInstanceOf(Date)
+        expect(result.files).toEqual([])
     })
 
-    it('returns kind="malformed" when the stored report fails schema validation', async () => {
+    it('returns "malformed" when the stored report fails schema validation', async () => {
         const { job } = await insertTestStudyJobData()
         // Reproduces the prod bug: findings at the top level, alignmentCheck/complianceCheck
         // are string fragments instead of objects.
@@ -231,8 +230,6 @@ describe('getStudyReviewForJob', () => {
             .execute()
 
         const result = await getStudyReviewForJob(job.id)
-        expect(result.kind).toBe('malformed')
-        if (result.kind !== 'malformed') return
-        expect(result.createdAt).toBeInstanceOf(Date)
+        expect(result).toBe('malformed')
     })
 })

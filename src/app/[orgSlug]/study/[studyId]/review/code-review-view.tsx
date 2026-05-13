@@ -1,16 +1,16 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { AlertNotFound } from '@/components/errors'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy, type StudyReviewLookup } from '@/server/db/queries'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
+import { getConfigValue } from '@/server/config'
 import { isActionError } from '@/lib/errors'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import type { StudyReviewResult } from './study-review-types'
 import { StudyReviewSection } from './study-review-section'
 
 type CodeReviewViewProps = {
@@ -23,10 +23,13 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
-    const reviewResult = await getStudyReviewAction({ studyJobId: job.id })
-    // Soft-fail the seed: if the action errored, render the in-progress state and
-    // let the client poller surface a real error on its next refetch.
-    const initialReview: StudyReviewResult = isActionError(reviewResult) ? { kind: 'missing' } : reviewResult
+
+    const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
+    const reviewPanel = apiKey ? (
+        <StudyReviewSection studyJobId={job.id} initialReview={await seedInitialReview(job.id)} />
+    ) : (
+        <ReviewDisabled />
+    )
 
     return (
         <Stack px="xl" gap="xl">
@@ -52,7 +55,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                <StudyReviewSection studyJobId={job.id} initialReview={initialReview} />
+                {reviewPanel}
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>
@@ -64,6 +67,27 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                     Previous
                 </ButtonLink>
             </Group>
+        </Stack>
+    )
+}
+
+// Soft-fail seed: an action error here surfaces as "in progress"; the client
+// poller will request again and show a real error on its next failed refetch.
+async function seedInitialReview(studyJobId: string): Promise<StudyReviewLookup> {
+    const result = await getStudyReviewAction({ studyJobId })
+    return isActionError(result) ? null : result
+}
+
+function ReviewDisabled() {
+    return (
+        <Stack>
+            <Title order={4} size="xl">
+                Study Review
+            </Title>
+            <Divider c="dimmed" />
+            <Text c="dimmed" size="sm" data-testid="study-review-disabled">
+                AI review is not enabled for this environment.
+            </Text>
         </Stack>
     )
 }

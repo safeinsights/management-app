@@ -46,13 +46,9 @@ export interface ReviewAgentConfig {
     maxRetries?: number
 }
 
-/**
- * Runtime validator for AnalysisReport. The Anthropic tool-use JSON-schema is
- * advisory — Claude has been observed returning malformed shapes (e.g. string
- * fragments where objects are required). Use this schema to validate both the
- * model's response in the agent AND any persisted row before passing it to
- * the UI, since older rows pre-date the agent-side validation.
- */
+// Validates both the model's tool-use payload and any persisted row before
+// rendering — Anthropic's JSON-schema for tools is advisory, so the boundary
+// check is what actually guarantees shape.
 export const analysisReportSchema = z.object({
     proposalSummary: z.string(),
     codeExplanation: z.string(),

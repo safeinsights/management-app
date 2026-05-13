@@ -397,10 +397,7 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export type StudyReviewLookup =
-    | { kind: 'missing' }
-    | { kind: 'malformed'; createdAt: Date }
-    | { kind: 'ok'; review: StudyReviewWithMeta }
+export type StudyReviewLookup = StudyReviewWithMeta | 'malformed' | null
 
 export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewLookup> {
     const row = await Action.db
@@ -423,7 +420,7 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .limit(1)
         .executeTakeFirst()
 
-    if (!row) return { kind: 'missing' }
+    if (!row) return null
 
     const parsed = analysisReportSchema.safeParse(row.report)
     if (!parsed.success) {
@@ -432,8 +429,8 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
             createdAt: row.createdAt,
             issues: parsed.error.issues,
         })
-        return { kind: 'malformed', createdAt: row.createdAt }
+        return 'malformed'
     }
 
-    return { kind: 'ok', review: { report: parsed.data, createdAt: row.createdAt, files: row.files } }
+    return { report: parsed.data, createdAt: row.createdAt, files: row.files }
 }

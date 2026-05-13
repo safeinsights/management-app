@@ -2,16 +2,14 @@
 
 import { useQuery } from '@/common'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
-import type { StudyReviewResult } from './study-review-types'
-import type { AnalysisReport } from '@/server/agents/review-agent/types'
+import type { StudyReviewLookup, StudyReviewWithMeta } from '@/server/db/queries'
 import { Badge, Divider, Group, List, ListItem, Loader, Stack, Text, Title } from '@mantine/core'
 
 const POLL_INTERVAL_MS = 5_000
 
 type StudyReviewSectionProps = {
     studyJobId: string
-    initialReview: StudyReviewResult
+    initialReview: StudyReviewLookup
 }
 
 export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSectionProps) {
@@ -19,21 +17,14 @@ export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSec
         queryKey: ['study-review', studyJobId],
         queryFn: () => getStudyReviewAction({ studyJobId }),
         initialData: initialReview,
-        // Only poll while we have no resolved state yet (i.e. waiting on the runner).
-        // `disabled`, `malformed`, and `ok` are terminal; `missing` keeps polling.
-        refetchInterval: (query) => {
-            if (query.state.error) return false
-            const data = query.state.data
-            if (!data || data.kind === 'missing') return POLL_INTERVAL_MS
-            return false
-        },
+        // Poll only while no row exists yet; 'malformed' and a real review are terminal.
+        refetchInterval: (query) => (query.state.data === null && !query.state.error ? POLL_INTERVAL_MS : false),
     })
 
     if (error) return <ReviewError />
-    if (!result || result.kind === 'missing') return <ReviewInProgress />
-    if (result.kind === 'disabled') return <ReviewDisabled />
-    if (result.kind === 'malformed') return <ReviewMalformed />
-    return <ReviewReport review={result.review} />
+    if (result == null) return <ReviewInProgress />
+    if (result === 'malformed') return <ReviewMalformed />
+    return <ReviewReport review={result} />
 }
 
 function ReviewInProgress() {
@@ -56,17 +47,6 @@ function ReviewError() {
             <ReviewHeader />
             <Text c="red" size="sm" data-testid="study-review-error">
                 Failed to load study review. Please refresh to try again.
-            </Text>
-        </Stack>
-    )
-}
-
-function ReviewDisabled() {
-    return (
-        <Stack>
-            <ReviewHeader />
-            <Text c="dimmed" size="sm" data-testid="study-review-disabled">
-                AI review is not enabled for this environment.
             </Text>
         </Stack>
     )
@@ -164,7 +144,7 @@ type CheckSectionProps = {
     isPositive: boolean
     positiveLabel: string
     negativeLabel: string
-    findings: AnalysisReport['alignmentCheck']['findings']
+    findings: string[]
 }
 
 function CheckSection({ title, isPositive, positiveLabel, negativeLabel, findings }: CheckSectionProps) {
