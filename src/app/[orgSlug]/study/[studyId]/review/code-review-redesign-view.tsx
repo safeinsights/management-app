@@ -1,9 +1,11 @@
+import { AlertNotFound } from '@/components/errors'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
-import { latestJobForStudy } from '@/server/db/queries'
+import { latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { CodeReviewClient } from './code-review-client'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
@@ -102,8 +104,13 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
 }
 
 export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedesignViewProps) {
-    const job = await latestJobForStudy(study.id)
+    const job = await latestJobForStudyOrNull(study.id)
+    if (!job) {
+        return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
+    }
+
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
+    const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     return (
         <Box bg="grey.10">
@@ -119,6 +126,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
                     Study Proposal
                 </Title>
                 <CodeReviewSection study={study} submittedAt={job.createdAt} />
+                <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus={latestJobStatus} />
             </Stack>
         </Box>
     )

@@ -10,12 +10,24 @@ import { isActionError } from '@/lib/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
+
+export type EditableSnapshot = {
+    status: StudyStatus
+    latestJobStatus: StudyJobStatus | null
+}
 
 type Args = {
     studyId: string
     orgSlug: string
     /** Statuses where editing is still allowed. Mismatch triggers redirect. */
     editableStatuses: readonly string[]
+    /**
+     * Optional predicate. When supplied, takes precedence over `editableStatuses`
+     * and lets callers (e.g. code review) gate on both study status and latest
+     * job status. Allowlist remains the default for backward-compatible callers.
+     */
+    isEditable?: (snapshot: EditableSnapshot) => boolean
     /** Where to send the user when status no longer matches. */
     redirectTarget: 'studySubmitted' | 'studyReview'
     enabled?: boolean
@@ -67,6 +79,7 @@ export function useStudyStatusOnReconnect({
     studyId,
     orgSlug,
     editableStatuses,
+    isEditable,
     redirectTarget,
     enabled = true,
 }: Args) {
@@ -83,19 +96,26 @@ export function useStudyStatusOnReconnect({
     // arrays / objects on each render. The contract is just "check once on each
     // connect transition" and that doesn't depend on identity churn.
     const editableStatusesRef = useRef(editableStatuses)
+    const isEditableRef = useRef(isEditable)
     const orgSlugRef = useRef(orgSlug)
     const redirectTargetRef = useRef(redirectTarget)
     useEffect(() => {
         editableStatusesRef.current = editableStatuses
+        isEditableRef.current = isEditable
         orgSlugRef.current = orgSlug
         redirectTargetRef.current = redirectTarget
-    }, [editableStatuses, orgSlug, redirectTarget])
+    }, [editableStatuses, isEditable, orgSlug, redirectTarget])
 
     const checkStatus = useCallback(async () => {
         if (hasRedirectedRef.current) return
         const result = await getStudyStatusAction({ studyId })
         if (isActionError(result)) return
-        if (editableStatusesRef.current.includes(result.status)) return
+        const predicate = isEditableRef.current
+        if (predicate) {
+            if (predicate({ status: result.status, latestJobStatus: result.latestJobStatus })) return
+        } else if (editableStatusesRef.current.includes(result.status)) {
+            return
+        }
 
         hasRedirectedRef.current = true
         notifications.show({

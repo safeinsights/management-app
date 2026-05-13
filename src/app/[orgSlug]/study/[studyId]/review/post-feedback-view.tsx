@@ -7,12 +7,15 @@ import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { Routes } from '@/lib/routes'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+
+export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
 type PostFeedbackViewProps = {
     orgSlug: string
     study: SelectedStudy
-    entries: ProposalFeedbackEntry[]
+    entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
+    kind?: PostFeedbackKind
 }
 
 type DecisionCopy = {
@@ -20,7 +23,14 @@ type DecisionCopy = {
     banner: { bg: string; testId: string; copy: string }
 }
 
-const DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
+type KindCopy = {
+    heading: string
+    crumbLast: string
+    stepLabel: string
+    decisionCopy: Partial<Record<ReviewDecision, DecisionCopy>>
+}
+
+const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     APPROVE: {
         timestampLabel: 'Approved on',
         banner: {
@@ -47,8 +57,44 @@ const DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     },
 }
 
-function DecisionBanner({ decision }: { decision: ReviewDecision }) {
-    const { banner } = DECISION_COPY[decision]
+const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
+    APPROVE: {
+        timestampLabel: 'Approved on',
+        banner: {
+            bg: 'green.1',
+            testId: 'decision-banner-code-approved',
+            copy: 'This study code has been approved. No further edits are allowed at this point.',
+        },
+    },
+    REJECT: {
+        timestampLabel: 'Rejected on',
+        banner: {
+            bg: 'red.1',
+            testId: 'decision-banner-code-rejected',
+            copy: 'This study code has been rejected. No further action is required at this time.',
+        },
+    },
+}
+
+const COPY_BY_KIND: Record<PostFeedbackKind, KindCopy> = {
+    PROPOSAL: {
+        heading: 'Review initial request',
+        crumbLast: 'Review initial request',
+        stepLabel: 'STEP 1',
+        decisionCopy: PROPOSAL_DECISION_COPY,
+    },
+    CODE: {
+        heading: 'Review study code',
+        crumbLast: 'Review study code',
+        stepLabel: 'STEP 3',
+        decisionCopy: CODE_DECISION_COPY,
+    },
+}
+
+function DecisionBanner({ decision, kind }: { decision: ReviewDecision; kind: PostFeedbackKind }) {
+    const copy = COPY_BY_KIND[kind].decisionCopy[decision]
+    if (!copy) return null
+    const { banner } = copy
     return (
         <Box bg={banner.bg} p="md" bdrs="sm" my="md" data-testid={banner.testId}>
             <Text c="charcoal.9" size="sm">
@@ -68,24 +114,22 @@ function GoToDashboardButton() {
     )
 }
 
-export function PostFeedbackView({ orgSlug, study, entries }: PostFeedbackViewProps) {
+export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL' }: PostFeedbackViewProps) {
     const latest = entries[0]
     if (!latest || latest.decision === null) {
         return null
     }
 
     const decision = latest.decision
-    const { timestampLabel } = DECISION_COPY[decision]
+    const kindCopy = COPY_BY_KIND[kind]
+    const decisionCopy = kindCopy.decisionCopy[decision]
+    const timestampLabel = decisionCopy?.timestampLabel ?? PROPOSAL_DECISION_COPY[decision].timestampLabel
 
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xl" py="xl">
                 <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Study proposal'],
-                        ['Review initial request'],
-                    ]}
+                    crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Study proposal'], [kindCopy.crumbLast]]}
                 />
                 <Title order={1} fz={40} fw={700}>
                     Study Proposal
@@ -93,11 +137,11 @@ export function PostFeedbackView({ orgSlug, study, entries }: PostFeedbackViewPr
                 <ProposalRequest
                     study={study}
                     orgSlug={orgSlug}
-                    stepLabel="STEP 1"
-                    heading="Review initial request"
+                    stepLabel={kindCopy.stepLabel}
+                    heading={kindCopy.heading}
                     statusBadge={timestampLabel}
                     timestampDate={latest.createdAt}
-                    banner={<DecisionBanner decision={decision} />}
+                    banner={<DecisionBanner decision={decision} kind={kind} />}
                     initialExpanded={false}
                 />
                 <FeedbackAndNotesSection entries={entries} />

@@ -1178,6 +1178,35 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
+    it("accepts 'not-sure' for criteria values", async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: {
+                proposalAlignment: 'yes',
+                agreementCompliance: 'no',
+                securityChecks: 'not-sure',
+                privacyProtection: 'not-sure',
+            },
+        })
+
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].criteria).toEqual({
+            proposalAlignment: 'yes',
+            agreementCompliance: 'no',
+            securityChecks: 'not-sure',
+            privacyProtection: 'not-sure',
+        })
+    })
+
     it('rejects when the code job is not in a reviewable state', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -1471,7 +1500,7 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows).toHaveLength(2)
         expect(rows[0].id).toBe(newer.id)
         expect(rows[1].id).toBe(older.id)
-        expect(rows.every((r) => r.reviewKind === 'CODE')).toBe(true)
+        expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
     })
 })
 

@@ -45,8 +45,23 @@ export const getStudyStatusAction = new Action('getStudyStatusAction')
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
 
+        // Used by callers that gate editability on both study status AND the latest
+        // job's status (e.g. code review). Backward-compatible: existing callers read
+        // only `status`. Ordering matches latestJobForStudyQuery and the editor's
+        // LATEST_JOB_STATUS_SQL so all three agree on what "latest" means.
+        const latestJobStatusRow = await db
+            .selectFrom('jobStatusChange')
+            .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+            .select('jobStatusChange.status')
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('jobStatusChange.createdAt', 'desc')
+            .orderBy('jobStatusChange.id', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+
         return {
             status: row.status,
             submittedAt: row.submittedAt?.toISOString() ?? null,
+            latestJobStatus: latestJobStatusRow?.status ?? null,
         }
     })

@@ -10,7 +10,11 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { getProposalFeedbackForStudyAction, getStudyAction } from '@/server/actions/study.actions'
+import {
+    getCodeReviewFeedbackAction,
+    getProposalFeedbackForStudyAction,
+    getStudyAction,
+} from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -48,13 +52,15 @@ export default async function StudyReviewPage(props: {
     if (currentOrg.type === 'enclave') {
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
 
-        // When a reviewer navigates back from the code review page, show the post-feedback view
+        // When a reviewer navigates back from the code review page, show the code-review
+        // post-feedback view. Reads from studyReviewComment (code-review rows) rather than
+        // studyProposalComment so the rendered entries match the decision just submitted.
         if (searchParams.from === 'code-review' && codeSubmitted) {
-            const entries = await getProposalFeedbackForStudyAction({ studyId })
+            const entries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(entries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />
+            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} kind="CODE" />
         }
 
         // When a reviewer navigates back from the agreements step, show the proposal

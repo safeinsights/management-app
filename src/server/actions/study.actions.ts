@@ -648,10 +648,10 @@ async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; stud
 }
 
 const codeReviewCriteriaSchema = z.object({
-    proposalAlignment: z.enum(['yes', 'no']),
-    agreementCompliance: z.enum(['yes', 'no']),
-    securityChecks: z.enum(['yes', 'no']),
-    privacyProtection: z.enum(['yes', 'no']),
+    proposalAlignment: z.enum(['yes', 'no', 'not-sure']),
+    agreementCompliance: z.enum(['yes', 'no', 'not-sure']),
+    securityChecks: z.enum(['yes', 'no', 'not-sure']),
+    privacyProtection: z.enum(['yes', 'no', 'not-sure']),
 })
 
 export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisionAction', { performsMutations: true })
@@ -739,10 +739,20 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .handler(async ({ params: { studyId }, db }) =>
         db
             .selectFrom('studyReviewComment')
-            .selectAll('studyReviewComment')
-            .where('studyId', '=', studyId)
-            .where('reviewKind', '=', 'CODE')
-            .orderBy('createdAt', 'desc')
+            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+            .select([
+                'studyReviewComment.id',
+                'studyReviewComment.authorId',
+                'studyReviewComment.entryType',
+                'studyReviewComment.decision',
+                'studyReviewComment.body',
+                'studyReviewComment.criteria',
+                'studyReviewComment.createdAt',
+                'author.fullName as authorName',
+            ])
+            .where('studyReviewComment.studyId', '=', studyId)
+            .where('studyReviewComment.reviewKind', '=', 'CODE')
+            .orderBy('studyReviewComment.createdAt', 'desc')
             .execute(),
     )
 
