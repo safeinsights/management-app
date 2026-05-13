@@ -6,11 +6,23 @@ import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 
+// Written when the API key is missing, before content assembly. This means a
+// no-code-files study with a missing key gets the placeholder too — fine, since
+// either condition prevents a real review. Sentinel is "automated review didn't
+// run," not strictly "key missing." Booleans are intentionally `false` so the
+// UI renders red Misaligned / Non-compliant badges — a missing review must NOT
+// look like a passing review to a reviewer.
 const DISABLED_REPORT: AnalysisReport = {
-    proposalSummary: 'AI code review is disabled for this environment — CLAUDE_API_KEY is not configured.',
-    codeExplanation: 'No automated review was generated.',
-    alignmentCheck: { isAligned: true, findings: [] },
-    complianceCheck: { isCompliant: true, findings: [] },
+    proposalSummary: 'Automated AI review did not run — CLAUDE_API_KEY is not configured for this environment.',
+    codeExplanation: 'Manual review required.',
+    alignmentCheck: {
+        isAligned: false,
+        findings: ['Automated review did not run for this submission.'],
+    },
+    complianceCheck: {
+        isCompliant: false,
+        findings: ['Automated review did not run for this submission.'],
+    },
 }
 
 const MAX_FILE_SIZE_BYTES = 100_000

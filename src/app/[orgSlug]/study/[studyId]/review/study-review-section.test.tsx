@@ -93,16 +93,25 @@ describe('StudyReviewSection', () => {
         expect(screen.getByText('Median score 82, no anomalies.')).toBeInTheDocument()
     })
 
-    it('renders the disabled-key placeholder report like any other review', () => {
+    it('renders the disabled-key placeholder with red badges so a missing review does not look like a pass', () => {
         const disabledReport: AnalysisReport = {
-            proposalSummary: 'AI code review is disabled for this environment — CLAUDE_API_KEY is not configured.',
-            codeExplanation: 'No automated review was generated.',
-            alignmentCheck: { isAligned: true, findings: [] },
-            complianceCheck: { isCompliant: true, findings: [] },
+            proposalSummary: 'Automated AI review did not run — CLAUDE_API_KEY is not configured for this environment.',
+            codeExplanation: 'Manual review required.',
+            alignmentCheck: {
+                isAligned: false,
+                findings: ['Automated review did not run for this submission.'],
+            },
+            complianceCheck: {
+                isCompliant: false,
+                findings: ['Automated review did not run for this submission.'],
+            },
         }
 
         renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(disabledReport, [])} />)
 
-        expect(screen.getByText(/AI code review is disabled/)).toBeInTheDocument()
+        expect(screen.getByText(/Automated AI review did not run/)).toBeInTheDocument()
+        expect(screen.getByText('Misaligned')).toBeInTheDocument()
+        expect(screen.getByText('Non-compliant')).toBeInTheDocument()
+        expect(screen.getAllByText(/Automated review did not run/).length).toBeGreaterThan(1)
     })
 })

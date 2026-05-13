@@ -4,10 +4,10 @@ import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-// Sized for ~3× the realistic worst-case review (2 narrative fields + ~10
-// findings per check at ~50 tokens each ≈ 4-5K tokens). The schema property
-// `description` strings below carry the actual length guidance to the model;
-// this cap exists only to bound runaway output if the model ignores them.
+// Realistic worst case is ~1.5K tokens (2 narrative fields × ~150 words ≈
+// 400 tokens, plus ~10 findings per check × 2 checks × ~50 tokens). 16K
+// gives ~10× headroom — schema property `description` strings carry the
+// actual length guidance to the model; this cap is just a runaway bound.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
