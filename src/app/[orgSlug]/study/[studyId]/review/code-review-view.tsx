@@ -1,9 +1,7 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { AlertNotFound } from '@/components/errors'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import { getStudyReviewAction } from '@/server/actions/study-job.actions'
-import { isActionError } from '@/lib/errors'
+import { getStudyReviewForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
@@ -23,10 +21,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    // Soft-fail seed: an action error here surfaces as "in progress"; the client
-    // poller will request again and show a real error on its next failed refetch.
-    const result = await getStudyReviewAction({ studyJobId: job.id })
-    const initialReview = isActionError(result) ? null : result
+    const initialReview = await getStudyReviewForJob(job.id)
 
     return (
         <Stack px="xl" gap="xl">
