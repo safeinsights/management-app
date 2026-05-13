@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 
 /**
  * Reference documents provided by the reviewing organization.
@@ -18,7 +19,7 @@ export interface ReferenceDocs {
  * Mgmt app builds this from:
  * - proposal: composed from Study.projectSummary, .researchQuestions, .impact, .additionalNotes
  * - codeFiles: fetched from S3 via StudyJobFile (MAIN-CODE / SUPPLEMENTAL-CODE)
- * - referenceDocs.dataDocs: fetched from OrgDataSource.documentationUrl entries
+ * - referenceDocs.dataDocs: fetched from OrgDataSource and corresponding OrgDataSourceUrl entries
  * - referenceDocs.requirements / brcDocs / otherDocs: org-level compliance docs (TBD schema)
  */
 export interface ReviewContent {
@@ -45,22 +46,29 @@ export interface ReviewAgentConfig {
     maxRetries?: number
 }
 
+// Shape is guaranteed at decode time by Anthropic's `strict: true` tool mode
+// (see ANALYSIS_TOOL in agent.ts). This schema mirrors that contract for two
+// reasons: (1) deriving `AnalysisReport` from one source so the TS type and
+// the API contract can't drift; (2) belt-and-suspenders runtime check at the
+// write boundary in case of SDK/model regression.
+export const analysisReportSchema = z.object({
+    proposalSummary: z.string(),
+    codeExplanation: z.string(),
+    resultsSummary: z.string().optional(),
+    alignmentCheck: z.object({
+        isAligned: z.boolean(),
+        findings: z.array(z.string()),
+    }),
+    complianceCheck: z.object({
+        isCompliant: z.boolean(),
+        findings: z.array(z.string()),
+    }),
+})
+
 /**
  * Structured analysis output from the ReviewAgent.
  */
-export interface AnalysisReport {
-    proposalSummary: string
-    codeExplanation: string
-    resultsSummary?: string
-    alignmentCheck: {
-        isAligned: boolean
-        findings: string[]
-    }
-    complianceCheck: {
-        isCompliant: boolean
-        findings: string[]
-    }
-}
+export type AnalysisReport = z.infer<typeof analysisReportSchema>
 
 /**
  * Single message in a review conversation. Stored alongside the report so

@@ -416,5 +416,6 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+
     return row ?? null
 }

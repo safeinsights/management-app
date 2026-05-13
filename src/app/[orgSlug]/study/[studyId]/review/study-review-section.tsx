@@ -3,7 +3,6 @@
 import { useQuery } from '@/common'
 import { getStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
-import type { AnalysisReport } from '@/server/agents/review-agent/types'
 import { Badge, Divider, Group, List, ListItem, Loader, Stack, Text, Title } from '@mantine/core'
 
 const POLL_INTERVAL_MS = 5_000
@@ -14,23 +13,22 @@ type StudyReviewSectionProps = {
 }
 
 export function StudyReviewSection({ studyJobId, initialReview }: StudyReviewSectionProps) {
-    const { data: review, error } = useQuery({
+    const { data: result, error } = useQuery({
         queryKey: ['study-review', studyJobId],
         queryFn: () => getStudyReviewAction({ studyJobId }),
         initialData: initialReview,
-        // Review job runs async for unknown duration; poll until row arrives or query errors.
-        refetchInterval: (query) => (query.state.data || query.state.error ? false : POLL_INTERVAL_MS),
+        // Poll until the runner writes a row. A row — including the disabled-key
+        // placeholder — is terminal.
+        refetchInterval: (query) => {
+            if (query.state.error) return false
+            if (query.state.data != null) return false
+            return POLL_INTERVAL_MS
+        },
     })
 
-    if (error) {
-        return <ReviewError />
-    }
-
-    if (!review) {
-        return <ReviewInProgress />
-    }
-
-    return <ReviewReport review={review} />
+    if (error) return <ReviewError />
+    if (result == null) return <ReviewInProgress />
+    return <ReviewReport review={result} />
 }
 
 function ReviewInProgress() {
@@ -139,7 +137,7 @@ type CheckSectionProps = {
     isPositive: boolean
     positiveLabel: string
     negativeLabel: string
-    findings: AnalysisReport['alignmentCheck']['findings']
+    findings: string[]
 }
 
 function CheckSection({ title, isPositive, positiveLabel, negativeLabel, findings }: CheckSectionProps) {

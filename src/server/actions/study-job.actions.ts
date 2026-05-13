@@ -4,7 +4,6 @@ import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -99,7 +98,7 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }): Promise<StudyReviewWithMeta | null> => {
+    .handler(async ({ params: { studyJobId } }) => {
         return await getStudyReviewForJob(studyJobId)
     })
 

@@ -3,12 +3,11 @@
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { Routes } from '@/lib/routes'
-import { Box, Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
-import dayjs from 'dayjs'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import { ProposalSection } from './proposal-section'
 
 type PostFeedbackViewProps = {
     orgSlug: string
@@ -18,56 +17,45 @@ type PostFeedbackViewProps = {
 
 type DecisionCopy = {
     timestampLabel: string
-    banner: { bg: string; color: string; testId: string; copy: string }
+    banner: { bg: string; testId: string; copy: string }
 }
 
 const DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     APPROVE: {
-        timestampLabel: 'Approved',
+        timestampLabel: 'Approved on',
         banner: {
             bg: 'green.1',
-            color: 'green.8',
             testId: 'decision-banner-approved',
             copy: "This initial request has been approved. You'll receive email notifications when the researcher proceeds to the next step.",
         },
     },
     'NEEDS-CLARIFICATION': {
-        timestampLabel: 'Clarification requested',
+        timestampLabel: 'Clarification requested on',
         banner: {
             bg: 'yellow.1',
-            color: 'yellow.9',
             testId: 'decision-banner-clarification',
             copy: 'You have requested clarification. The researcher has been notified, and we will inform you once they resubmit.',
         },
     },
     REJECT: {
-        timestampLabel: 'Rejected',
+        timestampLabel: 'Rejected on',
         banner: {
             bg: 'red.1',
-            color: 'red.8',
             testId: 'decision-banner-rejected',
             copy: 'This initial request has been rejected. No further action is required at this time.',
         },
     },
 }
 
-function formatDate(date: Date | string): string {
-    return dayjs(date).format('MMM DD, YYYY')
-}
-
 function DecisionBanner({ decision }: { decision: ReviewDecision }) {
     const { banner } = DECISION_COPY[decision]
     return (
-        <Box bg={banner.bg} p="md" bdrs="sm" data-testid={banner.testId}>
-            <Text c={banner.color} size="sm">
+        <Box bg={banner.bg} p="md" bdrs="sm" my="md" data-testid={banner.testId}>
+            <Text c="charcoal.9" size="sm">
                 {banner.copy}
             </Text>
         </Box>
     )
-}
-
-function FullProposalDropdown({ orgSlug, study }: { orgSlug: string; study: SelectedStudy }) {
-    return <ProposalSection orgSlug={orgSlug} study={study} initialExpanded={false} />
 }
 
 function GoToDashboardButton() {
@@ -80,35 +68,6 @@ function GoToDashboardButton() {
     )
 }
 
-type DecisionHeaderProps = {
-    study: SelectedStudy
-    decision: ReviewDecision
-    decidedAt: Date | string
-}
-
-function DecisionHeader({ study, decision, decidedAt }: DecisionHeaderProps) {
-    const copy = DECISION_COPY[decision]
-    const date = formatDate(decidedAt)
-
-    return (
-        <Stack gap="md" data-testid="decision-header">
-            <Stack gap={4}>
-                <Title order={1} fz={40} fw={700}>
-                    Study Proposal
-                </Title>
-                <Text fz={20} fw={600}>
-                    Review initial request
-                </Text>
-                <Text size="sm">Title: {study.title}</Text>
-                <Text size="sm" c="gray.7" data-testid="decision-timestamp">
-                    {copy.timestampLabel} on {date}
-                </Text>
-            </Stack>
-            <Divider />
-        </Stack>
-    )
-}
-
 export function PostFeedbackView({ orgSlug, study, entries }: PostFeedbackViewProps) {
     const latest = entries[0]
     if (!latest || latest.decision === null) {
@@ -116,14 +75,31 @@ export function PostFeedbackView({ orgSlug, study, entries }: PostFeedbackViewPr
     }
 
     const decision = latest.decision
+    const { timestampLabel } = DECISION_COPY[decision]
 
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xl" py="xl">
-                <PageBreadcrumbs crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Study proposal']]} />
-                <DecisionHeader study={study} decision={decision} decidedAt={latest.createdAt} />
-                <DecisionBanner decision={decision} />
-                <FullProposalDropdown orgSlug={orgSlug} study={study} />
+                <PageBreadcrumbs
+                    crumbs={[
+                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
+                        ['Study proposal'],
+                        ['Review initial request'],
+                    ]}
+                />
+                <Title order={1} fz={40} fw={700}>
+                    Study Proposal
+                </Title>
+                <ProposalRequest
+                    study={study}
+                    orgSlug={orgSlug}
+                    stepLabel="STEP 1"
+                    heading="Review initial request"
+                    statusBadge={timestampLabel}
+                    timestampDate={latest.createdAt}
+                    banner={<DecisionBanner decision={decision} />}
+                    initialExpanded={false}
+                />
                 <FeedbackAndNotesSection entries={entries} />
                 <Group justify="flex-end">
                     <GoToDashboardButton />

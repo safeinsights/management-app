@@ -26,6 +26,11 @@ import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import {
+    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MIN_WORDS,
+} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { countWords, lexicalJson } from '@/lib/word-count'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -609,4 +614,127 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         triggerCodeScan(studyJobId, orgSlug, studyId)
 
         return { studyJobId }
+    })
+
+// OTTER-521: Edit & resubmit proposal — researcher revises the initial request
+// after the DO marked it 'needs clarification' (CHANGE-REQUESTED).
+//
+// The resubmission note is stored in the studyProposalComment table introduced
+// by OTTER-501 (entryType=RESUBMISSION-NOTE, authorRole=RESEARCHER).
+// Authorization is handled via CASL (requireAbilityTo('update', 'Study')) — we
+// don't add a redundant `where researcherId = userId` filter.
+
+const proposalUpdatableFields = [
+    'title',
+    'piName',
+    'piUserId',
+    'datasets',
+    'researchQuestions',
+    'projectSummary',
+    'impact',
+    'additionalNotes',
+] as const
+
+const resubmissionNoteParam = z.string().refine(
+    (val) => {
+        const count = countWords(val)
+        return count >= RESUBMIT_NOTE_MIN_WORDS && count <= RESUBMIT_NOTE_MAX_WORDS
+    },
+    { message: `Resubmission note must be between ${RESUBMIT_NOTE_MIN_WORDS} and ${RESUBMIT_NOTE_MAX_WORDS} words.` },
+)
+
+// Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
+// click — auto-save is intentionally out of scope for OTTER-521). The
+// `researcherId = userId` ownership filter is load-bearing: CASL's
+// `permit('update', 'Study')` is unconditional for any researcher, so this
+// is what actually scopes writes to the study's owner.
+export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string(), studyInfo: draftStudyApiSchema }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
+        const userId = session.user.id
+
+        const updateValues = Object.fromEntries(
+            proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
+
+        if (Object.keys(updateValues).length > 0) {
+            await db
+                .updateTable('study')
+                .set(updateValues)
+                .where('id', '=', studyId)
+                .where('status', '=', 'CHANGE-REQUESTED')
+                .where('researcherId', '=', userId)
+                .execute()
+        }
+
+        return { studyId }
+    })
+
+// Final resubmission: writes the latest proposal edits, records the
+// resubmission note as a study_proposal_comment row, and transitions
+// CHANGE-REQUESTED -> PENDING-REVIEW.
+export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string(),
+            studyInfo: draftStudyApiSchema,
+            resubmissionNote: resubmissionNoteParam,
+        }),
+    )
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
+        const userId = session.user.id
+
+        // Same caveat as onUpdateClarifiedProposalAction: pair `requireAbilityTo`
+        // with an explicit ownership filter since CASL doesn't scope by researcher.
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status'])
+            .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
+            .executeTakeFirst()
+
+        if (!study) throw new Error('Study not found or access denied')
+        if (study.status !== 'CHANGE-REQUESTED') {
+            throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
+        }
+
+        const updateValues = Object.fromEntries(
+            proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
+
+        // Don't update study.submittedAt — keep the original first-submission
+        // timestamp. The resubmission timeline lives in studyProposalComment
+        // rows (one per resubmit, with its own createdAt).
+        await db
+            .updateTable('study')
+            .set({
+                ...updateValues,
+                status: 'PENDING-REVIEW',
+            })
+            .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
+            .execute()
+
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                authorId: userId,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: JSON.parse(lexicalJson(resubmissionNote)),
+            })
+            .execute()
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/dashboard`)
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        return { studyId }
     })

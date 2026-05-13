@@ -1,15 +1,34 @@
-import { db } from '@/database'
+import { db, jsonArrayFrom } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/word-count'
 import { generateAnalysis } from './agent'
-import type { ReviewContent } from './types'
+import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
+
+// Written when the API key is missing, before content assembly. This means a
+// no-code-files study with a missing key gets the placeholder too — fine, since
+// either condition prevents a real review. Sentinel is "automated review didn't
+// run," not strictly "key missing." Booleans are intentionally `false` so the
+// UI renders red Misaligned / Non-compliant badges — a missing review must NOT
+// look like a passing review to a reviewer.
+const DISABLED_REPORT: AnalysisReport = {
+    proposalSummary: 'Automated AI review did not run — CLAUDE_API_KEY is not configured for this environment.',
+    codeExplanation: 'Manual review required.',
+    alignmentCheck: {
+        isAligned: false,
+        findings: ['Automated review did not run for this submission.'],
+    },
+    complianceCheck: {
+        isCompliant: false,
+        findings: ['Automated review did not run for this submission.'],
+    },
+}
 
 const MAX_FILE_SIZE_BYTES = 100_000
 const MAX_FILE_COUNT = 10
 
-const PLACEHOLDER = '(none provided)'
+export const PLACEHOLDER = '(none provided)'
 
 async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string>> {
     const files = await db
@@ -42,7 +61,16 @@ function lexicalFieldToText(value: unknown): string {
 async function fetchDataDocs(orgId: string): Promise<string> {
     const sources = await db
         .selectFrom('orgDataSource')
-        .select(['name', 'description', 'documentationUrl'])
+        .select((eb) => [
+            'name',
+            'description',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('orgDataSourceUrl')
+                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id'),
+            ).as('urls'),
+        ])
         .where('orgId', '=', orgId)
         .execute()
 
@@ -50,9 +78,13 @@ async function fetchDataDocs(orgId: string): Promise<string> {
     for (const source of sources) {
         const lines: string[] = [`### ${source.name}`]
         if (source.description) lines.push(source.description)
-        // TODO: fetch and inline the documentation contents from `documentationUrl`
-        // instead of passing the bare URL — agent currently only sees the link string.
-        if (source.documentationUrl) lines.push(`Documentation: ${source.documentationUrl}`)
+
+        for (const url of source.urls) {
+            if (url.url !== null) {
+                lines.push(`Documentation: ${url.url} (${url.description || 'No description provided'})`)
+            }
+        }
+
         sections.push(lines.join('\n'))
     }
     return sections.length > 0 ? sections.join('\n\n') : PLACEHOLDER
@@ -125,10 +157,15 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
         return
     }
 
+    const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
+    if (!apiKey) {
+        logger.warn('CLAUDE_API_KEY not configured — writing disabled-review placeholder', { studyJobId })
+        await persistReport(studyJobId, DISABLED_REPORT)
+        return
+    }
+
     const content = await assembleReviewContent(studyJobId)
     if (!content) return
-
-    const apiKey = await getConfigValue('CLAUDE_API_KEY')
 
     // TODO(SI-Admin): once the SI Admin org-level config schema lands, fetch
     // `systemPrompt` and `analysisPromptTemplate` overrides for `job.orgId`
@@ -139,14 +176,14 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
     // (target: before Oct 2026). Seed for `continueChat`.
     const { report } = await generateAnalysis({ apiKey }, content)
 
+    await persistReport(studyJobId, report)
+    logger.info(`Study review generated and stored`, { studyJobId })
+}
+
+async function persistReport(studyJobId: string, report: AnalysisReport): Promise<void> {
     await db
         .insertInto('studyReview')
-        .values({
-            studyJobId,
-            report: JSON.stringify(report),
-        })
+        .values({ studyJobId, report: JSON.stringify(report) })
         .onConflict((oc) => oc.column('studyJobId').doNothing())
         .execute()
-
-    logger.info(`Study review generated and stored`, { studyJobId })
 }
