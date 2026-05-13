@@ -1,6 +1,6 @@
 'use client'
 
-import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Button, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
@@ -56,13 +56,30 @@ type CriterionRowProps = {
     onChange: (value: CodeReviewCriteriaDraftValue) => void
 }
 
+type ClearCriterionButtonProps = {
+    isVisible: boolean
+    onClear: () => void
+    testId: string
+}
+
+// Native radios cannot be returned to the unchecked state by clicking the
+// selected option again — MDN confirms this is browser behavior, not a Mantine
+// quirk. The AC requires unselect-after-select to round-trip across peers, so
+// every criterion exposes an explicit Clear affordance.
+function ClearCriterionButton({ isVisible, onClear, testId }: ClearCriterionButtonProps) {
+    if (!isVisible) return null
+    return (
+        <Button variant="subtle" size="xs" onClick={onClear} data-testid={testId}>
+            Clear
+        </Button>
+    )
+}
+
 function CriterionRow({ descriptor, value, onChange }: CriterionRowProps) {
     const handleChange = (raw: string) => {
-        // Clicking the already-selected radio clears it (unselect path). Mantine
-        // Radio.Group always emits a string, so cast the empty case back to null.
-        const next = raw === '' ? null : (raw as CodeReviewCriteriaDraftValue)
-        onChange(next)
+        onChange(raw as CodeReviewCriteriaDraftValue)
     }
+    const handleClear = () => onChange(null)
 
     return (
         <Stack gap={4}>
@@ -77,6 +94,11 @@ function CriterionRow({ descriptor, value, onChange }: CriterionRowProps) {
                     {OPTIONS.map((option) => (
                         <Radio key={option.value} value={option.value} label={option.label} />
                     ))}
+                    <ClearCriterionButton
+                        isVisible={value !== null}
+                        onClear={handleClear}
+                        testId={`criteria-clear-${descriptor.key}`}
+                    />
                 </Group>
             </Radio.Group>
         </Stack>

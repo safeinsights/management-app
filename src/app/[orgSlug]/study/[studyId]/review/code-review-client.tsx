@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC, type ReactNode } from 'react'
-import { Box, Button, Group, Stack, Text } from '@mantine/core'
+import { Alert, Box, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -210,6 +210,84 @@ const DecisionRadio: FC<DecisionRadioProps> = ({ value, onChange }) => {
     )
 }
 
+type EditableBodyProps = {
+    isVisible: boolean
+    feedback: ReturnType<typeof useReviewFeedback>
+    evaluationForm: ReturnType<typeof useCodeReview>['evaluationForm']
+    decision: ReturnType<typeof useReviewDecision>
+    job: LatestJobForStudy
+    canSubmit: boolean
+    isPending: boolean
+    onBack: () => void
+    onSubmit: () => void
+    onDecisionChange: (next: 'approve' | 'reject') => void
+}
+
+function EditableBody({
+    isVisible,
+    feedback,
+    evaluationForm,
+    decision,
+    job,
+    canSubmit,
+    isPending,
+    onBack,
+    onSubmit,
+    onDecisionChange,
+}: EditableBodyProps) {
+    if (!isVisible) return null
+    const decisionValue = decision.selected === 'approve' || decision.selected === 'reject' ? decision.selected : null
+    return (
+        <Stack gap="xl">
+            <Box bg="white" p="xxl">
+                <StudyCodeDetails job={job} />
+            </Box>
+            <CodeEvaluationSection form={evaluationForm} enabled />
+            <CodeReviewFeedbackSection feedback={feedback} studyId={job.studyId} />
+            <Box bg="white" p="xxl">
+                <DecisionRadio value={decisionValue} onChange={onDecisionChange} />
+            </Box>
+            <Group justify="space-between">
+                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
+                    Back
+                </Button>
+                <Button disabled={!canSubmit || isPending} onClick={onSubmit} data-testid="code-review-submit">
+                    Submit review
+                </Button>
+            </Group>
+        </Stack>
+    )
+}
+
+type NonEditableBodyProps = {
+    isVisible: boolean
+    job: LatestJobForStudy
+    onBack: () => void
+}
+
+// Renders when the page is opened for a study that no longer qualifies as
+// "code needs review" (e.g. peer just submitted, or stale URL). The server +
+// editor auth already block writes; this view satisfies the "No further edits"
+// UX expectation by not surfacing the editor / decision / submit controls.
+function NonEditableBody({ isVisible, job, onBack }: NonEditableBodyProps) {
+    if (!isVisible) return null
+    return (
+        <Stack gap="xl">
+            <Box bg="white" p="xxl">
+                <StudyCodeDetails job={job} />
+            </Box>
+            <Alert color="blue" title="Code review is closed" data-testid="code-review-closed-alert">
+                A decision has already been submitted for this study code. No further edits are allowed at this point.
+            </Alert>
+            <Group justify="flex-start">
+                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
+                    Back
+                </Button>
+            </Group>
+        </Stack>
+    )
+}
+
 export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props) {
     const isCollaborationEnabled = useCodeReviewCollaborationFeatureFlag()
     const [tabSessionId] = useState(() => crypto.randomUUID())
@@ -253,35 +331,19 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                     tabSessionId={tabSessionId}
                     enabled={initiallyEditable}
                 />
-                <Stack gap="xl">
-                    <Box bg="white" p="xxl">
-                        <StudyCodeDetails job={job} />
-                    </Box>
-                    <CodeEvaluationSection form={evaluationForm} enabled={initiallyEditable} />
-                    <CodeReviewFeedbackSection feedback={feedback} studyId={study.id} />
-                    <Box bg="white" p="xxl">
-                        <DecisionRadio
-                            value={
-                                decision.selected === 'approve' || decision.selected === 'reject'
-                                    ? decision.selected
-                                    : null
-                            }
-                            onChange={handleDecisionChange}
-                        />
-                    </Box>
-                    <Group justify="space-between">
-                        <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={handleBack}>
-                            Back
-                        </Button>
-                        <Button
-                            disabled={!canSubmit || isPending}
-                            onClick={handleSubmit}
-                            data-testid="code-review-submit"
-                        >
-                            Submit review
-                        </Button>
-                    </Group>
-                </Stack>
+                <EditableBody
+                    isVisible={initiallyEditable}
+                    feedback={feedback}
+                    evaluationForm={evaluationForm}
+                    decision={decision}
+                    job={job}
+                    canSubmit={canSubmit}
+                    isPending={isPending}
+                    onBack={handleBack}
+                    onSubmit={handleSubmit}
+                    onDecisionChange={handleDecisionChange}
+                />
+                <NonEditableBody isVisible={!initiallyEditable} job={job} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>
 
             <ConfirmationModal

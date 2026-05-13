@@ -60,6 +60,23 @@ export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): R
 
         const onSynced = () => {
             if (cancelled) return
+
+            // Pre-sync writes (user clicked a radio while the provider was still
+            // connecting) updated the form but the prior pushCriterion no-op'd
+            // because fieldsMap was null. Without this seed pass, the immediately
+            // following applyRemoteToForm would treat absent map keys as null and
+            // wipe those local selections. On first sync, copy any local non-null
+            // values into the map so they propagate instead of being clobbered.
+            const localCriteria = form.getValues().criteria
+            doc.transact(() => {
+                for (const key of CODE_REVIEW_CRITERIA_KEYS) {
+                    const local = localCriteria[key]
+                    if (map.get(key) === undefined && local !== null) {
+                        map.set(key, local)
+                    }
+                }
+            }, LOCAL_ORIGIN)
+
             applyRemoteToForm(map, form, isApplyingRemoteRef)
             setFieldsMap(map)
             setIsSynced(true)

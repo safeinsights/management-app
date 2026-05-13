@@ -149,6 +149,37 @@ describe('useCodeReviewEvaluationMap', () => {
         expect(map.get('proposalAlignment')).toBeUndefined()
     })
 
+    it('first-sync seed: local non-null selections survive provider sync (no clobber)', async () => {
+        // Pre-sync flow: a user clicks a radio before fieldsMap exists. The caller
+        // sets form first then calls pushCriterion, which no-ops while fieldsMap is
+        // null. Simulate that here: drop a value into the form, then trigger sync.
+        const { form, hook } = setupHook({ provider: providerA })
+        form.setFieldValue('criteria.proposalAlignment', 'yes')
+
+        // Map is empty at sync time, mirroring "no one has touched this study yet".
+        act(() => providerA.triggerSynced())
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+
+        const map = docA.getMap<unknown>('evaluationCriteria')
+        expect(map.get('proposalAlignment')).toBe('yes')
+        expect(form.getValues().criteria.proposalAlignment).toBe('yes')
+    })
+
+    it('first-sync: remote value wins over local when both exist for the same key', async () => {
+        const { form, hook } = setupHook({ provider: providerA })
+        form.setFieldValue('criteria.proposalAlignment', 'yes')
+
+        // Server already had 'no' from another peer; remote-wins on conflicting first sync.
+        const map = docA.getMap<unknown>('evaluationCriteria')
+        map.set('proposalAlignment', 'no')
+
+        act(() => providerA.triggerSynced())
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+
+        expect(map.get('proposalAlignment')).toBe('no')
+        expect(form.getValues().criteria.proposalAlignment).toBe('no')
+    })
+
     it('ignores malformed remote values (not in the enum)', async () => {
         const { form, hook } = setupHook({ provider: providerA })
         const map = docA.getMap<unknown>('evaluationCriteria')
