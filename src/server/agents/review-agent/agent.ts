@@ -4,10 +4,11 @@ import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-// Sonnet 4.6 supports up to 64K output tokens. The review can contain many
-// long `findings` strings under each check, so we leave headroom rather than
-// risking a `stop_reason: 'max_tokens'` truncation mid-tool-call.
-const DEFAULT_MAX_TOKENS = 64_000
+// Sized for ~3× the realistic worst-case review (2 narrative fields + ~10
+// findings per check at ~50 tokens each ≈ 4-5K tokens). The schema property
+// `description` strings below carry the actual length guidance to the model;
+// this cap exists only to bound runaway output if the model ignores them.
+const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
 const ANALYSIS_TOOL_NAME = 'submit_analysis'
@@ -27,15 +28,31 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
         type: 'object',
         additionalProperties: false,
         properties: {
-            proposalSummary: { type: 'string' },
-            codeExplanation: { type: 'string' },
-            resultsSummary: { type: 'string' },
+            proposalSummary: {
+                type: 'string',
+                description: 'Concise summary of the proposal goals. 2-3 sentences, ~80 words max.',
+            },
+            codeExplanation: {
+                type: 'string',
+                description:
+                    'What the code does, referencing file paths. One paragraph, ~150 words max. Use numbered steps if helpful.',
+            },
+            resultsSummary: {
+                type: 'string',
+                description:
+                    'Summary of researcher test results if provided. One paragraph, ~150 words max. Omit this field entirely when no results are provided.',
+            },
             alignmentCheck: {
                 type: 'object',
                 additionalProperties: false,
                 properties: {
                     isAligned: { type: 'boolean' },
-                    findings: { type: 'array', items: { type: 'string' } },
+                    findings: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description:
+                            'Specific discrepancies between proposal and code. At most 10 items, ordered by severity. Each finding 1-2 sentences. Empty array when fully aligned.',
+                    },
                 },
                 required: ['isAligned', 'findings'],
             },
@@ -44,7 +61,12 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
                 additionalProperties: false,
                 properties: {
                     isCompliant: { type: 'boolean' },
-                    findings: { type: 'array', items: { type: 'string' } },
+                    findings: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description:
+                            'Specific violations of the reference documents or org requirements. At most 10 items, ordered by severity. Each finding 1-2 sentences. Empty array when fully compliant.',
+                    },
                 },
                 required: ['isCompliant', 'findings'],
             },
