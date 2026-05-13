@@ -46,20 +46,22 @@ export interface ReviewAgentConfig {
     maxRetries?: number
 }
 
-// Validates both the model's tool-use payload and any persisted row before
-// rendering — Anthropic's JSON-schema for tools is advisory, so the boundary
-// check is what actually guarantees shape.
+// Shape is guaranteed at decode time by Anthropic's `strict: true` tool mode
+// (see ANALYSIS_TOOL in agent.ts). This schema mirrors that contract for two
+// reasons: (1) deriving `AnalysisReport` from one source so the TS type and
+// the API contract can't drift; (2) belt-and-suspenders runtime check at the
+// write boundary in case of SDK/model regression.
 export const analysisReportSchema = z.object({
     proposalSummary: z.string(),
     codeExplanation: z.string(),
     resultsSummary: z.string().optional(),
     alignmentCheck: z.object({
         isAligned: z.boolean(),
-        findings: z.array(z.string()).default([]),
+        findings: z.array(z.string()),
     }),
     complianceCheck: z.object({
         isCompliant: z.boolean(),
-        findings: z.array(z.string()).default([]),
+        findings: z.array(z.string()),
     }),
 })
 

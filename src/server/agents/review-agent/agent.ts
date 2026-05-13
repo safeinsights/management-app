@@ -9,18 +9,27 @@ const DEFAULT_MAX_RETRIES = 3
 
 const ANALYSIS_TOOL_NAME = 'submit_analysis'
 
+// `strict: true` opts into Anthropic's constrained-decoding tool mode. The
+// model can no longer emit a shape that violates `input_schema` — the class of
+// "alignmentCheck came back as an XML-tag string fragment" prod bug is fixed
+// at the API boundary, not in our app. Requires `additionalProperties: false`
+// at every object level. Docs:
+//   https://platform.claude.com/docs/en/build-with-claude/structured-outputs
 const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     name: ANALYSIS_TOOL_NAME,
     description:
         'Submit the structured review of the research proposal. Always call this tool exactly once with the full report.',
+    strict: true,
     input_schema: {
         type: 'object',
+        additionalProperties: false,
         properties: {
             proposalSummary: { type: 'string' },
             codeExplanation: { type: 'string' },
             resultsSummary: { type: 'string' },
             alignmentCheck: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     isAligned: { type: 'boolean' },
                     findings: { type: 'array', items: { type: 'string' } },
@@ -29,6 +38,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             },
             complianceCheck: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     isCompliant: { type: 'boolean' },
                     findings: { type: 'array', items: { type: 'string' } },
