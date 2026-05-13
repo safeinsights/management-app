@@ -94,7 +94,7 @@ export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): R
             setFieldsMap(null)
             setIsSynced(false)
         }
-        // form excluded — Mantine ref semantics keep it stable across renders.
+        // form excluded: Mantine ref semantics keep it stable across renders.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, provider])
 

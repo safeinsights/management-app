@@ -43,9 +43,9 @@ const CRITERIA_KEYS: readonly CodeReviewCriteriaKey[] = [
     'privacyProtection',
 ]
 
-// Same shape proposed in OTTER-544 plan: PENDING-REVIEW study with a job whose
-// latest status is CODE-SUBMITTED or CODE-SCANNED. Mirrors REVIEWABLE_CODE_JOB_STATUSES
-// on the server (study.actions.ts) so client + server agree on editability.
+// Mirrors REVIEWABLE_CODE_JOB_STATUSES in study.actions.ts so the client and
+// server agree on when code review is open: PENDING-REVIEW study + latest job
+// status in {CODE-SUBMITTED, CODE-SCANNED}.
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
     status === 'PENDING-REVIEW' && (latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED')
 

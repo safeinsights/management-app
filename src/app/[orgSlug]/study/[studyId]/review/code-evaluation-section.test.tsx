@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
@@ -19,10 +20,12 @@ const initialDraft: CodeReviewCriteriaDraft = {
 // tree); rendering useForm via renderHook produces a separate tree and the
 // Clear button visibility (which keys off form.getValues()) would never update.
 const renderSection = () => {
-    let formRef: UseFormReturnType<FormShape> | null = null
+    const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
         const form = useForm<FormShape>({ initialValues: { criteria: initialDraft } })
-        formRef = form
+        useEffect(() => {
+            handle.form = form
+        }, [form])
         return (
             <CodeReviewFeedbackProviderShare>
                 <CodeEvaluationSection form={form} enabled />
@@ -32,8 +35,8 @@ const renderSection = () => {
     renderWithProviders(<Harness />)
     return {
         get form() {
-            if (!formRef) throw new Error('Harness did not capture form')
-            return formRef
+            if (!handle.form) throw new Error('Harness did not capture form')
+            return handle.form
         },
     }
 }

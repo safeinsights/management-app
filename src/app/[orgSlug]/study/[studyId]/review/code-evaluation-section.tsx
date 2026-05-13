@@ -62,10 +62,10 @@ type ClearCriterionButtonProps = {
     testId: string
 }
 
-// Native radios cannot be returned to the unchecked state by clicking the
-// selected option again — MDN confirms this is browser behavior, not a Mantine
-// quirk. The AC requires unselect-after-select to round-trip across peers, so
-// every criterion exposes an explicit Clear affordance.
+// Native radios cannot be returned to the unchecked state by re-clicking the
+// selected option (MDN: only form reset or programmatic change can do that), so
+// the criteria UI cannot satisfy the cross-peer unselect requirement without an
+// explicit clear affordance.
 function ClearCriterionButton({ isVisible, onClear, testId }: ClearCriterionButtonProps) {
     if (!isVisible) return null
     return (
@@ -80,6 +80,7 @@ function CriterionRow({ descriptor, value, onChange }: CriterionRowProps) {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
     const handleClear = () => onChange(null)
+    const radioOptions = OPTIONS.map((option) => <Radio key={option.value} value={option.value} label={option.label} />)
 
     return (
         <Stack gap={4}>
@@ -91,9 +92,7 @@ function CriterionRow({ descriptor, value, onChange }: CriterionRowProps) {
             </Text>
             <Radio.Group value={value ?? ''} onChange={handleChange} name={`criteria-${descriptor.key}`}>
                 <Group gap="lg" mt="xs">
-                    {OPTIONS.map((option) => (
-                        <Radio key={option.value} value={option.value} label={option.label} />
-                    ))}
+                    {radioOptions}
                     <ClearCriterionButton
                         isVisible={value !== null}
                         onClear={handleClear}
@@ -116,6 +115,15 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
         pushCriterion(key, value)
     }
 
+    const criterionRows = CRITERIA.map((descriptor) => (
+        <CriterionRow
+            key={descriptor.key}
+            descriptor={descriptor}
+            value={criteriaValues[descriptor.key]}
+            onChange={handleChange(descriptor.key)}
+        />
+    ))
+
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">
             <Stack gap="lg">
@@ -123,16 +131,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     Code evaluation
                 </Text>
                 <Divider />
-                <Stack gap="lg">
-                    {CRITERIA.map((descriptor) => (
-                        <CriterionRow
-                            key={descriptor.key}
-                            descriptor={descriptor}
-                            value={criteriaValues[descriptor.key]}
-                            onChange={handleChange(descriptor.key)}
-                        />
-                    ))}
-                </Stack>
+                <Stack gap="lg">{criterionRows}</Stack>
             </Stack>
         </Paper>
     )
