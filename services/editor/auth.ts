@@ -212,9 +212,9 @@ export interface AuthenticatedContext {
  * Current editable review round for a study. Mirrors the management-app
  * `currentReviewVersion` helper in `src/server/db/queries.ts` but reads via
  * the editor service's `pg.Pool` rather than Kysely. Round number is the
- * `version` on the latest `study_proposal_comment` row; OTTER-522 populates
- * it on every reviewer-feedback and resubmission-note insert. Returns 1
- * when no comments exist yet.
+ * `version` on the latest `study_proposal_comment` row; the management-app's
+ * submit and resubmit actions populate it on every reviewer-feedback and
+ * resubmission-note insert. Returns 1 when no comments exist yet.
  */
 export async function currentReviewVersionFromDb(db: DbQuery, studyId: string): Promise<number> {
     const row = await db.query<{ version: number | null }>(
