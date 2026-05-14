@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Produces .next/standalone + .next/static. The deploy pipeline packages these
-# into the web Lambda container image (Dockerfile.web) and uploads .next/static
-# to S3 for CloudFront. Worker + migrator Lambdas are separate Docker images
-# (Dockerfile.worker / Dockerfile.migrator) built directly from source.
-
 # https://github.com/getsentry/sentry-javascript/issues/15100
 # workaround for build spewing thousands of lines of:
 # <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (135kiB) impacts deserialization performance ...
 npm run build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
+
+cp bin/prod.run.sh .next/standalone/run.sh
+
+pushd .next/standalone/
+zip -q -r ../../lambda-server-package.zip .
+popd
+
+./bin/build-worker
