@@ -1,0 +1,33 @@
+# Lambda container image for the SQS-driven background worker.
+# Same management-app source as the web Lambda, different entry point.
+# Web Lambda still ships as a zip; only the worker uses this image.
+
+FROM public.ecr.aws/lambda/nodejs:20
+
+# Install prod deps. Same package.json as web Lambda — full node_modules available
+# at runtime, so the worker can import any app module (logger, database, agents, etc.)
+# without bundling weirdness or @sentry/nextjs stub workarounds.
+COPY package.json package-lock.json ${LAMBDA_TASK_ROOT}/
+WORKDIR ${LAMBDA_TASK_ROOT}
+RUN npm ci --omit=dev
+
+# Bring source. esbuild is needed at build time only to resolve the `@/*` path
+# aliases from tsconfig + transpile TS → CJS. Everything from node_modules stays
+# external and is loaded from the installed packages at runtime.
+COPY tsconfig.json ${LAMBDA_TASK_ROOT}/
+COPY src ${LAMBDA_TASK_ROOT}/src
+
+RUN npx --yes esbuild \
+        src/server/workers/review-worker.ts \
+        --bundle \
+        --platform=node \
+        --target=node20 \
+        --format=cjs \
+        --outfile=worker.js \
+        --packages=external \
+        --tsconfig=tsconfig.json \
+        --log-level=warning
+
+# Lambda Node 20 base image expects handler = <file>.<exportName>.
+# worker.js exports `handler` from review-worker.ts.
+CMD ["worker.handler"]
