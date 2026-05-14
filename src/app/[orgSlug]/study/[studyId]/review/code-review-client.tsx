@@ -23,11 +23,8 @@ import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
-import type {
-    CodeReviewCriteria,
-    CodeReviewCriteriaDraft,
-    CodeReviewCriteriaKey,
-} from '@/hooks/use-code-review-evaluation-map'
+import { CODE_REVIEW_CRITERIA_KEYS } from '@/hooks/use-code-review-evaluation-map'
+import type { CodeReviewCriteria, CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
 
 type Props = {
     orgSlug: string
@@ -35,13 +32,6 @@ type Props = {
     job: LatestJobForStudy
     latestJobStatus: StudyJobStatus | null
 }
-
-const CRITERIA_KEYS: readonly CodeReviewCriteriaKey[] = [
-    'proposalAlignment',
-    'agreementCompliance',
-    'securityChecks',
-    'privacyProtection',
-]
 
 // Mirrors REVIEWABLE_CODE_JOB_STATUSES in study.actions.ts so the client and
 // server agree on when code review is open: PENDING-REVIEW study + latest job
@@ -57,7 +47,7 @@ const REJECTION_WARNING = (
 )
 
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
-    CRITERIA_KEYS.every((key) => draft[key] !== null)
+    CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
 
 function useCodeReview({ orgSlug, studyId, tabSessionId }: { orgSlug: string; studyId: string; tabSessionId: string }) {
     const feedback = useReviewFeedback()

@@ -6,30 +6,12 @@ import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
+import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
     study: SelectedStudy
 }
-
-const CODE_REVIEW_CRITERIA = [
-    {
-        label: 'Proposal alignment',
-        description: 'Does the code align with the approved research proposal?',
-    },
-    {
-        label: 'Agreement compliance',
-        description: 'Does the code comply with all the agreements?',
-    },
-    {
-        label: 'Security checks',
-        description: 'Have security and vulnerability checks been passed?',
-    },
-    {
-        label: 'Privacy protection',
-        description: 'Is there any risk of PII exposure expected in the outputs?',
-    },
-]
 
 function formatDate(date: Date | string): string {
     return dayjs(date).format('MMM DD, YYYY')

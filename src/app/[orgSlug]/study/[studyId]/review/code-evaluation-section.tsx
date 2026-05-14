@@ -9,35 +9,7 @@ import {
     type CodeReviewCriteriaKey,
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
-
-type CriterionDescriptor = {
-    key: CodeReviewCriteriaKey
-    label: string
-    description: string
-}
-
-const CRITERIA: readonly CriterionDescriptor[] = [
-    {
-        key: 'proposalAlignment',
-        label: 'Proposal alignment',
-        description: 'Does the code align with the approved research proposal?',
-    },
-    {
-        key: 'agreementCompliance',
-        label: 'Agreement compliance',
-        description: 'Does the code comply with all the agreements?',
-    },
-    {
-        key: 'securityChecks',
-        label: 'Security checks',
-        description: 'Have security and vulnerability checks been passed?',
-    },
-    {
-        key: 'privacyProtection',
-        label: 'Privacy protection',
-        description: 'Is there any risk of PII exposure expected in the outputs?',
-    },
-]
+import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
     { value: 'yes', label: 'Yes' },
@@ -51,7 +23,7 @@ type CodeEvaluationSectionProps = {
 }
 
 type CriterionRowProps = {
-    descriptor: CriterionDescriptor
+    descriptor: CodeReviewCriterion
     value: CodeReviewCriteriaDraftValue
     onChange: (value: CodeReviewCriteriaDraftValue) => void
 }
@@ -115,7 +87,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
         pushCriterion(key, value)
     }
 
-    const criterionRows = CRITERIA.map((descriptor) => (
+    const criterionRows = CODE_REVIEW_CRITERIA.map((descriptor) => (
         <CriterionRow
             key={descriptor.key}
             descriptor={descriptor}
