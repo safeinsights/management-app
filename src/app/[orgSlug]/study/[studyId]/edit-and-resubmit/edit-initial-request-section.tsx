@@ -8,7 +8,7 @@ import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords, countWordsFromLexical } from '@/lib/word-count'
+import { countWords, countWordsFromLexical } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import {
     DEFAULT_DRAFT_TITLE,

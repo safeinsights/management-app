@@ -7,7 +7,7 @@ import { AppModal } from '@/components/modal'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
-import { hasLexicalContent } from '@/lib/word-count'
+import { hasLexicalContent } from '@/lib/lexical'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {

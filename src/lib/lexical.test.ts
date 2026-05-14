@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countWords, countWordsFromLexical, extractTextFromLexical, hasLexicalContent, lexicalJson } from './word-count'
+import { countWords, countWordsFromLexical, extractTextFromLexical, hasLexicalContent, lexicalJson } from './lexical'
 
 describe('countWords', () => {
     it('returns 0 for empty string', () => {

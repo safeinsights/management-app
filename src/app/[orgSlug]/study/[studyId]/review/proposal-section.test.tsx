@@ -1,4 +1,4 @@
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,

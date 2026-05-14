@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { db, insertTestDataSource, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
