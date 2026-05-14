@@ -55,6 +55,9 @@ export interface EditableTextProps {
 
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
     let editorState: SerializedEditorState | undefined
+    // Defends against legacy rows where empty-root JSON ({"root":{"children":[]}})
+    // was persisted before the save-boundary filter in EditorChangePlugin. Lexical
+    // throws if initialized with an empty root, so fall back to its default state.
     if (isValidLexicalState(value)) {
         editorState = JSON.parse(value!)
     }

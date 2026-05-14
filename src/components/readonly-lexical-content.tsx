@@ -13,6 +13,9 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
     if (value == null) return null
     const editorState = typeof value === 'string' ? value : JSON.stringify(value)
 
+    // Defends against legacy rows where empty-root JSON ({"root":{"children":[]}})
+    // was persisted before the save-boundary filter in EditorChangePlugin. Lexical
+    // throws if initialized with an empty root.
     if (!isValidLexicalState(editorState)) return null
 
     const initialConfig = {
