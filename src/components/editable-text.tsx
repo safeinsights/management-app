@@ -14,7 +14,7 @@ import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
-import { countWords } from '@/lib/word-count'
+import { countWords, isValidLexicalState } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
@@ -55,12 +55,8 @@ export interface EditableTextProps {
 
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
     let editorState: SerializedEditorState | undefined
-    if (value) {
-        try {
-            editorState = JSON.parse(value) as SerializedEditorState
-        } catch {
-            // Invalid JSON, start with empty state
-        }
+    if (isValidLexicalState(value)) {
+        editorState = JSON.parse(value!)
     }
 
     return {

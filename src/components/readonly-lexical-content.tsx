@@ -6,11 +6,15 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { lexicalTheme, lexicalNodes } from '@/components/editable-text/config'
 import type { JsonValue } from '@/database/types'
+import { isValidLexicalState } from '@/lib/word-count'
 import logger from '@/lib/logger'
 
 export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue }) {
     if (value == null) return null
     const editorState = typeof value === 'string' ? value : JSON.stringify(value)
+
+    if (!isValidLexicalState(editorState)) return null
+
     const initialConfig = {
         namespace: 'ReadOnlyLexicalContent',
         theme: lexicalTheme,
