@@ -21,7 +21,7 @@ import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import logger from '@/lib/logger'
-import { Kysely } from 'kysely'
+import { Kysely, sql } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
@@ -721,14 +721,6 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('researcherId', '=', userId)
             .execute()
 
-        const latest = await db
-            .selectFrom('studyProposalComment')
-            .select('version')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
-            .limit(1)
-            .executeTakeFirst()
-
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -737,7 +729,10 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
                 body: JSON.parse(lexicalJson(resubmissionNote)),
-                version: (latest?.version ?? 1) + 1,
+                version: sql<number>`coalesce((
+                    select max(version) from study_proposal_comment
+                    where study_id = ${studyId}
+                ), 1) + 1`,
             })
             .execute()
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Anchor, Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
@@ -28,11 +28,13 @@ type FeedbackEntryProps = {
 function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const title = entryTitle(entry)
     const date = formatDate(entry.createdAt)
+    const bodyRef = useRef<HTMLDivElement>(null)
     const [isTruncated, setIsTruncated] = useState(false)
 
-    const bodyRef = useCallback((node: HTMLDivElement | null) => {
+    useEffect(() => {
+        const node = bodyRef.current
         if (node) setIsTruncated(node.scrollHeight > node.clientHeight)
-    }, [])
+    }, [isExpanded])
 
     const showToggle = isExpanded || isTruncated
 
