@@ -17,7 +17,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { useState, type FC, type ReactNode } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
-import { PriorFeedbackHistory } from './prior-feedback-history'
+import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -225,7 +225,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 </Title>
 
                 <ProposalSection study={study} orgSlug={orgSlug} />
-                <PriorFeedbackHistory entries={priorEntries} />
+                <FeedbackAndNotesSection entries={priorEntries} />
                 <ReviewFeedbackSection
                     feedback={feedback}
                     submittingLabName={study.submittingLabName}
