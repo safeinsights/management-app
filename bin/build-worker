@@ -3,6 +3,10 @@ set -euo pipefail
 
 # Bundle the SQS worker handler into a single self-contained worker.js for AWS Lambda.
 # @aws-sdk/* is provided by the Node20 Lambda runtime; everything else is inlined.
+#
+# Logger imports `@sentry/nextjs`, which is webpack-instrumented and not bundleable
+# by esbuild. Alias it to `@sentry/node`, which exposes the same surface
+# (captureException, captureMessage, withScope, etc.) and bundles cleanly.
 
 OUT_DIR=".next/worker"
 rm -rf "$OUT_DIR"
@@ -16,23 +20,9 @@ mkdir -p "$OUT_DIR"
     --format=cjs \
     --outfile="$OUT_DIR/worker.js" \
     --external:@aws-sdk/* \
-    --external:@sentry/nextjs \
-    --external:next \
+    --alias:@sentry/nextjs=@sentry/node \
     --tsconfig=tsconfig.json \
     --log-level=warning
-
-# @sentry/nextjs is webpack-instrumented and not Node-Lambda-safe; stub it.
-# Worker logger falls back to console for warn/error, which is what we want in Lambda.
-mkdir -p "$OUT_DIR/node_modules/@sentry/nextjs"
-cat > "$OUT_DIR/node_modules/@sentry/nextjs/index.js" <<'EOF'
-exports.captureException = () => {}
-exports.captureMessage = () => {}
-exports.addBreadcrumb = () => {}
-exports.withScope = (fn) => fn({ setExtras: () => {} })
-EOF
-cat > "$OUT_DIR/node_modules/@sentry/nextjs/package.json" <<'EOF'
-{ "name": "@sentry/nextjs", "main": "index.js" }
-EOF
 
 pushd "$OUT_DIR" > /dev/null
 zip -q -r ../../lambda-worker-package.zip .

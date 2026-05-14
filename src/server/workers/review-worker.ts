@@ -1,7 +1,23 @@
 import type { SQSBatchResponse, SQSEvent, SQSRecord } from 'aws-lambda'
+import * as Sentry from '@sentry/node'
 import logger from '@/lib/logger'
 import { generateAndStoreStudyReview } from '@/server/agents/review-agent/runner'
+import { getConfigValue } from '@/server/config'
 import type { JobMessage } from '@/server/queue'
+
+let sentryReady = false
+async function ensureSentryInit(): Promise<void> {
+    if (sentryReady) return
+    sentryReady = true
+    const dsn = await getConfigValue('NEXT_PUBLIC_SENTRY_DSN', false)
+    if (!dsn) return
+    Sentry.init({
+        dsn,
+        environment: process.env.ENVIRONMENT_ID,
+        release: process.env.RELEASE_SHA,
+        tracesSampleRate: 0,
+    })
+}
 
 function parseMessage(record: SQSRecord): JobMessage | null {
     try {
@@ -33,6 +49,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
 // Returns batchItemFailures for any record that threw. SQS will redrive only those,
 // not the whole batch. With batchSize=1 in CDK, this effectively redrives the single record.
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
+    await ensureSentryInit()
     const batchItemFailures: { itemIdentifier: string }[] = []
 
     for (const record of event.Records) {
