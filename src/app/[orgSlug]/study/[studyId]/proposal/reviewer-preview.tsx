@@ -16,7 +16,6 @@ interface ReviewerPreviewProps {
     values: ProposalFormValues
     researcherName: string
     researcherId: string
-    piUserId: string
     enclaveOrgSlug?: string
 }
 
@@ -27,7 +26,6 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
     values,
     researcherName,
     researcherId,
-    piUserId,
     enclaveOrgSlug,
 }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -86,9 +84,9 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                 <Text size="sm" fw={600} mb="xs">
                     Principal Investigator
                 </Text>
-                {piUserId ? (
+                {values.piUserId ? (
                     <ResearcherProfilePopover
-                        userId={piUserId}
+                        userId={values.piUserId}
                         studyId={studyId}
                         orgSlug={orgSlug}
                         name={values.piName}
