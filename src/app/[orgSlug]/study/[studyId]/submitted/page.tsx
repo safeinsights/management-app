@@ -1,6 +1,7 @@
 import { captureException } from '@sentry/nextjs'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { getOrgNameFromId } from '@/server/db/queries'
+import { deriveStudyVersion } from '@/lib/studies'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { SubmittedView } from './submitted-view'
@@ -26,7 +27,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
     }
 
     const entries = feedbackError ? [] : feedbackResult
-    const studyVersion = entries.length > 0 ? Math.max(...entries.map((e) => e.version ?? 1)) : 1
+    const studyVersion = deriveStudyVersion(entries)
 
     return (
         <SubmittedView

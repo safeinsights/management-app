@@ -502,14 +502,6 @@ async function insertReviewerProposalComment({
     decision: Decision
     body: string
 }) {
-    const latest = await db
-        .selectFrom('studyProposalComment')
-        .select('version')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-
     await db
         .insertInto('studyProposalComment')
         .values({
@@ -519,7 +511,10 @@ async function insertReviewerProposalComment({
             entryType: 'REVIEWER-FEEDBACK',
             decision: toReviewDecision(decision),
             body: JSON.parse(body),
-            version: latest?.version ?? 1,
+            version: sql<number>`coalesce((
+                select max(version) from study_proposal_comment
+                where study_id = ${studyId}
+            ), 1)`,
         })
         .executeTakeFirstOrThrow()
 }
