@@ -12,6 +12,8 @@ export const APPROVED_LOG_TYPES: FileType[] = [
     'APPROVED-PACKAGING-ERROR-LOG',
 ]
 
+export const PLAINTEXT_LOG_TYPES: FileType[] = ['SECURITY-SCAN-LOG', 'PACKAGING-ERROR-LOG']
+
 export const ENCRYPTED_TO_APPROVED: Record<string, FileType> = {
     'ENCRYPTED-RESULT': 'APPROVED-RESULT',
     'ENCRYPTED-CODE-RUN-LOG': 'APPROVED-CODE-RUN-LOG',
@@ -26,6 +28,8 @@ const LOG_LABELS: Partial<Record<FileType, string>> = {
     'ENCRYPTED-CODE-RUN-LOG': 'Code Run Log',
     'ENCRYPTED-SECURITY-SCAN-LOG': 'Security Scan Log',
     'ENCRYPTED-PACKAGING-ERROR-LOG': 'Packaging Error Log',
+    'SECURITY-SCAN-LOG': 'Security Scan Log',
+    'PACKAGING-ERROR-LOG': 'Packaging Error Log',
 }
 
 export function approvedTypeForFile(fileType: FileType): FileType {
@@ -42,12 +46,16 @@ export function isApprovedLogType(fileType: FileType): boolean {
     return APPROVED_LOG_TYPES.includes(fileType)
 }
 
+export function isPlaintextLogType(fileType: FileType): boolean {
+    return PLAINTEXT_LOG_TYPES.includes(fileType)
+}
+
 export function isResultFile(f: { fileType: FileType }): boolean {
     return ['ENCRYPTED-RESULT', 'APPROVED-RESULT'].includes(f.fileType)
 }
 
 export function isLogType(fileType: FileType): boolean {
-    return isEncryptedLogType(fileType) || isApprovedLogType(fileType)
+    return isEncryptedLogType(fileType) || isApprovedLogType(fileType) || isPlaintextLogType(fileType)
 }
 
 export function logLabel(fileType: FileType): string {

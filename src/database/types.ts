@@ -53,6 +53,8 @@ export type StudyJobFileType =
     | 'ENCRYPTED-RESULT'
     | 'ENCRYPTED-SECURITY-SCAN-LOG'
     | 'MAIN-CODE'
+    | 'PACKAGING-ERROR-LOG'
+    | 'SECURITY-SCAN-LOG'
     | 'SUPPLEMENTAL-CODE'
 
 export type StudyJobStatus =

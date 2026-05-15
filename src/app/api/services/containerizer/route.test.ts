@@ -137,7 +137,7 @@ test('returns 404 job-not-found for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+test('containerizer stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -153,6 +153,7 @@ test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () =
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'PACKAGING-ERROR-LOG')).toBe(true)
 })
 
 test('returns 401 when Authorization header is missing', async () => {
