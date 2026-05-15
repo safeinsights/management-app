@@ -7,6 +7,7 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
@@ -397,41 +398,34 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export type JobScanStatus = 'CODE-SCANNED' | 'JOB-ERRORED' | 'IN-PROGRESS'
+export type JobScanStatus = 'PASSED' | 'FAILED' | 'IN-PROGRESS'
 
 export type JobScanResult = {
     status: JobScanStatus
-    scannedAt: Date | null
     logFile: { id: string; name: string; path: string } | null
 }
 
-// The codeScan table is for orgCodeEnv image scans, not per-job scans. The
-// reviewer-facing scan result lives in the job's status changes (CODE-SCANNED /
-// JOB-ERRORED) and the encrypted scan log file attached to the job.
+// Per @nathanstitt: there's no clear-cut success/failure signal in the tools, so
+// the first-pass heuristic is to read the scan log and check for 'OK'. If the
+// log row doesn't exist yet (or the file can't be read), treat as in-progress.
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
-    const [latestStatus, logFile] = await Promise.all([
-        Action.db
-            .selectFrom('jobStatusChange')
-            .select(['status', 'createdAt'])
-            .where('studyJobId', '=', studyJobId)
-            .where('status', 'in', ['CODE-SCANNED', 'JOB-ERRORED'])
-            .orderBy('createdAt', 'desc')
-            .orderBy('id', 'desc')
-            .limit(1)
-            .executeTakeFirst(),
-        Action.db
-            .selectFrom('studyJobFile')
-            .select(['id', 'name', 'path'])
-            .where('studyJobId', '=', studyJobId)
-            .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
-            .orderBy('createdAt', 'desc')
-            .limit(1)
-            .executeTakeFirst(),
-    ])
-    return {
-        status: (latestStatus?.status as JobScanStatus) ?? 'IN-PROGRESS',
-        scannedAt: latestStatus?.createdAt ?? null,
-        logFile: logFile ?? null,
+    const logFile = await Action.db
+        .selectFrom('studyJobFile')
+        .select(['id', 'name', 'path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    if (!logFile) return { status: 'IN-PROGRESS', logFile: null }
+
+    try {
+        const blob = await fetchFileContents(logFile.path)
+        const contents = await blob.text()
+        return { status: contents.includes('OK') ? 'PASSED' : 'FAILED', logFile }
+    } catch {
+        return { status: 'IN-PROGRESS', logFile }
     }
 }
 

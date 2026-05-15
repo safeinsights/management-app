@@ -56,7 +56,7 @@ function DatasetPills({ names }: { names: string[] }) {
 }
 
 function ScanStatusIcon({ status }: { status: JobScanStatus }) {
-    if (status === 'CODE-SCANNED') {
+    if (status === 'PASSED') {
         return (
             <CheckCircle
                 size={20}
@@ -67,7 +67,7 @@ function ScanStatusIcon({ status }: { status: JobScanStatus }) {
             />
         )
     }
-    if (status === 'JOB-ERRORED') {
+    if (status === 'FAILED') {
         return (
             <XCircle size={20} weight="fill" color="var(--mantine-color-red-6)" data-icon="fail" aria-hidden="true" />
         )

@@ -11,15 +11,22 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     getStudyReviewForJob,
     jobScanResultForJob,
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
+import { fetchFileContents } from '@/server/storage'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+
+vi.mock('@/server/storage', () => ({ fetchFileContents: vi.fn() }))
+
+function mockScanLogContents(contents: string) {
+    ;(fetchFileContents as Mock).mockResolvedValueOnce(new Blob([contents]))
+}
 
 const ORG_SLUG = 'test-org-submitted'
 
@@ -31,14 +38,6 @@ async function insertStudyJobFile(
     return db
         .insertInto('studyJobFile')
         .values({ studyJobId, name, path: `studies/${studyJobId}/${name}`, fileType })
-        .returningAll()
-        .executeTakeFirstOrThrow()
-}
-
-async function insertJobStatusChange(studyJobId: string, status: 'CODE-SCANNED' | 'JOB-ERRORED', userId: string) {
-    return db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId, status, userId })
         .returningAll()
         .executeTakeFirstOrThrow()
 }
@@ -61,7 +60,6 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
 
 type Fixture = {
     orgId: string
-    userId: string
     study: SelectedStudy
     job: LatestJobForStudy
 }
@@ -79,11 +77,11 @@ async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: s
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
-    return { orgId: org.id, userId: user.id, study, job }
+    return { orgId: org.id, study, job }
 }
 
-// Tests that mutate the job (insert files or status changes) call this to refresh
-// the cached job so SubmittedCodeSection sees the latest files in its props.
+// Tests that mutate the job (insert files) call this to refresh the cached job
+// so SubmittedCodeSection sees the latest files in its props.
 async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
     return { ...fixture, job: await latestJobForStudy(fixture.study.id) }
 }
@@ -151,7 +149,7 @@ describe('SubmittedCodeSection — Dataset pills', () => {
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const job = await latestJobForStudy(study.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
-        await renderSection({ orgId: org.id, userId: user.id, study, job })
+        await renderSection({ orgId: org.id, study, job })
 
         const pills = screen.getAllByTestId('submitted-code-dataset-pill')
         expect(pills).toHaveLength(2)
@@ -228,15 +226,15 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
     })
 
-    it('renders the scan log file name when an encrypted scan log is attached', async () => {
+    it('renders the scan log file name when a log is attached', async () => {
         const fixture = await setupBaseFixture()
-        await insertJobStatusChange(fixture.job.id, 'CODE-SCANNED', fixture.userId)
         await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        mockScanLogContents('Scan summary: OK')
         await renderSection(fixture)
         expect(screen.getByTestId('security-scan-log-file')).toHaveTextContent('security-scan.log')
     })
 
-    it('shows an in-progress indicator when the scan has not yet completed', async () => {
+    it('shows an in-progress indicator when no scan log exists yet', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture)
         expect(screen.getByTestId('security-scan-log-pending')).toHaveTextContent('Scan in progress')
@@ -244,20 +242,31 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(icon?.getAttribute('data-icon')).toBe('in-progress')
     })
 
-    it('displays a green icon when the latest status is CODE-SCANNED', async () => {
+    it("displays a green icon when the log contents contain 'OK'", async () => {
         const fixture = await setupBaseFixture()
-        await insertJobStatusChange(fixture.job.id, 'CODE-SCANNED', fixture.userId)
+        await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        mockScanLogContents('Trivy: 0 vulnerabilities found\nQuality Gate: OK')
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
         expect(icon?.getAttribute('data-icon')).toBe('pass')
     })
 
-    it('displays a red icon when the latest status is JOB-ERRORED', async () => {
+    it("displays a red icon when the log contents do not contain 'OK'", async () => {
         const fixture = await setupBaseFixture()
-        await insertJobStatusChange(fixture.job.id, 'JOB-ERRORED', fixture.userId)
+        await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        mockScanLogContents('CRITICAL: vulnerability detected')
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
         expect(icon?.getAttribute('data-icon')).toBe('fail')
+    })
+
+    it('falls back to in-progress when the log file is unreadable', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        ;(fetchFileContents as Mock).mockRejectedValueOnce(new Error('not found'))
+        await renderSection(fixture)
+        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
+        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
     })
 })
 
