@@ -11,7 +11,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PostFeedbackView } from './post-feedback-view'
 
 const ORG_SLUG = 'test-org'
@@ -167,12 +167,17 @@ describe('PostFeedbackView', () => {
         })
 
         it('expands the latest entry by default and collapses older entries', () => {
-            renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
-            )
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                )
 
-            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
-            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+                expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
 
         it('titles entries with their stored version', () => {
@@ -207,16 +212,23 @@ describe('PostFeedbackView', () => {
         })
 
         it('toggles entry expansion on click', async () => {
-            const user = userEvent.setup()
-            renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
-            )
+            // happy-dom doesn't compute real layout, so scrollHeight ≈ clientHeight and
+            // isTruncated stays false. Mock a large scrollHeight so the toggle renders.
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                const user = userEvent.setup()
+                renderWithProviders(
+                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                )
 
-            const reviewerEntryEl = screen.getByTestId('feedback-entry-reviewer-1')
-            expect(reviewerEntryEl).toHaveAttribute('aria-expanded', 'true')
+                const toggle = screen.getByTestId('feedback-toggle-reviewer-1')
+                expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
-            await user.click(screen.getByTestId('feedback-toggle-reviewer-1'))
-            expect(reviewerEntryEl).toHaveAttribute('aria-expanded', 'false')
+                await user.click(toggle)
+                expect(toggle).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
     })
 

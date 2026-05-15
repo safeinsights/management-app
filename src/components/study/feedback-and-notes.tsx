@@ -31,15 +31,31 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const bodyRef = useRef<HTMLDivElement>(null)
     const [isTruncated, setIsTruncated] = useState(false)
 
+    // scrollHeight vs clientHeight only reflects overflow while line-clamp is on; once expanded,
+    // that comparison stays stale — measure against a fixed collapsed height (lineHeight × clamp) instead.
     useEffect(() => {
         const node = bodyRef.current
-        if (node) setIsTruncated(node.scrollHeight > node.clientHeight)
+        if (!node) return
+
+        const check = () => {
+            const lineHeight = parseFloat(getComputedStyle(node).lineHeight)
+            if (Number.isFinite(lineHeight) && lineHeight > 0) {
+                setIsTruncated(node.scrollHeight > lineHeight * COLLAPSED_LINE_CLAMP + 1)
+                return
+            }
+            setIsTruncated(node.scrollHeight > node.clientHeight)
+        }
+
+        check()
+        const observer = new ResizeObserver(check)
+        observer.observe(node)
+        return () => observer.disconnect()
     }, [isExpanded])
 
-    const showToggle = isExpanded || isTruncated
+    const showToggle = isTruncated
 
     return (
-        <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`} aria-expanded={isExpanded}>
+        <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
             <Text fw={700} fz={14}>
                 {title}
             </Text>
@@ -72,6 +88,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                         mt="xs"
                         display="inline-flex"
                         style={{ alignItems: 'center', gap: 4 }}
+                        aria-expanded={isExpanded}
                         data-testid={`feedback-toggle-${entry.id}`}
                     >
                         {isExpanded ? 'View less' : 'View more'}
