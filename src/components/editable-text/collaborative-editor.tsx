@@ -394,8 +394,16 @@ export function CollaborativeEditor({
     )
 
     useEffect(() => {
-        // Pair the onProviderReady publish with a teardown clear so subscribers
-        // don't hold a destroyed provider after the editor unmounts.
+        // React strict mode (dev) runs setup-cleanup-setup on mount; the cleanup's
+        // `onProviderReady(null)` would otherwise wipe the provider that the
+        // factory just published during render, leaving subscribers stuck on null
+        // (criteria Y.Map bridge, submission listener). Re-publishing the current
+        // provider on setup undoes the strict-mode null publish; the cleanup still
+        // fires on real unmount. Production is unaffected (single mount, single
+        // setup, cleanup only on real unmount).
+        if (providerRef.current && onProviderReady) {
+            onProviderReady(providerRef.current)
+        }
         return () => {
             onProviderReady?.(null)
         }
