@@ -11,7 +11,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
@@ -567,45 +567,60 @@ describe('ProposalSubmitted', () => {
         })
 
         it('expands the latest entry by default', () => {
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[reviewerEntry, researcherEntry]}
-                    studyVersion={2}
-                />,
-            )
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[reviewerEntry, researcherEntry]}
+                        studyVersion={2}
+                    />,
+                )
 
-            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
 
         it('collapses older entries by default', () => {
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[reviewerEntry, researcherEntry]}
-                    studyVersion={2}
-                />,
-            )
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[reviewerEntry, researcherEntry]}
+                        studyVersion={2}
+                    />,
+                )
 
-            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
 
         it('collapses resubmission notes by default even when latest', () => {
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[researcherEntry, reviewerEntry]}
-                    studyVersion={2}
-                />,
-            )
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[researcherEntry, reviewerEntry]}
+                        studyVersion={2}
+                    />,
+                )
 
-            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
 
         it('labels multiple resubmission notes with ascending versions', () => {
