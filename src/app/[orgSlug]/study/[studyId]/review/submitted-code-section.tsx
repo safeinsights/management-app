@@ -32,9 +32,9 @@ function describeFailedScan(status: ScanStatus | undefined): string {
     return 'Scan status unknown'
 }
 
-// TODO(Nathan): codeScan currently stores a single combined Trivy+SonarQube run
-// per orgCodeEnv. Until the schema splits per-scanner results, both rows mirror
-// the same overall pass/fail status. Confirm display approach at PR review.
+// codeScan stores one combined Trivy+SonarQube run per orgCodeEnv today, so both
+// rows mirror the same overall pass/fail status. If we later split per-scanner
+// data at the storage layer, only this helper needs to change.
 export function deriveScanResults(scan: LatestCodeScanForStudy | null): ScannerResult[] {
     const passed = scan?.status === 'SCAN-COMPLETE'
     const failureMessage = describeFailedScan(scan?.status)

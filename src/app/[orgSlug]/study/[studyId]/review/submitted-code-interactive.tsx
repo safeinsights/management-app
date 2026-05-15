@@ -151,9 +151,10 @@ function StudyCodeBody({ isVisible, activeFile }: { isVisible: boolean; activeFi
             </Text>
         )
     }
-    // TODO(Nathan): wire to S3-backed file content + syntax highlighting once the
-    // SI component library tabs/code-viewer ships (per Figma "Concept Notes"). The
-    // placeholder below keeps tab + expand behavior testable end-to-end now.
+    // Placeholder body — the Figma Concept Notes call out the SI tabs/code-viewer
+    // as still in flight, so we render the active file name here while the real
+    // content rendering lands separately. The tab + expand behavior around it is
+    // fully wired up.
     return (
         <Box
             bg="charcoal.0"
