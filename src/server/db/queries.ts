@@ -156,25 +156,23 @@ export const jobInfoForJobId = async (jobId: string) => {
 /**
  * Current editable review round for a study.
  *
- * Reads `studyProposalComment.version` from the most-recently-created comment
- * row. `insertReviewerProposalComment` inherits the latest version,
- * `resubmitProposalAction` increments it on each new RESUBMISSION-NOTE, so
- * rounds advance only when the researcher resubmits, which is exactly when
- * the editable review-feedback Yjs document needs to roll over to a fresh
- * per-round name.
+ * Reads `max(studyProposalComment.version)` for the study, mirroring how
+ * `nextVersionForStudyComment` (mutations.ts) writes: reviewer feedback
+ * inherits the latest version, RESUBMISSION-NOTE increments it. Using
+ * `max(version)` rather than ordering by createdAt is tie-immune (multiple
+ * reviewers submitting at the same millisecond share a version, and a
+ * resubmit's version is always strictly greater than every preceding row).
  *
  * Returns 1 when no comments exist yet (cold round 1 before any reviewer
  * feedback or resubmission note has been written).
  */
 export const currentReviewVersion = async (studyId: string): Promise<number> => {
-    const latest = await Action.db
+    const row = await Action.db
         .selectFrom('studyProposalComment')
-        .select('version')
+        .select((eb) => eb.fn.max('version').as('version'))
         .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
         .executeTakeFirst()
-    return latest?.version ?? 1
+    return row?.version ?? 1
 }
 
 export const getProposalFeedbackForStudy = async (studyId: string) => {

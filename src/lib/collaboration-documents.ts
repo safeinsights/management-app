@@ -41,8 +41,10 @@ export const reviewFeedbackDocNameForVersion = (studyId: string, version: number
 /**
  * Legacy unversioned name kept only for the deferred safety-net purge so a
  * partially migrated row can still be cleaned up. New call sites must use
- * `reviewFeedbackDocNameForVersion`. The auth gate rejects connections to
- * this form (see `services/editor/auth.ts`).
+ * `reviewFeedbackDocNameForVersion` — no live client emits this form. The
+ * editor's `parseDocumentName` still recognizes it (returning `version:
+ * null`) so any straggler connection is gated by status checks rather
+ * than rejected outright.
  */
 export const reviewFeedbackLegacyDocName = (studyId: string) => `${REVIEW_FEEDBACK_PREFIX}${studyId}`
 
