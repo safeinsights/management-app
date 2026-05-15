@@ -337,8 +337,6 @@ async function performStudyProposalApproval({
         if (!updated) {
             throw new ActionFailure({ study: 'has already been reviewed' })
         }
-
-        onStudyApproved({ studyId, userId })
     }
 
     const latestJob = await db
@@ -348,7 +346,12 @@ async function performStudyProposalApproval({
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    if (!latestJob) return
+    if (!latestJob) {
+        // No job: proposal-only approval. Emit the deferred audit/email here, where there
+        // is no remaining failable work that could roll back the study UPDATE underneath us.
+        if (isFirstApproval) onStudyApproved({ studyId, userId })
+        return
+    }
 
     const job = await latestJobForStudy(studyId)
     const latestJobStatus = job.statusChanges.at(0)?.status
@@ -361,10 +364,18 @@ async function performStudyProposalApproval({
         }
         // For other non-review states (JOB-RUNNING, RUN-COMPLETE, etc.) silently no-op,
         // matching the pre-fix behavior.
-        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
+        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+            if (isFirstApproval) onStudyApproved({ studyId, userId })
+            return
+        }
     }
 
     await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+
+    // Emit the proposal-approval audit/email only after approveJobCode succeeds, so a thrown
+    // ActionFailure (e.g., from a concurrent CODE-REJECTED row) doesn't leave a deferred
+    // "approved" notification for a study whose transaction rolled back.
+    if (isFirstApproval) onStudyApproved({ studyId, userId })
 
     // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {

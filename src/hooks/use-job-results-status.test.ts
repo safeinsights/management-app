@@ -82,4 +82,19 @@ describe('extractJobStatus', () => {
         expect(rejectedResult.isFilesRejected).toBe(true)
         expect(rejectedResult.isRejected).toBe(true)
     })
+
+    // OTTER-471: same invariant for CODE-APPROVED / CODE-REJECTED. CODE-APPROVED isn't
+    // mapped to a flag, but CODE-REJECTED is — so without the dedup, a corrupted history
+    // with latest CODE-APPROVED + older CODE-REJECTED would leave isCodeRejected=true.
+    it('OTTER-471: latest CODE-APPROVED suppresses an older CODE-REJECTED flag', () => {
+        const latestCodeApproved: StatusChange[] = [{ status: 'CODE-APPROVED' }, { status: 'CODE-REJECTED' }]
+        const codeApprovedResult = extractJobStatus(latestCodeApproved)
+        expect(codeApprovedResult.isCodeRejected).toBe(false)
+        expect(codeApprovedResult.isRejected).toBe(false)
+
+        const latestCodeRejected: StatusChange[] = [{ status: 'CODE-REJECTED' }, { status: 'CODE-APPROVED' }]
+        const codeRejectedResult = extractJobStatus(latestCodeRejected)
+        expect(codeRejectedResult.isCodeRejected).toBe(true)
+        expect(codeRejectedResult.isRejected).toBe(true)
+    })
 })
