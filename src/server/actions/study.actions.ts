@@ -15,6 +15,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
+import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
@@ -510,6 +511,7 @@ async function insertReviewerProposalComment({
             entryType: 'REVIEWER-FEEDBACK',
             decision: toReviewDecision(decision),
             body: JSON.parse(body),
+            version: nextVersionForStudyComment({ studyId, increment: false }),
         })
         .executeTakeFirstOrThrow()
 }

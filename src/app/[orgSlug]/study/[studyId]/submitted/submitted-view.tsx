@@ -14,10 +14,11 @@ interface SubmittedViewProps {
     study: SelectedStudy
     orgName: string
     entries: ProposalFeedbackEntry[]
+    studyVersion: number
     feedbackError?: boolean
 }
 
-export function SubmittedView({ orgSlug, study, orgName, entries, feedbackError }: SubmittedViewProps) {
+export function SubmittedView({ orgSlug, study, orgName, entries, studyVersion, feedbackError }: SubmittedViewProps) {
     const existingView = (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={orgSlug} studyId={study.id} studyTitle={study.title} />
@@ -51,6 +52,7 @@ export function SubmittedView({ orgSlug, study, orgName, entries, feedbackError 
                     study={study}
                     orgName={orgName}
                     entries={entries}
+                    studyVersion={studyVersion}
                     feedbackError={feedbackError}
                 />
             }

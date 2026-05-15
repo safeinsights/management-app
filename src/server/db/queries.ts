@@ -171,6 +171,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
                 'studyProposalComment.decision',
                 'studyProposalComment.body',
                 'studyProposalComment.createdAt',
+                'studyProposalComment.version',
                 'author.fullName as authorName',
             ])
             .where('studyProposalComment.studyId', '=', studyId)

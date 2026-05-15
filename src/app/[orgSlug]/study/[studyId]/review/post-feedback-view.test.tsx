@@ -11,7 +11,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PostFeedbackView } from './post-feedback-view'
 
 const ORG_SLUG = 'test-org'
@@ -26,6 +26,7 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
         decision: overrides.decision === undefined ? 'APPROVE' : overrides.decision,
         body: overrides.body ?? JSON.parse(lexicalJson('This is the reviewer feedback body.')),
         createdAt: overrides.createdAt ?? new Date('2026-04-16T10:00:00Z'),
+        version: overrides.version ?? null,
     }) as ProposalFeedbackEntry
 
 describe('PostFeedbackView', () => {
@@ -139,6 +140,7 @@ describe('PostFeedbackView', () => {
             decision: 'NEEDS-CLARIFICATION',
             createdAt: new Date('2026-04-20T12:00:00Z'),
             body: JSON.parse(lexicalJson('Latest reviewer note.')),
+            version: 2,
         })
 
         const researcherEntry = buildEntry({
@@ -149,6 +151,7 @@ describe('PostFeedbackView', () => {
             decision: null,
             createdAt: new Date('2026-04-18T08:00:00Z'),
             body: JSON.parse(lexicalJson('Original resubmission note.')),
+            version: 2,
         })
 
         it('orders entries from most recent to oldest', () => {
@@ -164,30 +167,26 @@ describe('PostFeedbackView', () => {
         })
 
         it('expands the latest entry by default and collapses older entries', () => {
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                )
+
+                expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
+        })
+
+        it('titles entries with their stored version', () => {
             renderWithProviders(
                 <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
             )
 
-            expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
-            expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
-        })
-
-        it('titles reviewer entries "Reviewer feedback"', () => {
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />)
-
-            const entry = screen.getByTestId('feedback-entry-reviewer-1')
-            expect(entry).toHaveTextContent('Reviewer feedback')
-        })
-
-        it('titles researcher entries "Resubmission note"', () => {
-            // Include a reviewer entry first so the view's decision header can render —
-            // PostFeedbackView returns null when the latest entry has no decision.
-            renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
-            )
-
-            const entry = screen.getByTestId('feedback-entry-researcher-1')
-            expect(entry).toHaveTextContent('Resubmission note')
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback (v2.0)')
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Resubmission note (v2.0)')
         })
 
         it('renders author name and date for each entry', () => {
@@ -212,16 +211,24 @@ describe('PostFeedbackView', () => {
             expect(screen.queryByTestId('entry-divider')).not.toBeInTheDocument()
         })
 
-        it('toggles entry expansion on caret click', async () => {
-            const user = userEvent.setup()
-            renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
-            )
+        it('toggles entry expansion on click', async () => {
+            // happy-dom doesn't compute real layout, so scrollHeight ≈ clientHeight and
+            // isTruncated stays false. Mock a large scrollHeight so the toggle renders.
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                const user = userEvent.setup()
+                renderWithProviders(
+                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                )
 
-            const olderToggle = screen.getByTestId('feedback-toggle-researcher-1')
-            expect(olderToggle).toHaveAttribute('aria-expanded', 'false')
-            await user.click(olderToggle)
-            expect(olderToggle).toHaveAttribute('aria-expanded', 'true')
+                const toggle = screen.getByTestId('feedback-toggle-reviewer-1')
+                expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+                await user.click(toggle)
+                expect(toggle).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
     })
 
