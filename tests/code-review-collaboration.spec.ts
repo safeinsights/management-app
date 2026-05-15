@@ -178,8 +178,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
     page,
     studyFeatures,
 }) => {
-    test.skip(!!process.env.CI, 'Hocuspocus editor service not yet wired in CI')
-
     const studyTitle = studyFeatures.uniqueTitle('two-tabs-collab')
     let studyId = ''
 
