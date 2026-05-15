@@ -156,12 +156,7 @@ function StudyCodeBody({ isVisible, activeFile }: { isVisible: boolean; activeFi
     // real content rendering lands separately. The tab + expand behavior around it
     // is fully wired up.
     return (
-        <Box
-            bg="charcoal.0"
-            p="md"
-            data-testid="study-code-body"
-            style={{ borderRadius: 'var(--mantine-radius-sm)' }}
-        >
+        <Box bg="charcoal.0" p="md" data-testid="study-code-body" style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
             <Text size="sm" fw={600} style={{ fontFamily: 'monospace' }}>
                 {activeFile.name}
             </Text>
