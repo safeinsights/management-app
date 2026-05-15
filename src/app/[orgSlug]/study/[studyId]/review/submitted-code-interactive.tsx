@@ -152,18 +152,43 @@ function StudyCodeBody({ isVisible, activeFile }: { isVisible: boolean; activeFi
         )
     }
     // Placeholder body — the Figma Concept Notes call out the SI tabs/code-viewer
-    // as still in flight, so we render the active file name here while the real
-    // content rendering lands separately. The tab + expand behavior around it is
-    // fully wired up.
+    // as still in flight, so we render a "preview coming soon" label here while the
+    // real content rendering lands separately. The tab + expand behavior around it
+    // is fully wired up.
     return (
         <Box
             bg="charcoal.0"
             p="md"
             data-testid="study-code-body"
-            style={{ borderRadius: 'var(--mantine-radius-sm)', fontFamily: 'monospace' }}
+            style={{ borderRadius: 'var(--mantine-radius-sm)' }}
         >
-            <Text size="sm">{activeFile.name}</Text>
+            <Text size="sm" fw={600} style={{ fontFamily: 'monospace' }}>
+                {activeFile.name}
+            </Text>
+            <Text size="xs" c="dimmed" fs="italic" mt="xs">
+                Code preview coming soon — the file viewer is still in development.
+            </Text>
         </Box>
+    )
+}
+
+function StudyCodeToggle({
+    isVisible,
+    isExpanded,
+    onClick,
+}: {
+    isVisible: boolean
+    isExpanded: boolean
+    onClick: () => void
+}) {
+    if (!isVisible) return null
+    const label = isExpanded ? 'Hide full study code' : 'View full study code'
+    return (
+        <UnstyledButton onClick={onClick} data-testid="study-code-toggle">
+            <Text size="sm" c="blue.6" td="underline">
+                {label}
+            </Text>
+        </UnstyledButton>
     )
 }
 
@@ -172,7 +197,7 @@ type StudyCodeViewerProps = { files: CodeFile[] }
 export function StudyCodeViewer({ files }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files)
     const { visible, hiddenCount } = splitVisibleFiles(files)
-    const toggleLabel = isExpanded ? 'Hide full study code' : 'View full study code'
+    const hasFiles = files.length > 0
 
     return (
         <Stack gap="sm" data-testid="study-code-viewer">
@@ -183,11 +208,7 @@ export function StudyCodeViewer({ files }: StudyCodeViewerProps) {
                 hiddenCount={hiddenCount}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} />
-            <UnstyledButton onClick={toggleExpanded} data-testid="study-code-toggle">
-                <Text size="sm" c="blue.6" td="underline">
-                    {toggleLabel}
-                </Text>
-            </UnstyledButton>
+            <StudyCodeToggle isVisible={hasFiles} isExpanded={isExpanded} onClick={toggleExpanded} />
         </Stack>
     )
 }

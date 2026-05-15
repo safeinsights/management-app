@@ -349,6 +349,20 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.getByTestId('study-code-body')).toBeInTheDocument()
         expect(toggle).toHaveTextContent('Hide full study code')
     })
+
+    it('hides the show/hide toggle when there are no code files', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture)
+        expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
+    })
+
+    it('renders a visible "preview coming soon" hint inside the placeholder body', async () => {
+        const fixture = await setupFilesFixture(['main.R'])
+        await renderSection(fixture)
+        const body = screen.getByTestId('study-code-body')
+        expect(body).toHaveTextContent('Code preview coming soon')
+        expect(body).toHaveTextContent('main.R')
+    })
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
