@@ -67,6 +67,40 @@ describe('resubmitProposalAction', () => {
         expect(JSON.stringify(comments[0].body)).toContain('word0')
     })
 
+    it('deletes stale review-feedback yjs_document rows when resubmitting', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-yjs', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: `review-feedback-${study.id}-v1`, studyId: study.id, data: Buffer.from([0]) })
+            .execute()
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: `review-feedback-${study.id}`, studyId: study.id, data: Buffer.from([0]) })
+            .execute()
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const remaining = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('studyId', '=', study.id)
+            .where('name', 'like', `review-feedback-${study.id}%`)
+            .execute()
+        expect(remaining).toHaveLength(0)
+    })
+
     it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-2', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({

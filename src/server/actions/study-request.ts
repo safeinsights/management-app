@@ -737,6 +737,18 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             })
             .execute()
 
+        // The bumped version above opens a new review round. Any `review-feedback-*`
+        // yjs_document row from the closed round is now orphaned: round N+1 binds
+        // to a fresh `…-v<n+1>` room. A stale `…-v<n>` tab still connected when
+        // the status flipped back to PENDING-REVIEW could otherwise re-create the
+        // deleted row via Hocuspocus persistence. Mirrors the same-tx delete in
+        // submitProposalReviewAction.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `review-feedback-${studyId}%`)
+            .execute()
+
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/dashboard`)
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

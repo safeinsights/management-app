@@ -89,23 +89,11 @@ export function editableStatusForKind(kind: ParsedDocumentName['kind']): readonl
 // yjs_document. Safe to use as a silent skip because we already reject
 // reconnects when status is non-editable, so no peer can fetch a pre-flip
 // persisted state while other peers still hold post-flip in-memory state.
-//
-// For `review-feedback` docs the gate has a second axis: the doc name carries
-// a per-round `version`. A stale client from round N-1 (still connected when
-// round N opens after researcher resubmission) would otherwise re-persist
-// the old round's state. Refusing persistence whenever the doc name's
-// version is not the latest forces round N to bootstrap empty.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status
     if (!status) return false
     if (!editableStatusForKind(parsed.kind).includes(status)) return false
-
-    if (parsed.kind === 'review-feedback') {
-        if (parsed.version === null) return false
-        const current = await currentReviewVersionFromDb(db as DbQuery, parsed.studyId)
-        if (parsed.version !== current) return false
-    }
     return true
 }
 
@@ -208,25 +196,6 @@ export interface AuthenticatedContext {
     user: { id: string; clerkId: string }
 }
 
-/**
- * Current editable review round for a study. Mirrors the management-app
- * `currentReviewVersion` helper in `src/server/db/queries.ts` but reads via
- * the editor service's `pg.Pool` rather than Kysely. Round number is the
- * `version` on the latest `study_proposal_comment` row; the management-app's
- * submit and resubmit actions populate it on every reviewer-feedback and
- * resubmission-note insert. Returns 1 when no comments exist yet.
- */
-export async function currentReviewVersionFromDb(db: DbQuery, studyId: string): Promise<number> {
-    const row = await db.query<{ version: number | null }>(
-        `SELECT version FROM study_proposal_comment
-          WHERE study_id = $1
-          ORDER BY created_at DESC
-          LIMIT 1`,
-        [studyId],
-    )
-    return row.rows[0]?.version ?? 1
-}
-
 // Stable codes that survive serialisation to the client via
 // `onAuthenticationFailed.reason`. The wire format is `CODE: message` so the
 // client can split on the first colon and dispatch on `code` rather than
@@ -305,25 +274,6 @@ export async function authenticate(
     const allowed = editableStatusForKind(parsed.kind)
     if (!allowed.includes(study.status)) {
         throw new AuthFailureError('STUDY_NOT_EDITABLE', `study is not editable (status: ${study.status})`)
-    }
-
-    // Version enforcement for review-feedback docs: a round-2 reviewer
-    // connecting after researcher resubmission must use the v2 doc name.
-    // A stale v1 tab reconnecting after the round transition gets the same
-    // STUDY_NOT_EDITABLE flow that the listener already handles. Legacy
-    // unversioned names are no longer accepted; there is exactly one
-    // current round per study at any moment.
-    if (parsed.kind === 'review-feedback') {
-        if (parsed.version === null) {
-            throw new AuthFailureError('STUDY_NOT_EDITABLE', 'legacy review-feedback doc no longer accepted')
-        }
-        const current = await currentReviewVersionFromDb(deps.db, parsed.studyId)
-        if (parsed.version !== current) {
-            throw new AuthFailureError(
-                'STUDY_NOT_EDITABLE',
-                `stale review-feedback version ${parsed.version} (current ${current})`,
-            )
-        }
     }
 
     return { user: { id: internalUserId, clerkId: clerkUserId } }

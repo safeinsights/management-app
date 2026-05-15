@@ -104,8 +104,10 @@ export default async function StudyReviewPage(props: {
         // from the entries action), so an unrelated failure of the entries
         // action only loses the history rendering. Deriving `reviewVersion`
         // from `safeEntries` after a failure would silently downgrade the
-        // editor to v1, which the editor service rejects with STUDY_NOT_EDITABLE
-        // whenever the real current version is greater.
+        // editor to v1: round 2 reviewers would then bind to the wrong Yjs
+        // room (round 1's `…-v1`), and any submit attempt would be rejected
+        // by `submitProposalReviewAction`'s `reviewVersion` mismatch check
+        // with a confusing "stale review round 1 (current 2)" error.
         const reviewVersion = await currentReviewVersion(studyId)
         const entries = await getProposalFeedbackForStudyAction({ studyId })
         const safeEntries = isActionError(entries) ? [] : entries

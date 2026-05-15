@@ -319,7 +319,7 @@ describe('authenticate', () => {
         ).resolves.toEqual({ user: { id: 'lab-user', clerkId: 'clerk-user-1' } })
     })
 
-    it('passes a DO member opening their DO review-feedback document at the current version', async () => {
+    it('passes a DO member opening their DO review-feedback document', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
             if (text.includes('FROM study WHERE'))
@@ -327,43 +327,11 @@ describe('authenticate', () => {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
                 }
-            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 1 }], rowCount: 1 }
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
             authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' } })
-    })
-
-    it('rejects a DO member opening a legacy unversioned review-feedback document', async () => {
-        const db = dbFromScripts(async (text) => {
-            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
-            if (text.includes('FROM study WHERE'))
-                return {
-                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
-                    rowCount: 1,
-                }
-            return { rows: [{}], rowCount: 1 }
-        })
-        await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
-        ).rejects.toThrow(/legacy review-feedback doc no longer accepted/)
-    })
-
-    it('rejects a DO member opening a stale review-feedback version', async () => {
-        const db = dbFromScripts(async (text) => {
-            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
-            if (text.includes('FROM study WHERE'))
-                return {
-                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
-                    rowCount: 1,
-                }
-            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 2 }], rowCount: 1 }
-            return { rows: [{}], rowCount: 1 }
-        })
-        await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
-        ).rejects.toThrow(/stale review-feedback version 1 \(current 2\)/)
     })
 
     it('passes a safe-insights admin opening any document', async () => {
@@ -390,7 +358,6 @@ describe('authenticate', () => {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
                 }
-            if (text.includes('FROM study_proposal_comment')) return { rows: [{ version: 1 }], rowCount: 1 }
             return { rows: [{}], rowCount: 1 }
         })
 
@@ -564,17 +531,8 @@ describe('assertStatelessEventConsistent', () => {
 })
 
 describe('shouldPersistDocument', () => {
-    // Routes by query text since review-feedback now needs two reads (study row + latest comment version).
-    const fakeDb = (
-        rows: Array<{ status: string }>,
-        commentRows: Array<{ version: number | null }> = [{ version: 1 }],
-    ): DbQuery => ({
-        query: (async (text: string) => {
-            if (text.includes('FROM study_proposal_comment')) {
-                return { rows: commentRows, rowCount: commentRows.length }
-            }
-            return { rows, rowCount: rows.length }
-        }) as DbQuery['query'],
+    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
+        query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
     })
 
     it('allows persistence for proposal-fields when study is DRAFT', async () => {
@@ -601,11 +559,11 @@ describe('shouldPersistDocument', () => {
         ).resolves.toBe(false)
     })
 
-    it('allows persistence for review-feedback when status is PENDING-REVIEW and version matches', async () => {
+    it('allows persistence for review-feedback when status is PENDING-REVIEW', async () => {
         await expect(
             shouldPersistDocument(
                 { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 1 }]),
+                fakeDb([{ status: 'PENDING-REVIEW' }]),
             ),
         ).resolves.toBe(true)
     })
@@ -616,33 +574,6 @@ describe('shouldPersistDocument', () => {
                 shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, fakeDb([{ status }])),
             ).resolves.toBe(false)
         }
-    })
-
-    it('blocks persistence for the legacy unversioned review-feedback doc', async () => {
-        await expect(
-            shouldPersistDocument(
-                { kind: 'review-feedback', studyId: STUDY_ID, version: null },
-                fakeDb([{ status: 'PENDING-REVIEW' }]),
-            ),
-        ).resolves.toBe(false)
-    })
-
-    it('blocks persistence for a stale review-feedback version after researcher resubmits', async () => {
-        await expect(
-            shouldPersistDocument(
-                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 2 }]),
-            ),
-        ).resolves.toBe(false)
-    })
-
-    it('allows persistence for the new review-feedback version after researcher resubmits', async () => {
-        await expect(
-            shouldPersistDocument(
-                { kind: 'review-feedback', studyId: STUDY_ID, version: 2 },
-                fakeDb([{ status: 'PENDING-REVIEW' }], [{ version: 2 }]),
-            ),
-        ).resolves.toBe(true)
     })
 
     it('blocks persistence when the study row has been deleted', async () => {
