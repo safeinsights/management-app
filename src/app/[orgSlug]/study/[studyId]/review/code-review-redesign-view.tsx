@@ -4,6 +4,7 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { CodeReviewForm } from './code-review-form'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
@@ -104,6 +105,7 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
 export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedesignViewProps) {
     const job = await latestJobForStudy(study.id)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
         <Box bg="grey.10">
@@ -119,6 +121,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
                     Study Proposal
                 </Title>
                 <CodeReviewSection study={study} submittedAt={job.createdAt} />
+                <CodeReviewForm labName={labName} orgSlug={orgSlug} studyId={study.id} />
             </Stack>
         </Box>
     )

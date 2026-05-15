@@ -4,6 +4,7 @@
 // network keys. `services/editor/server.ts` wires these into the runtime.
 
 import {
+    CODE_REVIEW_FEEDBACK_PREFIX,
     PROPOSAL_PREFIX,
     PROPOSAL_TEXT_SLUGS,
     REVIEW_FEEDBACK_PREFIX,
@@ -27,6 +28,7 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
 
 export type ParsedDocumentName =
+    | { kind: 'code-review-feedback'; studyId: string }
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
@@ -34,6 +36,12 @@ export type ParsedDocumentName =
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
 export function parseDocumentName(name: string): ParsedDocumentName | null {
+    // Check the longer 'code-review-feedback-' prefix before 'review-feedback-'.
+    if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
+        const studyId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
+        return UUID_RE.test(studyId) ? { kind: 'code-review-feedback', studyId } : null
+    }
+
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
         const remainder = name.slice(REVIEW_FEEDBACK_PREFIX.length)
         if (remainder.length < UUID_LEN) return null
@@ -62,13 +70,14 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     return null
 }
 
-// review-feedback-* documents are owned by the reviewing org (DO).
+// review-feedback-* and code-review-feedback-* documents are owned by the reviewing org (DO).
 // proposal-* documents are owned by the submitting lab.
 export function requiredOrgIdForDocument(
     parsed: ParsedDocumentName,
     study: { org_id: string; submitted_by_org_id: string },
 ): string {
-    return parsed.kind === 'review-feedback' ? study.org_id : study.submitted_by_org_id
+    if (parsed.kind === 'review-feedback' || parsed.kind === 'code-review-feedback') return study.org_id
+    return study.submitted_by_org_id
 }
 
 // Allowed study statuses for editing each document kind. Authentication
@@ -77,6 +86,7 @@ export function requiredOrgIdForDocument(
 // persisted Yjs state after submission.
 export function editableStatusForKind(kind: ParsedDocumentName['kind']): readonly StudyStatus[] {
     if (kind === 'review-feedback') return ['PENDING-REVIEW']
+    if (kind === 'code-review-feedback') return ['APPROVED']
     return ['DRAFT', 'CHANGE-REQUESTED']
 }
 

@@ -8,6 +8,7 @@ const PROPOSAL_TEXT_FIELD_KEYS: ProposalTextFieldKey[] = [
 ]
 
 export const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
+export const CODE_REVIEW_FEEDBACK_PREFIX = 'code-review-feedback-'
 export const PROPOSAL_PREFIX = 'proposal-'
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -40,12 +41,23 @@ export const reviewFeedbackDocNameForVersion = (studyId: string, version: number
 
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
+export const codeReviewFeedbackDocName = (studyId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${studyId}`
+
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
+    | { kind: 'code-review-feedback'; studyId: string }
     | { kind: 'review-feedback'; studyId: string; version: number }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
+    // Order matters: check the longer prefix first since 'code-review-feedback-'
+    // does not start with 'review-feedback-' but a future rename could overlap.
+    if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
+        const studyId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
+        if (!UUID_RE.test(studyId)) return null
+        return { kind: 'code-review-feedback', studyId }
+    }
+
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
         const remainder = name.slice(REVIEW_FEEDBACK_PREFIX.length)
         if (remainder.length < 36) return null
