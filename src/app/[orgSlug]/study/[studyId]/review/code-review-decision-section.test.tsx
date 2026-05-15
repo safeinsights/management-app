@@ -31,8 +31,11 @@ describe('CodeReviewDecisionSection', () => {
 
     it('splices the lab name into each description', () => {
         renderWithProviders(<Harness labName="Bayes Lab" />)
-        // Lab name appears in the section intro plus in the approve + request-revision + reject descriptions.
-        expect(screen.getAllByText('Bayes Lab').length).toBeGreaterThanOrEqual(3)
+        expect(
+            screen.getByText(/The code will proceed to run in your secure enclave\. Bayes Lab will be notified/),
+        ).toBeInTheDocument()
+        expect(screen.getByText(/Return this code submission to Bayes Lab/)).toBeInTheDocument()
+        expect(screen.getByText(/Share rationale with Bayes Lab/)).toBeInTheDocument()
     })
 
     it('renders the reject warning text', () => {
