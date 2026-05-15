@@ -678,6 +678,9 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
 // Final resubmission: writes the latest proposal edits, records the
 // resubmission note as a study_proposal_comment row, and transitions
 // CHANGE-REQUESTED -> PENDING-REVIEW.
+//
+// `performsMutations: true` runs this handler inside db.transaction().
+// Do not drop it: the study updates/inserts must commit or roll back together.
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({

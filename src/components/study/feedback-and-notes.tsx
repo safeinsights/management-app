@@ -55,7 +55,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const showToggle = isTruncated
 
     return (
-        <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`} aria-expanded={isExpanded}>
+        <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
             <Text fw={700} fz={14}>
                 {title}
             </Text>
@@ -88,6 +88,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                         mt="xs"
                         display="inline-flex"
                         style={{ alignItems: 'center', gap: 4 }}
+                        aria-expanded={isExpanded}
                         data-testid={`feedback-toggle-${entry.id}`}
                     >
                         {isExpanded ? 'View less' : 'View more'}
