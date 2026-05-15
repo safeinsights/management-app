@@ -2,7 +2,6 @@ import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actio
 import {
     actionResult,
     db,
-    insertTestCodeEnv,
     insertTestDataSource,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -13,13 +12,22 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getStudyReviewForJob, latestCodeScanForStudy, latestJobForStudy } from '@/server/db/queries'
+import {
+    getStudyReviewForJob,
+    jobScanResultForJob,
+    latestJobForStudy,
+    type LatestJobForStudy,
+} from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
 const ORG_SLUG = 'test-org-submitted'
 
-async function insertStudyJobFile(studyJobId: string, name: string, fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE') {
+async function insertStudyJobFile(
+    studyJobId: string,
+    name: string,
+    fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' | 'ENCRYPTED-SECURITY-SCAN-LOG',
+) {
     return db
         .insertInto('studyJobFile')
         .values({ studyJobId, name, path: `studies/${studyJobId}/${name}`, fileType })
@@ -27,15 +35,10 @@ async function insertStudyJobFile(studyJobId: string, name: string, fileType: 'M
         .executeTakeFirstOrThrow()
 }
 
-async function insertCodeScan(
-    orgId: string,
-    status: 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-RUNNING',
-    results: string | null = null,
-) {
-    const env = await insertTestCodeEnv({ orgId, language: 'R' })
+async function insertJobStatusChange(studyJobId: string, status: 'CODE-SCANNED' | 'JOB-ERRORED', userId: string) {
     return db
-        .insertInto('codeScan')
-        .values({ codeEnvId: env.id, status, results })
+        .insertInto('jobStatusChange')
+        .values({ studyJobId, status, userId })
         .returningAll()
         .executeTakeFirstOrThrow()
 }
@@ -58,8 +61,9 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
 
 type Fixture = {
     orgId: string
+    userId: string
     study: SelectedStudy
-    jobId: string
+    job: LatestJobForStudy
 }
 
 async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: string } = {}): Promise<Fixture> {
@@ -75,17 +79,22 @@ async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: s
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
-    return { orgId: org.id, study, jobId: job.id }
+    return { orgId: org.id, userId: user.id, study, job }
+}
+
+// Tests that mutate the job (insert files or status changes) call this to refresh
+// the cached job so SubmittedCodeSection sees the latest files in its props.
+async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
+    return { ...fixture, job: await latestJobForStudy(fixture.study.id) }
 }
 
 async function renderSection(fixture: Fixture) {
-    const job = await latestJobForStudy(fixture.study.id)
-    const [review, codeScan] = await Promise.all([
-        getStudyReviewForJob(job.id),
-        latestCodeScanForStudy(fixture.study.id),
+    const [review, scan] = await Promise.all([
+        getStudyReviewForJob(fixture.job.id),
+        jobScanResultForJob(fixture.job.id),
     ])
     return renderWithProviders(
-        <SubmittedCodeSection orgSlug={ORG_SLUG} study={fixture.study} job={job} review={review} codeScan={codeScan} />,
+        <SubmittedCodeSection orgSlug={ORG_SLUG} study={fixture.study} job={fixture.job} review={review} scan={scan} />,
     )
 }
 
@@ -140,9 +149,9 @@ describe('SubmittedCodeSection — Dataset pills', () => {
             datasets: [ds1.id, ds2.id],
         })
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-        const latestJob = await latestJobForStudy(study.id)
+        const job = await latestJobForStudy(study.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
-        await renderSection({ orgId: org.id, study, jobId: latestJob.id })
+        await renderSection({ orgId: org.id, userId: user.id, study, job })
 
         const pills = screen.getAllByTestId('submitted-code-dataset-pill')
         expect(pills).toHaveLength(2)
@@ -169,7 +178,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
     beforeEach(async () => {
         fixture = await setupBaseFixture()
-        await insertStudyReview(fixture.jobId, SUMMARY_TEXT)
+        await insertStudyReview(fixture.job.id, SUMMARY_TEXT)
     })
 
     it('renders section title "AI Summary: Analysis of all files" and the "Overview" subtitle', async () => {
@@ -219,32 +228,33 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
     })
 
-    it('renders the raw scan log text from codeScan.results when present', async () => {
+    it('renders the scan log file name when an encrypted scan log is attached', async () => {
         const fixture = await setupBaseFixture()
-        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE', 'Trivy: 0 vulnerabilities\nSonarQube: Quality Gate OK')
+        await insertJobStatusChange(fixture.job.id, 'CODE-SCANNED', fixture.userId)
+        await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
         await renderSection(fixture)
-        const body = screen.getByTestId('security-scan-log-body')
-        expect(body).toHaveTextContent('Trivy: 0 vulnerabilities')
-        expect(body).toHaveTextContent('SonarQube: Quality Gate OK')
+        expect(screen.getByTestId('security-scan-log-file')).toHaveTextContent('security-scan.log')
     })
 
-    it('shows an empty-state when no scan record exists', async () => {
+    it('shows an in-progress indicator when the scan has not yet completed', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture)
-        expect(screen.getByTestId('security-scan-log-empty')).toHaveTextContent('No scan results available.')
+        expect(screen.getByTestId('security-scan-log-pending')).toHaveTextContent('Scan in progress')
+        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
+        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
     })
 
-    it('displays a green icon when the scan completed without vulnerabilities', async () => {
+    it('displays a green icon when the latest status is CODE-SCANNED', async () => {
         const fixture = await setupBaseFixture()
-        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE', 'all clear')
+        await insertJobStatusChange(fixture.job.id, 'CODE-SCANNED', fixture.userId)
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
         expect(icon?.getAttribute('data-icon')).toBe('pass')
     })
 
-    it('displays a red icon when the scan failed', async () => {
+    it('displays a red icon when the latest status is JOB-ERRORED', async () => {
         const fixture = await setupBaseFixture()
-        await insertCodeScan(fixture.orgId, 'SCAN-FAILED', 'CRITICAL: vulnerability found')
+        await insertJobStatusChange(fixture.job.id, 'JOB-ERRORED', fixture.userId)
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
         expect(icon?.getAttribute('data-icon')).toBe('fail')
@@ -255,11 +265,12 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
     async function setupFilesFixture(fileNames: string[]) {
         const fixture = await setupBaseFixture()
         // First name becomes MAIN-CODE; the rest become SUPPLEMENTAL-CODE.
-        await insertStudyJobFile(fixture.jobId, fileNames[0], 'MAIN-CODE')
+        await insertStudyJobFile(fixture.job.id, fileNames[0], 'MAIN-CODE')
         for (const name of fileNames.slice(1)) {
-            await insertStudyJobFile(fixture.jobId, name, 'SUPPLEMENTAL-CODE')
+            await insertStudyJobFile(fixture.job.id, name, 'SUPPLEMENTAL-CODE')
         }
-        return fixture
+        // Refresh so fixture.job.files reflects what was just inserted.
+        return refreshFixtureJob(fixture)
     }
 
     it('renders files in a single horizontal row with no wrapping', async () => {

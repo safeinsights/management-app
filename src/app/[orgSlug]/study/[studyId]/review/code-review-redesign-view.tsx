@@ -1,6 +1,6 @@
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
-import { getStudyReviewForJob, latestCodeScanForStudy, latestJobForStudy } from '@/server/db/queries'
+import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudy } from '@/server/db/queries'
 import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -104,7 +104,7 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
 
 export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedesignViewProps) {
     const job = await latestJobForStudy(study.id)
-    const [review, codeScan] = await Promise.all([getStudyReviewForJob(job.id), latestCodeScanForStudy(study.id)])
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
 
     return (
@@ -121,7 +121,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
                     Study Proposal
                 </Title>
                 <CodeReviewSection study={study} submittedAt={job.createdAt} />
-                <SubmittedCodeSection orgSlug={orgSlug} study={study} job={job} review={review} codeScan={codeScan} />
+                <SubmittedCodeSection orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
             </Stack>
         </Box>
     )

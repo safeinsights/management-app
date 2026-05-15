@@ -1,7 +1,7 @@
-import { Anchor, Box, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOut, CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
+import { ArrowSquareOut, CheckCircle, CircleNotch, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import type { LatestCodeScanForStudy, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobScanResult, JobScanStatus, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyJobFileType } from '@/database/types'
 import { AiSummaryCollapsible, StudyCodeViewer, type CodeFile } from './submitted-code-interactive'
@@ -55,43 +55,54 @@ function DatasetPills({ names }: { names: string[] }) {
     )
 }
 
-function ScanStatusIcon({ scan }: { scan: LatestCodeScanForStudy | null }) {
-    if (!scan) return null
-    const passed = scan.status === 'SCAN-COMPLETE'
-    const Icon = passed ? CheckCircle : XCircle
-    const colorVar = `var(--mantine-color-${passed ? 'green' : 'red'}-6)`
-    const dataIcon = passed ? 'pass' : 'fail'
-    return <Icon size={20} weight="fill" color={colorVar} data-icon={dataIcon} aria-hidden="true" />
+function ScanStatusIcon({ status }: { status: JobScanStatus }) {
+    if (status === 'CODE-SCANNED') {
+        return (
+            <CheckCircle
+                size={20}
+                weight="fill"
+                color="var(--mantine-color-green-6)"
+                data-icon="pass"
+                aria-hidden="true"
+            />
+        )
+    }
+    if (status === 'JOB-ERRORED') {
+        return (
+            <XCircle size={20} weight="fill" color="var(--mantine-color-red-6)" data-icon="fail" aria-hidden="true" />
+        )
+    }
+    return <CircleNotch size={20} color="var(--mantine-color-charcoal-6)" data-icon="in-progress" aria-hidden="true" />
 }
 
-function ScanLogBody({ scan }: { scan: LatestCodeScanForStudy | null }) {
-    if (!scan?.results) {
+function ScanLogBody({ scan }: { scan: JobScanResult }) {
+    if (scan.logFile) {
         return (
-            <Text size="sm" c="dimmed" data-testid="security-scan-log-empty">
-                No scan results available.
+            <Text size="sm" data-testid="security-scan-log-file">
+                Scan log: {scan.logFile.name}
+            </Text>
+        )
+    }
+    if (scan.status === 'IN-PROGRESS') {
+        return (
+            <Text size="sm" c="dimmed" data-testid="security-scan-log-pending">
+                Scan in progress…
             </Text>
         )
     }
     return (
-        <Box
-            bg="charcoal.0"
-            p="md"
-            style={{ borderRadius: 'var(--mantine-radius-sm)', fontFamily: 'monospace' }}
-            data-testid="security-scan-log-body"
-        >
-            <Text size="sm" component="pre" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                {scan.results}
-            </Text>
-        </Box>
+        <Text size="sm" c="dimmed" data-testid="security-scan-log-empty">
+            No scan log available.
+        </Text>
     )
 }
 
-function SecurityScanLog({ scan }: { scan: LatestCodeScanForStudy | null }) {
+function SecurityScanLog({ scan }: { scan: JobScanResult }) {
     return (
         <Stack gap="xs" data-testid="security-scan-log">
             <Group gap="xs" wrap="nowrap">
                 <Text fw={700}>Security scan log</Text>
-                <ScanStatusIcon scan={scan} />
+                <ScanStatusIcon status={scan.status} />
             </Group>
             <ScanLogBody scan={scan} />
         </Stack>
@@ -103,14 +114,14 @@ type SubmittedCodeSectionProps = {
     study: SelectedStudy
     job: Pick<LatestJobForStudy, 'id' | 'files'>
     review: StudyReviewWithMeta | null
-    codeScan: LatestCodeScanForStudy | null
+    scan: JobScanResult
 }
 
 // Data fetching lives in the parent (CodeReviewRedesignView) so this component
 // stays a plain sync function. Nested async server components don't render
 // under testing-library / happy-dom — the parent's await is what tests rely on.
-export function SubmittedCodeSection({ orgSlug, study, job, review, codeScan }: SubmittedCodeSectionProps) {
-    const datasetNames = (study.orgDataSources ?? []).map((ds) => ds.name)
+export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: SubmittedCodeSectionProps) {
+    const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
     const summary = review?.report.codeExplanation ?? null
     const codeFiles = filterAndOrderCodeFiles(job.files)
@@ -124,7 +135,7 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, codeScan }: 
                 <Divider />
                 <Group align="flex-start" grow gap="xl" wrap="nowrap">
                     <AiSummaryCollapsible summary={summary} />
-                    <SecurityScanLog scan={codeScan} />
+                    <SecurityScanLog scan={scan} />
                 </Group>
                 <Divider />
                 <StudyCodeViewer files={codeFiles} />

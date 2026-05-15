@@ -4,7 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, ScanStatus } from '@/database/types'
+import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -397,30 +397,42 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export type LatestCodeScanForStudy = {
-    status: ScanStatus
-    results: string | null
-    createdAt: Date
+export type JobScanStatus = 'CODE-SCANNED' | 'JOB-ERRORED' | 'IN-PROGRESS'
+
+export type JobScanResult = {
+    status: JobScanStatus
+    scannedAt: Date | null
+    logFile: { id: string; name: string; path: string } | null
 }
 
-// The codeScan table is keyed by orgCodeEnv, not by studyJob — a scan represents
-// the security baseline of the environment the code runs in. We anchor on the
-// study's (orgId, language) → most recent non-testing orgCodeEnv, then its
-// latest scan row.
-export async function latestCodeScanForStudy(studyId: string): Promise<LatestCodeScanForStudy | null> {
-    const row = await Action.db
-        .selectFrom('codeScan')
-        .innerJoin('orgCodeEnv', 'orgCodeEnv.id', 'codeScan.codeEnvId')
-        .innerJoin('study', (join) =>
-            join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
-        )
-        .where('study.id', '=', studyId)
-        .where('orgCodeEnv.isTesting', '=', false)
-        .select(['codeScan.status', 'codeScan.results', 'codeScan.createdAt'])
-        .orderBy('codeScan.createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-    return row ?? null
+// The codeScan table is for orgCodeEnv image scans, not per-job scans. The
+// reviewer-facing scan result lives in the job's status changes (CODE-SCANNED /
+// JOB-ERRORED) and the encrypted scan log file attached to the job.
+export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
+    const [latestStatus, logFile] = await Promise.all([
+        Action.db
+            .selectFrom('jobStatusChange')
+            .select(['status', 'createdAt'])
+            .where('studyJobId', '=', studyJobId)
+            .where('status', 'in', ['CODE-SCANNED', 'JOB-ERRORED'])
+            .orderBy('createdAt', 'desc')
+            .orderBy('id', 'desc')
+            .limit(1)
+            .executeTakeFirst(),
+        Action.db
+            .selectFrom('studyJobFile')
+            .select(['id', 'name', 'path'])
+            .where('studyJobId', '=', studyJobId)
+            .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .executeTakeFirst(),
+    ])
+    return {
+        status: (latestStatus?.status as JobScanStatus) ?? 'IN-PROGRESS',
+        scannedAt: latestStatus?.createdAt ?? null,
+        logFile: logFile ?? null,
+    }
 }
 
 export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
