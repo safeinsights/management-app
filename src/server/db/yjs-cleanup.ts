@@ -32,13 +32,12 @@ export async function purgeReviewFeedbackYjsDocBeforeAt(
         .execute()
 }
 
-export async function purgeCodeReviewFeedbackYjsDocBeforeAt(
-    db: DBExecutor,
-    { jobId, beforeAt }: { jobId: string; beforeAt: Date },
-): Promise<void> {
-    await db
-        .deleteFrom('yjsDocument')
-        .where('name', '=', codeReviewFeedbackDocName(jobId))
-        .where('updatedAt', '<=', beforeAt)
-        .execute()
+// Unconditional delete by job-keyed name. After submit, the action layer has
+// transitioned both the job and the study out of reviewable state, so any
+// yjs_document row at this name is stale (a debounced Hocuspocus persist that
+// landed between the in-tx delete and the 5s deferred sweep). Code-review docs
+// are job-keyed and never legitimately re-used, so we don't need an updatedAt
+// bound: anything at this name post-submit is collateral.
+export async function purgeCodeReviewFeedbackYjsDoc(db: DBExecutor, { jobId }: { jobId: string }): Promise<void> {
+    await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(jobId)).execute()
 }

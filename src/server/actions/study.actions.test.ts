@@ -1279,6 +1279,41 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
+    it('surfaces a clean ActionFailure (not raw "duplicate key") when two reviewers race past the claim', async () => {
+        // Simulates the race-loser path: claimInitialCodeReviewJob passes (the
+        // study/job are still in reviewable state because the winning reviewer
+        // has not yet committed), but the studyReviewComment insert trips the
+        // composite unique constraint on (studyJobId, reviewKind). We seed the
+        // row directly to force that exact failure mode.
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+            })
+            .execute()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: { study: 'another reviewer has already submitted a decision for this study code' },
+        })
+        // The pre-seeded row is the only CODE row; the action did not create a second.
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+    })
+
     it('composite unique constraint blocks two CODE review rows for the same job', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({

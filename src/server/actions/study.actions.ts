@@ -2,13 +2,14 @@
 
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
 import { codeReviewFeedbackDocName, reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
     getProposalFeedbackForStudy,
@@ -17,7 +18,7 @@ import {
     latestJobForStudyOrNull,
     type LatestJobForStudy,
 } from '@/server/db/queries'
-import { purgeCodeReviewFeedbackYjsDocBeforeAt, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
     onStudyApproved,
@@ -616,9 +617,18 @@ export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedback
 // code-review-feedback document. A debounced Hocuspocus persist can race the
 // in-tx delete on a different connection, so wait long enough for any in-flight
 // persist to land and re-delete only rows older than the captured submit time.
-const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string; beforeAt: Date }) => {
-    await sleep({ 5: 'seconds' })
-    await purgeCodeReviewFeedbackYjsDocBeforeAt(database, args)
+// Safety-net: after the in-tx delete commits, a debounced Hocuspocus persist
+// from a stale connected client can still upsert a row at the job-keyed name
+// (the editor no longer gates code-review writes; the action is the single
+// enforcer). The delay must outlast Hocuspocus's MAX_SAVE_INTERVAL_MS (30s) so
+// the sweep runs *after* the worst-case debounced/maxDebounce store fires, and
+// after the disconnect-flush (which is also routed through the same debouncer
+// per the Hocuspocus 3.4.x server). Job-keyed names are never legitimately
+// re-used after submit, so unconditional delete is safe.
+const CODE_REVIEW_PURGE_DELAY_MS = MAX_SAVE_INTERVAL_MS + 5_000
+const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string }) => {
+    await sleep({ [CODE_REVIEW_PURGE_DELAY_MS]: 'ms' })
+    await purgeCodeReviewFeedbackYjsDoc(database, args)
 })
 
 async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
@@ -683,21 +693,35 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         }
 
         const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
-        const submittedAt = new Date()
 
-        await db
-            .insertInto('studyReviewComment')
-            .values({
-                studyId,
-                studyJobId: claimedJob.id,
-                authorId: userId,
-                reviewKind: 'CODE',
-                entryType: 'DECISION',
-                decision: toReviewDecision(decision),
-                body: JSON.parse(json),
-                criteria,
-            })
-            .executeTakeFirstOrThrow()
+        try {
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId,
+                    studyJobId: claimedJob.id,
+                    authorId: userId,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: toReviewDecision(decision),
+                    body: JSON.parse(json),
+                    criteria,
+                })
+                .executeTakeFirstOrThrow()
+        } catch (err) {
+            // Postgres unique_violation (SQLSTATE 23505). The composite unique
+            // index on (studyJobId, reviewKind) fires when two reviewers race
+            // through claimInitialCodeReviewJob and both reach this insert
+            // before either commits. The race-loser sees this; the data is
+            // already safe, so surface a clean message instead of the raw
+            // duplicate-key error.
+            if (isPgUniqueViolation(err)) {
+                throw new ActionFailure({
+                    study: 'another reviewer has already submitted a decision for this study code',
+                })
+            }
+            throw err
+        }
 
         const submitter = await db
             .selectFrom('user')
@@ -719,7 +743,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             await performStudyCodeRejection({ db, studyId, userId })
         }
 
-        purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id, beforeAt: submittedAt })
+        purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 
         return { submitterFullName: submitter.fullName }
     })
