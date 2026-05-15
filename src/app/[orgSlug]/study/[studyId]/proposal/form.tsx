@@ -291,7 +291,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     <ProposalFooter
                         researcherName={researcherName}
                         researcherId={researcherId}
-                        piUserId={form.values.piUserId}
                         enclaveOrgSlug={enclaveOrgSlug}
                     />
                 </Stack>
