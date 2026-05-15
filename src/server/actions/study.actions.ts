@@ -241,6 +241,12 @@ async function approveJobCode({
     useTestImage?: boolean
     jobFiles?: z.infer<typeof jobFileSchema>[]
 }) {
+    // Lock the studyJob row so a concurrent approve/reject is forced to wait. Combined
+    // with the post-lock re-check below this serializes the two writers and turns the
+    // SELECT prior -> INSERT terminal pre-check into a true CAS without needing a partial
+    // unique index in this PR.
+    await db.selectFrom('studyJob').select('id').where('id', '=', job.id).forUpdate().execute()
+
     const priorCodeTerminal = await db
         .selectFrom('jobStatusChange')
         .select('status')
@@ -459,6 +465,12 @@ async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecut
         onStudyRejected({ studyId, userId })
         return
     }
+
+    // Lock the studyJob row before checking + inserting so a concurrent approve is forced
+    // to wait. The post-lock re-check below serializes the two writers and makes the
+    // SELECT prior -> INSERT terminal pre-check a real CAS without the partial unique
+    // index. The study row UPDATE already serializes the study-level part of the race.
+    await db.selectFrom('studyJob').select('id').where('id', '=', latestJob.id).forUpdate().execute()
 
     const priorTerminal = await db
         .selectFrom('jobStatusChange')

@@ -175,11 +175,11 @@ describe('Study Job Actions', () => {
             expect(filesApproved).toHaveLength(0)
         })
 
-        // Sequential variant — covered by the two tests above. A true parallel Promise.all
-        // race for job files would need the partial unique index follow-up (see plan §7.5)
-        // since the in-PR fix is SELECT-then-INSERT without row-level locking, so both calls
-        // can pass the SELECT before either INSERTs. Re-enable this test once the index ships.
-        test.skip('OTTER-471: parallel approve + reject — exactly one wins (needs partial unique index)', async () => {
+        // True parallel race for job files. The actions are now performsMutations: true and
+        // take SELECT FOR UPDATE on the studyJob row, so the second writer waits for the
+        // first to commit and the post-lock re-check refuses cleanly. Exactly one terminal
+        // row should end up in jobStatusChange and exactly one of the two calls should fail.
+        test('OTTER-471: parallel approve + reject — exactly one wins, never both terminal rows', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
@@ -219,8 +219,14 @@ describe('Study Job Actions', () => {
                 .where('status', '=', 'FILES-REJECTED')
                 .execute()
 
-            expect(filesApproved.length + filesRejected.length).toBeLessThanOrEqual(1)
-            expect(errors.length).toBeGreaterThanOrEqual(1)
+            expect(filesApproved.length + filesRejected.length).toBe(1)
+            expect(errors).toHaveLength(1)
+            // If the approve was the loser, no S3 file should have been written — the
+            // terminal INSERT now runs before storeApprovedJobFile.
+            const approveLost = filesApproved.length === 0
+            if (approveLost) {
+                expect(storeApprovedJobFileMock).not.toHaveBeenCalled()
+            }
         })
     })
 })

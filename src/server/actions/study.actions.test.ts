@@ -427,6 +427,42 @@ describe('Study Actions', () => {
             expect(hasApproved || hasRejected).toBe(true)
             expect(hasApproved && hasRejected).toBe(false)
         })
+
+        // Exercises the studyJob FOR UPDATE lock + post-lock re-check in approveJobCode /
+        // performStudyCodeRejection: a Promise.all approve + reject on a CODE-SCANNED job
+        // must end up with exactly one terminal code-review row, never both.
+        it('OTTER-471: parallel code approve + reject — exactly one CODE-* terminal row', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SCANNED',
+            })
+            await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+            const results = await Promise.all([
+                approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+                rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+            ])
+
+            const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+            expect(errors).toHaveLength(1)
+
+            const codeApproved = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'CODE-APPROVED')
+                .execute()
+            const codeRejected = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'CODE-REJECTED')
+                .execute()
+            expect(codeApproved.length + codeRejected.length).toBe(1)
+        })
     })
 
     // OTTER-471: same bug class on the new collaborative-review path. `submitProposalReviewAction`

@@ -9,7 +9,7 @@ import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
 
-export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
+export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -27,6 +27,12 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { jobInfo: info, jobFiles }, session, db }) => {
+        // Lock the studyJob row so a concurrent reject (or duplicate approve) is forced to
+        // serialize behind us. The post-lock re-check below turns the SELECT/INSERT into a
+        // real CAS, and inserting the terminal row before any S3 write means a losing race
+        // refuses without leaving orphan approved files in storage.
+        await db.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
+
         const prior = await db
             .selectFrom('jobStatusChange')
             .select('status')
@@ -38,11 +44,6 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             throw new ActionFailure({ studyJob: 'results have already been reviewed' })
         }
 
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
-
         await db
             .insertInto('jobStatusChange')
             .values({
@@ -52,10 +53,15 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             })
             .executeTakeFirstOrThrow()
 
+        for (const jobFile of jobFiles) {
+            const file = new File([jobFile.contents], jobFile.path)
+            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
+        }
+
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
-export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
+export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
         minimalJobInfoSchema.extend({
             orgSlug: z.string(),
@@ -67,6 +73,10 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: info, session, db }) => {
+        // Symmetric to approveStudyJobFilesAction: lock the studyJob row, re-check, then
+        // insert. See the comment over there for the full reasoning.
+        await db.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
+
         const prior = await db
             .selectFrom('jobStatusChange')
             .select('status')
