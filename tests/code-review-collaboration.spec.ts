@@ -265,6 +265,17 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             // `router.push` navigates away, so racing the DOM read against the
             // navigation would be flaky.
             await ctxB!.page.waitForURL(/\?from=code-review/)
+
+            // Both contexts should land on the OTTER-501 post-feedback view rendered
+            // for kind=CODE (not the proposal-review fallback or a blank page).
+            // post-feedback-view.test.tsx covers the rendering against mocked entries;
+            // this asserts the real action → DB → page-render integration so a
+            // broken transition surfaces as a clear assertion failure rather than
+            // as a silent stuck-on-blank-page experience.
+            for (const ctx of [ctxA!, ctxB!]) {
+                await expect(ctx.page.getByRole('heading', { name: /Review study code/i })).toBeVisible()
+                await expect(ctx.page.getByText(/Approved on/i)).toBeVisible()
+            }
         })
     } finally {
         await ctxA?.context.close()
