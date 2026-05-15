@@ -213,6 +213,7 @@ describe('review page multiplexing', () => {
                         feedback={feedback}
                         submittingLabName="Test Lab"
                         studyId="00000000-0000-0000-0000-000000000001"
+                        reviewVersion={1}
                     />
                 </ReviewFeedbackProviderShare>
             )

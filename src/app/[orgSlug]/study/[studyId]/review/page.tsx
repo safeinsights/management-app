@@ -11,6 +11,7 @@ import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getProposalFeedbackForStudyAction, getStudyAction } from '@/server/actions/study.actions'
+import { currentReviewVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -94,10 +95,33 @@ export default async function StudyReviewPage(props: {
             )
         }
 
+        // Editable PENDING-REVIEW branch: load prior feedback entries and the
+        // current review round. Round N+1's editor binds to a fresh versioned
+        // Yjs doc (`review-feedback-${studyId}-v${reviewVersion}`), and the
+        // prior rounds render as read-only history above it.
+        //
+        // `reviewVersion` MUST come from `currentReviewVersion(studyId)` (not
+        // from the entries action), so an unrelated failure of the entries
+        // action only loses the history rendering. Deriving `reviewVersion`
+        // from `safeEntries` after a failure would silently downgrade the
+        // editor to v1: round 2 reviewers would then bind to the wrong Yjs
+        // room (round 1's `…-v1`), and any submit attempt would be rejected
+        // by `submitProposalReviewAction`'s `reviewVersion` mismatch check
+        // with a confusing "stale review round 1 (current 2)" error.
+        const reviewVersion = await currentReviewVersion(studyId)
+        const entries = await getProposalFeedbackForStudyAction({ studyId })
+        const safeEntries = isActionError(entries) ? [] : entries
         return (
             <ProposalReviewFeatureFlag
                 defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={
+                    <ProposalReviewView
+                        orgSlug={orgSlug}
+                        study={study}
+                        priorEntries={safeEntries}
+                        reviewVersion={reviewVersion}
+                    />
+                }
             />
         )
     }

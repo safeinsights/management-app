@@ -617,6 +617,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
         const value = actionResult(result)
         expect(typeof value.submitterFullName).toBe('string')
@@ -668,6 +669,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -718,6 +720,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'reject',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -762,6 +765,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: buildFeedback(10),
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
@@ -786,6 +790,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: buildFeedback(501),
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
@@ -803,6 +808,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -822,6 +828,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: lexical,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -845,6 +852,7 @@ describe('submitProposalReviewAction', () => {
                 orgSlug: org.slug,
                 decision: 'approve',
                 feedback: validFeedback,
+                reviewVersion: 1,
             })
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -870,6 +878,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const result = await submitProposalReviewAction({
@@ -877,6 +886,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -908,6 +918,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -943,6 +954,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: outsiderOrg.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
@@ -963,24 +975,25 @@ describe('submitProposalReviewAction', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
         const before = new Date('2026-01-01T00:00:00Z')
+        const versionedName = `review-feedback-${study.id}-v1`
 
         // Stale row from before the captured submit timestamp; should be deleted.
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
                 updatedAt: before,
             })
             .execute()
 
-        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, version: 1, beforeAt: before })
 
         const afterFirstPurge = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
+            .where('name', '=', versionedName)
             .execute()
         expect(afterFirstPurge).toHaveLength(0)
 
@@ -989,32 +1002,33 @@ describe('submitProposalReviewAction', () => {
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
                 updatedAt: new Date('2026-01-01T00:00:10Z'),
             })
             .execute()
 
-        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, version: 1, beforeAt: before })
 
         const afterSecondPurge = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
+            .where('name', '=', versionedName)
             .execute()
         expect(afterSecondPurge).toHaveLength(1)
     })
 
-    it('deletes the review-feedback yjs_document so the next round starts fresh', async () => {
+    it('deletes the versioned review-feedback yjs_document so the next round starts fresh', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state.
+        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state for round 1.
+        const versionedName = `review-feedback-${study.id}-v1`
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
             })
@@ -1025,13 +1039,98 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
-        const remaining = await db
-            .selectFrom('yjsDocument')
-            .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
-            .execute()
+        const remaining = await db.selectFrom('yjsDocument').select('name').where('name', '=', versionedName).execute()
         expect(remaining).toHaveLength(0)
+    })
+
+    it('rejects a submit whose reviewVersion is stale (researcher already resubmitted)', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        // Seed a RESUBMISSION-NOTE so currentReviewVersion returns 2; the
+        // client thinks it's submitting round 1.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: { root: { type: 'root' } },
+                version: 2,
+            })
+            .execute()
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ review: expect.stringMatching(/stale/) }) })
+
+        const reviewerRows = await db
+            .selectFrom('studyProposalComment')
+            .select('entryType')
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'REVIEWER-FEEDBACK')
+            .execute()
+        expect(reviewerRows).toHaveLength(0)
+    })
+
+    it('valid round-2 submit creates a REVIEWER-FEEDBACK with version=2 leaving v1 untouched', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const round1Body = { root: { type: 'root', marker: 'round-1-original' } }
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    decision: 'NEEDS-CLARIFICATION',
+                    body: round1Body,
+                    version: 1,
+                },
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'RESEARCHER',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: { root: { type: 'root' } },
+                    version: 2,
+                },
+            ])
+            .execute()
+
+        const round2Feedback = `round2marker ${buildFeedback(60)}`
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: round2Feedback,
+            reviewVersion: 2,
+        })
+        actionResult(result)
+
+        const reviewerRows = await loadCommentRows(study.id)
+        const feedbackRows = reviewerRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')
+        expect(feedbackRows).toHaveLength(2)
+
+        const v1 = feedbackRows.find((r) => r.version === 1)
+        const v2 = feedbackRows.find((r) => r.version === 2)
+        expect(v1?.body).toEqual(round1Body)
+        expect(v2?.decision).toBe('NEEDS-CLARIFICATION')
+        expect(JSON.stringify(v2?.body)).toContain('round2marker')
+        expect(JSON.stringify(v2?.body)).not.toContain('round-1-original')
     })
 })
