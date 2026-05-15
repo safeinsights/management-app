@@ -27,7 +27,7 @@ import {
     submitProposalReviewAction,
 } from './study.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/mailgun', () => ({
     deliver: vi.fn(),

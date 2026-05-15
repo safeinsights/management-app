@@ -1,6 +1,6 @@
 import { db, jsonArrayFrom } from '@/database'
 import logger from '@/lib/logger'
-import { extractTextFromLexical } from '@/lib/word-count'
+import { extractTextFromLexical } from '@/lib/lexical'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'

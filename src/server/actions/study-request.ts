@@ -31,7 +31,7 @@ import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { countWords, lexicalJson } from '@/lib/word-count'
+import { countWords, lexicalJson } from '@/lib/lexical'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })

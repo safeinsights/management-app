@@ -14,7 +14,7 @@ import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
-import { countWords } from '@/lib/word-count'
+import { countWords, isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
@@ -55,12 +55,11 @@ export interface EditableTextProps {
 
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
     let editorState: SerializedEditorState | undefined
-    if (value) {
-        try {
-            editorState = JSON.parse(value) as SerializedEditorState
-        } catch {
-            // Invalid JSON, start with empty state
-        }
+    // Defends against legacy rows where empty-root JSON ({"root":{"children":[]}})
+    // was persisted before the save-boundary filter in EditorChangePlugin. Lexical
+    // throws if initialized with an empty root, so fall back to its default state.
+    if (isValidLexicalState(value)) {
+        editorState = JSON.parse(value!)
     }
 
     return {

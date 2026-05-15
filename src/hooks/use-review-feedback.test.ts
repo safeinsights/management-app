@@ -1,5 +1,5 @@
 import { describe, expect, it, act, renderHook } from '@/tests/unit.helpers'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { useReviewFeedback } from './use-review-feedback'
 

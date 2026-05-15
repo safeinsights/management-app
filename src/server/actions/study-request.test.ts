@@ -27,7 +27,7 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 vi.mock('@/server/aws', async () => {
