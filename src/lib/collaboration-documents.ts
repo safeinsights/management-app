@@ -38,22 +38,12 @@ export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalText
 export const reviewFeedbackDocNameForVersion = (studyId: string, version: number) =>
     `${REVIEW_FEEDBACK_PREFIX}${studyId}-v${version}`
 
-/**
- * Legacy unversioned name kept only for the deferred safety-net purge so a
- * partially migrated row can still be cleaned up. New call sites must use
- * `reviewFeedbackDocNameForVersion` — no live client emits this form. The
- * editor's `parseDocumentName` still recognizes it (returning `version:
- * null`) so any straggler connection is gated by status checks rather
- * than rejected outright.
- */
-export const reviewFeedbackLegacyDocName = (studyId: string) => `${REVIEW_FEEDBACK_PREFIX}${studyId}`
-
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
-    | { kind: 'review-feedback'; studyId: string; version: number | null }
+    | { kind: 'review-feedback'; studyId: string; version: number }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
@@ -62,7 +52,6 @@ export const parseDocumentName = (name: string): ParsedDocumentName | null => {
         const studyId = remainder.slice(0, 36)
         if (!UUID_RE.test(studyId)) return null
         const suffix = remainder.slice(36)
-        if (suffix.length === 0) return { kind: 'review-feedback', studyId, version: null }
         const m = VERSION_SUFFIX_RE.exec(suffix)
         if (!m) return null
         return { kind: 'review-feedback', studyId, version: Number(m[1]) }

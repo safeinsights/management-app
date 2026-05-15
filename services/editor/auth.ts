@@ -27,7 +27,7 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
 
 export type ParsedDocumentName =
-    | { kind: 'review-feedback'; studyId: string; version: number | null }
+    | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
 
@@ -40,7 +40,6 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
         const studyId = remainder.slice(0, UUID_LEN)
         if (!UUID_RE.test(studyId)) return null
         const suffix = remainder.slice(UUID_LEN)
-        if (suffix.length === 0) return { kind: 'review-feedback', studyId, version: null }
         const m = VERSION_SUFFIX_RE.exec(suffix)
         if (!m) return null
         return { kind: 'review-feedback', studyId, version: Number(m[1]) }
@@ -93,8 +92,7 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status
     if (!status) return false
-    if (!editableStatusForKind(parsed.kind).includes(status)) return false
-    return true
+    return editableStatusForKind(parsed.kind).includes(status)
 }
 
 export type EventType = 'proposal-submitted' | 'proposal-review-submitted'

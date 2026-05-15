@@ -1046,36 +1046,6 @@ describe('submitProposalReviewAction', () => {
         expect(remaining).toHaveLength(0)
     })
 
-    it('also sweeps any orphaned legacy unversioned yjs_document row on submit', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-
-        // A pre-version-keying row left over from earlier QA cycles.
-        await db
-            .insertInto('yjsDocument')
-            .values({
-                name: `review-feedback-${study.id}`,
-                studyId: study.id,
-                data: Buffer.from([0]),
-            })
-            .execute()
-
-        await submitProposalReviewAction({
-            studyId: study.id,
-            orgSlug: org.slug,
-            decision: 'approve',
-            feedback: validFeedback,
-            reviewVersion: 1,
-        })
-
-        const remaining = await db
-            .selectFrom('yjsDocument')
-            .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
-            .execute()
-        expect(remaining).toHaveLength(0)
-    })
-
     it('rejects a submit whose reviewVersion is stale (researcher already resubmitted)', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })

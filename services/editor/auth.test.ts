@@ -18,14 +18,6 @@ import {
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 
 describe('parseDocumentName', () => {
-    it('parses legacy unversioned review-feedback documents with version null', () => {
-        expect(parseDocumentName(`review-feedback-${STUDY_ID}`)).toEqual({
-            kind: 'review-feedback',
-            studyId: STUDY_ID,
-            version: null,
-        })
-    })
-
     it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-v${version}`)).toEqual({
             kind: 'review-feedback',
@@ -60,6 +52,7 @@ describe('parseDocumentName', () => {
         `review-feedback-not-a-uuid`,
         `review-feedback-not-a-uuid-v1`,
         `proposal-${STUDY_ID}`,
+        `review-feedback-${STUDY_ID}`,
         `review-feedback-${STUDY_ID}-extra`,
         `review-feedback-${STUDY_ID}-v0`,
         `review-feedback-${STUDY_ID}-v01`,
@@ -210,14 +203,14 @@ const baseDeps = (overrides: Partial<AuthenticateDeps> = {}): AuthenticateDeps =
 describe('authenticate', () => {
     it('rejects when token is missing', async () => {
         await expect(
-            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}` }, baseDeps()),
+            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps()),
         ).rejects.toThrow(/missing token/)
     })
 
     it('rejects when verifyToken returns no subject', async () => {
         await expect(
             authenticate(
-                { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+                { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
                 baseDeps({ verifyToken: async () => ({ sub: null }) }),
             ),
         ).rejects.toThrow(/no subject/)
@@ -226,7 +219,7 @@ describe('authenticate', () => {
     it('rejects when verifyToken throws (invalid signature / expired)', async () => {
         await expect(
             authenticate(
-                { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+                { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
                 baseDeps({
                     verifyToken: async () => {
                         throw new Error('jwt expired')
@@ -248,7 +241,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/user not provisioned/)
     })
 
@@ -259,7 +252,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/study not found/)
     })
 
@@ -277,7 +270,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/no membership/)
         const membershipQuery = queries.find((q) => q.text.includes('FROM org_user'))
         // Confirms the kind-aware membership check requires do-org for review-feedback.
@@ -404,14 +397,14 @@ describe('authenticate', () => {
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/study is not editable.*APPROVED/)
     })
 
     it('throws AuthFailureError with stable codes the client can dispatch on', async () => {
         // Sanity-check a couple of representative codes; the wire format is `CODE: message`.
         await expect(
-            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}` }, baseDeps()),
+            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps()),
         ).rejects.toMatchObject({ code: 'MISSING_TOKEN', message: expect.stringMatching(/^MISSING_TOKEN: /) })
 
         const db = dbFromScripts(async (text) => {

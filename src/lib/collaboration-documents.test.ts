@@ -4,7 +4,6 @@ import {
     proposalFieldsDocName,
     proposalTextFieldDocName,
     reviewFeedbackDocNameForVersion,
-    reviewFeedbackLegacyDocName,
 } from './collaboration-documents'
 
 const STUDY_ID = '01949c1a-1aaa-7000-9000-000000000001'
@@ -38,13 +37,8 @@ describe('collaboration document naming', () => {
         }
     })
 
-    it('parses the legacy unversioned review-feedback name with version null', () => {
-        const name = reviewFeedbackLegacyDocName(STUDY_ID)
-        expect(name).toBe(`review-feedback-${STUDY_ID}`)
-        expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID, version: null })
-    })
-
     it('rejects malformed review-feedback names', () => {
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}`)).toBeNull()
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-v0`)).toBeNull()
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-v01`)).toBeNull()
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-v`)).toBeNull()

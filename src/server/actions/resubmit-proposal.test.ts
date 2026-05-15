@@ -81,7 +81,7 @@ describe('resubmitProposalAction', () => {
             .execute()
         await db
             .insertInto('yjsDocument')
-            .values({ name: `review-feedback-${study.id}`, studyId: study.id, data: Buffer.from([0]) })
+            .values({ name: `review-feedback-${study.id}-v2`, studyId: study.id, data: Buffer.from([0]) })
             .execute()
 
         actionResult(

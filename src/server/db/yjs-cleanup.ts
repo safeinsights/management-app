@@ -7,7 +7,7 @@ import type { Kysely } from 'kysely'
 
 import type { DB } from '@/database/types'
 import type { DBExecutor } from '@/database'
-import { reviewFeedbackDocNameForVersion, reviewFeedbackLegacyDocName } from '@/lib/collaboration-documents'
+import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 
 export async function purgeProposalYjsDocsBeforeAt(
     db: Kysely<DB>,
@@ -39,14 +39,4 @@ export async function purgeReviewFeedbackYjsDocBeforeAt(
         .where('name', '=', reviewFeedbackDocNameForVersion(studyId, version))
         .where('updatedAt', '<=', beforeAt)
         .execute()
-}
-
-/**
- * One-shot legacy unversioned row delete. Existing in-flight Yjs rows from
- * before the version-keying change use the unversioned name; sweep them on
- * the next submit so they don't linger forever. Unbounded delete by name;
- * the legacy form is no longer written by anything, so this is safe.
- */
-export async function purgeLegacyReviewFeedbackYjsDoc(db: DBExecutor, studyId: string): Promise<void> {
-    await db.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackLegacyDocName(studyId)).execute()
 }

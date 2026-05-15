@@ -17,7 +17,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
-import { purgeLegacyReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
     onStudyApproved,
@@ -584,12 +584,11 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         // Drop the versioned review-feedback yjs_document so the next round
         // (if any) starts fresh from its own `-v${N+1}` name. The deferred
         // follow-up below catches any Hocuspocus persist that commits between
-        // status-flip and now. Also sweep any orphaned legacy unversioned row.
+        // status-flip and now.
         await db
             .deleteFrom('yjsDocument')
             .where('name', '=', reviewFeedbackDocNameForVersion(studyId, reviewVersion))
             .execute()
-        await purgeLegacyReviewFeedbackYjsDoc(db, studyId)
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
