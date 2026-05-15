@@ -6,7 +6,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modal'
 import { Routes } from '@/lib/routes'
-import { hasLexicalContent } from '@/lib/word-count'
+import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
 
@@ -91,9 +91,10 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
             <AppModal size="xl" isOpen={isReviewerOpen} onClose={() => setReviewerOpen(false)} title="View as reviewer">
                 <ReviewerPreview
+                    studyId={studyId}
+                    values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}
-                    piUserId={form.values.piUserId}
                     enclaveOrgSlug={enclaveOrgSlug}
                 />
             </AppModal>

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
+import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'

@@ -1,36 +1,72 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
+import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-const DEFAULT_MAX_TOKENS = 4096
+// Realistic worst case is ~1.5K tokens (2 narrative fields × ~150 words ≈
+// 400 tokens, plus ~10 findings per check × 2 checks × ~50 tokens). 16K
+// gives ~10× headroom — schema property `description` strings carry the
+// actual length guidance to the model; this cap is just a runaway bound.
+const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
 const ANALYSIS_TOOL_NAME = 'submit_analysis'
 
+// `strict: true` opts into Anthropic's constrained-decoding tool mode. The
+// model can no longer emit a shape that violates `input_schema` — the class of
+// "alignmentCheck came back as an XML-tag string fragment" prod bug is fixed
+// at the API boundary, not in our app. Requires `additionalProperties: false`
+// at every object level. Docs:
+//   https://platform.claude.com/docs/en/build-with-claude/structured-outputs
 const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     name: ANALYSIS_TOOL_NAME,
     description:
         'Submit the structured review of the research proposal. Always call this tool exactly once with the full report.',
+    strict: true,
     input_schema: {
         type: 'object',
+        additionalProperties: false,
         properties: {
-            proposalSummary: { type: 'string' },
-            codeExplanation: { type: 'string' },
-            resultsSummary: { type: 'string' },
+            proposalSummary: {
+                type: 'string',
+                description: 'Concise summary of the proposal goals. 2-3 sentences, ~80 words max.',
+            },
+            codeExplanation: {
+                type: 'string',
+                description:
+                    'What the code does, referencing file paths. One paragraph, ~150 words max. Use numbered steps if helpful.',
+            },
+            resultsSummary: {
+                type: 'string',
+                description:
+                    'Summary of researcher test results if provided. One paragraph, ~150 words max. Omit this field entirely when no results are provided.',
+            },
             alignmentCheck: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     isAligned: { type: 'boolean' },
-                    findings: { type: 'array', items: { type: 'string' } },
+                    findings: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description:
+                            'Specific discrepancies between proposal and code. At most 10 items, ordered by severity. Each finding 1-2 sentences. Empty array when fully aligned.',
+                    },
                 },
                 required: ['isAligned', 'findings'],
             },
             complianceCheck: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     isCompliant: { type: 'boolean' },
-                    findings: { type: 'array', items: { type: 'string' } },
+                    findings: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description:
+                            'Specific violations of the reference documents or org requirements. At most 10 items, ordered by severity. Each finding 1-2 sentences. Empty array when fully compliant.',
+                    },
                 },
                 required: ['isCompliant', 'findings'],
             },
@@ -73,6 +109,18 @@ function buildPromptForContent(content: ReviewContent, templateOverride?: string
 }
 
 function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
+    // Structured-outputs doc explicitly calls out two degenerate paths where the
+    // response can be 200 OK but the tool_use block is missing or partial:
+    //   - `stop_reason: 'refusal'` — safety refusal takes precedence over schema
+    //   - `stop_reason: 'max_tokens'` — output truncated mid-tool-call
+    // Surface both with specific messages so Sentry alerts are actionable.
+    if (response.stop_reason === 'refusal') {
+        throw new Error('The model refused to generate an analysis.')
+    }
+    if (response.stop_reason === 'max_tokens') {
+        throw new Error('The model response was truncated by max_tokens — raise the limit.')
+    }
+
     const toolUse = response.content.find(
         (block): block is Anthropic.Messages.ToolUseBlock =>
             block.type === 'tool_use' && block.name === ANALYSIS_TOOL_NAME,
@@ -82,25 +130,9 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
         throw new Error('The model did not return a structured analysis.')
     }
 
-    return toolUse.input as AnalysisReport
+    return analysisReportSchema.parse(toolUse.input)
 }
 
-/**
- * Run a one-shot structured review. Returns the parsed report plus the
- * conversation seed (`messages`) — persist `messages` to enable chat follow-up.
- *
- * Future chat extension (target: before Oct 2026) — add alongside this fn:
- *
- *     export async function continueChat(
- *         config: ReviewAgentConfig,
- *         messages: ReviewMessage[],
- *         userMessage: string,
- *     ): Promise<{ reply: string; messages: ReviewMessage[] }>
- *
- * Caller (server action) loads `messages` from the studyReview row, appends
- * the user's question, calls `continueChat`, persists the new `messages`
- * back. Stateless — survives process restarts and queue retries.
- */
 export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
@@ -115,11 +147,9 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
     })
 
     const report = extractReport(response)
-
     const messages: ReviewMessage[] = [
         { role: 'user', content: prompt },
         { role: 'assistant', content: JSON.stringify(report) },
     ]
-
     return { report, messages }
 }

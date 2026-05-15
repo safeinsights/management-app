@@ -171,6 +171,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
                 'studyProposalComment.decision',
                 'studyProposalComment.body',
                 'studyProposalComment.createdAt',
+                'studyProposalComment.version',
                 'author.fullName as authorName',
             ])
             .where('studyProposalComment.studyId', '=', studyId)
@@ -416,5 +417,6 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+
     return row ?? null
 }

@@ -5,7 +5,7 @@ import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
-import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
+import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
 import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { sleep } from '@/lib/utils'
@@ -15,6 +15,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
+import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
@@ -510,6 +511,7 @@ async function insertReviewerProposalComment({
             entryType: 'REVIEWER-FEEDBACK',
             decision: toReviewDecision(decision),
             body: JSON.parse(body),
+            version: nextVersionForStudyComment({ studyId, increment: false }),
         })
         .executeTakeFirstOrThrow()
 }

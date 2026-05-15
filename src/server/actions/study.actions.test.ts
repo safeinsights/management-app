@@ -27,7 +27,7 @@ import {
     submitProposalReviewAction,
 } from './study.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/mailgun', () => ({
     deliver: vi.fn(),
@@ -604,7 +604,7 @@ describe('submitProposalReviewAction', () => {
     const loadCommentRows = (studyId: string) =>
         db
             .selectFrom('studyProposalComment')
-            .select(['authorId', 'authorRole', 'body', 'decision', 'entryType'])
+            .select(['authorId', 'authorRole', 'body', 'decision', 'entryType', 'version'])
             .where('studyId', '=', studyId)
             .execute()
 
@@ -628,6 +628,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -675,6 +676,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -724,6 +726,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
