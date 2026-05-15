@@ -20,7 +20,7 @@ const baseReport: AnalysisReport = {
     complianceCheck: { isCompliant: true, findings: [] },
 }
 
-function withMeta(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewWithMeta {
+function buildReview(report: AnalysisReport, files: string[] = ['main.r']): StudyReviewWithMeta {
     return {
         report,
         createdAt: new Date('2026-04-28T12:00:00Z'),
@@ -30,7 +30,7 @@ function withMeta(report: AnalysisReport, files: string[] = ['main.r']): StudyRe
 
 describe('StudyReviewSection', () => {
     it('renders summaries and check badges when a review is provided', () => {
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(baseReport)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(baseReport)} />)
 
         expect(screen.getByText('Studying student performance trends.')).toBeInTheDocument()
         expect(screen.getByText('Aggregates scores grouped by school.')).toBeInTheDocument()
@@ -45,7 +45,7 @@ describe('StudyReviewSection', () => {
             complianceCheck: { isCompliant: false, findings: ['Logs raw student IDs'] },
         }
 
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(report)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(report)} />)
 
         expect(screen.getByText('Misaligned')).toBeInTheDocument()
         expect(screen.getByText('Code skips step 3 from proposal')).toBeInTheDocument()
@@ -53,15 +53,30 @@ describe('StudyReviewSection', () => {
         expect(screen.getByText('Logs raw student IDs')).toBeInTheDocument()
     })
 
-    it('renders the in-progress state when initialReview is null', () => {
+    it('renders the in-progress state when the runner has not yet produced a row', () => {
         renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={null} />)
 
         expect(screen.getByText('Review in progress…')).toBeInTheDocument()
     })
 
+    it('renders "No findings" when a failing check has an empty findings array', () => {
+        const report: AnalysisReport = {
+            ...baseReport,
+            alignmentCheck: { isAligned: false, findings: [] },
+        }
+
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(report)} />)
+
+        expect(screen.getByText('Misaligned')).toBeInTheDocument()
+        expect(screen.getAllByText('No findings').length).toBeGreaterThan(0)
+    })
+
     it('lists the files the review was generated against', () => {
         renderWithProviders(
-            <StudyReviewSection studyJobId="job-1" initialReview={withMeta(baseReport, ['main.r', 'dragon_art.R'])} />,
+            <StudyReviewSection
+                studyJobId="job-1"
+                initialReview={buildReview(baseReport, ['main.r', 'dragon_art.R'])}
+            />,
         )
 
         expect(screen.getByText('Files reviewed: main.r, dragon_art.R')).toBeInTheDocument()
@@ -73,8 +88,30 @@ describe('StudyReviewSection', () => {
             resultsSummary: 'Median score 82, no anomalies.',
         }
 
-        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={withMeta(report)} />)
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(report)} />)
 
         expect(screen.getByText('Median score 82, no anomalies.')).toBeInTheDocument()
+    })
+
+    it('renders the disabled-key placeholder with red badges so a missing review does not look like a pass', () => {
+        const disabledReport: AnalysisReport = {
+            proposalSummary: 'Automated AI review did not run — CLAUDE_API_KEY is not configured for this environment.',
+            codeExplanation: 'Manual review required.',
+            alignmentCheck: {
+                isAligned: false,
+                findings: ['Automated review did not run for this submission.'],
+            },
+            complianceCheck: {
+                isCompliant: false,
+                findings: ['Automated review did not run for this submission.'],
+            },
+        }
+
+        renderWithProviders(<StudyReviewSection studyJobId="job-1" initialReview={buildReview(disabledReport, [])} />)
+
+        expect(screen.getByText(/Automated AI review did not run/)).toBeInTheDocument()
+        expect(screen.getByText('Misaligned')).toBeInTheDocument()
+        expect(screen.getByText('Non-compliant')).toBeInTheDocument()
+        expect(screen.getAllByText(/Automated review did not run/).length).toBeGreaterThan(1)
     })
 })
