@@ -32,7 +32,18 @@ const initialFlags: StatusFlags = {
 }
 
 export function extractJobStatus(statusChanges: StatusChange[]): StatusFlags {
-    const results = statusChanges.reduce(
+    // statusChanges is ordered `createdAt desc, id desc`. Keep only the latest entry from
+    // each "competing terminal" pair so a corrupted history with both FILES-APPROVED +
+    // FILES-REJECTED collapses to one decision rather than flipping both flags on.
+    const filesTerminalIdx = statusChanges.findIndex(
+        (sc) => sc.status === 'FILES-APPROVED' || sc.status === 'FILES-REJECTED',
+    )
+    const visible = statusChanges.filter((sc, idx) => {
+        if ((sc.status === 'FILES-APPROVED' || sc.status === 'FILES-REJECTED') && idx !== filesTerminalIdx) return false
+        return true
+    })
+
+    const results = visible.reduce(
         (acc, sc) => {
             const key = StatusMap[sc.status]
             if (key) acc[key] = true

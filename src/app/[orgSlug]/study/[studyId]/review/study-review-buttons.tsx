@@ -43,7 +43,11 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
             }
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
-        onError: reportMutationError('Failed to update study status'),
+        onError: (err) => {
+            reportMutationError('Failed to update study status')(err)
+            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: ['study', study.id] })
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
             router.push(backPath)

@@ -222,5 +222,37 @@ describe('useStudyStatus', () => {
             // Should show FILES-REJECTED since it has highest priority
             expect(result?.label).toBe('Rejected')
         })
+
+        // OTTER-471: when staging carries a corrupted history with both terminal rows on
+        // the same job, the display must follow the latest one. jobStatusChanges arrives
+        // ordered `createdAt desc, id desc`, so the first entry is the latest. For
+        // FILES-APPROVED the researcher/reviewer label is "Ready" (see status-labels.ts).
+        it('OTTER-471: when both FILES-APPROVED and FILES-REJECTED exist, latest entry wins', () => {
+            const latestApproved = createTestParams('APPROVED', 'researcher', [
+                { status: 'FILES-APPROVED' }, // latest
+                { status: 'FILES-REJECTED' },
+            ])
+            expect(useStudyStatus(latestApproved)?.label).toBe('Ready')
+
+            const latestRejected = createTestParams('APPROVED', 'researcher', [
+                { status: 'FILES-REJECTED' }, // latest
+                { status: 'FILES-APPROVED' },
+            ])
+            expect(useStudyStatus(latestRejected)?.label).toBe('Rejected')
+        })
+
+        it('OTTER-471: when both CODE-APPROVED and CODE-REJECTED exist, latest entry wins', () => {
+            const latestCodeApproved = createTestParams('APPROVED', 'reviewer', [
+                { status: 'CODE-APPROVED' }, // latest
+                { status: 'CODE-REJECTED' },
+            ])
+            expect(useStudyStatus(latestCodeApproved)?.label).toBe('Approved')
+
+            const latestCodeRejected = createTestParams('APPROVED', 'reviewer', [
+                { status: 'CODE-REJECTED' }, // latest
+                { status: 'CODE-APPROVED' },
+            ])
+            expect(useStudyStatus(latestCodeRejected)?.label).toBe('Rejected')
+        })
     })
 })

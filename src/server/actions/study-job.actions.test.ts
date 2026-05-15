@@ -1,16 +1,19 @@
 import { describe, expect, test, vi } from 'vitest'
 import { db, insertTestStudyJobData, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import {
+    approveStudyJobFilesAction,
     fetchApprovedJobFilesAction,
     fetchEncryptedJobFilesAction,
     loadStudyJobAction,
     rejectStudyJobFilesAction,
 } from './study-job.actions'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { storeApprovedJobFile } from '@/server/storage'
 
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
     fetchFileContents: vi.fn(() => new Blob()),
+    storeApprovedJobFile: vi.fn(),
 }))
 
 vi.mock('si-encryption/job-results/reader', () => ({
@@ -113,9 +116,12 @@ describe('Study Job Actions', () => {
         })
     })
 
-    // Regression test for OTTER-471: rejecting job files must refuse when a
-    // FILES-APPROVED row already exists, instead of appending FILES-REJECTED on top.
+    // Regression tests for OTTER-471: results-review writes must refuse when the
+    // opposite terminal row already exists, and the approve handler must not touch
+    // S3 once it has refused.
     describe('OTTER-471 results review concurrency safety', () => {
+        const storeApprovedJobFileMock = storeApprovedJobFile as unknown as ReturnType<typeof vi.fn>
+
         test('OTTER-471: rejecting a job whose files were already approved refuses', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
@@ -136,6 +142,85 @@ describe('Study Job Actions', () => {
                 .execute()
             expect(filesRejected).toHaveLength(0)
             expect(sendStudyResultsRejectedEmail).not.toHaveBeenCalled()
+        })
+
+        test('OTTER-471: approve after FILES-REJECTED refuses and does not touch S3', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'FILES-REJECTED' })
+
+            storeApprovedJobFileMock.mockClear()
+
+            const result = await approveStudyJobFilesAction({
+                orgSlug: org.slug,
+                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
+                jobFiles: [
+                    {
+                        path: 'result.csv',
+                        contents: new ArrayBuffer(0),
+                        fileType: 'APPROVED-RESULT' as const,
+                        sourceId: 'source-1',
+                    },
+                ],
+            })
+
+            expect(result).toMatchObject({ error: expect.objectContaining({ studyJob: expect.any(String) }) })
+            expect(storeApprovedJobFileMock).not.toHaveBeenCalled()
+
+            const filesApproved = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'FILES-APPROVED')
+                .execute()
+            expect(filesApproved).toHaveLength(0)
+        })
+
+        // Sequential variant — covered by the two tests above. A true parallel Promise.all
+        // race for job files would need the partial unique index follow-up (see plan §7.5)
+        // since the in-PR fix is SELECT-then-INSERT without row-level locking, so both calls
+        // can pass the SELECT before either INSERTs. Re-enable this test once the index ships.
+        test.skip('OTTER-471: parallel approve + reject — exactly one wins (needs partial unique index)', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+
+            storeApprovedJobFileMock.mockClear()
+
+            const results = await Promise.all([
+                approveStudyJobFilesAction({
+                    orgSlug: org.slug,
+                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
+                    jobFiles: [
+                        {
+                            path: 'result.csv',
+                            contents: new ArrayBuffer(0),
+                            fileType: 'APPROVED-RESULT' as const,
+                            sourceId: 'source-1',
+                        },
+                    ],
+                }),
+                rejectStudyJobFilesAction({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    orgSlug: org.slug,
+                }),
+            ])
+
+            const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+            const filesApproved = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'FILES-APPROVED')
+                .execute()
+            const filesRejected = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'FILES-REJECTED')
+                .execute()
+
+            expect(filesApproved.length + filesRejected.length).toBeLessThanOrEqual(1)
+            expect(errors.length).toBeGreaterThanOrEqual(1)
         })
     })
 })

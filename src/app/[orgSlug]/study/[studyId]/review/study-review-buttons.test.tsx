@@ -181,15 +181,14 @@ describe('StudyReviewButtons', () => {
         const rejectButton = screen.getByRole('button', { name: 'Reject' })
         await user.click(rejectButton)
 
-        // Wait for the mutation to complete and verify the error handler was called
+        // After OTTER-471 the onError handler invokes reportMutationError(title)(err) directly
+        // (so it can also call queryClient.invalidateQueries), so the inner handler is called
+        // with just the error rather than the full useMutation onError signature.
         await waitFor(() => {
             expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
             const errorHandler = mockReportMutationError.mock.results[0].value
             expect(errorHandler).toHaveBeenCalledWith(
                 expect.objectContaining({ error: 'Rejection failed due to network error' }),
-                'REJECTED',
-                undefined,
-                expect.anything(),
             )
         })
     })

@@ -43,8 +43,25 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
             ? jobStatusChanges.filter((c) => c.status !== 'JOB-ERRORED')
             : jobStatusChanges
 
+    // jobStatusChanges arrives ordered `createdAt desc, id desc`; keep only the
+    // latest entry from each terminal-status pair so a corrupted history with both
+    // FILES-APPROVED + FILES-REJECTED (or CODE-APPROVED + CODE-REJECTED) renders
+    // deterministically off the latest decision rather than whichever STATUS_KEYS
+    // lookup happens to hit first.
+    const filesTerminalIdx = visibleJobChanges.findIndex(
+        (c) => c.status === 'FILES-APPROVED' || c.status === 'FILES-REJECTED',
+    )
+    const codeTerminalIdx = visibleJobChanges.findIndex(
+        (c) => c.status === 'CODE-APPROVED' || c.status === 'CODE-REJECTED',
+    )
+    const dedupedJobChanges = visibleJobChanges.filter((c, idx) => {
+        if ((c.status === 'FILES-APPROVED' || c.status === 'FILES-REJECTED') && idx !== filesTerminalIdx) return false
+        if ((c.status === 'CODE-APPROVED' || c.status === 'CODE-REJECTED') && idx !== codeTerminalIdx) return false
+        return true
+    })
+
     // add studyStatus as the last entry as a fallback in case a job hasn't started yet
-    const statuses: AllStatus[] = [...visibleJobChanges.map((change) => change.status), studyStatus]
+    const statuses: AllStatus[] = [...dedupedJobChanges.map((change) => change.status), studyStatus]
 
     const statusKeys = STATUS_KEYS[audience]
     const labels = LABELS[audience]

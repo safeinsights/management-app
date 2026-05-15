@@ -4,10 +4,19 @@ import { JobReviewButtons } from './job-review-buttons'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
 import * as actions from '@/server/actions/study-job.actions'
+import { reportMutationError } from '@/components/errors'
 import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.spyOn(actions, 'approveStudyJobFilesAction')
 vi.spyOn(actions, 'rejectStudyJobFilesAction')
+
+vi.mock('@/components/errors', async (importOriginal) => {
+    const original = await importOriginal<typeof import('@/components/errors')>()
+    return {
+        ...original,
+        reportMutationError: vi.fn(() => vi.fn()),
+    }
+})
 
 vi.mock('@/server/storage', () => ({
     storeApprovedJobFile: vi.fn(),
@@ -90,5 +99,27 @@ describe('Study Results Approve/Reject buttons', async () => {
         await insertAndRender('PENDING-REVIEW', 'enclave')
         expect(screen.queryByRole('button', { name: 'Approve' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject' })).toBeInTheDocument()
+    })
+
+    // OTTER-471: when the action refuses (ActionFailure because the other tab already
+    // decided), the mutation must surface the error via reportMutationError so a toast
+    // appears, rather than silently no-op.
+    it('OTTER-471: surfaces ActionFailure from approve action via reportMutationError', async () => {
+        const reportSpy = reportMutationError as unknown as Mock
+        const innerHandler = vi.fn()
+        reportSpy.mockReturnValue(innerHandler)
+
+        const approveSpy = actions.approveStudyJobFilesAction as unknown as Mock
+        approveSpy.mockResolvedValueOnce({ error: { studyJob: 'results have already been reviewed' } })
+
+        const { getByRole } = await insertAndRender('PENDING-REVIEW')
+        await act(async () => {
+            fireEvent.click(getByRole('button', { name: 'Approve' }))
+        })
+
+        await waitFor(() => {
+            expect(reportSpy).toHaveBeenCalledWith('Failed to update study job status')
+            expect(innerHandler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(Object) }))
+        })
     })
 })

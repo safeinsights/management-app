@@ -241,6 +241,17 @@ async function approveJobCode({
     useTestImage?: boolean
     jobFiles?: z.infer<typeof jobFileSchema>[]
 }) {
+    const priorCodeTerminal = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', job.id)
+        .where('status', 'in', ['CODE-APPROVED', 'CODE-REJECTED'])
+        .executeTakeFirst()
+
+    if (priorCodeTerminal) {
+        throw new ActionFailure({ studyJob: 'has already been reviewed' })
+    }
+
     await db
         .insertInto('jobStatusChange')
         .values({ userId, status: 'CODE-APPROVED', studyJobId: job.id })
@@ -313,11 +324,19 @@ async function performStudyProposalApproval({
     const isCodeReapproval = !isFirstApproval
 
     if (isFirstApproval) {
-        await db
+        const updated = await db
             .updateTable('study')
             .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
-            .execute()
+            .where('status', '=', 'PENDING-REVIEW')
+            .where('approvedAt', 'is', null)
+            .where('rejectedAt', 'is', null)
+            .returning('id')
+            .executeTakeFirst()
+
+        if (!updated) {
+            throw new ActionFailure({ study: 'has already been reviewed' })
+        }
 
         onStudyApproved({ studyId, userId })
     }
@@ -335,6 +354,13 @@ async function performStudyProposalApproval({
     const latestJobStatus = job.statusChanges.at(0)?.status
 
     if (isCodeReapproval) {
+        // Refuse loudly if the job already has a terminal code decision: a stale tab is
+        // trying to overwrite a CODE-APPROVED or CODE-REJECTED row.
+        if (latestJobStatus === 'CODE-APPROVED' || latestJobStatus === 'CODE-REJECTED') {
+            throw new ActionFailure({ studyJob: 'has already been reviewed' })
+        }
+        // For other non-review states (JOB-RUNNING, RUN-COMPLETE, etc.) silently no-op,
+        // matching the pre-fix behavior.
         if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
     }
 
@@ -342,22 +368,56 @@ async function performStudyProposalApproval({
 
     // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
-        await db
+        const restored = await db
             .updateTable('study')
             .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
-            .execute()
+            .where('status', '=', 'PENDING-REVIEW')
+            .returning('id')
+            .executeTakeFirst()
 
-        onStudyCodeApproved({ studyId, userId })
+        if (restored) {
+            onStudyCodeApproved({ studyId, userId })
+        }
     }
 }
 
-async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await db
+async function markProposalRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
+    const updated = await db
         .updateTable('study')
-        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+        .set({ status: 'REJECTED', rejectedAt: new Date(), reviewerId: userId })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .where('rejectedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!updated) {
+        throw new ActionFailure({ study: 'has already been reviewed' })
+    }
+}
+
+async function markStudyRejectedOnCodeReject({
+    db,
+    studyId,
+    userId,
+}: {
+    db: DBExecutor
+    studyId: string
+    userId: string
+}) {
+    const updated = await db
+        .updateTable('study')
+        .set({ status: 'REJECTED', rejectedAt: new Date(), reviewerId: userId })
+        .where('id', '=', studyId)
+        .where('status', 'in', ['APPROVED', 'PENDING-REVIEW'])
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!updated) {
+        throw new ActionFailure({ study: 'has already been reviewed' })
+    }
 }
 
 async function performStudyProposalRejection({
@@ -369,13 +429,11 @@ async function performStudyProposalRejection({
     studyId: string
     userId: string
 }) {
-    await markStudyRejected({ db, studyId, userId })
+    await markProposalRejected({ db, studyId, userId })
     onStudyRejected({ studyId, userId })
 }
 
 async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await markStudyRejected({ db, studyId, userId })
-
     const latestJob = await db
         .selectFrom('studyJob')
         .select('id')
@@ -383,15 +441,32 @@ async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecut
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    if (latestJob) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
-            .executeTakeFirstOrThrow()
-        onStudyCodeRejected({ studyId, userId })
-    } else {
+    if (!latestJob) {
+        // No job. This is a proposal-stage rejection: use the strict predicate so a
+        // stale tab on an already-decided proposal-only study refuses cleanly.
+        await markProposalRejected({ db, studyId, userId })
         onStudyRejected({ studyId, userId })
+        return
     }
+
+    const priorTerminal = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', latestJob.id)
+        .where('status', 'in', ['CODE-APPROVED', 'CODE-REJECTED'])
+        .executeTakeFirst()
+
+    if (priorTerminal) {
+        throw new ActionFailure({ studyJob: 'has already been reviewed' })
+    }
+
+    await markStudyRejectedOnCodeReject({ db, studyId, userId })
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
+        .executeTakeFirstOrThrow()
+    onStudyCodeRejected({ studyId, userId })
 }
 
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
@@ -434,13 +509,15 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId'])
+            .select(['status', 'orgId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
+        // performStudyCodeRejection internally picks the right CAS predicate based on whether
+        // a job exists for the study (proposal-stage rejection vs. code-stage rejection).
         await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
 
@@ -556,6 +633,38 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
         const submittedAt = new Date()
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
+
+        if (decision === 'approve') {
+            await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
+        } else if (decision === 'reject') {
+            await performStudyProposalRejection({ db, studyId, userId })
+        } else {
+            const updated = await db
+                .updateTable('study')
+                .set({
+                    status: 'CHANGE-REQUESTED',
+                    reviewerId: userId,
+                    approvedAt: null,
+                    rejectedAt: null,
+                })
+                .where('id', '=', studyId)
+                .where('status', '=', 'PENDING-REVIEW')
+                .where('approvedAt', 'is', null)
+                .where('rejectedAt', 'is', null)
+                .returning('id')
+                .executeTakeFirst()
+
+            if (!updated) {
+                throw new ActionFailure({ study: 'has already been reviewed' })
+            }
+
+            onStudyNeedsClarification({ studyId, userId })
+        }
+
+        // Only insert the reviewer-decision comment after the terminal write succeeds, so a
+        // losing concurrent submission doesn't leave a phantom comment behind. The whole
+        // handler runs inside a transaction (performsMutations: true), so a thrown
+        // ActionFailure rolls everything back.
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
         const submitter = await db
@@ -570,31 +679,6 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         // commits between status-flip and now.
         await db.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
 
-        if (decision === 'approve') {
-            await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
-            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
-        }
-
-        if (decision === 'reject') {
-            await performStudyProposalRejection({ db, studyId, userId })
-            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
-        }
-
-        // Clarification requests only change the proposal status. Job status rows are reserved for code review.
-        await db
-            .updateTable('study')
-            .set({
-                status: 'CHANGE-REQUESTED',
-                reviewerId: userId,
-                approvedAt: null,
-                rejectedAt: null,
-            })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyNeedsClarification({ studyId, userId })
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
         return { submitterFullName: submitter.fullName }
     })

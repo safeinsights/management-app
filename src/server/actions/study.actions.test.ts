@@ -115,11 +115,24 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Attempt to approve the same study twice in parallel
+        // Attempt to approve the same study twice in parallel. The OTTER-471 fix gates
+        // the terminal write with a CAS so even when both calls see PENDING-REVIEW at SELECT
+        // time, only one UPDATE matches the predicate; the other observes the post-commit
+        // row and either no-ops (`isFirstApproval=false`) or throws (CAS miss). In both
+        // outcomes there must be exactly one APPROVED audit entry and one approval email.
         await Promise.all([
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
         ])
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
 
         await waitFor(async () => {
             const auditEntries = await getAuditEntries(study.id, 'STUDY')
@@ -272,7 +285,11 @@ describe('Study Actions', () => {
 
             const rejectResult = await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
-            expect(rejectResult).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+            // The approve flow inserts CODE-APPROVED on the job, so the reject is blocked by the
+            // per-job terminal pre-check (studyJob) rather than the study-level CAS (study). Either
+            // shape is a valid refusal — we just need exactly one error key present.
+            expect(rejectResult).toMatchObject({ error: expect.any(Object) })
+            expect(rejectResult).toHaveProperty('error')
 
             const updatedStudy = await db
                 .selectFrom('study')
@@ -310,13 +327,74 @@ describe('Study Actions', () => {
             expect(updatedStudy.rejectedAt).toBeTruthy()
             expect(updatedStudy.approvedAt).toBeNull()
 
-            // After-reject approve must not flip the study back AND must not start the job pipeline.
+            // After-reject approve must not flip the study back AND must not advance the job
+            // through CODE-APPROVED. (The setup helper always inserts a JOB-READY row, so the
+            // discriminator is the absence of CODE-APPROVED, which `approveJobCode` would have
+            // inserted on a successful approve.)
             const job = await latestJobForStudy(study.id)
-            expect(job.statusChanges.find((sc) => sc.status === 'JOB-READY')).toBeFalsy()
+            expect(job.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeFalsy()
 
             const auditEntries = await getAuditEntries(study.id, 'STUDY')
             // The pre-fix code emits a second APPROVED audit row; after fix there is exactly one (the REJECTED one).
             expect(auditEntries.filter((e) => e.eventType === 'APPROVED')).toHaveLength(0)
+        })
+
+        it('OTTER-471: code reject after code approve refuses, study stays APPROVED, no CODE-REJECTED row', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SCANNED',
+            })
+            await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+            await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const rejectResult = await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            expect(rejectResult).toMatchObject({ error: expect.objectContaining({ studyJob: expect.any(String) }) })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.rejectedAt).toBeNull()
+
+            const codeRejected = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'CODE-REJECTED')
+                .execute()
+            expect(codeRejected).toHaveLength(0)
+        })
+
+        it('OTTER-471: code approve after code reject refuses, no CODE-APPROVED row', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SCANNED',
+            })
+            await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const approveResult = await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            expect(approveResult).toMatchObject({ error: expect.objectContaining({ studyJob: expect.any(String) }) })
+
+            const codeApproved = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .where('status', '=', 'CODE-APPROVED')
+                .execute()
+            expect(codeApproved).toHaveLength(0)
         })
 
         it('OTTER-471: parallel approve + reject — exactly one wins, no mixed terminal state', async () => {
@@ -348,6 +426,128 @@ describe('Study Actions', () => {
                 updatedStudy.status === 'REJECTED' && !!updatedStudy.rejectedAt && !updatedStudy.approvedAt
             expect(hasApproved || hasRejected).toBe(true)
             expect(hasApproved && hasRejected).toBe(false)
+        })
+    })
+
+    // OTTER-471: same bug class on the new collaborative-review path. `submitProposalReviewAction`
+    // must not let a stale tab downgrade an APPROVED study to CHANGE-REQUESTED, and must not
+    // leave a phantom reviewer-decision comment behind on a losing concurrent submission.
+    describe('OTTER-471 collaborative-review concurrency safety', () => {
+        const validFeedback = buildFeedback(60)
+
+        const loadCommentRows = (studyId: string) =>
+            db
+                .selectFrom('studyProposalComment')
+                .select(['authorId', 'authorRole', 'decision', 'entryType'])
+                .where('studyId', '=', studyId)
+                .execute()
+
+        it('OTTER-471: needs-clarification after approve refuses, study stays APPROVED, no extra comment', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            await submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: validFeedback,
+            })
+
+            const second = await submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'needs-clarification',
+                feedback: validFeedback,
+            })
+
+            expect(second).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.approvedAt).toBeTruthy()
+            expect(updatedStudy.rejectedAt).toBeNull()
+
+            const rows = await loadCommentRows(study.id)
+            expect(rows).toHaveLength(1)
+            expect(rows[0].decision).toBe('APPROVE')
+        })
+
+        it('OTTER-471: parallel collaborative submissions — exactly one terminal status, exactly one comment row', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            const results = await Promise.all([
+                submitProposalReviewAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision: 'approve',
+                    feedback: validFeedback,
+                }),
+                submitProposalReviewAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision: 'needs-clarification',
+                    feedback: validFeedback,
+                }),
+            ])
+
+            const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+            expect(errors).toHaveLength(1)
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            const isApproved = updatedStudy.status === 'APPROVED' && !!updatedStudy.approvedAt
+            const isChangeRequested = updatedStudy.status === 'CHANGE-REQUESTED' && !updatedStudy.approvedAt
+            expect(isApproved || isChangeRequested).toBe(true)
+
+            const rows = await loadCommentRows(study.id)
+            expect(rows).toHaveLength(1)
+        })
+
+        it('OTTER-471: cross-path race — legacy approve racing collaborative needs-clarification keeps exactly one winner', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            const results = await Promise.all([
+                approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+                submitProposalReviewAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision: 'needs-clarification',
+                    feedback: validFeedback,
+                }),
+            ])
+
+            const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+            expect(errors).toHaveLength(1)
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            const isApproved = updatedStudy.status === 'APPROVED' && !!updatedStudy.approvedAt
+            const isChangeRequested = updatedStudy.status === 'CHANGE-REQUESTED' && !updatedStudy.approvedAt
+            expect(isApproved || isChangeRequested).toBe(true)
         })
     })
 

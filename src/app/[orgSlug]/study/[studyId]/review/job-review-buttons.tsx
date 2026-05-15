@@ -41,42 +41,53 @@ export const JobReviewButtons = ({
                 orgSlug: orgSlug,
             }
 
+            // Return the action response so the wrapped useMutation can detect ActionFailure
+            // (`{ error: ... }`) and route it to onError. Without returning, errors are
+            // swallowed inside the async function and the mutation looks like a success.
             if (status === 'FILES-APPROVED') {
-                await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
+                return await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
             }
 
             if (status === 'FILES-REJECTED') {
-                await rejectStudyJobFilesAction(jobInfo)
+                return await rejectStudyJobFilesAction(jobInfo)
             }
         },
-        onError: reportMutationError('Failed to update study job status'),
+        onError: (err) => {
+            reportMutationError('Failed to update study job status')(err)
+            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: ['study', job.studyId] })
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
             router.push(Routes.orgDashboard({ orgSlug }))
         },
     })
 
-    const approved = job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
+    // statusChanges is ordered `createdAt desc, id desc` (see src/server/db/queries.ts), so the
+    // first terminal status encountered is the latest. Scanning the ordered list (rather than
+    // calling find() per status) makes the display deterministic when historical rows on
+    // staging happen to contain both FILES-APPROVED and FILES-REJECTED for the same job.
+    const latestTerminal = job.statusChanges.find(
+        (sc) => sc.status === 'FILES-APPROVED' || sc.status === 'FILES-REJECTED',
+    )
 
-    if (approved) {
+    if (latestTerminal?.status === 'FILES-APPROVED') {
         return (
             <Group gap="xs">
                 <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[9]} />
                 <Text fz="xs" fw={600} c="green.9">
-                    Approved on {dayjs(approved.createdAt).format('MMM DD, YYYY')}
+                    Approved on {dayjs(latestTerminal.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
         )
     }
 
-    const rejected = job.statusChanges.find((sc) => sc.status == 'FILES-REJECTED')
-
-    if (rejected) {
+    if (latestTerminal?.status === 'FILES-REJECTED') {
         return (
             <Group gap="xs">
                 <XCircleIcon weight="fill" size={24} color={theme.colors.red[9]} />
                 <Text fz="xs" fw={600} c="red.9">
-                    Rejected on {dayjs(rejected.createdAt).format('MMM DD, YYYY')}
+                    Rejected on {dayjs(latestTerminal.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
         )

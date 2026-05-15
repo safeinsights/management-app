@@ -66,4 +66,20 @@ describe('extractJobStatus', () => {
         expect(result.isApproved).toBe(true)
         expect(result.isRejected).toBe(false)
     })
+
+    // OTTER-471: a corrupted history with both terminal rows must collapse to one decision,
+    // not flip both flags. statusChanges arrives ordered `createdAt desc, id desc`.
+    it('OTTER-471: picks the latest terminal when both FILES-APPROVED and FILES-REJECTED exist', () => {
+        const latestApproved: StatusChange[] = [{ status: 'FILES-APPROVED' }, { status: 'FILES-REJECTED' }]
+        const approvedResult = extractJobStatus(latestApproved)
+        expect(approvedResult.isApproved).toBe(true)
+        expect(approvedResult.isFilesRejected).toBe(false)
+        expect(approvedResult.isRejected).toBe(false)
+
+        const latestRejected: StatusChange[] = [{ status: 'FILES-REJECTED' }, { status: 'FILES-APPROVED' }]
+        const rejectedResult = extractJobStatus(latestRejected)
+        expect(rejectedResult.isApproved).toBe(false)
+        expect(rejectedResult.isFilesRejected).toBe(true)
+        expect(rejectedResult.isRejected).toBe(true)
+    })
 })

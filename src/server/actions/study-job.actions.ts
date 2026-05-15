@@ -27,6 +27,17 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { jobInfo: info, jobFiles }, session, db }) => {
+        const prior = await db
+            .selectFrom('jobStatusChange')
+            .select('status')
+            .where('studyJobId', '=', info.studyJobId)
+            .where('status', 'in', ['FILES-APPROVED', 'FILES-REJECTED'])
+            .executeTakeFirst()
+
+        if (prior) {
+            throw new ActionFailure({ studyJob: 'results have already been reviewed' })
+        }
+
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
             await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
@@ -56,6 +67,17 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
     })
     .requireAbilityTo('reject', 'Study')
     .handler(async ({ params: info, session, db }) => {
+        const prior = await db
+            .selectFrom('jobStatusChange')
+            .select('status')
+            .where('studyJobId', '=', info.studyJobId)
+            .where('status', 'in', ['FILES-APPROVED', 'FILES-REJECTED'])
+            .executeTakeFirst()
+
+        if (prior) {
+            throw new ActionFailure({ studyJob: 'results have already been reviewed' })
+        }
+
         await db
             .insertInto('jobStatusChange')
             .values({
