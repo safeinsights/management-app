@@ -25,6 +25,13 @@ describe('parseDocumentName', () => {
         })
     })
 
+    it('parses code-review-feedback documents', () => {
+        expect(parseDocumentName(`code-review-feedback-${STUDY_ID}`)).toEqual({
+            kind: 'code-review-feedback',
+            studyId: STUDY_ID,
+        })
+    })
+
     it('parses proposal-fields documents', () => {
         expect(parseDocumentName(`proposal-${STUDY_ID}-fields`)).toEqual({
             kind: 'proposal-fields',
@@ -61,6 +68,10 @@ describe('requiredOrgIdForDocument', () => {
 
     it('returns DO org for review-feedback', () => {
         expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID }, study)).toBe('do-org')
+    })
+
+    it('returns DO org for code-review-feedback', () => {
+        expect(requiredOrgIdForDocument({ kind: 'code-review-feedback', studyId: STUDY_ID }, study)).toBe('do-org')
     })
 
     it('returns lab org for proposal-fields', () => {
@@ -429,6 +440,9 @@ describe('editableStatusForKind', () => {
     })
     it('returns PENDING-REVIEW for review-feedback', () => {
         expect(editableStatusForKind('review-feedback')).toEqual(['PENDING-REVIEW'])
+    })
+    it('returns APPROVED for code-review-feedback', () => {
+        expect(editableStatusForKind('code-review-feedback')).toEqual(['APPROVED'])
     })
 })
 

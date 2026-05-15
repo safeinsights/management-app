@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
@@ -100,5 +101,23 @@ describe('CodeReviewRedesignView', () => {
         expect(criteria).toHaveTextContent('Have security and vulnerability checks been passed?')
         expect(criteria).toHaveTextContent('Privacy protection:')
         expect(criteria).toHaveTextContent('Is there any risk of PII exposure expected in the outputs?')
+    })
+
+    it('renders the feedback and decision sections', async () => {
+        renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
+        expect(screen.getByTestId('code-review-feedback-section')).toBeInTheDocument()
+        expect(screen.getByTestId('code-review-decision-section')).toBeInTheDocument()
+    })
+
+    it('disables the Submit review button on initial render', async () => {
+        renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
+        expect(screen.getByTestId('code-review-submit-button')).toBeDisabled()
+    })
+
+    it('keeps Submit disabled when only a decision is selected (no feedback yet)', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
+        await user.click(screen.getByRole('radio', { name: /Approve and run code/i }))
+        expect(screen.getByTestId('code-review-submit-button')).toBeDisabled()
     })
 })
