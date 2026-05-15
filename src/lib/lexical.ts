@@ -62,6 +62,22 @@ export function hasLexicalContent(...fields: (string | undefined)[]): boolean {
 }
 
 /**
+ * Validates that a Lexical JSON string represents a non-empty editor state
+ * (root node has at least one child). Lexical throws if initialized with an
+ * empty root, so callers should fall back to a default state when this returns false.
+ */
+export function isValidLexicalState(json: string | undefined): boolean {
+    if (!json) return false
+    try {
+        const state = JSON.parse(json)
+        const root = state?.root
+        return !!(root && Array.isArray(root.children) && root.children.length > 0)
+    } catch {
+        return false
+    }
+}
+
+/**
  * Create Lexical JSON from plain text (for testing)
  */
 export function lexicalJson(text: string): string {
