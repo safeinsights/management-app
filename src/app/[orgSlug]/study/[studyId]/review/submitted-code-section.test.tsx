@@ -22,10 +22,16 @@ import { fetchFileContents } from '@/server/storage'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
-vi.mock('@/server/storage', () => ({ fetchFileContents: vi.fn() }))
+vi.mock('@/server/storage', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/storage')>()),
+    fetchFileContents: vi.fn(),
+}))
 
 function mockScanLogContents(contents: string) {
-    ;(fetchFileContents as Mock).mockResolvedValueOnce(new Blob([contents]))
+    // Returning a thenable with a .text() method dodges happy-dom Blob quirks.
+    ;(fetchFileContents as Mock).mockResolvedValueOnce({
+        text: async () => contents,
+    } as unknown as Blob)
 }
 
 const ORG_SLUG = 'test-org-submitted'
