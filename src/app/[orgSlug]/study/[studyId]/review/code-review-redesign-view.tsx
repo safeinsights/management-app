@@ -4,6 +4,7 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { SubmittedCodeSection } from './submitted-code-section'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
@@ -119,6 +120,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
                     Study Proposal
                 </Title>
                 <CodeReviewSection study={study} submittedAt={job.createdAt} />
+                <SubmittedCodeSection orgSlug={orgSlug} study={study} job={job} />
             </Stack>
         </Box>
     )

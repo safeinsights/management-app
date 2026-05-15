@@ -4,7 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType } from '@/database/types'
+import { FileType, ScanStatus } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -395,6 +395,32 @@ export type StudyReviewWithMeta = {
     report: AnalysisReport
     createdAt: Date
     files: { name: string; fileType: FileType }[]
+}
+
+export type LatestCodeScanForStudy = {
+    status: ScanStatus
+    results: string | null
+    createdAt: Date
+}
+
+// The codeScan table is keyed by orgCodeEnv, not by studyJob — a scan represents
+// the security baseline of the environment the code runs in. We anchor on the
+// study's (orgId, language) → most recent non-testing orgCodeEnv, then its
+// latest scan row.
+export async function latestCodeScanForStudy(studyId: string): Promise<LatestCodeScanForStudy | null> {
+    const row = await Action.db
+        .selectFrom('codeScan')
+        .innerJoin('orgCodeEnv', 'orgCodeEnv.id', 'codeScan.codeEnvId')
+        .innerJoin('study', (join) =>
+            join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
+        )
+        .where('study.id', '=', studyId)
+        .where('orgCodeEnv.isTesting', '=', false)
+        .select(['codeScan.status', 'codeScan.results', 'codeScan.createdAt'])
+        .orderBy('codeScan.createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row ?? null
 }
 
 export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
