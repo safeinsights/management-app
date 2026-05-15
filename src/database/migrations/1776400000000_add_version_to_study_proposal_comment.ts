@@ -21,6 +21,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         FROM versioned
         WHERE study_proposal_comment.id = versioned.id
     `.execute(db)
+
+    await db.schema
+        .alterTable('study_proposal_comment')
+        .alterColumn('version', (col) => col.setNotNull())
+        .execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
