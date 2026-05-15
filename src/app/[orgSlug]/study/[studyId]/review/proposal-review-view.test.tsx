@@ -8,7 +8,7 @@ import {
     userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
