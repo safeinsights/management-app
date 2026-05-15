@@ -19,10 +19,11 @@ const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 const JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390ff'
 
 describe('parseDocumentName', () => {
-    it('parses review-feedback documents', () => {
-        expect(parseDocumentName(`review-feedback-${STUDY_ID}`)).toEqual({
+    it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v${version}`)).toEqual({
             kind: 'review-feedback',
             studyId: STUDY_ID,
+            version,
         })
     })
 
@@ -57,8 +58,14 @@ describe('parseDocumentName', () => {
         'proposal-not-a-uuid-fields',
         `proposal-${STUDY_ID}-unknown-suffix`,
         `review-feedback-not-a-uuid`,
+        `review-feedback-not-a-uuid-v1`,
         `proposal-${STUDY_ID}`,
+        `review-feedback-${STUDY_ID}`,
         `review-feedback-${STUDY_ID}-extra`,
+        `review-feedback-${STUDY_ID}-v0`,
+        `review-feedback-${STUDY_ID}-v01`,
+        `review-feedback-${STUDY_ID}-v-1`,
+        `review-feedback-${STUDY_ID}-v`,
         `code-review-feedback-not-a-uuid`,
     ])('rejects malformed name "%s"', (name) => {
         expect(parseDocumentName(name)).toBeNull()
@@ -69,7 +76,9 @@ describe('requiredOrgIdForDocument', () => {
     const study = { org_id: 'do-org', submitted_by_org_id: 'lab-org' }
 
     it('returns DO org for review-feedback', () => {
-        expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID }, study)).toBe('do-org')
+        expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, study)).toBe(
+            'do-org',
+        )
     })
 
     it('returns DO org for code-review-feedback', () => {
@@ -160,14 +169,16 @@ describe('isStatelessEventValidForDocument', () => {
     })
 
     it('rejects proposal-submitted on review-feedback document', () => {
-        expect(isStatelessEventValidForDocument(event, { kind: 'review-feedback', studyId: STUDY_ID })).toBe(false)
+        expect(
+            isStatelessEventValidForDocument(event, { kind: 'review-feedback', studyId: STUDY_ID, version: 1 }),
+        ).toBe(false)
     })
 
     it('accepts proposal-review-submitted on review-feedback', () => {
         expect(
             isStatelessEventValidForDocument(
                 { ...event, type: 'proposal-review-submitted' },
-                { kind: 'review-feedback', studyId: STUDY_ID },
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
             ),
         ).toBe(true)
     })
@@ -194,7 +205,7 @@ describe('isStatelessEventValidForDocument', () => {
         expect(
             isStatelessEventValidForDocument(
                 { ...event, type: 'code-review-submitted' },
-                { kind: 'review-feedback', studyId: STUDY_ID },
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
             ),
         ).toBe(false)
     })
@@ -219,14 +230,14 @@ const baseDeps = (overrides: Partial<AuthenticateDeps> = {}): AuthenticateDeps =
 describe('authenticate', () => {
     it('rejects when token is missing', async () => {
         await expect(
-            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}` }, baseDeps()),
+            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps()),
         ).rejects.toThrow(/missing token/)
     })
 
     it('rejects when verifyToken returns no subject', async () => {
         await expect(
             authenticate(
-                { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+                { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
                 baseDeps({ verifyToken: async () => ({ sub: null }) }),
             ),
         ).rejects.toThrow(/no subject/)
@@ -235,7 +246,7 @@ describe('authenticate', () => {
     it('rejects when verifyToken throws (invalid signature / expired)', async () => {
         await expect(
             authenticate(
-                { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+                { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
                 baseDeps({
                     verifyToken: async () => {
                         throw new Error('jwt expired')
@@ -257,7 +268,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/user not provisioned/)
     })
 
@@ -268,7 +279,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/study not found/)
     })
 
@@ -286,7 +297,7 @@ describe('authenticate', () => {
             return { rows: [], rowCount: 0 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/no membership/)
         const membershipQuery = queries.find((q) => q.text.includes('FROM org_user'))
         // Confirms the kind-aware membership check requires do-org for review-feedback.
@@ -331,7 +342,7 @@ describe('authenticate', () => {
     it('passes a DO member opening their DO review-feedback document', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
-            if (text.includes('FROM study'))
+            if (text.includes('FROM study WHERE'))
                 return {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
@@ -339,7 +350,7 @@ describe('authenticate', () => {
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
     })
 
@@ -362,7 +373,7 @@ describe('authenticate', () => {
         const verifyToken = vi.fn(async () => ({ sub: 'u' }))
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'u' }], rowCount: 1 }
-            if (text.includes('FROM study'))
+            if (text.includes('FROM study WHERE'))
                 return {
                     rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
                     rowCount: 1,
@@ -371,14 +382,14 @@ describe('authenticate', () => {
         })
 
         await authenticate(
-            { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+            { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
             baseDeps({ db, verifyToken, authorizedParties: [] }),
         )
         expect(verifyToken).toHaveBeenCalledWith('tok', expect.objectContaining({ authorizedParties: undefined }))
 
         verifyToken.mockClear()
         await authenticate(
-            { token: 'tok', documentName: `review-feedback-${STUDY_ID}` },
+            { token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` },
             baseDeps({ db, verifyToken, authorizedParties: ['https://app.example'] }),
         )
         expect(verifyToken).toHaveBeenCalledWith(
@@ -413,7 +424,7 @@ describe('authenticate', () => {
             return { rows: [{}], rowCount: 1 }
         })
         await expect(
-            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}` }, baseDeps({ db })),
+            authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
         ).rejects.toThrow(/study is not editable.*APPROVED/)
     })
 
@@ -486,7 +497,7 @@ describe('authenticate', () => {
     it('throws AuthFailureError with stable codes the client can dispatch on', async () => {
         // Sanity-check a couple of representative codes; the wire format is `CODE: message`.
         await expect(
-            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}` }, baseDeps()),
+            authenticate({ token: null, documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps()),
         ).rejects.toMatchObject({ code: 'MISSING_TOKEN', message: expect.stringMatching(/^MISSING_TOKEN: /) })
 
         const db = dbFromScripts(async (text) => {
@@ -532,11 +543,16 @@ describe('isDocumentEditable', () => {
     })
 
     it('allows review-feedback only while PENDING-REVIEW', () => {
-        expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID }, { status: 'PENDING-REVIEW' })).toBe(
-            true,
-        )
+        expect(
+            isDocumentEditable(
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                { status: 'PENDING-REVIEW' },
+            ),
+        ).toBe(true)
         for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
-            expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID }, { status })).toBe(false)
+            expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, { status })).toBe(
+                false,
+            )
         }
     })
 
@@ -610,7 +626,7 @@ describe('assertStatelessEventConsistent', () => {
             expect(
                 assertStatelessEventConsistent({
                     event,
-                    parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                    parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                     documentStudyId: STUDY_ID,
                     connectionUserClerkId: 'user_alice',
                     studyStatus,
@@ -624,7 +640,7 @@ describe('assertStatelessEventConsistent', () => {
         expect(
             assertStatelessEventConsistent({
                 event,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                 documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'PENDING-REVIEW',
@@ -636,7 +652,7 @@ describe('assertStatelessEventConsistent', () => {
         expect(
             assertStatelessEventConsistent({
                 event: baseEvent,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID },
+                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                 documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'APPROVED',
@@ -713,10 +729,10 @@ describe('shouldPersistDocument', () => {
         ).resolves.toBe(false)
     })
 
-    it('allows persistence for review-feedback when study is PENDING-REVIEW', async () => {
+    it('allows persistence for review-feedback when status is PENDING-REVIEW', async () => {
         await expect(
             shouldPersistDocument(
-                { kind: 'review-feedback', studyId: STUDY_ID },
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
                 fakeDb([{ status: 'PENDING-REVIEW' }]),
             ),
         ).resolves.toBe(true)
@@ -725,7 +741,7 @@ describe('shouldPersistDocument', () => {
     it('blocks persistence for review-feedback once a decision is recorded', async () => {
         for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED', 'ARCHIVED'] as const) {
             await expect(
-                shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID }, fakeDb([{ status }])),
+                shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, fakeDb([{ status }])),
             ).resolves.toBe(false)
         }
     })

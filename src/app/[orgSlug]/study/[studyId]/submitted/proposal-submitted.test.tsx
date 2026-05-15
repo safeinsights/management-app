@@ -1,4 +1,4 @@
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import {
@@ -11,7 +11,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
@@ -27,6 +27,7 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
         decision: overrides.decision === undefined ? 'APPROVE' : overrides.decision,
         body: overrides.body ?? JSON.parse(lexicalJson('Feedback body text.')),
         createdAt: overrides.createdAt ?? new Date('2026-04-20T12:00:00Z'),
+        version: overrides.version ?? null,
     }) as ProposalFeedbackEntry
 
 describe('ProposalSubmitted', () => {
@@ -52,7 +53,13 @@ describe('ProposalSubmitted', () => {
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 16, 2025')
@@ -65,7 +72,13 @@ describe('ProposalSubmitted', () => {
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
@@ -80,7 +93,13 @@ describe('ProposalSubmitted', () => {
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={rejectedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={rejectedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 16, 2025')
@@ -93,10 +112,35 @@ describe('ProposalSubmitted', () => {
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={pendingStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Apr 16, 2025')
+        })
+
+        it('displays "Resubmitted on {date}" when status is PENDING-REVIEW after a resubmission', () => {
+            const pendingStudy = {
+                ...study,
+                status: 'PENDING-REVIEW' as const,
+                submittedAt: new Date('2025-04-16T10:00:00Z'),
+            }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={2}
+                />,
+            )
+
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Resubmitted on Apr 16, 2025')
         })
 
         it('formats the date as MMM DD, YYYY', () => {
@@ -106,7 +150,13 @@ describe('ProposalSubmitted', () => {
                 submittedAt: new Date('2025-12-01T10:00:00Z'),
             }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Dec 01, 2025')
@@ -115,7 +165,13 @@ describe('ProposalSubmitted', () => {
         it('renders the timestamp above the divider', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const, submittedAt: new Date('2025-04-16') }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const timestamp = screen.getByTestId('proposal-timestamp')
@@ -128,7 +184,13 @@ describe('ProposalSubmitted', () => {
         it('renders a green banner with approved copy when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const banner = screen.getByTestId('status-banner-APPROVED')
@@ -140,7 +202,13 @@ describe('ProposalSubmitted', () => {
         it('renders a blue banner with clarification copy when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const banner = screen.getByTestId('status-banner-CHANGE-REQUESTED')
@@ -152,7 +220,13 @@ describe('ProposalSubmitted', () => {
         it('renders a red banner with rejected copy when status is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={rejectedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={rejectedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const banner = screen.getByTestId('status-banner-REJECTED')
@@ -164,7 +238,13 @@ describe('ProposalSubmitted', () => {
         it('renders the banner below the divider', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const divider = screen.getByTestId('proposal-header-divider')
@@ -175,7 +255,13 @@ describe('ProposalSubmitted', () => {
         it('renders only one banner at a time', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('status-banner-APPROVED')).toBeInTheDocument()
@@ -183,11 +269,31 @@ describe('ProposalSubmitted', () => {
             expect(screen.queryByTestId('status-banner-CHANGE-REQUESTED')).not.toBeInTheDocument()
             expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
         })
+
+        it('renders resubmission copy when status is PENDING-REVIEW after a resubmission', () => {
+            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={2}
+                />,
+            )
+
+            const banner = screen.getByTestId('status-banner-PENDING-REVIEW')
+            expect(banner).toHaveTextContent(
+                `Your revised initial request has been resubmitted to ${ORG_NAME}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`,
+            )
+        })
     })
 
     describe('view full initial request dropdown', () => {
         it('is collapsed by default on page load', () => {
-            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+            )
 
             expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
             expect(screen.queryByTestId('proposal-body')).not.toBeVisible()
@@ -195,7 +301,9 @@ describe('ProposalSubmitted', () => {
 
         it('expands to display the study proposal when clicked', async () => {
             const user = userEvent.setup()
-            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+            )
 
             await user.click(screen.getByTestId('proposal-toggle-header'))
 
@@ -206,7 +314,9 @@ describe('ProposalSubmitted', () => {
 
         it('displays study proposal content as read-only with no editable fields', async () => {
             const user = userEvent.setup()
-            renderWithProviders(<ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} />)
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+            )
 
             await user.click(screen.getByTestId('proposal-toggle-header'))
 
@@ -220,7 +330,13 @@ describe('ProposalSubmitted', () => {
         it('shows a "Back" button linking to dashboard when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const backLink = screen.getByRole('link', { name: /back/i })
@@ -230,7 +346,13 @@ describe('ProposalSubmitted', () => {
         it('shows a "Proceed to step 3" button linking to agreements when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={approvedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={approvedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
@@ -243,17 +365,29 @@ describe('ProposalSubmitted', () => {
         it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const backLink = screen.getByRole('link', { name: /back/i })
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        it('shows an "Edit and resubmit" button linking to edit page when status is CHANGE-REQUESTED', () => {
+        it('shows an "Edit and resubmit" button linking to edit and resubmit page when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={clarificationStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
@@ -263,11 +397,43 @@ describe('ProposalSubmitted', () => {
         it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={rejectedStudy} orgName={ORG_NAME} entries={[]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={rejectedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
             expect(dashboardLink).toHaveAttribute('href', '/dashboard')
+        })
+    })
+
+    describe('section heading iteration label', () => {
+        it('displays "Initial request" on first submission', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+            )
+
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+        })
+
+        it('displays "Initial request 2.0" after the first resubmission', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={2} />,
+            )
+
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
+        })
+
+        it('displays "Initial request 3.0" after the second resubmission', () => {
+            renderWithProviders(
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={3} />,
+            )
+
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')
         })
     })
 
@@ -280,6 +446,7 @@ describe('ProposalSubmitted', () => {
             decision: 'NEEDS-CLARIFICATION',
             createdAt: new Date('2026-04-20T12:00:00Z'),
             body: JSON.parse(lexicalJson('Latest reviewer note.')),
+            version: 2,
         })
 
         const researcherEntry = buildEntry({
@@ -290,6 +457,7 @@ describe('ProposalSubmitted', () => {
             decision: null,
             createdAt: new Date('2026-04-18T08:00:00Z'),
             body: JSON.parse(lexicalJson('Original resubmission note.')),
+            version: 2,
         })
 
         it('displays entries from most recent to oldest', () => {
@@ -299,6 +467,7 @@ describe('ProposalSubmitted', () => {
                     study={study}
                     orgName={ORG_NAME}
                     entries={[reviewerEntry, researcherEntry]}
+                    studyVersion={2}
                 />,
             )
 
@@ -308,30 +477,48 @@ describe('ProposalSubmitted', () => {
             expect(rendered[1]).toHaveAttribute('data-testid', 'feedback-entry-researcher-1')
         })
 
-        it('titles reviewer entries "Reviewer feedback"', () => {
+        it('titles reviewer entries "Reviewer feedback (v1.0)" for first submission', () => {
+            const v1ReviewerEntry = buildEntry({
+                ...reviewerEntry,
+                version: 1,
+            })
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[v1ReviewerEntry]}
+                    studyVersion={1}
+                />,
             )
 
-            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback')
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback (v1.0)')
         })
 
-        it('titles researcher entries "Resubmission note"', () => {
+        it('titles entries with their stored version', () => {
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
                     entries={[reviewerEntry, researcherEntry]}
+                    studyVersion={2}
                 />,
             )
 
-            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Resubmission note')
+            expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback (v2.0)')
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Resubmission note (v2.0)')
         })
 
         it('displays the reviewer name on reviewer feedback entries', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Dr. Reviewer')
@@ -344,6 +531,7 @@ describe('ProposalSubmitted', () => {
                     study={study}
                     orgName={ORG_NAME}
                     entries={[reviewerEntry, researcherEntry]}
+                    studyVersion={2}
                 />,
             )
 
@@ -352,7 +540,13 @@ describe('ProposalSubmitted', () => {
 
         it('displays the date the reviewer submitted their decision', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[reviewerEntry]} />,
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[reviewerEntry]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Apr 20, 2026')
@@ -365,6 +559,7 @@ describe('ProposalSubmitted', () => {
                     study={study}
                     orgName={ORG_NAME}
                     entries={[reviewerEntry, researcherEntry]}
+                    studyVersion={2}
                 />,
             )
 
@@ -372,29 +567,86 @@ describe('ProposalSubmitted', () => {
         })
 
         it('expands the latest entry by default', () => {
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[reviewerEntry, researcherEntry]}
-                />,
-            )
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[reviewerEntry, researcherEntry]}
+                        studyVersion={2}
+                    />,
+                )
 
-            expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
         })
 
         it('collapses older entries by default', () => {
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[reviewerEntry, researcherEntry]}
+                        studyVersion={2}
+                    />,
+                )
+
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
+        })
+
+        it('collapses resubmission notes by default even when latest', () => {
+            const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
+            try {
+                renderWithProviders(
+                    <ProposalSubmitted
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        orgName={ORG_NAME}
+                        entries={[researcherEntry, reviewerEntry]}
+                        studyVersion={2}
+                    />,
+                )
+
+                expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            } finally {
+                scrollHeightSpy.mockRestore()
+            }
+        })
+
+        it('labels multiple resubmission notes with ascending versions', () => {
+            const secondResub = buildEntry({
+                id: 'researcher-2',
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                authorName: 'Dr. Researcher',
+                decision: null,
+                createdAt: new Date('2026-04-25T08:00:00Z'),
+                body: JSON.parse(lexicalJson('Second resubmission note.')),
+                version: 3,
+            })
+
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
-                    entries={[reviewerEntry, researcherEntry]}
+                    entries={[secondResub, reviewerEntry, researcherEntry]}
+                    studyVersion={3}
                 />,
             )
 
-            expect(screen.getByTestId('feedback-toggle-researcher-1')).toHaveAttribute('aria-expanded', 'false')
+            expect(screen.getByTestId('feedback-entry-researcher-2')).toHaveTextContent('Resubmission note (v3.0)')
+            expect(screen.getByTestId('feedback-entry-researcher-1')).toHaveTextContent('Resubmission note (v2.0)')
         })
     })
 })

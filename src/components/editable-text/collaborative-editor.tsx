@@ -243,7 +243,15 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
-            onChange(JSON.stringify(editorState.toJSON()))
+            const json = editorState.toJSON()
+            // On mount, before Yjs syncs, Lexical's root briefly has no children.
+            // That state is valid in memory but Lexical rejects it on re-hydration,
+            // so persisting it would crash the non-collaborative views (EditableText,
+            // ReadOnlyLexicalContent) the next time the data is read. User-cleared
+            // input still keeps an empty paragraph in children, so this only filters
+            // the pre-sync state.
+            if (!json.root?.children?.length) return
+            onChange(JSON.stringify(json))
         })
     }, [editor, onChange])
 

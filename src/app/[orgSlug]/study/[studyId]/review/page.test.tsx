@@ -215,6 +215,7 @@ describe('StudyReviewPage', () => {
                 entryType: 'REVIEWER-FEEDBACK',
                 decision: 'APPROVE',
                 body: { root: { type: 'root', children: [] } },
+                version: 1,
             })
             .execute()
 

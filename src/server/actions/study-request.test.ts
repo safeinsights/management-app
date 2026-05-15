@@ -27,7 +27,7 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 vi.mock('@/server/aws', async () => {
@@ -471,7 +471,7 @@ describe('Request Study Actions', () => {
                         data: Buffer.from([0]),
                     },
                     {
-                        name: `review-feedback-${study.id}`,
+                        name: `review-feedback-${study.id}-v1`,
                         studyId: study.id,
                         data: Buffer.from([0]),
                     },
@@ -487,7 +487,7 @@ describe('Request Study Actions', () => {
                 .execute()
             const remainingNames = remaining.map((r) => r.name).sort()
             // Proposal docs gone; review-feedback row untouched (DO submit owns that one).
-            expect(remainingNames).toEqual([`review-feedback-${study.id}`])
+            expect(remainingNames).toEqual([`review-feedback-${study.id}-v1`])
         })
 
         it('purgeProposalYjsDocsBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
