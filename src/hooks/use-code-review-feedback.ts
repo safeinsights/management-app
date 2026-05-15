@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { CODE_REVIEW_MAX_WORDS, CODE_REVIEW_MIN_WORDS } from '@/lib/code-review'
-import { countWordsFromLexical } from '@/lib/word-count'
+import { countWordsFromLexical } from '@/lib/lexical'
 
 export function useCodeReviewFeedback() {
     const [value, setValue] = useState('')

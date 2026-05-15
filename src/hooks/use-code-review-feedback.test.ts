@@ -1,4 +1,4 @@
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { useCodeReviewFeedback } from './use-code-review-feedback'

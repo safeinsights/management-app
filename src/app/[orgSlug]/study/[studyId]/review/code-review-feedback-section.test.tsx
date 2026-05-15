@@ -1,6 +1,6 @@
 import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { useCodeReviewFeedback } from '@/hooks/use-code-review-feedback'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { describe, expect, it, vi } from 'vitest'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 
