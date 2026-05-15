@@ -1,14 +1,9 @@
-import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Box, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOut, CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import {
-    getStudyReviewForJob,
-    latestCodeScanForStudy,
-    type LatestCodeScanForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
+import type { LatestCodeScanForStudy, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import type { ScanStatus, StudyJobFileType } from '@/database/types'
+import type { StudyJobFileType } from '@/database/types'
 import { AiSummaryCollapsible, StudyCodeViewer, type CodeFile } from './submitted-code-interactive'
 
 const CODE_FILE_TYPES: StudyJobFileType[] = ['MAIN-CODE', 'SUPPLEMENTAL-CODE']
@@ -20,28 +15,6 @@ function filterAndOrderCodeFiles(files: LatestJobForStudy['files']): CodeFile[] 
         .filter((f) => f.fileType === 'SUPPLEMENTAL-CODE')
         .sort((a, b) => a.name.localeCompare(b.name))
     return [...main, ...supplemental].map((f) => ({ name: f.name, fileType: f.fileType }))
-}
-
-export type ScannerResult = { name: 'Trivy' | 'SonarQube'; passed: boolean; message: string }
-
-function describeFailedScan(status: ScanStatus | undefined): string {
-    if (status === 'SCAN-FAILED') return 'Scan failed — vulnerabilities found'
-    if (status === 'SCAN-RUNNING') return 'Scan in progress'
-    if (status === 'SCAN-PENDING') return 'Scan pending'
-    if (status === undefined) return 'No scan results available'
-    return 'Scan status unknown'
-}
-
-// codeScan stores one combined Trivy+SonarQube run per orgCodeEnv today, so both
-// rows mirror the same overall pass/fail status. If we later split per-scanner
-// data at the storage layer, only this helper needs to change.
-export function deriveScanResults(scan: LatestCodeScanForStudy | null): ScannerResult[] {
-    const passed = scan?.status === 'SCAN-COMPLETE'
-    const failureMessage = describeFailedScan(scan?.status)
-    return [
-        { name: 'Trivy', passed, message: passed ? 'Scan: no vulnerabilities found' : failureMessage },
-        { name: 'SonarQube', passed, message: passed ? 'Quality Gate: OK' : failureMessage },
-    ]
 }
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
@@ -82,26 +55,45 @@ function DatasetPills({ names }: { names: string[] }) {
     )
 }
 
-function SecurityScanRow({ result }: { result: ScannerResult }) {
-    const Icon = result.passed ? CheckCircle : XCircle
-    const colorVar = `var(--mantine-color-${result.passed ? 'green' : 'red'}-6)`
-    const dataIcon = result.passed ? 'pass' : 'fail'
-    return (
-        <Group gap="xs" wrap="nowrap" data-testid={`scan-row-${result.name.toLowerCase()}`}>
-            <Icon size={20} weight="fill" color={colorVar} data-icon={dataIcon} aria-hidden="true" />
-            <Text size="sm">
-                <strong>{result.name}:</strong> {result.message}
+function ScanStatusIcon({ scan }: { scan: LatestCodeScanForStudy | null }) {
+    if (!scan) return null
+    const passed = scan.status === 'SCAN-COMPLETE'
+    const Icon = passed ? CheckCircle : XCircle
+    const colorVar = `var(--mantine-color-${passed ? 'green' : 'red'}-6)`
+    const dataIcon = passed ? 'pass' : 'fail'
+    return <Icon size={20} weight="fill" color={colorVar} data-icon={dataIcon} aria-hidden="true" />
+}
+
+function ScanLogBody({ scan }: { scan: LatestCodeScanForStudy | null }) {
+    if (!scan?.results) {
+        return (
+            <Text size="sm" c="dimmed" data-testid="security-scan-log-empty">
+                No scan results available.
             </Text>
-        </Group>
+        )
+    }
+    return (
+        <Box
+            bg="charcoal.0"
+            p="md"
+            style={{ borderRadius: 'var(--mantine-radius-sm)', fontFamily: 'monospace' }}
+            data-testid="security-scan-log-body"
+        >
+            <Text size="sm" component="pre" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                {scan.results}
+            </Text>
+        </Box>
     )
 }
 
-function SecurityScanLog({ results }: { results: ScannerResult[] }) {
-    const rows = results.map((r) => <SecurityScanRow key={r.name} result={r} />)
+function SecurityScanLog({ scan }: { scan: LatestCodeScanForStudy | null }) {
     return (
         <Stack gap="xs" data-testid="security-scan-log">
-            <Text fw={700}>Security scan log</Text>
-            {rows}
+            <Group gap="xs" wrap="nowrap">
+                <Text fw={700}>Security scan log</Text>
+                <ScanStatusIcon scan={scan} />
+            </Group>
+            <ScanLogBody scan={scan} />
         </Stack>
     )
 }
@@ -110,13 +102,16 @@ type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
     job: Pick<LatestJobForStudy, 'id' | 'files'>
+    review: StudyReviewWithMeta | null
+    codeScan: LatestCodeScanForStudy | null
 }
 
-export async function SubmittedCodeSection({ orgSlug, study, job }: SubmittedCodeSectionProps) {
-    const [review, codeScan] = await Promise.all([getStudyReviewForJob(job.id), latestCodeScanForStudy(study.id)])
+// Data fetching lives in the parent (CodeReviewRedesignView) so this component
+// stays a plain sync function. Nested async server components don't render
+// under testing-library / happy-dom — the parent's await is what tests rely on.
+export function SubmittedCodeSection({ orgSlug, study, job, review, codeScan }: SubmittedCodeSectionProps) {
     const datasetNames = (study.orgDataSources ?? []).map((ds) => ds.name)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
-    const scanResults = deriveScanResults(codeScan)
     const summary = review?.report.codeExplanation ?? null
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
@@ -129,7 +124,7 @@ export async function SubmittedCodeSection({ orgSlug, study, job }: SubmittedCod
                 <Divider />
                 <Group align="flex-start" grow gap="xl" wrap="nowrap">
                     <AiSummaryCollapsible summary={summary} />
-                    <SecurityScanLog results={scanResults} />
+                    <SecurityScanLog scan={codeScan} />
                 </Group>
                 <Divider />
                 <StudyCodeViewer files={codeFiles} />

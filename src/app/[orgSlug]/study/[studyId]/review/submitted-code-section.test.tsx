@@ -13,8 +13,8 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { latestJobForStudy } from '@/server/db/queries'
-import { deriveScanResults, SubmittedCodeSection } from './submitted-code-section'
+import { getStudyReviewForJob, latestCodeScanForStudy, latestJobForStudy } from '@/server/db/queries'
+import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
 const ORG_SLUG = 'test-org-submitted'
@@ -80,7 +80,13 @@ async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: s
 
 async function renderSection(fixture: Fixture) {
     const job = await latestJobForStudy(fixture.study.id)
-    return renderWithProviders(await SubmittedCodeSection({ orgSlug: ORG_SLUG, study: fixture.study, job }))
+    const [review, codeScan] = await Promise.all([
+        getStudyReviewForJob(job.id),
+        latestCodeScanForStudy(fixture.study.id),
+    ])
+    return renderWithProviders(
+        <SubmittedCodeSection orgSlug={ORG_SLUG} study={fixture.study} job={job} review={review} codeScan={codeScan} />,
+    )
 }
 
 describe('SubmittedCodeSection — Section header', () => {
@@ -213,40 +219,35 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
     })
 
-    it('renders results for both Trivy and SonarQube scans', async () => {
+    it('renders the raw scan log text from codeScan.results when present', async () => {
         const fixture = await setupBaseFixture()
-        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE')
+        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE', 'Trivy: 0 vulnerabilities\nSonarQube: Quality Gate OK')
         await renderSection(fixture)
-        expect(screen.getByTestId('scan-row-trivy')).toBeInTheDocument()
-        expect(screen.getByTestId('scan-row-sonarqube')).toBeInTheDocument()
+        const body = screen.getByTestId('security-scan-log-body')
+        expect(body).toHaveTextContent('Trivy: 0 vulnerabilities')
+        expect(body).toHaveTextContent('SonarQube: Quality Gate OK')
     })
 
-    it('displays a green icon when no vulnerabilities are found', async () => {
+    it('shows an empty-state when no scan record exists', async () => {
         const fixture = await setupBaseFixture()
-        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE')
         await renderSection(fixture)
-        for (const id of ['scan-row-trivy', 'scan-row-sonarqube']) {
-            const row = screen.getByTestId(id)
-            const icon = row.querySelector('[data-icon]')
-            expect(icon?.getAttribute('data-icon')).toBe('pass')
-        }
+        expect(screen.getByTestId('security-scan-log-empty')).toHaveTextContent('No scan results available.')
     })
 
-    it('displays a red icon when vulnerabilities are found', async () => {
+    it('displays a green icon when the scan completed without vulnerabilities', async () => {
+        const fixture = await setupBaseFixture()
+        await insertCodeScan(fixture.orgId, 'SCAN-COMPLETE', 'all clear')
+        await renderSection(fixture)
+        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
+        expect(icon?.getAttribute('data-icon')).toBe('pass')
+    })
+
+    it('displays a red icon when the scan failed', async () => {
         const fixture = await setupBaseFixture()
         await insertCodeScan(fixture.orgId, 'SCAN-FAILED', 'CRITICAL: vulnerability found')
         await renderSection(fixture)
-        for (const id of ['scan-row-trivy', 'scan-row-sonarqube']) {
-            const row = screen.getByTestId(id)
-            const icon = row.querySelector('[data-icon]')
-            expect(icon?.getAttribute('data-icon')).toBe('fail')
-        }
-    })
-
-    it('deriveScanResults() returns failed rows when no scan record exists', () => {
-        const rows = deriveScanResults(null)
-        expect(rows.map((r) => r.passed)).toEqual([false, false])
-        expect(rows[0].message).toContain('No scan results available')
+        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
+        expect(icon?.getAttribute('data-icon')).toBe('fail')
     })
 })
 
