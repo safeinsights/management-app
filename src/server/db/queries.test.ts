@@ -8,6 +8,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import {
+    currentReviewVersion,
     getStudyReviewForJob,
     getOrgIdForJobId,
     getOrgPublicKeys,
@@ -183,6 +184,81 @@ describe('getOrgPublicKeys', () => {
         expect(files[0].path).toBe('test.txt')
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
+    })
+})
+
+describe('currentReviewVersion', () => {
+    it('returns 1 when no studyProposalComment rows exist (cold round 1)', async () => {
+        const { study1 } = await insertRecords()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+
+    it('returns max(version) across rows of mixed entryTypes', async () => {
+        const { study1, org1User1 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'RESEARCHER',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: { root: { type: 'root' } },
+                    version: 2,
+                },
+            ])
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(2)
+    })
+
+    it('is tie-immune when multiple reviewers share a version', async () => {
+        const { study1, org1User1, org1User2 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+                {
+                    studyId: study1.id,
+                    authorId: org1User2.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+            ])
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+
+    it('does not leak versions from other studies', async () => {
+        const { study1, study2, org2User1 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study2.id,
+                authorId: org2User1.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                body: { root: { type: 'root' } },
+                version: 3,
+            })
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
     })
 })
 

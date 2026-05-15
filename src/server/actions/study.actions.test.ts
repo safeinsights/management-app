@@ -1112,4 +1112,55 @@ describe('submitProposalReviewAction', () => {
             .execute()
         expect(reviewerRows).toHaveLength(0)
     })
+
+    it('valid round-2 submit creates a REVIEWER-FEEDBACK with version=2 leaving v1 untouched', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const round1Body = { root: { type: 'root', marker: 'round-1-original' } }
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    decision: 'NEEDS-CLARIFICATION',
+                    body: round1Body,
+                    version: 1,
+                },
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'RESEARCHER',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: { root: { type: 'root' } },
+                    version: 2,
+                },
+            ])
+            .execute()
+
+        const round2Feedback = `round2marker ${buildFeedback(60)}`
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: round2Feedback,
+            reviewVersion: 2,
+        })
+        actionResult(result)
+
+        const reviewerRows = await loadCommentRows(study.id)
+        const feedbackRows = reviewerRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')
+        expect(feedbackRows).toHaveLength(2)
+
+        const v1 = feedbackRows.find((r) => r.version === 1)
+        const v2 = feedbackRows.find((r) => r.version === 2)
+        expect(v1?.body).toEqual(round1Body)
+        expect(v2?.decision).toBe('NEEDS-CLARIFICATION')
+        expect(JSON.stringify(v2?.body)).toContain('round2marker')
+        expect(JSON.stringify(v2?.body)).not.toContain('round-1-original')
+    })
 })
