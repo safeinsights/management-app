@@ -7,9 +7,10 @@ import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { sleep } from '@/lib/utils'
 import {
+    currentReviewVersion,
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
     latestJobForStudy,
@@ -523,10 +524,12 @@ async function insertReviewerProposalComment({
 // persist to land, then re-delete the row only when its updatedAt predates the
 // captured submit timestamp. The bound preserves rows from a fast clarification
 // -> reopen cycle that lands inside the 5-second window.
-const purgeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId: string; beforeAt: Date }) => {
-    await sleep({ 5: 'seconds' })
-    await purgeReviewFeedbackYjsDocBeforeAt(database, args)
-})
+const purgeReviewFeedbackYjsDocAfterSubmit = deferred(
+    async (args: { studyId: string; version: number; beforeAt: Date }) => {
+        await sleep({ 5: 'seconds' })
+        await purgeReviewFeedbackYjsDocBeforeAt(database, args)
+    },
+)
 
 export const submitProposalReviewAction = new Action('submitProposalReviewAction', { performsMutations: true })
     .params(
@@ -535,6 +538,11 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             orgSlug: z.string(),
             feedback: z.string(),
             decision: z.enum(['approve', 'needs-clarification', 'reject']),
+            // Editable review round the client believed it was on at submit
+            // time. Recomputed server-side and validated against the current
+            // value so a stale tab can't write into the wrong round even if
+            // the editor-service gates somehow let it past.
+            reviewVersion: z.number().int().positive(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -546,13 +554,20 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         return { orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, feedback, decision }, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
 
         if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
                 feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+            })
+        }
+
+        const expectedVersion = await currentReviewVersion(studyId)
+        if (reviewVersion !== expectedVersion) {
+            throw new ActionFailure({
+                review: `stale review round ${reviewVersion} (current ${expectedVersion})`,
             })
         }
 
@@ -566,21 +581,24 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
 
-        // Drop the review-feedback yjs_document so the next round (if any) starts
-        // fresh rather than reopening the previous reviewer's drafted-but-submitted
-        // text. The deferred follow-up below catches any Hocuspocus persist that
-        // commits between status-flip and now.
-        await db.deleteFrom('yjsDocument').where('name', '=', reviewFeedbackDocName(studyId)).execute()
+        // Drop the versioned review-feedback yjs_document so the next round
+        // (if any) starts fresh from its own `-v${N+1}` name. The deferred
+        // follow-up below catches any Hocuspocus persist that commits between
+        // status-flip and now.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('name', '=', reviewFeedbackDocNameForVersion(studyId, reviewVersion))
+            .execute()
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
-            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
             return { submitterFullName: submitter.fullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
-            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+            purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
             return { submitterFullName: submitter.fullName }
         }
 
@@ -597,7 +615,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .execute()
 
         onStudyNeedsClarification({ studyId, userId })
-        purgeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+        purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
         return { submitterFullName: submitter.fullName }
     })
 

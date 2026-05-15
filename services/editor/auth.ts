@@ -27,14 +27,22 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
 
 export type ParsedDocumentName =
-    | { kind: 'review-feedback'; studyId: string }
+    | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
 
+const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
+
 export function parseDocumentName(name: string): ParsedDocumentName | null {
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
-        const studyId = name.slice(REVIEW_FEEDBACK_PREFIX.length)
-        return UUID_RE.test(studyId) ? { kind: 'review-feedback', studyId } : null
+        const remainder = name.slice(REVIEW_FEEDBACK_PREFIX.length)
+        if (remainder.length < UUID_LEN) return null
+        const studyId = remainder.slice(0, UUID_LEN)
+        if (!UUID_RE.test(studyId)) return null
+        const suffix = remainder.slice(UUID_LEN)
+        const m = VERSION_SUFFIX_RE.exec(suffix)
+        if (!m) return null
+        return { kind: 'review-feedback', studyId, version: Number(m[1]) }
     }
 
     if (!name.startsWith(PROPOSAL_PREFIX)) return null
