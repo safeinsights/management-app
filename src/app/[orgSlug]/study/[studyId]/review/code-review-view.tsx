@@ -20,7 +20,8 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
-    const review = await getStudyReviewForJob(job.id)
+
+    const initialReview = await getStudyReviewForJob(job.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -46,7 +47,7 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                 </Stack>
             </Paper>
             <Paper bg="white" p="xxl">
-                <StudyReviewSection studyJobId={job.id} initialReview={review} />
+                <StudyReviewSection studyJobId={job.id} initialReview={initialReview} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>
