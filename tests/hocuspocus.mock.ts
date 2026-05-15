@@ -8,6 +8,7 @@ type CreateHocuspocusMockOptions = {
 }
 
 export type HocuspocusProviderHandle = {
+    name?: string
     document?: Y.Doc
     triggerSync: () => void
     sendStateless: ReturnType<typeof vi.fn>
@@ -24,9 +25,10 @@ export const createHocuspocusMock = ({ withYDoc = false }: CreateHocuspocusMockO
         private attached = false
         private syncListeners: Listener[] = []
 
-        constructor(opts?: { document?: Y.Doc }) {
+        constructor(opts?: { document?: Y.Doc; name?: string }) {
             this.document = opts?.document ?? (withYDoc ? new Y.Doc() : undefined)
             constructed.push({
+                name: opts?.name,
                 document: this.document,
                 triggerSync: () => {
                     if (withYDoc && !this.attached)

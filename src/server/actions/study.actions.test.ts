@@ -1397,13 +1397,13 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
-    it('deletes the code-review-feedback yjs_document on submit', async () => {
-        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+    it('deletes the code-review-feedback yjs_document keyed by job.id on submit', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `code-review-feedback-${study.id}`,
+                name: `code-review-feedback-${job.id}`,
                 studyId: study.id,
                 data: Buffer.from([0]),
             })
@@ -1420,7 +1420,7 @@ describe('submitCodeReviewDecisionAction', () => {
         const remaining = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `code-review-feedback-${study.id}`)
+            .where('name', '=', `code-review-feedback-${job.id}`)
             .execute()
         expect(remaining).toHaveLength(0)
     })

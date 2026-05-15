@@ -29,17 +29,26 @@ const contentStyle = {
 type CodeReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     studyId: string
+    jobId: string
 }
 
 const PLACEHOLDER_TEXT = 'Share your feedback on the submitted code...'
 
-function FeedbackEditor({ feedback, studyId }: { feedback: ReturnType<typeof useReviewFeedback>; studyId: string }) {
+function FeedbackEditor({
+    feedback,
+    studyId,
+    jobId,
+}: {
+    feedback: ReturnType<typeof useReviewFeedback>
+    studyId: string
+    jobId: string
+}) {
     const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishCodeReviewFeedbackProvider()
     if (!websocketProvider) return EDITOR_SKELETON
     return (
         <CollaborativeEditor
-            id={codeReviewFeedbackDocName(studyId)}
+            id={codeReviewFeedbackDocName(jobId)}
             studyId={studyId}
             websocketProvider={websocketProvider}
             contentStyle={contentStyle}
@@ -51,7 +60,7 @@ function FeedbackEditor({ feedback, studyId }: { feedback: ReturnType<typeof use
     )
 }
 
-export function CodeReviewFeedbackSection({ feedback, studyId }: CodeReviewFeedbackSectionProps) {
+export function CodeReviewFeedbackSection({ feedback, studyId, jobId }: CodeReviewFeedbackSectionProps) {
     return (
         <Paper p="xxl" data-testid="code-review-feedback-section">
             <Stack gap="lg">
@@ -63,7 +72,7 @@ export function CodeReviewFeedbackSection({ feedback, studyId }: CodeReviewFeedb
                     <Text fz={14} c="charcoal.7">
                         Minimum {feedback.minWords} words required.
                     </Text>
-                    <FeedbackEditor feedback={feedback} studyId={studyId} />
+                    <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
                 </Stack>
             </Stack>
         </Paper>

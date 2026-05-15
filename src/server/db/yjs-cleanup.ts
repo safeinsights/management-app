@@ -34,11 +34,11 @@ export async function purgeReviewFeedbackYjsDocBeforeAt(
 
 export async function purgeCodeReviewFeedbackYjsDocBeforeAt(
     db: DBExecutor,
-    { studyId, beforeAt }: { studyId: string; beforeAt: Date },
+    { jobId, beforeAt }: { jobId: string; beforeAt: Date },
 ): Promise<void> {
     await db
         .deleteFrom('yjsDocument')
-        .where('name', '=', codeReviewFeedbackDocName(studyId))
+        .where('name', '=', codeReviewFeedbackDocName(jobId))
         .where('updatedAt', '<=', beforeAt)
         .execute()
 }

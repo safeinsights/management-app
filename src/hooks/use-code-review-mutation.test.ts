@@ -73,16 +73,19 @@ describe('useCodeReviewMutation', () => {
     })
 
     it('approve broadcasts code-review-submitted and redirects with ?from=code-review (flag ON)', async () => {
-        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         featureFlagState.enabled = true
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
 
         await waitFor(() => expect(constructed).toHaveLength(1))
         const handle = constructed[0]
+        // Broadcast provider is keyed by study_job.id so future code-resubmits
+        // (OTTER-558) get a fresh room. studyId is the action-call payload only.
+        expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
@@ -111,11 +114,11 @@ describe('useCodeReviewMutation', () => {
     })
 
     it('reject broadcasts and rejects the study', async () => {
-        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         featureFlagState.enabled = true
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
 
@@ -139,7 +142,7 @@ describe('useCodeReviewMutation', () => {
     it('flag OFF: navigates with ?from=code-review without broadcasting', async () => {
         // Non-openstax slug so the feature flag stays off in the real predicate.
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'unrelated-enclave', orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({
+        const { study, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
@@ -148,7 +151,7 @@ describe('useCodeReviewMutation', () => {
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
 
@@ -169,13 +172,13 @@ describe('useCodeReviewMutation', () => {
     })
 
     it('action error: no navigation, no broadcast', async () => {
-        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         // Force the action's editable-state guard to reject.
         await db.updateTable('study').set({ status: 'APPROVED' }).where('id', '=', study.id).execute()
         featureFlagState.enabled = true
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
 

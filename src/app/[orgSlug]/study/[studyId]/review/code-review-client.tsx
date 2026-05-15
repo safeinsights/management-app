@@ -14,6 +14,7 @@ import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
+import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -33,11 +34,8 @@ type Props = {
     latestJobStatus: StudyJobStatus | null
 }
 
-// Mirrors REVIEWABLE_CODE_JOB_STATUSES in study.actions.ts so the client and
-// server agree on when code review is open: PENDING-REVIEW study + latest job
-// status in {CODE-SUBMITTED, CODE-SCANNED}.
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
-    status === 'PENDING-REVIEW' && (latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED')
+    status === 'PENDING-REVIEW' && latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
 
 const REJECTION_WARNING = (
     <Text size="md" fw={600} c="red.9">
@@ -49,7 +47,17 @@ const REJECTION_WARNING = (
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
 
-function useCodeReview({ orgSlug, studyId, tabSessionId }: { orgSlug: string; studyId: string; tabSessionId: string }) {
+function useCodeReview({
+    orgSlug,
+    studyId,
+    jobId,
+    tabSessionId,
+}: {
+    orgSlug: string
+    studyId: string
+    jobId: string
+    tabSessionId: string
+}) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
@@ -74,7 +82,7 @@ function useCodeReview({ orgSlug, studyId, tabSessionId }: { orgSlug: string; st
     const canSubmit = feedback.isValid && isDecisionTerminal && criteriaComplete
     const backPath = Routes.orgDashboard({ orgSlug })
 
-    const { submitReview, isPending } = useCodeReviewMutation({ studyId, orgSlug, tabSessionId })
+    const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleBack = () => {
         router.push(backPath)
@@ -233,7 +241,7 @@ function EditableBody({
                 <StudyCodeDetails job={job} />
             </Box>
             <CodeEvaluationSection form={evaluationForm} enabled />
-            <CodeReviewFeedbackSection feedback={feedback} studyId={job.studyId} />
+            <CodeReviewFeedbackSection feedback={feedback} studyId={job.studyId} jobId={job.id} />
             <Box bg="white" p="xxl">
                 <DecisionRadio value={decisionValue} onChange={onDecisionChange} />
             </Box>
@@ -295,7 +303,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         closeReject,
         handleConfirmSubmit,
         isPending,
-    } = useCodeReview({ orgSlug, studyId: study.id, tabSessionId })
+    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
 
     if (!isCollaborationEnabled) return null
 

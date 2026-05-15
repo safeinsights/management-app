@@ -25,12 +25,14 @@ export type SubmitCodeReviewArgs = {
 
 interface UseCodeReviewMutationOptions {
     studyId: string
+    /** Latest study_job id; used to key the broadcast doc name. */
+    jobId: string
     orgSlug: string
     /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
-export function useCodeReviewMutation({ studyId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
+export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
     const { getToken } = useAuth()
@@ -43,7 +45,7 @@ export function useCodeReviewMutation({ studyId, orgSlug, tabSessionId }: UseCod
     useEffect(() => {
         if (!isCollaborationEnabled) return undefined
         const doc = new Y.Doc()
-        const docName = codeReviewFeedbackDocName(studyId)
+        const docName = codeReviewFeedbackDocName(jobId)
         const provider = new HocuspocusProvider({
             url: WS_URL,
             name: docName,
@@ -61,7 +63,7 @@ export function useCodeReviewMutation({ studyId, orgSlug, tabSessionId }: UseCod
 
             setBroadcastProvider(null)
         }
-    }, [isCollaborationEnabled, studyId, getToken])
+    }, [isCollaborationEnabled, jobId, getToken])
 
     const {
         mutate: submitReview,

@@ -33,21 +33,21 @@ export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalText
 
 export const reviewFeedbackDocName = (studyId: string) => `${REVIEW_FEEDBACK_PREFIX}${studyId}`
 
-export const codeReviewFeedbackDocName = (studyId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${studyId}`
+export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
     | { kind: 'review-feedback'; studyId: string }
-    | { kind: 'code-review-feedback'; studyId: string }
+    | { kind: 'code-review-feedback'; jobId: string }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
     // The longer prefix must be checked first; otherwise the review-feedback
     // branch would match a `code-review-feedback-<uuid>` doc and mis-parse it.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
-        const studyId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
-        if (!UUID_RE.test(studyId)) return null
-        return { kind: 'code-review-feedback', studyId }
+        const jobId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
+        if (!UUID_RE.test(jobId)) return null
+        return { kind: 'code-review-feedback', jobId }
     }
 
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {

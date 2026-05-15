@@ -47,8 +47,8 @@ export const getStudyStatusAction = new Action('getStudyStatusAction')
 
         // Used by callers that gate editability on both study status AND the latest
         // job's status (e.g. code review). Backward-compatible: existing callers read
-        // only `status`. Ordering matches latestJobForStudyQuery and the editor's
-        // LATEST_JOB_STATUS_SQL so all three agree on what "latest" means.
+        // only `status`. Ordering matches latestJobForStudyQuery so both agree on
+        // what "latest" means.
         const latestJobStatusRow = await db
             .selectFrom('jobStatusChange')
             .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')

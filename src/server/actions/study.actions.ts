@@ -4,10 +4,11 @@ import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/word-count'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
 import { codeReviewFeedbackDocName, reviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { sleep } from '@/lib/utils'
 import {
     getProposalFeedbackForStudy,
@@ -615,12 +616,10 @@ export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedback
 // code-review-feedback document. A debounced Hocuspocus persist can race the
 // in-tx delete on a different connection, so wait long enough for any in-flight
 // persist to land and re-delete only rows older than the captured submit time.
-const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { studyId: string; beforeAt: Date }) => {
+const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
     await purgeCodeReviewFeedbackYjsDocBeforeAt(database, args)
 })
-
-const REVIEWABLE_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
 async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
     // Mirror the editor auth gate: code review requires both PENDING-REVIEW
@@ -706,7 +705,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
 
-        await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(studyId)).execute()
+        await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
@@ -720,7 +719,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             await performStudyCodeRejection({ db, studyId, userId })
         }
 
-        purgeCodeReviewFeedbackYjsDocAfterSubmit({ studyId, beforeAt: submittedAt })
+        purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id, beforeAt: submittedAt })
 
         return { submitterFullName: submitter.fullName }
     })

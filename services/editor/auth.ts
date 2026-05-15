@@ -43,31 +43,9 @@ export type StudyJobStatus =
 // DB study status. Duplicated for the same reason.
 const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED']
 
-const REVIEWABLE_CODE_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
-
-// Job statuses that prove code review already happened. CODE-APPROVED and
-// CODE-REJECTED are the immediate outcomes, but the latest status can advance
-// further by the time a stateless event reaches the server: SIMULATE_CODE_BUILD
-// inserts JOB-READY synchronously after CODE-APPROVED, and the production
-// approval flow eventually advances through provisioning/packaging/running into
-// terminal RUN-COMPLETE / JOB-ERRORED / FILES-* states. None of the pre-review
-// states (INITIATED / CODE-SUBMITTED / CODE-SCANNED) belong in this list.
-const SUBMITTED_CODE_JOB_STATUSES: readonly StudyJobStatus[] = [
-    'CODE-APPROVED',
-    'CODE-REJECTED',
-    'JOB-READY',
-    'JOB-PROVISIONING',
-    'JOB-PACKAGING',
-    'JOB-RUNNING',
-    'RUN-COMPLETE',
-    'JOB-ERRORED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-]
-
 export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string }
-    | { kind: 'code-review-feedback'; studyId: string }
+    | { kind: 'code-review-feedback'; jobId: string }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
 
@@ -75,8 +53,8 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     // Longer prefix first; otherwise REVIEW_FEEDBACK_PREFIX would mis-match a
     // code-review-feedback doc name.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
-        const studyId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
-        return UUID_RE.test(studyId) ? { kind: 'code-review-feedback', studyId } : null
+        const jobId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
+        return UUID_RE.test(jobId) ? { kind: 'code-review-feedback', jobId } : null
     }
 
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
@@ -113,13 +91,16 @@ export function requiredOrgIdForDocument(
 
 export type StudyEditabilitySnapshot = {
     status: StudyStatus
-    latestJobStatus: StudyJobStatus | null
 }
 
 // Whether the canonical Yjs state for `parsed` may still be mutated given the
-// current study and (for code review) latest job status. Authentication and
-// the persist-time gate both consult this so stale clients cannot keep
-// streaming updates after a status flip.
+// current study status. Authentication and the persist-time gate both consult
+// this so stale clients cannot keep streaming updates after a status flip.
+// Code-review docs are not status-gated here: the management-app action layer
+// is the single enforcer of code-review versioning (see
+// claimInitialCodeReviewJob in study.actions.ts), and per-document room
+// isolation in Hocuspocus prevents stale-round writes from polluting a
+// different round's persisted state.
 export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditabilitySnapshot): boolean {
     switch (parsed.kind) {
         case 'review-feedback':
@@ -128,30 +109,8 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'proposal-text':
             return snap.status === 'DRAFT' || snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':
-            return (
-                snap.status === 'PENDING-REVIEW' &&
-                snap.latestJobStatus !== null &&
-                REVIEWABLE_CODE_JOB_STATUSES.includes(snap.latestJobStatus)
-            )
+            return true
     }
-}
-
-// Order matches latestJobForStudy in src/server/db/queries.ts so the auth
-// service and the application code agree on which row is "latest" when two
-// status changes share a created_at.
-const LATEST_JOB_STATUS_SQL = `SELECT jsc.status
-                                 FROM job_status_change jsc
-                                 JOIN study_job sj ON sj.id = jsc.study_job_id
-                                WHERE sj.study_id = $1
-                                ORDER BY jsc.created_at DESC, jsc.id DESC
-                                LIMIT 1`
-
-export async function fetchLatestJobStatus(
-    db: Pick<DbQuery, 'query'>,
-    studyId: string,
-): Promise<StudyJobStatus | null> {
-    const row = await db.query<{ status: StudyJobStatus }>(LATEST_JOB_STATUS_SQL, [studyId])
-    return row.rows[0]?.status ?? null
 }
 
 // Persist-time gate: returns true when the canonical Yjs state for this
@@ -159,17 +118,15 @@ export async function fetchLatestJobStatus(
 // covers new and reconnecting clients, but already-connected clients keep
 // streaming Yjs updates between a status flip and their own kick-out. This
 // gate is the second line of defense so post-flip writes never land in
-// yjs_document. Safe to use as a silent skip because we already reject
-// reconnects when status is non-editable, so no peer can fetch a pre-flip
-// persisted state while other peers still hold post-flip in-memory state.
+// yjs_document. Code-review docs are not gated here; see isDocumentEditable.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
+    if (parsed.kind === 'code-review-feedback') return true
+
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status
     if (!status) return false
 
-    const latestJobStatus =
-        parsed.kind === 'code-review-feedback' ? await fetchLatestJobStatus(db, parsed.studyId) : null
-    return isDocumentEditable(parsed, { status, latestJobStatus })
+    return isDocumentEditable(parsed, { status })
 }
 
 export type EventType = 'proposal-submitted' | 'proposal-review-submitted' | 'code-review-submitted'
@@ -220,8 +177,10 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
 // submitter; `proposal-review-submitted` is broadcast on the review-feedback
 // doc by the DO submitter; `code-review-submitted` is broadcast on the
 // code-review-feedback doc by the DO submitter. Anything else is dropped.
+// studyId reconciliation lives in assertStatelessEventConsistent (which has
+// access to the authenticated documentStudyId, the only place a code-review
+// doc's studyId can be resolved from).
 export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent, parsed: ParsedDocumentName): boolean {
-    if (event.studyId !== parsed.studyId) return false
     if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
     if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
@@ -230,28 +189,30 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
 
 // Strict consistency check before rebroadcasting a stateless event:
 // 1. payload-vs-document-kind matches (handled by isStatelessEventValidForDocument)
-// 2. sender's clerk id matches the authenticated user on this connection
-// 3. DB study status (and, for code review, latest job status) is plausible
-//    for the claimed event type
+// 2. event.studyId matches the studyId resolved at connection time
+// 3. sender's clerk id matches the authenticated user on this connection
+// 4. for proposal flows, DB study status is plausible for the claimed event type
 //
-// Without (2) and (3) any authorized collaborator could spoof a kick-out event
-// and redirect the room without an actual submit.
+// Without (2)-(3) any authorized collaborator could spoof a kick-out event and
+// redirect the room without an actual submit. Code-review docs do not gate on
+// DB status here; the management-app action layer is the single enforcer of
+// code-review versioning.
 export function assertStatelessEventConsistent(args: {
     event: StatelessSubmissionEvent
     parsed: ParsedDocumentName
+    documentStudyId: string
     connectionUserClerkId: string
-    studyStatus: StudyStatus
-    latestJobStatus: StudyJobStatus | null
+    studyStatus: StudyStatus | null
 }): boolean {
-    const { event, parsed, connectionUserClerkId, studyStatus, latestJobStatus } = args
+    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus } = args
     if (!isStatelessEventValidForDocument(event, parsed)) return false
+    if (event.studyId !== documentStudyId) return false
     if (event.submittedByClerkId !== connectionUserClerkId) return false
 
+    if (event.type === 'code-review-submitted') return true
+    if (studyStatus === null) return false
     if (event.type === 'proposal-submitted') return studyStatus === 'PENDING-REVIEW'
     if (event.type === 'proposal-review-submitted') return SUBMITTED_REVIEW_STATUSES.includes(studyStatus)
-    if (event.type === 'code-review-submitted') {
-        return latestJobStatus !== null && SUBMITTED_CODE_JOB_STATUSES.includes(latestJobStatus)
-    }
     return false
 }
 
@@ -277,6 +238,22 @@ export interface AuthenticateDeps {
 
 export interface AuthenticatedContext {
     user: { id: string; clerkId: string }
+    // Resolved during authenticate(). For non-code-review docs this is
+    // parsed.studyId; for code-review docs it's looked up via study_job.id.
+    // Stashed here so onStateless can validate event.studyId without parsing
+    // a code-review doc's studyId out of thin air (it doesn't have one).
+    studyId: string
+}
+
+// Resolves the authoritative studyId for the document. For non-code-review
+// docs this is just parsed.studyId. For code-review-feedback docs the doc name
+// carries a study_job.id, so we resolve through one single-table SELECT.
+export async function studyIdForDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<string> {
+    if (parsed.kind !== 'code-review-feedback') return parsed.studyId
+    const row = await db.query<{ study_id: string }>('SELECT study_id FROM study_job WHERE id = $1', [parsed.jobId])
+    const studyId = row.rows[0]?.study_id
+    if (!studyId) throw new AuthFailureError('STUDY_NOT_FOUND', 'study_job not found')
+    return studyId
 }
 
 // Stable codes that survive serialisation to the client via
@@ -325,9 +302,11 @@ export async function authenticate(
     const internalUserId = userRow.rows[0]?.id
     if (!internalUserId) throw new AuthFailureError('USER_NOT_PROVISIONED', 'user not provisioned')
 
+    const studyId = await studyIdForDocument(parsed, deps.db)
+
     const studyRow = await deps.db.query<{ org_id: string; submitted_by_org_id: string; status: StudyStatus }>(
         'SELECT org_id, submitted_by_org_id, status FROM study WHERE id = $1',
-        [parsed.studyId],
+        [studyId],
     )
     const study = studyRow.rows[0]
     if (!study) throw new AuthFailureError('STUDY_NOT_FOUND', 'study not found')
@@ -349,19 +328,14 @@ export async function authenticate(
     )
     if (accessRow.rowCount === 0) throw new AuthFailureError('NO_MEMBERSHIP', 'no membership in study orgs')
 
-    // Editable-status enforcement closes the stale-tab-reconnect window: a tab
-    // that lost network during submit and reconnects post-flip would otherwise
-    // keep mutating the persisted yjs_document. The client maps this code to
-    // the kick-out flow (toast + redirect) rather than the generic "editor
-    // unavailable" surface.
-    const latestJobStatus =
-        parsed.kind === 'code-review-feedback' ? await fetchLatestJobStatus(deps.db, parsed.studyId) : null
-    if (!isDocumentEditable(parsed, { status: study.status, latestJobStatus })) {
-        throw new AuthFailureError(
-            'STUDY_NOT_EDITABLE',
-            `study is not editable (status: ${study.status}, latest job: ${latestJobStatus ?? 'none'})`,
-        )
+    // Editable-status enforcement closes the stale-tab-reconnect window for
+    // proposal flows. Code-review docs are exempt: the management-app action
+    // layer is the single enforcer of code-review versioning, and Hocuspocus
+    // per-document room isolation prevents stale-round writes from leaking
+    // into a different round's persisted state.
+    if (!isDocumentEditable(parsed, { status: study.status })) {
+        throw new AuthFailureError('STUDY_NOT_EDITABLE', `study is not editable (status: ${study.status})`)
     }
 
-    return { user: { id: internalUserId, clerkId: clerkUserId } }
+    return { user: { id: internalUserId, clerkId: clerkUserId }, studyId }
 }
