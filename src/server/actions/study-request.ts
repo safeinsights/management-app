@@ -16,12 +16,13 @@ import {
     triggerScanForStudyJob,
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import logger from '@/lib/logger'
-import { Kysely, sql } from 'kysely'
+import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
@@ -729,10 +730,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
                 body: JSON.parse(lexicalJson(resubmissionNote)),
-                version: sql<number>`coalesce((
-                    select max(version) from study_proposal_comment
-                    where study_id = ${studyId}
-                ), 1) + 1`,
+                version: nextVersionForStudyComment({ studyId, increment: true }),
             })
             .execute()
 
