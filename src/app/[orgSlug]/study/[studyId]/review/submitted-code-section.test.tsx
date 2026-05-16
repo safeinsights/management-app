@@ -255,6 +255,15 @@ describe('SubmittedCodeSection — Security scan log', () => {
         const fixture = await setupBaseFixture()
         await insertStudyJobFile(fixture.job.id, 'security-scan.log', 'ENCRYPTED-SECURITY-SCAN-LOG')
         mockScanLogContents('Trivy: 0 vulnerabilities found\nQuality Gate: OK')
+        const scan = await jobScanResultForJob(fixture.job.id)
+        // TEMP DIAGNOSTIC — remove once root cause found.
+        // eslint-disable-next-line no-console
+        console.log('[OTTER-540 diag]', {
+            fetchCalls: mockFetchFileContents.mock.calls.length,
+            fetchResults: mockFetchFileContents.mock.results,
+            scanStatus: scan.status,
+            hasLogFile: !!scan.logFile,
+        })
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
         expect(icon?.getAttribute('data-icon')).toBe('pass')
