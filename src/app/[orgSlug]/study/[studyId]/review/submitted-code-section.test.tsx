@@ -257,8 +257,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         mockScanLogContents('Trivy: 0 vulnerabilities found\nQuality Gate: OK')
         const scan = await jobScanResultForJob(fixture.job.id)
         // TEMP DIAGNOSTIC — remove once root cause found.
-        // eslint-disable-next-line no-console
-        console.log('[OTTER-540 diag]', {
+        const diag = JSON.stringify({
             fetchCalls: mockFetchFileContents.mock.calls.length,
             fetchResults: mockFetchFileContents.mock.results,
             scanStatus: scan.status,
@@ -266,7 +265,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         })
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('pass')
+        expect(icon?.getAttribute('data-icon'), `OTTER-540 diag: ${diag}`).toBe('pass')
     })
 
     it("displays a red icon when the log contents do not contain 'OK'", async () => {
