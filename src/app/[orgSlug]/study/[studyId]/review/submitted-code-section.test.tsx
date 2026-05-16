@@ -22,8 +22,7 @@ import { fetchFileContents } from '@/server/storage'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
-vi.mock('@/server/storage', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/storage')>()),
+vi.mock('@/server/storage', () => ({
     fetchFileContents: vi.fn(),
 }))
 
