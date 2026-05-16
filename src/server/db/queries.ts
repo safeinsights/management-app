@@ -8,9 +8,6 @@ import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
-// TEMP DIAGNOSTIC — remove once root cause found.
-;(globalThis as unknown as { __queriesFetchFileContentsView?: unknown }).__queriesFetchFileContentsView =
-    fetchFileContents
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
