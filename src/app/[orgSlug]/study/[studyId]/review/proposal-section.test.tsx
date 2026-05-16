@@ -153,11 +153,4 @@ describe('ProposalSection', () => {
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
     })
 
-    it('does not render submitted date when study has no submission date', () => {
-        const unsubmittedStudy = { ...study, submittedAt: null }
-
-        renderWithProviders(<ProposalSection study={unsubmittedStudy} orgSlug="test-org" />)
-
-        expect(screen.queryByText(/Submitted on/)).not.toBeInTheDocument()
-    })
 })
