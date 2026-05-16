@@ -152,5 +152,4 @@ describe('ProposalSection', () => {
 
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
     })
-
 })
