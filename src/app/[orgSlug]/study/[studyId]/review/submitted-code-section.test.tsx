@@ -18,24 +18,23 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
+import { fetchFileContents } from '@/server/storage'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
-// Stable mock reference shared with the vi.mock factory below. vi.hoisted runs
-// before vi.mock is registered, so queries.ts and this test file both see the
-// exact same vi.fn() instance.
-const { mockFetchFileContents } = vi.hoisted(() => ({
-    mockFetchFileContents: vi.fn(),
-}))
-
 vi.mock('@/server/storage', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/storage')>()),
-    fetchFileContents: mockFetchFileContents,
+    fetchFileContents: vi.fn(),
 }))
 
+const mockFetchFileContents = fetchFileContents as unknown as Mock
+
 function mockScanLogContents(contents: string) {
+    // Persistent — a stray re-invocation returning undefined would otherwise
+    // make blob.text() throw and silently drop the query into its catch
+    // branch (IN-PROGRESS). mockReset: true clears this between tests.
     // Returning a thenable with a .text() method dodges happy-dom Blob quirks.
-    mockFetchFileContents.mockResolvedValueOnce({ text: async () => contents } as unknown as Blob)
+    mockFetchFileContents.mockResolvedValue({ text: async () => contents } as unknown as Blob)
 }
 
 const ORG_SLUG = 'test-org-submitted'
