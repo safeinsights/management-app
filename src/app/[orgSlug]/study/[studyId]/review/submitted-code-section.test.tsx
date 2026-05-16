@@ -19,6 +19,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { fetchFileContents } from '@/server/storage'
+import * as storageNs from '@/server/storage'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
@@ -258,9 +259,15 @@ describe('SubmittedCodeSection — Security scan log', () => {
         // TEMP DIAGNOSTIC — remove once root cause found.
         const diag = JSON.stringify({
             fetchCalls: mockFetchFileContents.mock.calls.length,
-            fetchResults: mockFetchFileContents.mock.results,
             scanStatus: scan.status,
             hasLogFile: !!scan.logFile,
+            // identity probes:
+            importedTypeof: typeof fetchFileContents,
+            nsTypeof: typeof storageNs.fetchFileContents,
+            importedIsSameAsMock: fetchFileContents === mockFetchFileContents,
+            nsIsSameAsMock: storageNs.fetchFileContents === mockFetchFileContents,
+            importedIsMockFn: (fetchFileContents as unknown as { mock?: unknown })?.mock !== undefined,
+            nsKeys: Object.keys(storageNs),
         })
         await renderSection(fixture)
         const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
