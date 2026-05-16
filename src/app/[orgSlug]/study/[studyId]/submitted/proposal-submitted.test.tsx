@@ -51,18 +51,20 @@ describe('ProposalSubmitted', () => {
                 ...study,
                 status: 'APPROVED' as const,
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
             }
+            const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
-                    entries={[]}
+                    entries={entries}
                     studyVersion={1}
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 16, 2025')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
         })
 
         it('displays "Clarification requested on {date}" when status is CHANGE-REQUESTED', () => {
@@ -71,18 +73,21 @@ describe('ProposalSubmitted', () => {
                 status: 'CHANGE-REQUESTED' as const,
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
+            const entries = [
+                buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
+            ]
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
                     study={clarificationStudy}
                     orgName={ORG_NAME}
-                    entries={[]}
+                    entries={entries}
                     studyVersion={1}
                 />,
             )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 16, 2025',
+                'Clarification requested on Apr 18, 2026',
             )
         })
 
@@ -91,18 +96,20 @@ describe('ProposalSubmitted', () => {
                 ...study,
                 status: 'REJECTED' as const,
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
+                rejectedAt: new Date('2026-05-01T10:00:00Z'),
             }
+            const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
                     study={rejectedStudy}
                     orgName={ORG_NAME}
-                    entries={[]}
+                    entries={entries}
                     studyVersion={1}
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 16, 2025')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
         it('displays "Submitted on {date}" when status is PENDING-REVIEW', () => {
@@ -147,7 +154,8 @@ describe('ProposalSubmitted', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
-                submittedAt: new Date('2025-12-01T10:00:00Z'),
+                submittedAt: new Date('2025-04-16T10:00:00Z'),
+                approvedAt: new Date('2025-12-01T10:00:00Z'),
             }
             renderWithProviders(
                 <ProposalSubmitted
@@ -163,7 +171,12 @@ describe('ProposalSubmitted', () => {
         })
 
         it('renders the timestamp above the divider', () => {
-            const approvedStudy = { ...study, status: 'APPROVED' as const, submittedAt: new Date('2025-04-16') }
+            const approvedStudy = {
+                ...study,
+                status: 'APPROVED' as const,
+                submittedAt: new Date('2025-04-16'),
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+            }
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
