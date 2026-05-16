@@ -257,16 +257,16 @@ describe('SubmittedCodeSection — Security scan log', () => {
         mockScanLogContents('Trivy: 0 vulnerabilities found\nQuality Gate: OK')
         const scan = await jobScanResultForJob(fixture.job.id)
         // TEMP DIAGNOSTIC — remove once root cause found.
+        const queriesView = (globalThis as unknown as { __queriesFetchFileContentsView?: unknown })
+            .__queriesFetchFileContentsView
         const diag = JSON.stringify({
             fetchCalls: mockFetchFileContents.mock.calls.length,
             scanStatus: scan.status,
             hasLogFile: !!scan.logFile,
-            // identity probes:
-            importedTypeof: typeof fetchFileContents,
-            nsTypeof: typeof storageNs.fetchFileContents,
-            importedIsSameAsMock: fetchFileContents === mockFetchFileContents,
-            nsIsSameAsMock: storageNs.fetchFileContents === mockFetchFileContents,
-            importedIsMockFn: (fetchFileContents as unknown as { mock?: unknown })?.mock !== undefined,
+            testSideIsMock: fetchFileContents === mockFetchFileContents,
+            queriesSideTypeof: typeof queriesView,
+            queriesSideIsMock: queriesView === mockFetchFileContents,
+            queriesSideHasMockProp: (queriesView as unknown as { mock?: unknown })?.mock !== undefined,
             nsKeys: Object.keys(storageNs),
         })
         await renderSection(fixture)
