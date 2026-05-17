@@ -9,6 +9,7 @@ import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
+import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -26,11 +27,11 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
     const isBusy = isSaving || isSubmitting
 
-    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
-    const isFormValid = form.isValid() && noteForm.isValid()
+    const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
 
     const handleBack = async () => {
         if (form.isDirty()) {
