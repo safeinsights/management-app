@@ -140,7 +140,7 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL' }:
                     stepLabel={kindCopy.stepLabel}
                     heading={kindCopy.heading}
                     statusBadge={timestampLabel}
-                    timestampDate={latest.createdAt}
+                    entries={kind === 'PROPOSAL' ? (entries as ProposalFeedbackEntry[]) : []}
                     banner={<DecisionBanner decision={decision} kind={kind} />}
                     initialExpanded={false}
                 />

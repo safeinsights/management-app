@@ -52,28 +52,39 @@ describe('PostFeedbackView', () => {
 
     describe('decision header', () => {
         it('renders "Approved on {date}" timestamp for approve decision', () => {
+            const approvedStudy = {
+                ...study,
+                status: 'APPROVED' as const,
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+            }
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={approvedStudy} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 16, 2026')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
         })
 
         it('renders "Clarification requested on {date}" for needs-clarification', () => {
+            const changeRequestedStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             const entries = [
-                buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-16T10:00:00Z') }),
+                buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
             ]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={changeRequestedStudy} entries={entries} />)
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 16, 2026',
+                'Clarification requested on Apr 18, 2026',
             )
         })
 
         it('renders "Rejected on {date}" for reject decision', () => {
+            const rejectedStudy = {
+                ...study,
+                status: 'REJECTED' as const,
+                rejectedAt: new Date('2026-05-01T10:00:00Z'),
+            }
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={rejectedStudy} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 16, 2026')
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
         it('renders the page title and study title', () => {

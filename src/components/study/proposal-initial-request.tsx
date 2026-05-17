@@ -5,7 +5,8 @@ import { Anchor, Collapse, Divider, Paper, Stack } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import { stringifyJson } from '@/lib/string'
 import { usePopover } from '@/hooks/use-popover'
-import type { SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
 import { ProposalStepHeader } from './proposal-step-header'
 
@@ -17,8 +18,7 @@ type ProposalRequestProps = {
     banner: ReactNode
     initialExpanded?: boolean
     statusBadge?: string
-    /** Overrides study.submittedAt when rendering the timestamp (e.g. a decision date). */
-    timestampDate?: Date | string
+    entries?: ProposalFeedbackEntry[]
 }
 
 function useProposalRequest(initialExpanded: boolean) {
@@ -61,10 +61,10 @@ export function ProposalRequest({
     banner,
     initialExpanded = true,
     statusBadge = 'Submitted on',
-    timestampDate,
+    entries = [],
 }: ProposalRequestProps) {
     const { expanded, toggle, collapse, getPopoverProps } = useProposalRequest(initialExpanded)
-    const renderedTimestamp = timestampDate ?? study.submittedAt
+    const timestampDate = decisionTimestampForProposalHeader(study, entries)
 
     return (
         <Stack gap="md" data-testid="proposal-section">
@@ -72,7 +72,7 @@ export function ProposalRequest({
                 stepLabel={stepLabel}
                 heading={heading}
                 studyTitle={study.title}
-                timestampDate={renderedTimestamp}
+                timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}
             >
