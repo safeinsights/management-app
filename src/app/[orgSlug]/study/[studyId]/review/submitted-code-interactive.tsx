@@ -77,9 +77,9 @@ export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
     )
 }
 
-function useStudyCodeViewer(files: CodeFile[]) {
+function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     const [activeFileName, setActiveFileName] = useState<string | null>(files[0]?.name ?? null)
-    const [isExpanded, setIsExpanded] = useState(true)
+    const [isExpanded, setIsExpanded] = useState(initialExpanded)
     const activeFile = files.find((f) => f.name === activeFileName) ?? files[0] ?? null
     return {
         activeFile,
@@ -211,10 +211,10 @@ function StudyCodeToggle({
     )
 }
 
-type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[] }
+type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[]; initialExpanded?: boolean }
 
-export function StudyCodeViewer({ studyJobId, files }: StudyCodeViewerProps) {
-    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files)
+export function StudyCodeViewer({ studyJobId, files, initialExpanded = true }: StudyCodeViewerProps) {
+    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hiddenCount } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
