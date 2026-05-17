@@ -1,7 +1,11 @@
 'use client'
 
-import { Box, Group, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
+import { useQuery } from '@/common'
+import { CodeViewer } from '@/components/code-viewer'
+import { highlightLanguageForFile } from '@/lib/languages'
+import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { StudyJobFileType } from '@/database/types'
 
 export type CodeFile = { name: string; fileType: StudyJobFileType }
@@ -142,7 +146,26 @@ function FileTabsRow({
     )
 }
 
-function StudyCodeBody({ isVisible, activeFile }: { isVisible: boolean; activeFile: CodeFile | null }) {
+function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
+    return useQuery({
+        queryKey: ['study-job-code-file', studyJobId, fileName],
+        queryFn: () => fetchStudyJobCodeFileAction({ studyJobId, fileName: fileName as string }),
+        enabled: !!fileName,
+        staleTime: Infinity,
+    })
+}
+
+function StudyCodeBody({
+    isVisible,
+    activeFile,
+    studyJobId,
+}: {
+    isVisible: boolean
+    activeFile: CodeFile | null
+    studyJobId: string
+}) {
+    const { data, isLoading, isError } = useStudyCodeFileContents(studyJobId, activeFile?.name ?? null)
+
     if (!isVisible) return null
     if (!activeFile) {
         return (
@@ -151,19 +174,20 @@ function StudyCodeBody({ isVisible, activeFile }: { isVisible: boolean; activeFi
             </Text>
         )
     }
-    // Placeholder body — the Figma Concept Notes call out the SI tabs/code-viewer
-    // as still in flight, so we render a "preview coming soon" label here while the
-    // real content rendering lands separately. The tab + expand behavior around it
-    // is fully wired up.
+    if (isLoading) {
+        return <Skeleton height={240} radius="sm" data-testid="study-code-body-loading" />
+    }
+    if (isError || !data) {
+        return (
+            <Alert color="red" data-testid="study-code-body-error">
+                Unable to load {activeFile.name}.
+            </Alert>
+        )
+    }
     return (
-        <Box bg="charcoal.0" p="md" data-testid="study-code-body" style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
-            <Text size="sm" fw={600} style={{ fontFamily: 'monospace' }}>
-                {activeFile.name}
-            </Text>
-            <Text size="xs" c="dimmed" fs="italic" mt="xs">
-                Code preview coming soon — the file viewer is still in development.
-            </Text>
-        </Box>
+        <div data-testid="study-code-body">
+            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} />
+        </div>
     )
 }
 
@@ -187,9 +211,9 @@ function StudyCodeToggle({
     )
 }
 
-type StudyCodeViewerProps = { files: CodeFile[] }
+type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[] }
 
-export function StudyCodeViewer({ files }: StudyCodeViewerProps) {
+export function StudyCodeViewer({ studyJobId, files }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files)
     const { visible, hiddenCount } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
@@ -202,7 +226,7 @@ export function StudyCodeViewer({ files }: StudyCodeViewerProps) {
                 onSelect={selectFile}
                 hiddenCount={hiddenCount}
             />
-            <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} />
+            <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
             <StudyCodeToggle isVisible={hasFiles} isExpanded={isExpanded} onClick={toggleExpanded} />
         </Stack>
     )

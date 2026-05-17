@@ -9,9 +9,10 @@ import {
     screen,
     userEvent,
     type Mock,
+    waitFor,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     getStudyReviewForJob,
     type JobScanResult,
@@ -21,6 +22,14 @@ import {
 } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+
+vi.mock('@/server/storage', async () => {
+    const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
+    return {
+        ...actual,
+        fetchFileContents: vi.fn(async () => new Blob(['print("hello from main.R")\n'])),
+    }
+})
 
 const ORG_SLUG = 'test-org-submitted'
 
@@ -343,7 +352,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
     it('renders the study code body expanded by default and hides it when toggled', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)
-        expect(screen.getByTestId('study-code-body')).toBeInTheDocument()
+        await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
 
         const user = userEvent.setup()
         const toggle = screen.getByTestId('study-code-toggle')
@@ -351,10 +360,11 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         await user.click(toggle)
 
         expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('study-code-body-loading')).not.toBeInTheDocument()
         expect(toggle).toHaveTextContent('View full study code')
 
         await user.click(toggle)
-        expect(screen.getByTestId('study-code-body')).toBeInTheDocument()
+        await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
         expect(toggle).toHaveTextContent('Hide full study code')
     })
 
@@ -364,11 +374,12 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
     })
 
-    it('renders a visible "preview coming soon" hint inside the placeholder body', async () => {
+    it('renders the file contents inside the body once loaded', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)
-        const body = screen.getByTestId('study-code-body')
-        expect(body).toHaveTextContent('Code preview coming soon')
+        const body = await screen.findByTestId('study-code-body')
+        expect(body).toHaveTextContent('print')
+        expect(body).toHaveTextContent('hello from main.R')
         expect(body).toHaveTextContent('main.R')
     })
 })

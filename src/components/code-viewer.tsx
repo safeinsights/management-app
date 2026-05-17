@@ -5,7 +5,7 @@ import { ScrollArea, Box, Text } from '@mantine/core'
 import hljs from 'highlight.js/lib/core'
 import python from 'highlight.js/lib/languages/python'
 import r from 'highlight.js/lib/languages/r'
-import 'highlight.js/styles/github-dark.css'
+import 'highlight.js/styles/github.css'
 
 // Register languages
 hljs.registerLanguage('python', python)
@@ -42,14 +42,14 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
                     style={{
                         margin: 0,
                         padding: '1rem',
-                        background: '#0d1117',
+                        background: '#f6f8fa',
                         borderRadius: '4px',
-                        color: '#c9d1d9', // GitHub dark default text color
+                        color: '#24292f', // GitHub light default text color
                     }}
                 >
                     <code
                         className={`language-${language.toLowerCase()}`}
-                        style={{ color: 'inherit' }} // Ensure code inherits the text color
+                        style={{ color: 'inherit' }}
                         dangerouslySetInnerHTML={{ __html: highlightedCode }}
                     />
                 </pre>
