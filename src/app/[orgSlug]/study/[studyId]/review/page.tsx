@@ -10,7 +10,11 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { getProposalFeedbackForStudyAction, getStudyAction } from '@/server/actions/study.actions'
+import {
+    getCodeReviewFeedbackAction,
+    getProposalFeedbackForStudyAction,
+    getStudyAction,
+} from '@/server/actions/study.actions'
 import { currentReviewVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -49,13 +53,24 @@ export default async function StudyReviewPage(props: {
     if (currentOrg.type === 'enclave') {
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
 
-        // When a reviewer navigates back from the code review page, show the post-feedback view
+        // When a reviewer navigates back from the code review page, show the post-feedback
+        // view. After a code-review decision exists, render the code-review variant against
+        // studyReviewComment rows. Before a decision is submitted (e.g. clicking the
+        // breadcrumb during active review) fall back to the proposal post-feedback view so
+        // the user lands on a meaningful page instead of a blank PostFeedbackView render.
         if (searchParams.from === 'code-review' && codeSubmitted) {
-            const entries = await getProposalFeedbackForStudyAction({ studyId })
-            if (isActionError(entries)) {
+            const codeEntries = await getCodeReviewFeedbackAction({ studyId })
+            if (isActionError(codeEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />
+            if (codeEntries.length > 0) {
+                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" />
+            }
+            const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
+            if (isActionError(proposalEntries)) {
+                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+            }
+            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
         }
 
         // When a reviewer navigates back from the agreements step, show the proposal

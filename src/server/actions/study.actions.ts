@@ -2,22 +2,25 @@
 
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
-import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
+import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
+import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
     currentReviewVersion,
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
     latestJobForStudy,
+    latestJobForStudyOrNull,
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
-import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
     onStudyApproved,
@@ -629,6 +632,174 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .handler(async ({ entries }) => entries)
 
 export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
+
+// Same safety-net rationale as purgeReviewFeedbackYjsDocAfterSubmit, but for the
+// code-review-feedback document. A debounced Hocuspocus persist can race the
+// in-tx delete on a different connection, so wait long enough for any in-flight
+// persist to land and re-delete only rows older than the captured submit time.
+// Safety-net: after the in-tx delete commits, a debounced Hocuspocus persist
+// from a stale connected client can still upsert a row at the job-keyed name
+// (the editor no longer gates code-review writes; the action is the single
+// enforcer). The delay must outlast Hocuspocus's MAX_SAVE_INTERVAL_MS (30s) so
+// the sweep runs *after* the worst-case debounced/maxDebounce store fires, and
+// after the disconnect-flush (which is also routed through the same debouncer
+// per the Hocuspocus 3.4.x server). Job-keyed names are never legitimately
+// re-used after submit, so unconditional delete is safe.
+const CODE_REVIEW_PURGE_DELAY_MS = MAX_SAVE_INTERVAL_MS + 5_000
+const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string }) => {
+    await sleep({ [CODE_REVIEW_PURGE_DELAY_MS]: 'ms' })
+    await purgeCodeReviewFeedbackYjsDoc(database, args)
+})
+
+async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
+    // Mirror the editor auth gate: code review requires both PENDING-REVIEW
+    // study status and a job whose latest status is CODE-SUBMITTED/CODE-SCANNED.
+    // Without the study-status check, a stale APPROVED study with a fresh
+    // CODE-SUBMITTED job would slip through (the job-status check alone would pass).
+    const study = await db
+        .selectFrom('study')
+        .select('status')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound('study'))
+    if (study.status !== 'PENDING-REVIEW') {
+        throw new ActionFailure({ study: `study is not in code review (status: ${study.status})` })
+    }
+
+    const job = await latestJobForStudyOrNull(studyId)
+    const latestStatus = job?.statusChanges.at(0)?.status
+    if (!job || !latestStatus) {
+        throw new ActionFailure({ study: 'no code job exists for this study' })
+    }
+    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
+        throw new ActionFailure({ study: 'code is not in a reviewable state' })
+    }
+    return job
+}
+
+const codeReviewCriteriaSchema = z.object({
+    proposalAlignment: z.enum(['yes', 'no', 'not-sure']),
+    agreementCompliance: z.enum(['yes', 'no', 'not-sure']),
+    securityChecks: z.enum(['yes', 'no', 'not-sure']),
+    privacyProtection: z.enum(['yes', 'no', 'not-sure']),
+})
+
+export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisionAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string().uuid(),
+            orgSlug: z.string(),
+            feedback: z.string(),
+            decision: z.enum(['approve', 'reject']),
+            criteria: codeReviewCriteriaSchema,
+        }),
+    )
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'status', 'approvedAt', 'containerLocation'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId }
+    })
+    .requireAbilityTo('review', 'Study')
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
+        const userId = session.user.id
+
+        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+            throw new ActionFailure({
+                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+            })
+        }
+
+        const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
+
+        try {
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId,
+                    studyJobId: claimedJob.id,
+                    authorId: userId,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: toReviewDecision(decision),
+                    body: JSON.parse(json),
+                    criteria,
+                })
+                .executeTakeFirstOrThrow()
+        } catch (err) {
+            // Postgres unique_violation (SQLSTATE 23505). The composite unique
+            // index on (studyJobId, reviewKind) fires when two reviewers race
+            // through claimInitialCodeReviewJob and both reach this insert
+            // before either commits. The race-loser sees this; the data is
+            // already safe, so surface a clean message instead of the raw
+            // duplicate-key error.
+            if (isPgUniqueViolation(err)) {
+                throw new ActionFailure({
+                    study: 'another reviewer has already submitted a decision for this study code',
+                })
+            }
+            throw err
+        }
+
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
+
+        if (decision === 'approve') {
+            await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
+            onStudyCodeApproved({ studyId, userId })
+        } else {
+            await performStudyCodeRejection({ db, studyId, userId })
+        }
+
+        purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
+
+        return { submitterFullName: submitter.fullName }
+    })
+
+export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) =>
+        db
+            .selectFrom('studyReviewComment')
+            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+            .select([
+                'studyReviewComment.id',
+                'studyReviewComment.authorId',
+                'studyReviewComment.entryType',
+                'studyReviewComment.decision',
+                'studyReviewComment.body',
+                'studyReviewComment.criteria',
+                'studyReviewComment.createdAt',
+                'author.fullName as authorName',
+            ])
+            .where('studyReviewComment.studyId', '=', studyId)
+            .where('studyReviewComment.reviewKind', '=', 'CODE')
+            .orderBy('studyReviewComment.createdAt', 'desc')
+            .execute(),
+    )
+
+export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))

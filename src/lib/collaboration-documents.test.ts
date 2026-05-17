@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    codeReviewFeedbackDocName,
     parseDocumentName,
     proposalFieldsDocName,
     proposalTextFieldDocName,
@@ -47,6 +48,13 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`review-feedback-not-a-uuid-v1`)).toBeNull()
     })
 
+    it('round-trips code-review-feedback docs', () => {
+        const JOB_ID = '01949c1a-1aaa-7000-9000-0000000000ff'
+        const name = codeReviewFeedbackDocName(JOB_ID)
+        expect(name).toBe(`code-review-feedback-${JOB_ID}`)
+        expect(parseDocumentName(name)).toEqual({ kind: 'code-review-feedback', jobId: JOB_ID })
+    })
+
     it('rejects malformed names', () => {
         expect(parseDocumentName('')).toBeNull()
         expect(parseDocumentName('proposal-not-a-uuid-fields')).toBeNull()
@@ -54,5 +62,6 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`proposal-${STUDY_ID}-unknown-suffix`)).toBeNull()
         expect(parseDocumentName(`unknown-${STUDY_ID}`)).toBeNull()
         expect(parseDocumentName(`review-feedback-not-a-uuid`)).toBeNull()
+        expect(parseDocumentName(`code-review-feedback-not-a-uuid`)).toBeNull()
     })
 })

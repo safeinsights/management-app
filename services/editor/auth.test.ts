@@ -4,7 +4,7 @@ import {
     assertStatelessEventConsistent,
     authenticate,
     AuthFailureError,
-    editableStatusForKind,
+    isDocumentEditable,
     isStatelessEventValidForDocument,
     parseDocumentName,
     parseStatelessEvent,
@@ -16,6 +16,7 @@ import {
 } from './auth'
 
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
+const JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390ff'
 
 describe('parseDocumentName', () => {
     it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
@@ -23,6 +24,13 @@ describe('parseDocumentName', () => {
             kind: 'review-feedback',
             studyId: STUDY_ID,
             version,
+        })
+    })
+
+    it('parses code-review-feedback documents', () => {
+        expect(parseDocumentName(`code-review-feedback-${JOB_ID}`)).toEqual({
+            kind: 'code-review-feedback',
+            jobId: JOB_ID,
         })
     })
 
@@ -58,6 +66,7 @@ describe('parseDocumentName', () => {
         `review-feedback-${STUDY_ID}-v01`,
         `review-feedback-${STUDY_ID}-v-1`,
         `review-feedback-${STUDY_ID}-v`,
+        `code-review-feedback-not-a-uuid`,
     ])('rejects malformed name "%s"', (name) => {
         expect(parseDocumentName(name)).toBeNull()
     })
@@ -70,6 +79,10 @@ describe('requiredOrgIdForDocument', () => {
         expect(requiredOrgIdForDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, study)).toBe(
             'do-org',
         )
+    })
+
+    it('returns DO org for code-review-feedback', () => {
+        expect(requiredOrgIdForDocument({ kind: 'code-review-feedback', jobId: JOB_ID }, study)).toBe('do-org')
     })
 
     it('returns lab org for proposal-fields', () => {
@@ -98,6 +111,11 @@ describe('parseStatelessEvent', () => {
 
     it('accepts a well-formed proposal-review-submitted event', () => {
         const event = { ...baseEvent, type: 'proposal-review-submitted' }
+        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
+    })
+
+    it('accepts a well-formed code-review-submitted event', () => {
+        const event = { ...baseEvent, type: 'code-review-submitted' }
         expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
     })
 
@@ -174,12 +192,21 @@ describe('isStatelessEventValidForDocument', () => {
         ).toBe(false)
     })
 
-    it('rejects studyId mismatch', () => {
+    it('accepts code-review-submitted on code-review-feedback', () => {
         expect(
-            isStatelessEventValidForDocument(event, {
-                kind: 'proposal-fields',
-                studyId: '019ddb2a-5f38-74ea-b401-94fd79839072',
-            }),
+            isStatelessEventValidForDocument(
+                { ...event, type: 'code-review-submitted' },
+                { kind: 'code-review-feedback', jobId: JOB_ID },
+            ),
+        ).toBe(true)
+    })
+
+    it('rejects code-review-submitted on review-feedback', () => {
+        expect(
+            isStatelessEventValidForDocument(
+                { ...event, type: 'code-review-submitted' },
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+            ),
         ).toBe(false)
     })
 })
@@ -309,7 +336,7 @@ describe('authenticate', () => {
         })
         await expect(
             authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-fields` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'lab-user', clerkId: 'clerk-user-1' } })
+        ).resolves.toEqual({ user: { id: 'lab-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
     })
 
     it('passes a DO member opening their DO review-feedback document', async () => {
@@ -324,7 +351,7 @@ describe('authenticate', () => {
         })
         await expect(
             authenticate({ token: 'tok', documentName: `review-feedback-${STUDY_ID}-v1` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' } })
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
     })
 
     it('passes a safe-insights admin opening any document', async () => {
@@ -339,7 +366,7 @@ describe('authenticate', () => {
         })
         await expect(
             authenticate({ token: 'tok', documentName: `proposal-${STUDY_ID}-research-questions` }, baseDeps({ db })),
-        ).resolves.toEqual({ user: { id: 'admin-user', clerkId: 'clerk-user-1' } })
+        ).resolves.toEqual({ user: { id: 'admin-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
     })
 
     it('forwards authorizedParties only when non-empty', async () => {
@@ -401,6 +428,72 @@ describe('authenticate', () => {
         ).rejects.toThrow(/study is not editable.*APPROVED/)
     })
 
+    it('passes a DO member opening a code-review-feedback document with a valid jobId', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study_job')) return { rows: [{ study_id: STUDY_ID }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `code-review-feedback-${JOB_ID}` }, baseDeps({ db })),
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
+    })
+
+    it('rejects a code-review-feedback connection when the study_job row does not exist', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study_job')) return { rows: [], rowCount: 0 }
+            return { rows: [], rowCount: 0 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `code-review-feedback-${JOB_ID}` }, baseDeps({ db })),
+        ).rejects.toMatchObject({ code: 'STUDY_NOT_FOUND', message: expect.stringMatching(/study_job not found/) })
+    })
+
+    it('accepts a code-review-feedback connection regardless of latest job status (editor is not the enforcer)', async () => {
+        // Whereas v1 rejected post-review job statuses here, v3 delegates code-review
+        // versioning to the management-app action layer. The editor only gates on
+        // org membership.
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study_job')) return { rows: [{ study_id: STUDY_ID }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'APPROVED' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `code-review-feedback-${JOB_ID}` }, baseDeps({ db })),
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
+    })
+
+    it('rejects a lab member trying to open a code-review-feedback document (cross-org)', async () => {
+        const queries: Array<{ text: string; values?: unknown[] }> = []
+        const db = dbFromScripts(async (text, values) => {
+            queries.push({ text, values })
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'lab-user' }], rowCount: 1 }
+            if (text.includes('FROM study_job')) return { rows: [{ study_id: STUDY_ID }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'PENDING-REVIEW' }],
+                    rowCount: 1,
+                }
+            return { rows: [], rowCount: 0 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `code-review-feedback-${JOB_ID}` }, baseDeps({ db })),
+        ).rejects.toThrow(/no membership/)
+        const membershipQuery = queries.find((q) => q.text.includes('FROM org_user'))
+        expect(membershipQuery?.values?.[2]).toBe('do-org')
+    })
+
     it('throws AuthFailureError with stable codes the client can dispatch on', async () => {
         // Sanity-check a couple of representative codes; the wire format is `CODE: message`.
         await expect(
@@ -433,13 +526,40 @@ describe('authenticate', () => {
     })
 })
 
-describe('editableStatusForKind', () => {
-    it('returns DRAFT and CHANGE-REQUESTED for proposal kinds', () => {
-        expect(editableStatusForKind('proposal-fields')).toEqual(['DRAFT', 'CHANGE-REQUESTED'])
-        expect(editableStatusForKind('proposal-text')).toEqual(['DRAFT', 'CHANGE-REQUESTED'])
+describe('isDocumentEditable', () => {
+    it('allows proposal kinds while DRAFT or CHANGE-REQUESTED', () => {
+        for (const status of ['DRAFT', 'CHANGE-REQUESTED'] as const) {
+            expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, { status })).toBe(true)
+            expect(isDocumentEditable({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' }, { status })).toBe(
+                true,
+            )
+        }
     })
-    it('returns PENDING-REVIEW for review-feedback', () => {
-        expect(editableStatusForKind('review-feedback')).toEqual(['PENDING-REVIEW'])
+
+    it('blocks proposal kinds once submitted', () => {
+        expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, { status: 'PENDING-REVIEW' })).toBe(
+            false,
+        )
+    })
+
+    it('allows review-feedback only while PENDING-REVIEW', () => {
+        expect(
+            isDocumentEditable(
+                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                { status: 'PENDING-REVIEW' },
+            ),
+        ).toBe(true)
+        for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
+            expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, { status })).toBe(
+                false,
+            )
+        }
+    })
+
+    it('always allows code-review-feedback regardless of study status (editor is not the enforcer)', () => {
+        for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
+            expect(isDocumentEditable({ kind: 'code-review-feedback', jobId: JOB_ID }, { status })).toBe(true)
+        }
     })
 })
 
@@ -457,6 +577,7 @@ describe('assertStatelessEventConsistent', () => {
             assertStatelessEventConsistent({
                 event: baseEvent,
                 parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'PENDING-REVIEW',
             }),
@@ -468,7 +589,20 @@ describe('assertStatelessEventConsistent', () => {
             assertStatelessEventConsistent({
                 event: baseEvent,
                 parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_mallory',
+                studyStatus: 'PENDING-REVIEW',
+            }),
+        ).toBe(false)
+    })
+
+    it('rejects when event.studyId does not match the document studyId resolved at auth time', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: baseEvent,
+                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                documentStudyId: '019ddb2a-5f38-74ea-b401-94fd79839072',
+                connectionUserClerkId: 'user_alice',
                 studyStatus: 'PENDING-REVIEW',
             }),
         ).toBe(false)
@@ -479,6 +613,7 @@ describe('assertStatelessEventConsistent', () => {
             assertStatelessEventConsistent({
                 event: baseEvent,
                 parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
+                documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'DRAFT',
             }),
@@ -492,6 +627,7 @@ describe('assertStatelessEventConsistent', () => {
                 assertStatelessEventConsistent({
                     event,
                     parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                    documentStudyId: STUDY_ID,
                     connectionUserClerkId: 'user_alice',
                     studyStatus,
                 }),
@@ -505,6 +641,7 @@ describe('assertStatelessEventConsistent', () => {
             assertStatelessEventConsistent({
                 event,
                 parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'PENDING-REVIEW',
             }),
@@ -516,8 +653,48 @@ describe('assertStatelessEventConsistent', () => {
             assertStatelessEventConsistent({
                 event: baseEvent,
                 parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+                documentStudyId: STUDY_ID,
                 connectionUserClerkId: 'user_alice',
                 studyStatus: 'APPROVED',
+            }),
+        ).toBe(false)
+    })
+
+    it('accepts code-review-submitted when sender clerkId matches and studyId matches the document', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
+        expect(
+            assertStatelessEventConsistent({
+                event,
+                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
+                documentStudyId: STUDY_ID,
+                connectionUserClerkId: 'user_alice',
+                studyStatus: null,
+            }),
+        ).toBe(true)
+    })
+
+    it('rejects code-review-submitted when event.studyId does not match the document studyId', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
+        expect(
+            assertStatelessEventConsistent({
+                event,
+                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
+                documentStudyId: '019ddb2a-5f38-74ea-b401-94fd79839072',
+                connectionUserClerkId: 'user_alice',
+                studyStatus: null,
+            }),
+        ).toBe(false)
+    })
+
+    it('rejects code-review-submitted when sender clerkId does not match', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
+        expect(
+            assertStatelessEventConsistent({
+                event,
+                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
+                documentStudyId: STUDY_ID,
+                connectionUserClerkId: 'user_mallory',
+                studyStatus: null,
             }),
         ).toBe(false)
     })
@@ -573,5 +750,12 @@ describe('shouldPersistDocument', () => {
         await expect(
             shouldPersistDocument({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' }, fakeDb([])),
         ).resolves.toBe(false)
+    })
+
+    it('always allows code-review-feedback persistence without touching the DB (editor is not the enforcer)', async () => {
+        const query = vi.fn()
+        const db: DbQuery = { query: query as unknown as DbQuery['query'] }
+        await expect(shouldPersistDocument({ kind: 'code-review-feedback', jobId: JOB_ID }, db)).resolves.toBe(true)
+        expect(query).not.toHaveBeenCalled()
     })
 })

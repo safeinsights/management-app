@@ -26,6 +26,13 @@ export type SubmissionEvent =
           submittedByClerkId: string
           submittedByName: string
       }
+    | {
+          type: 'code-review-submitted'
+          studyId: string
+          submittedByTabId: string
+          submittedByClerkId: string
+          submittedByName: string
+      }
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
@@ -53,6 +60,15 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (obj.type === 'proposal-review-submitted') {
         return {
             type: 'proposal-review-submitted',
+            studyId: obj.studyId,
+            submittedByTabId: obj.submittedByTabId,
+            submittedByClerkId: obj.submittedByClerkId,
+            submittedByName: obj.submittedByName,
+        }
+    }
+    if (obj.type === 'code-review-submitted') {
+        return {
+            type: 'code-review-submitted',
             studyId: obj.studyId,
             submittedByTabId: obj.submittedByTabId,
             submittedByClerkId: obj.submittedByClerkId,
@@ -118,6 +134,19 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                     autoClose: NOTIFICATION_DISPLAY_MS,
                 })
                 router.push(Routes.studySubmitted({ orgSlug, studyId }))
+                return
+            }
+
+            if (event.type === 'code-review-submitted') {
+                notifications.show({
+                    color: 'blue',
+                    title: 'Decision submitted',
+                    message: `${event.submittedByName} has proceeded to submit a decision on this study code. No further edits are allowed at this point.`,
+                    autoClose: NOTIFICATION_DISPLAY_MS,
+                })
+                // `?from=code-review` is load-bearing: studyHasJobStatus(study, 'CODE-SUBMITTED')
+                // checks history, so a bare studyReview would re-enter the code-review page.
+                router.push(`${Routes.studyReview({ orgSlug, studyId })}?from=code-review`)
                 return
             }
 

@@ -74,6 +74,10 @@ export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
 export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
+export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
+
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
+
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
@@ -262,6 +266,19 @@ export interface StudyReview {
     studyJobId: string
 }
 
+export interface StudyReviewComment {
+    authorId: string
+    body: Json
+    createdAt: Generated<Timestamp>
+    criteria: Json | null
+    decision: ReviewDecision | null
+    entryType: StudyReviewCommentEntryType
+    id: Generated<string>
+    reviewKind: StudyReviewCommentKind
+    studyId: string
+    studyJobId: string | null
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -307,6 +324,7 @@ export interface DB {
     studyJobFile: StudyJobFile
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
+    studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
     yjsDocument: YjsDocument
