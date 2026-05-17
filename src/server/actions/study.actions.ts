@@ -487,7 +487,11 @@ async function claimInitialProposalReviewStudy({
         .executeTakeFirst()
 
     if (!study) {
-        throw new ActionFailure({ study: 'must be in initial proposal review before submitting a proposal review' })
+        // OTTER-471: race-loser when a peer tab/user already submitted a decision.
+        // User-facing wording — surfaces via errorToString → reportMutationError toast.
+        throw new ActionFailure({
+            study: 'has already been decided. Refresh to see the updated status.',
+        })
     }
 
     return study
@@ -662,16 +666,20 @@ async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; stud
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow(throwNotFound('study'))
     if (study.status !== 'PENDING-REVIEW') {
-        throw new ActionFailure({ study: `study is not in code review (status: ${study.status})` })
+        // OTTER-471: race-loser when a peer already submitted a code decision
+        // (post-submit the study flips out of PENDING-REVIEW).
+        throw new ActionFailure({
+            study: 'has already been decided. Refresh to see the updated status.',
+        })
     }
 
     const job = await latestJobForStudyOrNull(studyId)
     const latestStatus = job?.statusChanges.at(0)?.status
     if (!job || !latestStatus) {
-        throw new ActionFailure({ study: 'no code job exists for this study' })
+        throw new ActionFailure({ study: 'has no code submission to review.' })
     }
     if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
-        throw new ActionFailure({ study: 'code is not in a reviewable state' })
+        throw new ActionFailure({ study: 'code is no longer in a reviewable state.' })
     }
     return job
 }

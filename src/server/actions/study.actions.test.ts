@@ -1275,7 +1275,7 @@ describe('submitCodeReviewDecisionAction', () => {
         })
 
         expect(result).toMatchObject({
-            error: expect.objectContaining({ study: expect.stringMatching(/no code job/i) }),
+            error: expect.objectContaining({ study: expect.stringMatching(/no code submission/i) }),
         })
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
@@ -1350,7 +1350,9 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: validCriteria,
         })
 
-        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.stringMatching(/APPROVED/) }) })
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/already been decided/i) }),
+        })
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
