@@ -3,11 +3,12 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
-import { latestJobForStudyOrNull } from '@/server/db/queries'
+import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
+import { SubmittedCodeSection } from './submitted-code-section'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
@@ -55,6 +56,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
@@ -72,6 +74,7 @@ export async function CodeReviewRedesignView({ orgSlug, study }: CodeReviewRedes
                     Study Proposal
                 </Title>
                 <CodeReviewSection study={study} submittedAt={job.createdAt} />
+                <SubmittedCodeSection orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
                 <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus={latestJobStatus} />
             </Stack>
         </Box>
