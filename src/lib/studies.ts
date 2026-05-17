@@ -1,5 +1,5 @@
 import type { StudyJobStatus } from '@/database/types'
-import { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 
 type StudyWithJobStatuses = {
     jobStatusChanges: Array<{ status: StudyJobStatus }>
@@ -27,5 +27,9 @@ export function decisionTimestampForProposalHeader(study: SelectedStudy, entries
         const latestClarification = entries.find((e) => e.decision === 'NEEDS-CLARIFICATION')
         if (latestClarification) return latestClarification.createdAt
     }
-    return study.submittedAt!
+
+    if (!study.submittedAt) {
+        throw new Error('submittedAt is required for proposal header timestamp')
+    }
+    return study.submittedAt
 }

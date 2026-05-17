@@ -97,4 +97,12 @@ describe('decisionTimestampForProposalHeader', () => {
             clarificationAt,
         )
     })
+
+    // note: a draft study should never be passed to this function, but we should
+    // assert that it throws when submittedAt is null
+    it('throws when submittedAt is null on the fallback path', () => {
+        expect(() => decisionTimestampForProposalHeader(study({ status: 'DRAFT', submittedAt: null }), [])).toThrow(
+            'submittedAt is required for proposal header timestamp',
+        )
+    })
 })
