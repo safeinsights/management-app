@@ -13,6 +13,7 @@ import {
     parseDocumentName,
     parseStatelessEvent,
     shouldPersistDocument,
+    studyIdForDocument,
 } from './auth.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
 
@@ -105,10 +106,12 @@ const server = new Server({
                 // frozen at the editable-window edge.
                 if (!(await shouldPersistDocument(parsed, pool))) return
 
+                const studyId = await studyIdForDocument(parsed, pool)
+
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,
-                    [documentName, Buffer.from(state), parsed.studyId],
+                    [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
             },
@@ -175,9 +178,9 @@ const server = new Server({
     },
     async onStateless({ payload, documentName, document, connection }) {
         // Defense-in-depth: only re-broadcast events whose shape, document kind,
-        // sender identity, and DB study status all line up. Forged or stale
-        // payloads are dropped silently; throwing here would close the
-        // connection and disrupt unrelated sync.
+        // sender identity, and (for proposal flows) DB study status all line
+        // up. Forged or stale payloads are dropped silently; throwing here
+        // would close the connection and disrupt unrelated sync.
         const parsedDoc = parseDocumentName(documentName)
         if (!parsedDoc) return
 
@@ -186,18 +189,26 @@ const server = new Server({
 
         const context = connection.context as AuthenticatedContext | undefined
         const connectionUserClerkId = context?.user?.clerkId
-        if (!connectionUserClerkId) return
+        const documentStudyId = context?.studyId
+        if (!connectionUserClerkId || !documentStudyId) return
 
-        const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
-            parsedDoc.studyId,
-        ])
-        const studyStatus = statusRow.rows[0]?.status
-        if (!studyStatus) return
+        // Code-review docs do not gate on DB status here; the action layer is
+        // the single enforcer. Proposal/review-feedback events still need the
+        // study-status sanity check.
+        let studyStatus: StudyStatus | null = null
+        if (parsedDoc.kind !== 'code-review-feedback') {
+            const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
+                documentStudyId,
+            ])
+            studyStatus = statusRow.rows[0]?.status ?? null
+            if (!studyStatus) return
+        }
 
         if (
             !assertStatelessEventConsistent({
                 event,
                 parsed: parsedDoc,
+                documentStudyId,
                 connectionUserClerkId,
                 studyStatus,
             })

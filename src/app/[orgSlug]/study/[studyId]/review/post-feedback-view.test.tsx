@@ -1,5 +1,10 @@
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import {
+    getStudyAction,
+    type CodeReviewFeedbackEntry,
+    type ProposalFeedbackEntry,
+    type SelectedStudy,
+} from '@/server/actions/study.actions'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -239,6 +244,69 @@ describe('PostFeedbackView', () => {
 
             await user.click(screen.getByRole('button', { name: 'Go to dashboard' }))
             expect(memoryRouter.asPath).toBe('/dashboard')
+        })
+    })
+
+    describe('kind="CODE"', () => {
+        const buildCodeEntry = (overrides: Partial<CodeReviewFeedbackEntry> = {}): CodeReviewFeedbackEntry =>
+            ({
+                id: overrides.id ?? 'code-entry-1',
+                authorId: overrides.authorId ?? 'author-1',
+                authorName: overrides.authorName ?? 'Reviewer One',
+                entryType: overrides.entryType ?? 'DECISION',
+                decision: overrides.decision === undefined ? 'APPROVE' : overrides.decision,
+                body: overrides.body ?? JSON.parse(lexicalJson('Code looks good.')),
+                criteria: overrides.criteria ?? null,
+                createdAt: overrides.createdAt ?? new Date('2026-04-16T10:00:00Z'),
+            }) as CodeReviewFeedbackEntry
+
+        it('renders the STEP 3 label and "Review study code" heading', () => {
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            expect(screen.getByText('Review study code')).toBeInTheDocument()
+        })
+
+        it('renders the code-approved banner with code-review-specific copy', () => {
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            const banner = screen.getByTestId('decision-banner-code-approved')
+            expect(banner).toHaveTextContent(
+                'This study code has been approved. No further edits are allowed at this point.',
+            )
+            expect(screen.queryByTestId('decision-banner-approved')).not.toBeInTheDocument()
+        })
+
+        it('renders the code-rejected banner with code-review-specific copy', () => {
+            const entries = [buildCodeEntry({ decision: 'REJECT' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            const banner = screen.getByTestId('decision-banner-code-rejected')
+            expect(banner).toHaveTextContent(
+                'This study code has been rejected. No further action is required at this time.',
+            )
+            expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
+        })
+
+        it('uses "Review study code" crumb (not "Review initial request") for kind=CODE', () => {
+            const entries = [buildCodeEntry()]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            // Proposal-only label should not appear under kind=CODE.
+            expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
+        })
+
+        it('does not render proposal-only banners (clarification has no CODE copy)', () => {
+            // CODE_DECISION_COPY only maps APPROVE / REJECT; a NEEDS-CLARIFICATION entry
+            // can't arise for code review but renders nothing rather than crashing.
+            const entries = [buildCodeEntry({ decision: 'NEEDS-CLARIFICATION' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('decision-banner-code-rejected')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
         })
     })
 })
