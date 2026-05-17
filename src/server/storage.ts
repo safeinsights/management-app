@@ -39,6 +39,11 @@ export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: Fil
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.zip`, file, fileType)
 }
 
+export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
+    const filename = fileType.toLowerCase()
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.txt`, file, fileType)
+}
+
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }

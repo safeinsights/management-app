@@ -195,6 +195,8 @@ const FILE_TYPES = [
     'ENCRYPTED-RESULT',
     'ENCRYPTED-SECURITY-SCAN-LOG',
     'MAIN-CODE',
+    'PACKAGING-ERROR-LOG',
+    'SECURITY-SCAN-LOG',
     'SUPPLEMENTAL-CODE',
 ] as const satisfies readonly FileType[]
 
