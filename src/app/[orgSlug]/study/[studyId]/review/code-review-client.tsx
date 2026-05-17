@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC, type ReactNode } from 'react'
-import { Alert, Box, Button, Group, Stack, Text } from '@mantine/core'
+import { Alert, Box, Button, Group, Radio, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,7 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import type { Decision } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -36,6 +37,9 @@ type Props = {
 
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
     status === 'PENDING-REVIEW' && latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
+
+const CONFIRM_BODY =
+    'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.'
 
 const REJECTION_WARNING = (
     <Text size="md" fw={600} c="red.9">
@@ -77,7 +81,7 @@ function useCodeReview({
 
     const criteriaDraft = evaluationForm.getValues().criteria
     const criteriaComplete = allCriteriaAnswered(criteriaDraft)
-    const isDecisionTerminal = decision.selected === 'approve' || decision.selected === 'reject'
+    const isDecisionTerminal = decision.selected !== null
 
     const canSubmit = feedback.isValid && isDecisionTerminal && criteriaComplete
     const backPath = Routes.orgDashboard({ orgSlug })
@@ -86,6 +90,10 @@ function useCodeReview({
 
     const handleBack = () => {
         router.push(backPath)
+    }
+
+    const handleDecisionChange = (next: Decision) => {
+        decision.onSelect(next)
     }
 
     const handleSubmit = () => {
@@ -99,10 +107,10 @@ function useCodeReview({
     }
 
     const handleConfirmSubmit = () => {
-        if (!isDecisionTerminal) return
+        if (decision.selected === null) return
         if (!allCriteriaAnswered(criteriaDraft)) return
         submitReview({
-            decision: decision.selected as 'approve' | 'reject',
+            decision: decision.selected,
             feedback: feedback.value,
             criteria: criteriaDraft,
         })
@@ -114,6 +122,7 @@ function useCodeReview({
         evaluationForm,
         canSubmit,
         handleBack,
+        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -132,7 +141,7 @@ type ConfirmationModalProps = {
     title: string
     confirmLabel: string
     variant?: 'default' | 'destructive'
-    warning?: ReactNode
+    bodyParagraphs: ReactNode
 }
 
 const ConfirmationModal: FC<ConfirmationModalProps> = ({
@@ -143,7 +152,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
     title,
     confirmLabel,
     variant = 'default',
-    warning,
+    bodyParagraphs,
 }) => {
     const isDestructive = variant === 'destructive'
     return (
@@ -157,11 +166,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
             withCloseButton={!isPending}
         >
             <Stack>
-                <Text size="md">
-                    Please confirm you are ready to submit your decision on this study code. Other teammates may still
-                    be working on it and further edits are not permitted once submitted.
-                </Text>
-                {warning}
+                {bodyParagraphs}
                 <Group justify="flex-end">
                     <Button variant="outline" onClick={onClose} disabled={isPending}>
                         Cancel
@@ -175,35 +180,97 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
     )
 }
 
-type DecisionRadioProps = {
-    value: 'approve' | 'reject' | null
-    onChange: (value: 'approve' | 'reject') => void
+const DEFAULT_MODAL_BODY = <Text size="md">{CONFIRM_BODY}</Text>
+
+const REJECT_MODAL_BODY = (
+    <>
+        <Text size="md">{CONFIRM_BODY}</Text>
+        {REJECTION_WARNING}
+    </>
+)
+
+type DecisionOption = {
+    value: Decision
+    title: string
+    description: ReactNode
+    testId: string
 }
 
-const DecisionRadio: FC<DecisionRadioProps> = ({ value, onChange }) => {
-    const handleSelect = (next: 'approve' | 'reject') => () => onChange(next)
+const buildDecisionOptions = (labName: string): DecisionOption[] => [
+    {
+        value: 'approve',
+        title: 'Approve and run code',
+        description: (
+            <Text component="span" size="sm" c="grey.7">
+                The code will proceed to run in your secure enclave. {labName} will be notified via email when the code
+                is approved and is being run.
+            </Text>
+        ),
+        testId: 'code-review-decision-approve',
+    },
+    {
+        value: 'needs-clarification',
+        title: 'Request revision',
+        description: (
+            <Text component="span" size="sm" c="grey.7">
+                Return this code submission to {labName} for necessary updates, additional information, or specific
+                changes.
+            </Text>
+        ),
+        testId: 'code-review-decision-needs-clarification',
+    },
+    {
+        value: 'reject',
+        title: 'Reject and end study',
+        description: (
+            <Text component="span" size="sm" c="grey.7">
+                Permanently end this study due to major, unresolvable issues. Share rationale with {labName}.
+                <br />
+                <Text component="span" size="sm" c="grey.7" fw={600}>
+                    Warning: This terminates the study and cannot be undone.
+                </Text>
+            </Text>
+        ),
+        testId: 'code-review-decision-reject',
+    },
+]
+
+const RADIO_STYLES = {
+    label: { fontWeight: 600, fontSize: 16 },
+    description: { fontSize: 14 },
+}
+
+type DecisionRadioProps = {
+    value: Decision | null
+    onChange: (value: Decision) => void
+    labName: string
+}
+
+const DecisionRadio: FC<DecisionRadioProps> = ({ value, onChange, labName }) => {
+    const options = buildDecisionOptions(labName)
+    const handleChange = (next: string) => onChange(next as Decision)
+
+    const radioOptions = options.map((option) => (
+        <Radio
+            key={option.value}
+            value={option.value}
+            label={option.title}
+            description={option.description}
+            styles={RADIO_STYLES}
+            data-testid={option.testId}
+        />
+    ))
+
     return (
         <Stack gap="sm">
             <Text fz={20} fw={700} c="charcoal.9">
                 Decision
             </Text>
-            <Group gap="lg">
-                <Button
-                    variant={value === 'approve' ? 'filled' : 'outline'}
-                    onClick={handleSelect('approve')}
-                    data-testid="code-review-decision-approve"
-                >
-                    Approve
-                </Button>
-                <Button
-                    variant={value === 'reject' ? 'filled' : 'outline'}
-                    color={value === 'reject' ? 'red' : undefined}
-                    onClick={handleSelect('reject')}
-                    data-testid="code-review-decision-reject"
-                >
-                    Reject
-                </Button>
-            </Group>
+            <Radio.Group value={value ?? ''} onChange={handleChange} name="code-review-decision">
+                <Stack gap="md" mt="xs">
+                    {radioOptions}
+                </Stack>
+            </Radio.Group>
         </Stack>
     )
 }
@@ -214,11 +281,12 @@ type EditableBodyProps = {
     evaluationForm: ReturnType<typeof useCodeReview>['evaluationForm']
     decision: ReturnType<typeof useReviewDecision>
     job: LatestJobForStudy
+    labName: string
     canSubmit: boolean
     isPending: boolean
     onBack: () => void
     onSubmit: () => void
-    onDecisionChange: (next: 'approve' | 'reject') => void
+    onDecisionChange: (next: Decision) => void
 }
 
 function EditableBody({
@@ -227,6 +295,7 @@ function EditableBody({
     evaluationForm,
     decision,
     job,
+    labName,
     canSubmit,
     isPending,
     onBack,
@@ -234,7 +303,6 @@ function EditableBody({
     onDecisionChange,
 }: EditableBodyProps) {
     if (!isVisible) return null
-    const decisionValue = decision.selected === 'approve' || decision.selected === 'reject' ? decision.selected : null
     return (
         <Stack gap="xl">
             <Box bg="white" p="xxl">
@@ -243,7 +311,7 @@ function EditableBody({
             <CodeEvaluationSection form={evaluationForm} enabled />
             <CodeReviewFeedbackSection feedback={feedback} studyId={job.studyId} jobId={job.id} />
             <Box bg="white" p="xxl">
-                <DecisionRadio value={decisionValue} onChange={onDecisionChange} />
+                <DecisionRadio value={decision.selected} onChange={onDecisionChange} labName={labName} />
             </Box>
             <Group justify="space-between">
                 <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
@@ -296,6 +364,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         evaluationForm,
         canSubmit,
         handleBack,
+        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -308,10 +377,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
     if (!isCollaborationEnabled) return null
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
-
-    const handleDecisionChange = (next: 'approve' | 'reject') => {
-        decision.onSelect(next)
-    }
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
         <StudyKickOutProvider
@@ -335,6 +401,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                     evaluationForm={evaluationForm}
                     decision={decision}
                     job={job}
+                    labName={labName}
                     canSubmit={canSubmit}
                     isPending={isPending}
                     onBack={handleBack}
@@ -351,6 +418,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                 isPending={isPending}
                 title="Confirm review submission?"
                 confirmLabel="Yes, submit review"
+                bodyParagraphs={DEFAULT_MODAL_BODY}
             />
             <ConfirmationModal
                 isOpen={rejectOpen}
@@ -360,7 +428,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                 title="Reject study code?"
                 confirmLabel="Reject study code"
                 variant="destructive"
-                warning={REJECTION_WARNING}
+                bodyParagraphs={REJECT_MODAL_BODY}
             />
         </StudyKickOutProvider>
     )
