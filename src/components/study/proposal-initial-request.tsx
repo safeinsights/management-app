@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Collapse, Divider, Paper, Stack } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import { stringifyJson } from '@/lib/string'
 import { usePopover } from '@/hooks/use-popover'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
+import { ProposalStepHeader } from './proposal-step-header'
 
 type ProposalRequestProps = {
     study: SelectedStudy
@@ -68,27 +68,16 @@ export function ProposalRequest({
 
     return (
         <Stack gap="md" data-testid="proposal-section">
-            <Paper p="xxl" data-testid="proposal-section-header">
-                <Text fz={10} fw={700} c="charcoal.7" pb={4}>
-                    {stepLabel}
-                </Text>
-                <Title order={4} fz={20} c="charcoal.9" pb={4}>
-                    {heading}
-                </Title>
-                <Group justify="space-between" align="center" wrap="nowrap">
-                    <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
-                        Title: {study.title}
-                    </Text>
-                    {renderedTimestamp && (
-                        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
-                            {statusBadge} {dayjs(renderedTimestamp).format('MMM DD, YYYY')}
-                        </Text>
-                    )}
-                </Group>
-                <Divider my="md" data-testid="proposal-header-divider" />
-                {banner}
+            <ProposalStepHeader
+                stepLabel={stepLabel}
+                heading={heading}
+                studyTitle={study.title}
+                timestampDate={renderedTimestamp}
+                timestampLabel={statusBadge}
+                banner={banner}
+            >
                 <ToggleLink isExpanded={expanded} onClick={toggle} testId="proposal-toggle-header" />
-            </Paper>
+            </ProposalStepHeader>
 
             <Collapse in={expanded}>
                 <Paper p="xxl" data-testid="proposal-body">

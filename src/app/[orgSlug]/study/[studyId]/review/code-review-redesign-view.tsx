@@ -1,9 +1,10 @@
 import { AlertNotFound } from '@/components/errors'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
 import { latestJobForStudyOrNull } from '@/server/db/queries'
-import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import dayjs from 'dayjs'
+import { Box, Stack, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
@@ -13,38 +14,19 @@ type CodeReviewRedesignViewProps = {
     study: SelectedStudy
 }
 
-function formatDate(date: Date | string): string {
-    return dayjs(date).format('MMM DD, YYYY')
-}
-
-function CodeReviewCriteriaList() {
-    return (
-        <Stack gap={4} data-testid="code-review-criteria">
-            {CODE_REVIEW_CRITERIA.map(({ label, description }) => (
-                <Text size="sm" key={label}>
-                    <strong>{label}:</strong> {description}
-                </Text>
-            ))}
-        </Stack>
-    )
-}
-
 function CodeReviewStatusBanner({ labName }: { labName: string }) {
     return (
-        <Box
-            bg="purple.0"
-            p="md"
-            style={{ borderRadius: 'var(--mantine-radius-sm)' }}
-            data-testid="code-review-status-banner"
-        >
-            <Stack gap="xs">
-                <Text size="sm">
+        <ReviewCriteriaBanner
+            testId="code-review-status-banner"
+            criteriaTestId="code-review-criteria"
+            intro={
+                <>
                     <strong>{labName}</strong> has submitted their study code for review. Below, you will review their
                     code and an AI-generated summary of its behavior, then share your feedback and decision.
-                </Text>
-                <CodeReviewCriteriaList />
-            </Stack>
-        </Box>
+                </>
+            }
+            criteria={CODE_REVIEW_CRITERIA}
+        />
     )
 }
 
@@ -57,31 +39,13 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
-        <Paper p="xxl" data-testid="code-review-section-header">
-            <Stack gap="md">
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={4}>
-                        <Text fz="xs" fw={700} c="charcoal.7">
-                            STEP 3
-                        </Text>
-                        <Title order={2} fz={20} fw={700}>
-                            Review study code
-                        </Title>
-                        <Text size="sm">Title: {study.title}</Text>
-                    </Stack>
-                    <Text
-                        fz={12}
-                        c="charcoal.7"
-                        style={{ whiteSpace: 'nowrap' }}
-                        data-testid="code-review-submitted-on"
-                    >
-                        Submitted on {formatDate(submittedAt)}
-                    </Text>
-                </Group>
-                <Divider />
-                <CodeReviewStatusBanner labName={labName} />
-            </Stack>
-        </Paper>
+        <ProposalStepHeader
+            stepLabel="STEP 3"
+            heading="Review study code"
+            studyTitle={study.title}
+            timestampDate={submittedAt}
+            banner={<CodeReviewStatusBanner labName={labName} />}
+        />
     )
 }
 
