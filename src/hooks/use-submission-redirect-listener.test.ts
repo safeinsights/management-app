@@ -106,6 +106,27 @@ describe('useSubmissionRedirectListener', () => {
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 
+    it('fires kick-out for a same-user other tab on code-review-submitted', () => {
+        mountListener()
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'code-review-submitted',
+                studyId,
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_carol',
+                submittedByName: 'Carol',
+            }),
+        )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+        const arg = (notifications.show as Mock).mock.calls[0][0]
+        expect(arg.message).toBe(
+            'Carol has proceeded to submit a decision on this study code. No further edits are allowed at this point.',
+        )
+        // ?from=code-review is required so the kicked-out user lands on the post-feedback
+        // view, not back on the code-review page (codeSubmitted history check would re-enter).
+        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review?from=code-review`)
+    })
+
     it('is idempotent: two stateless events trigger one navigation', () => {
         mountListener()
         const event = JSON.stringify({

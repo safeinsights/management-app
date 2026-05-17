@@ -243,7 +243,15 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
-            onChange(JSON.stringify(editorState.toJSON()))
+            const json = editorState.toJSON()
+            // On mount, before Yjs syncs, Lexical's root briefly has no children.
+            // That state is valid in memory but Lexical rejects it on re-hydration,
+            // so persisting it would crash the non-collaborative views (EditableText,
+            // ReadOnlyLexicalContent) the next time the data is read. User-cleared
+            // input still keeps an empty paragraph in children, so this only filters
+            // the pre-sync state.
+            if (!json.root?.children?.length) return
+            onChange(JSON.stringify(json))
         })
     }, [editor, onChange])
 
@@ -394,8 +402,16 @@ export function CollaborativeEditor({
     )
 
     useEffect(() => {
-        // Pair the onProviderReady publish with a teardown clear so subscribers
-        // don't hold a destroyed provider after the editor unmounts.
+        // React strict mode (dev) runs setup-cleanup-setup on mount; the cleanup's
+        // `onProviderReady(null)` would otherwise wipe the provider that the
+        // factory just published during render, leaving subscribers stuck on null
+        // (criteria Y.Map bridge, submission listener). Re-publishing the current
+        // provider on setup undoes the strict-mode null publish; the cleanup still
+        // fires on real unmount. Production is unaffected (single mount, single
+        // setup, cleanup only on real unmount).
+        if (providerRef.current && onProviderReady) {
+            onProviderReady(providerRef.current)
+        }
         return () => {
             onProviderReady?.(null)
         }

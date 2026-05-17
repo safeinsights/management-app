@@ -9,7 +9,7 @@ type Criterion = {
 
 type ReviewCriteriaBannerProps = {
     intro: ReactNode
-    criteria: Criterion[]
+    criteria: readonly Criterion[]
     mb?: MantineSpacing
     testId?: string
     criteriaTestId?: string

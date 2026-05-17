@@ -16,6 +16,7 @@ import {
     triggerScanForStudyJob,
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
@@ -30,7 +31,7 @@ import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { countWords, lexicalJson } from '@/lib/word-count'
+import { countWords, lexicalJson } from '@/lib/lexical'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -677,6 +678,9 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
 // Final resubmission: writes the latest proposal edits, records the
 // resubmission note as a study_proposal_comment row, and transitions
 // CHANGE-REQUESTED -> PENDING-REVIEW.
+//
+// `performsMutations: true` runs this handler inside db.transaction().
+// Do not drop it: the study updates/inserts must commit or roll back together.
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -729,7 +733,20 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
                 body: JSON.parse(lexicalJson(resubmissionNote)),
+                version: nextVersionForStudyComment({ studyId, increment: true }),
             })
+            .execute()
+
+        // The bumped version above opens a new review round. Any `review-feedback-*`
+        // yjs_document row from the closed round is now orphaned: round N+1 binds
+        // to a fresh `…-v<n+1>` room. A stale `…-v<n>` tab still connected when
+        // the status flipped back to PENDING-REVIEW could otherwise re-create the
+        // deleted row via Hocuspocus persistence. Mirrors the same-tx delete in
+        // submitProposalReviewAction.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `review-feedback-${studyId}%`)
             .execute()
 
         revalidatePath('/dashboard')

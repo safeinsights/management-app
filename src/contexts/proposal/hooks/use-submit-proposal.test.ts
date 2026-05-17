@@ -21,7 +21,7 @@ import { zod4Resolver as zodResolver } from 'mantine-form-zod-resolver'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { Routes } from '@/lib/routes'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import {
     initialProposalValues,
     proposalFormSchema,

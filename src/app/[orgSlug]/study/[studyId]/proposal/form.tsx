@@ -12,7 +12,7 @@ import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords } from '@/lib/word-count'
+import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { DEFAULT_DRAFT_TITLE, WORD_LIMITS, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
@@ -291,7 +291,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     <ProposalFooter
                         researcherName={researcherName}
                         researcherId={researcherId}
-                        piUserId={form.values.piUserId}
                         enclaveOrgSlug={enclaveOrgSlug}
                     />
                 </Stack>

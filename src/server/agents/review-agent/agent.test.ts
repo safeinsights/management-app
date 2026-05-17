@@ -16,8 +16,8 @@ const baseContent: ReviewContent = {
     referenceDocs: { requirements: 'r', brcDocs: 'b', dataDocs: 'd', otherDocs: 'o' },
 }
 
-function makeClient(content: unknown) {
-    const create = vi.fn().mockResolvedValue({ content })
+function makeClient(content: unknown, extra: Record<string, unknown> = {}) {
+    const create = vi.fn().mockResolvedValue({ content, ...extra })
     return { client: { messages: { create } } as unknown as Anthropic, create }
 }
 
@@ -89,5 +89,39 @@ describe('generateAnalysis', () => {
 
     it('throws when neither apiKey nor client is provided', async () => {
         await expect(generateAnalysis({}, baseContent)).rejects.toThrow(/apiKey or client/)
+    })
+
+    it('throws a specific error when the model refuses (stop_reason: refusal)', async () => {
+        const { client } = makeClient([{ type: 'text', text: 'I cannot help with that.', citations: null }], {
+            stop_reason: 'refusal',
+        })
+
+        await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow(/refused/i)
+    })
+
+    it('throws a specific error when the response is truncated (stop_reason: max_tokens)', async () => {
+        const { client } = makeClient(toolUseBlock, { stop_reason: 'max_tokens' })
+
+        await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow(/max_tokens/)
+    })
+
+    it('throws when the tool_use payload fails schema validation', async () => {
+        const malformedToolUseBlock = [
+            {
+                type: 'tool_use',
+                name: 'submit_analysis',
+                id: '1',
+                input: {
+                    proposalSummary: 'summary',
+                    codeExplanation: 'explanation',
+                    findings: ['top-level finding'],
+                    alignmentCheck: '\n<parameter name="isAligned">false',
+                    complianceCheck: '\n<parameter name="isCompliant">false',
+                },
+            },
+        ]
+        const { client } = makeClient(malformedToolUseBlock)
+
+        await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow()
     })
 })
