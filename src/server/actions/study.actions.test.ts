@@ -1232,6 +1232,59 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
     })
 
+    it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('NEEDS-CLARIFICATION')
+        expect(rows[0].reviewKind).toBe('CODE')
+        expect(rows[0].entryType).toBe('DECISION')
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].studyJobId).toBe(job.id)
+        expect(rows[0].criteria).toEqual(validCriteria)
+
+        // study row is intentionally untouched: proposal-stage state stays approved.
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
+
+        const latest = await latestJobForStudy(study.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-CHANGES-REQUESTED')).toBeTruthy()
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeUndefined()
+    })
+
+    it('needs-clarification still enforces the feedback word-count minimum', async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: buildFeedback(5),
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
     it('rejects feedback below minimum word count', async () => {
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
 

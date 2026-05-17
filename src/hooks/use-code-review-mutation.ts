@@ -18,7 +18,7 @@ import { WS_URL } from '@/lib/config'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
-    decision: 'approve' | 'reject'
+    decision: 'approve' | 'needs-clarification' | 'reject'
     feedback: string
     criteria: CodeReviewCriteria
 }

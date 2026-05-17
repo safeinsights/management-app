@@ -25,6 +25,7 @@ import {
     deferred,
     onStudyApproved,
     onStudyCodeApproved,
+    onStudyCodeChangesRequested,
     onStudyCodeRejected,
     onStudyNeedsClarification,
     onStudyRejected,
@@ -697,7 +698,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             studyId: z.string().uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
-            decision: z.enum(['approve', 'reject']),
+            decision: z.enum(['approve', 'needs-clarification', 'reject']),
             criteria: codeReviewCriteriaSchema,
         }),
     )
@@ -767,8 +768,25 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
-        } else {
+        } else if (decision === 'reject') {
             await performStudyCodeRejection({ db, studyId, userId })
+        } else {
+            // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
+            // pill flips to "Change requested") and move the study back to
+            // APPROVED. The proposal was already approved (approvedAt set);
+            // we restore that resting state so claimInitialCodeReviewJob's
+            // PENDING-REVIEW check blocks any further code-review submissions
+            // on this job until the researcher resubmits.
+            await db
+                .insertInto('jobStatusChange')
+                .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
+            onStudyCodeChangesRequested({ studyId, userId })
         }
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
