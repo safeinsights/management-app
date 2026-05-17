@@ -766,7 +766,7 @@ describe('submitProposalReviewAction', () => {
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'approve',
-            feedback: buildFeedback(10),
+            feedback: buildFeedback(0),
             reviewVersion: 1,
         })
 
@@ -1277,7 +1277,7 @@ describe('submitCodeReviewDecisionAction', () => {
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'needs-clarification',
-            feedback: buildFeedback(5),
+            feedback: buildFeedback(0),
             criteria: validCriteria,
         })
 
@@ -1292,7 +1292,7 @@ describe('submitCodeReviewDecisionAction', () => {
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'approve',
-            feedback: buildFeedback(5),
+            feedback: buildFeedback(0),
             criteria: validCriteria,
         })
 
