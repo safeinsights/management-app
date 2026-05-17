@@ -26,7 +26,7 @@ export function ReviewCriteriaBanner({
         <Box bg="purple.0" p="md" mb={mb} style={{ borderRadius: 'var(--mantine-radius-sm)' }} data-testid={testId}>
             <Stack gap="xs">
                 <Text size="sm">{intro}</Text>
-                <Stack gap={4} data-testid={criteriaTestId}>
+                <Stack gap={4} mt="md" data-testid={criteriaTestId}>
                     {criteria.map(({ label, description }) => (
                         <Text size="sm" key={label}>
                             <strong>{label}:</strong> {description}
