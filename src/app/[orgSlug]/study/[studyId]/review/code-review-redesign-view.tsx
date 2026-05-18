@@ -22,8 +22,9 @@ function CodeReviewStatusBanner({ labName }: { labName: string }) {
             criteriaTestId="code-review-criteria"
             intro={
                 <>
-                    <strong>{labName}</strong> has submitted their study code for review. Below, you will review their
-                    code and an AI-generated summary of its behavior, then share your feedback and decision.
+                    {labName} has submitted their study code for review. Below, you will review their code and an
+                    AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the
+                    code based on these criteria:
                 </>
             }
             criteria={CODE_REVIEW_CRITERIA}

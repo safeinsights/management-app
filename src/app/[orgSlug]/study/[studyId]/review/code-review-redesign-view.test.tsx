@@ -76,7 +76,7 @@ describe('CodeReviewRedesignView', () => {
         expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Submitted on ${formatted}`)
     })
 
-    it('renders the status banner with the submitting lab name in bold', async () => {
+    it('renders the status banner with the new intro copy and the lab name not bold', async () => {
         renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
 
         const banner = screen.getByTestId('code-review-status-banner')
@@ -84,8 +84,14 @@ describe('CodeReviewRedesignView', () => {
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
         expect(banner).toHaveTextContent(labName)
         expect(banner).toHaveTextContent(
-            'has submitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision.',
+            'has submitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these criteria:',
         )
+
+        // The lab name should not be wrapped in <strong> / fw=700
+        const strongs = banner.querySelectorAll('strong')
+        for (const strong of strongs) {
+            expect(strong.textContent ?? '').not.toContain(labName)
+        }
     })
 
     it('renders all four review criteria', async () => {

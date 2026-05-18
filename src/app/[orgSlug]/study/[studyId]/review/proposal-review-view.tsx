@@ -127,14 +127,14 @@ type ReviewConfirmationModalProps = {
     warning?: ReactNode
 }
 
-const REJECTION_WARNING = (
+export const REJECTION_WARNING = (
     <Text size="md" fw={600} c="red.9">
         Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
         action cannot be undone.
     </Text>
 )
 
-const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
+export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
     isOpen,
     onClose,
     onConfirm,
@@ -157,8 +157,7 @@ const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
         >
             <Stack>
                 <Text size="md">
-                    Please confirm you are ready to submit your review. Other teammates may still be working on it and
-                    further edits are not permitted once submitted.
+                    Please confirm you are ready to submit your review. Further edits are not permitted once submitted.
                 </Text>
                 {warning}
                 <Group justify="flex-end">
@@ -256,7 +255,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 onClose={closeReject}
                 onConfirm={handleConfirmSubmit}
                 isPending={isPending}
-                title="Reject initial request?"
+                title="Reject initial request"
                 confirmLabel="Reject initial request"
                 variant="destructive"
                 warning={REJECTION_WARNING}
