@@ -1,6 +1,6 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -23,7 +23,12 @@ function FeedbackTestWrapper() {
             >
                 simulate input
             </button>
-            <ReviewFeedbackSection feedback={feedback} submittingLabName="Test Lab" studyId="test-study-id" />
+            <ReviewFeedbackSection
+                feedback={feedback}
+                submittingLabName="Test Lab"
+                studyId="test-study-id"
+                reviewVersion={1}
+            />
         </ReviewFeedbackProviderShare>
     )
 }

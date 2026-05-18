@@ -5,7 +5,7 @@ import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@manti
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
-import { countWords } from '@/lib/word-count'
+import { countWords } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { RESUBMIT_NOTE_MAX_WORDS } from './schema'
 

@@ -18,7 +18,13 @@ interface ProposalSubmittedProps {
     study: SelectedStudy
     orgName: string
     entries: ProposalFeedbackEntry[]
+    studyVersion: number
     feedbackError?: boolean
+}
+
+function proposalHeading(studyVersion: number): string {
+    if (studyVersion <= 1) return 'Initial request'
+    return `Initial request ${studyVersion}.0`
 }
 
 type ProposalBannerConfig = {
@@ -53,13 +59,26 @@ const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
     },
 }
 
-function StatusBanner({ orgName, status }: { orgName: string; status: StudyStatus }) {
+function StatusBanner({
+    orgName,
+    status,
+    studyVersion,
+}: {
+    orgName: string
+    status: StudyStatus
+    studyVersion: number
+}) {
     const config = PROPOSAL_BANNERS[status]
     if (!config) return null
 
+    const isResubmission = status === 'PENDING-REVIEW' && studyVersion > 1
+    const message = isResubmission
+        ? `Your revised initial request has been resubmitted to ${displayOrgName(orgName)}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`
+        : config.message(orgName)
+
     return (
         <Alert color={config.color} mb="md" data-testid={`status-banner-${status}`}>
-            {config.message(orgName)}
+            {message}
         </Alert>
     )
 }
@@ -126,8 +145,16 @@ function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; fe
     )
 }
 
-export function ProposalSubmitted({ orgSlug, study, orgName, entries, feedbackError }: ProposalSubmittedProps) {
+export function ProposalSubmitted({
+    orgSlug,
+    study,
+    orgName,
+    entries,
+    studyVersion,
+    feedbackError,
+}: ProposalSubmittedProps) {
     const bannerConfig = PROPOSAL_BANNERS[study.status]
+    const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
 
     return (
         <Stack p="xl" gap="xl">
@@ -137,9 +164,10 @@ export function ProposalSubmitted({ orgSlug, study, orgName, entries, feedbackEr
                     study={study}
                     orgSlug={orgSlug}
                     stepLabel="STEP 2"
-                    heading="Initial request"
-                    banner={<StatusBanner orgName={orgName} status={study.status} />}
-                    statusBadge={bannerConfig?.statusBadge}
+                    heading={proposalHeading(studyVersion)}
+                    banner={<StatusBanner orgName={orgName} status={study.status} studyVersion={studyVersion} />}
+                    statusBadge={statusBadge}
+                    entries={entries}
                     initialExpanded={false}
                 />
                 <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />

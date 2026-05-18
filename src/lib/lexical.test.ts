@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { countWords, countWordsFromLexical, extractTextFromLexical, hasLexicalContent, lexicalJson } from './word-count'
+import {
+    countWords,
+    countWordsFromLexical,
+    extractTextFromLexical,
+    hasLexicalContent,
+    isValidLexicalState,
+    lexicalJson,
+} from './lexical'
 
 describe('countWords', () => {
     it('returns 0 for empty string', () => {
@@ -214,6 +221,36 @@ describe('countWordsFromLexical', () => {
             },
         })
         expect(countWordsFromLexical(json)).toBe(5)
+    })
+})
+
+describe('isValidLexicalState', () => {
+    it('returns false for undefined', () => {
+        expect(isValidLexicalState(undefined)).toBe(false)
+    })
+
+    it('returns false for empty string', () => {
+        expect(isValidLexicalState('')).toBe(false)
+    })
+
+    it('returns false for invalid JSON', () => {
+        expect(isValidLexicalState('not json')).toBe(false)
+    })
+
+    it('returns false for root with empty children array (pre-sync state)', () => {
+        expect(isValidLexicalState(JSON.stringify({ root: { type: 'root', children: [] } }))).toBe(false)
+    })
+
+    it('returns false for missing root', () => {
+        expect(isValidLexicalState('{}')).toBe(false)
+    })
+
+    it('returns true for root with at least one child', () => {
+        expect(isValidLexicalState(lexicalJson('hello'))).toBe(true)
+    })
+
+    it('returns true for user-cleared input (empty paragraph still in children)', () => {
+        expect(isValidLexicalState(lexicalJson(''))).toBe(true)
     })
 })
 

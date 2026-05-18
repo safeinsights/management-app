@@ -22,12 +22,14 @@ import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForOrgAction,
+    getCodeReviewFeedbackAction,
     getStudyAction,
     rejectStudyProposalAction,
+    submitCodeReviewDecisionAction,
     submitProposalReviewAction,
 } from './study.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/mailgun', () => ({
     deliver: vi.fn(),
@@ -604,7 +606,7 @@ describe('submitProposalReviewAction', () => {
     const loadCommentRows = (studyId: string) =>
         db
             .selectFrom('studyProposalComment')
-            .select(['authorId', 'authorRole', 'body', 'decision', 'entryType'])
+            .select(['authorId', 'authorRole', 'body', 'decision', 'entryType', 'version'])
             .where('studyId', '=', studyId)
             .execute()
 
@@ -617,6 +619,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
         const value = actionResult(result)
         expect(typeof value.submitterFullName).toBe('string')
@@ -628,6 +631,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -667,6 +671,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -675,6 +680,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -716,6 +722,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'reject',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -724,6 +731,7 @@ describe('submitProposalReviewAction', () => {
         expect(rows[0].authorId).toBe(user.id)
         expect(rows[0].authorRole).toBe('REVIEWER')
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -759,6 +767,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: buildFeedback(10),
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
@@ -783,6 +792,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: buildFeedback(501),
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
@@ -800,6 +810,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -819,6 +830,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: lexical,
+            reviewVersion: 1,
         })
 
         const rows = await loadCommentRows(study.id)
@@ -842,6 +854,7 @@ describe('submitProposalReviewAction', () => {
                 orgSlug: org.slug,
                 decision: 'approve',
                 feedback: validFeedback,
+                reviewVersion: 1,
             })
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -867,6 +880,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         const result = await submitProposalReviewAction({
@@ -874,6 +888,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -905,6 +920,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
@@ -940,6 +956,7 @@ describe('submitProposalReviewAction', () => {
             orgSlug: outsiderOrg.slug,
             decision: 'approve',
             feedback: validFeedback,
+            reviewVersion: 1,
         })
 
         expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
@@ -960,24 +977,25 @@ describe('submitProposalReviewAction', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
         const before = new Date('2026-01-01T00:00:00Z')
+        const versionedName = `review-feedback-${study.id}-v1`
 
         // Stale row from before the captured submit timestamp; should be deleted.
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
                 updatedAt: before,
             })
             .execute()
 
-        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, version: 1, beforeAt: before })
 
         const afterFirstPurge = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
+            .where('name', '=', versionedName)
             .execute()
         expect(afterFirstPurge).toHaveLength(0)
 
@@ -986,32 +1004,33 @@ describe('submitProposalReviewAction', () => {
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
                 updatedAt: new Date('2026-01-01T00:00:10Z'),
             })
             .execute()
 
-        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, beforeAt: before })
+        await purgeReviewFeedbackYjsDocBeforeAt(db, { studyId: study.id, version: 1, beforeAt: before })
 
         const afterSecondPurge = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
+            .where('name', '=', versionedName)
             .execute()
         expect(afterSecondPurge).toHaveLength(1)
     })
 
-    it('deletes the review-feedback yjs_document so the next round starts fresh', async () => {
+    it('deletes the versioned review-feedback yjs_document so the next round starts fresh', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state.
+        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state for round 1.
+        const versionedName = `review-feedback-${study.id}-v1`
         await db
             .insertInto('yjsDocument')
             .values({
-                name: `review-feedback-${study.id}`,
+                name: versionedName,
                 studyId: study.id,
                 data: Buffer.from([0]),
             })
@@ -1022,13 +1041,667 @@ describe('submitProposalReviewAction', () => {
             orgSlug: org.slug,
             decision: 'needs-clarification',
             feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        const remaining = await db.selectFrom('yjsDocument').select('name').where('name', '=', versionedName).execute()
+        expect(remaining).toHaveLength(0)
+    })
+
+    it('rejects a submit whose reviewVersion is stale (researcher already resubmitted)', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        // Seed a RESUBMISSION-NOTE so currentReviewVersion returns 2; the
+        // client thinks it's submitting round 1.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: { root: { type: 'root' } },
+                version: 2,
+            })
+            .execute()
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ review: expect.stringMatching(/stale/) }) })
+
+        const reviewerRows = await db
+            .selectFrom('studyProposalComment')
+            .select('entryType')
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'REVIEWER-FEEDBACK')
+            .execute()
+        expect(reviewerRows).toHaveLength(0)
+    })
+
+    it('valid round-2 submit creates a REVIEWER-FEEDBACK with version=2 leaving v1 untouched', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const round1Body = { root: { type: 'root', marker: 'round-1-original' } }
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    decision: 'NEEDS-CLARIFICATION',
+                    body: round1Body,
+                    version: 1,
+                },
+                {
+                    studyId: study.id,
+                    authorId: user.id,
+                    authorRole: 'RESEARCHER',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: { root: { type: 'root' } },
+                    version: 2,
+                },
+            ])
+            .execute()
+
+        const round2Feedback = `round2marker ${buildFeedback(60)}`
+
+        const result = await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: round2Feedback,
+            reviewVersion: 2,
+        })
+        actionResult(result)
+
+        const reviewerRows = await loadCommentRows(study.id)
+        const feedbackRows = reviewerRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')
+        expect(feedbackRows).toHaveLength(2)
+
+        const v1 = feedbackRows.find((r) => r.version === 1)
+        const v2 = feedbackRows.find((r) => r.version === 2)
+        expect(v1?.body).toEqual(round1Body)
+        expect(v2?.decision).toBe('NEEDS-CLARIFICATION')
+        expect(JSON.stringify(v2?.body)).toContain('round2marker')
+        expect(JSON.stringify(v2?.body)).not.toContain('round-1-original')
+    })
+})
+
+describe('submitCodeReviewDecisionAction', () => {
+    const validFeedback = buildFeedback(60)
+    const validCriteria = {
+        proposalAlignment: 'yes',
+        agreementCompliance: 'yes',
+        securityChecks: 'yes',
+        privacyProtection: 'yes',
+    } as const
+
+    const setApprovedStudyAndCodeSubmitted = async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        // Code review only happens after the proposal was approved; mirror that here.
+        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+        return { user, org, study, job }
+    }
+
+    const loadCodeReviewRows = (studyId: string) =>
+        db
+            .selectFrom('studyReviewComment')
+            .select(['authorId', 'decision', 'entryType', 'reviewKind', 'studyJobId', 'criteria'])
+            .where('studyId', '=', studyId)
+            .where('reviewKind', '=', 'CODE')
+            .execute()
+
+    it('approve writes a code-review row, advances the job, and approves the study', async () => {
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('APPROVE')
+        expect(rows[0].reviewKind).toBe('CODE')
+        expect(rows[0].entryType).toBe('DECISION')
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].studyJobId).toBe(job.id)
+        expect(rows[0].criteria).toEqual(validCriteria)
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'reviewerId', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(updatedStudy.rejectedAt).toBeNull()
+
+        const latest = await latestJobForStudy(study.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
+    })
+
+    it('reject writes a code-review row, marks job CODE-REJECTED, and rejects the study', async () => {
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'reject',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('REJECT')
+        expect(rows[0].studyJobId).toBe(job.id)
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('REJECTED')
+        expect(updatedStudy.rejectedAt).toBeTruthy()
+        expect(updatedStudy.approvedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
+
+        const latest = await latestJobForStudy(study.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
+    })
+
+    it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].decision).toBe('NEEDS-CLARIFICATION')
+        expect(rows[0].reviewKind).toBe('CODE')
+        expect(rows[0].entryType).toBe('DECISION')
+        expect(rows[0].authorId).toBe(user.id)
+        expect(rows[0].studyJobId).toBe(job.id)
+        expect(rows[0].criteria).toEqual(validCriteria)
+
+        // study row is intentionally untouched: proposal-stage state stays approved.
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
+
+        const latest = await latestJobForStudy(study.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-CHANGES-REQUESTED')).toBeTruthy()
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeUndefined()
+    })
+
+    it('needs-clarification still enforces the feedback word-count minimum', async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: buildFeedback(5),
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('rejects feedback below minimum word count', async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: buildFeedback(5),
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('rejects with a friendly error when no code job exists for the study', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const study = await db
+            .insertInto('study')
+            .values({
+                orgId: org.id,
+                submittedByOrgId: org.id,
+                containerLocation: 'test-container',
+                title: 'proposal-only study',
+                researcherId: user.id,
+                piName: 'test',
+                status: 'PENDING-REVIEW',
+                dataSources: ['all'],
+                outputMimeType: 'application/zip',
+                language: 'R',
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/no code submission/i) }),
+        })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it("accepts 'not-sure' for criteria values", async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: {
+                proposalAlignment: 'yes',
+                agreementCompliance: 'no',
+                securityChecks: 'not-sure',
+                privacyProtection: 'not-sure',
+            },
+        })
+
+        const value = actionResult(result)
+        expect(typeof value.submitterFullName).toBe('string')
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].criteria).toEqual({
+            proposalAlignment: 'yes',
+            agreementCompliance: 'no',
+            securityChecks: 'not-sure',
+            privacyProtection: 'not-sure',
+        })
+    })
+
+    it('rejects when the code job is not in a reviewable state', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'JOB-READY',
+        })
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('rejects when study.status is not PENDING-REVIEW even if the latest job is reviewable', async () => {
+        // Pathological state: study moved off PENDING-REVIEW (e.g. APPROVED) but
+        // the latest job is still CODE-SUBMITTED. The auth gate blocks editor
+        // connections here; the action handler must match.
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/already been decided/i) }),
+        })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('rejects a duplicate code-review submission for the same job', async () => {
+        // First submit approves the code, which advances the job to CODE-APPROVED;
+        // a second submit then fails the reviewable-state precondition rather
+        // than reaching the unique index. Either guard is acceptable: the test
+        // verifies that no second CODE-REVIEWER-FEEDBACK row appears.
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        const second = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'reject',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(second).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+    })
+
+    it('surfaces a clean ActionFailure (not raw "duplicate key") when two reviewers race past the claim', async () => {
+        // Simulates the race-loser path: claimInitialCodeReviewJob passes (the
+        // study/job are still in reviewable state because the winning reviewer
+        // has not yet committed), but the studyReviewComment insert trips the
+        // composite unique constraint on (studyJobId, reviewKind). We seed the
+        // row directly to force that exact failure mode.
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+            })
+            .execute()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: { study: 'another reviewer has already submitted a decision for this study code' },
+        })
+        // The pre-seeded row is the only CODE row; the action did not create a second.
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+    })
+
+    it('composite unique constraint blocks two CODE review rows for the same job', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+            })
+            .execute()
+
+        await expect(
+            db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'REJECT',
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute(),
+        ).rejects.toThrow(/duplicate key|unique/i)
+    })
+
+    it('CHECK constraint blocks DECISION rows with NULL decision', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: null,
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute(),
+        ).rejects.toThrow(/decision_requires_value|check/i)
+    })
+
+    it('CHECK constraint blocks CODE rows with NULL studyJobId', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: null,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute(),
+        ).rejects.toThrow(/code_requires_job|check/i)
+    })
+
+    it('denies callers without review ability on the study org', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'crd-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
+
+        const outsiderOrg = await insertTestOrg({ slug: 'crd-outsider', type: 'lab' })
+        const { user: outsider } = await insertTestUser({ org: outsiderOrg })
+        mockClerkSession({
+            clerkUserId: outsider.clerkId,
+            orgSlug: outsiderOrg.slug,
+            userId: outsider.id,
+            orgId: outsiderOrg.id,
+        })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: outsiderOrg.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('deletes the code-review-feedback yjs_document keyed by job.id on submit', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: `code-review-feedback-${job.id}`,
+                studyId: study.id,
+                data: Buffer.from([0]),
+            })
+            .execute()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
         })
 
         const remaining = await db
             .selectFrom('yjsDocument')
             .select('name')
-            .where('name', '=', `review-feedback-${study.id}`)
+            .where('name', '=', `code-review-feedback-${job.id}`)
             .execute()
         expect(remaining).toHaveLength(0)
     })
 })
+
+describe('getCodeReviewFeedbackAction', () => {
+    it('returns code-review rows ordered newest first and excludes proposal-review rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        // A proposal-review row in the legacy table; getCodeReviewFeedbackAction
+        // reads from studyReviewComment so this should not be returned regardless.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                version: 1,
+            })
+            .execute()
+
+        const older = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'REJECT',
+                body: { root: { type: 'root', children: [] } },
+                criteria: {
+                    proposalAlignment: 'yes',
+                    agreementCompliance: 'no',
+                    securityChecks: 'no',
+                    privacyProtection: 'yes',
+                },
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        // The composite unique is per (study_job_id, review_kind): simulate a
+        // re-submitted job by creating a second job and writing a fresher review
+        // against it.
+        const newerJob = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        const newer = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: newerJob.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+                createdAt: new Date('2026-02-01T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = await getCodeReviewFeedbackAction({ studyId: study.id })
+        const rows = actionResult(result)
+        expect(rows).toHaveLength(2)
+        expect(rows[0].id).toBe(newer.id)
+        expect(rows[1].id).toBe(older.id)
+        expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
+    })
+})
+
+function validCriteriaFixture() {
+    return {
+        proposalAlignment: 'yes',
+        agreementCompliance: 'yes',
+        securityChecks: 'yes',
+        privacyProtection: 'yes',
+    } as const
+}

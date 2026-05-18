@@ -85,6 +85,11 @@ export const onStudyCodeRejected = deferred(async ({ studyId, userId }: StudyEve
     await email.sendStudyCodeRejectedEmail(studyId)
 })
 
+export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId }: StudyEvent) => {
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+    await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
+})
+
 export const onStudyResultsApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })

@@ -1,30 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+
 import {
-    triggerBuildImageForJob,
-    triggerScanForStudyJob,
-    toAthenaDbName,
-    toPgDbName,
+    buildTriggerBuildImageCommandInput,
+    buildTriggerScanForStudyJobCommandInput,
     sanitizeColumnName,
     testDataBucketName,
+    toAthenaDbName,
+    toPgDbName,
 } from './aws'
-import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 
-vi.mock('./config', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./config')>()
-    return { ...actual, getConfigValue: () => Promise.resolve('mock-webhook-secret') }
-})
-
-// Mock the AWS SDK CodeBuildClient and StartBuildCommand
-vi.mock('@aws-sdk/client-codebuild', () => {
-    const mockSend = vi.fn(() => ({ build: { id: 'mock-build-id' } }))
-    const mockCodeBuildClient = vi.fn(function () {
-        return { send: mockSend }
-    })
-    return {
-        CodeBuildClient: mockCodeBuildClient,
-        StartBuildCommand: vi.fn(), // Mock StartBuildCommand constructor
-    }
-})
+// The CodeBuild triggers in aws.ts construct a `StartBuildCommand` from a
+// pure builder and send it. We test the builders directly (which is what
+// actually has any logic worth verifying) rather than try to mock out the
+// AWS SDK — vitest cannot reliably intercept `@aws-sdk/*` imports across the
+// externalised CJS boundary, so any attempt to test the wrapping triggers
+// would either skip the assertions or trip a real network call.
+//
+// `getConfigValue` reads `process.env[key]` before consulting Secrets Manager,
+// so setting `CODEBUILD_WEBHOOK_SECRET` in test env yields predictable output
+// without needing to mock the config module (which has the same externalised-
+// dependency mocking issue as @aws-sdk/*).
 
 describe('toAthenaDbName', () => {
     it('should replace dashes with underscores', () => {
@@ -50,7 +45,7 @@ describe('toPgDbName', () => {
     })
 })
 
-describe('triggerBuildImageForJob', () => {
+describe('buildTriggerBuildImageCommandInput', () => {
     const originalEnv = process.env
 
     beforeEach(() => {
@@ -58,6 +53,7 @@ describe('triggerBuildImageForJob', () => {
             ...originalEnv,
             CONTAINERIZER_PROJECT_NAME: 'TestCodeBuildProject',
             ENVIRONMENT_ID: 'test',
+            CODEBUILD_WEBHOOK_SECRET: 'mock-webhook-secret',
         }
     })
 
@@ -65,8 +61,8 @@ describe('triggerBuildImageForJob', () => {
         process.env = originalEnv
     })
 
-    it('should trigger a CodeBuild job with correct parameters', async () => {
-        const mockJobInfo = {
+    it('produces the expected CodeBuild input for a build-image job', async () => {
+        const info = {
             studyJobId: 'job-123',
             codeEnvURL: 'docker.io/my-base-image:latest',
             codeEntryPointFileName: 'main.R',
@@ -76,62 +72,38 @@ describe('triggerBuildImageForJob', () => {
             orgSlug: 'org-xyz',
         }
 
-        await triggerBuildImageForJob(mockJobInfo)
+        const input = await buildTriggerBuildImageCommandInput(info)
 
-        expect(CodeBuildClient).toHaveBeenCalledTimes(1)
-        expect(CodeBuildClient).toHaveBeenCalledWith({})
+        expect(input.projectName).toBe('TestCodeBuildProject')
 
-        expect(StartBuildCommand).toHaveBeenCalledTimes(1)
-        const startBuildCommandArgs = (StartBuildCommand as unknown as Mock).mock.calls[0][0]
-
-        expect(startBuildCommandArgs.projectName).toBe('TestCodeBuildProject')
-
-        // Assert environment variables
         const expectedEnvVars = [
-            {
-                name: 'WEBHOOK_SECRET',
-                value: 'mock-webhook-secret',
-            },
+            { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/containerizer' },
             {
                 name: 'ON_START_PAYLOAD',
-                value: JSON.stringify({
-                    jobId: mockJobInfo.studyJobId,
-                    status: 'JOB-PACKAGING',
-                }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-PACKAGING' }),
             },
             {
                 name: 'ON_SUCCESS_PAYLOAD',
-                value: JSON.stringify({
-                    jobId: mockJobInfo.studyJobId,
-                    status: 'JOB-READY',
-                }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-READY' }),
             },
             {
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({
-                    jobId: mockJobInfo.studyJobId,
-                    status: 'JOB-ERRORED',
-                }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
             },
-            { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
+            { name: 'STUDY_JOB_ID', value: info.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-123/code' },
-            { name: 'DOCKER_BASE_IMAGE_LOCATION', value: mockJobInfo.codeEnvURL },
-            { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' }, // %f replaced
-            { name: 'DOCKER_CODE_LOCATION', value: `a-bad-url:job-123` },
+            { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.codeEnvURL },
+            { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' },
+            { name: 'DOCKER_CODE_LOCATION', value: 'a-bad-url:job-123' },
         ]
 
-        expect(startBuildCommandArgs.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
-        expect(startBuildCommandArgs.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
-
-        // Assert that send was called on the client
-        const codeBuildClientInstance = (CodeBuildClient as unknown as Mock).mock.results[0].value
-        expect(codeBuildClientInstance.send).toHaveBeenCalledTimes(1)
-        expect(codeBuildClientInstance.send).toHaveBeenCalledWith(expect.any(StartBuildCommand))
+        expect(input.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
+        expect(input.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
     })
 })
 
-describe('triggerScanForStudyJob', () => {
+describe('buildTriggerScanForStudyJobCommandInput', () => {
     const originalEnv = process.env
 
     beforeEach(() => {
@@ -139,58 +111,44 @@ describe('triggerScanForStudyJob', () => {
             ...originalEnv,
             SCANNER_PROJECT_NAME: 'TestScannerProject',
             ENVIRONMENT_ID: 'test',
+            CODEBUILD_WEBHOOK_SECRET: 'mock-webhook-secret',
         }
-        vi.clearAllMocks()
     })
 
     afterEach(() => {
         process.env = originalEnv
     })
 
-    it('should trigger a source scan with correct parameters', async () => {
-        const mockJobInfo = {
-            studyJobId: 'job-456',
-            studyId: 'study-abc',
-            orgSlug: 'org-xyz',
-        }
+    it('produces the expected CodeBuild input for a source scan', async () => {
+        const info = { studyJobId: 'job-456', studyId: 'study-abc', orgSlug: 'org-xyz' }
 
-        await triggerScanForStudyJob(mockJobInfo)
+        const input = await buildTriggerScanForStudyJobCommandInput(info)
 
-        expect(CodeBuildClient).toHaveBeenCalledTimes(1)
-        expect(CodeBuildClient).toHaveBeenCalledWith({})
-
-        expect(StartBuildCommand).toHaveBeenCalledTimes(1)
-        const startBuildCommandArgs = (StartBuildCommand as unknown as Mock).mock.calls[0][0]
-
-        expect(startBuildCommandArgs.projectName).toBe('TestScannerProject')
+        expect(input.projectName).toBe('TestScannerProject')
 
         const expectedEnvVars = [
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
             {
                 name: 'ON_START_PAYLOAD',
-                value: JSON.stringify({ jobId: mockJobInfo.studyJobId, status: 'CODE-SUBMITTED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SUBMITTED' }),
             },
             {
                 name: 'ON_SUCCESS_PAYLOAD',
-                value: JSON.stringify({ jobId: mockJobInfo.studyJobId, status: 'CODE-SCANNED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
             },
             {
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({ jobId: mockJobInfo.studyJobId, status: 'JOB-ERRORED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
             },
             { name: 'SCAN_MODE', value: 'source' },
-            { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
+            { name: 'STUDY_JOB_ID', value: info.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-456/code' },
             { name: 'ARTIFACTS_PATH', value: 'scan-artifacts/jobs/job-456' },
         ]
 
-        expect(startBuildCommandArgs.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
-        expect(startBuildCommandArgs.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
-
-        const codeBuildClientInstance2 = (CodeBuildClient as unknown as Mock).mock.results[0].value
-        expect(codeBuildClientInstance2.send).toHaveBeenCalledTimes(1)
-        expect(codeBuildClientInstance2.send).toHaveBeenCalledWith(expect.any(StartBuildCommand))
+        expect(input.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
+        expect(input.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
     })
 })
 

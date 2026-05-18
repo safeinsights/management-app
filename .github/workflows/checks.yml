@@ -133,6 +133,8 @@ jobs:
             CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
             CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
             CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
+            CLERK_JWT_KEY: ${{ secrets.CLERK_JWT_KEY }}
+            NEXT_PUBLIC_CI: 'true'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
             AWS_ACCESS_KEY_ID: 'si-local-s3'
@@ -191,6 +193,29 @@ jobs:
               run: npm run db:migrate
             - name: npm run test:unit
               run: npm run test:unit -- --reporter=verbose
+            - name: Start editor-service
+              run: |
+                  docker build -f Dockerfile.editor-service -t mgmt-editor-service .
+                  docker run -d \
+                    --name editor-service \
+                    --network=host \
+                    -e DATABASE_URL='postgres://si:si@localhost:5432/si_test' \
+                    -e CLERK_JWT_KEY="$CLERK_JWT_KEY" \
+                    -e CLERK_SECRET_KEY="$CLERK_SECRET_KEY" \
+                    mgmt-editor-service
+
+                  for i in $(seq 1 30); do
+                    if curl -sf http://127.0.0.1:4001/health > /dev/null; then
+                      echo "editor-service ready after ${i}s"
+                      break
+                    fi
+                    if [ "$i" = "30" ]; then
+                      echo "editor-service failed to start within 30s"
+                      docker logs editor-service
+                      exit 1
+                    fi
+                    sleep 1
+                  done
             - name: build and run server
               run: npm run ci:server -- server_output.log
             - name: install playwright dependencies
@@ -221,7 +246,10 @@ jobs:
               if: always()
             - name: Display SeaweedFS log
               run: docker logs seaweedfs 2>&1 || true
-              if: failure()
+              if: always()
+            - name: Display editor-service log
+              run: docker logs editor-service 2>&1 || true
+              if: always()
             - name: Delete any test users created
               run: npx tsx ./bin/delete-clerk-test-users.ts
               if: always()

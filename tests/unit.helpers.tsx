@@ -286,6 +286,7 @@ export const insertTestStudyJobData = async ({
             researcherId: researcherId,
             piName: piName ?? 'test',
             status: studyStatus,
+            submittedAt: studyStatus === 'DRAFT' ? null : new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',

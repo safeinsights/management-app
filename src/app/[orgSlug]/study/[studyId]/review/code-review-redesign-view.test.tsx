@@ -60,7 +60,7 @@ describe('CodeReviewRedesignView', () => {
         renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
 
         expect(screen.getByText('STEP 3')).toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review study code', level: 4 })).toBeInTheDocument()
     })
 
     it('renders the study title in the section header', async () => {
@@ -73,7 +73,7 @@ describe('CodeReviewRedesignView', () => {
         renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
 
         const formatted = dayjs(jobCreatedAt).format('MMM DD, YYYY')
-        expect(screen.getByTestId('code-review-submitted-on')).toHaveTextContent(`Submitted on ${formatted}`)
+        expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Submitted on ${formatted}`)
     })
 
     it('renders the status banner with the submitting lab name in bold', async () => {

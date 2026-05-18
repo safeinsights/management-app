@@ -9,7 +9,7 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countWordsFromLexical } from '@/lib/word-count'
+import { countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
 
 const EDITOR_SKELETON = <Skeleton h={240} radius={4} />

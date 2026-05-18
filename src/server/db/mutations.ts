@@ -1,6 +1,6 @@
 import { Action } from '../actions/action'
 import type { DB } from '@/database/types'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -54,4 +54,14 @@ export async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
 /** Always creates a fresh job for IDE launch. Starter files should have their mtime backdated. */
 export async function resetBaselineJob(db: Kysely<DB>, studyId: string) {
     return createBaselineJob(db, studyId, new Date())
+}
+
+// Reviewer feedback shares the version of the proposal it reviews (increment=false)
+// Researcher resubmission opens a new version (increment=true)
+export function nextVersionForStudyComment({ studyId, increment }: { studyId: string; increment: boolean }) {
+    const current = sql<number>`coalesce((
+        select max(version) from study_proposal_comment
+        where study_id = ${studyId}
+    ), 1)`
+    return increment ? sql<number>`${current} + 1` : current
 }

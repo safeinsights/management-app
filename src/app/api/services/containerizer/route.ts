@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
+import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
@@ -36,6 +37,12 @@ export const POST = createWebhookHandler({
                 fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG',
                 job,
             })
+            const file = new File([body.plaintextLog], 'packaging-error-log.txt', { type: 'text/plain' })
+            await storeStudyLogFile(
+                { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                file,
+                'PACKAGING-ERROR-LOG',
+            )
         }
 
         const last = await db

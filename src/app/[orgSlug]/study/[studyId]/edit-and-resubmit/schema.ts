@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { countWords } from '@/lib/word-count'
+import { countWords } from '@/lib/lexical'
 
 export const RESUBMIT_NOTE_MIN_WORDS = 50
 export const RESUBMIT_NOTE_MAX_WORDS = 300

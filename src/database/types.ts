@@ -53,10 +53,13 @@ export type StudyJobFileType =
     | 'ENCRYPTED-RESULT'
     | 'ENCRYPTED-SECURITY-SCAN-LOG'
     | 'MAIN-CODE'
+    | 'PACKAGING-ERROR-LOG'
+    | 'SECURITY-SCAN-LOG'
     | 'SUPPLEMENTAL-CODE'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
+    | 'CODE-CHANGES-REQUESTED'
     | 'CODE-REJECTED'
     | 'CODE-SCANNED'
     | 'CODE-SUBMITTED'
@@ -73,6 +76,10 @@ export type StudyJobStatus =
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
 export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
+export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
+
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
@@ -252,6 +259,7 @@ export interface StudyProposalComment {
     entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
+    version: number
 }
 
 export interface StudyReview {
@@ -259,6 +267,19 @@ export interface StudyReview {
     id: Generated<string>
     report: Json
     studyJobId: string
+}
+
+export interface StudyReviewComment {
+    authorId: string
+    body: Json
+    createdAt: Generated<Timestamp>
+    criteria: Json | null
+    decision: ReviewDecision | null
+    entryType: StudyReviewCommentEntryType
+    id: Generated<string>
+    reviewKind: StudyReviewCommentKind
+    studyId: string
+    studyJobId: string | null
 }
 
 export interface User {
@@ -306,6 +327,7 @@ export interface DB {
     studyJobFile: StudyJobFile
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
+    studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
     yjsDocument: YjsDocument

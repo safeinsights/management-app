@@ -3,5 +3,6 @@
 // so IS_DEV becomes a literal constant at build time on the client.
 
 export const IS_DEV = process.env.NODE_ENV === 'development'
+export const IS_CI = process.env.NEXT_PUBLIC_CI === 'true'
 
-export const WS_URL = IS_DEV ? 'ws://localhost:4001' : '/ws'
+export const WS_URL = IS_DEV || IS_CI ? 'ws://localhost:4001' : '/ws'
