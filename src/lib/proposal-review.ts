@@ -1,16 +1,4 @@
-import type { ReviewDecision, StudyStatus } from '@/database/types'
-
-export type Decision = 'approve' | 'needs-clarification' | 'reject'
-
-const DECISION_TO_REVIEW: Record<Decision, ReviewDecision> = {
-    approve: 'APPROVE',
-    'needs-clarification': 'NEEDS-CLARIFICATION',
-    reject: 'REJECT',
-}
-
-export function toReviewDecision(decision: Decision): ReviewDecision {
-    return DECISION_TO_REVIEW[decision]
-}
+import type { StudyStatus } from '@/database/types'
 
 export const FEEDBACK_MIN_WORDS = 1
 export const FEEDBACK_MAX_WORDS = 500
