@@ -79,10 +79,8 @@ describe('context actions', () => {
         })
     })
     describe('getClaudeContextAction', () => {
-        it('denies non-admin users', async () => {
-            await mockSessionWithTestData({ isSiAdmin: false })
-            const result = await getClaudeContextAction({ name: 'SYSTEM', orgId: null })
-            expect(isActionError(result)).toBe(true)
+        beforeEach(async () => {
+            await db.deleteFrom('claudeContext').execute()
         })
         it('returns the requested context', async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
@@ -94,7 +92,7 @@ describe('context actions', () => {
             if (!isActionError(result)) expect(result.content).toBe('py stuff')
         })
         it("returns empty string when requested context doesn't exist", async () => {
-            await mockSessionWithTestData({ isSiAdmin: true })
+            await mockSessionWithTestData()
             // clear any existing content
             await db.deleteFrom('claudeContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
 

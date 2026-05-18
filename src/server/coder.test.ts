@@ -49,8 +49,6 @@ vi.mock('@/server/actions/claude-context.actions', () => ({
     getClaudeContextAction: vi.fn(),
 }))
 
-const getClaudeContextActionMock = getClaudeContextAction
-
 // Mock fetch globally
 global.fetch = vi.fn()
 
@@ -184,7 +182,7 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
-        getClaudeContextActionMock.mockResolvedValue({ content: 'test context' })
+        vi.mocked(getClaudeContextAction).mockResolvedValue({ content: 'test context' })
     })
 
     afterEach(() => {

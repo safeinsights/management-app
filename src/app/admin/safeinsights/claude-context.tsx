@@ -13,7 +13,7 @@ type ContextProps = { name: ContextName; orgId: string | null }
 function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
     const [content, setContent] = useState(initialContent)
     const [lastSavedContent, setLastSavedContent] = useState(initialContent)
-    const isDiff = content !== lastSavedContent // true if there's a diff,  false if the same as db
+    const isDiff = content !== lastSavedContent // true if there's a diff, false if the same as db
     const queryClient = useQueryClient()
 
     const { mutate: updateContext, isPending } = useMutation({
@@ -43,7 +43,7 @@ function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { i
                     description={CONTEXT_LABELS[name].description}
                     value={content}
                     onChange={(e) => setContent(e.currentTarget.value)}
-                ></Textarea>
+                />
                 <Group justify="flex-end">
                     <Button type="submit" loading={isPending} disabled={!isDiff}>
                         Submit
@@ -70,11 +70,7 @@ function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
             </Text>
         )
     }
-
-    if (!data) {
-        return <ClaudeContextEditor name={name} orgId={orgId} initialContent="" />
-    }
-    return <ClaudeContextEditor name={name} orgId={orgId} initialContent={data.content} />
+    return <ClaudeContextEditor name={name} orgId={orgId} initialContent={data ? data.content : ''} />
 }
 
 export function ClaudeContext() {
