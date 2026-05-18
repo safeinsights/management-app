@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { sql } from 'kysely'
 import { CONTEXT_NAMES } from '@/lib/claude-context'
 
-export const writeClaudeContextAction = new Action('writeClaudeContext', { performsMutations: true })
+export const writeClaudeContextAction = new Action('writeClaudeContextAction', { performsMutations: true })
     .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
     .handler(async ({ session, db, params: { name, content, orgId } }) => {
         if (!session?.user.isSiAdmin) {
@@ -32,7 +32,7 @@ export const writeClaudeContextAction = new Action('writeClaudeContext', { perfo
         return { success: true }
     })
 
-export const getClaudeContextAction = new Action('getClaudeContext')
+export const getClaudeContextAction = new Action('getClaudeContextAction')
     .params(
         z.object({
             name: z.enum(CONTEXT_NAMES),
