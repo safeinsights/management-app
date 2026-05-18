@@ -1,23 +1,48 @@
 import { lexicalJson } from '@/lib/lexical'
+import { Routes } from '@/lib/routes'
 import {
     getStudyAction,
     type CodeReviewFeedbackEntry,
     type ProposalFeedbackEntry,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
+import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import {
     actionResult,
+    db,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
     userEvent,
+    waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PostFeedbackView } from './post-feedback-view'
+
+vi.mock('@/server/storage', async () => {
+    const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
+    return {
+        ...actual,
+        fetchFileContents: vi.fn(async () => new Blob(['print("hello from main.R")\n'])),
+    }
+})
+
+// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
+// inspect the crumbs prop without depending on the DOM render. The arrow wrapper survives
+// vitest's per-test mockReset (which would otherwise wipe the impl on a bare vi.fn).
+const mockPageBreadcrumbs = vi.fn()
+vi.mock('@/components/page-breadcrumbs', () => ({
+    OrgBreadcrumbs: () => null,
+    ResearcherBreadcrumbs: () => null,
+    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
+        mockPageBreadcrumbs(props)
+        return null
+    },
+}))
 
 const ORG_SLUG = 'test-org'
 
@@ -91,7 +116,7 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
             expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
@@ -285,7 +310,7 @@ describe('PostFeedbackView', () => {
 
             const banner = screen.getByTestId('decision-banner-code-approved')
             expect(banner).toHaveTextContent(
-                'This study code has been approved. No further edits are allowed at this point.',
+                'This study code has been approved. You will be notified when the study results are available for review.',
             )
             expect(screen.queryByTestId('decision-banner-approved')).not.toBeInTheDocument()
         })
@@ -296,9 +321,30 @@ describe('PostFeedbackView', () => {
 
             const banner = screen.getByTestId('decision-banner-code-rejected')
             expect(banner).toHaveTextContent(
-                'This study code has been rejected. No further action is required at this time.',
+                'This study code was rejected and the study was ended. No further action is required at this time.',
             )
             expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
+        })
+
+        it('renders the change-requested banner with the right copy and yellow background', () => {
+            const entries = [buildCodeEntry({ decision: 'NEEDS-CLARIFICATION' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            const banner = screen.getByTestId('decision-banner-code-change-requested')
+            expect(banner).toHaveTextContent(
+                'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
+            )
+            // Proposal-only clarification banner must NOT appear under kind=CODE.
+            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
+        })
+
+        it('uses "Change requested on" timestamp prefix for NEEDS-CLARIFICATION', () => {
+            const entries = [
+                buildCodeEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
+            ]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 18, 2026')
         })
 
         it('uses "Review study code" crumb (not "Review initial request") for kind=CODE', () => {
@@ -309,15 +355,71 @@ describe('PostFeedbackView', () => {
             expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
         })
 
-        it('does not render proposal-only banners (clarification has no CODE copy)', () => {
-            // CODE_DECISION_COPY only maps APPROVE / REJECT; a NEEDS-CLARIFICATION entry
-            // can't arise for code review but renders nothing rather than crashing.
-            const entries = [buildCodeEntry({ decision: 'NEEDS-CLARIFICATION' })]
+        it('renders the "Study proposal" breadcrumb as a link to the proposal post-feedback page for kind=CODE', () => {
+            // PageBreadcrumbs is mocked to () => null in tests/vitest.setup.ts so we assert
+            // on the crumbs array passed to it instead of DOM-querying the link.
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-code-rejected')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
+            const expectedHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
+            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
+            expect(lastCall).toBeDefined()
+            const crumbs = lastCall![0].crumbs
+            expect(crumbs).toEqual([
+                ['Dashboard', expect.any(String)],
+                ['Study proposal', expectedHref],
+                ['Review study code'],
+            ])
+        })
+
+        it('renders the "Study proposal" breadcrumb as plain text (not a link) for kind=PROPOSAL', () => {
+            // The PROPOSAL crumb is linkless because it would otherwise be a self-link to
+            // the page the user is already on.
+            const entries = [buildEntry({ decision: 'APPROVE' })]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+
+            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
+            expect(lastCall).toBeDefined()
+            const crumbs = lastCall![0].crumbs
+            expect(crumbs).toEqual([['Dashboard', expect.any(String)], ['Study proposal'], ['Review initial request']])
+        })
+
+        it('renders the StudyCodeViewer collapsed by default when a job is provided', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
+            const { study: dbStudy, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('studyJobFile')
+                .values({
+                    studyJobId: job.id,
+                    name: 'main.R',
+                    path: `studies/${job.id}/main.R`,
+                    fileType: 'MAIN-CODE',
+                })
+                .execute()
+            const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
+            ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
+
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
+            renderWithProviders(
+                <PostFeedbackView orgSlug={ORG_SLUG} study={codeStudy} entries={entries} kind="CODE" job={latestJob} />,
+            )
+
+            // The viewer container is rendered, but the code body is hidden until the toggle is clicked.
+            expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
+            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
+            const toggle = screen.getByTestId('study-code-toggle')
+            expect(toggle).toHaveTextContent('View full study code')
+
+            const userClick = userEvent.setup()
+            await userClick.click(toggle)
+            await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
+            expect(toggle).toHaveTextContent('Hide full study code')
         })
     })
 })

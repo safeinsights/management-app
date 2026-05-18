@@ -82,11 +82,16 @@ describe('ProposalSection', () => {
         expect(screen.getByText(/Does the researcher have relevant expertise/)).toBeInTheDocument()
     })
 
-    it('shows the submitting lab name in the status banner', () => {
+    it('shows the submitting lab name in the status banner, not bold', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
-        expect(screen.getByTestId('status-banner')).toHaveTextContent(labName)
+        const banner = screen.getByTestId('status-banner')
+        expect(banner).toHaveTextContent(labName)
+
+        for (const strong of banner.querySelectorAll('strong')) {
+            expect(strong.textContent ?? '').not.toContain(labName)
+        }
     })
 
     it('is expanded by default showing the proposal body', () => {

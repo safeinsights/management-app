@@ -6,9 +6,9 @@ import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/code-viewer'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
-import type { StudyJobFileType } from '@/database/types'
+import type { CodeFile } from './study-code-files'
 
-export type CodeFile = { name: string; fileType: StudyJobFileType }
+export type { CodeFile } from './study-code-files'
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
@@ -77,9 +77,9 @@ export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
     )
 }
 
-function useStudyCodeViewer(files: CodeFile[]) {
+function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     const [activeFileName, setActiveFileName] = useState<string | null>(files[0]?.name ?? null)
-    const [isExpanded, setIsExpanded] = useState(true)
+    const [isExpanded, setIsExpanded] = useState(initialExpanded)
     const activeFile = files.find((f) => f.name === activeFileName) ?? files[0] ?? null
     return {
         activeFile,
@@ -113,16 +113,19 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
 }
 
 function FileTabsRow({
+    isVisible,
     visible,
     activeFileName,
     onSelect,
     hiddenCount,
 }: {
+    isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
     hiddenCount: number
 }) {
+    if (!isVisible) return null
     const tabs = visible.map((file) => (
         <FileTab
             key={file.name}
@@ -211,16 +214,17 @@ function StudyCodeToggle({
     )
 }
 
-type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[] }
+type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[]; initialExpanded?: boolean }
 
-export function StudyCodeViewer({ studyJobId, files }: StudyCodeViewerProps) {
-    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files)
+export function StudyCodeViewer({ studyJobId, files, initialExpanded = true }: StudyCodeViewerProps) {
+    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hiddenCount } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
     return (
         <Stack gap="sm" data-testid="study-code-viewer">
             <FileTabsRow
+                isVisible={isExpanded}
                 visible={visible}
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}

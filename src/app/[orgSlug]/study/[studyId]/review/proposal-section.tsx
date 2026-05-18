@@ -34,9 +34,8 @@ function StatusBanner({ labName }: { labName: string }) {
             criteriaTestId="evaluation-criteria"
             intro={
                 <>
-                    <strong>{labName}</strong> has submitted an initial request requesting permission to use your data.
-                    Please review it and share your feedback and decision. Consider evaluating the initial request on
-                    these criteria:
+                    {labName} has submitted an initial request requesting permission to use your data. Please review it
+                    and share your feedback and decision. Consider evaluating the initial request on these criteria:
                 </>
             }
             criteria={EVALUATION_CRITERIA}
