@@ -15,7 +15,7 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
-import type { Decision } from '@/lib/proposal-review'
+import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -81,9 +81,9 @@ function useCodeReview({
 
     const criteriaDraft = evaluationForm.getValues().criteria
     const criteriaComplete = allCriteriaAnswered(criteriaDraft)
-    const isDecisionTerminal = decision.selected !== null
+    const hasDecision = decision.selected !== null
 
-    const canSubmit = feedback.isValid && isDecisionTerminal && criteriaComplete
+    const canSubmit = feedback.isValid && hasDecision && criteriaComplete
     const backPath = Routes.orgDashboard({ orgSlug })
 
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
@@ -92,12 +92,8 @@ function useCodeReview({
         router.push(backPath)
     }
 
-    const handleDecisionChange = (next: Decision) => {
-        decision.onSelect(next)
-    }
-
     const handleSubmit = () => {
-        if (!isDecisionTerminal) return
+        if (!hasDecision) return
 
         if (decision.selected === 'reject') {
             openReject()
@@ -122,7 +118,6 @@ function useCodeReview({
         evaluationForm,
         canSubmit,
         handleBack,
-        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -226,9 +221,7 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
             <Text component="span" size="sm" c="grey.7">
                 Permanently end this study due to major, unresolvable issues. Share rationale with {labName}.
                 <br />
-                <Text component="span" size="sm" c="grey.7" fw={600}>
-                    Warning: This terminates the study and cannot be undone.
-                </Text>
+                <strong>Warning: This terminates the study and cannot be undone.</strong>
             </Text>
         ),
         testId: 'code-review-decision-reject',
@@ -364,7 +357,6 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         evaluationForm,
         canSubmit,
         handleBack,
-        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -377,7 +369,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
     if (!isCollaborationEnabled) return null
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName || 'the research lab'
 
     return (
         <StudyKickOutProvider
@@ -406,7 +398,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                     isPending={isPending}
                     onBack={handleBack}
                     onSubmit={handleSubmit}
-                    onDecisionChange={handleDecisionChange}
+                    onDecisionChange={decision.onSelect}
                 />
                 <NonEditableBody isVisible={!initiallyEditable} job={job} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>
