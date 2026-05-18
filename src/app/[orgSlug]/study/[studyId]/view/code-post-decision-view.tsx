@@ -15,6 +15,7 @@ import {
 import { filterAndOrderCodeFiles, type CodeFile } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
+import { requireTitle } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from './code-decision-status'
@@ -148,7 +149,7 @@ function StepCard({ study, job, copy, timestampDate, codeFiles, banner }: StepCa
         <ProposalStepHeader
             stepLabel="STEP 4"
             heading="Study code"
-            studyTitle={study.title}
+            studyTitle={requireTitle(study)}
             timestampLabel={copy.timestampLabel}
             timestampDate={timestampDate}
             banner={banner}

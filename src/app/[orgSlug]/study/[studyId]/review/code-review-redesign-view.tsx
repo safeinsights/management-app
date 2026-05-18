@@ -3,6 +3,7 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
+import { requireTitle } from '@/schema/study'
 import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -44,7 +45,7 @@ function CodeReviewSection({ study, submittedAt }: CodeReviewSectionProps) {
         <ProposalStepHeader
             stepLabel="STEP 3"
             heading="Review study code"
-            studyTitle={study.title}
+            studyTitle={requireTitle(study)}
             timestampDate={submittedAt}
             banner={<CodeReviewStatusBanner labName={labName} />}
         />

@@ -8,7 +8,7 @@ interface ProposalHeaderProps {
     orgSlug: string
     title: string
     studyId?: string
-    studyTitle?: string
+    studyTitle?: string | null
 }
 
 export const ProposalHeader: FC<ProposalHeaderProps> = ({ orgSlug, title, studyId, studyTitle }) => {
@@ -23,7 +23,7 @@ export const ProposalHeader: FC<ProposalHeaderProps> = ({ orgSlug, title, studyI
 interface StudyRequestPageHeaderProps {
     orgSlug: string
     studyId?: string
-    studyTitle?: string
+    studyTitle?: string | null
 }
 
 export const StudyRequestPageHeader: FC<StudyRequestPageHeaderProps> = ({ orgSlug, studyId, studyTitle }) => {

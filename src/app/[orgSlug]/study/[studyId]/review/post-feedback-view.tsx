@@ -6,6 +6,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
+import { requireTitle } from '@/schema/study'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -145,7 +146,7 @@ function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestam
         <ProposalStepHeader
             stepLabel={kindCopy.stepLabel}
             heading={kindCopy.heading}
-            studyTitle={study.title}
+            studyTitle={requireTitle(study)}
             timestampDate={timestampDate}
             timestampLabel={timestampLabel}
             banner={banner}

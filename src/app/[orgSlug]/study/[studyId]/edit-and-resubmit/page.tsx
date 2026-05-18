@@ -40,7 +40,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 <EditResubmitProvider
                     studyId={studyId}
                     draftData={{
-                        title: study.title,
+                        title: study.title ?? '',
                         piName: study.piName,
                         piUserId: study.piUserId ?? undefined,
                         datasets: study.datasets ?? undefined,

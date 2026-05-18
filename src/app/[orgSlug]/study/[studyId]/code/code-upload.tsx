@@ -10,7 +10,7 @@ import { Routes } from '@/lib/routes'
 interface CodeUploadPageProps {
     orgSlug: string
     studyId: string
-    studyTitle: string
+    studyTitle: string | null
     previousHref: Route
 }
 
