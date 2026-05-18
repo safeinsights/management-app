@@ -17,20 +17,23 @@ export function FilePreviewModal({
 }) {
     if (!file) return null
     const isLoading = file.contents === null
+    const title = (
+        <Group gap="md" align="baseline">
+            <span>{file.name}</span>
+            {!isLoading && (
+                <DownloadBlobLink filename={file.name} fileContent={file.contents ?? ''} size="sm" fw={400} />
+            )}
+        </Group>
+    )
     return (
-        <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
-            <Stack gap={0}>
-                <Group justify="flex-end" px="md" py="xs">
-                    {!isLoading && <DownloadBlobLink filename={file.name} fileContent={file.contents ?? ''} />}
-                </Group>
-                {isLoading ? (
-                    <Center h={500} data-testid="file-preview-loading">
-                        <Loader />
-                    </Center>
-                ) : (
-                    <CodeViewer code={file.contents ?? ''} language={highlightLanguageForFile(file.name)} />
-                )}
-            </Stack>
+        <AppModal isOpen onClose={onClose} title={title} size="xl" styles={{ body: { padding: 0 } }}>
+            {isLoading ? (
+                <Center h={500} data-testid="file-preview-loading">
+                    <Loader />
+                </Center>
+            ) : (
+                <CodeViewer code={file.contents ?? ''} language={highlightLanguageForFile(file.name)} />
+            )}
         </AppModal>
     )
 }
