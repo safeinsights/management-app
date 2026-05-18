@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC, type ReactNode } from 'react'
-import { Alert, Box, Button, Group, Radio, Stack, Text } from '@mantine/core'
+import { Alert, Box, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -184,92 +184,6 @@ const REJECT_MODAL_BODY = (
     </>
 )
 
-type DecisionOption = {
-    value: Decision
-    title: string
-    description: ReactNode
-    testId: string
-}
-
-const buildDecisionOptions = (labName: string): DecisionOption[] => [
-    {
-        value: 'approve',
-        title: 'Approve and run code',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                The code will proceed to run in your secure enclave. {labName} will be notified via email when the code
-                is approved and is being run.
-            </Text>
-        ),
-        testId: 'code-review-decision-approve',
-    },
-    {
-        value: 'needs-clarification',
-        title: 'Request revision',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                Return this code submission to {labName} for necessary updates, additional information, or specific
-                changes.
-            </Text>
-        ),
-        testId: 'code-review-decision-needs-clarification',
-    },
-    {
-        value: 'reject',
-        title: 'Reject and end study',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                Permanently end this study due to major, unresolvable issues. Share rationale with {labName}.
-                <br />
-                <Text component="span" size="sm" c="grey.7" fw={600}>
-                    Warning: This terminates the study and cannot be undone.
-                </Text>
-            </Text>
-        ),
-        testId: 'code-review-decision-reject',
-    },
-]
-
-const RADIO_STYLES = {
-    label: { fontWeight: 600, fontSize: 16 },
-    description: { fontSize: 14 },
-}
-
-type DecisionRadioProps = {
-    value: Decision | null
-    onChange: (value: Decision) => void
-    labName: string
-}
-
-const DecisionRadio: FC<DecisionRadioProps> = ({ value, onChange, labName }) => {
-    const options = buildDecisionOptions(labName)
-    const handleChange = (next: string) => onChange(next as Decision)
-
-    const radioOptions = options.map((option) => (
-        <Radio
-            key={option.value}
-            value={option.value}
-            label={option.title}
-            description={option.description}
-            styles={RADIO_STYLES}
-            data-testid={option.testId}
-        />
-    ))
-
-    return (
-        <Stack gap="sm">
-            <Text fz={20} fw={700} c="charcoal.9">
-                Decision
-            </Text>
-            <Radio.Group value={value ?? ''} onChange={handleChange} name="code-review-decision">
-                <Stack gap="md" mt="xs">
-                    {radioOptions}
-                </Stack>
-            </Radio.Group>
-        </Stack>
-    )
-}
-
 type EditableBodyProps = {
     isVisible: boolean
     feedback: ReturnType<typeof useReviewFeedback>
@@ -304,10 +218,14 @@ function EditableBody({
                 <StudyCodeDetails job={job} />
             </Box>
             <CodeEvaluationSection form={evaluationForm} enabled />
-            <CodeReviewFeedbackSection feedback={feedback} studyId={job.studyId} jobId={job.id} />
-            <Box bg="white" p="xxl">
-                <DecisionRadio value={decision.selected} onChange={onDecisionChange} labName={labName} />
-            </Box>
+            <CodeReviewFeedbackSection
+                feedback={feedback}
+                studyId={job.studyId}
+                jobId={job.id}
+                decisionValue={decision.selected}
+                onDecisionChange={onDecisionChange}
+                labName={labName}
+            />
             <Group justify="space-between">
                 <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
                     Back

@@ -450,6 +450,8 @@ export function CollaborativeEditor({
                                         top: 0,
                                         left: 0,
                                         padding: contentStyle?.padding,
+                                        fontSize: contentStyle?.fontSize,
+                                        lineHeight: contentStyle?.lineHeight,
                                         pointerEvents: 'none',
                                     }}
                                 >
