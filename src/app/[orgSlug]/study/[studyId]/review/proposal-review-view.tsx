@@ -223,7 +223,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                     Review initial request
                 </Title>
 
-                <ProposalSection study={study} orgSlug={orgSlug} />
+                <ProposalSection study={study} orgSlug={orgSlug} priorEntries={priorEntries} />
                 <FeedbackAndNotesSection entries={priorEntries} />
                 <ReviewFeedbackSection
                     feedback={feedback}

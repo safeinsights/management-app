@@ -1,5 +1,5 @@
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
     fireEvent,
@@ -69,6 +69,17 @@ describe('ProposalSection', () => {
         expect(screen.getByText('Researcher')).toBeInTheDocument()
     })
 
+    it('shows resubmission copy and versioned heading when prior entries indicate a resubmission', () => {
+        const priorEntries = [{ version: 2 }] as ProposalFeedbackEntry[]
+
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" priorEntries={priorEntries} />)
+
+        expect(screen.getByRole('heading', { name: 'Review initial request v2.0' })).toBeInTheDocument()
+        expect(screen.getByTestId('status-banner')).toHaveTextContent(
+            'has resubmitted a revised initial request requesting permission to use your data',
+        )
+    })
+
     it('renders the status banner with evaluation criteria', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
@@ -94,12 +105,21 @@ describe('ProposalSection', () => {
         }
     })
 
-    it('is expanded by default showing the proposal body', () => {
+    it('is expanded by default on first submission', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByTestId('proposal-body')).toBeInTheDocument()
         expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
         expect(screen.getByTestId('proposal-toggle-body')).toHaveTextContent('Hide full initial request')
+    })
+
+    it('is collapsed by default on resubmission', () => {
+        const priorEntries = [{ version: 2 }] as ProposalFeedbackEntry[]
+
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" priorEntries={priorEntries} />)
+
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-body')).not.toBeVisible()
     })
 
     it('collapses the proposal body when the header toggle is clicked', () => {
