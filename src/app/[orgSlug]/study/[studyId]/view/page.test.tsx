@@ -14,6 +14,7 @@ import { db } from '@/database'
 import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
 import StudyReviewPage from './page'
 import { CodeOnlyView } from './code-only-view'
+import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 
@@ -281,6 +282,90 @@ describe('StudyViewPage', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: 'CODE-SUBMITTED',
             })
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            expect(page?.type).toBe(CodeOnlyView)
+        })
+    })
+
+    describe('post-code-decision flag swap (OTTER-556)', () => {
+        const seedCodeReviewComment = async (
+            studyId: string,
+            authorId: string,
+            decision: 'APPROVE' | 'REJECT' | 'NEEDS-CLARIFICATION',
+        ) => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', studyId)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId,
+                    studyJobId: job.id,
+                    authorId,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision,
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute()
+        }
+
+        const addJobStatus = async (
+            studyId: string,
+            status: 'CODE-APPROVED' | 'CODE-CHANGES-REQUESTED' | 'CODE-REJECTED',
+        ) => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', studyId)
+                .executeTakeFirstOrThrow()
+            await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
+        }
+
+        it.each([
+            ['CODE-APPROVED', 'APPROVE'],
+            ['CODE-CHANGES-REQUESTED', 'NEEDS-CLARIFICATION'],
+            ['CODE-REJECTED', 'REJECT'],
+        ] as const)(
+            'wraps CodePostDecisionView in PostCodeSubmissionFeatureFlag when latest status is %s and review feedback exists',
+            async (jobStatus, decision) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+                const { study } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: jobStatus === 'CODE-APPROVED' ? 'APPROVED' : 'PENDING-REVIEW',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await addJobStatus(study.id, jobStatus)
+                await seedCodeReviewComment(study.id, user.id, decision)
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: defaultSearchParams,
+                })
+
+                expect(page?.type).toBe(PostCodeSubmissionFeatureFlag)
+                expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
+                expect(page?.props.optInContent.type).toBe(CodePostDecisionView)
+            },
+        )
+
+        it('falls back to CodeOnlyView when latest status is a decision but no review feedback exists', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),

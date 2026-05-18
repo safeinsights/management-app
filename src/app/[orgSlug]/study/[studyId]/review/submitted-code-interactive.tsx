@@ -6,9 +6,9 @@ import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/code-viewer'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
-import type { StudyJobFileType } from '@/database/types'
+import type { CodeFile } from './study-code-files'
 
-export type CodeFile = { name: string; fileType: StudyJobFileType }
+export type { CodeFile } from './study-code-files'
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
@@ -194,17 +194,26 @@ function StudyCodeBody({
     )
 }
 
+export type StudyCodeToggleLabels = { expand: string; collapse: string }
+
+export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View full study code',
+    collapse: 'Hide full study code',
+}
+
 function StudyCodeToggle({
     isVisible,
     isExpanded,
     onClick,
+    labels,
 }: {
     isVisible: boolean
     isExpanded: boolean
     onClick: () => void
+    labels: StudyCodeToggleLabels
 }) {
     if (!isVisible) return null
-    const label = isExpanded ? 'Hide full study code' : 'View full study code'
+    const label = isExpanded ? labels.collapse : labels.expand
     return (
         <UnstyledButton onClick={onClick} data-testid="study-code-toggle">
             <Text size="sm" c="blue.6" td="underline">
@@ -214,9 +223,19 @@ function StudyCodeToggle({
     )
 }
 
-type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[]; initialExpanded?: boolean }
+type StudyCodeViewerProps = {
+    studyJobId: string
+    files: CodeFile[]
+    initialExpanded?: boolean
+    toggleLabels?: StudyCodeToggleLabels
+}
 
-export function StudyCodeViewer({ studyJobId, files, initialExpanded = true }: StudyCodeViewerProps) {
+export function StudyCodeViewer({
+    studyJobId,
+    files,
+    initialExpanded = true,
+    toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+}: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hiddenCount } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
@@ -231,7 +250,12 @@ export function StudyCodeViewer({ studyJobId, files, initialExpanded = true }: S
                 hiddenCount={hiddenCount}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
-            <StudyCodeToggle isVisible={hasFiles} isExpanded={isExpanded} onClick={toggleExpanded} />
+            <StudyCodeToggle
+                isVisible={hasFiles}
+                isExpanded={isExpanded}
+                onClick={toggleExpanded}
+                labels={toggleLabels}
+            />
         </Stack>
     )
 }

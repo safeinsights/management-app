@@ -1,7 +1,7 @@
 'use client'
 
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import type { ReviewDecision, StudyJobFileType } from '@/database/types'
+import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
@@ -11,7 +11,8 @@ import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { StudyCodeViewer, type CodeFile } from './submitted-code-interactive'
+import { StudyCodeViewer } from './submitted-code-interactive'
+import { filterAndOrderCodeFiles } from './study-code-files'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -104,17 +105,6 @@ const COPY_BY_KIND: Record<PostFeedbackKind, KindCopy> = {
     },
 }
 
-const CODE_FILE_TYPES: StudyJobFileType[] = ['MAIN-CODE', 'SUPPLEMENTAL-CODE']
-
-function filterAndOrderCodeFiles(files: LatestJobForStudy['files']): CodeFile[] {
-    const codeFiles = files.filter((f) => CODE_FILE_TYPES.includes(f.fileType))
-    const main = codeFiles.filter((f) => f.fileType === 'MAIN-CODE')
-    const supplemental = codeFiles
-        .filter((f) => f.fileType === 'SUPPLEMENTAL-CODE')
-        .sort((a, b) => a.name.localeCompare(b.name))
-    return [...main, ...supplemental].map((f) => ({ name: f.name, fileType: f.fileType }))
-}
-
 function DecisionBanner({ decision, kind }: { decision: ReviewDecision; kind: PostFeedbackKind }) {
     const copy = COPY_BY_KIND[kind].decisionCopy[decision]
     if (!copy) return null
@@ -138,74 +128,52 @@ function GoToDashboardButton() {
     )
 }
 
-type CodePostFeedbackCardProps = {
+type CodeSectionProps = {
+    isVisible: boolean
     study: SelectedStudy
     job: LatestJobForStudy | null
-    stepLabel: string
-    heading: string
+    kindCopy: KindCopy
     timestampLabel: string
     timestampDate: Date
     banner: ReactNode
 }
 
-function CodeViewer({ job }: { job: LatestJobForStudy | null }) {
-    if (!job) return null
-    const codeFiles = filterAndOrderCodeFiles(job.files)
-    return <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={false} />
-}
-
-function CodePostFeedbackCard({
-    study,
-    job,
-    stepLabel,
-    heading,
-    timestampLabel,
-    timestampDate,
-    banner,
-}: CodePostFeedbackCardProps) {
+function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestampDate, banner }: CodeSectionProps) {
+    if (!isVisible) return null
+    const codeFiles = job ? filterAndOrderCodeFiles(job.files) : []
     return (
         <ProposalStepHeader
-            stepLabel={stepLabel}
-            heading={heading}
+            stepLabel={kindCopy.stepLabel}
+            heading={kindCopy.heading}
             studyTitle={study.title}
             timestampDate={timestampDate}
             timestampLabel={timestampLabel}
             banner={banner}
         >
-            <CodeViewer job={job} />
+            {job && <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={false} />}
         </ProposalStepHeader>
     )
 }
 
-type SectionProps = {
+type ProposalSectionProps = {
     isVisible: boolean
     study: SelectedStudy
-    job: LatestJobForStudy | null
     orgSlug: string
     kindCopy: KindCopy
-    kind: PostFeedbackKind
-    entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
+    entries: ProposalFeedbackEntry[]
     timestampLabel: string
-    timestampDate: Date
     banner: ReactNode
 }
 
-function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestampDate, banner }: SectionProps) {
-    if (!isVisible) return null
-    return (
-        <CodePostFeedbackCard
-            study={study}
-            job={job}
-            stepLabel={kindCopy.stepLabel}
-            heading={kindCopy.heading}
-            timestampLabel={timestampLabel}
-            timestampDate={timestampDate}
-            banner={banner}
-        />
-    )
-}
-
-function ProposalSection({ isVisible, study, orgSlug, kindCopy, kind, entries, timestampLabel, banner }: SectionProps) {
+function ProposalSection({
+    isVisible,
+    study,
+    orgSlug,
+    kindCopy,
+    entries,
+    timestampLabel,
+    banner,
+}: ProposalSectionProps) {
     if (!isVisible) return null
     return (
         <ProposalRequest
@@ -214,7 +182,7 @@ function ProposalSection({ isVisible, study, orgSlug, kindCopy, kind, entries, t
             stepLabel={kindCopy.stepLabel}
             heading={kindCopy.heading}
             statusBadge={timestampLabel}
-            entries={kind === 'PROPOSAL' ? (entries as ProposalFeedbackEntry[]) : []}
+            entries={entries}
             banner={banner}
             initialExpanded={false}
         />
@@ -251,19 +219,7 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', j
     const timestampLabel = decisionCopy?.timestampLabel ?? PROPOSAL_DECISION_COPY[decision].timestampLabel
     const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
-    const showCodeCard = kind === 'CODE'
-    const sectionProps: SectionProps = {
-        isVisible: false,
-        study,
-        job,
-        orgSlug,
-        kindCopy,
-        kind,
-        entries,
-        timestampLabel,
-        timestampDate: latest.createdAt,
-        banner,
-    }
+    const isCode = kind === 'CODE'
 
     return (
         <Box bg="grey.10">
@@ -272,8 +228,24 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', j
                 <Title order={1} fz={40} fw={700}>
                     Study proposal
                 </Title>
-                <CodeSection {...sectionProps} isVisible={showCodeCard} />
-                <ProposalSection {...sectionProps} isVisible={!showCodeCard} />
+                <CodeSection
+                    isVisible={isCode}
+                    study={study}
+                    job={job}
+                    kindCopy={kindCopy}
+                    timestampLabel={timestampLabel}
+                    timestampDate={latest.createdAt}
+                    banner={banner}
+                />
+                <ProposalSection
+                    isVisible={!isCode}
+                    study={study}
+                    orgSlug={orgSlug}
+                    kindCopy={kindCopy}
+                    entries={isCode ? [] : (entries as ProposalFeedbackEntry[])}
+                    timestampLabel={timestampLabel}
+                    banner={banner}
+                />
                 <FeedbackAndNotesSection entries={entries} />
                 <Group justify="flex-end">
                     <GoToDashboardButton />
