@@ -7,15 +7,28 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import type { StudyJobStatus } from '@/database/types'
-import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
 const isUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && CODE_UNDER_REVIEW_STATUSES.includes(status)
+
+// OTTER-538: job statuses for the RL Study Details page — "results under review",
+// "results ready", and "results rejected".
+const STUDY_DETAILS_JOB_STATUSES: readonly StudyJobStatus[] = [
+    'RUN-COMPLETE',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+    'JOB-ERRORED',
+]
+
+const isStudyDetailsStatus = (status: StudyJobStatus | undefined): boolean =>
+    !!status && STUDY_DETAILS_JOB_STATUSES.includes(status)
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -53,6 +66,27 @@ export default async function StudyReviewPage(props: {
                             study={study}
                             job={job}
                             reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                        />
+                    }
+                />
+            )
+        }
+        // OTTER-538: once results exist, swap the legacy CodeOnlyView for the
+        // redesigned Study Details page (no code section, results-only) when the
+        // feature flag is on. Only flag-wrap during the results stage; other
+        // job-status branches keep the existing CodeOnlyView.
+        if (isStudyDetailsStatus(latestJobStatus)) {
+            return (
+                <StudyDetailsRedesignFeatureFlag
+                    defaultContent={
+                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+                    }
+                    optInContent={
+                        <StudyDetailsRedesignView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
                             dashboardHref={dashboardHref}
                         />
                     }
