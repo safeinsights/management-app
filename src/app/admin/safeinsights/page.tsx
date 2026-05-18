@@ -17,10 +17,10 @@ export default async function OrgsAdministration() {
         CONTEXT_NAMES.map((name) => {
             return queryClient.prefetchQuery({
                 queryKey: ['claudeContext', name, null],
-                queryFn: () => getClaudeContextAction({name: name, orgId: null}),
-                retry: false
+                queryFn: () => getClaudeContextAction({ name: name, orgId: null }),
+                retry: false,
             })
-        })
+        }),
     )
 
     return (

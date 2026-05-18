@@ -46,7 +46,7 @@ describe('ClaudeContext', () => {
         await waitFor(async () => {
             const row = await db
                 .selectFrom('claudeContext')
-                .selectAll()
+                .select(['name', 'content'])
                 .where('name', '=', 'SYSTEM')
                 .executeTakeFirst()
             expect(row?.content).toBe('fresh content')

@@ -242,7 +242,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     let combinedContextString = ''
     for (const contextName of workspaceContexts) {
-        const response = await getClaudeContextAction({name: contextName, orgId: null})
+        const response = await getClaudeContextAction({ name: contextName, orgId: null })
         if (isActionError(response)) {
             throw new Error(errorToString(response))
         }

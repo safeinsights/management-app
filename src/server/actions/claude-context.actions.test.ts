@@ -1,24 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, beforeEach } from 'vitest'
 import { db, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { writeClaudeContextAction, getClaudeContextAction } from './claude-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
 
 describe('context actions', () => {
     describe('writeClaudeContextAction', () => {
+        beforeEach(async () => {
+            await db.deleteFrom('claudeContext').execute()
+        })
         it('denies non-siAdmin users', async () => {
             await mockSessionWithTestData({ isSiAdmin: false })
             const result = await writeClaudeContextAction({
                 name: 'SYSTEM',
                 orgId: null,
-                content: "error content"
+                content: 'error content',
             })
             expect(isActionError(result)).toBe(true)
             const row = await db
                 .selectFrom('claudeContext')
-                .selectAll()
+                .select(['name', 'orgId', 'content'])
                 .where('name', '=', 'SYSTEM')
                 .executeTakeFirst()
-            expect(row).toBeUndefined
+            expect(row).toBeUndefined()
         })
 
         it('writes a new piece of context when user is admin', async () => {
@@ -26,12 +29,12 @@ describe('context actions', () => {
             const result = await writeClaudeContextAction({
                 name: 'SYSTEM',
                 content: 'system context',
-                orgId: null
+                orgId: null,
             })
             expect(isActionError(result)).toBe(false)
             const row = await db
                 .selectFrom('claudeContext')
-                .selectAll()
+                .select(['name', 'orgId', 'content', 'updatedBy'])
                 .where('name', '=', 'SYSTEM')
                 .where('orgId', 'is', null)
                 .executeTakeFirstOrThrow()
@@ -44,24 +47,23 @@ describe('context actions', () => {
             await writeClaudeContextAction({
                 name: 'PYTHON',
                 content: 'starter python context',
-                orgId: null
+                orgId: null,
             })
             const result = await writeClaudeContextAction({
                 name: 'PYTHON',
-                content: 'new context that\'s new',
-                orgId: null
+                content: "new context that's new",
+                orgId: null,
             })
             expect(isActionError(result)).toBe(false)
             const rows = await db
                 .selectFrom('claudeContext')
-                .selectAll()
+                .select(['name', 'orgId', 'content', 'updatedBy'])
                 .where('name', '=', 'PYTHON')
                 .where('orgId', 'is', null)
                 .execute()
             expect(rows).toHaveLength(1)
-            expect(rows[0].content).toBe('new context that\'s new')
+            expect(rows[0].content).toBe("new context that's new")
             expect(rows[0].updatedBy).toBe(user.id)
-
         })
 
         it('rejects unknown context names', async () => {
@@ -70,7 +72,7 @@ describe('context actions', () => {
                 // @ts-expect-error testing runtime validation
                 name: 'BUSINESS',
                 content: 'nope',
-                orgId: null
+                orgId: null,
             })
             expect(isActionError(result)).toBe(true)
             expect(errorToString(result)).toMatch('Validation')
@@ -91,14 +93,10 @@ describe('context actions', () => {
             expect(isActionError(result)).toBe(false)
             if (!isActionError(result)) expect(result.content).toBe('py stuff')
         })
-        it('returns empty string when requested context doesn\'t exist', async () => {
+        it("returns empty string when requested context doesn't exist", async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
             // clear any existing content
-            await db
-                .deleteFrom('claudeContext')
-                .where('name', '=', 'PYTHON')
-                .where('orgId', 'is', null)
-                .execute()
+            await db.deleteFrom('claudeContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
 
             const result = await getClaudeContextAction({ name: 'PYTHON', orgId: null })
             expect(isActionError(result)).toBe(false)
