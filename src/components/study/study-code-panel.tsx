@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
-import { Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Center, Group, Loader, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { CodeViewer } from '@/components/code-viewer'
 import { AppModal } from '@/components/modal'
-import { useCodeDownloadFeatureFlag } from '@/components/openstax-feature-flag'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
@@ -13,20 +12,24 @@ export function FilePreviewModal({
     file,
     onClose,
 }: {
-    file: { name: string; contents: string } | null
+    file: { name: string; contents: string | null } | null
     onClose: () => void
 }) {
-    const canDownloadCode = useCodeDownloadFeatureFlag()
     if (!file) return null
+    const isLoading = file.contents === null
     return (
         <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
             <Stack gap={0}>
-                {canDownloadCode && (
-                    <Group justify="flex-end" px="md" py="xs">
-                        <DownloadBlobLink filename={file.name} fileContent={file.contents} />
-                    </Group>
+                <Group justify="flex-end" px="md" py="xs">
+                    {!isLoading && <DownloadBlobLink filename={file.name} fileContent={file.contents ?? ''} />}
+                </Group>
+                {isLoading ? (
+                    <Center h={500} data-testid="file-preview-loading">
+                        <Loader />
+                    </Center>
+                ) : (
+                    <CodeViewer code={file.contents ?? ''} language={highlightLanguageForFile(file.name)} />
                 )}
-                <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
             </Stack>
         </AppModal>
     )

@@ -69,6 +69,4 @@ export {
     // OTTER-537: post-code-submission page
     useOpenStaxFeatureFlag as usePostCodeSubmissionFeatureFlag,
     OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
-    // OTTER-541: RL Code download in view code modal
-    useOpenStaxFeatureFlag as useCodeDownloadFeatureFlag,
 }
