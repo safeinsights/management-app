@@ -49,9 +49,9 @@ function FeedbackIntro({ labName }: { labName: string }) {
         <Text fz={16} c="charcoal.9">
             Share your feedback on this code submission with {labName}. Your comments should address the code&rsquo;s
             alignment with the approved study proposal/initial request and all the agreements, whether the security log
-            surfaced issues, and whether the analysis code risks exposing PII. You can also request clarifications
-            about the researchers&rsquo; approach and flag potential risks or misconceptions about your dataset(s)
-            before the code is approved to run.
+            surfaced issues, and whether the analysis code risks exposing PII. You can also request clarifications about
+            the researchers&rsquo; approach and flag potential risks or misconceptions about your dataset(s) before the
+            code is approved to run.
         </Text>
     )
 }
