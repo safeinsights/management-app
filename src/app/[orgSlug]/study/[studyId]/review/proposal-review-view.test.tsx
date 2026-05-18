@@ -12,7 +12,7 @@ import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ProposalReviewView } from './proposal-review-view'
+import { ProposalReviewView, REJECTION_WARNING, ReviewConfirmationModal } from './proposal-review-view'
 
 describe('ProposalReviewView', () => {
     let study: SelectedStudy
@@ -134,6 +134,54 @@ describe('ProposalReviewView', () => {
             expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
             // Round-aware heading on the editable section
             expect(screen.getByText('Round 2 review')).toBeInTheDocument()
+        })
+    })
+
+    describe('ReviewConfirmationModal copy', () => {
+        it('renders the reject modal with the new title and both paragraphs', () => {
+            renderWithProviders(
+                <ReviewConfirmationModal
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                    title="Reject initial request"
+                    confirmLabel="Reject initial request"
+                    variant="destructive"
+                    warning={REJECTION_WARNING}
+                />,
+            )
+
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Reject initial request')
+            expect(dialog).toHaveTextContent(
+                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+            )
+            expect(dialog).toHaveTextContent(
+                'Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This action cannot be undone.',
+            )
+            expect(dialog.textContent ?? '').not.toContain('Other teammates')
+        })
+
+        it('renders the approve/needs-clarification modal with the shared body and no rejection warning', () => {
+            renderWithProviders(
+                <ReviewConfirmationModal
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                    title="Confirm review submission?"
+                    confirmLabel="Yes, submit review"
+                />,
+            )
+
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Confirm review submission?')
+            expect(dialog).toHaveTextContent(
+                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+            )
+            expect(dialog.textContent ?? '').not.toContain('Rejection:')
+            expect(dialog.textContent ?? '').not.toContain('Other teammates')
         })
     })
 

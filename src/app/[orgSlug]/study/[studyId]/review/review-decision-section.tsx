@@ -1,7 +1,7 @@
 import { Paper, Radio, Stack, Text } from '@mantine/core'
 import type { ReactNode } from 'react'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
-import type { Decision } from '@/lib/proposal-review'
+import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import type { DecisionOption, StudyForReview } from './review-types'
 import { DECISION_OPTIONS } from './review-types'

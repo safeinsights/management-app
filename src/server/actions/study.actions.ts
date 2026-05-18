@@ -6,7 +6,8 @@ import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS, toReviewDecision, type Decision } from '@/lib/proposal-review'
+import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
@@ -566,9 +567,12 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         const userId = session.user.id
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
 
-        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount < FEEDBACK_MIN_WORDS) {
+            throw new ActionFailure({ feedback: 'Feedback is required' })
+        }
+        if (wordCount > FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 
@@ -715,9 +719,12 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         const userId = session.user.id
 
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount < FEEDBACK_MIN_WORDS) {
+            throw new ActionFailure({ feedback: 'Feedback is required' })
+        }
+        if (wordCount > FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 

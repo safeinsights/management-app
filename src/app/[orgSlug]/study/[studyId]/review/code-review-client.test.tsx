@@ -18,11 +18,13 @@ import { CodeReviewClient } from './code-review-client'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 
+const featureFlagState = vi.hoisted(() => ({ enabled: false }))
+
 vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
     return {
         ...actual,
-        useCodeReviewCollaborationFeatureFlag: () => true,
+        useCodeReviewCollaborationFeatureFlag: () => featureFlagState.enabled,
     }
 })
 
@@ -65,6 +67,7 @@ describe('CodeReviewClient decision selector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         submitReview.mockReset()
+        featureFlagState.enabled = true
         mockUseCodeReviewMutation.mockReturnValue({
             submitReview,
             isPending: false,
@@ -79,6 +82,15 @@ describe('CodeReviewClient decision selector', () => {
             maxWords: 500,
             isValid: true,
         })
+    })
+
+    it('renders nothing when the collaboration feature flag is off', async () => {
+        featureFlagState.enabled = false
+        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { container } = renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+        )
+        expect(container.querySelector('[data-testid="code-review-submit"]')).toBeNull()
     })
 
     it('renders all three decision options with their titles and descriptions', async () => {

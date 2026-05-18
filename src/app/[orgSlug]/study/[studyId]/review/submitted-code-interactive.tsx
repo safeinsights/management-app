@@ -8,6 +8,8 @@ import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { CodeFile } from './study-code-files'
 
+export type { CodeFile } from './study-code-files'
+
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4

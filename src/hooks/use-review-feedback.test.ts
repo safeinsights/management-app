@@ -35,14 +35,14 @@ describe('useReviewFeedback', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
-                result.current.onChange(lexicalJson(repeatWords(FEEDBACK_MIN_WORDS - 1)))
+                result.current.onChange(lexicalJson(''))
             })
 
-            expect(result.current.wordCount).toBe(FEEDBACK_MIN_WORDS - 1)
+            expect(result.current.wordCount).toBe(0)
             expect(result.current.isValid).toBe(false)
         })
 
-        it('is true at exactly the minimum word count (50)', () => {
+        it('is true at exactly the minimum word count', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
