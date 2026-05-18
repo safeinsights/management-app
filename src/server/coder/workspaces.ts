@@ -18,7 +18,7 @@ import { fetchLatestCodeEnvForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { getClaudeContextAction } from '../actions/claude-context.actions'
+import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
 import { ContextName } from '@/lib/claude-context'
 
