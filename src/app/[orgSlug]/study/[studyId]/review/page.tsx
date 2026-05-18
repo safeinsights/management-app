@@ -71,7 +71,7 @@ export default async function StudyReviewPage(props: {
             if (isActionError(proposalEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} job={null} />
+            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
         }
 
         // When a reviewer navigates back from the agreements step, show the proposal

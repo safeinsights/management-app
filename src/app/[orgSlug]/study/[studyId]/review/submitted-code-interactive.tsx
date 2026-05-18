@@ -6,9 +6,9 @@ import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/code-viewer'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
-import type { StudyJobFileType } from '@/database/types'
+import type { CodeFile } from './study-code-files'
 
-export type CodeFile = { name: string; fileType: StudyJobFileType }
+export type { CodeFile } from './study-code-files'
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
