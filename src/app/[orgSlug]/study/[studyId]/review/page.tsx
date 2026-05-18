@@ -15,7 +15,7 @@ import {
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion } from '@/server/db/queries'
+import { currentReviewVersion, latestJobForStudyOrNull } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -64,7 +64,8 @@ export default async function StudyReviewPage(props: {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
             if (codeEntries.length > 0) {
-                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" />
+                const job = await latestJobForStudyOrNull(studyId)
+                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
             const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(proposalEntries)) {

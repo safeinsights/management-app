@@ -221,7 +221,9 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
             <Text component="span" size="sm" c="grey.7">
                 Permanently end this study due to major, unresolvable issues. Share rationale with {labName}.
                 <br />
-                <strong>Warning: This terminates the study and cannot be undone.</strong>
+                <Text component="span" size="sm" c="grey.7" fw={600}>
+                    Warning: This terminates the study and cannot be undone.
+                </Text>
             </Text>
         ),
         testId: 'code-review-decision-reject',
@@ -369,7 +371,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
     if (!isCollaborationEnabled) return null
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
-    const labName = study.submittingLabName || 'the research lab'
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
         <StudyKickOutProvider
