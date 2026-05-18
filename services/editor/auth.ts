@@ -279,12 +279,17 @@ export type AuthFailureCode =
 
 export class AuthFailureError extends Error {
     readonly code: AuthFailureCode
+    readonly reason: string
     constructor(code: AuthFailureCode, message: string) {
-        // The wire format `CODE: message` must be the Error.message because
-        // Hocuspocus only forwards `err.message` to the client.
-        super(`${code}: ${message}`)
+        // Hocuspocus forwards `err.reason` to the client (falling back to the
+        // literal string "permission-denied" if absent); set both so the
+        // `CODE: message` wire format survives. The client splits on the first
+        // colon to recover `code`.
+        const wire = `${code}: ${message}`
+        super(wire)
         this.name = 'AuthFailureError'
         this.code = code
+        this.reason = wire
     }
 }
 
