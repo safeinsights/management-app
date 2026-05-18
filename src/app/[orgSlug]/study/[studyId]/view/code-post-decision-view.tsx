@@ -12,15 +12,12 @@ import {
     StudyCodeViewer,
     type StudyCodeToggleLabels,
 } from '@/app/[orgSlug]/study/[studyId]/review/submitted-code-interactive'
-import {
-    filterAndOrderCodeFiles,
-    type CodeFile,
-} from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
+import { filterAndOrderCodeFiles, type CodeFile } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { isCodeDecisionStatus, type CodeDecisionStatus } from './code-decision-status'
+import { type CodeDecisionStatus } from './code-decision-status'
 
 interface CodePostDecisionViewProps {
     orgSlug: string
@@ -28,7 +25,8 @@ interface CodePostDecisionViewProps {
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
-    dashboardHref?: Route
+    dashboardHref: Route
+    latestJobStatus: CodeDecisionStatus
 }
 
 type DecisionCopy = {
@@ -67,18 +65,23 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-function latestDecisionStatus(job: LatestJobForStudy): CodeDecisionStatus | null {
-    const latest = job.statusChanges.find((s) => isCodeDecisionStatus(s.status))
-    return latest ? (latest.status as CodeDecisionStatus) : null
-}
-
-function useCodePostDecision({ job, entries }: { job: LatestJobForStudy; entries: CodeReviewFeedbackEntry[] }) {
-    const decision = latestDecisionStatus(job)
-    const copy = decision ? DECISION_COPY[decision] : null
-    const latestEntry = entries[0] ?? null
-    const timestampDate = latestEntry?.createdAt ?? null
-    const codeFiles = filterAndOrderCodeFiles(job.files)
-    return { decision, copy, timestampDate, codeFiles }
+// Date is sourced from the feedback entry (not the job status row): the entry carries the
+// user-visible "I submitted this decision at T" timestamp, while the status row may be
+// written by a downstream worker on a slight delay.
+function deriveCodePostDecision({
+    job,
+    entries,
+    decision,
+}: {
+    job: LatestJobForStudy
+    entries: CodeReviewFeedbackEntry[]
+    decision: CodeDecisionStatus
+}) {
+    return {
+        copy: DECISION_COPY[decision],
+        timestampDate: entries[0].createdAt,
+        codeFiles: filterAndOrderCodeFiles(job.files),
+    }
 }
 
 const DecisionBanner: FC<{ copy: DecisionCopy; reviewingOrgName: string }> = ({ copy, reviewingOrgName }) => (
@@ -167,18 +170,16 @@ export function CodePostDecisionView({
     entries,
     reviewingOrgName,
     dashboardHref,
+    latestJobStatus,
 }: CodePostDecisionViewProps) {
-    const { decision, copy, timestampDate, codeFiles } = useCodePostDecision({ job, entries })
+    const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
-    if (!decision || !copy || !timestampDate) return null
-
-    const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboard],
+        ['Dashboard', dashboardHref],
         ['Study proposal', proposalHref],
         ['Study code'],
     ]
@@ -201,9 +202,9 @@ export function CodePostDecisionView({
                 />
                 <FeedbackAndNotesSection entries={entries} />
                 <DecisionActions
-                    decision={decision}
+                    decision={latestJobStatus}
                     previousHref={previousHref}
-                    dashboardHref={dashboard}
+                    dashboardHref={dashboardHref}
                     resubmitHref={resubmitHref}
                 />
             </Stack>

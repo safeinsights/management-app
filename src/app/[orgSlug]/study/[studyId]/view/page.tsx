@@ -42,9 +42,8 @@ export default async function StudyReviewPage(props: {
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
-        const isPostDecision = isCodeDecisionStatus(latestJobStatus)
 
-        if (isPostDecision) {
+        if (isCodeDecisionStatus(latestJobStatus)) {
             const codeOnlyFallback = (
                 <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
             )
@@ -64,6 +63,7 @@ export default async function StudyReviewPage(props: {
                             entries={entries}
                             reviewingOrgName={reviewingOrgName}
                             dashboardHref={dashboardHref}
+                            latestJobStatus={latestJobStatus}
                         />
                     }
                 />

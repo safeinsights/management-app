@@ -86,13 +86,16 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     const latestJob = (await latestJobForStudy(dbStudy.id)) as LatestJobForStudy
     ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     memoryRouter.setCurrentUrl('/')
-    return { org, study, job: latestJob }
+    return { org, study, job: latestJob, latestJobStatus: decisionStatus }
 }
+
+const DEFAULT_DASHBOARD_HREF = Routes.orgDashboard({ orgSlug: ORG_SLUG })
 
 function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
+    latestJobStatus: DecisionStatus,
     overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
 ) {
     renderWithProviders(
@@ -102,7 +105,8 @@ function renderView(
             job={job}
             entries={entries}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref}
+            dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
+            latestJobStatus={latestJobStatus}
         />,
     )
 }
@@ -110,8 +114,8 @@ function renderView(
 describe('CodePostDecisionView', () => {
     describe('breadcrumbs', () => {
         it('renders Dashboard / Study proposal (linked) / Study code (linkless)', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
             expect(lastCall).toBeDefined()
@@ -127,8 +131,8 @@ describe('CodePostDecisionView', () => {
 
     describe('header', () => {
         it('renders the page title, STEP 4 eyebrow, "Study code" section, and study title', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
@@ -137,22 +141,27 @@ describe('CodePostDecisionView', () => {
         })
 
         it('renders "Approved on Apr 02, 2026" for CODE-APPROVED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE', createdAt: DECISION_DATE })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE', createdAt: DECISION_DATE })], latestJobStatus)
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
         })
 
         it('renders "Change requested on Apr 02, 2026" for CODE-CHANGES-REQUESTED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: DECISION_DATE })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(
+                study,
+                job,
+                [buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: DECISION_DATE })],
+                latestJobStatus,
+            )
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 02, 2026')
         })
 
         it('renders "Rejected on Apr 02, 2026" for CODE-REJECTED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-REJECTED')
-            renderView(study, job, [buildEntry({ decision: 'REJECT', createdAt: DECISION_DATE })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
+            renderView(study, job, [buildEntry({ decision: 'REJECT', createdAt: DECISION_DATE })], latestJobStatus)
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 02, 2026')
         })
@@ -160,8 +169,8 @@ describe('CodePostDecisionView', () => {
 
     describe('decision banner', () => {
         it('renders the green code-approved banner with the reviewing org name', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const banner = screen.getByTestId('decision-banner-code-approved')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
@@ -173,8 +182,8 @@ describe('CodePostDecisionView', () => {
         })
 
         it('renders the purple change-requested banner with the right copy', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
 
             const banner = screen.getByTestId('decision-banner-code-change-requested')
             expect(banner).toHaveTextContent(
@@ -184,8 +193,8 @@ describe('CodePostDecisionView', () => {
         })
 
         it('renders the red code-rejected banner with the right copy', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-REJECTED')
-            renderView(study, job, [buildEntry({ decision: 'REJECT' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
+            renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
 
             const banner = screen.getByTestId('decision-banner-code-rejected')
             expect(banner).toHaveTextContent(
@@ -198,8 +207,8 @@ describe('CodePostDecisionView', () => {
 
     describe('study code viewer', () => {
         it('starts collapsed and toggles to "Hide submitted study code" with body visible', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
             expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
@@ -219,7 +228,7 @@ describe('CodePostDecisionView', () => {
         it('expands the latest entry and collapses prior entries', async () => {
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
-                const { study, job } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+                const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
                 const latest = buildEntry({
                     id: 'latest-entry',
                     decision: 'NEEDS-CLARIFICATION',
@@ -232,7 +241,7 @@ describe('CodePostDecisionView', () => {
                     createdAt: new Date('2026-04-10T10:00:00Z'),
                 })
 
-                renderView(study, job, [latest, prior])
+                renderView(study, job, [latest, prior], latestJobStatus)
 
                 expect(screen.getByTestId('feedback-toggle-latest-entry')).toHaveAttribute('aria-expanded', 'true')
                 expect(screen.getByTestId('feedback-toggle-prior-entry')).toHaveAttribute('aria-expanded', 'false')
@@ -244,8 +253,8 @@ describe('CodePostDecisionView', () => {
 
     describe('navigation', () => {
         it('renders a "Previous step" link to studyAgreements?from=previous in all decisions', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             expect(previous).toHaveAttribute(
@@ -255,10 +264,8 @@ describe('CodePostDecisionView', () => {
         })
 
         it('renders "Go to dashboard" for CODE-APPROVED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], {
-                dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }),
-            })
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const dashboard = screen.getByTestId('cta-go-to-dashboard')
             expect(dashboard).toHaveTextContent('Go to dashboard')
@@ -267,18 +274,18 @@ describe('CodePostDecisionView', () => {
         })
 
         it('renders "Go to dashboard" for CODE-REJECTED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-REJECTED')
-            renderView(study, job, [buildEntry({ decision: 'REJECT' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
+            renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
 
             const dashboard = screen.getByTestId('cta-go-to-dashboard')
             expect(dashboard).toHaveTextContent('Go to dashboard')
-            expect(dashboard).toHaveAttribute('href', '/dashboard')
+            expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
             expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
         })
 
         it('renders "Edit and resubmit" pointing at the resubmit route for CODE-CHANGES-REQUESTED', async () => {
-            const { study, job } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })])
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
 
             const resubmit = screen.getByTestId('cta-edit-and-resubmit')
             expect(resubmit).toHaveTextContent('Edit and resubmit')

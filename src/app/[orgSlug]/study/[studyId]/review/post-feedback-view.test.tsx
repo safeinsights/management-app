@@ -365,11 +365,14 @@ describe('PostFeedbackView', () => {
             const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
             expect(lastCall).toBeDefined()
             const crumbs = lastCall![0].crumbs
-            expect(crumbs).toEqual([
-                ['Dashboard', expect.any(String)],
-                ['Study proposal', expectedHref],
-                ['Review study code'],
-            ])
+            // Assert observable behavior (label + href) per crumb, not tuple shape — so a
+            // future refactor that normalizes crumbs to always be [label, href|undefined]
+            // doesn't silently break this expectation.
+            expect(crumbs).toHaveLength(3)
+            expect(crumbs[0][0]).toBe('Dashboard')
+            expect(crumbs[1][0]).toBe('Study proposal')
+            expect(crumbs[1][1]).toBe(expectedHref)
+            expect(crumbs[2][0]).toBe('Review study code')
         })
 
         it('renders the "Study proposal" breadcrumb as plain text (not a link) for kind=PROPOSAL', () => {
@@ -381,7 +384,12 @@ describe('PostFeedbackView', () => {
             const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
             expect(lastCall).toBeDefined()
             const crumbs = lastCall![0].crumbs
-            expect(crumbs).toEqual([['Dashboard', expect.any(String)], ['Study proposal'], ['Review initial request']])
+            expect(crumbs).toHaveLength(3)
+            expect(crumbs[0][0]).toBe('Dashboard')
+            expect(crumbs[1][0]).toBe('Study proposal')
+            // Linkless = no href slot — accept either undefined or a missing index.
+            expect(crumbs[1][1]).toBeFalsy()
+            expect(crumbs[2][0]).toBe('Review initial request')
         })
 
         it('renders the StudyCodeViewer collapsed by default when a job is provided', async () => {

@@ -125,7 +125,11 @@ describe('CodeReviewClient decision selector', () => {
         expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })
 
-    it('enables Submit when needs-clarification is selected with valid feedback and criteria', async () => {
+    it.each([
+        ['code-review-decision-approve'],
+        ['code-review-decision-needs-clarification'],
+        ['code-review-decision-reject'],
+    ])('enables Submit when %s is selected with valid feedback and criteria', async (decisionTestId) => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
@@ -133,7 +137,7 @@ describe('CodeReviewClient decision selector', () => {
         )
 
         await fillAllCriteria(user)
-        await user.click(screen.getByTestId('code-review-decision-needs-clarification'))
+        await user.click(screen.getByTestId(decisionTestId))
 
         expect(screen.getByTestId('code-review-submit')).toBeEnabled()
     })

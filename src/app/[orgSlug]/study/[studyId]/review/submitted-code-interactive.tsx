@@ -8,8 +8,6 @@ import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { CodeFile } from './study-code-files'
 
-export type { CodeFile } from './study-code-files'
-
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4
@@ -196,7 +194,7 @@ function StudyCodeBody({
 
 export type StudyCodeToggleLabels = { expand: string; collapse: string }
 
-export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
     expand: 'View full study code',
     collapse: 'Hide full study code',
 }
