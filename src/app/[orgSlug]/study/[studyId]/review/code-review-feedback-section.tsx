@@ -69,9 +69,6 @@ export function CodeReviewFeedbackSection({ feedback, studyId, jobId }: CodeRevi
                 </Text>
                 <Divider />
                 <Stack gap="md">
-                    <Text fz={14} c="charcoal.7">
-                        Minimum {feedback.minWords} words required.
-                    </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
                 </Stack>
             </Stack>

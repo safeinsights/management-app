@@ -566,9 +566,12 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         const userId = session.user.id
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
 
-        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount < FEEDBACK_MIN_WORDS) {
+            throw new ActionFailure({ feedback: 'Feedback is required' })
+        }
+        if (wordCount > FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 
@@ -715,9 +718,12 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         const userId = session.user.id
 
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-        if (wordCount < FEEDBACK_MIN_WORDS || wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount < FEEDBACK_MIN_WORDS) {
+            throw new ActionFailure({ feedback: 'Feedback is required' })
+        }
+        if (wordCount > FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `must be between ${FEEDBACK_MIN_WORDS} and ${FEEDBACK_MAX_WORDS} words (got ${wordCount})`,
+                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 

@@ -85,9 +85,6 @@ export function ReviewFeedbackSection({
                         the understanding of teaching and learning, and any questions or clarifications you need from
                         the research team.
                     </Text>
-                    <Text fz={14} c="charcoal.7">
-                        Minimum {feedback.minWords} words required.
-                    </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
                 </Stack>
             </Stack>
