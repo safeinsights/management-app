@@ -113,16 +113,19 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
 }
 
 function FileTabsRow({
+    isVisible,
     visible,
     activeFileName,
     onSelect,
     hiddenCount,
 }: {
+    isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
     hiddenCount: number
 }) {
+    if (!isVisible) return null
     const tabs = visible.map((file) => (
         <FileTab
             key={file.name}
@@ -221,6 +224,7 @@ export function StudyCodeViewer({ studyJobId, files, initialExpanded = true }: S
     return (
         <Stack gap="sm" data-testid="study-code-viewer">
             <FileTabsRow
+                isVisible={isExpanded}
                 visible={visible}
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}
