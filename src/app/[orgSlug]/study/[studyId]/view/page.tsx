@@ -1,15 +1,18 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
-import { getStudyAction } from '@/server/actions/study.actions'
+import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
+import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
 import { isStudyResultsStatus } from '@/lib/study-job-status'
 import type { StudyJobStatus } from '@/database/types'
 import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
+import { CodePostDecisionView } from './code-post-decision-view'
+import { isCodeDecisionStatus } from './code-decision-status'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsRedesignView } from './study-details-redesign-view'
@@ -41,6 +44,33 @@ export default async function StudyReviewPage(props: {
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
+
+        if (isCodeDecisionStatus(latestJobStatus)) {
+            const codeOnlyFallback = (
+                <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+            )
+            const entries = await getCodeReviewFeedbackAction({ studyId })
+            if (isActionError(entries) || entries.length === 0) {
+                return codeOnlyFallback
+            }
+            const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            return (
+                <PostCodeSubmissionFeatureFlag
+                    defaultContent={codeOnlyFallback}
+                    optInContent={
+                        <CodePostDecisionView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
+                            entries={entries}
+                            reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                            latestJobStatus={latestJobStatus}
+                        />
+                    }
+                />
+            )
+        }
 
         if (isUnderReview) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)

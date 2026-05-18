@@ -1,10 +1,8 @@
-import { FileViewer } from '@/components/file-viewers'
-import { AppModal } from '@/components/modal'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
 import { decodeFileContents } from '@/lib/file-content-helpers'
-import { logLabel } from '@/lib/file-type-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -79,7 +77,7 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
                     </Stack>
                 </form>
             )}
-            <FileViewerModal file={viewingFile} onClose={closeFileViewer} />
+            <DecryptedFilePreview file={viewingFile} onClose={closeFileViewer} />
         </Stack>
     )
 }
@@ -159,20 +157,8 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onTo
     )
 }
 
-const FileViewerModal: FC<{ file: JobFile | null; onClose: () => void }> = ({ file, onClose }) => {
+const DecryptedFilePreview: FC<{ file: JobFile | null; onClose: () => void }> = ({ file, onClose }) => {
     if (!file) return null
-
-    const text = decodeFileContents(file.contents)
-
-    return (
-        <AppModal
-            isOpen
-            onClose={onClose}
-            title={`${logLabel(file.fileType)} - ${file.path}`}
-            size="xl"
-            styles={{ body: { padding: 0 } }}
-        >
-            <FileViewer path={file.path} text={text} />
-        </AppModal>
-    )
+    const previewFile = { name: file.path, contents: decodeFileContents(file.contents) }
+    return <FilePreviewModal file={previewFile} onClose={onClose} />
 }

@@ -142,7 +142,7 @@ describe('CodePostSubmissionView', () => {
             )
         })
 
-        it('renders read-only star (no button role), no delete control, and eye icon as anchor opening in a new tab', async () => {
+        it('renders read-only star (no button role), no delete control, and eye icon as a preview button', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
@@ -157,10 +157,9 @@ describe('CodePostSubmissionView', () => {
             expect(screen.queryByRole('button', { name: /remove main\.R/i })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /remove helper\.R/i })).not.toBeInTheDocument()
 
-            // Eye icons render as anchors opening in a new tab
-            const viewAnchor = screen.getByRole('link', { name: 'View main.R' })
-            expect(viewAnchor).toHaveAttribute('target', '_blank')
-            expect(viewAnchor.getAttribute('href')).toMatch(new RegExp(`/dl/study-code/${job.id}/main.R$`))
+            // Eye icons render as buttons that open the shared FilePreviewModal
+            expect(screen.getByRole('button', { name: 'View main.R' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'View helper.R' })).toBeInTheDocument()
         })
 
         it('collapses when the in-section "Hide full study code" anchor is clicked', async () => {
