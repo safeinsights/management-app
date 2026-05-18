@@ -1,19 +1,93 @@
-import { Group, Paper, Skeleton, Text } from '@mantine/core'
+'use client'
+
+import dynamic from 'next/dynamic'
+import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
+import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
+import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
+
+const EDITOR_SKELETON = <Skeleton h={600} radius={4} />
+
+const CollaborativeEditor = dynamic(
+    () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),
+    {
+        ssr: false,
+        loading: () => EDITOR_SKELETON,
+    },
+)
+
+const contentStyle = {
+    minHeight: 600,
+    padding: '8px 16px',
+    outline: 'none',
+    fontSize: '1rem',
+    lineHeight: 1.6,
+} as const
 
 type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
+    submittingLabName: string
+    studyId: string
+    reviewVersion: number
 }
 
-export function ReviewFeedbackSection({ feedback }: ReviewFeedbackSectionProps) {
+const PLACEHOLDER_TEXT = `For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`
+
+function feedbackHeading(reviewVersion: number) {
+    return reviewVersion <= 1 ? 'Initial request review' : `Round ${reviewVersion} review`
+}
+
+function FeedbackEditor({
+    feedback,
+    studyId,
+    reviewVersion,
+}: {
+    feedback: ReturnType<typeof useReviewFeedback>
+    studyId: string
+    reviewVersion: number
+}) {
+    const websocketProvider = useYjsWebsocket()
+    const publishProvider = usePublishReviewFeedbackProvider()
+    if (!websocketProvider) return EDITOR_SKELETON
     return (
-        <Paper p="xl" data-testid="review-feedback-section">
-            <Group gap="xs" mb="sm">
-                <Text fw={600}>Feedback</Text>
-                <WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />
-            </Group>
-            <Skeleton height={160} radius="md" />
+        <CollaborativeEditor
+            id={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
+            studyId={studyId}
+            websocketProvider={websocketProvider}
+            contentStyle={contentStyle}
+            onChange={feedback.onChange}
+            placeholder={PLACEHOLDER_TEXT}
+            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
+            onProviderReady={publishProvider}
+        />
+    )
+}
+
+export function ReviewFeedbackSection({
+    feedback,
+    submittingLabName,
+    studyId,
+    reviewVersion,
+}: ReviewFeedbackSectionProps) {
+    return (
+        <Paper p="xxl" data-testid="review-feedback-section">
+            <Stack gap="lg">
+                <Text fz={20} fw={700} c="charcoal.9">
+                    {feedbackHeading(reviewVersion)}
+                </Text>
+                <Divider />
+                <Stack gap="md">
+                    <Text fz={16} c="charcoal.9">
+                        Share your feedback on this request directly with {submittingLabName}. Consider addressing the
+                        initial request&apos;s feasibility given your data and infrastructure, its potential to advance
+                        the understanding of teaching and learning, and any questions or clarifications you need from
+                        the research team.
+                    </Text>
+                    <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
+                </Stack>
+            </Stack>
         </Paper>
     )
 }

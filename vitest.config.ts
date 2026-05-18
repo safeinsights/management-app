@@ -8,6 +8,22 @@ const IS_CI = !!process.env.CI
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [react(), tsconfigPaths()],
+    resolve: {
+        // Force single Lexical/Yjs module instances across the test tree.
+        // Without this, services/editor's nested node_modules and the root
+        // node_modules load separate constructors, which breaks identity checks
+        // inside Lexical and Yjs. Production is unaffected because the editor
+        // service and the Next app run as separate processes.
+        dedupe: [
+            '@lexical/headless',
+            '@lexical/link',
+            '@lexical/list',
+            '@lexical/yjs',
+            'lexical',
+            'yjs',
+            'y-protocols',
+        ],
+    },
     test: {
         // Prevent AWS SSO profile from overriding local S3 credentials (from .env)
         env: { AWS_PROFILE: '' },
@@ -15,7 +31,7 @@ export default defineConfig({
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',
         setupFiles: ['tests/vitest.setup.ts'],
-        include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
+        include: ['src/**/*.(test).{js,jsx,ts,tsx}', 'services/**/*.(test).{js,jsx,ts,tsx}'],
         allowOnly: !IS_CI,
         coverage: {
             enabled: Boolean(IS_CI || process.env.COVERAGE),

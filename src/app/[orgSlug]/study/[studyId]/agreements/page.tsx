@@ -64,8 +64,9 @@ export default async function StudyAgreementsRoute(props: {
 
     // Researcher flow — skip if already acknowledged (unless navigating back)
     if (study.researcherAgreementsAckedAt && !isDirectAccess) {
-        const hasJobActivity = study.jobStatusChanges.length > 0
-        const dest = hasJobActivity
+        // Baseline jobs (IDE launch / file upload) don't count, only actual submissions
+        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+        const dest = codeSubmitted
             ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
             : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
         redirect(dest)

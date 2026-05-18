@@ -75,10 +75,14 @@ export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: Leg
         </Stack>
     )
 
+    if (agreementsHref) {
+        return existingView
+    }
+
     return (
         <ProposalReviewFeatureFlag
             defaultContent={existingView}
-            optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+            optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} priorEntries={[]} reviewVersion={1} />}
         />
     )
 }

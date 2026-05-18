@@ -1,10 +1,21 @@
 import { z } from 'zod'
-import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
+import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
 export const DEFAULT_DRAFT_TITLE = 'Untitled Draft'
+
+// Drafts are persisted with `DEFAULT_DRAFT_TITLE` so they have *something* in the DB
+// title column, but the user-visible input is blanked out (see form.tsx ternary).
+// `form.isValid()` would otherwise pass for a never-entered title because the
+// persisted value satisfies `.min(1)`, so callers must use this helper to gate
+// submit buttons.
+export function hasUserProvidedTitle(title: string | undefined | null): boolean {
+    if (!title) return false
+    const trimmed = title.trim()
+    return trimmed.length > 0 && trimmed !== DEFAULT_DRAFT_TITLE
+}
 
 export const WORD_LIMITS = {
     title: 20,

@@ -84,3 +84,38 @@
     text-decoration: underline;
     cursor: pointer;
 }
+
+/* Collaborative editor focus border */
+.collaborative-editor-container {
+    border: 1px solid var(--mantine-color-gray-4);
+    transition: border-color 0.15s;
+    border-radius: var(--mantine-radius-sm);
+}
+
+.collaborative-editor-container:focus-within {
+    border-color: var(--mantine-color-blue-filled);
+}
+
+/* Yjs collaboration cursor styles */
+.yjs-cursor {
+    position: relative;
+    border-left: 2px solid;
+    margin-left: -1px;
+    margin-right: -1px;
+    pointer-events: none;
+    word-break: normal;
+}
+
+.yjs-cursor > div {
+    position: absolute;
+    top: -1.2em;
+    left: -1px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px 3px 3px 0;
+    white-space: nowrap;
+    color: #fff;
+    pointer-events: none;
+}

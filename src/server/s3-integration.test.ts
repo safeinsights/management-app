@@ -1,6 +1,12 @@
 // Exercises S3 operations (checksums, presigned URLs, batch deletes) against
 // the SeaweedFS S3-compatible API. MinIO was previously used but removed (unmaintained).
+//
+// Locally: tests skip cleanly when SeaweedFS isn't reachable so devs without
+// `docker compose up seaweedfs` aren't blocked. On CI (CI env var set), the
+// probe instead throws — a missing service is a CI setup bug, not a
+// "skip and move on" condition.
 
+import net from 'node:net'
 import { describe, it, expect, afterAll } from 'vitest'
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -17,6 +23,37 @@ import {
 import { Readable } from 'stream'
 
 const TEST_PREFIX = `s3-integration-test-${Date.now()}/`
+
+async function isS3Reachable(): Promise<boolean> {
+    const endpoint = process.env.S3_ENDPOINT ?? 'http://127.0.0.1:8333'
+    let host: string
+    let port: number
+    try {
+        const url = new URL(endpoint)
+        host = url.hostname
+        port = Number(url.port) || (url.protocol === 'https:' ? 443 : 80)
+    } catch {
+        return false
+    }
+    return new Promise((resolve) => {
+        const socket = net.createConnection({ host, port })
+        const done = (ok: boolean) => {
+            socket.destroy()
+            resolve(ok)
+        }
+        socket.once('connect', () => done(true))
+        socket.once('error', () => done(false))
+        socket.setTimeout(500, () => done(false))
+    })
+}
+
+const s3Available = await isS3Reachable()
+if (!s3Available && process.env.CI) {
+    throw new Error(
+        `S3 endpoint ${process.env.S3_ENDPOINT ?? 'http://127.0.0.1:8333'} is not reachable on CI — ` +
+            'integration tests require SeaweedFS to be running. Check the CI service config.',
+    )
+}
 
 function toReadableStream(content: string): ReadableStream {
     return new ReadableStream({
@@ -47,7 +84,7 @@ async function cleanupTestObjects(client: S3Client, bucket: string) {
     )
 }
 
-describe('S3 integration', () => {
+describe.skipIf(!s3Available)('S3 integration', () => {
     const client = getS3Client()
     const bucket = s3BucketName()
 

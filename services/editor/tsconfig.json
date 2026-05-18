@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ES2017",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "strict": true,
+        "noEmit": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "isolatedModules": true,
+        "allowImportingTsExtensions": true
+    },
+    "include": ["**/*.ts", "../../src/lib/collaboration-documents.ts"],
+    "exclude": ["node_modules"]
+}

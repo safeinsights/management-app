@@ -7,7 +7,9 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -110,12 +112,30 @@ function latestJobForStudyQuery(studyId: string) {
         .limit(1)
 }
 
+// Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
+// anchor on real submissions rather than a bare baseline with no files attached.
+function latestSubmittedJobForStudyQuery(studyId: string) {
+    return latestJobForStudyQuery(studyId).where((eb) =>
+        eb.exists(
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.id')
+                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .where('jobStatusChange.status', '!=', 'INITIATED'),
+        ),
+    )
+}
+
 export const latestJobForStudy = async (studyId: string) => {
     return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
 export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
     return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
+    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -132,6 +152,57 @@ export const jobInfoForJobId = async (jobId: string) => {
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
+}
+
+/**
+ * Current editable review round for a study.
+ *
+ * Reads `max(studyProposalComment.version)` for the study, mirroring how
+ * `nextVersionForStudyComment` (mutations.ts) writes: reviewer feedback
+ * inherits the latest version, RESUBMISSION-NOTE increments it. Using
+ * `max(version)` rather than ordering by createdAt is tie-immune (multiple
+ * reviewers submitting at the same millisecond share a version, and a
+ * resubmit's version is always strictly greater than every preceding row).
+ *
+ * Returns 1 when no comments exist yet (cold round 1 before any reviewer
+ * feedback or resubmission note has been written).
+ */
+export const currentReviewVersion = async (studyId: string): Promise<number> => {
+    const row = await Action.db
+        .selectFrom('studyProposalComment')
+        .select((eb) => eb.fn.max('version').as('version'))
+        .where('studyId', '=', studyId)
+        .executeTakeFirst()
+    return row?.version ?? 1
+}
+
+export const getProposalFeedbackForStudy = async (studyId: string) => {
+    const [study, entries] = await Promise.all([
+        Action.db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study')),
+        Action.db
+            .selectFrom('studyProposalComment')
+            .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
+            .select([
+                'studyProposalComment.id',
+                'studyProposalComment.authorId',
+                'studyProposalComment.authorRole',
+                'studyProposalComment.entryType',
+                'studyProposalComment.decision',
+                'studyProposalComment.body',
+                'studyProposalComment.createdAt',
+                'studyProposalComment.version',
+                'author.fullName as authorName',
+            ])
+            .where('studyProposalComment.studyId', '=', studyId)
+            .orderBy('studyProposalComment.createdAt', 'desc')
+            .execute(),
+    ])
+
+    return { study, entries }
 }
 
 export const studyInfoForStudyId = async (studyId: string) => {
@@ -232,7 +303,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status', 'study.submittedByOrgId'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
@@ -342,4 +413,65 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         new Uint8Array(arrayBuffer).set(publicKey)
         return { publicKey: arrayBuffer, fingerprint }
     })
+}
+
+export type StudyReviewWithMeta = {
+    report: AnalysisReport
+    createdAt: Date
+    files: { name: string; fileType: FileType }[]
+}
+
+export type JobScanStatus = 'PASSED' | 'FAILED' | 'IN-PROGRESS'
+
+export type JobScanResult = {
+    status: JobScanStatus
+    logFile: { id: string; name: string; path: string } | null
+}
+
+// Per @nathanstitt: there's no clear-cut success/failure signal in the tools, so
+// the first-pass heuristic is to read the scan log and check for 'OK'. If the
+// log row doesn't exist yet (or the file can't be read), treat as in-progress.
+export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
+    const logFile = await Action.db
+        .selectFrom('studyJobFile')
+        .select(['id', 'name', 'path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    if (!logFile) return { status: 'IN-PROGRESS', logFile: null }
+
+    try {
+        const blob = await fetchFileContents(logFile.path)
+        const contents = await blob.text()
+        return { status: contents.includes('OK') ? 'PASSED' : 'FAILED', logFile }
+    } catch {
+        return { status: 'IN-PROGRESS', logFile }
+    }
+}
+
+export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+    const row = await Action.db
+        .selectFrom('studyReview')
+        .select((eb) => [
+            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            'createdAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyReview.studyJobId')
+                    .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    .orderBy('fileType', 'desc')
+                    .orderBy('name', 'asc'),
+            ).as('files'),
+        ])
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row ?? null
 }

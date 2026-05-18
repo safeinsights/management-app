@@ -48,6 +48,8 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .selectFrom('org')
             .leftJoin('study', 'study.orgId', 'org.id')
             .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
+            .leftJoin('orgCodeEnv', 'orgCodeEnv.orgId', 'org.id')
+            .leftJoin('orgDataSource', 'orgDataSource.orgId', 'org.id')
             .select([
                 'org.id',
                 'org.name',
@@ -57,6 +59,8 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
                 'org.settings',
                 (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
                 (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
+                (eb) => eb.fn.count('orgCodeEnv.id').distinct().as('totalCodeEnvs'),
+                (eb) => eb.fn.count('orgDataSource.id').distinct().as('totalDataSources'),
             ])
             .groupBy(['org.id'])
             .execute()

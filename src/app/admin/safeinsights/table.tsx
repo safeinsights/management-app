@@ -56,6 +56,13 @@ export function OrgsAdminTable() {
                     { accessor: 'email', sortable: true },
                     { accessor: 'totalUsers', title: '# Users', textAlign: 'center', sortable: true },
                     { accessor: 'totalStudies', title: '# Studies', textAlign: 'center', sortable: true },
+                    { accessor: 'totalCodeEnvs', title: '# Code Envs', textAlign: 'center', sortable: true },
+                    {
+                        accessor: 'totalDataSources',
+                        title: '# Data Sources',
+                        textAlign: 'center',
+                        sortable: true,
+                    },
                     {
                         accessor: 'actions',
                         width: 110,

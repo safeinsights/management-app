@@ -4,6 +4,7 @@ import nextPlugin from '@next/eslint-plugin-next'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
 import importPlugin from 'eslint-plugin-import'
+import antiTrojanSource from 'eslint-plugin-anti-trojan-source'
 import typescriptEslint from 'typescript-eslint'
 
 import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
@@ -24,12 +25,17 @@ const eslintConfig = [
             'src/styles/generated/',
             'test-results/**',
             'tests/coverage/**',
+            'services/**',
         ],
     },
     // Base JavaScript recommended rules
     js.configs.recommended,
     // TypeScript recommended rules
     ...typescriptEslint.configs.recommended,
+    {
+        plugins: { 'anti-trojan-source': antiTrojanSource },
+        rules: { 'anti-trojan-source/no-bidi': 'error' },
+    },
     // React plugin configuration
     {
         files: ['**/*.{js,jsx,ts,tsx}'],

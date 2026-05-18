@@ -54,6 +54,47 @@ describe('useStudyStatus', () => {
             expect(reviewerResult?.label).toBe('Needs Review')
         })
 
+        it('shows code change requested labels for both audiences when the job status is CODE-CHANGES-REQUESTED', () => {
+            const params = (audience: 'researcher' | 'reviewer') =>
+                createTestParams('APPROVED', audience, [{ status: 'CODE-CHANGES-REQUESTED' }])
+
+            const researcherResult = useStudyStatus(params('researcher'))
+            const reviewerResult = useStudyStatus(params('reviewer'))
+
+            expect(researcherResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Code',
+                    label: 'Change requested',
+                }),
+            )
+            expect(reviewerResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Code',
+                    label: 'Change requested',
+                }),
+            )
+        })
+
+        it('shows proposal change requested labels for both audiences', () => {
+            const studyStatus: StudyStatus = 'CHANGE-REQUESTED'
+
+            const researcherResult = useStudyStatus(createTestParams(studyStatus, 'researcher'))
+            const reviewerResult = useStudyStatus(createTestParams(studyStatus, 'reviewer'))
+
+            expect(researcherResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Change requested',
+                }),
+            )
+            expect(reviewerResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Proposal',
+                    label: 'Change requested',
+                }),
+            )
+        })
+
         it('uses correct status keys for each audience', () => {
             const params1 = createTestParams('APPROVED', 'researcher', [{ status: 'CODE-APPROVED' }])
             const params2 = createTestParams('APPROVED', 'reviewer', [{ status: 'CODE-APPROVED' }])

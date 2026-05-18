@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { BLANK_UUID, insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
 import {
+    BLANK_UUID,
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestStudyJobUsers,
+    readTestSupportFile,
+} from '@/tests/unit.helpers'
+import { db } from '@/database'
+import {
+    currentReviewVersion,
+    getStudyReviewForJob,
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
@@ -175,5 +184,108 @@ describe('getOrgPublicKeys', () => {
         expect(files[0].path).toBe('test.txt')
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
+    })
+})
+
+describe('currentReviewVersion', () => {
+    it('returns 1 when no studyProposalComment rows exist (cold round 1)', async () => {
+        const { study1 } = await insertRecords()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+
+    it('returns max(version) across rows of mixed entryTypes', async () => {
+        const { study1, org1User1 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'RESEARCHER',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: { root: { type: 'root' } },
+                    version: 2,
+                },
+            ])
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(2)
+    })
+
+    it('is tie-immune when multiple reviewers share a version', async () => {
+        const { study1, org1User1, org1User2 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values([
+                {
+                    studyId: study1.id,
+                    authorId: org1User1.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+                {
+                    studyId: study1.id,
+                    authorId: org1User2.id,
+                    authorRole: 'REVIEWER',
+                    entryType: 'REVIEWER-FEEDBACK',
+                    body: { root: { type: 'root' } },
+                    version: 1,
+                },
+            ])
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+
+    it('does not leak versions from other studies', async () => {
+        const { study1, study2, org2User1 } = await insertRecords()
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study2.id,
+                authorId: org2User1.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                body: { root: { type: 'root' } },
+                version: 3,
+            })
+            .execute()
+        await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+})
+
+describe('getStudyReviewForJob', () => {
+    it('returns null when no review exists for the job', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await getStudyReviewForJob(job.id)
+        expect(result).toBeNull()
+    })
+
+    it('returns the review with meta when a row exists', async () => {
+        const { job } = await insertTestStudyJobData()
+        const report = {
+            proposalSummary: 'Studying student outcomes.',
+            codeExplanation: 'Aggregates scores by school.',
+            alignmentCheck: { isAligned: true, findings: [] },
+            complianceCheck: { isCompliant: true, findings: [] },
+        }
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: JSON.stringify(report) })
+            .execute()
+
+        const result = await getStudyReviewForJob(job.id)
+        if (!result) throw new Error('expected review')
+        expect(result.report).toEqual(report)
+        expect(result.createdAt).toBeInstanceOf(Date)
+        expect(result.files).toEqual([])
     })
 })

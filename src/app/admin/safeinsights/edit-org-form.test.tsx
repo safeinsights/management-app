@@ -12,6 +12,8 @@ const mockOrg = {
     settings: { publicKey: 'junk' },
     totalUsers: BigInt(0),
     totalStudies: BigInt(0),
+    totalCodeEnvs: BigInt(0),
+    totalDataSources: BigInt(0),
 }
 
 describe('EditOrgForm', () => {

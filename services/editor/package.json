@@ -1,6 +1,16 @@
 {
     "type": "module",
     "dependencies": {
-        "@hocuspocus/server": "^3.4.4"
+        "@aws-sdk/client-secrets-manager": "^3.893.0",
+        "@clerk/backend": "^2.33.2",
+        "@hocuspocus/extension-database": "^3.4.4",
+        "@hocuspocus/server": "^3.4.4",
+        "@lexical/headless": "^0.41.0",
+        "@lexical/link": "^0.41.0",
+        "@lexical/list": "^0.41.0",
+        "@lexical/yjs": "^0.41.0",
+        "lexical": "^0.41.0",
+        "pg": "^8.20.0",
+        "yjs": "^13.6.8"
     }
 }

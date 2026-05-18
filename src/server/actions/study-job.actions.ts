@@ -3,7 +3,7 @@
 import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
-import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
+import { getStudyJobInfo, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -91,6 +91,17 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
+export const getStudyReviewAction = new Action('getStudyReviewAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId } }) => {
+        return await getStudyReviewForJob(studyJobId)
+    })
+
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
@@ -116,6 +127,24 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
         }
 
         return jobFiles
+    })
+
+export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
+    .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ studyJob, params: { fileName } }) => {
+        const file = studyJob.files.find(
+            (f) => f.name === fileName && (f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE'),
+        )
+        if (!file) throw new ActionFailure({ file: `Code file "${fileName}" not found` })
+
+        const blob = await fetchFileContents(file.path)
+        const contents = await blob.text()
+        return { fileName: file.name, contents }
     })
 
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')

@@ -1,3 +1,21 @@
+# SECURITY (OTTER-545): threat model for this workflow.
+#
+# Trigger gating: every job-level `if:` requires the @claude trigger PLUS an
+# OWNER / MEMBER / COLLABORATOR author_association. CONTRIBUTOR is intentionally
+# excluded — anyone with a single merged typo PR would otherwise become a
+# permanent CONTRIBUTOR and could trigger Claude with their own prompts.
+#
+# Runtime trust (audited from anthropics/claude-code-action@v1 source, 2026-05):
+#   - The action's own `bun install` runs inside ${GITHUB_ACTION_PATH}, NOT the
+#     user's workspace. It does not execute the repo's package.json scripts.
+#   - With `actions/checkout` invoked without a `ref:`, the base ref is checked
+#     out — not the PR head. So even if a PR is open, this workflow does not
+#     execute PR-controlled code.
+#   - The action revokes its own app token at the end of the run.
+# These properties make ANTHROPIC_API_KEY exposure low-risk under default
+# settings. If we ever set `ref: ${{ github.event.pull_request.head.sha }}` on
+# the checkout, or pass `--add-dir` to claude_args pointing at PR code, the
+# threat model changes and this comment block needs to be revisited.
 name: Claude Code
 
 on:
@@ -13,11 +31,16 @@ on:
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'MEMBER' || github.event.review.author_association == 'COLLABORATOR')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) && (github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER' || github.event.issue.author_association == 'COLLABORATOR'))
+      )
     runs-on: ubuntu-latest
+    # SECURITY (OTTER-545): cap the job lifetime so a stolen GITHUB_TOKEN's
+    # validity window — which equals the job's actual runtime — is bounded.
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
@@ -26,13 +49,18 @@ jobs:
       actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
+          # SECURITY (OTTER-545): the claude-code-action runs `npm install`
+          # and other PR-controlled tooling against the checked-out tree, so
+          # we must not leave a usable GITHUB_TOKEN on disk for a malicious
+          # install script to read.
+          persist-credentials: false
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@dde2242db6af13460b916652159b6ba19a598f30 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 

@@ -1,72 +1,284 @@
 'use client'
 
+import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
+import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
+import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
-import { Box, Button, Group, Stack, Title } from '@mantine/core'
+import { ReviewSubmissionListener } from './review-submission-listener'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
+import { useState, type FC, type ReactNode } from 'react'
+import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
+import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalSection } from './proposal-section'
 import { ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
-import { ReviewProgressBar } from './review-progress-bar'
-import { REVIEW_STEPS, type StudyForReview } from './review-types'
+import { type StudyForReview } from './review-types'
+
+const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 
 type ProposalReviewViewProps = {
     orgSlug: string
     study: StudyForReview
+    priorEntries: ProposalFeedbackEntry[]
+    reviewVersion: number
 }
 
-function useProposalReview({ orgSlug }: { orgSlug: string }) {
+function useProposalReview({
+    orgSlug,
+    studyId,
+    tabSessionId,
+    reviewVersion,
+}: {
+    orgSlug: string
+    studyId: string
+    tabSessionId: string
+    reviewVersion: number
+}) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+    const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
 
     const canSubmit = feedback.isValid && decision.selected !== null
+    const backPath = Routes.orgDashboard({ orgSlug })
+
+    const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug, tabSessionId, reviewVersion })
 
     const handleBack = () => {
-        router.push(Routes.orgDashboard({ orgSlug }))
+        router.push(backPath)
     }
 
     const handleSubmit = () => {
-        // Will be implemented in a future ticket
+        if (decision.selected === null) {
+            return
+        }
+
+        if (decision.selected === 'reject') {
+            openReject()
+        } else {
+            openConfirm()
+        }
     }
 
-    return { feedback, decision, canSubmit, handleBack, handleSubmit }
+    const handleConfirmSubmit = () => {
+        if (decision.selected === null) {
+            return
+        }
+        submitReview({ decision: decision.selected, feedback: feedback.value })
+    }
+
+    return {
+        feedback,
+        decision,
+        canSubmit,
+        handleBack,
+        handleSubmit,
+        confirmOpen,
+        closeConfirm,
+        rejectOpen,
+        closeReject,
+        handleConfirmSubmit,
+        isPending,
+    }
 }
 
-export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
-    const { feedback, decision, canSubmit, handleBack, handleSubmit } = useProposalReview({ orgSlug })
+type ReviewActionsBarProps = {
+    study: StudyForReview
+    canSubmit: boolean
+    isPending: boolean
+    onBack: () => void
+    onSubmit: () => void
+}
+
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPending, onBack, onSubmit }) => {
+    if (isSubmittedProposalReviewStatus(study.status)) {
+        return null
+    }
+    return (
+        <Group justify="space-between">
+            <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
+                Back
+            </Button>
+            <Button disabled={!canSubmit || isPending} onClick={onSubmit}>
+                Submit review
+            </Button>
+        </Group>
+    )
+}
+
+type ReviewConfirmationModalProps = {
+    isOpen: boolean
+    onClose: () => void
+    onConfirm: () => void
+    isPending: boolean
+    title: string
+    confirmLabel: string
+    variant?: 'default' | 'destructive'
+    warning?: ReactNode
+}
+
+export const REJECTION_WARNING = (
+    <Text size="md" fw={600} c="red.9">
+        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
+        action cannot be undone.
+    </Text>
+)
+
+export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    isPending,
+    title,
+    confirmLabel,
+    variant = 'default',
+    warning,
+}) => {
+    const isDestructive = variant === 'destructive'
+    return (
+        <AppModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={title}
+            size={720}
+            closeOnClickOutside={!isPending}
+            closeOnEscape={!isPending}
+            withCloseButton={!isPending}
+        >
+            <Stack>
+                <Text size="md">
+                    Please confirm you are ready to submit your review. Further edits are not permitted once submitted.
+                </Text>
+                {warning}
+                <Group justify="flex-end">
+                    <Button variant="outline" onClick={onClose} disabled={isPending}>
+                        Cancel
+                    </Button>
+                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
+                        {confirmLabel}
+                    </Button>
+                </Group>
+            </Stack>
+        </AppModal>
+    )
+}
+
+/**
+ * Inner component that does all the hook work. Lives **inside**
+ * `<ReviewFeedbackProviderShare>` so `useProposalReviewMutation` can read the
+ * editor's published `HocuspocusProvider` via `useReviewFeedbackProvider()`.
+ * Without this split the mutation hook would call `useReviewFeedbackProvider`
+ * from a tree position above the share context provider and throw.
+ */
+function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion }: ProposalReviewViewProps) {
+    // One id per mount of the review view. Shared between the broadcaster (mutation
+    // hook) and the listener so the broadcaster's own tab is the only one that skips
+    // the kick-out flow. Same-user other tabs get fresh ids and respond as expected.
+    const [tabSessionId] = useState(() => crypto.randomUUID())
+
+    const {
+        feedback,
+        decision,
+        canSubmit,
+        handleBack,
+        handleSubmit,
+        confirmOpen,
+        closeConfirm,
+        rejectOpen,
+        closeReject,
+        handleConfirmSubmit,
+        isPending,
+    } = useProposalReview({ orgSlug, studyId: study.id, tabSessionId, reviewVersion })
+    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
+    const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
         <Box bg="grey.10">
+            <ReviewSubmissionListener
+                orgSlug={orgSlug}
+                studyId={study.id}
+                tabSessionId={tabSessionId}
+                enabled={isCollaborationEnabled && isEditable}
+            />
             <Stack px="xl" gap="xl" py="xl">
                 <PageBreadcrumbs
                     crumbs={[
                         ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Study proposal', Routes.studyReview({ orgSlug, studyId: study.id })],
+                        ['Data use request', Routes.studyReview({ orgSlug, studyId: study.id })],
                         ['Review initial request'],
                     ]}
                 />
 
                 <Title order={1} fz={40} fw={700}>
-                    Study proposal
+                    Review initial request
                 </Title>
 
-                <ReviewProgressBar currentStep={0} steps={REVIEW_STEPS} />
                 <ProposalSection study={study} orgSlug={orgSlug} />
-                <ReviewFeedbackSection feedback={feedback} />
-                <ReviewDecisionSection decision={decision} />
+                <FeedbackAndNotesSection entries={priorEntries} />
+                <ReviewFeedbackSection
+                    feedback={feedback}
+                    submittingLabName={study.submittingLabName}
+                    studyId={study.id}
+                    reviewVersion={reviewVersion}
+                />
+                <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
 
-                <Group justify="space-between">
-                    <Button variant="outline" onClick={handleBack}>
-                        Back
-                    </Button>
-                    <Button disabled={!canSubmit} onClick={handleSubmit}>
-                        Submit review
-                    </Button>
-                </Group>
+                <ReviewActionsBar
+                    study={study}
+                    canSubmit={canSubmit}
+                    isPending={isPending}
+                    onBack={handleBack}
+                    onSubmit={handleSubmit}
+                />
             </Stack>
+
+            <ReviewConfirmationModal
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={handleConfirmSubmit}
+                isPending={isPending}
+                title="Confirm review submission?"
+                confirmLabel="Yes, submit review"
+            />
+            <ReviewConfirmationModal
+                isOpen={rejectOpen}
+                onClose={closeReject}
+                onConfirm={handleConfirmSubmit}
+                isPending={isPending}
+                title="Reject initial request"
+                confirmLabel="Reject initial request"
+                variant="destructive"
+                warning={REJECTION_WARNING}
+            />
         </Box>
+    )
+}
+
+export function ProposalReviewView(props: ProposalReviewViewProps) {
+    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
+    const isEditable = !isSubmittedProposalReviewStatus(props.study.status)
+
+    return (
+        <StudyKickOutProvider
+            studyId={props.study.id}
+            orgSlug={props.orgSlug}
+            editableStatuses={REVIEW_EDITABLE_STATUSES}
+            redirectTarget="studyReview"
+            enabled={isCollaborationEnabled && isEditable}
+        >
+            <ReviewFeedbackProviderShare>
+                <ProposalReviewViewContent {...props} />
+            </ReviewFeedbackProviderShare>
+        </StudyKickOutProvider>
     )
 }

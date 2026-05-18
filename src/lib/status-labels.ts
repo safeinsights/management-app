@@ -18,6 +18,7 @@ const COLORS = {
     underReview: { bg: 'yellow.0', c: 'dark.9' },
     rejected: { bg: 'red.1', c: 'red.8' },
     approved: { bg: 'green.1', c: 'green.8' },
+    clarification: { bg: 'blue.1', c: 'blue.8' },
     default: { bg: 'gray.1', c: 'dark.5' },
 }
 
@@ -53,6 +54,12 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
             "This study proposal has been rejected. It's now on the Researcher to revise and submit an updated version of their proposal. You'll receive an email once it's ready.",
         colors: COLORS.rejected,
     },
+    'CHANGE-REQUESTED': {
+        stage: 'Proposal',
+        label: 'Change requested',
+        tooltip: "You've asked the Researcher to clarify or revise this proposal.",
+        colors: COLORS.clarification,
+    },
 
     // Code
     'CODE-SUBMITTED': {
@@ -80,6 +87,12 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         tooltip:
             "This study code has been rejected. It's now on the Researcher to revise and submit an updated version of their code. You'll receive an email once it's ready.",
         colors: COLORS.rejected,
+    },
+    'CODE-CHANGES-REQUESTED': {
+        stage: 'Code',
+        label: 'Change requested',
+        tooltip: "You've asked the Researcher to clarify or revise this code.",
+        colors: COLORS.clarification,
     },
     'JOB-PACKAGING': {
         stage: 'Code',
@@ -155,6 +168,12 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         tooltip: 'Your study proposal needs revision. Open your study for more details.',
         colors: COLORS.rejected,
     },
+    'CHANGE-REQUESTED': {
+        stage: 'Proposal',
+        label: 'Change requested',
+        tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',
+        colors: COLORS.underReview,
+    },
 
     // Code
     INITIATED: {
@@ -186,6 +205,12 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         label: 'Rejected',
         tooltip: 'Your study code needs revision. Open your study for more details.',
         colors: COLORS.rejected,
+    },
+    'CODE-CHANGES-REQUESTED': {
+        stage: 'Code',
+        label: 'Change requested',
+        tooltip: 'The reviewer has requested changes to your code. Open your study for more details.',
+        colors: COLORS.underReview,
     },
     'JOB-ERRORED': {
         stage: 'Code',

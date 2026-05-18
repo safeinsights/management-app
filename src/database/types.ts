@@ -9,6 +9,7 @@ import type { ColumnType } from 'kysely'
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
     | 'APPROVED'
+    | 'CLARIFICATION_REQUESTED'
     | 'CREATED'
     | 'DELETED'
     | 'INVITED'
@@ -38,6 +39,8 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
+export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
+
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
 
 export type StudyJobFileType =
@@ -50,10 +53,13 @@ export type StudyJobFileType =
     | 'ENCRYPTED-RESULT'
     | 'ENCRYPTED-SECURITY-SCAN-LOG'
     | 'MAIN-CODE'
+    | 'PACKAGING-ERROR-LOG'
+    | 'SECURITY-SCAN-LOG'
     | 'SUPPLEMENTAL-CODE'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
+    | 'CODE-CHANGES-REQUESTED'
     | 'CODE-REJECTED'
     | 'CODE-SCANNED'
     | 'CODE-SUBMITTED'
@@ -67,7 +73,15 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
+export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
+
+export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
+
+export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
+
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
+
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -138,7 +152,6 @@ export interface OrgCodeEnv {
 export interface OrgDataSource {
     createdAt: Generated<Timestamp>
     description: string | null
-    documentationUrl: string | null
     id: Generated<string>
     name: string
     orgId: string
@@ -147,6 +160,14 @@ export interface OrgDataSource {
 export interface OrgDataSourceCodeEnv {
     codeEnvId: string
     dataSourceId: string
+}
+
+export interface OrgDataSourceUrl {
+    createdAt: Generated<Timestamp>
+    description: string | null
+    id: Generated<string>
+    orgDataSourceId: string
+    url: string | null
 }
 
 export interface OrgUser {
@@ -238,6 +259,38 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyProposalComment {
+    authorId: string
+    authorRole: StudyProposalCommentAuthorRole
+    body: Json
+    createdAt: Generated<Timestamp>
+    decision: ReviewDecision | null
+    entryType: StudyProposalCommentEntryType
+    id: Generated<string>
+    studyId: string
+    version: number
+}
+
+export interface StudyReview {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    report: Json
+    studyJobId: string
+}
+
+export interface StudyReviewComment {
+    authorId: string
+    body: Json
+    createdAt: Generated<Timestamp>
+    criteria: Json | null
+    decision: ReviewDecision | null
+    entryType: StudyReviewCommentEntryType
+    id: Generated<string>
+    reviewKind: StudyReviewCommentKind
+    studyId: string
+    studyJobId: string | null
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -258,6 +311,13 @@ export interface UserPublicKey {
     userId: string
 }
 
+export interface YjsDocument {
+    data: Buffer
+    name: string
+    studyId: string
+    updatedAt: Generated<Timestamp>
+}
+
 export interface DB {
     audit: Audit
     claudeContext: ClaudeContext
@@ -267,6 +327,7 @@ export interface DB {
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
     orgDataSourceCodeEnv: OrgDataSourceCodeEnv
+    orgDataSourceUrl: OrgDataSourceUrl
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition
@@ -274,8 +335,12 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyProposalComment: StudyProposalComment
+    studyReview: StudyReview
+    studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
+    yjsDocument: YjsDocument
 }
 
 export type FileType = StudyJobFileType

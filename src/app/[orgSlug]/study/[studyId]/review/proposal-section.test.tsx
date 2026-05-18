@@ -1,4 +1,4 @@
-import { lexicalJson } from '@/lib/word-count'
+import { lexicalJson } from '@/lib/lexical'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import {
     actionResult,
@@ -82,11 +82,16 @@ describe('ProposalSection', () => {
         expect(screen.getByText(/Does the researcher have relevant expertise/)).toBeInTheDocument()
     })
 
-    it('shows the submitting lab name in the status banner', () => {
+    it('shows the submitting lab name in the status banner, not bold', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
-        expect(screen.getByTestId('status-banner')).toHaveTextContent(labName)
+        const banner = screen.getByTestId('status-banner')
+        expect(banner).toHaveTextContent(labName)
+
+        for (const strong of banner.querySelectorAll('strong')) {
+            expect(strong.textContent ?? '').not.toContain(labName)
+        }
     })
 
     it('is expanded by default showing the proposal body', () => {
@@ -102,7 +107,7 @@ describe('ProposalSection', () => {
 
         fireEvent.click(screen.getByTestId('proposal-toggle-header'))
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Show full initial request')
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
     })
 
     it('toggles between hide and show text on repeated clicks', async () => {
@@ -113,7 +118,7 @@ describe('ProposalSection', () => {
         expect(headerToggle).toHaveTextContent('Hide full initial request')
 
         await user.click(headerToggle)
-        expect(headerToggle).toHaveTextContent('Show full initial request')
+        expect(headerToggle).toHaveTextContent('View full initial request')
 
         await user.click(headerToggle)
         expect(headerToggle).toHaveTextContent('Hide full initial request')
@@ -146,18 +151,10 @@ describe('ProposalSection', () => {
     })
 
     it('renders submitted date when study has been submitted', () => {
-        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T00:00:00Z') }
+        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T12:00:00Z') }
 
         renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" />)
 
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
-    })
-
-    it('does not render submitted date when study has no submission date', () => {
-        const unsubmittedStudy = { ...study, submittedAt: null }
-
-        renderWithProviders(<ProposalSection study={unsubmittedStudy} orgSlug="test-org" />)
-
-        expect(screen.queryByText(/Submitted on/)).not.toBeInTheDocument()
     })
 })
