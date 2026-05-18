@@ -92,10 +92,6 @@ function useCodeReview({
         router.push(backPath)
     }
 
-    const handleDecisionChange = (next: Decision) => {
-        decision.onSelect(next)
-    }
-
     const handleSubmit = () => {
         if (!hasDecision) return
 
@@ -122,7 +118,6 @@ function useCodeReview({
         evaluationForm,
         canSubmit,
         handleBack,
-        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -364,7 +359,6 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         evaluationForm,
         canSubmit,
         handleBack,
-        handleDecisionChange,
         handleSubmit,
         confirmOpen,
         closeConfirm,
