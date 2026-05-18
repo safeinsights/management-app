@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bundle the SQS worker handler into worker.js for AWS Lambda.
+# Bundle the review-agent SQS worker into review-worker.js for AWS Lambda.
 # @aws-sdk/* is provided by the Node20 runtime; everything else is inlined.
 # Alias @sentry/nextjs -> @sentry/node because the nextjs build is webpack-only;
 # worker never calls Sentry.init, so the SDK stays inert (CloudWatch handles logs).
 
-OUT_DIR=".next/worker"
+OUT_DIR=".next/review-worker"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
@@ -16,7 +16,7 @@ mkdir -p "$OUT_DIR"
     --platform=node \
     --target=node20 \
     --format=cjs \
-    --outfile="$OUT_DIR/worker.js" \
+    --outfile="$OUT_DIR/review-worker.js" \
     --external:@aws-sdk/* \
     --alias:@sentry/nextjs=@sentry/node \
     --tsconfig=tsconfig.json \
@@ -24,7 +24,7 @@ mkdir -p "$OUT_DIR"
     --log-level=warning
 
 pushd "$OUT_DIR" > /dev/null
-zip -q -r ../../lambda-worker-package.zip .
+zip -q -r ../../lambda-review-worker-package.zip .
 popd > /dev/null
 
-echo "Built lambda-worker-package.zip"
+echo "Built lambda-review-worker-package.zip"

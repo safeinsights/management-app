@@ -12,4 +12,4 @@ pushd .next/standalone/
 zip -q -r ../../lambda-server-package.zip .
 popd
 
-./bin/build-worker
+./bin/build-review-worker
