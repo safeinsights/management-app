@@ -7,13 +7,15 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
 import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
 import type { StudyJobStatus } from '@/database/types'
-import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { isCodeDecisionStatus } from './code-decision-status'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
@@ -83,6 +85,27 @@ export default async function StudyReviewPage(props: {
                             study={study}
                             job={job}
                             reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                        />
+                    }
+                />
+            )
+        }
+        // OTTER-538: once results exist, swap the legacy CodeOnlyView for the
+        // redesigned Study Details page (no code section, results-only) when the
+        // feature flag is on. Only flag-wrap during the results stage; other
+        // job-status branches keep the existing CodeOnlyView.
+        if (isStudyResultsStatus(latestJobStatus)) {
+            return (
+                <StudyDetailsRedesignFeatureFlag
+                    defaultContent={
+                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+                    }
+                    optInContent={
+                        <StudyDetailsRedesignView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
                             dashboardHref={dashboardHref}
                         />
                     }

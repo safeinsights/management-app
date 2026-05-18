@@ -11,12 +11,13 @@ import {
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import StudyReviewPage from './page'
 import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -168,16 +169,27 @@ describe('StudyViewPage', () => {
         ).rejects.toThrow()
     })
 
-    describe('post-code-submission flag swap (OTTER-537)', () => {
-        const addJobStatus = async (studyId: string, status: 'CODE-SCANNED' | 'CODE-APPROVED' | 'CODE-REJECTED') => {
-            const job = await db
-                .selectFrom('studyJob')
-                .select('id')
-                .where('studyId', '=', studyId)
-                .executeTakeFirstOrThrow()
-            await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
-        }
+    const addJobStatus = async (
+        studyId: string,
+        status:
+            | 'CODE-SCANNED'
+            | 'CODE-APPROVED'
+            | 'CODE-CHANGES-REQUESTED'
+            | 'CODE-REJECTED'
+            | 'RUN-COMPLETE'
+            | 'FILES-APPROVED'
+            | 'FILES-REJECTED'
+            | 'JOB-ERRORED',
+    ) => {
+        const job = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .executeTakeFirstOrThrow()
+        await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
+    }
 
+    describe('post-code-submission flag swap (OTTER-537)', () => {
         it('wraps CodeOnlyView in PostCodeSubmissionFeatureFlag when latest status is CODE-SUBMITTED and study is PENDING-REVIEW', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
@@ -317,18 +329,6 @@ describe('StudyViewPage', () => {
                 .execute()
         }
 
-        const addJobStatus = async (
-            studyId: string,
-            status: 'CODE-APPROVED' | 'CODE-CHANGES-REQUESTED' | 'CODE-REJECTED',
-        ) => {
-            const job = await db
-                .selectFrom('studyJob')
-                .select('id')
-                .where('studyId', '=', studyId)
-                .executeTakeFirstOrThrow()
-            await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
-        }
-
         it.each([
             ['CODE-APPROVED', 'APPROVE'],
             ['CODE-CHANGES-REQUESTED', 'NEEDS-CLARIFICATION'],
@@ -374,5 +374,30 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodeOnlyView)
         })
+    })
+
+    describe('study-details redesign flag swap (OTTER-538)', () => {
+        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
+            'wraps CodeOnlyView in StudyDetailsRedesignFeatureFlag when latest job status is %s',
+            async (jobStatus) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+                const { study } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await addJobStatus(study.id, jobStatus)
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: defaultSearchParams,
+                })
+
+                expect(page?.type).toBe(StudyDetailsRedesignFeatureFlag)
+                expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
+                expect(page?.props.optInContent.type).toBe(StudyDetailsRedesignView)
+            },
+        )
     })
 })
