@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
-import { enqueueStudyReview } from './queue'
+import { enqueueStudyReview } from './agents/review-agent/enqueue'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 

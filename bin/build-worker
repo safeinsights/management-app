@@ -11,7 +11,7 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 ./node_modules/.bin/esbuild \
-    src/server/workers/review-worker.ts \
+    src/server/agents/review-agent/worker.ts \
     --bundle \
     --platform=node \
     --target=node20 \

@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest'
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
 import { mockClient } from 'aws-sdk-client-mock'
 
-vi.mock('@/server/agents/review-agent/runner', () => ({
+vi.mock('./runner', () => ({
     generateAndStoreStudyReview: vi.fn(),
 }))
 
-import { enqueueStudyReview } from './queue'
-import { generateAndStoreStudyReview } from '@/server/agents/review-agent/runner'
+import { enqueueStudyReview } from './enqueue'
+import { generateAndStoreStudyReview } from './runner'
 
 const sqsMock = mockClient(SQSClient)
 const runnerMock = generateAndStoreStudyReview as unknown as Mock
@@ -35,7 +35,6 @@ describe('enqueueStudyReview', () => {
         expect(calls).toHaveLength(1)
         expect(calls[0].args[0].input.QueueUrl).toBe('https://sqs.us-east-1.amazonaws.com/123/test-queue')
         expect(JSON.parse(calls[0].args[0].input.MessageBody as string)).toEqual({
-            kind: 'study-review',
             studyJobId: 'study-job-abc',
         })
         expect(runnerMock).not.toHaveBeenCalled()
