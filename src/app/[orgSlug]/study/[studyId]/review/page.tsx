@@ -11,6 +11,7 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
 import {
     getCodeReviewFeedbackAction,
     getProposalFeedbackForStudyAction,
@@ -25,10 +26,6 @@ import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsRedesignView } from './study-details-redesign-view'
-
-// OTTER-538: job statuses for the DO Study Details page — "results need review",
-// "results ready", "results rejected" (plus the errored variant we already render).
-const STUDY_DETAILS_JOB_STATUSES = ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -101,9 +98,8 @@ export default async function StudyReviewPage(props: {
             // the feature flag is on.
             const latestJob = await latestSubmittedJobForStudy(studyId)
             const latestJobStatus = latestJob?.statusChanges[0]?.status
-            const isResultsStage = !!latestJobStatus && STUDY_DETAILS_JOB_STATUSES.includes(latestJobStatus as never)
 
-            if (isResultsStage) {
+            if (isStudyResultsStatus(latestJobStatus)) {
                 return (
                     <StudyDetailsRedesignFeatureFlag
                         defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}

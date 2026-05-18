@@ -5,6 +5,8 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { useState } from 'react'
 import { StudyResultsRedesign } from './study-results-redesign'
+// Study-level (proposal-level) approve/reject. Distinct from JobReviewButtons (used
+// inside StudyResultsRedesign), which approves/rejects the job's individual result files.
 import { StudyReviewButtons } from './study-review-buttons'
 
 // OTTER-538: pair of the redesigned StudyResults with the existing StudyReviewButtons

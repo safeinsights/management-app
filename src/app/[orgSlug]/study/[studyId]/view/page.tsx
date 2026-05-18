@@ -6,6 +6,7 @@ import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
 import type { StudyJobStatus } from '@/database/types'
 import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
@@ -17,18 +18,6 @@ const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED',
 
 const isUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && CODE_UNDER_REVIEW_STATUSES.includes(status)
-
-// OTTER-538: job statuses for the RL Study Details page — "results under review",
-// "results ready", and "results rejected".
-const STUDY_DETAILS_JOB_STATUSES: readonly StudyJobStatus[] = [
-    'RUN-COMPLETE',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-    'JOB-ERRORED',
-]
-
-const isStudyDetailsStatus = (status: StudyJobStatus | undefined): boolean =>
-    !!status && STUDY_DETAILS_JOB_STATUSES.includes(status)
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -76,7 +65,7 @@ export default async function StudyReviewPage(props: {
         // redesigned Study Details page (no code section, results-only) when the
         // feature flag is on. Only flag-wrap during the results stage; other
         // job-status branches keep the existing CodeOnlyView.
-        if (isStudyDetailsStatus(latestJobStatus)) {
+        if (isStudyResultsStatus(latestJobStatus)) {
             return (
                 <StudyDetailsRedesignFeatureFlag
                     defaultContent={

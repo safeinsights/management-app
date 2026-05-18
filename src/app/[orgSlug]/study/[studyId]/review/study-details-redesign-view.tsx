@@ -5,7 +5,6 @@ import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import type { Route } from 'next'
 import { StudyResultsRedesignWithReview } from './study-results-redesign-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
@@ -24,7 +23,7 @@ export async function StudyDetailsRedesignView({ orgSlug, study }: StudyDetailsR
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const previousHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review` as Route
+    const previousHref = Routes.studyReview({ orgSlug, studyId: study.id, from: 'code-review' })
 
     return (
         <Stack px="xl" gap="xl">

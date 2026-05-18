@@ -17,11 +17,11 @@ type StudyDetailsRedesignViewProps = {
     orgSlug: string
     study: SelectedStudy
     job: LatestJobForStudy
-    dashboardHref?: string
+    dashboardHref?: Route
 }
 
 export function StudyDetailsRedesignView({ orgSlug, study, job, dashboardHref }: StudyDetailsRedesignViewProps) {
-    const previousHref = (dashboardHref ?? Routes.dashboard) as Route
+    const previousHref = dashboardHref ?? Routes.dashboard
 
     return (
         <Stack px="xl" gap="xl">
