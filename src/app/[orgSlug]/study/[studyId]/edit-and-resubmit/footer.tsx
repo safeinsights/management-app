@@ -37,7 +37,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             const saved = await saveDraft()
             if (!saved) return
         }
-        router.push(Routes.studyView({ orgSlug, studyId }))
+        router.push(Routes.studySubmitted({ orgSlug, studyId }))
     }
 
     const handleConfirmResubmit = () => {
