@@ -1,42 +1,9 @@
 import type { ReactNode } from 'react'
-import { Center, Group, Loader, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { highlightLanguageForFile } from '@/lib/languages'
-import { CodeViewer } from '@/components/code-viewer'
-import { AppModal } from '@/components/modal'
-import { DownloadBlobLink } from '@/components/download-blob-link'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
-
-export function FilePreviewModal({
-    file,
-    onClose,
-}: {
-    file: { name: string; contents: string | null } | null
-    onClose: () => void
-}) {
-    if (!file) return null
-    const isLoading = file.contents === null
-    const title = (
-        <Group gap="md" align="baseline">
-            <span>{file.name}</span>
-            {!isLoading && (
-                <DownloadBlobLink filename={file.name} fileContent={file.contents ?? ''} size="sm" fw={400} />
-            )}
-        </Group>
-    )
-    return (
-        <AppModal isOpen onClose={onClose} title={title} size="xl" styles={{ body: { padding: 0 } }}>
-            {isLoading ? (
-                <Center h={500} data-testid="file-preview-loading">
-                    <Loader />
-                </Center>
-            ) : (
-                <CodeViewer code={file.contents ?? ''} language={highlightLanguageForFile(file.name)} />
-            )}
-        </AppModal>
-    )
-}
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 

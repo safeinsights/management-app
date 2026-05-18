@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { FilePreviewModal } from './study-code-panel'
+import { FilePreviewModal } from './file-preview-modal'
 
 describe('FilePreviewModal', () => {
     it('renders the Download link with the correct download attribute once contents are loaded', () => {

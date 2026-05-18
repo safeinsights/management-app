@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { ScrollArea, Box, Text } from '@mantine/core'
 import hljs from 'highlight.js/lib/core'
 import bash from 'highlight.js/lib/languages/bash'
@@ -34,7 +34,7 @@ import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
 import 'highlight.js/styles/github.css'
-import type { HighlightLanguage } from '@/lib/languages'
+import { highlightLanguageForFile, type HighlightLanguage } from '@/lib/languages'
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('c', c)
@@ -109,4 +109,10 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
             </ScrollArea>
         </Box>
     )
+}
+
+export function codeViewer(path: string, text: string): ReactNode | null {
+    const language = highlightLanguageForFile(path)
+    if (language === 'plaintext') return null
+    return <CodeViewer code={text} language={language} />
 }

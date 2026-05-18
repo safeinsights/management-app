@@ -3,7 +3,7 @@
 import { Alert, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
 import { useQuery } from '@/common'
-import { CodeViewer } from '@/components/code-viewer'
+import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { CodeFile } from './study-code-files'
