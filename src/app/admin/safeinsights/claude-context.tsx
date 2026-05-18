@@ -1,8 +1,8 @@
 'use client'
 
-import { useQuery } from '@/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
-import { isActionError, errorToString } from '@/lib/errors'
+import { errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -13,35 +13,27 @@ type ContextProps = { name: ContextName; orgId: string | null }
 function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
     const [content, setContent] = useState(initialContent)
     const [lastSavedContent, setLastSavedContent] = useState(initialContent)
-    const [isSaving, setIsSaving] = useState(false)
     const isDiff = content !== lastSavedContent // true if there's a diff,  false if the same as db
+    const queryClient = useQueryClient()
 
-    const onSubmit = async () => {
-        setIsSaving(true)
-        try {
-            const result = await writeClaudeContextAction({
-                name: name,
-                content: content,
-                orgId: orgId,
+    const { mutate: updateContext, isPending } = useMutation({
+        mutationFn: writeClaudeContextAction,
+        onSuccess: (_, variables) => {
+            setLastSavedContent(variables.content)
+            queryClient.invalidateQueries({ queryKey: ['claudeContext', name, orgId] })
+        },
+        onError: (error) => {
+            notifications.show({
+                color: 'red',
+                title: 'Context save failed',
+                message: errorToString(error),
+                autoClose: false,
             })
-            if (isActionError(result)) {
-                notifications.show({
-                    color: 'red',
-                    title: 'Context save failed',
-                    message: errorToString(result),
-                    autoClose: false,
-                })
-                return
-            }
-            setLastSavedContent(content)
-        } finally {
-            setIsSaving(false)
-        }
-    }
+        },
+    })
 
-    // TODO: Update title and label
     return (
-        <form action={onSubmit}>
+        <form action={() => updateContext({ name, content, orgId })}>
             <Stack gap="md">
                 <Textarea
                     autosize
@@ -53,7 +45,7 @@ function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { i
                     onChange={(e) => setContent(e.currentTarget.value)}
                 ></Textarea>
                 <Group justify="flex-end">
-                    <Button type="submit" loading={isSaving} disabled={!isDiff}>
+                    <Button type="submit" loading={isPending} disabled={!isDiff}>
                         Submit
                     </Button>
                 </Group>
