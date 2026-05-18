@@ -6,7 +6,7 @@ import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
@@ -722,9 +722,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         if (wordCount < FEEDBACK_MIN_WORDS) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }
-        if (wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount > CODE_REVIEW_FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
+                feedback: `Feedback must be ${CODE_REVIEW_FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 

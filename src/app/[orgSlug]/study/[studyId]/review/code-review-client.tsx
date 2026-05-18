@@ -15,6 +15,7 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { CODE_REVIEW_FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -62,7 +63,7 @@ function useCodeReview({
     jobId: string
     tabSessionId: string
 }) {
-    const feedback = useReviewFeedback()
+    const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
     const decision = useReviewDecision()
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
