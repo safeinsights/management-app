@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bundle the SQS worker handler into a single self-contained worker.js for AWS Lambda.
-# @aws-sdk/* is provided by the Node20 Lambda runtime; everything else is inlined.
-#
-# Logger imports `@sentry/nextjs`, which is webpack-instrumented and not bundleable
-# by esbuild. Alias it to `@sentry/node`, which exposes the same surface
-# (captureException, captureMessage, withScope, etc.) and bundles cleanly.
+# Bundle the SQS worker handler into worker.js for AWS Lambda.
+# @aws-sdk/* is provided by the Node20 runtime; everything else is inlined.
+# Alias @sentry/nextjs -> @sentry/node because the nextjs build is webpack-only;
+# worker never calls Sentry.init, so the SDK stays inert (CloudWatch handles logs).
 
 OUT_DIR=".next/worker"
 rm -rf "$OUT_DIR"
@@ -22,6 +20,7 @@ mkdir -p "$OUT_DIR"
     --external:@aws-sdk/* \
     --alias:@sentry/nextjs=@sentry/node \
     --tsconfig=tsconfig.json \
+    --sourcemap=linked \
     --log-level=warning
 
 pushd "$OUT_DIR" > /dev/null

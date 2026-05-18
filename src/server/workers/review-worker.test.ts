@@ -5,11 +5,6 @@ vi.mock('@/server/agents/review-agent/runner', () => ({
     generateAndStoreStudyReview: vi.fn(),
 }))
 
-vi.mock('@/server/config', () => ({
-    // Skip Sentry init in tests — no DSN, no network.
-    getConfigValue: vi.fn().mockResolvedValue(null),
-}))
-
 import { handler } from './review-worker'
 import { generateAndStoreStudyReview } from '@/server/agents/review-agent/runner'
 
