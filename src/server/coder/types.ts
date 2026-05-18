@@ -42,6 +42,11 @@ export interface CoderUser {
     status: string
 }
 
+export interface CoderSessionUser {
+    email: string
+    fullName: string
+}
+
 export interface CoderWorkspace {
     id: string
     name: string
