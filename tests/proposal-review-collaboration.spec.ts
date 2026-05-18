@@ -122,10 +122,11 @@ test('a reviewer in two tabs collaborates live on a proposal review; one tab sub
                 url: `/openstax/study/${studyId}/review`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
+            // Spy mode is React state — toggling it re-renders
+            // ProposalReviewFeatureFlag under the flipped flag without a
+            // reload. A hard reload would discard both spy mode and the
+            // Clerk session in CI, so we avoid it.
             await enableSpyMode(ctxA.page)
-            // Spy-mode toggle re-renders the page tree; navigate again so the
-            // redesigned ProposalReviewView mounts under the flipped flag.
-            await ctxA.page.goto(`/openstax/study/${studyId}/review`)
             await expect(ctxA.page.getByTestId('review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
@@ -136,7 +137,6 @@ test('a reviewer in two tabs collaborates live on a proposal review; one tab sub
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
             await enableSpyMode(ctxB.page)
-            await ctxB.page.goto(`/openstax/study/${studyId}/review`)
             await expect(ctxB.page.getByTestId('review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
