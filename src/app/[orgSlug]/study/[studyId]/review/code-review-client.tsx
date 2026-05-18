@@ -15,7 +15,7 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
-import type { Decision } from '@/lib/proposal-review'
+import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -81,9 +81,9 @@ function useCodeReview({
 
     const criteriaDraft = evaluationForm.getValues().criteria
     const criteriaComplete = allCriteriaAnswered(criteriaDraft)
-    const isDecisionTerminal = decision.selected !== null
+    const hasDecision = decision.selected !== null
 
-    const canSubmit = feedback.isValid && isDecisionTerminal && criteriaComplete
+    const canSubmit = feedback.isValid && hasDecision && criteriaComplete
     const backPath = Routes.orgDashboard({ orgSlug })
 
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
@@ -97,7 +97,7 @@ function useCodeReview({
     }
 
     const handleSubmit = () => {
-        if (!isDecisionTerminal) return
+        if (!hasDecision) return
 
         if (decision.selected === 'reject') {
             openReject()
@@ -406,7 +406,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                     isPending={isPending}
                     onBack={handleBack}
                     onSubmit={handleSubmit}
-                    onDecisionChange={handleDecisionChange}
+                    onDecisionChange={decision.onSelect}
                 />
                 <NonEditableBody isVisible={!initiallyEditable} job={job} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>

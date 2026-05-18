@@ -636,13 +636,14 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-const resubmissionNoteParam = z.string().refine(
-    (val) => {
-        const count = countWords(val)
-        return count >= RESUBMIT_NOTE_MIN_WORDS && count <= RESUBMIT_NOTE_MAX_WORDS
-    },
-    { message: `Resubmission note must be between ${RESUBMIT_NOTE_MIN_WORDS} and ${RESUBMIT_NOTE_MAX_WORDS} words.` },
-)
+const resubmissionNoteParam = z
+    .string()
+    .refine((val) => countWords(val) >= RESUBMIT_NOTE_MIN_WORDS, {
+        message: 'A resubmission note is required.',
+    })
+    .refine((val) => countWords(val) <= RESUBMIT_NOTE_MAX_WORDS, {
+        message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
+    })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
 // click — auto-save is intentionally out of scope for OTTER-521). The

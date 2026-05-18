@@ -30,7 +30,7 @@ test.beforeEach(async ({}, testInfo) => {
     testInfo.setTimeout(testInfo.timeout + 120_000)
 })
 
-// 60+ words to satisfy FEEDBACK_MIN_WORDS=50.
+// Realistic narrative feedback used to exercise the editor end-to-end.
 const FEEDBACK_TEXT =
     'After reviewing the submitted code I have concerns about how the proposal alignment is handled and whether the agreements are fully respected. The security checks pass but the privacy protections need more attention before this can move forward. I am sharing this feedback so the team can iterate before resubmission and make sure the analysis matches the approved research questions and dataset usage outlined in the proposal.'
 
