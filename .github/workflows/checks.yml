@@ -246,10 +246,10 @@ jobs:
               if: always()
             - name: Display SeaweedFS log
               run: docker logs seaweedfs 2>&1 || true
-              if: failure()
+              if: always()
             - name: Display editor-service log
               run: docker logs editor-service 2>&1 || true
-              if: failure()
+              if: always()
             - name: Delete any test users created
               run: npx tsx ./bin/delete-clerk-test-users.ts
               if: always()

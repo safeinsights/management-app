@@ -25,6 +25,7 @@ import {
     deferred,
     onStudyApproved,
     onStudyCodeApproved,
+    onStudyCodeChangesRequested,
     onStudyCodeRejected,
     onStudyNeedsClarification,
     onStudyRejected,
@@ -487,7 +488,11 @@ async function claimInitialProposalReviewStudy({
         .executeTakeFirst()
 
     if (!study) {
-        throw new ActionFailure({ study: 'must be in initial proposal review before submitting a proposal review' })
+        // OTTER-471: race-loser when a peer tab/user already submitted a decision.
+        // User-facing wording — surfaces via errorToString → reportMutationError toast.
+        throw new ActionFailure({
+            study: 'has already been decided. Refresh to see the updated status.',
+        })
     }
 
     return study
@@ -662,16 +667,20 @@ async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; stud
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow(throwNotFound('study'))
     if (study.status !== 'PENDING-REVIEW') {
-        throw new ActionFailure({ study: `study is not in code review (status: ${study.status})` })
+        // OTTER-471: race-loser when a peer already submitted a code decision
+        // (post-submit the study flips out of PENDING-REVIEW).
+        throw new ActionFailure({
+            study: 'has already been decided. Refresh to see the updated status.',
+        })
     }
 
     const job = await latestJobForStudyOrNull(studyId)
     const latestStatus = job?.statusChanges.at(0)?.status
     if (!job || !latestStatus) {
-        throw new ActionFailure({ study: 'no code job exists for this study' })
+        throw new ActionFailure({ study: 'has no code submission to review.' })
     }
     if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
-        throw new ActionFailure({ study: 'code is not in a reviewable state' })
+        throw new ActionFailure({ study: 'code is no longer in a reviewable state.' })
     }
     return job
 }
@@ -689,7 +698,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             studyId: z.string().uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
-            decision: z.enum(['approve', 'reject']),
+            decision: z.enum(['approve', 'needs-clarification', 'reject']),
             criteria: codeReviewCriteriaSchema,
         }),
     )
@@ -759,8 +768,25 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
-        } else {
+        } else if (decision === 'reject') {
             await performStudyCodeRejection({ db, studyId, userId })
+        } else {
+            // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
+            // pill flips to "Change requested") and move the study back to
+            // APPROVED. The proposal was already approved (approvedAt set);
+            // we restore that resting state so claimInitialCodeReviewJob's
+            // PENDING-REVIEW check blocks any further code-review submissions
+            // on this job until the researcher resubmits.
+            await db
+                .insertInto('jobStatusChange')
+                .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
+            onStudyCodeChangesRequested({ studyId, userId })
         }
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })

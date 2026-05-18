@@ -59,6 +59,7 @@ export type StudyJobFileType =
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
+    | 'CODE-CHANGES-REQUESTED'
     | 'CODE-REJECTED'
     | 'CODE-SCANNED'
     | 'CODE-SUBMITTED'

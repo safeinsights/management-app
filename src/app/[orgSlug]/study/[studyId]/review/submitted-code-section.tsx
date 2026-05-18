@@ -138,7 +138,7 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: Subm
                     <SecurityScanLog scan={scan} />
                 </Group>
                 <Divider />
-                <StudyCodeViewer files={codeFiles} />
+                <StudyCodeViewer studyJobId={job.id} files={codeFiles} />
             </Stack>
         </Paper>
     )

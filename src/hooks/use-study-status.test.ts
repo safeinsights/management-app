@@ -54,6 +54,27 @@ describe('useStudyStatus', () => {
             expect(reviewerResult?.label).toBe('Needs Review')
         })
 
+        it('shows code change requested labels for both audiences when the job status is CODE-CHANGES-REQUESTED', () => {
+            const params = (audience: 'researcher' | 'reviewer') =>
+                createTestParams('APPROVED', audience, [{ status: 'CODE-CHANGES-REQUESTED' }])
+
+            const researcherResult = useStudyStatus(params('researcher'))
+            const reviewerResult = useStudyStatus(params('reviewer'))
+
+            expect(researcherResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Code',
+                    label: 'Change requested',
+                }),
+            )
+            expect(reviewerResult).toEqual(
+                expect.objectContaining({
+                    stage: 'Code',
+                    label: 'Change requested',
+                }),
+            )
+        })
+
         it('shows proposal change requested labels for both audiences', () => {
             const studyStatus: StudyStatus = 'CHANGE-REQUESTED'
 
