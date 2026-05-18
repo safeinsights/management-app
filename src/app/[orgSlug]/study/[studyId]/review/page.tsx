@@ -5,17 +5,19 @@ import {
     CodeReviewFeatureFlag,
     PostSubmissionFeatureFlag,
     ProposalReviewFeatureFlag,
+    StudyDetailsRedesignFeatureFlag,
 } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
 import {
     getCodeReviewFeedbackAction,
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion, latestJobForStudyOrNull } from '@/server/db/queries'
+import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -23,6 +25,7 @@ import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -90,6 +93,22 @@ export default async function StudyReviewPage(props: {
             if (!study.reviewerAgreementsAckedAt && searchParams.from !== 'agreements-proceed') {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
+
+            // OTTER-538: once the job has reached the results stage, swap the legacy
+            // CodeReviewView for the redesigned results-only Study Details page when
+            // the feature flag is on.
+            const latestJob = await latestSubmittedJobForStudy(studyId)
+            const latestJobStatus = latestJob?.statusChanges[0]?.status
+
+            if (isStudyResultsStatus(latestJobStatus)) {
+                return (
+                    <StudyDetailsRedesignFeatureFlag
+                        defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}
+                        optInContent={<StudyDetailsRedesignView orgSlug={orgSlug} study={study} />}
+                    />
+                )
+            }
+
             return (
                 <CodeReviewFeatureFlag
                     defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}

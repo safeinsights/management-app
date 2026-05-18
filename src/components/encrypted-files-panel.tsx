@@ -15,9 +15,16 @@ import { FC } from 'react'
 type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
+    hideKeyLabel?: boolean
+    hideTableUntilDecrypted?: boolean
 }
 
-export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({ job, onFilesApproved }) => {
+export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
+    job,
+    onFilesApproved,
+    hideKeyLabel = false,
+    hideTableUntilDecrypted = false,
+}) => {
     const {
         fileRows,
         hasFileRows,
@@ -38,19 +45,27 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({ job, onFiles
         return null
     }
 
+    const showTable = !hideTableUntilDecrypted || !shouldShowForm
+
     return (
         <Stack>
-            <UnifiedFileTable
-                rows={fileRows}
-                onView={openFileViewer}
-                selectedPaths={selectedPaths}
-                onToggle={toggleFile}
-            />
+            {showTable && (
+                <UnifiedFileTable
+                    rows={fileRows}
+                    onView={openFileViewer}
+                    selectedPaths={selectedPaths}
+                    onToggle={toggleFile}
+                />
+            )}
             {shouldShowForm && (
                 <form onSubmit={handleSubmit}>
                     <Stack>
                         <Textarea
-                            label={<Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>}
+                            label={
+                                hideKeyLabel ? undefined : (
+                                    <Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>
+                                )
+                            }
                             resize="vertical"
                             {...form.getInputProps('privateKey')}
                             placeholder="Enter your Reviewer key to access encrypted content."
