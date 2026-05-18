@@ -754,10 +754,6 @@ export const isStudyOwnedByCurrentUserAction = new Action('isStudyOwnedByCurrent
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, params: { studyId }, session }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['researcherId'])
-            .where('id', '=', studyId)
-            .executeTakeFirst()
+        const study = await db.selectFrom('study').select(['researcherId']).where('id', '=', studyId).executeTakeFirst()
         return { isOwner: study?.researcherId === session.user.id }
     })
