@@ -41,7 +41,9 @@ export const StudyResultsRedesign: FC<{
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
     const handleFilesApproved = (files: JobFileInfo[]) => {
-        setDecryptedResults(files)
+        // EncryptedFilesPanel emits [] on mount before any decryption — ignore
+        // that initial emission so JobReviewButtons stays hidden until decryption.
+        setDecryptedResults((prev) => (prev === undefined && files.length === 0 ? prev : files))
         onFilesApproved?.(files)
     }
 
