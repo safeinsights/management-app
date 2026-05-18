@@ -95,6 +95,15 @@ export interface Audit {
     userId: string
 }
 
+export interface ClaudeContext {
+    content: string
+    id: Generated<string>
+    name: string
+    orgId: string | null
+    updatedAt: Generated<Timestamp>
+    updatedBy: string | null
+}
+
 export interface CodeScan {
     codeEnvId: string
     createdAt: Generated<Timestamp>
@@ -311,6 +320,7 @@ export interface YjsDocument {
 
 export interface DB {
     audit: Audit
+    claudeContext: ClaudeContext
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
     org: Org

@@ -11,6 +11,7 @@ import {
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId } from './db/queries'
 import { fetchFileContents } from './storage'
+import { getClaudeContextAction } from './actions/claude-context.actions'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -42,6 +43,10 @@ vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),
     utimes: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/server/actions/claude-context.actions', () => ({
+    getClaudeContextAction: vi.fn(),
 }))
 
 // Mock fetch globally
@@ -177,6 +182,7 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
+        vi.mocked(getClaudeContextAction).mockResolvedValue({ content: 'test context' })
     })
 
     afterEach(() => {
@@ -243,6 +249,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -345,6 +352,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -437,6 +445,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
