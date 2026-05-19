@@ -1,12 +1,4 @@
-import {
-    describe,
-    it,
-    expect,
-    beforeEach,
-    mockSessionWithTestData,
-    faker,
-    insertTestDataSource,
-} from '@/tests/unit.helpers'
+import { describe, it, expect, beforeEach, mockSessionWithTestData, insertTestDataSource } from '@/tests/unit.helpers'
 import { Selectable } from 'kysely'
 import { Org } from '@/database/types'
 import { generateDataSourcesContextString } from './workspaces'
@@ -15,7 +7,7 @@ describe('Workspaces', async () => {
     let org: Selectable<Org>
 
     beforeEach(async () => {
-        const { org: createdOrg } = await mockSessionWithTestData({ isAdmin: true, orgSlug: faker.string.alpha(10) })
+        const { org: createdOrg } = await mockSessionWithTestData()
         org = createdOrg
     })
 
