@@ -15,13 +15,14 @@ import {
 import { filterAndOrderCodeFiles, type CodeFile } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
+import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from './code-decision-status'
 
 interface CodePostDecisionViewProps {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
@@ -135,7 +136,7 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref }
 }
 
 type StepCardProps = {
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     job: LatestJobForStudy
     copy: DecisionCopy
     timestampDate: Date | string

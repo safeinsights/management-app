@@ -10,7 +10,7 @@ export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
-    studyTitle: string
+    studyTitle: string | null
     footer: ReactNode
 }
 
@@ -58,7 +58,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                     )}
                     <Title order={4}>Study code</Title>
                     <Text size="sm" c="dimmed">
-                        Title: {studyTitle}
+                        Title: {studyTitle ?? 'Untitled draft'}
                     </Text>
                 </Stack>
                 {body}

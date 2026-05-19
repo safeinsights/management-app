@@ -38,7 +38,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
             studyId={studyId}
             draftData={{
                 id: studyId,
-                title: study.title,
+                title: study.title ?? '',
                 piName: study.piName,
                 language: study.language,
                 orgSlug: study.orgSlug,

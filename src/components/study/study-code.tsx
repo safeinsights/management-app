@@ -9,7 +9,7 @@ import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
     studyId: string
-    studyTitle: string
+    studyTitle: string | null
     previousHref: Route
     onSubmitSuccess?: () => void
 }

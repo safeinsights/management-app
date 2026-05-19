@@ -30,7 +30,7 @@ export const PageBreadcrumbs: FC<{
 export const OrgBreadcrumbs: FC<{
     crumbs: {
         orgSlug: string
-        studyTitle?: string
+        studyTitle?: string | null
         studyId?: string
         current?: string
     }
@@ -48,7 +48,7 @@ export const OrgBreadcrumbs: FC<{
 export const ResearcherBreadcrumbs: FC<{
     crumbs: {
         orgSlug: string
-        studyTitle?: string
+        studyTitle?: string | null
         studyId?: string
         current?: string
         dashboardHref?: string

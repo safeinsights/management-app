@@ -8,7 +8,7 @@ import { ResearcherProfilePopover } from '@/components/researcher-profile-popove
 import { extractTextFromLexical } from '@/lib/lexical'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { usePopover } from '@/hooks/use-popover'
-import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from './schema'
+import { type ProposalFormValues } from './schema'
 import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
@@ -39,7 +39,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                     Study title
                 </Text>
                 <Text size="md" fw={400}>
-                    {values.title || DEFAULT_DRAFT_TITLE}
+                    {values.title?.trim() || 'Not provided'}
                 </Text>
             </Box>
 

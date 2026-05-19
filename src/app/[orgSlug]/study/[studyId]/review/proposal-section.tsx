@@ -2,14 +2,19 @@
 
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
-import { deriveStudyVersion } from '@/lib/studies'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import type { StudyForReview } from './review-types'
 
 type ProposalSectionProps = {
     study: StudyForReview
     orgSlug: string
+    // `priorEntries` are passed straight through to ProposalRequest for the
+    // header timestamp. `reviewVersion` is the single source of truth for
+    // resubmission state (DB MAX, populated by ProposalReviewView); we no
+    // longer re-derive it from entries here. Defaults to 1 (first submission)
+    // for callers that don't have a review version in scope.
     priorEntries?: ProposalFeedbackEntry[]
+    reviewVersion?: number
 }
 
 const EVALUATION_CRITERIA = [
@@ -54,17 +59,16 @@ function StatusBanner({ labName, isResubmission }: { labName: string; isResubmis
     )
 }
 
-export function ProposalSection({ study, orgSlug, priorEntries = [] }: ProposalSectionProps) {
+export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersion = 1 }: ProposalSectionProps) {
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const studyVersion = deriveStudyVersion(priorEntries)
-    const isResubmission = studyVersion > 1
+    const isResubmission = reviewVersion > 1
 
     return (
         <ProposalRequest
             study={study}
             orgSlug={orgSlug}
             stepLabel="STEP 1"
-            heading={`Review initial request ${isResubmission ? `v${studyVersion}.0` : ''}`}
+            heading={`Review initial request${isResubmission ? ` v${reviewVersion}.0` : ''}`}
             banner={<StatusBanner labName={labName} isResubmission={isResubmission} />}
             initialExpanded={!isResubmission}
             statusBadge={isResubmission ? 'Resubmitted on' : undefined}

@@ -5,13 +5,14 @@ import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { PostSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { Submitted } from '@/schema/study'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { SubmittedProposalPreview } from './submitted-proposal-preview'
 import { ProposalSubmitted } from './proposal-submitted'
 
 interface SubmittedViewProps {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     orgName: string
     entries: ProposalFeedbackEntry[]
     studyVersion: number
