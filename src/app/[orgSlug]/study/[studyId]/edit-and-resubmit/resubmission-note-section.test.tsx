@@ -27,6 +27,15 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText('0/300')).toBeInTheDocument()
     })
 
+    // Mantine's default behavior is correct here: don't shout an error at the user
+    // before they've touched the field. The Resubmit button is gated separately
+    // (see footer.test.tsx) so it's safe to keep the inline error quiet on mount.
+    it('does not surface a validation error on first paint, before the user interacts', () => {
+        renderSection()
+        expect(screen.queryByText(/required/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/between 50 and 300 words/i)).not.toBeInTheDocument()
+    })
+
     it('updates the word counter live as the user types', async () => {
         const user = userEvent.setup()
         renderSection()

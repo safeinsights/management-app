@@ -1,28 +1,68 @@
 import { TextInput } from '@mantine/core'
 import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { EditResubmitProvider, useEditResubmit } from '@/contexts/edit-resubmit'
+import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { lexicalJson } from '@/lib/lexical'
 import { EditResubmitFooter } from './footer'
+import { ResubmissionNoteSection } from './resubmission-note-section'
+import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
-function lexicalText(text: string): string {
-    return JSON.stringify({
-        root: {
-            type: 'root',
-            children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
-        },
-    })
+const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
+
+// Pre-fill the proposal-side of the form so `form.isValid()` is true and the
+// title gate is satisfied. This isolates the note gate from the proposal-form
+// gate (and from OTTER-557's title check).
+const VALID_PROPOSAL_DRAFT: EditResubmitDraftData = {
+    title: 'A valid title',
+    datasets: ['some-dataset'],
+    researchQuestions: lexicalJson('Some research questions'),
+    projectSummary: lexicalJson('A project summary'),
+    impact: lexicalJson('Some impact'),
+    piName: 'PI Name',
+    piUserId: '22222222-2222-4222-8222-222222222222',
 }
+
+const renderFooterWithNoteSection = (draft: EditResubmitDraftData = VALID_PROPOSAL_DRAFT) =>
+    renderWithProviders(
+        <EditResubmitProvider studyId={STUDY_ID} draftData={draft}>
+            <ResubmissionNoteSection orgName="Rice University" />
+            <EditResubmitFooter researcherName="Test Researcher" researcherId="" />
+        </EditResubmitProvider>,
+    )
+
+describe('EditResubmitFooter — note gating (OTTER-521)', () => {
+    // Regression: an earlier implementation seeded `useForm({ initialErrors })`
+    // for the note form because Mantine doesn't validate initial values. The
+    // seed itself rendered a concatenated error blob on first paint, and was
+    // also unnecessary — `noteForm.isValid()` re-runs the schema against
+    // current values on demand, so the empty-note case is already covered.
+    it('disables Resubmit on first paint when the resubmission note is empty, even if the proposal form is otherwise valid', () => {
+        renderFooterWithNoteSection()
+        const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
+        expect(resubmit).toBeDisabled()
+    })
+
+    it('enables Resubmit once a valid note is pasted and the proposal form is valid', async () => {
+        const user = userEvent.setup()
+        renderFooterWithNoteSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        await user.click(textarea)
+        await user.paste(wordsString(RESUBMIT_NOTE_MIN_WORDS))
+        const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
+        expect(resubmit).toBeEnabled()
+    })
+})
 
 // Every required proposal field populated EXCEPT the title (left blank, as drafts now
 // persist a NULL title instead of a placeholder; reproduces OTTER-557).
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
-    researchQuestions: lexicalText('What is the primary research question?'),
-    projectSummary: lexicalText('This study examines outcomes.'),
-    impact: lexicalText('Findings will inform practice.'),
+    researchQuestions: lexicalJson('What is the primary research question?'),
+    projectSummary: lexicalJson('This study examines outcomes.'),
+    impact: lexicalJson('Findings will inform practice.'),
     additionalNotes: '',
     piName: 'Jane Smith',
     piUserId: BLANK_UUID,
@@ -30,7 +70,7 @@ const fullyValidExceptTitle: ProposalFormValues = {
 
 // A 60-word note (above the 50-word minimum) so the note form's validity
 // doesn't get in the way of the title-gate assertions.
-const VALID_NOTE = Array.from({ length: 60 }, (_, i) => `word${i + 1}`).join(' ')
+const VALID_NOTE = wordsString(60)
 
 // Test-only probe that primes the note form with a valid value so we can
 // isolate the title-gate behavior under test.
@@ -50,7 +90,7 @@ const TitleInputProbe = () => {
     return <TextInput aria-label="Study Title Probe" {...form.getInputProps('title')} />
 }
 
-const renderFooter = (draftData: ProposalFormValues = fullyValidExceptTitle, titleOverride?: string) =>
+const renderFooterWithTitleProbes = (draftData: ProposalFormValues = fullyValidExceptTitle, titleOverride?: string) =>
     renderWithProviders(
         <EditResubmitProvider studyId={STUDY_ID} draftData={draftData}>
             <FormProbes titleOverride={titleOverride} />
@@ -58,19 +98,19 @@ const renderFooter = (draftData: ProposalFormValues = fullyValidExceptTitle, tit
         </EditResubmitProvider>,
     )
 
-describe('EditResubmitFooter submit gating (OTTER-557)', () => {
+describe('EditResubmitFooter — title gating (OTTER-557)', () => {
     it('keeps Resubmit disabled when the title is empty', () => {
-        renderFooter()
+        renderFooterWithTitleProbes()
         expect(screen.getByRole('button', { name: 'Resubmit initial request' })).toBeDisabled()
     })
 
     it('keeps Resubmit disabled when the title is whitespace only', () => {
-        renderFooter(fullyValidExceptTitle, '   ')
+        renderFooterWithTitleProbes(fullyValidExceptTitle, '   ')
         expect(screen.getByRole('button', { name: 'Resubmit initial request' })).toBeDisabled()
     })
 
     it('enables Resubmit when the researcher provides a real title', () => {
-        renderFooter(fullyValidExceptTitle, 'My Real Study Title')
+        renderFooterWithTitleProbes(fullyValidExceptTitle, 'My Real Study Title')
         expect(screen.getByRole('button', { name: 'Resubmit initial request' })).toBeEnabled()
     })
 
