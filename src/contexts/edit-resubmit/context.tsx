@@ -52,18 +52,9 @@ export function EditResubmitProvider({ children, studyId, draftData }: EditResub
         validateInputOnChange: true,
     })
 
-    // Seed errors from the schema so the Resubmit button starts disabled
-    // (Mantine's useForm doesn't validate initial values otherwise — the
-    // note is empty by default, which violates the 50-word minimum).
-    const initialNoteValidation = resubmitNoteSchema.safeParse(initialResubmitNoteValue)
-    const initialNoteErrors = initialNoteValidation.success
-        ? undefined
-        : (initialNoteValidation.error.flatten().fieldErrors as Record<string, string>)
-
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: initialResubmitNoteValue,
-        initialErrors: initialNoteErrors,
         validateInputOnChange: true,
     })
 
