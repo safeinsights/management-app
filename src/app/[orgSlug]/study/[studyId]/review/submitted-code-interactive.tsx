@@ -1,6 +1,7 @@
 'use client'
 
-import { Alert, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Anchor, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { CaretRight } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
@@ -43,6 +44,19 @@ function AiSummaryBody({ isVisible, summary }: { isVisible: boolean; summary: st
     )
 }
 
+function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
+    return (
+        <CaretRight
+            size={12}
+            weight="bold"
+            style={{
+                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
+                transition: 'transform 200ms ease',
+            }}
+        />
+    )
+}
+
 type AiSummaryProps = { summary: string | null }
 
 export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
@@ -58,11 +72,21 @@ export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
     const content = (
         <>
             <AiSummaryBody isVisible={isExpanded} summary={summary ?? ''} />
-            <UnstyledButton onClick={toggle} data-testid="ai-summary-toggle">
-                <Text size="sm" c="blue.6" td="underline">
-                    {toggleLabel}
-                </Text>
-            </UnstyledButton>
+            <Anchor
+                component="button"
+                type="button"
+                onClick={toggle}
+                size="sm"
+                fw={700}
+                display="inline-flex"
+                w="fit-content"
+                style={{ alignItems: 'center', gap: 4 }}
+                data-testid="ai-summary-toggle"
+                aria-expanded={isExpanded}
+            >
+                {toggleLabel}
+                <ToggleChevron isExpanded={isExpanded} />
+            </Anchor>
         </>
     )
 
@@ -100,12 +124,12 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
             px="md"
             py="xs"
             style={{
-                borderBottom: isActive ? '2px solid var(--mantine-color-blue-6)' : '2px solid transparent',
-                fontWeight: isActive ? 700 : 400,
+                backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
+                borderRadius: 0,
                 whiteSpace: 'nowrap',
             }}
         >
-            <Text size="sm" component="span">
+            <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
                 {display}
             </Text>
         </UnstyledButton>
@@ -136,9 +160,18 @@ function FileTabsRow({
     ))
     const overflow =
         hiddenCount > 0 ? (
-            <Text size="sm" c="charcoal.7" data-testid="study-code-files-overflow" style={{ whiteSpace: 'nowrap' }}>
-                +{hiddenCount} more files
-            </Text>
+            <Group
+                gap={4}
+                wrap="nowrap"
+                align="center"
+                data-testid="study-code-files-overflow"
+                style={{ whiteSpace: 'nowrap' }}
+            >
+                <Text size="sm" c="charcoal.7" component="span">
+                    +{hiddenCount} more files
+                </Text>
+                <CaretRight size={12} weight="bold" />
+            </Group>
         ) : null
 
     return (
@@ -215,11 +248,21 @@ function StudyCodeToggle({
     if (!isVisible) return null
     const label = isExpanded ? labels.collapse : labels.expand
     return (
-        <UnstyledButton onClick={onClick} data-testid="study-code-toggle">
-            <Text size="sm" c="blue.6" td="underline">
-                {label}
-            </Text>
-        </UnstyledButton>
+        <Anchor
+            component="button"
+            type="button"
+            onClick={onClick}
+            size="sm"
+            fw={700}
+            display="inline-flex"
+            w="fit-content"
+            style={{ alignItems: 'center', gap: 4 }}
+            data-testid="study-code-toggle"
+            aria-expanded={isExpanded}
+        >
+            {label}
+            <ToggleChevron isExpanded={isExpanded} />
+        </Anchor>
     )
 }
 

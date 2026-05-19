@@ -24,6 +24,7 @@ import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon } from '@phospho
 import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
+import { RequiredIndicator } from '@/components/required-indicator'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -81,12 +82,8 @@ function StarterCodeSection({
     return (
         <Box>
             <Title order={5} mb={4}>
-                Starter Code{' '}
-                {!isEditMode && (
-                    <Text component="span" c="red">
-                        *
-                    </Text>
-                )}
+                Starter Code
+                <RequiredIndicator isVisible={!isEditMode} />
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
                 {isEditMode

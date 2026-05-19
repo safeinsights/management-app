@@ -1,7 +1,9 @@
 'use client'
 
-import { Button, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
+import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
     type CodeReviewCriteriaDraft,
@@ -28,51 +30,23 @@ type CriterionRowProps = {
     onChange: (value: CodeReviewCriteriaDraftValue) => void
 }
 
-type ClearCriterionButtonProps = {
-    isVisible: boolean
-    onClear: () => void
-    testId: string
-}
-
-// Native radios cannot be returned to the unchecked state by re-clicking the
-// selected option (MDN: only form reset or programmatic change can do that), so
-// the criteria UI cannot satisfy the cross-peer unselect requirement without an
-// explicit clear affordance.
-function ClearCriterionButton({ isVisible, onClear, testId }: ClearCriterionButtonProps) {
-    if (!isVisible) return null
-    return (
-        <Button variant="subtle" size="xs" onClick={onClear} data-testid={testId}>
-            Clear
-        </Button>
-    )
-}
-
 function CriterionRow({ descriptor, value, onChange }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
-    const handleClear = () => onChange(null)
     const radioOptions = OPTIONS.map((option) => <Radio key={option.value} value={option.value} label={option.label} />)
 
     return (
-        <Stack gap={4}>
-            <Text fz={14} fw={600}>
+        <Group gap="xl" wrap="nowrap" align="center" data-testid={`criteria-row-${descriptor.key}`}>
+            <Text fz={14} w={320}>
                 {descriptor.label}
             </Text>
-            <Text fz={14} c="charcoal.7">
-                {descriptor.description}
-            </Text>
             <Radio.Group value={value ?? ''} onChange={handleChange} name={`criteria-${descriptor.key}`}>
-                <Group gap="lg" mt="xs">
+                <Group gap="xl" wrap="nowrap">
                     {radioOptions}
-                    <ClearCriterionButton
-                        isVisible={value !== null}
-                        onClear={handleClear}
-                        testId={`criteria-clear-${descriptor.key}`}
-                    />
                 </Group>
             </Radio.Group>
-        </Stack>
+        </Group>
     )
 }
 
@@ -99,11 +73,32 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">
             <Stack gap="lg">
-                <Text fz={20} fw={700} c="charcoal.9">
-                    Code evaluation
-                </Text>
+                <Group gap={4} align="center">
+                    <Text fz={20} fw={700} c="charcoal.9">
+                        Code evaluation
+                    </Text>
+                    <RequiredIndicator fz={20} fw={700} />
+                </Group>
                 <Divider />
-                <Stack gap="lg">{criterionRows}</Stack>
+                <Text fz={14} c="charcoal.9">
+                    Use this checklist to guide your review. Consider each criterion based on the submitted code, AI
+                    summary, and security scan results.
+                </Text>
+                <Alert
+                    color="red"
+                    variant="light"
+                    title="Attention"
+                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--mantine-color-red-9)" />}
+                    styles={{ title: { color: 'var(--mantine-color-red-9)' } }}
+                    data-testid="code-evaluation-attention"
+                >
+                    This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
+                    decision based on your professional judgment and understanding of your data.
+                </Alert>
+                <Text fz={16} fw={700} c="charcoal.9">
+                    Evaluation criteria
+                </Text>
+                <Stack gap="md">{criterionRows}</Stack>
             </Stack>
         </Paper>
     )

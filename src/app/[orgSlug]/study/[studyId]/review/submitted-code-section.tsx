@@ -17,9 +17,12 @@ function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 size="sm"
+                display="inline-flex"
+                style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
                 data-testid="view-approved-initial-request"
             >
-                View approved initial request <ArrowSquareOut size={14} />
+                View approved initial request
+                <ArrowSquareOut size={14} />
             </Anchor>
         </Group>
     )
@@ -122,9 +125,13 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: Subm
                 <Divider />
                 <DatasetPills names={datasetNames} />
                 <Divider />
-                <Group align="flex-start" grow gap="xl" wrap="nowrap">
-                    <AiSummaryCollapsible summary={summary} />
-                    <SecurityScanLog scan={scan} />
+                <Group align="stretch" grow gap="xl" wrap="nowrap">
+                    <Paper withBorder p="lg" radius={0}>
+                        <AiSummaryCollapsible summary={summary} />
+                    </Paper>
+                    <Paper withBorder p="lg" radius={0}>
+                        <SecurityScanLog scan={scan} />
+                    </Paper>
                 </Group>
                 <Divider />
                 <StudyCodeViewer studyJobId={job.id} files={codeFiles} />
