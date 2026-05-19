@@ -76,12 +76,13 @@ function ReviewReport({ review }: { review: StudyReviewWithMeta }) {
         <Stack>
             <ReviewHeader />
             <ReviewMetadata generatedAtLabel={generatedAtLabel} fileNames={fileNames} />
-            <TextSection title="Proposal summary" body={report.proposalSummary} />
+            <TextSection title="Proposal summary" body={report.proposalSummary} className="spy-mode-element" />
             <TextSection title="Code explanation" body={report.codeExplanation} />
             <TextSection
                 title="Results summary"
                 body={report.resultsSummary}
                 isVisible={Boolean(report.resultsSummary)}
+                className="spy-mode-element"
             />
             <CheckSection
                 title="Alignment check"
@@ -89,6 +90,7 @@ function ReviewReport({ review }: { review: StudyReviewWithMeta }) {
                 positiveLabel="Aligned"
                 negativeLabel="Misaligned"
                 findings={report.alignmentCheck.findings}
+                className="spy-mode-element"
             />
             <CheckSection
                 title="Compliance check"
@@ -96,6 +98,7 @@ function ReviewReport({ review }: { review: StudyReviewWithMeta }) {
                 positiveLabel="Compliant"
                 negativeLabel="Non-compliant"
                 findings={report.complianceCheck.findings}
+                className="spy-mode-element"
             />
         </Stack>
     )
@@ -118,12 +121,13 @@ type TextSectionProps = {
     title: string
     body?: string
     isVisible?: boolean
+    className?: string
 }
 
-function TextSection({ title, body, isVisible = true }: TextSectionProps) {
+function TextSection({ title, body, isVisible = true, className }: TextSectionProps) {
     if (!isVisible) return null
     return (
-        <Stack gap="xs">
+        <Stack gap="xs" className={className}>
             <Text fw={600} size="sm">
                 {title}
             </Text>
@@ -138,14 +142,15 @@ type CheckSectionProps = {
     positiveLabel: string
     negativeLabel: string
     findings: string[]
+    className?: string
 }
 
-function CheckSection({ title, isPositive, positiveLabel, negativeLabel, findings }: CheckSectionProps) {
+function CheckSection({ title, isPositive, positiveLabel, negativeLabel, findings, className }: CheckSectionProps) {
     const badgeColor = isPositive ? 'green' : 'red'
     const badgeLabel = isPositive ? positiveLabel : negativeLabel
 
     return (
-        <Stack gap="xs">
+        <Stack gap="xs" className={className}>
             <Group gap="xs">
                 <Text fw={600} size="sm">
                     {title}
