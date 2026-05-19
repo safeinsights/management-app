@@ -231,10 +231,12 @@ export const getDataSourcesForOrg = async (orgId: string) => {
                 eb
                     .selectFrom('orgDataSourceUrl')
                     .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
-                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id'),
+                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id')
+                    .orderBy('orgDataSourceUrl.createdAt', 'asc'),
             ).as('urls'),
         ])
         .where('orgDataSource.orgId', '=', orgId)
+        .orderBy('orgDataSource.createdAt', 'asc')
         .execute()
 }
 
