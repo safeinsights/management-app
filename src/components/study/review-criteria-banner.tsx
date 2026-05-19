@@ -4,7 +4,7 @@ import type { MantineSpacing } from '@mantine/core'
 
 type Criterion = {
     label: string
-    description: string
+    description?: string
 }
 
 type ReviewCriteriaBannerProps = {
@@ -29,7 +29,8 @@ export function ReviewCriteriaBanner({
                 <Stack gap={4} mt="md" data-testid={criteriaTestId}>
                     {criteria.map(({ label, description }) => (
                         <Text size="sm" key={label}>
-                            <strong>{label}:</strong> {description}
+                            <strong>{description ? `${label}:` : label}</strong>
+                            {description ? ` ${description}` : null}
                         </Text>
                     ))}
                 </Stack>
