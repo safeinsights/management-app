@@ -2,7 +2,7 @@ import { TextInput } from '@mantine/core'
 import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal, type ProposalDraftData } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
-import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from './schema'
+import { type ProposalFormValues } from './schema'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -15,10 +15,10 @@ function lexicalText(text: string): string {
     })
 }
 
-// Every required field populated EXCEPT the title (which holds the
-// server-assigned DEFAULT_DRAFT_TITLE placeholder, reproducing OTTER-557).
+// Every required field populated EXCEPT the title (left blank, as drafts now
+// persist a NULL title instead of a placeholder; reproduces OTTER-557).
 const fullyValidExceptTitle: ProposalFormValues = {
-    title: DEFAULT_DRAFT_TITLE,
+    title: '',
     datasets: ['dataset-1'],
     researchQuestions: lexicalText('What is the primary research question?'),
     projectSummary: lexicalText('This study examines outcomes.'),
@@ -43,7 +43,7 @@ const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle) =>
     )
 
 describe('ProposalFooter submit gating (OTTER-557)', () => {
-    it('keeps Submit disabled when only the default draft title is present', () => {
+    it('keeps Submit disabled when the title is empty', () => {
         renderFooter()
         expect(screen.getByRole('button', { name: 'Submit study proposal' })).toBeDisabled()
     })

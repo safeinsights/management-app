@@ -10,11 +10,7 @@ import { EditableText } from '@/components/editable-text'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords, countWordsFromLexical } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import {
-    DEFAULT_DRAFT_TITLE,
-    WORD_LIMITS,
-    type ProposalFormValues,
-} from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { WORD_LIMITS, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { editableTextFields, type EditableTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
 
@@ -98,7 +94,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         aria-label="Study Title"
                         placeholder="Ex. Impact of highlighting on student learning outcomes."
                         {...form.getInputProps('title')}
-                        value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
+                        value={form.values.title ?? ''}
                         error={!!form.errors.title}
                     />
                     <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>

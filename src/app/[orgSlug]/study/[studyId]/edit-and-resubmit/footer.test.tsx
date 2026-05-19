@@ -1,7 +1,7 @@
 import { TextInput } from '@mantine/core'
 import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
-import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { lexicalJson } from '@/lib/lexical'
 import { EditResubmitFooter } from './footer'
 import { ResubmissionNoteSection } from './resubmission-note-section'
@@ -13,7 +13,7 @@ const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `
 
 // Pre-fill the proposal-side of the form so `form.isValid()` is true and the
 // title gate is satisfied. This isolates the note gate from the proposal-form
-// gate (and from OTTER-557's title-placeholder check).
+// gate (and from OTTER-557's title check).
 const VALID_PROPOSAL_DRAFT: EditResubmitDraftData = {
     title: 'A valid title',
     datasets: ['some-dataset'],
@@ -55,10 +55,10 @@ describe('EditResubmitFooter — note gating (OTTER-521)', () => {
     })
 })
 
-// Every required proposal field populated EXCEPT the title (which holds the
-// server-assigned DEFAULT_DRAFT_TITLE placeholder, reproducing OTTER-557).
+// Every required proposal field populated EXCEPT the title (left blank, as drafts now
+// persist a NULL title instead of a placeholder; reproduces OTTER-557).
 const fullyValidExceptTitle: ProposalFormValues = {
-    title: DEFAULT_DRAFT_TITLE,
+    title: '',
     datasets: ['dataset-1'],
     researchQuestions: lexicalJson('What is the primary research question?'),
     projectSummary: lexicalJson('This study examines outcomes.'),
@@ -99,7 +99,7 @@ const renderFooterWithTitleProbes = (draftData: ProposalFormValues = fullyValidE
     )
 
 describe('EditResubmitFooter — title gating (OTTER-557)', () => {
-    it('keeps Resubmit disabled when only the default draft title is present', () => {
+    it('keeps Resubmit disabled when the title is empty', () => {
         renderFooterWithTitleProbes()
         expect(screen.getByRole('button', { name: 'Resubmit initial request' })).toBeDisabled()
     })

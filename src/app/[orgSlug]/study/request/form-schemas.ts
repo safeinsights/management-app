@@ -147,7 +147,12 @@ export const step2ProposalApiSchema = z.object({
     additionalNotes: z.string(),
 })
 
-export const draftStudyApiSchema = studyProposalApiSchema.extend(step2ProposalApiSchema.shape).partial()
+// Drafts allow `title: null` so a researcher can save without filling it in;
+// the DB enforces non-null only when status leaves DRAFT.
+export const draftStudyApiSchema = studyProposalApiSchema
+    .extend(step2ProposalApiSchema.shape)
+    .partial()
+    .extend({ title: z.string().nullable().optional() })
 
 export const step1ReadinessSchema = z.object({
     orgSlug: z.string().min(1),

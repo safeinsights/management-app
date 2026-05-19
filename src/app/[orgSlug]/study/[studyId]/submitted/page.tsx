@@ -4,6 +4,7 @@ import { getOrgNameFromId } from '@/server/db/queries'
 import { deriveStudyVersion } from '@/lib/studies'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
+import { isSubmittedStudy } from '@/schema/study'
 import { SubmittedView } from './submitted-view'
 
 export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
@@ -13,6 +14,10 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
 
     if (isActionError(result) || !result) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
+    }
+
+    if (!isSubmittedStudy(result)) {
+        return <AlertNotFound title="Study was not found" message="this study has not been submitted yet" />
     }
 
     const [orgName, feedbackResult] = await Promise.all([

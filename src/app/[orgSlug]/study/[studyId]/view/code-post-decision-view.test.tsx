@@ -16,6 +16,7 @@ import {
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { CodePostDecisionView } from './code-post-decision-view'
 
@@ -83,6 +84,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         .execute()
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+    if (!isSubmittedStudy(study)) throw new Error('test fixture must be a submitted study')
     const latestJob = (await latestJobForStudy(dbStudy.id)) as LatestJobForStudy
     ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     memoryRouter.setCurrentUrl('/')
@@ -92,7 +94,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
 const DEFAULT_DASHBOARD_HREF = Routes.orgDashboard({ orgSlug: ORG_SLUG })
 
 function renderView(
-    study: SelectedStudy,
+    study: Submitted<SelectedStudy>,
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
