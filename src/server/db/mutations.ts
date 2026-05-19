@@ -56,6 +56,23 @@ export async function resetBaselineJob(db: Kysely<DB>, studyId: string) {
     return createBaselineJob(db, studyId, new Date())
 }
 
+/**
+ * Returns the createdAt of the most recent studyJob for this study, or null if none exists.
+ * Used by starter-file copy paths to backdate file mtimes relative to the baseline, regardless of
+ * how long the workspace took to become ready (a wall-clock backdate is unsafe when provisioning
+ * exceeds the backdate window — see OTTER-547).
+ */
+export async function latestStudyJobCreatedAt(db: Kysely<DB>, studyId: string): Promise<Date | null> {
+    const row = await db
+        .selectFrom('studyJob')
+        .select('createdAt')
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt ?? null
+}
+
 // Reviewer feedback shares the version of the proposal it reviews (increment=false)
 // Researcher resubmission opens a new version (increment=true)
 export function nextVersionForStudyComment({ studyId, increment }: { studyId: string; increment: boolean }) {

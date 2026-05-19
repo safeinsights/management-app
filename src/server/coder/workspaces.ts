@@ -15,6 +15,8 @@ import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 import { fetchLatestCodeEnvForStudyId } from '../db/queries'
+import { latestStudyJobCreatedAt } from '../db/mutations'
+import { db } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -233,8 +235,13 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
 
-    // Backdate mtime so starter files appear as "unchanged" relative to the baseline job
-    const pastDate = new Date(Date.now() - 60_000)
+    // Backdate starter-file mtime relative to the baseline studyJob rather than wall-clock.
+    // Wall-clock backdating breaks when Coder provisioning takes longer than the backdate window:
+    // files end up newer than the baseline and the "files changed" gate flips Submit on without
+    // any user edits. Falling back to wall-clock is only for the (currently impossible) case of
+    // no baseline existing.
+    const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
+    const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
     for (const fileName of codeEnv.starterCodeFileNames) {
         const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })

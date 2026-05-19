@@ -31,12 +31,16 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
     const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
     const { fetchFileContents } = await import('@/server/storage')
     const { pathForStarterCode } = await import('@/lib/paths')
+    const { latestStudyJobCreatedAt } = await import('@/server/db/mutations')
+    const { db } = await import('@/database')
 
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     await fs.mkdir(coderFilesPath, { recursive: true })
 
-    // Backdate mtime so starter files appear as "unchanged" relative to the baseline job
-    const pastDate = new Date(Date.now() - 60_000)
+    // Backdate starter-file mtime relative to the baseline studyJob rather than wall-clock.
+    // See workspaces.ts:initializeWorkspaceCodeFiles for the same reasoning.
+    const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
+    const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
     for (const fileName of codeEnv.starterCodeFileNames) {
         const s3Path = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
