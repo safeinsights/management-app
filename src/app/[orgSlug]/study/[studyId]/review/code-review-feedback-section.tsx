@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Skeleton, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { WordCounter } from '@/components/word-counter'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -178,9 +179,7 @@ export function CodeReviewFeedbackSection({
                     <Text fz={20} fw={700} c="charcoal.9">
                         Code review
                     </Text>
-                    <Text fz={20} fw={700} c="red.9" component="span">
-                        *
-                    </Text>
+                    <RequiredIndicator fz={20} fw={700} />
                 </Group>
                 <Divider />
                 <FeedbackIntro labName={labName} />

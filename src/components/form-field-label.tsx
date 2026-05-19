@@ -1,5 +1,6 @@
 import React from 'react'
 import { Input, Text, Title } from '@mantine/core'
+import { RequiredIndicator } from './required-indicator'
 
 /**
  * Mantine-compliant, accessible label for form fields.
@@ -29,11 +30,7 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
         labelContent = (
             <Text fw={600} size="sm" span>
                 {label}
-                {required && (
-                    <Text span c="red" ml={4}>
-                        *
-                    </Text>
-                )}
+                <RequiredIndicator isVisible={required} />
             </Text>
         )
     }
@@ -42,22 +39,14 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
         labelContent = (
             <Title order={5} fw={550} style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
                 {label}
-                {required && (
-                    <Text span c="red" ml={4}>
-                        *
-                    </Text>
-                )}
+                <RequiredIndicator isVisible={required} />
             </Title>
         )
     } else {
         labelContent = (
             <Title order={5} fw="semibold" style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
                 {label}
-                {required && (
-                    <Text span c="red" ml={4}>
-                        *
-                    </Text>
-                )}
+                <RequiredIndicator isVisible={required} />
             </Title>
         )
     }

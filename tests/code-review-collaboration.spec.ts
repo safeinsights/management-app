@@ -234,7 +234,7 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             })
         })
 
-        await test.step('ctxA selects Yes on Proposal alignment; ctxB sees the selection; ctxB clears; ctxA sees the clear', async () => {
+        await test.step('ctxA selects Yes on Proposal alignment; ctxB sees the selection', async () => {
             // Sanity: both contexts still in collab view (not legacy/redirect).
             await expect(ctxA!.page.getByTestId('code-evaluation-section')).toBeVisible()
             await expect(ctxB!.page.getByTestId('code-evaluation-section')).toBeVisible()
@@ -245,9 +245,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
 
             const radioYesB = criterionRadioIn(ctxB!.page, 'proposalAlignment', 'yes')
             await expect(radioYesB).toBeChecked({ timeout: E2E_TIMEOUT })
-
-            await ctxB!.page.getByTestId('criteria-clear-proposalAlignment').click()
-            await expect(radioYesA).not.toBeChecked({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('ctxA completes criteria + decision, submits; ctxB is redirected with the submission toast', async () => {

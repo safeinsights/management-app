@@ -3,6 +3,7 @@
 import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
     type CodeReviewCriteriaDraft,
@@ -76,9 +77,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     <Text fz={20} fw={700} c="charcoal.9">
                         Code evaluation
                     </Text>
-                    <Text fz={20} fw={700} c="red.9" component="span">
-                        *
-                    </Text>
+                    <RequiredIndicator fz={20} fw={700} />
                 </Group>
                 <Divider />
                 <Text fz={14} c="charcoal.9">
