@@ -191,7 +191,7 @@ export const getStudyAction = new Action('getStudyAction')
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
 export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), role: z.enum(['researcher', 'reviewer']) }))
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
@@ -201,32 +201,26 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ study, params: { studyId }, db, session }) => {
+    .handler(async ({ study, params: { studyId, role }, db, session }) => {
         const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
 
-        const isReviewer = userOrgIds.has(study.orgId)
-        const isResearcher = userOrgIds.has(study.submittedByOrgId)
-
-        if (!isReviewer && !isResearcher) {
-            throw new ActionFailure({ user: 'not a member of the study reviewer or submitter org' })
+        // OTTER-546: scope the ack strictly to the role the agreements page was rendered for.
+        // A user who happens to belong to BOTH the reviewer enclave and the submitting lab
+        // (common in test accounts) would otherwise ack both columns when proceeding from
+        // the researcher view, silently consuming the reviewer's gate and skipping the
+        // Agreements page on their next visit.
+        const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
+        if (!userOrgIds.has(requiredOrgId)) {
+            throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
 
-        if (isReviewer) {
-            await db
-                .updateTable('study')
-                .set({ reviewerAgreementsAckedAt: new Date() })
-                .where('id', '=', studyId)
-                .where('reviewerAgreementsAckedAt', 'is', null)
-                .execute()
-        }
-        if (isResearcher) {
-            await db
-                .updateTable('study')
-                .set({ researcherAgreementsAckedAt: new Date() })
-                .where('id', '=', studyId)
-                .where('researcherAgreementsAckedAt', 'is', null)
-                .execute()
-        }
+        const column = role === 'reviewer' ? 'reviewerAgreementsAckedAt' : 'researcherAgreementsAckedAt'
+        await db
+            .updateTable('study')
+            .set({ [column]: new Date() })
+            .where('id', '=', studyId)
+            .where(column, 'is', null)
+            .execute()
     })
 
 async function approveJobCode({
