@@ -286,6 +286,7 @@ export const insertTestStudyJobData = async ({
             researcherId: researcherId,
             piName: piName ?? 'test',
             status: studyStatus,
+            submittedAt: studyStatus === 'DRAFT' ? null : new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
@@ -646,8 +647,9 @@ export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
     db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
 
 // Generates a feedback string with `wordCount` whitespace-separated tokens. The
-// proposal-review action requires 50–500 words; default is 60 (a comfortable midpoint).
-// Pass smaller / larger counts to exercise the validation boundaries.
+// proposal-review action requires 1–500 words; default is 60, well above the
+// 1-word floor and far below the 500-word ceiling. Pass smaller / larger counts
+// to exercise the validation boundaries.
 export const buildFeedback = (wordCount = 60) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
 
 export const createWorkspaceDir = async (prefix: string) => {

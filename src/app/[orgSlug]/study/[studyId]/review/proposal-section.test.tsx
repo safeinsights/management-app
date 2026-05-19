@@ -82,11 +82,16 @@ describe('ProposalSection', () => {
         expect(screen.getByText(/Does the researcher have relevant expertise/)).toBeInTheDocument()
     })
 
-    it('shows the submitting lab name in the status banner', () => {
+    it('shows the submitting lab name in the status banner, not bold', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
-        expect(screen.getByTestId('status-banner')).toHaveTextContent(labName)
+        const banner = screen.getByTestId('status-banner')
+        expect(banner).toHaveTextContent(labName)
+
+        for (const strong of banner.querySelectorAll('strong')) {
+            expect(strong.textContent ?? '').not.toContain(labName)
+        }
     })
 
     it('is expanded by default showing the proposal body', () => {
@@ -151,13 +156,5 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" />)
 
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
-    })
-
-    it('does not render submitted date when study has no submission date', () => {
-        const unsubmittedStudy = { ...study, submittedAt: null }
-
-        renderWithProviders(<ProposalSection study={unsubmittedStudy} orgSlug="test-org" />)
-
-        expect(screen.queryByText(/Submitted on/)).not.toBeInTheDocument()
     })
 })

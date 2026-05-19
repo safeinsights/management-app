@@ -44,13 +44,13 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText('3/300')).toBeInTheDocument()
     })
 
-    it('shows a validation error when the note is below the minimum word count and the field is blurred', async () => {
+    it('shows a validation error when the note is empty and the field is blurred', async () => {
         const user = userEvent.setup()
         renderSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.type(textarea, 'too short')
+        await user.click(textarea)
         await user.tab()
-        expect(screen.getByText(/between 50 and 300 words/i)).toBeInTheDocument()
+        expect(screen.getByText(/resubmission note is required/i)).toBeInTheDocument()
     })
 
     it('accepts a note at the minimum word count without surfacing a range error', async () => {
@@ -58,8 +58,8 @@ describe('ResubmissionNoteSection', () => {
         renderSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
-        // paste avoids per-keystroke validation thrash for a 50-word seed
         await user.paste(wordsString(RESUBMIT_NOTE_MIN_WORDS))
-        expect(screen.queryByText(/between 50 and 300 words/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/resubmission note is required/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/words or fewer/i)).not.toBeInTheDocument()
     })
 })

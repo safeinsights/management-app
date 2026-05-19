@@ -1,5 +1,5 @@
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import type { Decision } from '@/lib/proposal-review'
+import type { Decision } from '@/lib/review-decision'
 
 export type StudyForReview = SelectedStudy
 

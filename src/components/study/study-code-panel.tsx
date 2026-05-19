@@ -1,36 +1,9 @@
 import type { ReactNode } from 'react'
-import { Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { highlightLanguageForFile } from '@/lib/languages'
-import { CodeViewer } from '@/components/code-viewer'
-import { AppModal } from '@/components/modal'
-import { useCodeDownloadFeatureFlag } from '@/components/openstax-feature-flag'
-import { DownloadBlobLink } from '@/components/download-blob-link'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
-
-export function FilePreviewModal({
-    file,
-    onClose,
-}: {
-    file: { name: string; contents: string } | null
-    onClose: () => void
-}) {
-    const canDownloadCode = useCodeDownloadFeatureFlag()
-    if (!file) return null
-    return (
-        <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
-            <Stack gap={0}>
-                {canDownloadCode && (
-                    <Group justify="flex-end" px="md" py="xs">
-                        <DownloadBlobLink filename={file.name} fileContent={file.contents} />
-                    </Group>
-                )}
-                <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
-            </Stack>
-        </AppModal>
-    )
-}
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 

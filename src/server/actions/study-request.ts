@@ -636,13 +636,14 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-const resubmissionNoteParam = z.string().refine(
-    (val) => {
-        const count = countWords(val)
-        return count >= RESUBMIT_NOTE_MIN_WORDS && count <= RESUBMIT_NOTE_MAX_WORDS
-    },
-    { message: `Resubmission note must be between ${RESUBMIT_NOTE_MIN_WORDS} and ${RESUBMIT_NOTE_MAX_WORDS} words.` },
-)
+const resubmissionNoteParam = z
+    .string()
+    .refine((val) => countWords(val) >= RESUBMIT_NOTE_MIN_WORDS, {
+        message: 'A resubmission note is required.',
+    })
+    .refine((val) => countWords(val) <= RESUBMIT_NOTE_MAX_WORDS, {
+        message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
+    })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
 // click — auto-save is intentionally out of scope for OTTER-521). The
@@ -735,6 +736,18 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 body: JSON.parse(lexicalJson(resubmissionNote)),
                 version: nextVersionForStudyComment({ studyId, increment: true }),
             })
+            .execute()
+
+        // The bumped version above opens a new review round. Any `review-feedback-*`
+        // yjs_document row from the closed round is now orphaned: round N+1 binds
+        // to a fresh `…-v<n+1>` room. A stale `…-v<n>` tab still connected when
+        // the status flipped back to PENDING-REVIEW could otherwise re-create the
+        // deleted row via Hocuspocus persistence. Mirrors the same-tx delete in
+        // submitProposalReviewAction.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `review-feedback-${studyId}%`)
             .execute()
 
         revalidatePath('/dashboard')

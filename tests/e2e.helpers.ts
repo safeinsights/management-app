@@ -1,6 +1,6 @@
 import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import { faker } from '@faker-js/faker'
-import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
+import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
 import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
@@ -263,6 +263,21 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
     const field = page.locator(`[aria-label="${ariaLabel}"]`)
     await field.click()
     await page.keyboard.type(text)
+}
+
+// Opens a fresh browser context, signs in as the named role, navigates to `url`,
+// and returns both the context (for the caller to close) and its page. Use when a
+// test needs a second concurrent session in parallel with the main `page`, e.g.
+// simulating two reviewers in the same DO collaborating on a code review.
+// The caller is responsible for `context.close()` (typically in a try/finally).
+export const openContextAsRole = async (
+    browser: Browser,
+    { role, url }: { role: TestingRole; url: string },
+): Promise<{ context: BrowserContext; page: Page }> => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await visitClerkProtectedPage({ page, role, url })
+    return { context, page }
 }
 
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {

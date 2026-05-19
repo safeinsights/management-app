@@ -129,6 +129,24 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
         return jobFiles
     })
 
+export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
+    .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ studyJob, params: { fileName } }) => {
+        const file = studyJob.files.find(
+            (f) => f.name === fileName && (f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE'),
+        )
+        if (!file) throw new ActionFailure({ file: `Code file "${fileName}" not found` })
+
+        const blob = await fetchFileContents(file.path)
+        const contents = await blob.text()
+        return { fileName: file.name, contents }
+    })
+
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(
         z.object({

@@ -115,6 +115,65 @@ describe('useStudyStatusOnReconnect', () => {
         expect(getStudyStatusActionMock).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/')
     })
+
+    it('uses the isEditable predicate when provided', async () => {
+        // PENDING-REVIEW + CODE-SUBMITTED is the code-review editable shape.
+        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW', latestJobStatus: 'CODE-SUBMITTED' })
+
+        const Predicated = () => {
+            useStudyStatusOnReconnect({
+                studyId: STUDY_ID,
+                orgSlug: 'org',
+                editableStatuses: [],
+                isEditable: ({ status, latestJobStatus }) =>
+                    status === 'PENDING-REVIEW' &&
+                    (latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'),
+                redirectTarget: 'studyReview',
+                enabled: true,
+            })
+            return null
+        }
+
+        render(
+            <YjsWebsocketProvider>
+                <Predicated />
+            </YjsWebsocketProvider>,
+        )
+
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        // Predicate said editable; no redirect should fire even though the empty
+        // editableStatuses allowlist would otherwise force a redirect.
+        expect(memoryRouter.asPath).toBe('/')
+        expect(showMock).not.toHaveBeenCalled()
+    })
+
+    it('predicate path redirects when criteria no longer match', async () => {
+        // Latest job status flipped away from CODE-SUBMITTED/CODE-SCANNED.
+        getStudyStatusActionMock.mockResolvedValue({ status: 'APPROVED', latestJobStatus: 'CODE-APPROVED' })
+
+        const Predicated = () => {
+            useStudyStatusOnReconnect({
+                studyId: STUDY_ID,
+                orgSlug: 'org',
+                editableStatuses: [],
+                isEditable: ({ status, latestJobStatus }) =>
+                    status === 'PENDING-REVIEW' &&
+                    (latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'),
+                redirectTarget: 'studyReview',
+                enabled: true,
+            })
+            return null
+        }
+
+        render(
+            <YjsWebsocketProvider>
+                <Predicated />
+            </YjsWebsocketProvider>,
+        )
+
+        await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
+        expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
+    })
 })
 
 describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {

@@ -1,21 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useAuth, useUser } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
-import type { Decision } from '@/lib/proposal-review'
+import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
-import { reviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
+import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { submitProposalReviewAction } from '@/server/actions/study.actions'
 import { actionResult } from '@/lib/utils'
-import { WS_URL } from '@/lib/config'
 
 export type SubmitReviewArgs = { decision: Decision; feedback: string }
 
@@ -24,40 +20,28 @@ interface UseProposalReviewMutationOptions {
     orgSlug: string
     /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
+    /** Current editable review round. The submit action recomputes and validates this. */
+    reviewVersion: number
 }
 
-export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: UseProposalReviewMutationOptions) {
+export function useProposalReviewMutation({
+    studyId,
+    orgSlug,
+    tabSessionId,
+    reviewVersion,
+}: UseProposalReviewMutationOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { getToken } = useAuth()
     const { user } = useUser()
     const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
-
-    const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
-    useEffect(() => {
-        if (!isCollaborationEnabled) return undefined
-        const doc = new Y.Doc()
-        const docName = reviewFeedbackDocName(studyId)
-        const provider = new HocuspocusProvider({
-            url: WS_URL,
-            name: docName,
-            document: doc,
-            token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
-                // Auth failures here mean the broadcast event won't go out; listeners
-                // fall through to the status poll for kick-out. Acceptable degradation.
-                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
-            },
-        } as ConstructorParameters<typeof HocuspocusProvider>[0])
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setBroadcastProvider(provider)
-        return () => {
-            provider.destroy()
-            doc.destroy()
-
-            setBroadcastProvider(null)
-        }
-    }, [isCollaborationEnabled, studyId, getToken])
+    // Consume the editor's HocuspocusProvider rather than constructing a
+    // separate one. The editor's provider has been authenticated since page
+    // mount, so the server-side onStateless gate
+    // (services/editor/auth.ts -> if (!connectionUserClerkId) return) reliably
+    // passes. A private broadcast provider, by contrast, could still be in
+    // its onAuthenticate handshake when sendStateless flushes during the
+    // WS-open queue drain. Server drops the message silently in that case.
+    const editorProvider = useReviewFeedbackProvider()
 
     const {
         mutate: submitReview,
@@ -66,13 +50,13 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
         variables: pendingReview,
     } = useMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
-            actionResult(await submitProposalReviewAction({ orgSlug, studyId, ...args })),
+            actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
         onError: reportMutationError('Failed to submit review'),
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
 
             const submittedByClerkId = user?.id
-            if (isCollaborationEnabled && broadcastProvider && submittedByClerkId) {
+            if (isCollaborationEnabled && editorProvider && submittedByClerkId) {
                 const event: SubmissionEvent = {
                     type: 'proposal-review-submitted',
                     studyId,
@@ -80,7 +64,7 @@ export function useProposalReviewMutation({ studyId, orgSlug, tabSessionId }: Us
                     submittedByClerkId,
                     submittedByName: result.submitterFullName,
                 }
-                broadcastProvider.sendStateless(JSON.stringify(event))
+                editorProvider.sendStateless(JSON.stringify(event))
             }
 
             router.push(Routes.studyReview({ orgSlug, studyId }))

@@ -5,14 +5,30 @@ import { Anchor, Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
-import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
+import type { Json } from '@/database/types'
+
+type FeedbackEntryShape = {
+    id: string
+    entryType: string
+    body: Json
+    authorName: string
+    createdAt: Date | string
+    version?: number | null
+}
 
 function formatDate(date: Date | string): string {
     return dayjs(date).format('MMM DD, YYYY')
 }
 
-function entryTitle(entry: ProposalFeedbackEntry): string {
-    const label = entry.entryType === 'REVIEWER-FEEDBACK' ? 'Reviewer feedback' : 'Resubmission note'
+const PROPOSAL_ENTRY_TITLES: Record<string, string> = {
+    'REVIEWER-FEEDBACK': 'Reviewer feedback',
+    'RESUBMISSION-NOTE': 'Resubmission note',
+    DECISION: 'Reviewer decision',
+    NOTE: 'Reviewer note',
+}
+
+function entryTitle(entry: FeedbackEntryShape): string {
+    const label = PROPOSAL_ENTRY_TITLES[entry.entryType] ?? 'Feedback entry'
     if (entry.version) return `${label} (v${entry.version}.0)`
     return label
 }
@@ -20,7 +36,7 @@ function entryTitle(entry: ProposalFeedbackEntry): string {
 const COLLAPSED_LINE_CLAMP = 3
 
 type FeedbackEntryProps = {
-    entry: ProposalFeedbackEntry
+    entry: FeedbackEntryShape
     isExpanded: boolean
     onToggle: () => void
 }
@@ -107,7 +123,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     )
 }
 
-function useExpandedEntries(entries: ProposalFeedbackEntry[]) {
+function useExpandedEntries(entries: FeedbackEntryShape[]) {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
         // Resubmission notes must be collapsed by default per spec,
         // so only auto-expand the latest entry when it's reviewer feedback.
@@ -133,7 +149,7 @@ function useExpandedEntries(entries: ProposalFeedbackEntry[]) {
     return { isExpanded, toggle }
 }
 
-export function FeedbackAndNotesSection({ entries }: { entries: ProposalFeedbackEntry[] }) {
+export function FeedbackAndNotesSection({ entries }: { entries: FeedbackEntryShape[] }) {
     const { isExpanded, toggle } = useExpandedEntries(entries)
 
     if (entries.length === 0) return null

@@ -1,10 +1,8 @@
-import { FileViewer } from '@/components/file-viewers'
-import { AppModal } from '@/components/modal'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
 import { decodeFileContents } from '@/lib/file-content-helpers'
-import { logLabel } from '@/lib/file-type-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -15,9 +13,16 @@ import { FC } from 'react'
 type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
+    hideKeyLabel?: boolean
+    hideTableUntilDecrypted?: boolean
 }
 
-export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({ job, onFilesApproved }) => {
+export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
+    job,
+    onFilesApproved,
+    hideKeyLabel = false,
+    hideTableUntilDecrypted = false,
+}) => {
     const {
         fileRows,
         hasFileRows,
@@ -38,19 +43,27 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({ job, onFiles
         return null
     }
 
+    const showTable = !hideTableUntilDecrypted || !shouldShowForm
+
     return (
         <Stack>
-            <UnifiedFileTable
-                rows={fileRows}
-                onView={openFileViewer}
-                selectedPaths={selectedPaths}
-                onToggle={toggleFile}
-            />
+            {showTable && (
+                <UnifiedFileTable
+                    rows={fileRows}
+                    onView={openFileViewer}
+                    selectedPaths={selectedPaths}
+                    onToggle={toggleFile}
+                />
+            )}
             {shouldShowForm && (
                 <form onSubmit={handleSubmit}>
                     <Stack>
                         <Textarea
-                            label={<Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>}
+                            label={
+                                hideKeyLabel ? undefined : (
+                                    <Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>
+                                )
+                            }
                             resize="vertical"
                             {...form.getInputProps('privateKey')}
                             placeholder="Enter your Reviewer key to access encrypted content."
@@ -64,7 +77,7 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({ job, onFiles
                     </Stack>
                 </form>
             )}
-            <FileViewerModal file={viewingFile} onClose={closeFileViewer} />
+            <DecryptedFilePreview file={viewingFile} onClose={closeFileViewer} />
         </Stack>
     )
 }
@@ -144,20 +157,8 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onTo
     )
 }
 
-const FileViewerModal: FC<{ file: JobFile | null; onClose: () => void }> = ({ file, onClose }) => {
+const DecryptedFilePreview: FC<{ file: JobFile | null; onClose: () => void }> = ({ file, onClose }) => {
     if (!file) return null
-
-    const text = decodeFileContents(file.contents)
-
-    return (
-        <AppModal
-            isOpen
-            onClose={onClose}
-            title={`${logLabel(file.fileType)} - ${file.path}`}
-            size="xl"
-            styles={{ body: { padding: 0 } }}
-        >
-            <FileViewer path={file.path} text={text} />
-        </AppModal>
-    )
+    const previewFile = { name: file.path, contents: decodeFileContents(file.contents) }
+    return <FilePreviewModal file={previewFile} onClose={onClose} />
 }

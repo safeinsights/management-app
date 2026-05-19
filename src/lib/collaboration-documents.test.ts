@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+    codeReviewFeedbackDocName,
     parseDocumentName,
     proposalFieldsDocName,
     proposalTextFieldDocName,
-    reviewFeedbackDocName,
+    reviewFeedbackDocNameForVersion,
 } from './collaboration-documents'
 
 const STUDY_ID = '01949c1a-1aaa-7000-9000-000000000001'
@@ -29,10 +30,29 @@ describe('collaboration document naming', () => {
         }
     })
 
-    it('round-trips review-feedback docs', () => {
-        const name = reviewFeedbackDocName(STUDY_ID)
-        expect(name).toBe(`review-feedback-${STUDY_ID}`)
-        expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID })
+    it('round-trips versioned review-feedback docs', () => {
+        for (const version of [1, 2, 17, 123]) {
+            const name = reviewFeedbackDocNameForVersion(STUDY_ID, version)
+            expect(name).toBe(`review-feedback-${STUDY_ID}-v${version}`)
+            expect(parseDocumentName(name)).toEqual({ kind: 'review-feedback', studyId: STUDY_ID, version })
+        }
+    })
+
+    it('rejects malformed review-feedback names', () => {
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v0`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v01`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-foo`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-${STUDY_ID}-v-1`)).toBeNull()
+        expect(parseDocumentName(`review-feedback-not-a-uuid-v1`)).toBeNull()
+    })
+
+    it('round-trips code-review-feedback docs', () => {
+        const JOB_ID = '01949c1a-1aaa-7000-9000-0000000000ff'
+        const name = codeReviewFeedbackDocName(JOB_ID)
+        expect(name).toBe(`code-review-feedback-${JOB_ID}`)
+        expect(parseDocumentName(name)).toEqual({ kind: 'code-review-feedback', jobId: JOB_ID })
     })
 
     it('rejects malformed names', () => {
@@ -42,5 +62,6 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`proposal-${STUDY_ID}-unknown-suffix`)).toBeNull()
         expect(parseDocumentName(`unknown-${STUDY_ID}`)).toBeNull()
         expect(parseDocumentName(`review-feedback-not-a-uuid`)).toBeNull()
+        expect(parseDocumentName(`code-review-feedback-not-a-uuid`)).toBeNull()
     })
 })

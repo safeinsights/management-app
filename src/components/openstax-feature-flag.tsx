@@ -61,6 +61,8 @@ export {
     OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
     // Study code review redesign
     OpenStaxFeatureFlag as CodeReviewFeatureFlag,
+    // OTTER-544: Multi-user code review collaboration
+    useOpenStaxFeatureFlag as useCodeReviewCollaborationFeatureFlag,
     // OTTER-497: Multi-user proposal collaboration
     useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
     OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
@@ -69,4 +71,7 @@ export {
     OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
     // OTTER-541: RL Code download in view code modal
     useOpenStaxFeatureFlag as useCodeDownloadFeatureFlag,
+    // OTTER-538: Study Details page changes in preparation for new code page
+    useOpenStaxFeatureFlag as useStudyDetailsRedesignFeatureFlag,
+    OpenStaxFeatureFlag as StudyDetailsRedesignFeatureFlag,
 }

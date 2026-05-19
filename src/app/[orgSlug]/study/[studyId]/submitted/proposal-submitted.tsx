@@ -167,6 +167,7 @@ export function ProposalSubmitted({
                     heading={proposalHeading(studyVersion)}
                     banner={<StatusBanner orgName={orgName} status={study.status} studyVersion={studyVersion} />}
                     statusBadge={statusBadge}
+                    entries={entries}
                     initialExpanded={false}
                 />
                 <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />

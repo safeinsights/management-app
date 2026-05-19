@@ -8,13 +8,29 @@ import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
     type AuthenticatedContext,
     type StudyStatus,
+    AuthFailureError,
     assertStatelessEventConsistent,
     authenticate,
     parseDocumentName,
     parseStatelessEvent,
     shouldPersistDocument,
+    studyIdForDocument,
 } from './auth.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
+
+// Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
+// logging when authentication has already failed. Returns null on any error.
+function unsafeJwtSubject(token: string | null | undefined): string | null {
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+        return typeof payload?.sub === 'string' ? payload.sub : null
+    } catch {
+        return null
+    }
+}
 
 function log(event: string, fields: Record<string, unknown> = {}): void {
     process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + '\n')
@@ -105,10 +121,12 @@ const server = new Server({
                 // frozen at the editable-window edge.
                 if (!(await shouldPersistDocument(parsed, pool))) return
 
+                const studyId = await studyIdForDocument(parsed, pool)
+
                 await pool.query(
                     `INSERT INTO yjs_document (name, data, study_id, updated_at) VALUES ($1, $2, $3, now())
                      ON CONFLICT (name) DO UPDATE SET data = $2, updated_at = now()`,
-                    [documentName, Buffer.from(state), parsed.studyId],
+                    [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
             },
@@ -141,7 +159,9 @@ const server = new Server({
         } catch (err) {
             log('auth.fail', {
                 documentName,
+                code: err instanceof AuthFailureError ? err.code : null,
                 message: err instanceof Error ? err.message : String(err),
+                clerkUserId: unsafeJwtSubject(token),
             })
             throw err
         }
@@ -175,9 +195,9 @@ const server = new Server({
     },
     async onStateless({ payload, documentName, document, connection }) {
         // Defense-in-depth: only re-broadcast events whose shape, document kind,
-        // sender identity, and DB study status all line up. Forged or stale
-        // payloads are dropped silently; throwing here would close the
-        // connection and disrupt unrelated sync.
+        // sender identity, and (for proposal flows) DB study status all line
+        // up. Forged or stale payloads are dropped silently; throwing here
+        // would close the connection and disrupt unrelated sync.
         const parsedDoc = parseDocumentName(documentName)
         if (!parsedDoc) return
 
@@ -186,18 +206,26 @@ const server = new Server({
 
         const context = connection.context as AuthenticatedContext | undefined
         const connectionUserClerkId = context?.user?.clerkId
-        if (!connectionUserClerkId) return
+        const documentStudyId = context?.studyId
+        if (!connectionUserClerkId || !documentStudyId) return
 
-        const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
-            parsedDoc.studyId,
-        ])
-        const studyStatus = statusRow.rows[0]?.status
-        if (!studyStatus) return
+        // Code-review docs do not gate on DB status here; the action layer is
+        // the single enforcer. Proposal/review-feedback events still need the
+        // study-status sanity check.
+        let studyStatus: StudyStatus | null = null
+        if (parsedDoc.kind !== 'code-review-feedback') {
+            const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
+                documentStudyId,
+            ])
+            studyStatus = statusRow.rows[0]?.status ?? null
+            if (!studyStatus) return
+        }
 
         if (
             !assertStatelessEventConsistent({
                 event,
                 parsed: parsedDoc,
+                documentStudyId,
                 connectionUserClerkId,
                 studyStatus,
             })

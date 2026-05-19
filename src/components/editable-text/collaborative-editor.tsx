@@ -384,14 +384,15 @@ export function CollaborativeEditor({
     const fetchToken = useCallback(async () => getToken(), [getToken])
     const onAuthError = useCallback(
         (reason: string) => {
-            const { code } = parseAuthFailureReason(reason)
+            const { code, message } = parseAuthFailureReason(reason)
+            console.error('[collaborative-editor] auth failed', { documentName: id, code, message, reason })
             setAuthFailureCode(code)
             // Belt-and-braces: a per-document auth failure can fire without the shared
             // websocket dropping (server forcibly closes one handshake), so the page-level
             // reconnect listener wouldn't run. Drive the kick-out check from here too.
             if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
         },
-        [triggerKickOut],
+        [id, triggerKickOut],
     )
     const providerFactory = useCollaborationProvider(
         websocketProvider,
@@ -402,8 +403,16 @@ export function CollaborativeEditor({
     )
 
     useEffect(() => {
-        // Pair the onProviderReady publish with a teardown clear so subscribers
-        // don't hold a destroyed provider after the editor unmounts.
+        // React strict mode (dev) runs setup-cleanup-setup on mount; the cleanup's
+        // `onProviderReady(null)` would otherwise wipe the provider that the
+        // factory just published during render, leaving subscribers stuck on null
+        // (criteria Y.Map bridge, submission listener). Re-publishing the current
+        // provider on setup undoes the strict-mode null publish; the cleanup still
+        // fires on real unmount. Production is unaffected (single mount, single
+        // setup, cleanup only on real unmount).
+        if (providerRef.current && onProviderReady) {
+            onProviderReady(providerRef.current)
+        }
         return () => {
             onProviderReady?.(null)
         }

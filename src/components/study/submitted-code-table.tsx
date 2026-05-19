@@ -1,10 +1,12 @@
 'use client'
 
-import type { FC } from 'react'
+import { useState, type FC } from 'react'
 import { ActionIcon, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
 import { EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
-import { studyCodeURL } from '@/lib/paths'
+import { useQuery } from '@/common'
+import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 
 type SubmittedFile = LatestJobForStudy['files'][number]
 
@@ -21,13 +23,15 @@ const formatUpdatedAt = (date: Date | string) =>
         minute: '2-digit',
     })
 
-const SubmittedCodeRow: FC<{ jobId: string; file: SubmittedFile }> = ({ jobId, file }) => {
+const SubmittedCodeRow: FC<{ file: SubmittedFile; onPreview: (file: SubmittedFile) => void }> = ({
+    file,
+    onPreview,
+}) => {
     const isMain = file.fileType === 'MAIN-CODE'
     const starWeight = isMain ? 'fill' : 'regular'
     const starColor = isMain ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'
     const starLabel = isMain ? 'Main file' : 'Supplemental file'
     const tooltipDisabled = file.name.length <= 48
-    const fileHref = studyCodeURL(jobId, file.name)
     const lastUpdated = formatUpdatedAt(file.createdAt)
 
     return (
@@ -50,10 +54,7 @@ const SubmittedCodeRow: FC<{ jobId: string; file: SubmittedFile }> = ({ jobId, f
             <Table.Td>
                 <Group gap="xs">
                     <ActionIcon
-                        component="a"
-                        href={fileHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => onPreview(file)}
                         variant="subtle"
                         color="gray"
                         aria-label={`View ${file.name}`}
@@ -67,6 +68,15 @@ const SubmittedCodeRow: FC<{ jobId: string; file: SubmittedFile }> = ({ jobId, f
 }
 
 export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }) => {
+    const [previewFileName, setPreviewFileName] = useState<string | null>(null)
+
+    const { data } = useQuery({
+        queryKey: ['study-job-code-file', jobId, previewFileName],
+        queryFn: () => fetchStudyJobCodeFileAction({ studyJobId: jobId, fileName: previewFileName as string }),
+        enabled: !!previewFileName,
+        staleTime: Infinity,
+    })
+
     if (!files?.length) {
         return (
             <Text c="dimmed" size="sm">
@@ -75,7 +85,13 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
         )
     }
 
-    const rowElements = files.map((file) => <SubmittedCodeRow key={file.name} jobId={jobId} file={file} />)
+    const previewFile = previewFileName
+        ? { name: previewFileName, contents: data?.fileName === previewFileName ? data.contents : null }
+        : null
+
+    const rowElements = files.map((file) => (
+        <SubmittedCodeRow key={file.name} file={file} onPreview={(f) => setPreviewFileName(f.name)} />
+    ))
 
     return (
         <>
@@ -91,6 +107,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
                 <Table.Tbody>{rowElements}</Table.Tbody>
             </Table>
             <Divider />
+            <FilePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />
         </>
     )
 }
