@@ -14,7 +14,7 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { DEFAULT_DRAFT_TITLE, WORD_LIMITS, type ProposalFormValues } from './schema'
+import { WORD_LIMITS, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -172,7 +172,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         titleInputProps.onChange?.(event)
                                         yjsForm.pushField('title', event.currentTarget.value)
                                     }}
-                                    value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
+                                    value={form.values.title ?? ''}
                                     error={!!form.errors.title}
                                 />
                                 <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>

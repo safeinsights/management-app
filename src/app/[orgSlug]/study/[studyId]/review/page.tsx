@@ -12,6 +12,7 @@ import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { isStudyResultsStatus } from '@/lib/study-job-status'
+import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
     getProposalFeedbackForStudyAction,
@@ -51,6 +52,12 @@ export default async function StudyReviewPage(props: {
 
     if (currentOrg.type === 'lab') {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
+    }
+
+    // Reviewer dashboards filter out DRAFT studies, but a direct URL could still
+    // hit this route. Narrow here so downstream views see a guaranteed non-null title.
+    if (!isSubmittedStudy(study)) {
+        return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
     if (currentOrg.type === 'enclave') {

@@ -8,6 +8,8 @@ import { Routes } from '@/lib/routes'
 import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
 import { isStudyResultsStatus } from '@/lib/study-job-status'
+import { isSubmittedStudy } from '@/schema/study'
+import { notFound } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
 import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
@@ -52,6 +54,12 @@ export default async function StudyReviewPage(props: {
             const entries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(entries) || entries.length === 0) {
                 return codeOnlyFallback
+            }
+            // A code decision implies the study was submitted long ago — this branch
+            // should be unreachable for DRAFTs. Guard explicitly so the narrowed view
+            // type holds and a corrupt row can't surface a runtime error in render.
+            if (!isSubmittedStudy(study)) {
+                notFound()
             }
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (

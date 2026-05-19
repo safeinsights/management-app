@@ -231,7 +231,7 @@ export interface Study {
     status: Generated<StudyStatus>
     submittedAt: Timestamp | null
     submittedByOrgId: string
-    title: string
+    title: string | null
 }
 
 export interface StudyJob {

@@ -8,13 +8,14 @@ import { stringifyJson } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import type { Submitted } from '@/schema/study'
 import { usePopover } from '@/hooks/use-popover'
 import { ProposalReviewView } from './proposal-review-view'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
 type LegacyProposalReviewViewProps = {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     agreementsHref?: string
 }
 

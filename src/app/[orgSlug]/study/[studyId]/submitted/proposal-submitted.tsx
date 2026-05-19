@@ -9,13 +9,14 @@ import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
+import type { Submitted } from '@/schema/study'
 import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 
 interface ProposalSubmittedProps {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     orgName: string
     entries: ProposalFeedbackEntry[]
     studyVersion: number
