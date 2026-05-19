@@ -743,4 +743,3 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         return { studyId }
     })
-
