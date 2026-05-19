@@ -516,14 +516,14 @@ describe('Study Actions', () => {
 })
 
 describe('ackAgreementsAction', () => {
-    it('sets researcherAgreementsAckedAt when called by lab member', async () => {
+    it('sets researcherAgreementsAckedAt when called with role=researcher by lab member', async () => {
         const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
         // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const updated = await db
             .selectFrom('study')
@@ -535,13 +535,13 @@ describe('ackAgreementsAction', () => {
         expect(updated.reviewerAgreementsAckedAt).toBeNull()
     })
 
-    it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
+    it('sets reviewerAgreementsAckedAt when called with role=reviewer by enclave member', async () => {
         const { org: enclaveOrg, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
 
         const updated = await db
             .selectFrom('study')
@@ -553,11 +553,35 @@ describe('ackAgreementsAction', () => {
         expect(updated.researcherAgreementsAckedAt).toBeNull()
     })
 
+    // OTTER-546: a user who is a member of BOTH orgs (e.g. multi-org QA accounts, or
+    // a test fixture where orgId === submittedByOrgId) used to silently ack both
+    // columns when proceeding from the researcher view, which skipped the reviewer's
+    // Agreements page on their next visit. With the explicit `role` param, acking on
+    // the researcher side never touches the reviewer column even when the caller
+    // would otherwise pass both org checks.
+    it('does NOT set reviewerAgreementsAckedAt when role=researcher and caller would pass both org checks', async () => {
+        // insertTestStudyJobData defaults orgId === submittedByOrgId, which is the
+        // same condition as a multi-org QA user against a real study.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researcherAgreementsAckedAt).not.toBeNull()
+        expect(updated.reviewerAgreementsAckedAt).toBeNull()
+    })
+
     it('does not overwrite an existing ack timestamp', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const first = await db
             .selectFrom('study')
@@ -566,7 +590,7 @@ describe('ackAgreementsAction', () => {
             .executeTakeFirstOrThrow()
 
         // Call again — should not change the timestamp
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const second = await db
             .selectFrom('study')
@@ -577,16 +601,38 @@ describe('ackAgreementsAction', () => {
         expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
     })
 
-    it('fails when user is neither reviewer nor researcher org member', async () => {
+    it('fails when role=reviewer but user is not a member of the reviewer org', async () => {
+        // Caller belongs to the lab that submitted the study (so the `view Study`
+        // ability check passes), but does NOT belong to the reviewer enclave — they
+        // must not be able to ack as a reviewer.
         const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
-        const labOrg = await insertTestOrg({ slug: 'acker-lab', type: 'lab' })
+        const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await expect(ackAgreementsAction({ studyId: study.id, role: 'reviewer' })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.any(String) }),
+        })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.researcherAgreementsAckedAt).toBeNull()
+        expect(after.reviewerAgreementsAckedAt).toBeNull()
+    })
+
+    it('fails when user is neither reviewer nor researcher org member', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave-2', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'acker-lab-2', type: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
         // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        await expect(ackAgreementsAction({ studyId: study.id })).resolves.toMatchObject({
+        await expect(ackAgreementsAction({ studyId: study.id, role: 'researcher' })).resolves.toMatchObject({
             error: expect.objectContaining({ user: expect.any(String) }),
         })
 
