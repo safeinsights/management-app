@@ -14,14 +14,13 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestCodeEnvForStudyId, getDataSourcesForOrg, orgIdFromSlug } from '../db/queries'
+import { fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
 import { ContextName } from '@/lib/claude-context'
-import { db } from '@/database'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -250,10 +249,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
         combinedContextString = combinedContextString + response.content + '\n'
     }
 
-    const orgData = await orgIdFromSlug({ db, params: { orgSlug: codeEnv.slug } })
-    if (orgData !== undefined) {
-        combinedContextString += await generateDataSourcesContextString(orgData.orgId)
-    }
+    combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
 
     const targetContextFileName = 'CLAUDE.md'
     const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
