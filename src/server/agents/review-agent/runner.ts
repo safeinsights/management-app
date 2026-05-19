@@ -1,10 +1,11 @@
-import { db, jsonArrayFrom } from '@/database'
+import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
+import { getDataSourcesForOrg } from '@/server/db/queries'
 
 // Written when the API key is missing, before content assembly. This means a
 // no-code-files study with a missing key gets the placeholder too — fine, since
@@ -59,20 +60,7 @@ function lexicalFieldToText(value: unknown): string {
 }
 
 async function fetchDataDocs(orgId: string): Promise<string> {
-    const sources = await db
-        .selectFrom('orgDataSource')
-        .select((eb) => [
-            'name',
-            'description',
-            jsonArrayFrom(
-                eb
-                    .selectFrom('orgDataSourceUrl')
-                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
-                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id'),
-            ).as('urls'),
-        ])
-        .where('orgId', '=', orgId)
-        .execute()
+    const sources = await getDataSourcesForOrg(orgId)
 
     const sections: string[] = []
     for (const source of sources) {

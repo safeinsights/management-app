@@ -22,6 +22,7 @@ vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
+    orgIdFromSlug: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
