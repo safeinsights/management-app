@@ -951,11 +951,8 @@ describe('submitProposalReviewAction', () => {
         expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
 
-    // OTTER-471: true-parallel belt-and-suspenders for submitProposalReviewAction.
-    // Earlier tests exercise the sequential A-then-B path; this one fires approve
-    // and reject through Promise.all so the claim CAS + per-round comment insert
-    // actually have to serialize concurrent writers. Exactly one must win, and the
-    // study must land in exactly one terminal state with exactly one feedback row.
+    // OTTER-471: exercises the claim CAS under true concurrency (Promise.all),
+    // not just the sequential A-then-B path covered above.
     it('OTTER-471: parallel approve + reject through submit action, exactly one wins', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -1563,11 +1560,8 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
-    // OTTER-471: true-parallel belt-and-suspenders for submitCodeReviewDecisionAction.
-    // The sequential approve-then-reject case is already covered; this one fires
-    // both through Promise.all so the studyJob row lock + composite unique
-    // constraint actually have to arbitrate concurrent writers. Exactly one must
-    // win: one CODE-* terminal status row, one studyReviewComment row.
+    // OTTER-471: exercises the studyJob row lock + composite unique constraint
+    // under true concurrency (Promise.all), not just the sequential case above.
     it('OTTER-471: parallel approve + reject through submit action, exactly one CODE-* terminal row', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
