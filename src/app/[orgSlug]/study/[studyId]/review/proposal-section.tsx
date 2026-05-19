@@ -28,27 +28,27 @@ const EVALUATION_CRITERIA = [
     },
 ]
 
+function bannerIntro(labName: string, isResubmission: boolean) {
+    const action = isResubmission ? 'has resubmitted a revised initial request' : 'has submitted an initial request'
+    const review = isResubmission
+        ? 'Please review the changes and share your updated feedback and decision.'
+        : 'Please review it and share your feedback and decision.'
+
+    return (
+        <>
+            {labName} {action} requesting permission to use your data. {review} Consider evaluating based on these
+            criteria:
+        </>
+    )
+}
+
 function StatusBanner({ labName, isResubmission }: { labName: string; isResubmission: boolean }) {
     return (
         <ReviewCriteriaBanner
             mb="md"
             testId="status-banner"
             criteriaTestId="evaluation-criteria"
-            intro={
-                isResubmission ? (
-                    <>
-                        {labName} has resubmitted a revised initial request requesting permission to use your data.
-                        Please review the changes and share your updated feedback and decision. Consider evaluating
-                        based on these criteria:
-                    </>
-                ) : (
-                    <>
-                        {labName} has submitted an initial request requesting permission to use your data. Please review
-                        it and share your feedback and decision. Consider evaluating the initial request on these
-                        criteria:
-                    </>
-                )
-            }
+            intro={bannerIntro(labName, isResubmission)}
             criteria={EVALUATION_CRITERIA}
         />
     )
