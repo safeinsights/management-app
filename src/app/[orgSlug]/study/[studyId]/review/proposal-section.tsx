@@ -68,6 +68,7 @@ export function ProposalSection({ study, orgSlug, priorEntries = [] }: ProposalS
             banner={<StatusBanner labName={labName} isResubmission={isResubmission} />}
             initialExpanded={!isResubmission}
             statusBadge={isResubmission ? 'Resubmitted on' : undefined}
+            entries={priorEntries}
         />
     )
 }

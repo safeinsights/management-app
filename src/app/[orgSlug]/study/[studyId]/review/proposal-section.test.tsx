@@ -177,4 +177,17 @@ describe('ProposalSection', () => {
 
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
     })
+
+    it('renders the resubmission date (not the original submittedAt) on resubmission', () => {
+        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T12:00:00Z') }
+        const priorEntries = [
+            { version: 2, entryType: 'RESUBMISSION-NOTE', createdAt: new Date('2026-05-10T12:00:00Z') },
+            { version: 1, entryType: 'REVIEWER-FEEDBACK', createdAt: new Date('2026-04-01T12:00:00Z') },
+        ] as ProposalFeedbackEntry[]
+
+        renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" priorEntries={priorEntries} />)
+
+        expect(screen.getByText('Resubmitted on May 10, 2026')).toBeInTheDocument()
+        expect(screen.queryByText(/Mar 15, 2025/)).not.toBeInTheDocument()
+    })
 })
