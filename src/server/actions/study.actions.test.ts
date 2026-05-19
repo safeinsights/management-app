@@ -1740,6 +1740,53 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows[0].id).toBe(newer.id)
         expect(rows[1].id).toBe(older.id)
         expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
+        expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
+    })
+
+    it('attaches version numbers and surfaces resubmission notes from studyJob rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+            })
+            .execute()
+
+        const secondJob = await db
+            .insertInto('studyJob')
+            .values({
+                studyId: study.id,
+                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: secondJob.id, userId: user.id, status: 'CODE-SUBMITTED' })
+            .execute()
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        // newest first: the v2 resubmission note comes before the v1 reviewer decision
+        expect(rows).toHaveLength(2)
+        const noteRow = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
+        const feedbackRow = rows.find((r) => r.entryType === 'REVIEWER-FEEDBACK')
+        expect(noteRow?.version).toBe(2)
+        expect(feedbackRow?.version).toBe(1)
     })
 })
 

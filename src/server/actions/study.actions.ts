@@ -97,6 +97,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.title',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
+            'study.codeResubmissionNoteDraft',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -806,13 +807,38 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
         return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) =>
-        db
+    .handler(async ({ params: { studyId }, db }) => {
+        // Version derivation: each code job, in creation order, is its own
+        // review round (v1, v2, ...). Reviewer decisions on a job and the
+        // researcher's resubmission note on that same job share the round number.
+        // studyJob has no userId column; the author of the resubmission note is
+        // the user recorded on the CODE-SUBMITTED status change for that job.
+        const codeJobs = await db
+            .selectFrom('studyJob')
+            .leftJoin('jobStatusChange as submission', (join) =>
+                join.onRef('submission.studyJobId', '=', 'studyJob.id').on('submission.status', '=', 'CODE-SUBMITTED'),
+            )
+            .leftJoin('user as author', 'author.id', 'submission.userId')
+            .select([
+                'studyJob.id as studyJobId',
+                'studyJob.resubmissionNote',
+                'studyJob.createdAt',
+                'submission.userId as authorId',
+                'author.fullName as authorName',
+            ])
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('studyJob.createdAt', 'asc')
+            .execute()
+
+        const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
+
+        const reviewerRows = await db
             .selectFrom('studyReviewComment')
             .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
+                'studyReviewComment.studyJobId',
                 'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
@@ -822,9 +848,39 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             ])
             .where('studyReviewComment.studyId', '=', studyId)
             .where('studyReviewComment.reviewKind', '=', 'CODE')
-            .orderBy('studyReviewComment.createdAt', 'desc')
-            .execute(),
-    )
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .execute()
+
+        const reviewerEntries = reviewerRows.map((row) => ({
+            id: row.id,
+            authorId: row.authorId,
+            entryType: 'REVIEWER-FEEDBACK' as const,
+            decision: row.decision,
+            body: row.body,
+            criteria: row.criteria,
+            createdAt: row.createdAt,
+            authorName: row.authorName,
+            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+        }))
+
+        const noteEntries = codeJobs
+            .filter((j) => j.resubmissionNote != null)
+            .map((j) => ({
+                id: `job-note-${j.studyJobId}`,
+                authorId: j.authorId ?? '',
+                entryType: 'RESUBMISSION-NOTE' as const,
+                decision: null,
+                body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
+                criteria: null,
+                createdAt: j.createdAt,
+                authorName: j.authorName ?? '',
+                version: jobVersion.get(j.studyJobId) ?? null,
+            }))
+
+        return [...reviewerEntries, ...noteEntries].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+    })
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 

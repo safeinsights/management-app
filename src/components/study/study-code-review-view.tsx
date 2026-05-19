@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -19,6 +19,8 @@ interface StudyCodeReviewViewProps {
     removeFile: (fileName: string) => void
     viewFile: (fileName: string) => void
     jobCreatedAt: string | null
+    mainFileColumnHeader?: ReactNode
+    showLaunchIde?: boolean
 }
 
 export function StudyCodeReviewView({
@@ -33,18 +35,22 @@ export function StudyCodeReviewView({
     removeFile,
     viewFile,
     jobCreatedAt,
+    mainFileColumnHeader,
+    showLaunchIde = true,
 }: StudyCodeReviewViewProps) {
     const openRef = useRef<() => void>(null)
 
     return (
         <Stack gap="md">
             <Group justify="flex-end" wrap="nowrap">
-                <LaunchIdeButton
-                    onClick={launchWorkspace}
-                    isLaunching={isLaunching}
-                    launchError={launchError}
-                    variant="outline"
-                />
+                {showLaunchIde && (
+                    <LaunchIdeButton
+                        onClick={launchWorkspace}
+                        isLaunching={isLaunching}
+                        launchError={launchError}
+                        variant="outline"
+                    />
+                )}
                 <UploadFilesButton openRef={openRef} disabled={isUploading} />
             </Group>
 
@@ -64,6 +70,7 @@ export function StudyCodeReviewView({
                     onRemoveFile={removeFile}
                     onViewFile={viewFile}
                     jobCreatedAt={jobCreatedAt}
+                    mainFileColumnHeader={mainFileColumnHeader}
                 />
             </FileDropOverlay>
         </Stack>

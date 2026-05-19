@@ -755,3 +755,87 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         return { studyId }
     })
+
+// OTTER-558: Save the in-progress resubmission note as a lab-shared draft. Any
+// researcher in the submitting lab can edit; last write wins (no merge / CRDT).
+// Cleared by resubmitStudyCodeAction when the note is finalized.
+export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, note } }) => {
+        await db.updateTable('study').set({ codeResubmissionNoteDraft: note }).where('id', '=', studyId).execute()
+        return { studyId, savedAt: new Date().toISOString() }
+    })
+
+// OTTER-558: Finalize the code resubmission. Creates a new study_job (mirroring
+// submitStudyCodeAction's flow), copies the coder workspace files to S3,
+// records the resubmission note on the job row, clears the draft on study,
+// flips the study to PENDING-REVIEW, and triggers the scan + review-requested
+// events.
+export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string().uuid(),
+            mainFileName: z.string(),
+            fileNames: z.array(z.string()),
+            resubmissionNote: resubmissionNoteParam,
+        }),
+    )
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'StudyJob')
+    .handler(async ({ orgSlug, params, session, db }) => {
+        const { studyId, mainFileName, fileNames, resubmissionNote } = params
+        if (fileNames.length === 0) throw new Error('No files provided')
+        if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
+
+        const userId = session.user.id
+        const sanitizedMainFileName = sanitizeFileName(mainFileName)
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
+
+        const { studyJobId } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            sanitizedMainFileName,
+            additionalFileNames,
+        )
+
+        let coderFilesPath = await getConfigValue('CODER_FILES')
+        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        for (const fileName of fileNames) {
+            const sanitized = sanitizeFileName(fileName)
+            const filePath = path.join(coderFilesPath, sanitized)
+            const fileStream = createReadStream(filePath)
+            const webStream = Readable.toWeb(fileStream) as ReadableStream
+            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitized)
+            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+        }
+
+        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson(resubmissionNote)) })
+            .where('id', '=', studyJobId)
+            .execute()
+
+        await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', codeResubmissionNoteDraft: null })
+            .where('id', '=', studyId)
+            .execute()
+
+        onStudyCodeSubmitted({ userId, studyId })
+        onStudyReviewRequested({ studyJobId })
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        triggerCodeScan(studyJobId, orgSlug, studyId)
+
+        return { studyJobId }
+    })

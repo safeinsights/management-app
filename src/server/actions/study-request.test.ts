@@ -24,6 +24,8 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+    resubmitStudyCodeAction,
+    saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -747,6 +749,105 @@ describe('Request Study Actions', () => {
 
             expect(result).toHaveProperty('error')
             expect((result as { error: string }).error).toContain('Main file not in file list')
+        })
+    })
+
+    describe('saveCodeResubmissionNoteDraftAction', () => {
+        it('persists the draft note on the study row', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            const result = actionResult(
+                await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }),
+            )
+            expect(result.studyId).toBe(study.id)
+
+            const row = await db
+                .selectFrom('study')
+                .select(['codeResubmissionNoteDraft'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBe('A draft note')
+        })
+
+        it('rejects payloads larger than 10kb', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            const tooLong = 'x'.repeat(10_001)
+            const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
+            expect(result).toHaveProperty('error')
+        })
+    })
+
+    describe('resubmitStudyCodeAction', () => {
+        const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
+
+        it('creates a new job, records the resubmission note, clears the draft, and flips the study to PENDING-REVIEW', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+            })
+            await db
+                .updateTable('study')
+                .set({ codeResubmissionNoteDraft: 'work in progress' })
+                .where('id', '=', study.id)
+                .execute()
+
+            const root = await createWorkspaceDir('resubmit-ide')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+            })
+
+            const result = actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R', 'helper.R'],
+                    resubmissionNote: wordsString(10),
+                }),
+            )
+            expect(result.studyJobId).toBeDefined()
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'codeResubmissionNoteDraft'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('PENDING-REVIEW')
+            expect(updatedStudy.codeResubmissionNoteDraft).toBeNull()
+
+            const newJob = await db
+                .selectFrom('studyJob')
+                .select(['resubmissionNote'])
+                .where('id', '=', result.studyJobId)
+                .executeTakeFirstOrThrow()
+            expect(newJob.resubmissionNote).not.toBeNull()
+        })
+
+        it('rejects an empty note', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+            })
+
+            const root = await createWorkspaceDir('resubmit-empty-note')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: '',
+            })
+            expect(result).toHaveProperty('error')
         })
     })
 })
