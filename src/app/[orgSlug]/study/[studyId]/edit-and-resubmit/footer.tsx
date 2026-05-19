@@ -37,6 +37,10 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             const saved = await saveDraft()
             if (!saved) return
         }
+        // The only legitimate entry to this page today is the "Edit & resubmit"
+        // button on /submitted. If we ever add deep links or a dashboard CTA,
+        // disambiguate the Back target with a ?from= query param (see
+        // review/page.tsx for prior art).
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
     }
 

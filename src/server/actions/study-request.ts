@@ -744,16 +744,3 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         return { studyId }
     })
 
-// Used by the edit-and-resubmit page to confirm the caller is the original
-// study researcher before rendering the form. CASL permits other researchers
-// in the same lab to view the study, but writes are scoped to the author —
-// surfacing that as a 404 prevents non-authors from typing into a form that
-// would silently no-op on save.
-export const isStudyOwnedByCurrentUserAction = new Action('isStudyOwnedByCurrentUserAction')
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ db, params: { studyId }, session }) => {
-        const study = await db.selectFrom('study').select(['researcherId']).where('id', '=', studyId).executeTakeFirst()
-        return { isOwner: study?.researcherId === session.user.id }
-    })

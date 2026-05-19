@@ -2,8 +2,8 @@ import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
-import { isStudyOwnedByCurrentUserAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
+import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
@@ -23,8 +23,8 @@ export default async function StudyEditAndResubmitRoute(props: {
     // Server-side writes are scoped to the original researcher — gate the
     // page itself to match, so non-authors don't see a form that would
     // silently no-op when they try to save.
-    const ownership = await isStudyOwnedByCurrentUserAction({ studyId })
-    if ('error' in ownership || !ownership.isOwner) return notFound()
+    const session = await sessionFromClerk()
+    if (!session || study.researcherId !== session.user.id) return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
     // Don't render the page with a silent empty feedback list — the researcher

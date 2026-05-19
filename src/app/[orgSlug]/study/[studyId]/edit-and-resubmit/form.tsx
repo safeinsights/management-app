@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useEffect } from 'react'
+import { FC } from 'react'
 import { Stack, Title } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
@@ -27,15 +27,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { form, noteForm, saveDraft, isSaving } = useEditResubmit()
-
-    // Validate the resubmission note on mount so the Resubmit button is
-    // disabled out of the gate (initial value is empty / under the word
-    // minimum); Mantine doesn't auto-validate initial values otherwise.
-    useEffect(() => {
-        noteForm.validateField('resubmissionNote')
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    const { form, saveDraft, isSaving } = useEditResubmit()
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
