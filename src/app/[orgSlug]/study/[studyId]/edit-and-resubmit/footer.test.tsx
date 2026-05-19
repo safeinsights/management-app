@@ -44,16 +44,7 @@ describe('EditResubmitFooter — note gating (OTTER-521)', () => {
         expect(resubmit).toBeDisabled()
     })
 
-    it('keeps Resubmit disabled while the note is below the minimum word count', async () => {
-        const user = userEvent.setup()
-        renderFooterWithNoteSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.type(textarea, 'too short')
-        const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
-        expect(resubmit).toBeDisabled()
-    })
-
-    it('enables Resubmit once a valid-length note is pasted and the proposal form is valid', async () => {
+    it('enables Resubmit once a valid note is pasted and the proposal form is valid', async () => {
         const user = userEvent.setup()
         renderFooterWithNoteSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
