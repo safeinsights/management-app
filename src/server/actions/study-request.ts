@@ -26,7 +26,6 @@ import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
-import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
@@ -142,7 +141,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .insertInto('study')
             .values({
                 id: studyId,
-                title: studyInfo.title || DEFAULT_DRAFT_TITLE,
+                title: studyInfo.title?.trim() || null,
                 piName: studyInfo.piName || '',
                 piUserId: studyInfo.piUserId || null,
                 language: studyInfo.language,
@@ -301,7 +300,7 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
 // loser's stale snapshot.
 const finalizeStudySubmissionInfoSchema = z
     .object({
-        title: z.string().optional(),
+        title: z.string().nullable().optional(),
         piName: z.string().optional(),
         piUserId: z.string().nullable().optional(),
         datasets: z.array(z.string()).optional(),

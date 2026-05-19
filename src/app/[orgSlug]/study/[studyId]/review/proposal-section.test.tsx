@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     fireEvent,
@@ -16,7 +17,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalSection } from './proposal-section'
 
 describe('ProposalSection', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
@@ -32,7 +33,9 @@ describe('ProposalSection', () => {
             impact: lexicalJson('This could improve outcomes.'),
             additionalNotes: lexicalJson('Funded by NIH.'),
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 

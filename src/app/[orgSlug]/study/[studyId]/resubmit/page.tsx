@@ -9,12 +9,12 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     const { studyId, orgSlug } = await props.params
     const study = await getStudyAction({ studyId })
 
-    if ('error' in study || !study.submittedByOrgSlug) {
+    if ('error' in study || !study.submittedByOrgSlug || study.title === null) {
         return notFound()
     }
 
     return (
-        <ResubmitCodeProvider study={{ ...study, submittedByOrgSlug: study.submittedByOrgSlug }}>
+        <ResubmitCodeProvider study={{ ...study, title: study.title, submittedByOrgSlug: study.submittedByOrgSlug }}>
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs
                     crumbs={{

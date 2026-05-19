@@ -28,7 +28,6 @@ import {
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
-import { DEFAULT_DRAFT_TITLE } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -307,7 +306,7 @@ describe('Request Study Actions', () => {
 
             expect(draftResult.studyId).toBeDefined()
 
-            // Verify draft created with default title
+            // Drafts persist a NULL title until the researcher fills one in.
             let study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -315,7 +314,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
-            expect(study?.title).toEqual(DEFAULT_DRAFT_TITLE)
+            expect(study?.title).toBeNull()
 
             // Step 2: Update with proposal fields
             const proposalFields = {

@@ -1,5 +1,6 @@
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -11,13 +12,13 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ReviewDecisionSection } from './review-decision-section'
 
-function Wrapper({ study, labName = 'Rice University' }: { study: SelectedStudy; labName?: string }) {
+function Wrapper({ study, labName = 'Rice University' }: { study: Submitted<SelectedStudy>; labName?: string }) {
     const decision = useReviewDecision()
     return <ReviewDecisionSection decision={decision} study={study} labName={labName} />
 }
 
 describe('ReviewDecisionSection', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
@@ -27,7 +28,9 @@ describe('ReviewDecisionSection', () => {
             studyStatus: 'PENDING-REVIEW',
             title: 'Test Study Title',
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
     })
 
     it('renders all three decision options with correct labels', () => {
