@@ -10,15 +10,29 @@ export async function cleanupCoderDevFiles() {
     await fs.mkdir(coderFilesPath, { recursive: true })
 }
 
+async function devDirHasFiles(dir: string): Promise<boolean> {
+    try {
+        const entries = await fs.readdir(dir)
+        return entries.some((e) => !e.startsWith('.'))
+    } catch (e) {
+        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
+        throw e
+    }
+}
+
 export async function initializeDevWorkspaceFiles(studyId: string) {
     if (!CODER_DISABLED) return
+
+    const coderFilesPath = await getConfigValue('CODER_FILES')
+
+    // Idempotent: skip when files already exist so the late copy doesn't clobber user edits.
+    if (await devDirHasFiles(coderFilesPath)) return
 
     const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
     const { fetchFileContents } = await import('@/server/storage')
     const { pathForStarterCode } = await import('@/lib/paths')
 
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
-    const coderFilesPath = await getConfigValue('CODER_FILES')
     await fs.mkdir(coderFilesPath, { recursive: true })
 
     // Backdate mtime so starter files appear as "unchanged" relative to the baseline job

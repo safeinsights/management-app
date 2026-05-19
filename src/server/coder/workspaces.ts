@@ -59,6 +59,7 @@ export async function getCoderWorkspaceUrl(studyId: string, workspaceId: string)
     })
 
     if (isWorkspaceReady(workspace)) {
+        await initializeWorkspaceCodeFiles(studyId)
         return await generateWorkspaceUrl(studyId)
     }
 
@@ -164,9 +165,6 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
     const { studyId, username, environment = [] } = options
     const workspaceName = generateWorkspaceName(studyId)
 
-    // Populate code files prior to launching workspace
-    await initializeWorkspaceCodeFiles(studyId)
-
     const richParameterValues: Array<{ name: string; value: string }> = [
         {
             name: 'study_id',
@@ -213,8 +211,24 @@ export async function createUserAndWorkspace(
     }
 }
 
+async function studyDirHasFiles(dir: string): Promise<boolean> {
+    try {
+        const entries = await fs.readdir(dir)
+        return entries.some((e) => !e.startsWith('.'))
+    } catch (e) {
+        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
+        throw e
+    }
+}
+
 const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const coderBaseFilePath = await getConfigValue('CODER_FILES')
+    const studyDir = path.join(coderBaseFilePath, studyId)
+
+    // Idempotent: only copy starter files when the directory is empty.
+    // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
+    if (await studyDirHasFiles(studyDir)) return
+
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
 
     logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
@@ -225,7 +239,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     for (const fileName of codeEnv.starterCodeFileNames) {
         const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
         const fileData = await fetchFileContents(filePath)
-        const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
+        const targetFilePath = path.join(studyDir, fileName)
 
         logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
 
