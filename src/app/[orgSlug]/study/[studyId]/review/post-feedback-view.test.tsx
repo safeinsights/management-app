@@ -7,6 +7,7 @@ import {
     type SelectedStudy,
 } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     db,
@@ -60,7 +61,7 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
     }) as ProposalFeedbackEntry
 
 describe('PostFeedbackView', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
@@ -70,7 +71,9 @@ describe('PostFeedbackView', () => {
             studyStatus: 'PENDING-REVIEW',
             title: 'Effect of Reading Comprehension Tools',
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
         memoryRouter.setCurrentUrl('/')
     })
@@ -410,6 +413,7 @@ describe('PostFeedbackView', () => {
                 })
                 .execute()
             const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
             const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
             ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
 

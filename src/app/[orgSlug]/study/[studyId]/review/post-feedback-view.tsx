@@ -6,7 +6,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
-import { requireTitle } from '@/schema/study'
+import { type Submitted } from '@/schema/study'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -19,7 +19,7 @@ export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
 type PostFeedbackViewProps = {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
@@ -131,7 +131,7 @@ function GoToDashboardButton() {
 
 type CodeSectionProps = {
     isVisible: boolean
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     job: LatestJobForStudy | null
     kindCopy: KindCopy
     timestampLabel: string
@@ -146,7 +146,7 @@ function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestam
         <ProposalStepHeader
             stepLabel={kindCopy.stepLabel}
             heading={kindCopy.heading}
-            studyTitle={requireTitle(study)}
+            studyTitle={study.title}
             timestampDate={timestampDate}
             timestampLabel={timestampLabel}
             banner={banner}
@@ -158,7 +158,7 @@ function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestam
 
 type ProposalSectionProps = {
     isVisible: boolean
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     orgSlug: string
     kindCopy: KindCopy
     entries: ProposalFeedbackEntry[]
