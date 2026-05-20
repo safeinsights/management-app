@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
-import { errorToString } from '@/lib/errors'
+import { errorToString, isActionError } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -63,10 +63,10 @@ function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
 
     if (isLoading) return null
 
-    if (error) {
+    if (error || isActionError(data)) {
         return (
             <Text c="red">
-                Failed to load context for {name}: {error.message}
+                Failed to load context for {name}: {error ? error.message : errorToString(data)}
             </Text>
         )
     }
