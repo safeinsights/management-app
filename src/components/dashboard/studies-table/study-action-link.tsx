@@ -1,11 +1,8 @@
-import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { usePostSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
-import { useSession } from '@/hooks/session'
 import { Audience, Scope, StudyRow } from './types'
 import { useStudyHref } from '@/hooks/use-study-href'
-import { DeleteDraftButton } from './delete-draft-button'
 
 type StudyActionLinkProps = {
     study: StudyRow
@@ -26,7 +23,6 @@ function ResearcherLink({
     scope: Scope
     isHighlighted: boolean
 }) {
-    const { session } = useSession()
     const isPostSubmissionFlow = usePostSubmissionFeatureFlag()
     const labSlug = study.submittedByOrgSlug || orgSlug
     const hasJobActivity = study.jobStatusChanges.length > 0
@@ -36,17 +32,13 @@ function ResearcherLink({
     const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
 
     if (study.status === 'DRAFT') {
-        const isAuthor = session?.user.id === study.researcherId
         return (
-            <Group gap="xs" justify="center" wrap="nowrap">
-                <Link
-                    href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
-                    aria-label={`Edit draft study ${study.title}`}
-                >
-                    Edit
-                </Link>
-                {isAuthor && <DeleteDraftButton study={study} />}
-            </Group>
+            <Link
+                href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
+                aria-label={`Edit draft study ${study.title}`}
+            >
+                Edit
+            </Link>
         )
     }
 
