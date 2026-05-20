@@ -1,5 +1,5 @@
 import type { Language } from '@/database/types'
-import { db, DBConn } from '@/database'
+import { DBConn } from '@/database'
 
 export type ContextName = 'SYSTEM' | Language
 export const CONTEXT_NAMES = ['SYSTEM', 'R', 'PYTHON'] as const satisfies readonly ContextName[]
@@ -19,7 +19,7 @@ export const CONTEXT_LABELS: Record<ContextName, ContextInfo> = {
     PYTHON: { label: 'Python context', description: 'Context about using the Python programming language' },
 }
 
-export const getClaudeContext = async (db: DBConn, { name, orgId }: { name: ContextName, orgId: string | null }) => {
+export const getClaudeContext = async (db: DBConn, { name, orgId }: { name: ContextName; orgId: string | null }) => {
     const row = await db
         .selectFrom('claudeContext')
         .select('content')

@@ -48,7 +48,11 @@ type Abilities =
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
     | Ability<'IDE', 'load', { researcherId: UUID }>
-    | Ability<'ClaudeContext', 'create' | 'update' | 'view', { name: ContextName, orgId: string | null, content?: string}>
+    | Ability<
+          'ClaudeContext',
+          'create' | 'update' | 'view',
+          { name: ContextName; orgId: string | null; content?: string }
+      >
 
 export type PermissionsObjectSubjects = Extract<Abilities[1], object>
 
