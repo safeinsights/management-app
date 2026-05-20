@@ -115,7 +115,6 @@ type SubmittedCodeSectionProps = {
 export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
-    const summary = review?.report.codeExplanation ?? null
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
@@ -127,7 +126,7 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: Subm
                 <Divider />
                 <Group align="stretch" grow gap="xl" wrap="nowrap">
                     <Paper withBorder p="lg" radius={0}>
-                        <AiSummaryCollapsible summary={summary} />
+                        <AiSummaryCollapsible studyJobId={job.id} initialReview={review} />
                     </Paper>
                     <Paper withBorder p="lg" radius={0}>
                         <SecurityScanLog scan={scan} />

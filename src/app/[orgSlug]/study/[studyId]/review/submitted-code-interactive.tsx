@@ -1,12 +1,13 @@
 'use client'
 
-import { Alert, Anchor, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Anchor, Group, Loader, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
 import { CaretRight } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
+import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
+import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 
 export type { CodeFile } from './study-code-files'
@@ -57,38 +58,94 @@ function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
     )
 }
 
-type AiSummaryProps = { summary: string | null }
+const REVIEW_POLL_INTERVAL_MS = 5_000
 
-export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
-    const { isExpanded, toggle } = useAiSummaryToggle()
+// The review row is written by a deferred background task triggered at code
+// submission (onStudyReviewRequested). Seed with the server-fetched value and
+// poll until a row lands so a reviewer who opens the page mid-generation sees
+// the summary appear without a manual refresh. A row — even one with a blank
+// codeExplanation — is terminal and stops the poll.
+function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+    return useQuery({
+        queryKey: ['study-review', studyJobId],
+        queryFn: () => getStudyReviewAction({ studyJobId }),
+        initialData: initialReview,
+        refetchInterval: (query) => {
+            if (query.state.error) return false
+            if (query.state.data != null) return false
+            return REVIEW_POLL_INTERVAL_MS
+        },
+    })
+}
+
+function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onToggle: () => void }) {
     const toggleLabel = isExpanded ? 'Hide full AI summary' : 'View full AI summary'
-    const hasSummary = !!summary
+    return (
+        <Anchor
+            component="button"
+            type="button"
+            onClick={onToggle}
+            size="sm"
+            fw={700}
+            display="inline-flex"
+            w="fit-content"
+            style={{ alignItems: 'center', gap: 4 }}
+            data-testid="ai-summary-toggle"
+            aria-expanded={isExpanded}
+        >
+            {toggleLabel}
+            <ToggleChevron isExpanded={isExpanded} />
+        </Anchor>
+    )
+}
 
-    const placeholder = (
+function AiSummaryPending() {
+    return (
+        <Group gap="xs" data-testid="ai-summary-pending">
+            <Loader size="sm" />
+            <Text c="dimmed" size="sm">
+                Review in progress…
+            </Text>
+        </Group>
+    )
+}
+
+function AiSummaryEmpty() {
+    return (
         <Text size="sm" c="dimmed" data-testid="ai-summary-empty">
             No AI summary available yet.
         </Text>
     )
-    const content = (
+}
+
+type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: () => void }
+
+function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
+    return (
         <>
-            <AiSummaryBody isVisible={isExpanded} summary={summary ?? ''} />
-            <Anchor
-                component="button"
-                type="button"
-                onClick={toggle}
-                size="sm"
-                fw={700}
-                display="inline-flex"
-                w="fit-content"
-                style={{ alignItems: 'center', gap: 4 }}
-                data-testid="ai-summary-toggle"
-                aria-expanded={isExpanded}
-            >
-                {toggleLabel}
-                <ToggleChevron isExpanded={isExpanded} />
-            </Anchor>
+            <AiSummaryBody isVisible={isExpanded} summary={summary} />
+            <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
+}
+
+type AiSummaryProps = { studyJobId: string; initialReview: StudyReviewWithMeta | null }
+
+export function AiSummaryCollapsible({ studyJobId, initialReview }: AiSummaryProps) {
+    const { isExpanded, toggle } = useAiSummaryToggle()
+    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
+    const summary = review?.report.codeExplanation ?? null
+
+    // A resolved poll (row landed, or errored out) is terminal — show the
+    // summary if present, otherwise the empty state. Until then we're still
+    // generating, so show the spinner.
+    const isResolved = error != null || review != null
+
+    const renderBody = () => {
+        if (!isResolved) return <AiSummaryPending />
+        if (!summary) return <AiSummaryEmpty />
+        return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+    }
 
     return (
         <Stack gap="xs" data-testid="ai-summary">
@@ -96,7 +153,7 @@ export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
             <Text fw={600} size="sm">
                 Overview
             </Text>
-            {hasSummary ? content : placeholder}
+            {renderBody()}
         </Stack>
     )
 }
