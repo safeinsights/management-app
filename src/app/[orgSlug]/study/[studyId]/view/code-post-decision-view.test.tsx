@@ -70,7 +70,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     // Layer the decision row on top so it's the latest status change.
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id })
+        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: new Date(Date.now() + 1000) })
         .execute()
 
     await db
