@@ -4,6 +4,7 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
+import { canResubmitStudyCode } from '@/lib/code-resubmission'
 import { fetchLatestCodeEnvForStudyIdOrNull, latestJobForStudyOrNull } from '@/server/db/queries'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
@@ -12,8 +13,6 @@ import { ResubmitStudyCodeForm } from './form'
 import { EditStudyCodeView } from './edit-study-code-view'
 import { FeatureFlagGate } from './feature-flag-gate'
 import { NotFoundOnMount } from './not-found-on-mount'
-
-const ALLOWED_LATEST_JOB_STATUSES = new Set(['CODE-CHANGES-REQUESTED', 'JOB-ERRORED', 'RUN-COMPLETE', 'FILES-REJECTED'])
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -82,7 +81,7 @@ async function EditAndResubmitOptIn({
     // Guards run client-side via NotFoundOnMount so the non-opted-in branch
     // (which still renders this OptIn server component into the client gate's
     // prop tree) doesn't 404 the whole page when the status check fails.
-    if (!latestJobStatus || !ALLOWED_LATEST_JOB_STATUSES.has(latestJobStatus)) return <NotFoundOnMount />
+    if (!canResubmitStudyCode(latestJobStatus)) return <NotFoundOnMount />
 
     const feedbackResult = await getCodeReviewFeedbackAction({ studyId })
     if ('error' in feedbackResult) return <NotFoundOnMount />

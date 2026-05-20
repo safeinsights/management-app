@@ -31,6 +31,7 @@ import {
     RESUBMIT_NOTE_MIN_WORDS,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { countWords, lexicalJson } from '@/lib/lexical'
+import { canResubmitStudyCode } from '@/lib/code-resubmission'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -791,8 +792,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         const latestJob = await latestJobForStudyOrNull(studyId)
         const latestStatus = latestJob?.statusChanges.at(0)?.status
-        const allowedStatuses = new Set(['CODE-CHANGES-REQUESTED', 'JOB-ERRORED', 'RUN-COMPLETE', 'FILES-REJECTED'])
-        if (!latestStatus || !allowedStatuses.has(latestStatus)) {
+        if (!canResubmitStudyCode(latestStatus)) {
             throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)
         }
 
