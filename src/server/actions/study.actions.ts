@@ -37,10 +37,16 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { Action, z } from './action'
 
-// NOT exported, for internal use by actions in this file
+// NOT exported, for internal use by actions in this file.
+// Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
+// Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
+// stay lifecycle-agnostic. Because soft-delete only applies to DRAFTs and a deleted DRAFT is no longer surfaced
+// on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
+// a known gap.
 function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
+        .where('study.deletedAt', 'is', null)
         .leftJoin(
             // Subquery to get the most recent study job for each study
             (eb) =>
@@ -221,6 +227,29 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
             .where('id', '=', studyId)
             .where(column, 'is', null)
             .execute()
+    })
+
+export const softDeleteStudyAction = new Action('softDeleteStudyAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .where('deletedAt', 'is', null)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('delete', 'Study')
+    .handler(async ({ db, study, params: { studyId }, session }) => {
+        if (study.status !== 'DRAFT') {
+            throw new ActionFailure({ study: 'only draft studies can be deleted' })
+        }
+        if (study.researcherId !== session.user.id) {
+            throw new ActionFailure({ user: 'only the draft author can delete this proposal' })
+        }
+        await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', studyId).execute()
+        return { title: study.title }
     })
 
 async function approveJobCode({
