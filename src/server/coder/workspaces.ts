@@ -14,13 +14,14 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from '../db/queries'
+import { fetchLatestCodeEnvForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
 import { ContextName } from '@/lib/claude-context'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -259,23 +260,4 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
     await fs.writeFile(targetContextPath, combinedContextString, 'utf-8')
     await fs.utimes(targetContextPath, pastDate, pastDate)
-}
-
-export async function generateDataSourcesContextString(orgId: string): Promise<string> {
-    const sources = await getDataSourcesForOrg(orgId)
-
-    const sections: string[] = []
-    for (const source of sources) {
-        const lines: string[] = [`# ${source.name}`]
-        if (source.description) lines.push(source.description)
-
-        for (const url of source.urls) {
-            if (url.url !== null) {
-                lines.push(`Documentation (${url.description || 'No description provided'}): ${url.url}`)
-            }
-        }
-
-        sections.push(lines.join('\n'))
-    }
-    return sections.length > 0 ? sections.join('\n\n') : ''
 }
