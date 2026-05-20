@@ -29,6 +29,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('claim', 'PendingUser')
     permit('reset', 'MFA')
     permit('view', 'Orgs')
+    permit('view', 'ClaudeContext')
 
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
@@ -80,6 +81,8 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
 
+    permit('update', 'ClaudeContext', { orgId: { $in: usersAdminOrgIds } })
+
     // SI admins can do anything
     if (isSiAdmin) {
         permit('create', 'Org')
@@ -92,6 +95,8 @@ export function defineAbilityFor(session: UserSession) {
         permit('delete', 'Org')
         permit('view', 'OrgStudies')
         permit('view', 'OrgMembers')
+        permit('create', 'ClaudeContext')
+        permit('update', 'ClaudeContext')
     }
 
     return build({

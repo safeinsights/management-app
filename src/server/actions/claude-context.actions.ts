@@ -1,16 +1,14 @@
 'use server'
 
-import { Action, ActionFailure } from './action'
+import { Action } from './action'
 import { z } from 'zod'
 import { sql } from 'kysely'
 import { CONTEXT_NAMES } from '@/lib/claude-context'
 
 export const writeClaudeContextAction = new Action('writeClaudeContextAction', { performsMutations: true })
     .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
+    .requireAbilityTo('update', 'ClaudeContext')
     .handler(async ({ session, db, params: { name, content, orgId } }) => {
-        if (!session?.user.isSiAdmin) {
-            throw new ActionFailure({ permission_denied: 'Must be SafeInsights admin' })
-        }
         const userId = session.user.id
         await db
             .insertInto('claudeContext')
@@ -39,6 +37,7 @@ export const getClaudeContextAction = new Action('getClaudeContextAction')
             orgId: z.string().uuid().nullable(),
         }),
     )
+    .requireAbilityTo('view', 'ClaudeContext')
     .handler(async ({ db, params: { name, orgId } }) => {
         const row = await db
             .selectFrom('claudeContext')
