@@ -5,21 +5,24 @@ import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context
 import { errorToString, isActionError } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
+import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { useState } from 'react'
 
 type ContextProps = { name: ContextName; orgId: string | null }
 
-function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
-    const [content, setContent] = useState(initialContent)
-    const [lastSavedContent, setLastSavedContent] = useState(initialContent)
-    const isDiff = content !== lastSavedContent // true if there's a diff, false if the same as db
+type EditorFormValues = { content: string }
+
+function useClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
     const queryClient = useQueryClient()
 
-    const { mutate: updateContext, isPending } = useMutation({
+    const form = useForm<EditorFormValues>({
+        initialValues: { content: initialContent },
+    })
+
+    const { mutate, isPending } = useMutation({
         mutationFn: writeClaudeContextAction,
         onSuccess: (_, variables) => {
-            setLastSavedContent(variables.content)
+            form.resetDirty({ content: variables.content })
             queryClient.invalidateQueries({ queryKey: ['claudeContext', name, orgId] })
         },
         onError: (error) => {
@@ -32,8 +35,18 @@ function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { i
         },
     })
 
+    const onSubmit = form.onSubmit(({ content }) => {
+        mutate({ name, content, orgId })
+    })
+
+    return { form, onSubmit, isPending }
+}
+
+function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
+    const { form, onSubmit, isPending } = useClaudeContextEditor({ name, orgId, initialContent })
+
     return (
-        <form action={() => updateContext({ name, content, orgId })}>
+        <form onSubmit={onSubmit}>
             <Stack gap="md">
                 <Textarea
                     autosize
@@ -41,11 +54,10 @@ function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { i
                     maxRows={20}
                     label={CONTEXT_LABELS[name].label}
                     description={CONTEXT_LABELS[name].description}
-                    value={content}
-                    onChange={(e) => setContent(e.currentTarget.value)}
+                    {...form.getInputProps('content')}
                 />
                 <Group justify="flex-end">
-                    <Button type="submit" loading={isPending} disabled={!isDiff}>
+                    <Button type="submit" loading={isPending} disabled={!form.isDirty()}>
                         Submit
                     </Button>
                 </Group>
