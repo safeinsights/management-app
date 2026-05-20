@@ -833,7 +833,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', codeResubmissionNoteDraft: null })
+            .set({ status: 'PENDING-REVIEW', submittedAt: new Date(), codeResubmissionNoteDraft: null })
             .where('id', '=', studyId)
             .execute()
 
