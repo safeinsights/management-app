@@ -74,7 +74,4 @@ export {
     // OTTER-538: Study Details page changes in preparation for new code page
     useOpenStaxFeatureFlag as useStudyDetailsRedesignFeatureFlag,
     OpenStaxFeatureFlag as StudyDetailsRedesignFeatureFlag,
-    // OTTER-558: RL Edit & Resubmit study code
-    useOpenStaxFeatureFlag as useEditAndResubmitCodeFeatureFlag,
-    OpenStaxFeatureFlag as EditAndResubmitCodeFeatureFlag,
 }
