@@ -1,16 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { useParams } from 'next/navigation'
+import { type Mock, describe, expect, it } from 'vitest'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
-
-vi.mock('next/navigation', async () => {
-    const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation')
-    return {
-        ...actual,
-        useParams: () => ({ orgSlug: 'lab-1' }),
-        useRouter: () => ({ push: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
-    }
-})
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -18,8 +10,9 @@ const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `
 
 const renderFooter = (
     opts: { initialNote?: string; mainFileName?: string; fileNames?: string[]; filesChanged?: boolean } = {},
-) =>
-    renderWithProviders(
+) => {
+    ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+    return renderWithProviders(
         <EditCodeResubmitProvider studyId={STUDY_ID} initialNote={opts.initialNote ?? ''}>
             <EditStudyCodeFooter
                 mainFileName={opts.mainFileName ?? ''}
@@ -29,6 +22,7 @@ const renderFooter = (
             />
         </EditCodeResubmitProvider>,
     )
+}
 
 describe('EditStudyCodeFooter', () => {
     it('disables Resubmit when there are no files', () => {
