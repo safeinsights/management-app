@@ -814,6 +814,8 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        // Mirrors submitStudyCodeAction: these copies run inside the Action
+        // transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
             const filePath = path.join(coderFilesPath, sanitized)
