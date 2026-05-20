@@ -808,36 +808,66 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
-        const versionedJobs = (qb: typeof db) =>
-            qb
-                .selectFrom('studyJob')
-                .leftJoin('jobStatusChange as submission', (join) =>
-                    join
-                        .onRef('submission.studyJobId', '=', 'studyJob.id')
-                        .on('submission.status', '=', 'CODE-SUBMITTED'),
-                )
-                .leftJoin('user as author', 'author.id', 'submission.userId')
-                .where('studyJob.studyId', '=', studyId)
-                .select([
-                    'studyJob.id as studyJobId',
-                    'studyJob.resubmissionNote',
-                    'studyJob.createdAt',
-                    'submission.userId as authorId',
-                    'author.fullName as authorName',
-                ])
-                .select(() => [
-                    sql<number>`row_number() over (partition by ${sql.ref('studyJob.studyId')} order by ${sql.ref('studyJob.createdAt')} asc)::int`.as(
-                        'version',
-                    ),
-                ])
-
         const [codeJobs, reviewerRows] = await Promise.all([
-            db.with('versioned_jobs', versionedJobs)
+            db
+                .with('versioned_jobs', (qb) =>
+                    qb
+                        .selectFrom('studyJob')
+                        .leftJoin('jobStatusChange as submission', (join) =>
+                            join
+                                .onRef('submission.studyJobId', '=', 'studyJob.id')
+                                .on('submission.status', '=', 'CODE-SUBMITTED'),
+                        )
+                        .leftJoin('user as author', 'author.id', 'submission.userId')
+                        .where('studyJob.studyId', '=', studyId)
+                        .select([
+                            'studyJob.id as studyJobId',
+                            'studyJob.resubmissionNote',
+                            'studyJob.createdAt',
+                            'submission.userId as authorId',
+                            'author.fullName as authorName',
+                        ])
+                        .select(() => [
+                            sql<number>`row_number() over (partition by ${sql.ref('studyJob.studyId')} order by ${sql.ref('studyJob.createdAt')} asc)::int`.as(
+                                'version',
+                            ),
+                        ]),
+                )
                 .selectFrom('versioned_jobs')
-                .selectAll()
+                .select([
+                    'versioned_jobs.studyJobId',
+                    'versioned_jobs.resubmissionNote',
+                    'versioned_jobs.createdAt',
+                    'versioned_jobs.authorId',
+                    'versioned_jobs.authorName',
+                    'versioned_jobs.version',
+                ])
                 .where('resubmissionNote', 'is not', null)
                 .execute(),
-            db.with('versioned_jobs', versionedJobs)
+            db
+                .with('versioned_jobs', (qb) =>
+                    qb
+                        .selectFrom('studyJob')
+                        .leftJoin('jobStatusChange as submission', (join) =>
+                            join
+                                .onRef('submission.studyJobId', '=', 'studyJob.id')
+                                .on('submission.status', '=', 'CODE-SUBMITTED'),
+                        )
+                        .leftJoin('user as author', 'author.id', 'submission.userId')
+                        .where('studyJob.studyId', '=', studyId)
+                        .select([
+                            'studyJob.id as studyJobId',
+                            'studyJob.resubmissionNote',
+                            'studyJob.createdAt',
+                            'submission.userId as authorId',
+                            'author.fullName as authorName',
+                        ])
+                        .select(() => [
+                            sql<number>`row_number() over (partition by ${sql.ref('studyJob.studyId')} order by ${sql.ref('studyJob.createdAt')} asc)::int`.as(
+                                'version',
+                            ),
+                        ]),
+                )
                 .selectFrom('studyReviewComment')
                 .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
                 .leftJoin('versioned_jobs', 'versioned_jobs.studyJobId', 'studyReviewComment.studyJobId')
