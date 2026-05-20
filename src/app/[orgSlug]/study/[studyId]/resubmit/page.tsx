@@ -11,6 +11,7 @@ import { ResubmitCodeProvider } from '@/contexts/resubmit-code'
 import { ResubmitStudyCodeForm } from './form'
 import { EditStudyCodeView } from './edit-study-code-view'
 import { FeatureFlagGate } from './feature-flag-gate'
+import { NotFoundOnMount } from './not-found-on-mount'
 
 const ALLOWED_LATEST_JOB_STATUSES = new Set(['CODE-CHANGES-REQUESTED', 'JOB-ERRORED', 'RUN-COMPLETE', 'FILES-REJECTED'])
 
@@ -77,10 +78,13 @@ async function EditAndResubmitOptIn({
     latestJobStatus,
     codeResubmissionNoteDraft,
 }: EditAndResubmitOptInProps) {
-    if (!latestJobStatus || !ALLOWED_LATEST_JOB_STATUSES.has(latestJobStatus)) return notFound()
+    // Guards run client-side via NotFoundOnMount so the non-opted-in branch
+    // (which still renders this OptIn server component into the client gate's
+    // prop tree) doesn't 404 the whole page when the status check fails.
+    if (!latestJobStatus || !ALLOWED_LATEST_JOB_STATUSES.has(latestJobStatus)) return <NotFoundOnMount />
 
     const feedbackResult = await getCodeReviewFeedbackAction({ studyId })
-    if ('error' in feedbackResult) return notFound()
+    if ('error' in feedbackResult) return <NotFoundOnMount />
     const feedbackEntries = feedbackResult
 
     const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', enclaveOrgId).executeTakeFirst()
