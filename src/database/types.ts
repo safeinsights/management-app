@@ -211,6 +211,7 @@ export interface Study {
     createdAt: Generated<Timestamp>
     datasets: string[] | null
     dataSources: Generated<string[]>
+    deletedAt: Timestamp | null
     descriptionDocPath: string | null
     id: Generated<string>
     impact: Json | null

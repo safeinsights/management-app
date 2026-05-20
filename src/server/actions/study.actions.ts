@@ -41,6 +41,7 @@ import { Action, z } from './action'
 function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
+        .where('study.deletedAt', 'is', null)
         .leftJoin(
             // Subquery to get the most recent study job for each study
             (eb) =>
@@ -221,6 +222,29 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
             .where('id', '=', studyId)
             .where(column, 'is', null)
             .execute()
+    })
+
+export const softDeleteStudyAction = new Action('softDeleteStudyAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .where('deletedAt', 'is', null)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('delete', 'Study')
+    .handler(async ({ db, study, params: { studyId }, session }) => {
+        if (study.status !== 'DRAFT') {
+            throw new ActionFailure({ study: 'only draft studies can be deleted' })
+        }
+        if (study.researcherId !== session.user.id) {
+            throw new ActionFailure({ user: 'only the draft author can delete this proposal' })
+        }
+        await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', studyId).execute()
+        return { title: study.title }
     })
 
 async function approveJobCode({
