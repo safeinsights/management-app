@@ -1,4 +1,4 @@
-import { Box, Stack } from '@mantine/core'
+import { Box, Stack, Title } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
@@ -40,6 +40,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                                 ['Resubmit study code'],
                             ]}
                         />
+                        <Title order={1}>Resubmit study code</Title>
                         <ResubmitStudyCodeForm />
                     </Stack>
                 </ResubmitCodeProvider>
