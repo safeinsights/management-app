@@ -1788,6 +1788,48 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(noteRow?.version).toBe(2)
         expect(feedbackRow?.version).toBe(1)
     })
+
+    it('orders feedback deterministically when review and resubmission note timestamps match', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const sharedCreatedAt = new Date('2026-03-01T00:00:00Z')
+
+        await db
+            .updateTable('studyJob')
+            .set({
+                createdAt: sharedCreatedAt,
+                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+            })
+            .where('id', '=', job.id)
+            .execute()
+
+        const review = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+                createdAt: sharedCreatedAt,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+
+        expect(rows.map((row) => row.id)).toEqual([`job-note-${job.id}`, review.id])
+        expect(rows.map((row) => row.entryType)).toEqual(['RESUBMISSION-NOTE', 'REVIEWER-FEEDBACK'])
+        expect(rows.map((row) => row.version)).toEqual([1, 1])
+    })
 })
 
 function validCriteriaFixture() {
