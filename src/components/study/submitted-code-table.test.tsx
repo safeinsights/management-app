@@ -56,6 +56,21 @@ describe('SubmittedCodeTable', () => {
         expect(screen.getByText(/print/)).toBeInTheDocument()
     })
 
+    it('renders a download anchor per row pointing at the /dl/study-code route', () => {
+        const files = [
+            buildFile({ name: 'main.py', fileType: 'MAIN-CODE' }),
+            buildFile({ name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
+        ]
+        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={files} />)
+
+        const main = screen.getByRole('link', { name: 'Download main.py' })
+        expect(main).toHaveAttribute('href', '/dl/study-code/job-1/main.py')
+        expect(main).toHaveAttribute('download', 'main.py')
+
+        const helper = screen.getByRole('link', { name: 'Download helper.py' })
+        expect(helper).toHaveAttribute('href', '/dl/study-code/job-1/helper.py')
+    })
+
     it('closes the modal when onClose is fired', async () => {
         mockFetch.mockResolvedValue({ fileName: 'main.py', contents: 'x = 1' })
 
