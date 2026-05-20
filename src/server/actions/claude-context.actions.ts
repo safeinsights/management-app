@@ -26,8 +26,6 @@ export const writeClaudeContextAction = new Action('writeClaudeContextAction', {
                 }),
             )
             .execute()
-
-        return { success: true }
     })
 
 export const getClaudeContextAction = new Action('getClaudeContextAction')
