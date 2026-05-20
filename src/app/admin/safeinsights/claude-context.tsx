@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
-import { errorToString, isActionError } from '@/lib/errors'
+import { errorToString } from '@/lib/errors'
 import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { useForm } from '@mantine/form'
