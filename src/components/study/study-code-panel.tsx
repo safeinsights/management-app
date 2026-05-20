@@ -36,6 +36,7 @@ export const StudyCodePanel = ({
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
+                showLaunchIde={showLaunchIde}
             />
         )
     } else {

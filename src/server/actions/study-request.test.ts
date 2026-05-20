@@ -789,6 +789,7 @@ describe('Request Study Actions', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
             await db
                 .updateTable('study')
@@ -835,6 +836,7 @@ describe('Request Study Actions', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             const root = await createWorkspaceDir('resubmit-empty-note')
@@ -846,6 +848,28 @@ describe('Request Study Actions', () => {
                 mainFileName: 'main.R',
                 fileNames: ['main.R'],
                 resubmissionNote: '',
+            })
+            expect(result).toHaveProperty('error')
+        })
+
+        it('rejects when latest job status is not in the allowed set', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+
+            const root = await createWorkspaceDir('resubmit-wrong-status')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: wordsString(10),
             })
             expect(result).toHaveProperty('error')
         })

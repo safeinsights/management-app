@@ -17,7 +17,7 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
-import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
+import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug, latestJobForStudyOrNull } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -788,6 +788,14 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
+
+        const latestJob = await latestJobForStudyOrNull(studyId)
+        const latestStatus = latestJob?.statusChanges.at(0)?.status
+        const allowedStatuses = new Set(['CODE-CHANGES-REQUESTED', 'JOB-ERRORED', 'RUN-COMPLETE', 'FILES-REJECTED'])
+        if (!latestStatus || !allowedStatuses.has(latestStatus)) {
+            throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)
+        }
+
         if (fileNames.length === 0) throw new Error('No files provided')
         if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
 
