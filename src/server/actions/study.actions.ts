@@ -37,7 +37,12 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { Action, z } from './action'
 
-// NOT exported, for internal use by actions in this file
+// NOT exported, for internal use by actions in this file.
+// Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
+// Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
+// stay lifecycle-agnostic. Because soft-delete only applies to DRAFTs and a deleted DRAFT is no longer surfaced
+// on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
+// a known gap.
 function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
