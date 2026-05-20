@@ -56,16 +56,16 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
 
     const saveMutation = useMutation({
         mutationFn: (note: string) => saveCodeResubmissionNoteDraftAction({ studyId, note }),
-        onSuccess: (_data, note) => {
-            lastSavedValueRef.current = note
-            setLastSavedAt(new Date())
-        },
+        onSuccess: () => setLastSavedAt(new Date()),
         onError: reportMutationError('Unable to save resubmission note draft'),
     })
 
     const flushSave = useCallback(
         async (value: string) => {
             if (value === lastSavedValueRef.current) return true
+            // Record the attempt up front so a failed save doesn't loop the
+            // debounced autosave on every mutation-state re-render.
+            lastSavedValueRef.current = value
             try {
                 await saveMutation.mutateAsync(value)
                 return true
