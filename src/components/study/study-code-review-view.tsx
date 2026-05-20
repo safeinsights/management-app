@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import { InfoTooltip } from '@/components/tooltip'
 import { FileDropOverlay } from './file-drop-overlay'
 import { FileReviewTable } from './file-review-table'
 import { LaunchIdeButton } from './launch-ide-button'
@@ -21,6 +22,7 @@ interface StudyCodeReviewViewProps {
     jobCreatedAt: string | null
     mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
+    ideButtonTooltip?: string
 }
 
 export function StudyCodeReviewView({
@@ -37,20 +39,30 @@ export function StudyCodeReviewView({
     jobCreatedAt,
     mainFileColumnHeader,
     showLaunchIde = true,
+    ideButtonTooltip,
 }: StudyCodeReviewViewProps) {
     const openRef = useRef<() => void>(null)
+
+    const launchButton = (
+        <LaunchIdeButton
+            onClick={launchWorkspace}
+            isLaunching={isLaunching}
+            launchError={launchError}
+            variant="outline"
+        />
+    )
 
     return (
         <Stack gap="md">
             <Group justify="flex-end" wrap="nowrap">
-                {showLaunchIde && (
-                    <LaunchIdeButton
-                        onClick={launchWorkspace}
-                        isLaunching={isLaunching}
-                        launchError={launchError}
-                        variant="outline"
-                    />
-                )}
+                {showLaunchIde &&
+                    (ideButtonTooltip ? (
+                        <InfoTooltip label={ideButtonTooltip} withArrow multiline w={320}>
+                            {launchButton}
+                        </InfoTooltip>
+                    ) : (
+                        launchButton
+                    ))}
                 <UploadFilesButton openRef={openRef} disabled={isUploading} />
             </Group>
 

@@ -14,6 +14,7 @@ interface StudyCodePanelProps {
     footer: ReactNode
     mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
+    ideButtonTooltip?: string
 }
 
 export const StudyCodePanel = ({
@@ -23,6 +24,7 @@ export const StudyCodePanel = ({
     footer,
     mainFileColumnHeader,
     showLaunchIde,
+    ideButtonTooltip,
 }: StudyCodePanelProps) => {
     let body: ReactNode
     if (ide.isLoadingFiles) {
@@ -55,6 +57,7 @@ export const StudyCodePanel = ({
                 jobCreatedAt={ide.jobCreatedAt}
                 mainFileColumnHeader={mainFileColumnHeader}
                 showLaunchIde={showLaunchIde}
+                ideButtonTooltip={ideButtonTooltip}
             />
         )
     }

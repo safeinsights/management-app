@@ -4,6 +4,7 @@ import { FC, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modal'
+import { InfoTooltip } from '@/components/tooltip'
 import { Routes } from '@/lib/routes'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 
@@ -11,9 +12,18 @@ interface EditStudyCodeFooterProps {
     mainFileName: string
     fileNames: string[]
     hasFiles: boolean
+    filesChanged: boolean
 }
 
-export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({ mainFileName, fileNames, hasFiles }) => {
+const SAVE_AND_EXIT_TOOLTIP =
+    "Progress saved! Note: On exiting the edit mode, your changes won't be visible until you hit Resubmit study code."
+
+export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
+    mainFileName,
+    fileNames,
+    hasFiles,
+    filesChanged,
+}) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, noteForm, saveDraft, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
@@ -22,6 +32,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({ mainFileName
 
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
+    const hasChanges = noteForm.values.resubmissionNote.length > 0 || filesChanged
 
     const handleCancel = () => {
         if (isBusy) return
@@ -44,12 +55,23 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({ mainFileName
     return (
         <>
             <Group justify="flex-end" mt="xs">
-                <Button variant="subtle" size="md" disabled={isBusy} onClick={handleCancel}>
-                    Cancel
-                </Button>
-                <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={handleSaveAndExit}>
-                    Save and exit
-                </Button>
+                {hasChanges ? (
+                    <InfoTooltip label={SAVE_AND_EXIT_TOOLTIP} withArrow multiline w={320}>
+                        <Button
+                            variant="outline"
+                            size="md"
+                            disabled={isBusy}
+                            loading={isSaving}
+                            onClick={handleSaveAndExit}
+                        >
+                            Save and exit
+                        </Button>
+                    </InfoTooltip>
+                ) : (
+                    <Button variant="subtle" size="md" disabled={isBusy} onClick={handleCancel}>
+                        Cancel
+                    </Button>
+                )}
                 <Button
                     variant="primary"
                     size="md"
@@ -57,7 +79,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({ mainFileName
                     loading={isSubmitting}
                     onClick={() => setConfirmOpen(true)}
                 >
-                    Resubmit
+                    Resubmit study code
                 </Button>
             </Group>
 
