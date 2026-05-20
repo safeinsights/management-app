@@ -53,22 +53,44 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
     const lastSavedValueRef = useRef<string>(initialNote)
     const pendingValueRef = useRef<string>(initialNote)
+    const savingValueRef = useRef<string | null>(null)
+    const inFlightSaveRef = useRef<Promise<boolean> | null>(null)
 
     const saveMutation = useMutation({
         mutationFn: (note: string) => saveCodeResubmissionNoteDraftAction({ studyId, note }),
-        onSuccess: () => setLastSavedAt(new Date()),
         onError: reportMutationError('Unable to save resubmission note draft'),
     })
 
     const flushSave = useCallback(
         async (value: string) => {
             if (value === lastSavedValueRef.current) return true
-            // Record the attempt up front so a failed save doesn't loop the
-            // debounced autosave on every mutation-state re-render.
-            lastSavedValueRef.current = value
+
+            if (savingValueRef.current === value && inFlightSaveRef.current) return inFlightSaveRef.current
+
+            if (inFlightSaveRef.current) {
+                await inFlightSaveRef.current
+                if (value === lastSavedValueRef.current) return true
+            }
+
+            savingValueRef.current = value
+            const savePromise = saveMutation
+                .mutateAsync(value)
+                .then(() => {
+                    lastSavedValueRef.current = value
+                    setLastSavedAt(new Date())
+                    return true
+                })
+                .catch(() => false)
+                .finally(() => {
+                    if (savingValueRef.current === value) {
+                        savingValueRef.current = null
+                        inFlightSaveRef.current = null
+                    }
+                })
+            inFlightSaveRef.current = savePromise
+
             try {
-                await saveMutation.mutateAsync(value)
-                return true
+                return await savePromise
             } catch {
                 return false
             }
