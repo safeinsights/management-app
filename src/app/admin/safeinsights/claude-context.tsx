@@ -75,10 +75,10 @@ function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
 
     if (isLoading) return null
 
-    if (error || isActionError(data)) {
+    if (error) {
         return (
             <Text c="red">
-                Failed to load context for {name}: {error ? error.message : errorToString(data)}
+                Failed to load context for {name}: {error.message}
             </Text>
         )
     }
