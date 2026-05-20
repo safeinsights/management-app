@@ -808,48 +808,56 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
-        // Version derivation: each code job, in creation order, is its own
-        // review round (v1, v2, ...). Reviewer decisions on a job and the
-        // researcher's resubmission note on that same job share the round number.
-        // studyJob has no userId column; the author of the resubmission note is
-        // the user recorded on the CODE-SUBMITTED status change for that job.
-        const codeJobs = await db
-            .selectFrom('studyJob')
-            .leftJoin('jobStatusChange as submission', (join) =>
-                join.onRef('submission.studyJobId', '=', 'studyJob.id').on('submission.status', '=', 'CODE-SUBMITTED'),
-            )
-            .leftJoin('user as author', 'author.id', 'submission.userId')
-            .select([
-                'studyJob.id as studyJobId',
-                'studyJob.resubmissionNote',
-                'studyJob.createdAt',
-                'submission.userId as authorId',
-                'author.fullName as authorName',
-            ])
-            .where('studyJob.studyId', '=', studyId)
-            .orderBy('studyJob.createdAt', 'asc')
-            .execute()
+        const versionedJobs = (qb: typeof db) =>
+            qb
+                .selectFrom('studyJob')
+                .leftJoin('jobStatusChange as submission', (join) =>
+                    join
+                        .onRef('submission.studyJobId', '=', 'studyJob.id')
+                        .on('submission.status', '=', 'CODE-SUBMITTED'),
+                )
+                .leftJoin('user as author', 'author.id', 'submission.userId')
+                .where('studyJob.studyId', '=', studyId)
+                .select([
+                    'studyJob.id as studyJobId',
+                    'studyJob.resubmissionNote',
+                    'studyJob.createdAt',
+                    'submission.userId as authorId',
+                    'author.fullName as authorName',
+                ])
+                .select(() => [
+                    sql<number>`row_number() over (partition by ${sql.ref('studyJob.studyId')} order by ${sql.ref('studyJob.createdAt')} asc)::int`.as(
+                        'version',
+                    ),
+                ])
 
-        const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
-
-        const reviewerRows = await db
-            .selectFrom('studyReviewComment')
-            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
-            .select([
-                'studyReviewComment.id',
-                'studyReviewComment.authorId',
-                'studyReviewComment.studyJobId',
-                'studyReviewComment.entryType',
-                'studyReviewComment.decision',
-                'studyReviewComment.body',
-                'studyReviewComment.criteria',
-                'studyReviewComment.createdAt',
-                'author.fullName as authorName',
-            ])
-            .where('studyReviewComment.studyId', '=', studyId)
-            .where('studyReviewComment.reviewKind', '=', 'CODE')
-            .where('studyReviewComment.entryType', '=', 'DECISION')
-            .execute()
+        const [codeJobs, reviewerRows] = await Promise.all([
+            db.with('versioned_jobs', versionedJobs)
+                .selectFrom('versioned_jobs')
+                .selectAll()
+                .where('resubmissionNote', 'is not', null)
+                .execute(),
+            db.with('versioned_jobs', versionedJobs)
+                .selectFrom('studyReviewComment')
+                .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+                .leftJoin('versioned_jobs', 'versioned_jobs.studyJobId', 'studyReviewComment.studyJobId')
+                .select([
+                    'studyReviewComment.id',
+                    'studyReviewComment.authorId',
+                    'studyReviewComment.studyJobId',
+                    'studyReviewComment.entryType',
+                    'studyReviewComment.decision',
+                    'studyReviewComment.body',
+                    'studyReviewComment.criteria',
+                    'studyReviewComment.createdAt',
+                    'author.fullName as authorName',
+                    'versioned_jobs.version as version',
+                ])
+                .where('studyReviewComment.studyId', '=', studyId)
+                .where('studyReviewComment.reviewKind', '=', 'CODE')
+                .where('studyReviewComment.entryType', '=', 'DECISION')
+                .execute(),
+        ])
 
         const reviewerEntries = reviewerRows.map((row) => ({
             id: row.id,
@@ -860,7 +868,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             criteria: row.criteria,
             createdAt: row.createdAt,
             authorName: row.authorName,
-            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+            version: row.version ?? null,
         }))
 
         const noteEntries = codeJobs
@@ -874,12 +882,21 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 criteria: null,
                 createdAt: j.createdAt,
                 authorName: j.authorName ?? '',
-                version: jobVersion.get(j.studyJobId) ?? null,
+                version: j.version,
             }))
 
-        return [...reviewerEntries, ...noteEntries].sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
+        return [...reviewerEntries, ...noteEntries].sort((a, b) => {
+            const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            if (createdAtDiff !== 0) return createdAtDiff
+
+            const versionDiff = (b.version ?? 0) - (a.version ?? 0)
+            if (versionDiff !== 0) return versionDiff
+
+            const entryTypeDiff = a.entryType.localeCompare(b.entryType)
+            if (entryTypeDiff !== 0) return entryTypeDiff
+
+            return a.id.localeCompare(b.id)
+        })
     })
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
