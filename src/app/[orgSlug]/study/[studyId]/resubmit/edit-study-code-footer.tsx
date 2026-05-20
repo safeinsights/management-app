@@ -52,26 +52,22 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         resubmit({ mainFileName, fileNames })
     }
 
+    const exitButton = hasChanges ? (
+        <InfoTooltip label={SAVE_AND_EXIT_TOOLTIP} withArrow multiline w={320}>
+            <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={handleSaveAndExit}>
+                Save and exit
+            </Button>
+        </InfoTooltip>
+    ) : (
+        <Button variant="subtle" size="md" disabled={isBusy} onClick={handleCancel}>
+            Cancel
+        </Button>
+    )
+
     return (
         <>
             <Group justify="flex-end" mt="xs">
-                {hasChanges ? (
-                    <InfoTooltip label={SAVE_AND_EXIT_TOOLTIP} withArrow multiline w={320}>
-                        <Button
-                            variant="outline"
-                            size="md"
-                            disabled={isBusy}
-                            loading={isSaving}
-                            onClick={handleSaveAndExit}
-                        >
-                            Save and exit
-                        </Button>
-                    </InfoTooltip>
-                ) : (
-                    <Button variant="subtle" size="md" disabled={isBusy} onClick={handleCancel}>
-                        Cancel
-                    </Button>
-                )}
+                {exitButton}
                 <Button
                     variant="primary"
                     size="md"

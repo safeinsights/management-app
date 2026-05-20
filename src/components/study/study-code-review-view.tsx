@@ -43,26 +43,29 @@ export function StudyCodeReviewView({
 }: StudyCodeReviewViewProps) {
     const openRef = useRef<() => void>(null)
 
-    const launchButton = (
-        <LaunchIdeButton
-            onClick={launchWorkspace}
-            isLaunching={isLaunching}
-            launchError={launchError}
-            variant="outline"
-        />
-    )
+    let launchSection: ReactNode = null
+    if (showLaunchIde) {
+        const launchButton = (
+            <LaunchIdeButton
+                onClick={launchWorkspace}
+                isLaunching={isLaunching}
+                launchError={launchError}
+                variant="outline"
+            />
+        )
+        launchSection = ideButtonTooltip ? (
+            <InfoTooltip label={ideButtonTooltip} withArrow multiline w={320}>
+                {launchButton}
+            </InfoTooltip>
+        ) : (
+            launchButton
+        )
+    }
 
     return (
         <Stack gap="md">
             <Group justify="flex-end" wrap="nowrap">
-                {showLaunchIde &&
-                    (ideButtonTooltip ? (
-                        <InfoTooltip label={ideButtonTooltip} withArrow multiline w={320}>
-                            {launchButton}
-                        </InfoTooltip>
-                    ) : (
-                        launchButton
-                    ))}
+                {launchSection}
                 <UploadFilesButton openRef={openRef} disabled={isUploading} />
             </Group>
 
