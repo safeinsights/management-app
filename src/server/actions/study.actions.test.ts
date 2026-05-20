@@ -954,6 +954,49 @@ describe('submitProposalReviewAction', () => {
         expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
 
+    // OTTER-471: exercises the claim CAS under true concurrency (Promise.all),
+    // not just the sequential A-then-B path covered above.
+    it('OTTER-471: parallel approve + reject through submit action, exactly one wins', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const results = await Promise.all([
+            submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: validFeedback,
+                reviewVersion: 1,
+            }),
+            submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'reject',
+                feedback: validFeedback,
+                reviewVersion: 1,
+            }),
+        ])
+
+        const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+        expect(errors).toHaveLength(1)
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        const isApproved = updatedStudy.status === 'APPROVED' && !!updatedStudy.approvedAt && !updatedStudy.rejectedAt
+        const isRejected = updatedStudy.status === 'REJECTED' && !!updatedStudy.rejectedAt && !updatedStudy.approvedAt
+        expect(isApproved || isRejected).toBe(true)
+        expect(isApproved && isRejected).toBe(false)
+
+        const rows = await loadCommentRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].decision === 'APPROVE' || rows[0].decision === 'REJECT').toBe(true)
+    })
+
     it('rejects review submission for code-review studies without writing a review row', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -1518,6 +1561,48 @@ describe('submitCodeReviewDecisionAction', () => {
         })
         // The pre-seeded row is the only CODE row; the action did not create a second.
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+    })
+
+    // OTTER-471: exercises the studyJob row lock + composite unique constraint
+    // under true concurrency (Promise.all), not just the sequential case above.
+    it('OTTER-471: parallel approve + reject through submit action, exactly one CODE-* terminal row', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const results = await Promise.all([
+            submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: validFeedback,
+                criteria: validCriteria,
+            }),
+            submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'reject',
+                feedback: validFeedback,
+                criteria: validCriteria,
+            }),
+        ])
+
+        const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+        expect(errors).toHaveLength(1)
+
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+
+        const codeApproved = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-APPROVED')
+            .execute()
+        const codeRejected = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-REJECTED')
+            .execute()
+        expect(codeApproved.length + codeRejected.length).toBe(1)
     })
 
     it('composite unique constraint blocks two CODE review rows for the same job', async () => {
