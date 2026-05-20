@@ -8,8 +8,9 @@ import { useIDEFiles } from '@/hooks/use-ide-files'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyCodePanel } from '@/components/study/study-code-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/study.actions'
-import { ResubmissionNoteSection } from './resubmission-note-section'
+import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 interface EditStudyCodeViewProps {
@@ -49,6 +50,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyHasCodeEnv,
 }) => {
     const ide = useIDEFiles({ studyId })
+    const { noteForm, isSaving, lastSavedAt } = useEditCodeResubmit()
 
     return (
         <Stack gap="xxl">
@@ -70,7 +72,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
 
             <FeedbackAndNotesSection entries={feedbackEntries} />
 
-            <ResubmissionNoteSection orgName={orgName} />
+            <ResubmissionNoteSection noteForm={noteForm} orgName={orgName} autosaveStatus={{ isSaving, lastSavedAt }} />
 
             <EditStudyCodeFooter
                 mainFileName={ide.mainFile}
