@@ -9,9 +9,12 @@ import { AppModal } from '@/components/modal'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
 
+const UNTITLED_DRAFT_FALLBACK = 'Untitled Draft'
+
 function useDeleteDraft(study: StudyRow) {
     const queryClient = useQueryClient()
     const [isOpen, setIsOpen] = useState(false)
+    const draftLabel = study.title ?? UNTITLED_DRAFT_FALLBACK
 
     const { mutate, isPending } = useMutation({
         mutationFn: softDeleteStudyAction,
@@ -23,7 +26,7 @@ function useDeleteDraft(study: StudyRow) {
             ])
             notifications.show({
                 title: 'Proposal draft deleted',
-                message: `Proposal draft ${study.title ?? 'Untitled Draft'} was successfully deleted`,
+                message: `Proposal draft ${draftLabel} was successfully deleted`,
                 color: 'green',
             })
         },
@@ -42,12 +45,12 @@ function useDeleteDraft(study: StudyRow) {
         close: () => setIsOpen(false),
         confirm: () => mutate({ studyId: study.id }),
         isPending,
+        draftLabel,
     }
 }
 
 export function DeleteDraftButton({ study }: { study: StudyRow }) {
-    const { isOpen, open, close, confirm, isPending } = useDeleteDraft(study)
-    const draftLabel = study.title ?? 'draft proposal'
+    const { isOpen, open, close, confirm, isPending, draftLabel } = useDeleteDraft(study)
 
     return (
         <>

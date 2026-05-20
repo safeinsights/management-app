@@ -135,6 +135,37 @@ describe('DeleteDraftButton', () => {
         expect(row.deletedAt).not.toBeNull()
     })
 
+    it('uses the same "Untitled Draft" fallback in both the aria-label and the success toast when title is null', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'delete-draft-untitled-enclave',
+            studyInfo: { title: 'Has a title' }, // createTestProposalDraft requires a title; we null it below
+        })
+        await db.updateTable('study').set({ title: null }).where('id', '=', studyId).execute()
+
+        const user1 = userEvent.setup()
+        renderWithProviders(
+            <DeleteDraftButton
+                study={makeStudyRow({ id: studyId, researcherId: user.id, title: null as unknown as string })}
+            />,
+        )
+
+        // aria-label uses the fallback
+        expect(screen.getByLabelText('Delete draft study Untitled Draft')).toBeInTheDocument()
+
+        await user1.click(screen.getByLabelText('Delete draft study Untitled Draft'))
+        await user1.click(await screen.findByRole('button', { name: /yes, delete proposal draft/i }))
+
+        // success toast uses the same fallback
+        await waitFor(() => {
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    color: 'green',
+                    message: 'Proposal draft Untitled Draft was successfully deleted',
+                }),
+            )
+        })
+    })
+
     it('shows an error toast when the action fails', async () => {
         const { studyId, user } = await createTestProposalDraft({
             enclaveSlug: 'delete-draft-error-enclave',
