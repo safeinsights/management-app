@@ -246,7 +246,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
         if (isActionError(response)) {
             throw new Error(errorToString(response))
         }
-        combinedContextString = combinedContextString + response.content + '\n'
+        if (response.content) combinedContextString += response.content + '\n'
     }
     const targetContextFileName = 'CLAUDE.md'
     const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
