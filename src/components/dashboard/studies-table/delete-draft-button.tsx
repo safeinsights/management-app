@@ -60,7 +60,12 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
             >
                 <TrashIcon />
             </ActionIcon>
-            <AppModal isOpen={isOpen} onClose={close} title="Confirm proposal draft deletion?">
+            <AppModal
+                isOpen={isOpen}
+                onClose={close}
+                title="Confirm proposal draft deletion?"
+                closeButtonProps={{ 'aria-label': 'Close' }}
+            >
                 <Stack>
                     <Text size="md">
                         Please confirm that you are wanting to delete this proposal draft. Once this draft is deleted

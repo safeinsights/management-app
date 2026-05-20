@@ -1826,7 +1826,7 @@ describe('softDeleteStudyAction', () => {
     it('returns not-found for a study that does not exist', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
         await expect(softDeleteStudyAction({ studyId: BLANK_UUID })).resolves.toMatchObject({
-            error: expect.any(String),
+            error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
         })
     })
 })

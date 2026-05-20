@@ -18,7 +18,7 @@ function makeStudyRow(overrides: Partial<StudyRow> & { id: string; researcherId:
 }
 
 describe('DeleteDraftButton', () => {
-    it('opens the confirmation modal when the trash icon is clicked', async () => {
+    it('opens the confirmation modal with the spec title, body, and buttons when the trash icon is clicked', async () => {
         const { studyId, user } = await createTestProposalDraft({
             enclaveSlug: 'delete-draft-modal-enclave',
             studyInfo: { title: 'Modal Draft' },
@@ -32,9 +32,58 @@ describe('DeleteDraftButton', () => {
         await user1.click(screen.getByLabelText(/delete draft study/i))
 
         expect(await screen.findByText('Confirm proposal draft deletion?')).toBeInTheDocument()
-        expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Please confirm that you are wanting to delete this proposal draft. Once this draft is deleted you will not be able to recover it. This action cannot be undone.',
+            ),
+        ).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /yes, delete proposal draft/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument()
+    })
+
+    it('renders the delete confirm button with a red.9 background', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'delete-draft-red-color-enclave',
+            studyInfo: { title: 'Red Draft' },
+        })
+        const user1 = userEvent.setup()
+
+        renderWithProviders(
+            <DeleteDraftButton study={makeStudyRow({ id: studyId, researcherId: user.id, title: 'Red Draft' })} />,
+        )
+
+        await user1.click(screen.getByLabelText(/delete draft study/i))
+        const confirm = await screen.findByRole('button', { name: /yes, delete proposal draft/i })
+
+        // Mantine v7 maps `color="red.9"` to an inline CSS variable on the button.
+        // Asserting on the variable rather than the resolved color keeps the test
+        // resilient to theme changes while pinning the red.9 contract from the spec.
+        expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--mantine-color-red-9)')
+    })
+
+    it('closes the modal when the header X close button is clicked', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'delete-draft-xclose-enclave',
+            studyInfo: { title: 'X Draft' },
+        })
+        const user1 = userEvent.setup()
+
+        renderWithProviders(
+            <DeleteDraftButton study={makeStudyRow({ id: studyId, researcherId: user.id, title: 'X Draft' })} />,
+        )
+
+        await user1.click(screen.getByLabelText(/delete draft study/i))
+        await screen.findByText('Confirm proposal draft deletion?')
+
+        // Mantine's Modal close button uses aria-label="Close" by default
+        await user1.click(screen.getByRole('button', { name: /^close$/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('Confirm proposal draft deletion?')).not.toBeInTheDocument()
+        })
+
+        const row = await db.selectFrom('study').select('deletedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(row.deletedAt).toBeNull()
     })
 
     it('closes the modal without deleting when Cancel is clicked', async () => {
