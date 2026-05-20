@@ -1,14 +1,13 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { AlertNotFound } from '@/components/errors'
-import { getStudyReviewForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsWithReview } from './study-results-with-review'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { StudyReviewSection } from './study-review-section'
 
 type CodeReviewViewProps = {
     orgSlug: string
@@ -20,8 +19,6 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
-
-    const initialReview = await getStudyReviewForJob(job.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -45,9 +42,6 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
-            </Paper>
-            <Paper bg="white" p="xxl">
-                <StudyReviewSection studyJobId={job.id} initialReview={initialReview} />
             </Paper>
             <StudyResultsWithReview job={job} study={study} />
             <Group>
