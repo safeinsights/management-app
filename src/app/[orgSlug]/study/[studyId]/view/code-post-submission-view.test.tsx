@@ -181,6 +181,59 @@ describe('CodePostSubmissionView', () => {
 
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
         })
+
+        it('excludes non-code files (security scan logs, encrypted logs) from the submitted code table', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'lab' })
+            const { study: dbStudy, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+                jobStatus: 'CODE-SUBMITTED',
+                title: 'Mixed Files Study',
+            })
+            await db
+                .insertInto('studyJobFile')
+                .values([
+                    {
+                        studyJobId: job.id,
+                        name: 'main.R',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/main.R`,
+                        fileType: 'MAIN-CODE',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'helper.R',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/helper.R`,
+                        fileType: 'SUPPLEMENTAL-CODE',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'encrypted-logs.zip',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/encrypted-logs.zip`,
+                        fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'security-scan-log.txt',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/security-scan-log.txt`,
+                        fileType: 'SECURITY-SCAN-LOG',
+                    },
+                ])
+                .execute()
+
+            const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            const latestJob = (await latestJobForStudy(dbStudy.id)) as LatestJobForStudy
+            ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderView(study, latestJob)
+
+            const interact = userEvent.setup()
+            await interact.click(screen.getByTestId('study-code-toggle'))
+
+            expect(screen.getByText('main.R')).toBeInTheDocument()
+            expect(screen.getByText('helper.R')).toBeInTheDocument()
+            expect(screen.queryByText('encrypted-logs.zip')).not.toBeInTheDocument()
+            expect(screen.queryByText('security-scan-log.txt')).not.toBeInTheDocument()
+        })
     })
 
     describe('navigation', () => {

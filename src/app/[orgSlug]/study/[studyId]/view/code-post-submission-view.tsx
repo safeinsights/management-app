@@ -65,6 +65,8 @@ export function CodePostSubmissionView({
     const toggleLabel = expanded ? 'Hide full study code' : 'View full study code'
     const caretRotation = expanded ? 'rotate(-90deg)' : 'rotate(0deg)'
 
+    const codeFiles = job.files.filter((f) => f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE')
+
     return (
         <Stack p="xl" gap="xl">
             <PageBreadcrumbs crumbs={breadcrumbs} />
@@ -116,7 +118,7 @@ export function CodePostSubmissionView({
                             </Anchor>
                             <Divider />
                             <Text>View the code files that you uploaded to run against the dataset.</Text>
-                            <SubmittedCodeTable jobId={job.id} files={job.files} />
+                            <SubmittedCodeTable jobId={job.id} files={codeFiles} />
                             <Anchor
                                 component="button"
                                 size="sm"
