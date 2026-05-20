@@ -3,7 +3,7 @@
 import { Action } from './action'
 import { z } from 'zod'
 import { sql } from 'kysely'
-import { CONTEXT_NAMES } from '@/lib/claude-context'
+import { CONTEXT_NAMES, getClaudeContext } from '@/lib/claude-context'
 
 export const writeClaudeContextAction = new Action('writeClaudeContextAction', { performsMutations: true })
     .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
@@ -39,12 +39,5 @@ export const getClaudeContextAction = new Action('getClaudeContextAction')
     )
     .requireAbilityTo('view', 'ClaudeContext')
     .handler(async ({ db, params: { name, orgId } }) => {
-        const row = await db
-            .selectFrom('claudeContext')
-            .select('content')
-            .where('name', '=', name)
-            .where('orgId', orgId === null ? 'is' : '=', orgId)
-            .executeTakeFirst()
-
-        return { content: row?.content ?? '' }
+        return await getClaudeContext(db, { name, orgId })
     })

@@ -18,9 +18,9 @@ import { fetchLatestCodeEnvForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { getClaudeContextAction } from '@/server/actions/claude-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
-import { ContextName } from '@/lib/claude-context'
+import { ContextName, getClaudeContext } from '@/lib/claude-context'
+import { db } from '@/database'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -242,7 +242,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     let combinedContextString = ''
     for (const contextName of workspaceContexts) {
-        const response = await getClaudeContextAction({ name: contextName, orgId: null })
+        const response = await getClaudeContext(db, { name: contextName, orgId: null })
         if (isActionError(response)) {
             throw new Error(errorToString(response))
         }
