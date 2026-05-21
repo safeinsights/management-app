@@ -3,14 +3,19 @@ WORKDIR /repo
 RUN corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY services/editor/package.json ./services/editor/
-RUN pnpm --filter=@safeinsights/editor-service install --frozen-lockfile --prod
+# --ignore-scripts skips root `prepare` (panda codegen — needs devDep not in --prod install).
+# @clerk/shared postinstall is telemetry-only; native binaries (esbuild/sharp/@sentry/cli) belong
+# to root devDeps and are not in editor's prod tree.
+RUN pnpm --filter=@safeinsights/editor-service install --frozen-lockfile --prod --ignore-scripts
 COPY services/editor ./services/editor
 COPY src/lib/collaboration-documents.ts ./src/lib/collaboration-documents.ts
-RUN pnpm --filter=@safeinsights/editor-service deploy --prod /app/deploy
 
 FROM node:24-slim
 WORKDIR /app/services/editor
-COPY --from=builder /app/deploy/ ./
+# Editor's services/editor/node_modules holds symlinks into ../../node_modules/.pnpm/...
+# Place the root virtual store at /app/node_modules so relative paths resolve.
+COPY --from=builder /repo/node_modules /app/node_modules
+COPY --from=builder /repo/services/editor/ ./
 COPY --from=builder /repo/src/lib/collaboration-documents.ts /app/src/lib/collaboration-documents.ts
 EXPOSE 1234
 CMD ["node", "server.ts"]
