@@ -43,9 +43,9 @@ export default defineConfig({
     /* Fail the build on CI if you accidentally left test.only in the source code. */
     forbidOnly: IS_CI,
 
-    retries: IS_CI ? 2 : 1,
-    /* Opt out of parallel tests on CI. */
-    workers: IS_CI ? 1 : undefined,
+    retries: IS_CI ? 1 : 1,
+    /* Parallel workers on CI. ubuntu-latest has 4 vCPU. */
+    workers: IS_CI ? 4 : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
     reporter: reporters,
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

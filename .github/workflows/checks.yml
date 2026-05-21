@@ -84,6 +84,57 @@ jobs:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
+    # Unit tests run in their own job, in parallel with `test` (e2e). Uploads
+    # raw v8 coverage as an artifact for the `coverage` job to merge with e2e.
+    unit:
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        services:
+            db:
+                image: postgres:15
+                ports:
+                    - 5432:5432
+                env:
+                    POSTGRES_USER: si
+                    POSTGRES_DB: si_test
+                    POSTGRES_PASSWORD: si
+                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        permissions: {}
+        env:
+            DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
+            SIMULATE_CODE_BUILD: 't'
+            # SECURITY (OTTER-545): see threat-model comment in the `test` job for
+            # the rationale behind passing CLERK_* secrets to PR-code-running jobs.
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+            CLERK_JWT_KEY: ${{ secrets.CLERK_JWT_KEY }}
+            NEXT_PUBLIC_CI: 'true'
+            PORT: '4000'
+            NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: provision db
+              run: pnpm run db:migrate
+            - name: pnpm run test:unit
+              run: pnpm run test:unit -- --reporter=verbose
+            - name: Upload unit coverage
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: always()
+              with:
+                  name: unit-coverage
+                  path: test-results/unit
+                  retention-days: 1
+                  if-no-files-found: warn
+
     test:
         timeout-minutes: 20
         runs-on: ubuntu-latest
@@ -98,14 +149,10 @@ jobs:
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         # SECURITY (OTTER-545): minimum permissions for this job.
-        #   - pull-requests: write — required by coverage-diff-action to post a
-        #     PR comment with the coverage delta.
-        # Anything else (contents: write, pages: write, etc.) MUST NOT be added
-        # without re-evaluating the threat model: this job runs PR-controlled
-        # code, so any permission granted here is a permission a malicious PR
-        # could exercise via a stolen GITHUB_TOKEN.
-        permissions:
-            pull-requests: write
+        # Coverage diff PR comment is posted from the `coverage` job (which has
+        # pull-requests: write). This job intentionally does not need write
+        # permissions on any GH API surface.
+        permissions: {}
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -190,8 +237,6 @@ jobs:
               run: pnpm install --frozen-lockfile
             - name: provision db
               run: pnpm run db:migrate
-            - name: pnpm run test:unit
-              run: pnpm run test:unit -- --reporter=verbose
             - name: Start editor-service
               run: |
                   docker build -f Dockerfile.editor-service -t mgmt-editor-service .
@@ -222,24 +267,14 @@ jobs:
               run: pnpm exec playwright install --with-deps --only-shell chromium
             - name: pnpm run test:e2e
               run: pnpm run test:e2e
-            - name: pnpm run test:coverage
-              run: pnpm run test:coverage
-            - name: Add code coverage to actions summary
-              run: |
-                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
-                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
-            - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
+            - name: Upload e2e coverage
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: always()
               with:
-                  github-token: ${{ secrets.GITHUB_TOKEN }}
-                  base-summary-filename: base-summary.json
-                  coverage-filename: test-results/coverage/coverage-summary.json
-                  allowed-to-fail: true
-                  # Disable badge / wiki publish: pushing to the .wiki repo
-                  # requires `contents: write`, which we deliberately do not
-                  # grant this PR-code-running job (OTTER-545). PR comment
-                  # still works without it.
-                  badge-enabled: false
+                  name: e2e-coverage
+                  path: test-results/e2e/coverage
+                  retention-days: 1
+                  if-no-files-found: warn
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
@@ -258,3 +293,55 @@ jobs:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
+
+    # Merges unit + e2e coverage and posts the diff PR comment.
+    # Runs after `unit` and `test` so it gets both artifacts. Light step (~30s).
+    coverage:
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        needs: [unit, test]
+        if: always() && needs.unit.result == 'success' && needs.test.result == 'success'
+        # SECURITY (OTTER-545): only this job needs pull-requests: write (for the
+        # coverage diff PR comment). It does not run PR-controlled tests; it just
+        # downloads coverage artifacts and posts a comment.
+        permissions:
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: Download unit coverage
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: unit-coverage
+                  path: test-results/unit
+            - name: Download e2e coverage
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: e2e-coverage
+                  path: test-results/e2e/coverage
+            - name: pnpm run test:coverage
+              run: pnpm run test:coverage
+            - name: Add code coverage to actions summary
+              run: |
+                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            - name: Coverage Diff
+              uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
+                  coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
+                  # Disable badge / wiki publish: pushing to the .wiki repo
+                  # requires `contents: write`, which we deliberately do not
+                  # grant this PR-code-running job (OTTER-545). PR comment
+                  # still works without it.
+                  badge-enabled: false
