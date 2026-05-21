@@ -82,6 +82,11 @@ describe('context actions', () => {
         beforeEach(async () => {
             await db.deleteFrom('agentContext').execute()
         })
+        it('denies non-admin users', async () => {
+            await mockSessionWithTestData({ isSiAdmin: false })
+            const result = await getAgentContextAction({ name: 'PYTHON', orgId: null })
+            expect(isActionError(result)).toBe(true)
+        })
         it('returns the requested context', async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
             await writeAgentContextAction({ name: 'PYTHON', content: 'py stuff', orgId: null })
@@ -92,7 +97,7 @@ describe('context actions', () => {
             if (!isActionError(result)) expect(result.content).toBe('py stuff')
         })
         it("returns empty string when requested context doesn't exist", async () => {
-            await mockSessionWithTestData()
+            await mockSessionWithTestData({ isSiAdmin: true })
             // clear any existing content
             await db.deleteFrom('agentContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
 
