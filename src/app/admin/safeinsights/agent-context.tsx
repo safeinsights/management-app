@@ -88,10 +88,10 @@ function AgentContextDataLoader({ name, orgId }: ContextProps) {
 export function AgentContext() {
     return (
         <Stack gap="md">
-            <Title order={1}>System and Language Context for the code editor's AI assistant</Title>
+            <Title order={1}>System and Language Context for the AI assistant for the code editor</Title>
             <Text c="dimmed" size="sm">
-                Edit the context the code editor's AI assistant uses for each language. The system context applies globally; language
-                contexts apply when a study uses that language.
+                Edit the context the AI assistant for the code editor uses for each language. The system context applies
+                globally; language contexts apply when a study uses that language.
             </Text>
             <Stack gap="md">
                 {CONTEXT_NAMES.map((contextName) => {
