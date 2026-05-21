@@ -4,7 +4,9 @@ set -euo pipefail
 # https://github.com/getsentry/sentry-javascript/issues/15100
 # workaround for build spewing thousands of lines of:
 # <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (135kiB) impacts deserialization performance ...
-pnpm run build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
+# Call `next` directly via node_modules/.bin so this works regardless of which
+# package manager ran the install (Jenkins uses npm; GH Actions / dev uses pnpm).
+./node_modules/.bin/next build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
 
 cp bin/prod.run.sh .next/standalone/run.sh
 
