@@ -238,6 +238,8 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     }
 
     // Initialize claude.md
+    // FYI: claude.md is only populated on workspace init. New updates to context after
+    // a workspace has been launched will not propagate.
     const workspaceContexts: ContextName[] = ['SYSTEM', codeEnv.language]
 
     let combinedContextString = ''
