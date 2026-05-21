@@ -19,7 +19,7 @@ import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { errorToString, isActionError } from '@/lib/errors'
-import { ContextName, getClaudeContext } from '@/lib/claude-context'
+import { ContextName, getAgentContext } from '@/lib/agent-context'
 import * as database from '@/database'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
@@ -242,7 +242,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     let combinedContextString = ''
     for (const contextName of workspaceContexts) {
-        const response = await getClaudeContext(database.db, { name: contextName, orgId: null })
+        const response = await getAgentContext(database.db, { name: contextName, orgId: null })
         if (isActionError(response)) {
             throw new Error(errorToString(response))
         }

@@ -85,6 +85,15 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export interface AgentContext {
+    content: string
+    id: Generated<string>
+    name: string
+    orgId: string | null
+    updatedAt: Generated<Timestamp>
+    updatedBy: string | null
+}
+
 export interface Audit {
     createdAt: Generated<Timestamp>
     eventType: AuditEventType
@@ -93,15 +102,6 @@ export interface Audit {
     recordId: string
     recordType: AuditRecordType
     userId: string
-}
-
-export interface ClaudeContext {
-    content: string
-    id: Generated<string>
-    name: string
-    orgId: string | null
-    updatedAt: Generated<Timestamp>
-    updatedBy: string | null
 }
 
 export interface CodeScan {
@@ -319,8 +319,8 @@ export interface YjsDocument {
 }
 
 export interface DB {
+    agentContext: AgentContext
     audit: Audit
-    claudeContext: ClaudeContext
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
     org: Org

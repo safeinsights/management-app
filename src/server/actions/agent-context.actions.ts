@@ -3,15 +3,15 @@
 import { Action } from './action'
 import { z } from 'zod'
 import { sql } from 'kysely'
-import { CONTEXT_NAMES, getClaudeContext } from '@/lib/claude-context'
+import { CONTEXT_NAMES, getAgentContext } from '@/lib/agent-context'
 
-export const writeClaudeContextAction = new Action('writeClaudeContextAction', { performsMutations: true })
+export const writeAgentContextAction = new Action('writeAgentContextAction', { performsMutations: true })
     .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
-    .requireAbilityTo('update', 'ClaudeContext')
+    .requireAbilityTo('update', 'AgentContext')
     .handler(async ({ session, db, params: { name, content, orgId } }) => {
         const userId = session.user.id
         await db
-            .insertInto('claudeContext')
+            .insertInto('agentContext')
             .values({
                 name: name,
                 content: content,
@@ -28,14 +28,14 @@ export const writeClaudeContextAction = new Action('writeClaudeContextAction', {
             .execute()
     })
 
-export const getClaudeContextAction = new Action('getClaudeContextAction')
+export const getAgentContextAction = new Action('getAgentContextAction')
     .params(
         z.object({
             name: z.enum(CONTEXT_NAMES),
             orgId: z.string().uuid().nullable(),
         }),
     )
-    .requireAbilityTo('view', 'ClaudeContext')
+    .requireAbilityTo('view', 'AgentContext')
     .handler(async ({ db, params: { name, orgId } }) => {
-        return await getClaudeContext(db, { name, orgId })
+        return await getAgentContext(db, { name, orgId })
     })

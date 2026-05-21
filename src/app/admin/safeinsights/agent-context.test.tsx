@@ -1,20 +1,20 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { db, mockSessionWithTestData, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
-import { ClaudeContext } from './claude-context'
+import { AgentContext } from './agent-context'
 
-describe('ClaudeContext', () => {
+describe('AgentContext', () => {
     beforeEach(async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        await db.deleteFrom('claudeContext').execute()
+        await db.deleteFrom('agentContext').execute()
     })
 
     it('renders a form for each context name with existing content from the DB', async () => {
         await db
-            .insertInto('claudeContext')
+            .insertInto('agentContext')
             .values({ name: 'SYSTEM', content: 'existing system context', orgId: null })
             .execute()
 
-        renderWithProviders(<ClaudeContext />)
+        renderWithProviders(<AgentContext />)
 
         const textarea = await screen.findByLabelText('System context')
         expect(textarea).toHaveValue('existing system context')
@@ -23,7 +23,7 @@ describe('ClaudeContext', () => {
     })
 
     it('disables the Submit button until content has changed', async () => {
-        renderWithProviders(<ClaudeContext />)
+        renderWithProviders(<AgentContext />)
 
         const submitButtons = await screen.findAllByRole('button', { name: 'Submit' })
         expect(submitButtons[0]).toBeDisabled()
@@ -35,7 +35,7 @@ describe('ClaudeContext', () => {
     })
 
     it('saves content to the DB on submit', async () => {
-        renderWithProviders(<ClaudeContext />)
+        renderWithProviders(<AgentContext />)
 
         const textarea = await screen.findByLabelText('System context')
         await userEvent.type(textarea, 'fresh content')
@@ -45,7 +45,7 @@ describe('ClaudeContext', () => {
 
         await waitFor(async () => {
             const row = await db
-                .selectFrom('claudeContext')
+                .selectFrom('agentContext')
                 .select(['name', 'content'])
                 .where('name', '=', 'SYSTEM')
                 .executeTakeFirst()

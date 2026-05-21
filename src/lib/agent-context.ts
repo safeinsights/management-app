@@ -19,9 +19,9 @@ export const CONTEXT_LABELS: Record<ContextName, ContextInfo> = {
     PYTHON: { label: 'Python context', description: 'Context about using the Python programming language' },
 }
 
-export const getClaudeContext = async (db: DBConn, { name, orgId }: { name: ContextName; orgId: string | null }) => {
+export const getAgentContext = async (db: DBConn, { name, orgId }: { name: ContextName; orgId: string | null }) => {
     const row = await db
-        .selectFrom('claudeContext')
+        .selectFrom('agentContext')
         .select('content')
         .where('name', '=', name)
         .where('orgId', orgId === null ? 'is' : '=', orgId)

@@ -1,9 +1,9 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
-import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/claude-context'
+import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
 import { errorToString } from '@/lib/errors'
-import { getClaudeContextAction, writeClaudeContextAction } from '@/server/actions/claude-context.actions'
+import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -12,7 +12,7 @@ type ContextProps = { name: ContextName; orgId: string | null }
 
 type EditorFormValues = { content: string }
 
-function useClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
+function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
     const queryClient = useQueryClient()
 
     const form = useForm<EditorFormValues>({
@@ -20,10 +20,10 @@ function useClaudeContextEditor({ name, orgId, initialContent }: ContextProps & 
     })
 
     const { mutate, isPending } = useMutation({
-        mutationFn: writeClaudeContextAction,
+        mutationFn: writeAgentContextAction,
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
-            queryClient.invalidateQueries({ queryKey: ['claudeContext', name, orgId] })
+            queryClient.invalidateQueries({ queryKey: ['agentContext', name, orgId] })
         },
         onError: (error) => {
             notifications.show({
@@ -42,8 +42,8 @@ function useClaudeContextEditor({ name, orgId, initialContent }: ContextProps & 
     return { form, onSubmit, isPending }
 }
 
-function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
-    const { form, onSubmit, isPending } = useClaudeContextEditor({ name, orgId, initialContent })
+function AgentContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
+    const { form, onSubmit, isPending } = useAgentContextEditor({ name, orgId, initialContent })
 
     return (
         <form onSubmit={onSubmit}>
@@ -66,10 +66,10 @@ function ClaudeContextEditor({ name, orgId, initialContent }: ContextProps & { i
     )
 }
 
-function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
+function AgentContextDataLoader({ name, orgId }: ContextProps) {
     const { data, isLoading, error } = useQuery({
-        queryKey: ['claudeContext', name, orgId],
-        queryFn: () => getClaudeContextAction({ name, orgId }),
+        queryKey: ['agentContext', name, orgId],
+        queryFn: () => getAgentContextAction({ name, orgId }),
         retry: false,
     })
 
@@ -82,22 +82,22 @@ function ClaudeContextDataLoader({ name, orgId }: ContextProps) {
             </Text>
         )
     }
-    return <ClaudeContextEditor name={name} orgId={orgId} initialContent={data ? data.content : ''} />
+    return <AgentContextEditor name={name} orgId={orgId} initialContent={data ? data.content : ''} />
 }
 
-export function ClaudeContext() {
+export function AgentContext() {
     return (
         <Stack gap="md">
-            <Title order={1}>System and Language Context for Claude</Title>
+            <Title order={1}>System and Language Context for the AI assistant</Title>
             <Text c="dimmed" size="sm">
-                Edit the context Claude uses for each language. The system context applies globally; language contexts
-                apply when a study uses that language.
+                Edit the context the AI assistant uses for each language. The system context applies globally; language
+                contexts apply when a study uses that language.
             </Text>
             <Stack gap="md">
                 {CONTEXT_NAMES.map((contextName) => {
                     return (
                         <Paper key={contextName} p="md" withBorder>
-                            <ClaudeContextDataLoader name={contextName} orgId={null} />
+                            <AgentContextDataLoader name={contextName} orgId={null} />
                         </Paper>
                     )
                 })}
