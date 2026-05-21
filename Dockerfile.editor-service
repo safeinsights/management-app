@@ -1,8 +1,16 @@
+FROM node:24-slim AS builder
+WORKDIR /repo
+RUN corepack enable
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY services/editor/package.json ./services/editor/
+RUN pnpm --filter=@safeinsights/editor-service install --frozen-lockfile --prod
+COPY services/editor ./services/editor
+COPY src/lib/collaboration-documents.ts ./src/lib/collaboration-documents.ts
+RUN pnpm --filter=@safeinsights/editor-service deploy --prod /app/deploy
+
 FROM node:24-slim
 WORKDIR /app/services/editor
-COPY services/editor/package.json services/editor/package-lock.json ./
-RUN npm ci --omit=dev
-COPY services/editor/server.ts services/editor/constants.ts services/editor/auth.ts services/editor/lexical-seed.ts ./
-COPY src/lib/collaboration-documents.ts /app/src/lib/collaboration-documents.ts
+COPY --from=builder /app/deploy/ ./
+COPY --from=builder /repo/src/lib/collaboration-documents.ts /app/src/lib/collaboration-documents.ts
 EXPOSE 1234
 CMD ["node", "server.ts"]

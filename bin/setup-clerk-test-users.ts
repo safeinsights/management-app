@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 /* eslint-disable no-console */
 import 'dotenv/config'
 
@@ -30,15 +30,15 @@ Sets up test users in Clerk only (no database changes):
   - Configures MFA phone numbers
 
 Usage:
-  npx tsx bin/setup-clerk-test-users.ts [options]
+  pnpm exec tsx bin/setup-clerk-test-users.ts [options]
 
 Options:
   -s, --secret-key <key>    Clerk secret key (defaults to CLERK_SECRET_KEY env var)
   -h, --help                Show this help message
 
 Example:
-  npx tsx bin/setup-clerk-test-users.ts
-  npx tsx bin/setup-clerk-test-users.ts --secret-key sk_live_xxx
+  pnpm exec tsx bin/setup-clerk-test-users.ts
+  pnpm exec tsx bin/setup-clerk-test-users.ts --secret-key sk_live_xxx
 
 Note: Test user emails and passwords are read from environment variables:
   CLERK_RESEARCHER_EMAIL, CLERK_RESEARCHER_PASSWORD
