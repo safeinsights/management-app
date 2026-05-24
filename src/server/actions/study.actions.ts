@@ -44,6 +44,31 @@ import { Action, z } from './action'
 // on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
 // a known gap.
 function fetchStudyQuery(db: DBExecutor) {
+    // Drafts have no status-change rows, so fall back to created_at
+    const lastUpdatedAtExpr = sql<Date>`COALESCE(GREATEST(
+        study.submitted_at,
+        study.approved_at,
+        study.rejected_at,
+        (
+            SELECT MAX(jsc.created_at)
+            FROM job_status_change jsc
+            INNER JOIN study_job sj ON sj.id = jsc.study_job_id
+            WHERE sj.study_id = study.id
+        ),
+        (
+            SELECT MAX(spc.created_at)
+            FROM study_proposal_comment spc
+            WHERE spc.study_id = study.id
+              AND (spc.entry_type = 'RESUBMISSION-NOTE' OR spc.decision IS NOT NULL)
+        ),
+        (
+            SELECT MAX(src.created_at)
+            FROM study_review_comment src
+            WHERE src.study_id = study.id
+              AND src.entry_type = 'DECISION'
+        )
+    ), study.created_at)`
+
     return db
         .selectFrom('study')
         .where('study.deletedAt', 'is', null)
@@ -75,6 +100,7 @@ function fetchStudyQuery(db: DBExecutor) {
                     .select(['orgDataSource.id', 'orgDataSource.name'])
                     .where(sql<boolean>`"org_data_source"."id"::text = ANY("study"."datasets")`),
             ).as('orgDataSources'),
+            lastUpdatedAtExpr.as('lastUpdatedAt'),
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
@@ -108,7 +134,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'latestStudyJob.jobId as latestStudyJobId',
         ])
 
-        .orderBy(sql`coalesce(study.submitted_at, study.created_at)`, 'desc')
+        .orderBy(lastUpdatedAtExpr, 'desc')
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')

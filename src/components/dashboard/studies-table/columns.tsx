@@ -10,7 +10,7 @@ type ColumnDef = {
 // Researcher columns (5)
 const RESEARCHER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
-    { id: 'submittedOn', header: 'Submitted On' },
+    { id: 'lastUpdated', header: 'Last updated' },
     { id: 'submittedTo', header: 'Submitted To' },
     { id: 'status', header: 'Status' },
     { id: 'details', header: 'Study Details' },
@@ -19,7 +19,7 @@ const RESEARCHER_COLUMNS: ColumnDef[] = [
 // Reviewer org columns (6) - has "Reviewed By" which shows orgSlug
 const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
-    { id: 'submittedOn', header: 'Submitted On' },
+    { id: 'lastUpdated', header: 'Last updated' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'reviewedBy', header: 'Reviewed By' },
     { id: 'status', header: 'Status' },
@@ -29,7 +29,7 @@ const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
 // Reviewer user columns (6) - has "Organization" which shows orgName
 const REVIEWER_USER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
-    { id: 'submittedOn', header: 'Submitted On' },
+    { id: 'lastUpdated', header: 'Last updated' },
     { id: 'submittedBy', header: 'Submitted By' },
     { id: 'organization', header: 'Organization' },
     { id: 'status', header: 'Status' },

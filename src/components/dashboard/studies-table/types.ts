@@ -11,6 +11,7 @@ export type StudyRow = {
     status: StudyStatus
     createdAt: Date
     submittedAt: Date | null
+    lastUpdatedAt: Date
     researcherId: string
     reviewerId: string | null
     createdBy: string | null // researcher.fullName
