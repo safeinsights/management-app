@@ -38,7 +38,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     const submittedTo = study.reviewingEnclaveName || study.orgName || ''
 
     // Get the "Submitted By" value (reviewer only)
-    const submittedBy = scope === 'org' ? study.submittingLabName : study.createdBy
+    const submittedBy = study.createdBy
 
     // Get the "Reviewed By" / "Organization" value (reviewer only)
     const reviewedByOrOrg = scope === 'org' ? orgSlug : study.orgName
