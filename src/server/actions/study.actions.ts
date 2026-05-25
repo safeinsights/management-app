@@ -104,6 +104,7 @@ function fetchStudyQuery(db: DBExecutor) {
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
+        .leftJoin('user as latestReviewer', (join) => join.onRef('study.latestReviewerId', '=', 'latestReviewer.id'))
         .select([
             'study.id',
             'study.approvedAt',
@@ -131,6 +132,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.reviewerAgreementsAckedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
+            'latestReviewer.fullName as latestReviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
 
@@ -371,7 +373,7 @@ async function performStudyProposalApproval({
     if (isFirstApproval) {
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId, latestReviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -400,7 +402,7 @@ async function performStudyProposalApproval({
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, latestReviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -411,7 +413,7 @@ async function performStudyProposalApproval({
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
     await db
         .updateTable('study')
-        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId, latestReviewerId: userId })
         .where('id', '=', studyId)
         .execute()
 }
@@ -530,7 +532,7 @@ async function claimInitialProposalReviewStudy({
 }) {
     const study = await db
         .updateTable('study')
-        .set({ reviewerId: userId })
+        .set({ reviewerId: userId, latestReviewerId: userId })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
         .where('approvedAt', 'is', null)
@@ -669,6 +671,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .set({
                 status: 'CHANGE-REQUESTED',
                 reviewerId: userId,
+                latestReviewerId: userId,
                 approvedAt: null,
                 rejectedAt: null,
             })
@@ -820,7 +823,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
             await db
                 .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, latestReviewerId: userId })
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
@@ -839,7 +842,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .executeTakeFirstOrThrow()
             await db
                 .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, latestReviewerId: userId })
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeChangesRequested({ studyId, userId })
