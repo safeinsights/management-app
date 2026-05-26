@@ -40,7 +40,7 @@ Clerk User Copy Script
 Copies users from a source Clerk application to a target application.
 
 Usage:
-  npx tsx bin/copy-clerk-users.ts [options]
+  pnpm exec tsx bin/copy-clerk-users.ts [options]
 
 Options:
   -s, --source-key <key>      Source Clerk secret key (required)
@@ -51,7 +51,7 @@ Options:
   -h, --help                  Show this help message
 
 Example:
-  npx tsx bin/copy-clerk-users.ts \\
+  pnpm exec tsx bin/copy-clerk-users.ts \\
     --source-key sk_live_xxx \\
     --target-key sk_test_yyy \\
     --dry-run
