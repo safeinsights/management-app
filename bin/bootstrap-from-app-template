@@ -11,7 +11,8 @@ git remote add template git@github.com:safeinsights/app-template.git
 
 echo '# Update ME' > README.md
 
-sed  -i '' '/package-lock/d' .gitignore
+grep -qxF 'package-lock.json' .gitignore || echo 'package-lock.json' >> .gitignore
+grep -qxF 'services/editor/package-lock.json' .gitignore || echo 'services/editor/package-lock.json' >> .gitignore
 
 echo "App has been initialized."
 echo "Update README.md, package.json and metadata in src/app/layout.tsx with your project details."

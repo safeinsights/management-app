@@ -23,10 +23,10 @@ The app's own AGPL-3.0 license is compatible with all third-party licenses liste
 
 ## Other dependencies
 
-The application bundles many additional MIT, BSD, ISC, and Apache-2.0 licensed npm packages. The license text for each of these is included in the corresponding subdirectory of `node_modules/` in the distributed image, in accordance with each package's notice requirements. A complete machine-readable inventory can be regenerated at any time with:
+The application bundles many additional MIT, BSD, ISC, and Apache-2.0 licensed packages from the npm registry. The license text for each of these is included in the corresponding subdirectory of `node_modules/` in the distributed image, in accordance with each package's notice requirements. A complete machine-readable inventory can be regenerated at any time with:
 
 ```
-npx license-checker --production --json > THIRD_PARTY_INVENTORY.json
+pnpm exec license-checker --production --json > THIRD_PARTY_INVENTORY.json
 ```
 
 ## Reporting issues
