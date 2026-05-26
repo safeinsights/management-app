@@ -1,4 +1,7 @@
 {
+    "name": "@safeinsights/editor-service",
+    "version": "0.0.0",
+    "private": true,
     "type": "module",
     "dependencies": {
         "@aws-sdk/client-secrets-manager": "^3.893.0",
