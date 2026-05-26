@@ -294,7 +294,10 @@ describe('StudyReviewPage', () => {
                     studyStatus: 'APPROVED',
                     jobStatus: 'CODE-SUBMITTED',
                 })
-                await db.insertInto('jobStatusChange').values({ status: jobStatus, studyJobId: job.id }).execute()
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: jobStatus, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                    .execute()
                 await db
                     .updateTable('study')
                     .set({ reviewerAgreementsAckedAt: new Date() })

@@ -6,8 +6,8 @@ import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
-import { ResubmissionNoteSection } from './resubmission-note-section'
 import { EditResubmitFooter } from './footer'
 
 interface EditResubmitFormProps {
@@ -27,7 +27,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { form, saveDraft, isSaving } = useEditResubmit()
+    const { form, noteForm, saveDraft, isSaving } = useEditResubmit()
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
@@ -43,7 +43,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
 
                 <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                <ResubmissionNoteSection orgName={orgName} />
+                <ResubmissionNoteSection noteForm={noteForm} orgName={orgName} />
 
                 <EditResubmitFooter
                     researcherName={researcherName}
