@@ -1,3 +1,5 @@
 CHANGELOG.md
 .*
 next-env.d.ts
+pnpm-lock.yaml
+.pnpm-store/

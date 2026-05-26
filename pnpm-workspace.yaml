@@ -1,0 +1,10 @@
+packages:
+    - services/editor
+allowBuilds:
+    '@clerk/shared': true
+    '@sentry/cli': true
+    esbuild: true
+    fsevents: true
+    sharp: true
+    unrs-resolver: true
+minimumReleaseAge: 2880

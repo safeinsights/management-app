@@ -14,7 +14,7 @@ if [ -z "$LOG" ]; then
     exit 1
 fi
 
-npm run build > $LOG 2>&1
+pnpm run build > $LOG 2>&1
 
 cp -r public .next/standalone/
 mkdir -p .next/standalone/coder-files
