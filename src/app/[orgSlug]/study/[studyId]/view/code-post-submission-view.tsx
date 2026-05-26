@@ -12,6 +12,7 @@ import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 
 interface CodePostSubmissionViewProps {
     orgSlug: string
@@ -42,6 +43,26 @@ const SubmittedTimestamp: FC<{ submittedOn: string | null }> = ({ submittedOn })
     )
 }
 
+const ExpandToggle: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
+    if (!isVisible) return null
+    return (
+        <Anchor
+            component="button"
+            size="sm"
+            fw={700}
+            onClick={onClick}
+            mt="md"
+            display="inline-flex"
+            style={{ alignItems: 'center', gap: 4 }}
+            aria-expanded={false}
+            data-testid="study-code-toggle"
+        >
+            View full study code
+            <CaretRightIcon size={12} />
+        </Anchor>
+    )
+}
+
 export function CodePostSubmissionView({
     orgSlug,
     study,
@@ -62,7 +83,7 @@ export function CodePostSubmissionView({
         ['Study code'],
     ]
 
-    const codeFiles = job.files.filter((f) => f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE')
+    const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
         <Stack p="xl" gap="xl">
@@ -89,22 +110,7 @@ export function CodePostSubmissionView({
                         to your study code and an AI-generated summary of its behavior. Please allow 7-10 business days
                         for review. You&apos;ll receive email notifications about updates.
                     </Alert>
-                    {!expanded && (
-                        <Anchor
-                            component="button"
-                            size="sm"
-                            fw={700}
-                            onClick={toggle}
-                            mt="md"
-                            display="inline-flex"
-                            style={{ alignItems: 'center', gap: 4 }}
-                            aria-expanded={expanded}
-                            data-testid="study-code-toggle"
-                        >
-                            View full study code
-                            <CaretRightIcon size={12} />
-                        </Anchor>
-                    )}
+                    <ExpandToggle isVisible={!expanded} onClick={toggle} />
                 </Paper>
 
                 <Collapse in={expanded}>
