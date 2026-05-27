@@ -23,6 +23,7 @@ import * as path from 'node:path'
 import { errorToString, isActionError } from '@/lib/errors'
 import { ContextName, getAgentContext } from '@/lib/agent-context'
 import * as database from '@/database'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -271,6 +272,9 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
         }
         if (response.content) combinedContextString += response.content + '\n'
     }
+
+    combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
+
     const targetContextFileName = 'CLAUDE.md'
     const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
 

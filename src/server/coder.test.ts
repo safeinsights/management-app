@@ -9,7 +9,7 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId } from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
 import { getAgentContextAction } from './actions/agent-context.actions'
 
@@ -22,6 +22,7 @@ vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
+    getDataSourcesForOrg: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
@@ -57,6 +58,7 @@ const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mo
 const siUserMock = siUser as unknown as Mock
 const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
+const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -183,6 +185,7 @@ describe('createUserAndWorkspace', () => {
         vi.resetAllMocks()
         global.fetch = vi.fn()
         vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
+        getDataSourcesForOrgMock.mockResolvedValue([])
     })
 
     afterEach(() => {
