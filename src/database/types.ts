@@ -207,6 +207,7 @@ export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
+    codeResubmissionNoteDraft: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>
     datasets: string[] | null
@@ -238,6 +239,7 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
+    resubmissionNote: Json | null
     studyId: string
 }
 

@@ -94,14 +94,15 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('banner', () => {
-        it('renders the yellow status banner with the data org name and the 7-10 days copy', async () => {
+        it('renders the yellow status banner with the data org name and the Figma copy', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
             const banner = screen.getByTestId('code-under-review-banner')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).toHaveTextContent(/7-10 days/)
-            expect(banner).toHaveTextContent(/successfully submitted/)
+            expect(banner).toHaveTextContent(/AI-generated summary of its behavior/)
+            expect(banner).toHaveTextContent(/7-10 business days/)
+            expect(banner).toHaveTextContent(/email notifications about updates/)
         })
 
         it('renders the banner with the AC-specified background color #FFF9E5', async () => {
@@ -128,7 +129,8 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            expect(screen.getByTestId('study-code-toggle')).toHaveAttribute('aria-expanded', 'true')
+            // The outer "View full study code" toggle unmounts once expanded.
+            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
             expect(
                 screen.getByText('View the code files that you uploaded to run against the dataset.'),
@@ -167,19 +169,68 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             const interact = userEvent.setup()
-            const toggle = screen.getByTestId('study-code-toggle')
-            await interact.click(toggle)
-            expect(toggle).toHaveAttribute('aria-expanded', 'true')
+            await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // When expanded, "Hide full study code" appears twice: once as the top toggle's
-            // label, once as the in-section anchor at the bottom of the collapse. Click the
-            // in-section one (the entry that is not the toggle button).
-            const hideLabels = screen.getAllByText('Hide full study code')
-            const inSectionHide = hideLabels.find((el) => el.closest('[data-testid="study-code-toggle"]') === null)
-            expect(inSectionHide).toBeDefined()
-            await interact.click(inSectionHide!)
+            // After expansion the outer "View full study code" toggle unmounts; only the
+            // in-section "Hide full study code" anchor remains.
+            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
-            expect(toggle).toHaveAttribute('aria-expanded', 'false')
+            await interact.click(screen.getByText('Hide full study code'))
+
+            expect(screen.getByTestId('study-code-toggle')).toHaveAttribute('aria-expanded', 'false')
+        })
+
+        it('excludes non-code files (security scan logs, encrypted logs) from the submitted code table', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'lab' })
+            const { study: dbStudy, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+                jobStatus: 'CODE-SUBMITTED',
+                title: 'Mixed Files Study',
+            })
+            await db
+                .insertInto('studyJobFile')
+                .values([
+                    {
+                        studyJobId: job.id,
+                        name: 'main.R',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/main.R`,
+                        fileType: 'MAIN-CODE',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'helper.R',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/helper.R`,
+                        fileType: 'SUPPLEMENTAL-CODE',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'encrypted-logs.zip',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/encrypted-logs.zip`,
+                        fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+                    },
+                    {
+                        studyJobId: job.id,
+                        name: 'security-scan-log.txt',
+                        path: `${org.slug}/${dbStudy.id}/${job.id}/security-scan-log.txt`,
+                        fileType: 'SECURITY-SCAN-LOG',
+                    },
+                ])
+                .execute()
+
+            const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            const latestJob = (await latestJobForStudy(dbStudy.id)) as LatestJobForStudy
+            ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderView(study, latestJob)
+
+            const interact = userEvent.setup()
+            await interact.click(screen.getByTestId('study-code-toggle'))
+
+            expect(screen.getByText('main.R')).toBeInTheDocument()
+            expect(screen.getByText('helper.R')).toBeInTheDocument()
+            expect(screen.queryByText('encrypted-logs.zip')).not.toBeInTheDocument()
+            expect(screen.queryByText('security-scan-log.txt')).not.toBeInTheDocument()
         })
     })
 

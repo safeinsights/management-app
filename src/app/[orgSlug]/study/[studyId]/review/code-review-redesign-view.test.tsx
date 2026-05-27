@@ -101,9 +101,13 @@ describe('CodeReviewRedesignView', () => {
         renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
 
         const criteria = screen.getByTestId('code-review-criteria')
-        expect(criteria).toHaveTextContent('Code aligns with approved research proposal')
-        expect(criteria).toHaveTextContent('Code aligns with all the agreements')
-        expect(criteria).toHaveTextContent('Security and vulnerability checks passed')
-        expect(criteria).toHaveTextContent('No risk of PII exposure expected in outputs')
+        expect(criteria).toHaveTextContent(
+            'Proposal alignment: Does the code align with the approved research proposal?',
+        )
+        expect(criteria).toHaveTextContent('Agreement compliance: Does the code comply with all the agreements?')
+        expect(criteria).toHaveTextContent('Security checks: Have security and vulnerability checks been passed?')
+        expect(criteria).toHaveTextContent(
+            'Privacy protection: Is there any risk of PII exposure expected in the outputs?',
+        )
     })
 })
