@@ -1,5 +1,5 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
+import { countSubmittedJobsForStudy, getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -73,6 +73,10 @@ export default async function StudyReviewPage(props: {
 
         if (isUnderReview) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            const submissionVersion = await countSubmittedJobsForStudy(study.id)
+            // Feedback section is only meaningful on resubmissions; skip the extra query on v1.
+            const feedbackEntries =
+                submissionVersion > 1 ? actionResult(await getCodeReviewFeedbackAction({ studyId })) : []
             return (
                 <CodePostSubmissionView
                     orgSlug={orgSlug}
@@ -80,6 +84,8 @@ export default async function StudyReviewPage(props: {
                     job={job}
                     reviewingOrgName={reviewingOrgName}
                     dashboardHref={dashboardHref}
+                    submissionVersion={submissionVersion}
+                    feedbackEntries={feedbackEntries}
                 />
             )
         }
