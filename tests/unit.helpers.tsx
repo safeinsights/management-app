@@ -44,7 +44,7 @@ export const mockPathname = (path: string) => {
 export { db } from '@/database'
 export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
-export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
