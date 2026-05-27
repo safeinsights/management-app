@@ -7,7 +7,7 @@
     "author": "Nathan Stitt",
     "main": "index.js",
     "type": "module",
-    "packageManager": "pnpm@11.1.3",
+    "packageManager": "pnpm@11.3.0",
     "engines": {
         "node": ">=22",
         "pnpm": ">=11"
