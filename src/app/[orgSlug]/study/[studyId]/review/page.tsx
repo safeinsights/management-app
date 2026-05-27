@@ -5,17 +5,20 @@ import {
     CodeReviewFeatureFlag,
     PostSubmissionFeatureFlag,
     ProposalReviewFeatureFlag,
+    StudyDetailsRedesignFeatureFlag,
 } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
+import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion } from '@/server/db/queries'
+import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
@@ -23,6 +26,7 @@ import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -50,6 +54,12 @@ export default async function StudyReviewPage(props: {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
+    // Reviewer dashboards filter out DRAFT studies, but a direct URL could still
+    // hit this route. Narrow here so downstream views see a guaranteed non-null title.
+    if (!isSubmittedStudy(study)) {
+        return <AlertNotFound title="Study was not found" message="no such study exists" />
+    }
+
     if (currentOrg.type === 'enclave') {
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
 
@@ -64,7 +74,8 @@ export default async function StudyReviewPage(props: {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
             if (codeEntries.length > 0) {
-                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" />
+                const job = await latestJobForStudyOrNull(studyId)
+                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
             const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(proposalEntries)) {
@@ -89,6 +100,22 @@ export default async function StudyReviewPage(props: {
             if (!study.reviewerAgreementsAckedAt && searchParams.from !== 'agreements-proceed') {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
+
+            // OTTER-538: once the job has reached the results stage, swap the legacy
+            // CodeReviewView for the redesigned results-only Study Details page when
+            // the feature flag is on.
+            const latestJob = await latestSubmittedJobForStudy(studyId)
+            const latestJobStatus = latestJob?.statusChanges[0]?.status
+
+            if (isStudyResultsStatus(latestJobStatus)) {
+                return (
+                    <StudyDetailsRedesignFeatureFlag
+                        defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}
+                        optInContent={<StudyDetailsRedesignView orgSlug={orgSlug} study={study} />}
+                    />
+                )
+            }
+
             return (
                 <CodeReviewFeatureFlag
                     defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}

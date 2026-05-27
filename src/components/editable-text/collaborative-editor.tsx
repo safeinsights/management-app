@@ -384,14 +384,15 @@ export function CollaborativeEditor({
     const fetchToken = useCallback(async () => getToken(), [getToken])
     const onAuthError = useCallback(
         (reason: string) => {
-            const { code } = parseAuthFailureReason(reason)
+            const { code, message } = parseAuthFailureReason(reason)
+            console.error('[collaborative-editor] auth failed', { documentName: id, code, message, reason })
             setAuthFailureCode(code)
             // Belt-and-braces: a per-document auth failure can fire without the shared
             // websocket dropping (server forcibly closes one handshake), so the page-level
             // reconnect listener wouldn't run. Drive the kick-out check from here too.
             if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
         },
-        [triggerKickOut],
+        [id, triggerKickOut],
     )
     const providerFactory = useCollaborationProvider(
         websocketProvider,
@@ -450,6 +451,8 @@ export function CollaborativeEditor({
                                         top: 0,
                                         left: 0,
                                         padding: contentStyle?.padding,
+                                        fontSize: contentStyle?.fontSize,
+                                        lineHeight: contentStyle?.lineHeight,
                                         pointerEvents: 'none',
                                     }}
                                 >

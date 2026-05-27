@@ -1,20 +1,21 @@
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { db, mockSessionWithTestData, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
-import { ClaudeContext } from './claude-context'
+import { notifications } from '@mantine/notifications'
+import { AgentContext } from './agent-context'
 
-describe('ClaudeContext', () => {
+describe('AgentContext', () => {
     beforeEach(async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        await db.deleteFrom('claudeContext').execute()
+        await db.deleteFrom('agentContext').execute()
     })
 
     it('renders a form for each context name with existing content from the DB', async () => {
         await db
-            .insertInto('claudeContext')
+            .insertInto('agentContext')
             .values({ name: 'SYSTEM', content: 'existing system context', orgId: null })
             .execute()
 
-        renderWithProviders(<ClaudeContext />)
+        renderWithProviders(<AgentContext />)
 
         const textarea = await screen.findByLabelText('System context')
         expect(textarea).toHaveValue('existing system context')
@@ -22,20 +23,31 @@ describe('ClaudeContext', () => {
         expect(await screen.findByLabelText('Python context')).toHaveValue('')
     })
 
-    it('disables the Submit button until content has changed', async () => {
-        renderWithProviders(<ClaudeContext />)
-
-        const submitButtons = await screen.findAllByRole('button', { name: 'Submit' })
-        expect(submitButtons[0]).toBeDisabled()
+    it('shows a success notification after saving', async () => {
+        const showSpy = vi.spyOn(notifications, 'show')
+        renderWithProviders(<AgentContext />)
 
         const textarea = await screen.findByLabelText('System context')
-        await userEvent.type(textarea, 'new system content')
+        await userEvent.type(textarea, 'new content')
 
-        expect(submitButtons[0]).not.toBeDisabled()
+        const submitButton = (await screen.findAllByRole('button', { name: 'Submit' }))[0]
+        await userEvent.click(submitButton)
+
+        await waitFor(() => {
+            expect(showSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    color: 'green',
+                    title: 'Context saved',
+                    message: 'Updated System context.',
+                }),
+            )
+        })
+
+        showSpy.mockRestore()
     })
 
     it('saves content to the DB on submit', async () => {
-        renderWithProviders(<ClaudeContext />)
+        renderWithProviders(<AgentContext />)
 
         const textarea = await screen.findByLabelText('System context')
         await userEvent.type(textarea, 'fresh content')
@@ -45,7 +57,7 @@ describe('ClaudeContext', () => {
 
         await waitFor(async () => {
             const row = await db
-                .selectFrom('claudeContext')
+                .selectFrom('agentContext')
                 .select(['name', 'content'])
                 .where('name', '=', 'SYSTEM')
                 .executeTakeFirst()

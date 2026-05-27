@@ -27,6 +27,11 @@ export function decisionTimestampForProposalHeader(study: SelectedStudy, entries
         const latestClarification = entries.find((e) => e.decision === 'NEEDS-CLARIFICATION')
         if (latestClarification) return latestClarification.createdAt
     }
+    if (study.status === 'PENDING-REVIEW' && entries.length > 0) {
+        // source the resubmission date from the latest RESUBMISSION-NOTE entry.
+        const latestResubmission = entries.find((e) => e.entryType === 'RESUBMISSION-NOTE')
+        if (latestResubmission) return latestResubmission.createdAt
+    }
 
     if (!study.submittedAt) {
         throw new Error('submittedAt is required for proposal header timestamp')

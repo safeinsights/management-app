@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     fireEvent,
@@ -15,8 +16,24 @@ import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalSection } from './proposal-section'
 
+// Fully-typed factory so tests don't `as ProposalFeedbackEntry[]` against partial
+// objects — that cast silently passes typecheck even when ProposalRequest starts
+// reading new fields (mirrors the buildEntry helper in post-feedback-view.test.tsx).
+const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFeedbackEntry =>
+    ({
+        id: overrides.id ?? 'entry-1',
+        authorId: overrides.authorId ?? 'author-1',
+        authorName: overrides.authorName ?? 'Reviewer One',
+        authorRole: overrides.authorRole ?? 'REVIEWER',
+        entryType: overrides.entryType ?? 'REVIEWER-FEEDBACK',
+        decision: overrides.decision === undefined ? 'NEEDS-CLARIFICATION' : overrides.decision,
+        body: overrides.body ?? JSON.parse(lexicalJson('Entry body.')),
+        createdAt: overrides.createdAt ?? new Date('2026-04-16T10:00:00Z'),
+        version: overrides.version ?? 1,
+    }) as ProposalFeedbackEntry
+
 describe('ProposalSection', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
@@ -32,7 +49,9 @@ describe('ProposalSection', () => {
             impact: lexicalJson('This could improve outcomes.'),
             additionalNotes: lexicalJson('Funded by NIH.'),
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
@@ -69,6 +88,15 @@ describe('ProposalSection', () => {
         expect(screen.getByText('Researcher')).toBeInTheDocument()
     })
 
+    it('shows resubmission copy and versioned heading when reviewVersion > 1', () => {
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
+
+        expect(screen.getByRole('heading', { name: 'Review initial request v2.0' })).toBeInTheDocument()
+        expect(screen.getByTestId('status-banner')).toHaveTextContent(
+            'has resubmitted a revised initial request requesting permission to use your data',
+        )
+    })
+
     it('renders the status banner with evaluation criteria', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
@@ -94,12 +122,19 @@ describe('ProposalSection', () => {
         }
     })
 
-    it('is expanded by default showing the proposal body', () => {
+    it('is expanded by default on first submission', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByTestId('proposal-body')).toBeInTheDocument()
         expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
         expect(screen.getByTestId('proposal-toggle-body')).toHaveTextContent('Hide full initial request')
+    })
+
+    it('is collapsed by default on resubmission', () => {
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
+
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-body')).not.toBeVisible()
     })
 
     it('collapses the proposal body when the header toggle is clicked', () => {
@@ -156,5 +191,29 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" />)
 
         expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
+    })
+
+    it('renders the resubmission date (not the original submittedAt) on resubmission', () => {
+        const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T12:00:00Z') }
+        const priorEntries = [
+            buildEntry({
+                version: 2,
+                entryType: 'RESUBMISSION-NOTE',
+                createdAt: new Date('2026-05-10T12:00:00Z'),
+            }),
+            buildEntry({
+                id: 'entry-2',
+                version: 1,
+                entryType: 'REVIEWER-FEEDBACK',
+                createdAt: new Date('2026-04-01T12:00:00Z'),
+            }),
+        ]
+
+        renderWithProviders(
+            <ProposalSection study={submittedStudy} orgSlug="test-org" priorEntries={priorEntries} reviewVersion={2} />,
+        )
+
+        expect(screen.getByText('Resubmitted on May 10, 2026')).toBeInTheDocument()
+        expect(screen.queryByText(/Mar 15, 2025/)).not.toBeInTheDocument()
     })
 })

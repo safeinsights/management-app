@@ -11,7 +11,7 @@ import {
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
-import { getClaudeContextAction } from './actions/claude-context.actions'
+import { getAgentContextAction } from './actions/agent-context.actions'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -46,8 +46,8 @@ vi.mock('node:fs/promises', () => ({
     utimes: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/server/actions/claude-context.actions', () => ({
-    getClaudeContextAction: vi.fn(),
+vi.mock('@/server/actions/agent-context.actions', () => ({
+    getAgentContextAction: vi.fn(),
 }))
 
 // Mock fetch globally
@@ -184,7 +184,7 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
-        vi.mocked(getClaudeContextAction).mockResolvedValue({ content: 'test context' })
+        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
         getDataSourcesForOrgMock.mockResolvedValue([])
     })
 

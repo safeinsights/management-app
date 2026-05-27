@@ -1,6 +1,7 @@
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -31,7 +32,7 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
     }) as ProposalFeedbackEntry
 
 describe('ProposalSubmitted', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
@@ -41,7 +42,9 @@ describe('ProposalSubmitted', () => {
             studyStatus: 'APPROVED',
             title: 'Effect of Reading Comprehension Tools',
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     })
 

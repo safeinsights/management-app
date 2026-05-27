@@ -4,9 +4,9 @@ import { Command } from 'commander'
 import { extractJobId } from './request'
 
 // Upload a code security scan log for a job via the job-scan-results webhook
-// npx tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt
-// npx tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt -s CODE-SCANNED
-// npx tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt -s JOB-ERRORED
+// pnpm exec tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt
+// pnpm exec tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt -s CODE-SCANNED
+// pnpm exec tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt -s JOB-ERRORED
 
 const program = new Command()
 program

@@ -168,8 +168,8 @@ export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERROR
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 // inactivity timeout and warning threshold for user sessions
-export const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000 // 20 minutes
-export const WARNING_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
+export const INACTIVITY_TIMEOUT_MS = 8 * 60 * 60 * 1000 // 8 hours
+export const WARNING_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
 
 export enum AuthRole {
     Admin = 'admin',

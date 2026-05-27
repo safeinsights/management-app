@@ -83,7 +83,6 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
         if (!session) throw new Error('Unauthorized')
         await resetBaselineJob(db, studyId)
         if (CODER_DISABLED) {
-            await initializeDevWorkspaceFiles(studyId)
             return {
                 success: true,
                 workspace: { id: `dev-workspace-${studyId}` },
@@ -107,6 +106,7 @@ export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
         if (CODER_DISABLED) {
             // these envs do not have a 'real' coder setup
             await new Promise((resolve) => setTimeout(resolve, 3000))
+            await initializeDevWorkspaceFiles(studyId)
             return `https://coder.dev.example.com/workspace/${studyId}`
         }
         return await getCoderWorkspaceUrl(studyId, workspaceId)

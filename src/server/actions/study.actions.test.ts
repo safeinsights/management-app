@@ -1,6 +1,7 @@
 import logger from '@/lib/logger'
 import { deliver } from '@/server/mailgun'
 import {
+    BLANK_UUID,
     actionResult,
     buildFeedback,
     createTestProposalDraft,
@@ -21,10 +22,12 @@ import {
     ackAgreementsAction,
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
+    fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getStudyAction,
     rejectStudyProposalAction,
+    softDeleteStudyAction,
     submitCodeReviewDecisionAction,
     submitProposalReviewAction,
 } from './study.actions'
@@ -516,14 +519,14 @@ describe('Study Actions', () => {
 })
 
 describe('ackAgreementsAction', () => {
-    it('sets researcherAgreementsAckedAt when called by lab member', async () => {
+    it('sets researcherAgreementsAckedAt when called with role=researcher by lab member', async () => {
         const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
         // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const updated = await db
             .selectFrom('study')
@@ -535,13 +538,13 @@ describe('ackAgreementsAction', () => {
         expect(updated.reviewerAgreementsAckedAt).toBeNull()
     })
 
-    it('sets reviewerAgreementsAckedAt when called by enclave member', async () => {
+    it('sets reviewerAgreementsAckedAt when called with role=reviewer by enclave member', async () => {
         const { org: enclaveOrg, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
 
         const updated = await db
             .selectFrom('study')
@@ -553,11 +556,35 @@ describe('ackAgreementsAction', () => {
         expect(updated.researcherAgreementsAckedAt).toBeNull()
     })
 
+    // OTTER-546: a user who is a member of BOTH orgs (e.g. multi-org QA accounts, or
+    // a test fixture where orgId === submittedByOrgId) used to silently ack both
+    // columns when proceeding from the researcher view, which skipped the reviewer's
+    // Agreements page on their next visit. With the explicit `role` param, acking on
+    // the researcher side never touches the reviewer column even when the caller
+    // would otherwise pass both org checks.
+    it('does NOT set reviewerAgreementsAckedAt when role=researcher and caller would pass both org checks', async () => {
+        // insertTestStudyJobData defaults orgId === submittedByOrgId, which is the
+        // same condition as a multi-org QA user against a real study.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researcherAgreementsAckedAt).not.toBeNull()
+        expect(updated.reviewerAgreementsAckedAt).toBeNull()
+    })
+
     it('does not overwrite an existing ack timestamp', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const first = await db
             .selectFrom('study')
@@ -566,7 +593,7 @@ describe('ackAgreementsAction', () => {
             .executeTakeFirstOrThrow()
 
         // Call again — should not change the timestamp
-        await ackAgreementsAction({ studyId: study.id })
+        await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const second = await db
             .selectFrom('study')
@@ -577,16 +604,38 @@ describe('ackAgreementsAction', () => {
         expect(second.researcherAgreementsAckedAt).toEqual(first.researcherAgreementsAckedAt)
     })
 
-    it('fails when user is neither reviewer nor researcher org member', async () => {
+    it('fails when role=reviewer but user is not a member of the reviewer org', async () => {
+        // Caller belongs to the lab that submitted the study (so the `view Study`
+        // ability check passes), but does NOT belong to the reviewer enclave — they
+        // must not be able to ack as a reviewer.
         const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
-        const labOrg = await insertTestOrg({ slug: 'acker-lab', type: 'lab' })
+        const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await expect(ackAgreementsAction({ studyId: study.id, role: 'reviewer' })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.any(String) }),
+        })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.researcherAgreementsAckedAt).toBeNull()
+        expect(after.reviewerAgreementsAckedAt).toBeNull()
+    })
+
+    it('fails when user is neither reviewer nor researcher org member', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave-2', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'acker-lab-2', type: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
         // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        await expect(ackAgreementsAction({ studyId: study.id })).resolves.toMatchObject({
+        await expect(ackAgreementsAction({ studyId: study.id, role: 'researcher' })).resolves.toMatchObject({
             error: expect.objectContaining({ user: expect.any(String) }),
         })
 
@@ -903,6 +952,49 @@ describe('submitProposalReviewAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('CHANGE-REQUESTED')
+    })
+
+    // OTTER-471: exercises the claim CAS under true concurrency (Promise.all),
+    // not just the sequential A-then-B path covered above.
+    it('OTTER-471: parallel approve + reject through submit action, exactly one wins', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        const results = await Promise.all([
+            submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: validFeedback,
+                reviewVersion: 1,
+            }),
+            submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'reject',
+                feedback: validFeedback,
+                reviewVersion: 1,
+            }),
+        ])
+
+        const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+        expect(errors).toHaveLength(1)
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        const isApproved = updatedStudy.status === 'APPROVED' && !!updatedStudy.approvedAt && !updatedStudy.rejectedAt
+        const isRejected = updatedStudy.status === 'REJECTED' && !!updatedStudy.rejectedAt && !updatedStudy.approvedAt
+        expect(isApproved || isRejected).toBe(true)
+        expect(isApproved && isRejected).toBe(false)
+
+        const rows = await loadCommentRows(study.id)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].decision === 'APPROVE' || rows[0].decision === 'REJECT').toBe(true)
     })
 
     it('rejects review submission for code-review studies without writing a review row', async () => {
@@ -1471,6 +1563,48 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
+    // OTTER-471: exercises the studyJob row lock + composite unique constraint
+    // under true concurrency (Promise.all), not just the sequential case above.
+    it('OTTER-471: parallel approve + reject through submit action, exactly one CODE-* terminal row', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const results = await Promise.all([
+            submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: validFeedback,
+                criteria: validCriteria,
+            }),
+            submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'reject',
+                feedback: validFeedback,
+                criteria: validCriteria,
+            }),
+        ])
+
+        const errors = results.filter((r) => r != null && typeof r === 'object' && 'error' in r)
+        expect(errors).toHaveLength(1)
+
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+
+        const codeApproved = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-APPROVED')
+            .execute()
+        const codeRejected = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-REJECTED')
+            .execute()
+        expect(codeApproved.length + codeRejected.length).toBe(1)
+    })
+
     it('composite unique constraint blocks two CODE review rows for the same job', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
@@ -1694,6 +1828,95 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows[0].id).toBe(newer.id)
         expect(rows[1].id).toBe(older.id)
         expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
+        expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
+    })
+
+    it('attaches version numbers and surfaces resubmission notes from studyJob rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+            })
+            .execute()
+
+        const secondJob = await db
+            .insertInto('studyJob')
+            .values({
+                studyId: study.id,
+                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: secondJob.id, userId: user.id, status: 'CODE-SUBMITTED' })
+            .execute()
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        // newest first: the v2 resubmission note comes before the v1 reviewer decision
+        expect(rows).toHaveLength(2)
+        const noteRow = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
+        const feedbackRow = rows.find((r) => r.entryType === 'REVIEWER-FEEDBACK')
+        expect(noteRow?.version).toBe(2)
+        expect(feedbackRow?.version).toBe(1)
+    })
+
+    it('orders feedback deterministically when review and resubmission note timestamps match', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const sharedCreatedAt = new Date('2026-03-01T00:00:00Z')
+
+        await db
+            .updateTable('studyJob')
+            .set({
+                createdAt: sharedCreatedAt,
+                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+            })
+            .where('id', '=', job.id)
+            .execute()
+
+        const review = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+                createdAt: sharedCreatedAt,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+
+        expect(rows.map((row) => row.id)).toEqual([`job-note-${job.id}`, review.id])
+        expect(rows.map((row) => row.entryType)).toEqual(['RESUBMISSION-NOTE', 'REVIEWER-FEEDBACK'])
+        expect(rows.map((row) => row.version)).toEqual([1, 1])
     })
 })
 
@@ -1705,3 +1928,79 @@ function validCriteriaFixture() {
         privacyProtection: 'yes',
     } as const
 }
+
+describe('softDeleteStudyAction', () => {
+    it('soft-deletes a DRAFT study and hides it from the researcher dashboard', async () => {
+        const { lab, studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'soft-delete-draft-enclave',
+            studyInfo: { title: 'Doomed Draft' },
+        })
+
+        // sanity: lab dashboard sees the draft before delete
+        const before = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+        expect(before).toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId })]))
+
+        const result = await softDeleteStudyAction({ studyId })
+        expect(result).toMatchObject({ title: 'Doomed Draft' })
+
+        const row = await db
+            .selectFrom('study')
+            .select(['deletedAt', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(row.deletedAt).not.toBeNull()
+        expect(row.status).toBe('DRAFT') // status untouched, only deletedAt set
+
+        // lab dashboard no longer surfaces the deleted draft
+        const after = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
+        expect(after).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId })]))
+
+        // user dashboard also drops it
+        const userView = await fetchStudiesForCurrentResearcherUserAction()
+        expect(Array.isArray(userView)).toBe(true)
+        if (Array.isArray(userView)) {
+            expect(userView.find((s) => s.id === studyId)).toBeUndefined()
+        }
+        // silence unused warning if user was destructured but not otherwise referenced
+        expect(user.id).toBeTruthy()
+    })
+
+    it('rejects non-DRAFT studies', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'soft-delete-non-draft-enclave',
+            studyInfo: { title: 'Submitted Study' },
+        })
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+
+        await expect(softDeleteStudyAction({ studyId })).resolves.toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/only draft/i) }),
+        })
+
+        const row = await db.selectFrom('study').select('deletedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(row.deletedAt).toBeNull()
+    })
+
+    it('rejects a researcher who is not the draft author', async () => {
+        const { lab, studyId } = await createTestProposalDraft({
+            enclaveSlug: 'soft-delete-non-author-enclave',
+            studyInfo: { title: 'Colleague Draft' },
+        })
+
+        // Different lab member — passes view/delete CASL but is not the draft author
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        await expect(softDeleteStudyAction({ studyId })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.stringMatching(/only the draft author/i) }),
+        })
+
+        const row = await db.selectFrom('study').select('deletedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(row.deletedAt).toBeNull()
+    })
+
+    it('returns not-found for a study that does not exist', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        await expect(softDeleteStudyAction({ studyId: BLANK_UUID })).resolves.toMatchObject({
+            error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
+        })
+    })
+})

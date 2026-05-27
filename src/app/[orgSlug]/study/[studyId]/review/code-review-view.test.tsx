@@ -23,6 +23,18 @@ describe('CodeReviewView', () => {
         expect(screen.queryByText('Study Proposal')).not.toBeInTheDocument()
     })
 
+    // The AI review panel is gated behind the code-review redesign feature flag and
+    // lives only in CodeReviewRedesignView. The legacy (default) view must not leak it.
+    it('does NOT render the AI Study Review section', async () => {
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
+
+        expect(screen.queryByText('Study Review')).not.toBeInTheDocument()
+        expect(screen.queryByText('Review in progress…')).not.toBeInTheDocument()
+    })
+
     it('renders StudyResultsWithReview', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

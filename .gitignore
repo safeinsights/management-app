@@ -10,12 +10,16 @@ tmp/
 test-results/
 *.tern-port
 node_modules/
+package-lock.json
+services/editor/package-lock.json
+yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
+.pnpm-store/
 tests/coverage/
 playwright-report/
 src/styles/generated

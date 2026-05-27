@@ -4,13 +4,12 @@ import { CopyingInput } from '@/components/copying-input'
 import { EncryptedFilesPanel } from '@/components/encrypted-files-panel'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { isEncryptedLogType } from '@/lib/file-type-helpers'
+import { STUDY_RESULTS_JOB_STATUSES } from '@/lib/study-job-status'
 import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { JobReviewButtons } from './job-review-buttons'
-
-const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
 
 export const StudyResults: FC<{
     job: LatestJobForStudy | null
@@ -20,7 +19,7 @@ export const StudyResults: FC<{
 
     const hasEncryptedLogs = job?.files?.some((f) => isEncryptedLogType(f.fileType)) ?? false
 
-    if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
+    if (!job?.statusChanges.find((sc) => STUDY_RESULTS_JOB_STATUSES.includes(sc.status))) {
         const statuses = job?.statusChanges.map((sc) => sc.status) ?? []
         const awaitingScan = statuses.includes('CODE-SUBMITTED') && !statuses.includes('CODE-SCANNED')
         const codeApproved = statuses.includes('CODE-APPROVED')

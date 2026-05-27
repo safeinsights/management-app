@@ -19,7 +19,9 @@ const study = (
         ...overrides,
     }) as SelectedStudy
 
-const entry = (overrides: Partial<Pick<ProposalFeedbackEntry, 'decision' | 'createdAt'>>): ProposalFeedbackEntry =>
+const entry = (
+    overrides: Partial<Pick<ProposalFeedbackEntry, 'decision' | 'createdAt' | 'entryType'>>,
+): ProposalFeedbackEntry =>
     ({
         id: 'entry-1',
         decision: 'APPROVE',
@@ -54,7 +56,7 @@ describe('decisionTimestampForProposalHeader', () => {
             expected: submittedAt,
         },
         {
-            name: 'PENDING-REVIEW uses submittedAt',
+            name: 'PENDING-REVIEW uses submittedAt, when no RESUBMISSION-NOTE entry is present',
             study: study({ status: 'PENDING-REVIEW' }),
             entries: [],
             expected: submittedAt,
@@ -83,6 +85,19 @@ describe('decisionTimestampForProposalHeader', () => {
 
         expect(decisionTimestampForProposalHeader(study({ status: 'CHANGE-REQUESTED' }), entries)).toEqual(
             clarificationAt,
+        )
+    })
+
+    it('PENDING-REVIEW uses the latest RESUBMISSION-NOTE entry when present', () => {
+        const olderResubmission = new Date('2026-04-25T10:00:00Z')
+        const latestResubmission = new Date('2026-05-10T10:00:00Z')
+        const entries = [
+            entry({ createdAt: latestResubmission, entryType: 'RESUBMISSION-NOTE' }),
+            entry({ createdAt: olderResubmission, entryType: 'RESUBMISSION-NOTE' }),
+        ] as ProposalFeedbackEntry[]
+
+        expect(decisionTimestampForProposalHeader(study({ status: 'PENDING-REVIEW' }), entries)).toEqual(
+            latestResubmission,
         )
     })
 

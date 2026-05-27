@@ -1,23 +1,23 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { db, mockSessionWithTestData } from '@/tests/unit.helpers'
-import { writeClaudeContextAction, getClaudeContextAction } from './claude-context.actions'
+import { writeAgentContextAction, getAgentContextAction } from './agent-context.actions'
 import { errorToString, isActionError } from '@/lib/errors'
 
 describe('context actions', () => {
-    describe('writeClaudeContextAction', () => {
+    describe('writeAgentContextAction', () => {
         beforeEach(async () => {
-            await db.deleteFrom('claudeContext').execute()
+            await db.deleteFrom('agentContext').execute()
         })
         it('denies non-siAdmin users', async () => {
             await mockSessionWithTestData({ isSiAdmin: false })
-            const result = await writeClaudeContextAction({
+            const result = await writeAgentContextAction({
                 name: 'SYSTEM',
                 orgId: null,
                 content: 'error content',
             })
             expect(isActionError(result)).toBe(true)
             const row = await db
-                .selectFrom('claudeContext')
+                .selectFrom('agentContext')
                 .select(['name', 'orgId', 'content'])
                 .where('name', '=', 'SYSTEM')
                 .executeTakeFirst()
@@ -26,14 +26,14 @@ describe('context actions', () => {
 
         it('writes a new piece of context when user is admin', async () => {
             const { user } = await mockSessionWithTestData({ isSiAdmin: true })
-            const result = await writeClaudeContextAction({
+            const result = await writeAgentContextAction({
                 name: 'SYSTEM',
                 content: 'system context',
                 orgId: null,
             })
             expect(isActionError(result)).toBe(false)
             const row = await db
-                .selectFrom('claudeContext')
+                .selectFrom('agentContext')
                 .select(['name', 'orgId', 'content', 'updatedBy'])
                 .where('name', '=', 'SYSTEM')
                 .where('orgId', 'is', null)
@@ -44,19 +44,19 @@ describe('context actions', () => {
 
         it('updates row on conflict', async () => {
             const { user } = await mockSessionWithTestData({ isSiAdmin: true })
-            await writeClaudeContextAction({
+            await writeAgentContextAction({
                 name: 'PYTHON',
                 content: 'starter python context',
                 orgId: null,
             })
-            const result = await writeClaudeContextAction({
+            const result = await writeAgentContextAction({
                 name: 'PYTHON',
                 content: "new context that's new",
                 orgId: null,
             })
             expect(isActionError(result)).toBe(false)
             const rows = await db
-                .selectFrom('claudeContext')
+                .selectFrom('agentContext')
                 .select(['name', 'orgId', 'content', 'updatedBy'])
                 .where('name', '=', 'PYTHON')
                 .where('orgId', 'is', null)
@@ -68,7 +68,7 @@ describe('context actions', () => {
 
         it('rejects unknown context names', async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
-            const result = await writeClaudeContextAction({
+            const result = await writeAgentContextAction({
                 // @ts-expect-error testing runtime validation
                 name: 'BUSINESS',
                 content: 'nope',
@@ -78,25 +78,30 @@ describe('context actions', () => {
             expect(errorToString(result)).toMatch('Validation')
         })
     })
-    describe('getClaudeContextAction', () => {
+    describe('getAgentContextAction', () => {
         beforeEach(async () => {
-            await db.deleteFrom('claudeContext').execute()
+            await db.deleteFrom('agentContext').execute()
+        })
+        it('denies non-admin users', async () => {
+            await mockSessionWithTestData({ isSiAdmin: false })
+            const result = await getAgentContextAction({ name: 'PYTHON', orgId: null })
+            expect(isActionError(result)).toBe(true)
         })
         it('returns the requested context', async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
-            await writeClaudeContextAction({ name: 'PYTHON', content: 'py stuff', orgId: null })
+            await writeAgentContextAction({ name: 'PYTHON', content: 'py stuff', orgId: null })
 
-            const result = await getClaudeContextAction({ name: 'PYTHON', orgId: null })
+            const result = await getAgentContextAction({ name: 'PYTHON', orgId: null })
 
             expect(isActionError(result)).toBe(false)
             if (!isActionError(result)) expect(result.content).toBe('py stuff')
         })
         it("returns empty string when requested context doesn't exist", async () => {
-            await mockSessionWithTestData()
+            await mockSessionWithTestData({ isSiAdmin: true })
             // clear any existing content
-            await db.deleteFrom('claudeContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
+            await db.deleteFrom('agentContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
 
-            const result = await getClaudeContextAction({ name: 'PYTHON', orgId: null })
+            const result = await getAgentContextAction({ name: 'PYTHON', orgId: null })
             expect(isActionError(result)).toBe(false)
             if (!isActionError(result)) expect(result.content).toBe('')
         })

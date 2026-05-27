@@ -1,47 +1,31 @@
 import type { ReactNode } from 'react'
-import { Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { highlightLanguageForFile } from '@/lib/languages'
-import { CodeViewer } from '@/components/code-viewer'
-import { AppModal } from '@/components/modal'
-import { useCodeDownloadFeatureFlag } from '@/components/openstax-feature-flag'
-import { DownloadBlobLink } from '@/components/download-blob-link'
+import { FilePreviewModal } from '@/components/file-preview-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
-
-export function FilePreviewModal({
-    file,
-    onClose,
-}: {
-    file: { name: string; contents: string } | null
-    onClose: () => void
-}) {
-    const canDownloadCode = useCodeDownloadFeatureFlag()
-    if (!file) return null
-    return (
-        <AppModal isOpen onClose={onClose} title={file.name} size="xl" styles={{ body: { padding: 0 } }}>
-            <Stack gap={0}>
-                {canDownloadCode && (
-                    <Group justify="flex-end" px="md" py="xs">
-                        <DownloadBlobLink filename={file.name} fileContent={file.contents} />
-                    </Group>
-                )}
-                <CodeViewer code={file.contents} language={highlightLanguageForFile(file.name)} />
-            </Stack>
-        </AppModal>
-    )
-}
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
-    studyTitle: string
+    studyTitle: string | null
     footer: ReactNode
+    mainFileColumnHeader?: ReactNode
+    showLaunchIde?: boolean
+    ideButtonTooltip?: string
 }
 
-export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCodePanelProps) => {
+export const StudyCodePanel = ({
+    ide,
+    stepLabel,
+    studyTitle,
+    footer,
+    mainFileColumnHeader,
+    showLaunchIde,
+    ideButtonTooltip,
+}: StudyCodePanelProps) => {
     let body: ReactNode
     if (ide.isLoadingFiles) {
         body = <Skeleton height={240} radius="md" />
@@ -54,6 +38,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
+                showLaunchIde={showLaunchIde}
             />
         )
     } else {
@@ -70,6 +55,9 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                 removeFile={ide.removeFile}
                 viewFile={ide.viewFile}
                 jobCreatedAt={ide.jobCreatedAt}
+                mainFileColumnHeader={mainFileColumnHeader}
+                showLaunchIde={showLaunchIde}
+                ideButtonTooltip={ideButtonTooltip}
             />
         )
     }
@@ -85,7 +73,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                     )}
                     <Title order={4}>Study code</Title>
                     <Text size="sm" c="dimmed">
-                        Title: {studyTitle}
+                        Title: {studyTitle ?? 'Untitled draft'}
                     </Text>
                 </Stack>
                 {body}

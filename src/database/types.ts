@@ -85,6 +85,15 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export interface AgentContext {
+    content: string
+    id: Generated<string>
+    name: string
+    orgId: string | null
+    updatedAt: Generated<Timestamp>
+    updatedBy: string | null
+}
+
 export interface Audit {
     createdAt: Generated<Timestamp>
     eventType: AuditEventType
@@ -93,15 +102,6 @@ export interface Audit {
     recordId: string
     recordType: AuditRecordType
     userId: string
-}
-
-export interface ClaudeContext {
-    content: string
-    id: Generated<string>
-    name: string
-    orgId: string | null
-    updatedAt: Generated<Timestamp>
-    updatedBy: string | null
 }
 
 export interface CodeScan {
@@ -216,10 +216,12 @@ export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
+    codeResubmissionNoteDraft: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>
     datasets: string[] | null
     dataSources: Generated<string[]>
+    deletedAt: Timestamp | null
     descriptionDocPath: string | null
     id: Generated<string>
     impact: Json | null
@@ -240,12 +242,13 @@ export interface Study {
     status: Generated<StudyStatus>
     submittedAt: Timestamp | null
     submittedByOrgId: string
-    title: string
+    title: string | null
 }
 
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
+    resubmissionNote: Json | null
     studyId: string
 }
 
@@ -319,8 +322,8 @@ export interface YjsDocument {
 }
 
 export interface DB {
+    agentContext: AgentContext
     audit: Audit
-    claudeContext: ClaudeContext
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
     org: Org

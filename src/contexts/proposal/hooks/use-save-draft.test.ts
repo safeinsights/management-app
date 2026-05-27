@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildStudyInfo } from './use-save-draft'
-import { DEFAULT_DRAFT_TITLE, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
 describe('buildStudyInfo', () => {
@@ -30,7 +30,7 @@ describe('buildStudyInfo', () => {
         })
     })
 
-    it('converts empty strings to undefined (except title which defaults to Untitled Draft)', () => {
+    it('converts empty strings to undefined and a blank title to null', () => {
         const formValues: ProposalFormValues = {
             title: '',
             datasets: [],
@@ -44,7 +44,7 @@ describe('buildStudyInfo', () => {
 
         const result = buildStudyInfo(formValues)
 
-        expect(result.title).toBe(DEFAULT_DRAFT_TITLE)
+        expect(result.title).toBeNull()
         expect(result.piName).toBeUndefined()
         expect(result.piUserId).toBeUndefined()
         expect(result.researchQuestions).toBeUndefined()

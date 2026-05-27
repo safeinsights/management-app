@@ -1,16 +1,23 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
-import { getStudyAction } from '@/server/actions/study.actions'
+import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
+import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import { isStudyResultsStatus } from '@/lib/study-job-status'
+import { isSubmittedStudy } from '@/schema/study'
+import { notFound } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
-import { PostCodeSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
+import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
+import { CodePostDecisionView } from './code-post-decision-view'
+import { isCodeDecisionStatus } from './code-decision-status'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
@@ -40,6 +47,39 @@ export default async function StudyReviewPage(props: {
         const latestJobStatus = job.statusChanges[0]?.status
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
 
+        if (isCodeDecisionStatus(latestJobStatus)) {
+            const codeOnlyFallback = (
+                <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+            )
+            const entries = await getCodeReviewFeedbackAction({ studyId })
+            if (isActionError(entries) || entries.length === 0) {
+                return codeOnlyFallback
+            }
+            // A code decision implies the study was submitted long ago — this branch
+            // should be unreachable for DRAFTs. Guard explicitly so the narrowed view
+            // type holds and a corrupt row can't surface a runtime error in render.
+            if (!isSubmittedStudy(study)) {
+                notFound()
+            }
+            const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            return (
+                <PostCodeSubmissionFeatureFlag
+                    defaultContent={codeOnlyFallback}
+                    optInContent={
+                        <CodePostDecisionView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
+                            entries={entries}
+                            reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                            latestJobStatus={latestJobStatus}
+                        />
+                    }
+                />
+            )
+        }
+
         if (isUnderReview) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
@@ -53,6 +93,27 @@ export default async function StudyReviewPage(props: {
                             study={study}
                             job={job}
                             reviewingOrgName={reviewingOrgName}
+                            dashboardHref={dashboardHref}
+                        />
+                    }
+                />
+            )
+        }
+        // OTTER-538: once results exist, swap the legacy CodeOnlyView for the
+        // redesigned Study Details page (no code section, results-only) when the
+        // feature flag is on. Only flag-wrap during the results stage; other
+        // job-status branches keep the existing CodeOnlyView.
+        if (isStudyResultsStatus(latestJobStatus)) {
+            return (
+                <StudyDetailsRedesignFeatureFlag
+                    defaultContent={
+                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+                    }
+                    optInContent={
+                        <StudyDetailsRedesignView
+                            orgSlug={orgSlug}
+                            study={study}
+                            job={job}
                             dashboardHref={dashboardHref}
                         />
                     }

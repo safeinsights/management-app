@@ -323,7 +323,7 @@ async function waitForJobReady(page: Page, studyId: string, authToken: string): 
 function uploadErrorLogs(jobId: string): void {
     // Use the existing debug script to upload error logs
     // This handles encryption and sets status to JOB-ERRORED
-    const cmd = `npx tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
+    const cmd = `pnpm exec tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
     execSync(cmd, { stdio: 'inherit' })
 }
 

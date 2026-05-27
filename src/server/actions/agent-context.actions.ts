@@ -1,19 +1,17 @@
 'use server'
 
-import { Action, ActionFailure } from './action'
+import { Action } from './action'
 import { z } from 'zod'
 import { sql } from 'kysely'
-import { CONTEXT_NAMES } from '@/lib/claude-context'
+import { CONTEXT_NAMES, getAgentContext } from '@/lib/agent-context'
 
-export const writeClaudeContextAction = new Action('writeClaudeContextAction', { performsMutations: true })
+export const writeAgentContextAction = new Action('writeAgentContextAction', { performsMutations: true })
     .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
+    .requireAbilityTo('update', 'AgentContext')
     .handler(async ({ session, db, params: { name, content, orgId } }) => {
-        if (!session?.user.isSiAdmin) {
-            throw new ActionFailure({ permission_denied: 'Must be SafeInsights admin' })
-        }
         const userId = session.user.id
         await db
-            .insertInto('claudeContext')
+            .insertInto('agentContext')
             .values({
                 name: name,
                 content: content,
@@ -28,24 +26,16 @@ export const writeClaudeContextAction = new Action('writeClaudeContextAction', {
                 }),
             )
             .execute()
-
-        return { success: true }
     })
 
-export const getClaudeContextAction = new Action('getClaudeContextAction')
+export const getAgentContextAction = new Action('getAgentContextAction')
     .params(
         z.object({
             name: z.enum(CONTEXT_NAMES),
             orgId: z.string().uuid().nullable(),
         }),
     )
+    .requireAbilityTo('view', 'AgentContext')
     .handler(async ({ db, params: { name, orgId } }) => {
-        const row = await db
-            .selectFrom('claudeContext')
-            .select('content')
-            .where('name', '=', name)
-            .where('orgId', orgId === null ? 'is' : '=', orgId)
-            .executeTakeFirst()
-
-        return { content: row?.content ?? '' }
+        return await getAgentContext(db, { name, orgId })
     })
