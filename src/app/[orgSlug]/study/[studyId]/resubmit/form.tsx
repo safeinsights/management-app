@@ -1,7 +1,7 @@
 'use client'
 
 import { useResubmitCode } from '@/contexts/resubmit-code'
-import { ResubmitCodeView } from './resubmit-code-view'
+import { ResubmitCodeView } from './old-resubmit-code-view'
 
 export function ResubmitStudyCodeForm() {
     const { studyId, studyTitle, submittingOrgSlug } = useResubmitCode()

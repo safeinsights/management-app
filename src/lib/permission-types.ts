@@ -1,5 +1,6 @@
 import { MongoAbility } from '@casl/ability'
 import { UUID } from './types'
+import { ContextName } from './agent-context'
 
 // eslint-disable-next-line  @typescript-eslint/no-explicit-any
 type Ability<Kind extends string, Actions extends string, Properties extends Record<string, any>> = [
@@ -47,6 +48,11 @@ type Abilities =
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
     | Ability<'IDE', 'load', { researcherId: UUID }>
+    | Ability<
+          'AgentContext',
+          'create' | 'update' | 'view',
+          { name: ContextName; orgId: string | null; content?: string }
+      >
 
 export type PermissionsObjectSubjects = Extract<Abilities[1], object>
 

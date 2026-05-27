@@ -75,9 +75,12 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await page.getByRole('option').first().click()
 
     // Submit the proposal
-    const submitButton = page.getByRole('button', { name: /Submit study proposal/i })
+    const submitButton = page.getByRole('button', { name: /Submit initial request/i })
     await expect(submitButton).toBeEnabled()
     await submitButton.click()
+
+    // Confirm submission in modal
+    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
 
     // Wait for the submitted confirmation page
     await expect(page.getByText(/submitted successfully/i)).toBeVisible()
@@ -323,7 +326,7 @@ async function waitForJobReady(page: Page, studyId: string, authToken: string): 
 function uploadErrorLogs(jobId: string): void {
     // Use the existing debug script to upload error logs
     // This handles encryption and sets status to JOB-ERRORED
-    const cmd = `npx tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
+    const cmd = `pnpm exec tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
     execSync(cmd, { stdio: 'inherit' })
 }
 

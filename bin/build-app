@@ -4,7 +4,19 @@ set -euo pipefail
 # https://github.com/getsentry/sentry-javascript/issues/15100
 # workaround for build spewing thousands of lines of:
 # <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (135kiB) impacts deserialization performance ...
-npm run build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
+#
+# TEMPORARY: invoking `next` directly via node_modules/.bin rather than `pnpm run build`.
+# Reason: the deployed Jenkins build script (`deploy.mjs` in S3, sourced from
+# the iac repo at cicd/management-app/scripts/) still runs `npm install` +
+# `npm run build:app`. Jenkins agents do not have pnpm on PATH, so calling
+# `pnpm run build` here breaks the Jenkins deploy.
+#
+# The iac repo's `pnpm` branch has already swapped this to pnpm in source.
+# Once that iac PR is merged AND `ManagementAppCDStack` is re-deployed (which
+# refreshes the bundled `deploy.mjs` in s3://si-mgmt-app-build/scripts/),
+# revert this line to `pnpm run build` for consistency with the rest of the
+# package manager swap.
+./node_modules/.bin/next build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
 
 cp bin/prod.run.sh .next/standalone/run.sh
 

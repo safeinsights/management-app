@@ -1,19 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { EditResubmitProvider } from '@/contexts/edit-resubmit'
-import { ResubmissionNoteSection } from './resubmission-note-section'
-import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
-
-const STUDY_ID = '11111111-1111-4111-8111-111111111111'
-
-const renderSection = () =>
-    renderWithProviders(
-        <EditResubmitProvider studyId={STUDY_ID}>
-            <ResubmissionNoteSection orgName="Rice University" />
-        </EditResubmitProvider>,
-    )
+import { useForm, zodResolver } from '@/common'
+import {
+    RESUBMIT_NOTE_MIN_WORDS,
+    initialResubmitNoteValue,
+    resubmitNoteSchema,
+    type ResubmitNoteValue,
+} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { ResubmissionNoteSection, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
 
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
+
+function Harness({
+    initialNote = '',
+    autosaveStatus,
+}: {
+    initialNote?: string
+    autosaveStatus?: ResubmissionNoteAutosaveStatus
+}) {
+    const noteForm = useForm<ResubmitNoteValue>({
+        validate: zodResolver(resubmitNoteSchema),
+        initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
+        validateInputOnChange: true,
+    })
+    return <ResubmissionNoteSection noteForm={noteForm} orgName="Rice University" autosaveStatus={autosaveStatus} />
+}
+
+const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
+    renderWithProviders(<Harness {...props} />)
 
 describe('ResubmissionNoteSection', () => {
     it('renders the section title and the data org name in the secondary text', () => {
@@ -27,9 +41,6 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText('0/300')).toBeInTheDocument()
     })
 
-    // Mantine's default behavior is correct here: don't shout an error at the user
-    // before they've touched the field. The Resubmit button is gated separately
-    // (see footer.test.tsx) so it's safe to keep the inline error quiet on mount.
     it('does not surface a validation error on first paint, before the user interacts', () => {
         renderSection()
         expect(screen.queryByText(/required/i)).not.toBeInTheDocument()
@@ -61,5 +72,25 @@ describe('ResubmissionNoteSection', () => {
         await user.paste(wordsString(RESUBMIT_NOTE_MIN_WORDS))
         expect(screen.queryByText(/resubmission note is required/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/words or fewer/i)).not.toBeInTheDocument()
+    })
+
+    it('initialises the textarea with the supplied initial note', () => {
+        renderSection({ initialNote: 'a pre-existing draft note' })
+        expect(screen.getByRole('textbox', { name: 'Resubmission Note' })).toHaveValue('a pre-existing draft note')
+    })
+
+    it('does not render the autosave indicator when no autosaveStatus is provided', () => {
+        renderSection()
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('renders "Saving…" while autosave is in flight', () => {
+        renderSection({ autosaveStatus: { isSaving: true, lastSavedAt: null } })
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('Saving…')
+    })
+
+    it('renders the "All changes saved" label once a draft has been saved', () => {
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(/All changes saved at \d{1,2}:\d{2} (AM|PM)/)
     })
 })

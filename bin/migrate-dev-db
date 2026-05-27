@@ -4,9 +4,9 @@ set -e
 
 TYPES=src/database/types.ts
 
-npx kysely migrate:latest
+pnpm exec kysely migrate:latest
 
-npx kysely-codegen \
+pnpm exec kysely-codegen \
   --camel-case \
   --dialect postgres \
   --out-file $TYPES \
@@ -14,7 +14,7 @@ npx kysely-codegen \
   --custom-imports='{"OrgCodeEnvSettings":"./types-manual#OrgCodeEnvSettings","CommandLines":"./types-manual#CommandLines"}'
 
 # run seeds after generating types above so the seed files see the updated DB state
-npx kysely seed:run
+pnpm exec kysely seed:run
 
 # Add manual type import (kysely-codegen always regenerates the file, so this must run every time)
 # inspiration from https://github.com/RobinBlomberg/kysely-codegen/issues/273
@@ -36,10 +36,10 @@ if ! grep -q "export type { EnvVar" $TYPES; then
   echo "export type { EnvVar, OrgCodeEnvSettings, CommandLines } from './types-manual'" >> $TYPES
 fi
 
-npx prettier --write $TYPES
-npx eslint --fix $TYPES
+pnpm exec prettier --write $TYPES
+pnpm exec eslint --fix $TYPES
 
-npx tsx bin/seed-environment.ts
+pnpm exec tsx bin/seed-environment.ts
 
 if [ -e "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then
