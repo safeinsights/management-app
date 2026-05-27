@@ -373,7 +373,13 @@ async function performStudyProposalApproval({
     if (isFirstApproval) {
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId, latestReviewerId: userId })
+            .set({
+                status: 'APPROVED',
+                approvedAt: new Date(),
+                rejectedAt: null,
+                reviewerId: userId,
+                latestReviewerId: userId,
+            })
             .where('id', '=', studyId)
             .execute()
 
@@ -413,7 +419,13 @@ async function performStudyProposalApproval({
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
     await db
         .updateTable('study')
-        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId, latestReviewerId: userId })
+        .set({
+            status: 'REJECTED',
+            rejectedAt: new Date(),
+            approvedAt: null,
+            reviewerId: userId,
+            latestReviewerId: userId,
+        })
         .where('id', '=', studyId)
         .execute()
 }
