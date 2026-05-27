@@ -112,26 +112,22 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
 // Code-review page helpers shared by both reviewer contexts.
 // ---------------------------------------------------------------------------
 
-// The collab UI (`code-review-section`) is gated behind
-// `useCodeReviewCollaborationFeatureFlag` which requires spy mode = on.
-// Spy mode is pure React state toggled by clicking the `𝜋` symbol fixed
-// at the bottom of every page (no localStorage), so each fresh browser
-// context must enable it once. The element has opacity:0 but
-// `pointer-events: auto`, so a forced click reliably fires the handler.
-// Spy mode adds `.spy-mode` to <body>; we assert that to confirm state
-// flipped before relying on it gating downstream rendering.
+// Toggle spy mode by clicking the `𝜋` symbol fixed at the bottom of every
+// page. The element has opacity:0 but `pointer-events: auto`, so a forced
+// click reliably fires the handler. Spy mode adds `.spy-mode` to <body>;
+// we assert that to confirm state flipped.
 async function enableSpyMode(page: Page): Promise<void> {
     await page.locator('.pi-symbol').click({ force: true })
     await expect(page.locator('body.spy-mode')).toBeAttached()
 }
 
-// `useCodeReviewCollaborationFeatureFlag` returns false until the user's
-// `session.orgs` includes an OpenStax slug. After a Clerk testing-token sign-in,
-// `user.publicMetadata.orgs` is populated either directly (if Clerk already
-// has it) or via a `syncUserMetadataAction` fallback that round-trips to the
-// server. Wait for the metadata to actually contain `openstax` so the feature
-// flag can flip true. If this times out, the failure message points squarely
-// at the seed-side issue rather than at downstream editor mounting.
+// After a Clerk testing-token sign-in, `user.publicMetadata.orgs` is
+// populated either directly (if Clerk already has it) or via a
+// `syncUserMetadataAction` fallback that round-trips to the server.
+// Wait for the metadata to actually contain `openstax` so downstream
+// reviewer interactions have a properly seeded session. If this times
+// out, the failure message points squarely at the seed-side issue
+// rather than at downstream editor mounting.
 async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
     await page.waitForFunction(
         () => {

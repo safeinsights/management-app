@@ -22,16 +22,6 @@ import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { useCodeReviewMutation } from './use-code-review-mutation'
 import type { CodeReviewCriteria } from './use-code-review-evaluation-map'
 
-const featureFlagState = vi.hoisted(() => ({ enabled: false }))
-
-vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
-    return {
-        ...actual,
-        useCodeReviewCollaborationFeatureFlag: () => featureFlagState.enabled,
-    }
-})
-
 vi.mock('@hocuspocus/provider', async () => {
     const { createHocuspocusMock } = await import('@/tests/hocuspocus.mock')
     return createHocuspocusMock()
@@ -67,14 +57,12 @@ describe('useCodeReviewMutation', () => {
     beforeEach(() => {
         tabSessionId = faker.string.uuid()
         constructed.length = 0
-        featureFlagState.enabled = false
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve broadcasts code-review-submitted and redirects with ?from=code-review (flag ON)', async () => {
+    it('approve broadcasts code-review-submitted and redirects with ?from=code-review', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
@@ -115,7 +103,6 @@ describe('useCodeReviewMutation', () => {
 
     it('reject broadcasts and rejects the study', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
@@ -139,43 +126,10 @@ describe('useCodeReviewMutation', () => {
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
     })
 
-    it('flag OFF: navigates with ?from=code-review without broadcasting', async () => {
-        // Non-openstax slug so the feature flag stays off in the real predicate.
-        const { user, org } = await mockSessionWithTestData({ orgSlug: 'unrelated-enclave', orgType: 'enclave' })
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
-
-        const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
-            { wrapper: createTestQueryWrapper() },
-        )
-
-        // No broadcast provider when flag is OFF.
-        expect(constructed).toHaveLength(0)
-
-        await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
-        })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        expect(constructed).toHaveLength(0)
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                `${Routes.studyReview({ orgSlug: org.slug, studyId: study.id })}?from=code-review`,
-            ),
-        )
-    })
-
     it('action error: no navigation, no broadcast', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         // Force the action's editable-state guard to reject.
         await db.updateTable('study').set({ status: 'APPROVED' }).where('id', '=', study.id).execute()
-        featureFlagState.enabled = true
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),

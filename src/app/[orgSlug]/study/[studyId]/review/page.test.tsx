@@ -1,25 +1,15 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { redirect, useParams } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import {
     db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
-    renderWithProviders,
-    screen,
     setTestStudyStatus,
-    type Mock,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
-import { CodeReviewView } from './code-review-view'
 import { LegacyProposalReviewView } from './legacy-proposal-review-view'
-import {
-    CodeReviewFeatureFlag,
-    PostSubmissionFeatureFlag,
-    ProposalReviewFeatureFlag,
-    StudyDetailsRedesignFeatureFlag,
-} from '@/components/openstax-feature-flag'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsRedesignView } from './study-details-redesign-view'
@@ -66,7 +56,7 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/agreements'))
     })
 
-    it('renders CodeReviewFeatureFlag for enclave with code submitted when coming from agreements', async () => {
+    it('renders CodeReviewRedesignView for enclave with code submitted when coming from agreements', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -79,21 +69,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements-proceed' }),
         })
-        expect(page?.type).toBe(CodeReviewFeatureFlag)
-        expect(page?.props.defaultContent.type).toBe(CodeReviewView)
-        expect(page?.props.optInContent.type).toBe(CodeReviewRedesignView)
-        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-
-        renderWithProviders(
-            await CodeReviewView(page!.props.defaultContent.props as Parameters<typeof CodeReviewView>[0]),
-        )
-
-        expect(screen.getByText('Study Code')).toBeInTheDocument()
-        expect(screen.getByText('Study Status')).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
-            'href',
-            expect.stringContaining('/agreements?from=previous'),
-        )
+        expect(page?.type).toBe(CodeReviewRedesignView)
     })
 
     it('renders LegacyProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
@@ -113,7 +89,7 @@ describe('StudyReviewPage', () => {
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
-    it('renders CodeReviewFeatureFlag directly when agreements already acknowledged (no redirect)', async () => {
+    it('renders CodeReviewRedesignView when agreements already acknowledged (no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -132,9 +108,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({}),
         })
-        expect(page?.type).toBe(CodeReviewFeatureFlag)
-        expect(page?.props.defaultContent.type).toBe(CodeReviewView)
-        expect(page?.props.optInContent.type).toBe(CodeReviewRedesignView)
+        expect(page?.type).toBe(CodeReviewRedesignView)
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
@@ -232,7 +206,7 @@ describe('StudyReviewPage', () => {
         expect(page?.props.entries[0].authorRole).toBe('REVIEWER')
     })
 
-    it('renders the proposal review feature flag swap for enclave without code', async () => {
+    it('renders ProposalReviewView for enclave without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         // insertTestStudyOnly defaults to APPROVED; reset to PENDING-REVIEW so this case
@@ -244,28 +218,12 @@ describe('StudyReviewPage', () => {
             searchParams: Promise.resolve({}),
         })
 
-        expect(page?.type).toBe(ProposalReviewFeatureFlag)
-        expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
-        expect(page?.props.optInContent.type).toBe(ProposalReviewView)
-    })
-
-    it('renders the LegacyProposalReviewView for non-OpenStax enclave orgs by default', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
-        })
-        renderWithProviders(page!)
-
-        expect(screen.getByText('Review Study')).toBeInTheDocument()
+        expect(page?.type).toBe(ProposalReviewView)
     })
 
     describe('post-feedback branch', () => {
         it.each(['APPROVED', 'REJECTED', 'CHANGE-REQUESTED'] as const)(
-            'renders the post-submission feature flag swap when status is %s',
+            'renders PostFeedbackView when status is %s',
             async (status) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
                 const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -276,16 +234,14 @@ describe('StudyReviewPage', () => {
                     searchParams: Promise.resolve({}),
                 })
 
-                expect(page?.type).toBe(PostSubmissionFeatureFlag)
-                expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
-                expect(page?.props.optInContent.type).toBe(PostFeedbackView)
+                expect(page?.type).toBe(PostFeedbackView)
             },
         )
     })
 
-    describe('study-details redesign flag swap (OTTER-538)', () => {
+    describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'wraps CodeReviewView in StudyDetailsRedesignFeatureFlag when latest job status is %s',
+            'renders StudyDetailsRedesignView when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
                 const { study, job } = await insertTestStudyJobData({
@@ -309,9 +265,7 @@ describe('StudyReviewPage', () => {
                     searchParams: Promise.resolve({}),
                 })
 
-                expect(page?.type).toBe(StudyDetailsRedesignFeatureFlag)
-                expect(page?.props.defaultContent.type).toBe(CodeReviewView)
-                expect(page?.props.optInContent.type).toBe(StudyDetailsRedesignView)
+                expect(page?.type).toBe(StudyDetailsRedesignView)
             },
         )
     })

@@ -74,8 +74,8 @@ async function enableSpyMode(page: Page): Promise<void> {
     await expect(page.locator('body.spy-mode')).toBeAttached()
 }
 
-// useProposalCollaborationFeatureFlag depends on the Clerk session's `orgs`
-// metadata; wait until openstax appears so the flag can flip true.
+// Wait until openstax appears in Clerk session's `orgs` metadata so the
+// reviewer context is properly seeded before interacting with the review page.
 async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
     await page.waitForFunction(
         () => {
@@ -122,10 +122,6 @@ test('a reviewer in two tabs collaborates live on a proposal review; one tab sub
                 url: `/openstax/study/${studyId}/review`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
-            // Spy mode is React state — toggling it re-renders
-            // ProposalReviewFeatureFlag under the flipped flag without a
-            // reload. A hard reload would discard both spy mode and the
-            // Clerk session in CI, so we avoid it.
             await enableSpyMode(ctxA.page)
             await expect(ctxA.page.getByTestId('review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })

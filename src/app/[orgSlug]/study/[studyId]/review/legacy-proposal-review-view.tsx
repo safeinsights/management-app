@@ -1,7 +1,6 @@
 'use client'
 
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ProposalReviewFeatureFlag } from '@/components/openstax-feature-flag'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
 import { stringifyJson } from '@/lib/string'
@@ -10,7 +9,6 @@ import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { Submitted } from '@/schema/study'
 import { usePopover } from '@/hooks/use-popover'
-import { ProposalReviewView } from './proposal-review-view'
 import { ProposalReviewButtons } from './proposal-review-buttons'
 
 type LegacyProposalReviewViewProps = {
@@ -22,7 +20,7 @@ type LegacyProposalReviewViewProps = {
 export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: LegacyProposalReviewViewProps) {
     const { getPopoverProps } = usePopover()
 
-    const existingView = (
+    return (
         <Stack px="xl" gap="xl">
             <PageBreadcrumbs
                 crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Data use request / Review study proposal']]}
@@ -74,16 +72,5 @@ export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: Leg
 
             <ProposalReviewButtons study={study} orgSlug={orgSlug} agreementsHref={agreementsHref} />
         </Stack>
-    )
-
-    if (agreementsHref) {
-        return existingView
-    }
-
-    return (
-        <ProposalReviewFeatureFlag
-            defaultContent={existingView}
-            optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} priorEntries={[]} reviewVersion={1} />}
-        />
     )
 }
