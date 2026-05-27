@@ -9,8 +9,9 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId } from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
+import { getAgentContextAction } from './actions/agent-context.actions'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -21,6 +22,7 @@ vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
+    getDataSourcesForOrg: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
@@ -44,6 +46,10 @@ vi.mock('node:fs/promises', () => ({
     utimes: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/server/actions/agent-context.actions', () => ({
+    getAgentContextAction: vi.fn(),
+}))
+
 // Mock fetch globally
 global.fetch = vi.fn()
 
@@ -52,6 +58,7 @@ const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mo
 const siUserMock = siUser as unknown as Mock
 const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
+const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -177,6 +184,8 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
+        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
+        getDataSourcesForOrgMock.mockResolvedValue([])
     })
 
     afterEach(() => {
@@ -243,6 +252,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -345,6 +355,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -437,6 +448,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),

@@ -20,6 +20,10 @@ import { db } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import { errorToString, isActionError } from '@/lib/errors'
+import { ContextName, getAgentContext } from '@/lib/agent-context'
+import * as database from '@/database'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -254,4 +258,29 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
         await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
         await fs.utimes(targetFilePath, pastDate, pastDate)
     }
+
+    // Initialize claude.md
+    // FYI: claude.md is only populated on workspace init. New updates to context after
+    // a workspace has been launched will not propagate.
+    const workspaceContexts: ContextName[] = ['SYSTEM', codeEnv.language]
+
+    let combinedContextString = ''
+    for (const contextName of workspaceContexts) {
+        const response = await getAgentContext(database.db, { name: contextName, orgId: null })
+        if (isActionError(response)) {
+            throw new Error(errorToString(response))
+        }
+        if (response.content) combinedContextString += response.content + '\n'
+    }
+
+    combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
+
+    const targetContextFileName = 'CLAUDE.md'
+    const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
+
+    logger.info(`Writing ${targetContextFileName} to ${targetContextPath} for study ${studyId}`)
+
+    await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
+    await fs.writeFile(targetContextPath, combinedContextString, 'utf-8')
+    await fs.utimes(targetContextPath, pastDate, pastDate)
 }

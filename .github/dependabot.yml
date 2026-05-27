@@ -6,8 +6,9 @@
 # tracks updates for the github-actions ecosystem and groups them so we don't
 # get a separate PR per action per week.
 #
-# Add npm tracking later if/when we want it; for now the existing manual
-# update cadence + `npm audit fix` covers the npm side.
+# Add package tracking later if/when we want it; Dependabot still uses the
+# `npm` ecosystem name for pnpm manifests. For now, the existing manual
+# update cadence plus `pnpm audit` covers application dependencies.
 
 version: 2
 updates:

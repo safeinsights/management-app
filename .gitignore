@@ -10,6 +10,9 @@ tmp/
 test-results/
 *.tern-port
 node_modules/
+package-lock.json
+services/editor/package-lock.json
+yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

@@ -8,3 +8,14 @@ allowBuilds:
     sharp: true
     unrs-resolver: true
 minimumReleaseAge: 2880
+overrides:
+    '@types/react': 19.2.14
+    minimatch: ^10.2.1
+    fast-xml-parser: ^5.7.0
+    serialize-javascript: ^7.0.3
+    express-rate-limit: ^8.2.2
+    flatted: ^3.4.0
+    nodemailer: ^8.0.4
+    picomatch: ^4.0.4
+    postcss: ^8.5.10
+    uuid: ^14.0.0

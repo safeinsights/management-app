@@ -36,6 +36,8 @@ jobs:
                   cache: 'pnpm'
             - name: pnpm install
               run: pnpm install --frozen-lockfile
+            - name: pnpm audit signatures
+              run: pnpm audit signatures
             - name: show versions
               run: pnpm list
             - name: pnpm run checks

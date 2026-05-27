@@ -223,8 +223,20 @@ export const studyInfoForStudyId = async (studyId: string) => {
 export const getDataSourcesForOrg = async (orgId: string) => {
     return Action.db
         .selectFrom('orgDataSource')
-        .select(['orgDataSource.id', 'orgDataSource.name'])
+        .select((eb) => [
+            'orgDataSource.id',
+            'orgDataSource.name',
+            'orgDataSource.description',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('orgDataSourceUrl')
+                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id')
+                    .orderBy('orgDataSourceUrl.createdAt', 'asc'),
+            ).as('urls'),
+        ])
         .where('orgDataSource.orgId', '=', orgId)
+        .orderBy('orgDataSource.createdAt', 'asc')
         .execute()
 }
 
@@ -362,12 +374,14 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .select([
             'orgCodeEnv.id',
             'orgCodeEnv.identifier',
+            'orgCodeEnv.language',
             'orgCodeEnv.dataSourceType',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
             'orgCodeEnv.starterCodeFileNames',
             'orgCodeEnv.sampleDataPath',
             'org.slug',
+            'study.orgId',
         ])
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
