@@ -51,7 +51,7 @@ const buildEntry = (overrides: Partial<CodeReviewFeedbackEntry> = {}): CodeRevie
         id: overrides.id ?? 'code-entry-1',
         authorId: overrides.authorId ?? 'author-1',
         authorName: overrides.authorName ?? 'Reviewer One',
-        entryType: overrides.entryType ?? 'DECISION',
+        entryType: overrides.entryType ?? 'REVIEWER-FEEDBACK',
         decision: overrides.decision === undefined ? 'APPROVE' : overrides.decision,
         body: overrides.body ?? JSON.parse(lexicalJson('Reviewer comments go here.')),
         criteria: overrides.criteria ?? null,
@@ -70,7 +70,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     // Layer the decision row on top so it's the latest status change.
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id })
+        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: new Date(Date.now() + 1000) })
         .execute()
 
     await db
@@ -238,8 +238,8 @@ describe('CodePostDecisionView', () => {
                 })
                 const prior = buildEntry({
                     id: 'prior-entry',
-                    entryType: 'NOTE',
-                    decision: null,
+                    entryType: 'REVIEWER-FEEDBACK',
+                    decision: 'APPROVE',
                     createdAt: new Date('2026-04-10T10:00:00Z'),
                 })
 

@@ -239,6 +239,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         submitDirectly,
         isDirectSubmitting: submitMutation.isPending,
 
+        filesChanged,
+
         starterFiles: starterCodeInfo?.starterFiles ?? [],
     }
 }

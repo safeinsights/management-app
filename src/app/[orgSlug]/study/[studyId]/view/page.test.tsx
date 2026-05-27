@@ -186,7 +186,10 @@ describe('StudyViewPage', () => {
             .select('id')
             .where('studyId', '=', studyId)
             .executeTakeFirstOrThrow()
-        await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ status, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+            .execute()
     }
 
     describe('post-code-submission flag swap (OTTER-537)', () => {

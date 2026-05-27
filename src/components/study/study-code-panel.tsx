@@ -12,9 +12,20 @@ interface StudyCodePanelProps {
     stepLabel?: string
     studyTitle: string | null
     footer: ReactNode
+    mainFileColumnHeader?: ReactNode
+    showLaunchIde?: boolean
+    ideButtonTooltip?: string
 }
 
-export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCodePanelProps) => {
+export const StudyCodePanel = ({
+    ide,
+    stepLabel,
+    studyTitle,
+    footer,
+    mainFileColumnHeader,
+    showLaunchIde,
+    ideButtonTooltip,
+}: StudyCodePanelProps) => {
     let body: ReactNode
     if (ide.isLoadingFiles) {
         body = <Skeleton height={240} radius="md" />
@@ -27,6 +38,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
+                showLaunchIde={showLaunchIde}
             />
         )
     } else {
@@ -43,6 +55,9 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer }: StudyCode
                 removeFile={ide.removeFile}
                 viewFile={ide.viewFile}
                 jobCreatedAt={ide.jobCreatedAt}
+                mainFileColumnHeader={mainFileColumnHeader}
+                showLaunchIde={showLaunchIde}
+                ideButtonTooltip={ideButtonTooltip}
             />
         )
     }

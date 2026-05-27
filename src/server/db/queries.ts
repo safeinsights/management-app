@@ -372,6 +372,14 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
 
+export async function fetchLatestCodeEnvForStudyIdOrNull(studyId: string) {
+    try {
+        return await fetchLatestCodeEnvForStudyId(studyId)
+    } catch {
+        return null
+    }
+}
+
 /**
  * Gets the orgId for a given jobId.
  * Returns undefined if job doesn't exist.
