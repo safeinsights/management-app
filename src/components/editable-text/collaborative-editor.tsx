@@ -319,6 +319,7 @@ export type CollaborativeEditorProps = {
     contentClassName?: string
     contentStyle?: React.CSSProperties
     placeholder?: string
+    ariaLabel?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
     /**
@@ -369,6 +370,7 @@ export function CollaborativeEditor({
     contentClassName,
     contentStyle,
     placeholder,
+    ariaLabel,
     onChange,
     footerRight,
     onProviderReady,
@@ -441,7 +443,9 @@ export function CollaborativeEditor({
                     style={{ overflow: 'hidden', position: 'relative' }}
                 >
                     <RichTextPlugin
-                        contentEditable={<ContentEditable className={contentClassName} style={contentStyle} />}
+                        contentEditable={
+                            <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                        }
                         placeholder={
                             placeholder ? (
                                 <Text
