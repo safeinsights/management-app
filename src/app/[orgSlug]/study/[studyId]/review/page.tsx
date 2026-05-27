@@ -116,10 +116,18 @@ export default async function StudyReviewPage(props: {
                 )
             }
 
+            // Prior code-review entries trigger the resubmission variant inside
+            // CodeReviewRedesignView. Swallow errors so a feedback fetch failure
+            // degrades to the first-submission view rather than blocking review.
+            const codeReviewEntries = await getCodeReviewFeedbackAction({ studyId })
+            const safeCodeReviewEntries = isActionError(codeReviewEntries) ? [] : codeReviewEntries
+
             return (
                 <CodeReviewFeatureFlag
                     defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}
-                    optInContent={<CodeReviewRedesignView orgSlug={orgSlug} study={study} />}
+                    optInContent={
+                        <CodeReviewRedesignView orgSlug={orgSlug} study={study} entries={safeCodeReviewEntries} />
+                    }
                 />
             )
         }
