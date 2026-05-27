@@ -20,8 +20,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string) =>
-    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }) })
+const renderRoute = (orgSlug: string, studyId: string, searchParams: { from?: string } = {}) =>
+    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }), searchParams: Promise.resolve(searchParams) })
 
 const setupDraft = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -103,5 +103,26 @@ describe('StudyEditPage', () => {
                 expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/proposal`)
             },
         )
+    })
+
+    // Step 2's "Previous" footer button saves the form (which writes Step-2 fields) then
+    // navigates here with ?from=step2. Without this override, the draftHasStep2Progress
+    // check would bounce the researcher right back to /proposal — the page they were
+    // trying to leave — creating a dead Previous button.
+    it('renders Step 1 when arriving from Step 2 Previous, even with Step 2 fields populated', async () => {
+        const { org, study } = await setupDraft()
+        const { user: piUser } = await insertTestUser({ org })
+        await db
+            .updateTable('study')
+            .set({ piUserId: piUser.id, datasets: ['students'] })
+            .where('id', '=', study.id)
+            .execute()
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        const page = await renderRoute(org.slug, study.id, { from: 'step2' })
+        renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: /Proceed to Step 2/i })).toBeInTheDocument()
     })
 })

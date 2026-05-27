@@ -5,8 +5,12 @@ import { Routes } from '@/lib/routes'
 import { draftHasStep2Progress } from '@/lib/studies'
 import { StudyProposal } from '../../request/proposal'
 
-export default async function StudyEditPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
+export default async function StudyEditPage(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<{ from?: string }>
+}) {
     const params = await props.params
+    const searchParams = await props.searchParams
     const { studyId, orgSlug } = params
 
     // TODO: validate that member from clerk session matches memberId from url
@@ -43,8 +47,10 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     }
 
     // OTTER-572: drafts that already reached Step 2 reopen on Step 2 instead of
-    // always sending the researcher back to the Step 1 data-org picker.
-    if (draftHasStep2Progress(study)) {
+    // always sending the researcher back to the Step 1 data-org picker. Step 2's
+    // "Previous" button must remain a working escape hatch, so it navigates here
+    // with ?from=step2 to explicitly request the Step 1 form.
+    if (searchParams.from !== 'step2' && draftHasStep2Progress(study)) {
         redirect(Routes.studyProposal({ orgSlug, studyId }))
     }
 
