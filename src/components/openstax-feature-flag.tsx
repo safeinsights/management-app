@@ -71,4 +71,7 @@ export {
     OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
     // OTTER-541: RL Code download in view code modal
     useOpenStaxFeatureFlag as useCodeDownloadFeatureFlag,
+    // OTTER-538: Study Details page changes in preparation for new code page
+    useOpenStaxFeatureFlag as useStudyDetailsRedesignFeatureFlag,
+    OpenStaxFeatureFlag as StudyDetailsRedesignFeatureFlag,
 }

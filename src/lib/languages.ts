@@ -12,16 +12,95 @@ const ACCEPTED_FILE_TYPE_LABELS: Record<Language, string[]> = {
     PYTHON: ['.py', '.ipynb'],
 }
 
-const HIGHLIGHT_LANGUAGES: Record<string, 'python' | 'r'> = {
-    '.r': 'r',
-    '.rmd': 'r',
-    '.py': 'python',
+export type HighlightLanguage =
+    | 'bash'
+    | 'c'
+    | 'cpp'
+    | 'css'
+    | 'dockerfile'
+    | 'go'
+    | 'ini'
+    | 'java'
+    | 'javascript'
+    | 'json'
+    | 'julia'
+    | 'latex'
+    | 'lua'
+    | 'makefile'
+    | 'markdown'
+    | 'matlab'
+    | 'perl'
+    | 'php'
+    | 'plaintext'
+    | 'python'
+    | 'r'
+    | 'ruby'
+    | 'rust'
+    | 'sas'
+    | 'scala'
+    | 'sql'
+    | 'stata'
+    | 'typescript'
+    | 'xml'
+    | 'yaml'
+
+const HIGHLIGHT_LANGUAGES: Record<string, HighlightLanguage> = {
+    '.bash': 'bash',
+    '.c': 'c',
+    '.cc': 'cpp',
+    '.cpp': 'cpp',
+    '.cxx': 'cpp',
+    '.cs': 'cpp',
+    '.css': 'css',
+    '.dockerfile': 'dockerfile',
+    '.go': 'go',
+    '.h': 'cpp',
+    '.hpp': 'cpp',
+    '.htm': 'xml',
+    '.html': 'xml',
+    '.ini': 'ini',
     '.ipynb': 'python',
+    '.java': 'java',
+    '.jl': 'julia',
+    '.js': 'javascript',
+    '.json': 'json',
+    '.jsx': 'javascript',
+    '.kt': 'java',
+    '.lua': 'lua',
+    '.m': 'matlab',
+    '.makefile': 'makefile',
+    '.markdown': 'markdown',
+    '.md': 'markdown',
+    '.mjs': 'javascript',
+    '.pl': 'perl',
+    '.php': 'php',
+    '.py': 'python',
+    '.r': 'r',
+    '.rb': 'ruby',
+    '.rmd': 'r',
+    '.rs': 'rust',
+    '.sas': 'sas',
+    '.scala': 'scala',
+    '.sh': 'bash',
+    '.sql': 'sql',
+    '.tex': 'latex',
+    '.toml': 'ini',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.txt': 'plaintext',
+    '.xml': 'xml',
+    '.yaml': 'yaml',
+    '.yml': 'yaml',
+    '.do': 'stata',
 }
 
-export function highlightLanguageForFile(fileName: string): 'python' | 'r' {
-    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
-    return HIGHLIGHT_LANGUAGES[ext] ?? 'r'
+export function highlightLanguageForFile(fileName: string): HighlightLanguage {
+    const lower = fileName.toLowerCase()
+    if (lower === 'dockerfile' || lower.endsWith('/dockerfile')) return 'dockerfile'
+    if (lower === 'makefile' || lower.endsWith('/makefile')) return 'makefile'
+    const dot = lower.lastIndexOf('.')
+    if (dot < 0) return 'plaintext'
+    return HIGHLIGHT_LANGUAGES[lower.slice(dot)] ?? 'plaintext'
 }
 
 export const getAcceptedFormatsForLanguage = (language: Language): string => {

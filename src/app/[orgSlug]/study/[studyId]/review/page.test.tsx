@@ -18,9 +18,11 @@ import {
     CodeReviewFeatureFlag,
     PostSubmissionFeatureFlag,
     ProposalReviewFeatureFlag,
+    StudyDetailsRedesignFeatureFlag,
 } from '@/components/openstax-feature-flag'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
+import { StudyDetailsRedesignView } from './study-details-redesign-view'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -277,6 +279,39 @@ describe('StudyReviewPage', () => {
                 expect(page?.type).toBe(PostSubmissionFeatureFlag)
                 expect(page?.props.defaultContent.type).toBe(LegacyProposalReviewView)
                 expect(page?.props.optInContent.type).toBe(PostFeedbackView)
+            },
+        )
+    })
+
+    describe('study-details redesign flag swap (OTTER-538)', () => {
+        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
+            'wraps CodeReviewView in StudyDetailsRedesignFeatureFlag when latest job status is %s',
+            async (jobStatus) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                const { study, job } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: jobStatus, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                    .execute()
+                await db
+                    .updateTable('study')
+                    .set({ reviewerAgreementsAckedAt: new Date() })
+                    .where('id', '=', study.id)
+                    .execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(StudyDetailsRedesignFeatureFlag)
+                expect(page?.props.defaultContent.type).toBe(CodeReviewView)
+                expect(page?.props.optInContent.type).toBe(StudyDetailsRedesignView)
             },
         )
     })

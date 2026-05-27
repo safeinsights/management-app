@@ -1,4 +1,5 @@
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -15,7 +16,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalReviewView, REJECTION_WARNING, ReviewConfirmationModal } from './proposal-review-view'
 
 describe('ProposalReviewView', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         memoryRouter.setCurrentUrl('/')
@@ -26,7 +27,9 @@ describe('ProposalReviewView', () => {
             studyStatus: 'PENDING-REVIEW',
             title: 'Test Study Title',
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 

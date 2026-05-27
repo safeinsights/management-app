@@ -3,19 +3,8 @@ import { ArrowSquareOut, CheckCircle, CircleNotch, XCircle } from '@phosphor-ico
 import { Routes } from '@/lib/routes'
 import type { JobScanResult, JobScanStatus, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import type { StudyJobFileType } from '@/database/types'
-import { AiSummaryCollapsible, StudyCodeViewer, type CodeFile } from './submitted-code-interactive'
-
-const CODE_FILE_TYPES: StudyJobFileType[] = ['MAIN-CODE', 'SUPPLEMENTAL-CODE']
-
-function filterAndOrderCodeFiles(files: LatestJobForStudy['files']): CodeFile[] {
-    const codeFiles = files.filter((f) => CODE_FILE_TYPES.includes(f.fileType))
-    const main = codeFiles.filter((f) => f.fileType === 'MAIN-CODE')
-    const supplemental = codeFiles
-        .filter((f) => f.fileType === 'SUPPLEMENTAL-CODE')
-        .sort((a, b) => a.name.localeCompare(b.name))
-    return [...main, ...supplemental].map((f) => ({ name: f.name, fileType: f.fileType }))
-}
+import { AiSummaryCollapsible, StudyCodeViewer } from './submitted-code-interactive'
+import { filterAndOrderCodeFiles } from './study-code-files'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
@@ -28,9 +17,12 @@ function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 size="sm"
+                display="inline-flex"
+                style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
                 data-testid="view-approved-initial-request"
             >
-                View approved initial request <ArrowSquareOut size={14} />
+                View approved initial request
+                <ArrowSquareOut size={14} />
             </Anchor>
         </Group>
     )
@@ -123,7 +115,6 @@ type SubmittedCodeSectionProps = {
 export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
-    const summary = review?.report.codeExplanation ?? null
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
@@ -133,9 +124,13 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: Subm
                 <Divider />
                 <DatasetPills names={datasetNames} />
                 <Divider />
-                <Group align="flex-start" grow gap="xl" wrap="nowrap">
-                    <AiSummaryCollapsible summary={summary} />
-                    <SecurityScanLog scan={scan} />
+                <Group align="stretch" grow gap="xl" wrap="nowrap">
+                    <Paper withBorder p="lg" radius={0}>
+                        <AiSummaryCollapsible studyJobId={job.id} initialReview={review} />
+                    </Paper>
+                    <Paper withBorder p="lg" radius={0}>
+                        <SecurityScanLog scan={scan} />
+                    </Paper>
                 </Group>
                 <Divider />
                 <StudyCodeViewer studyJobId={job.id} files={codeFiles} />

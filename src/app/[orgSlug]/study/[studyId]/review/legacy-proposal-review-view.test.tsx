@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -31,7 +32,7 @@ vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
 })
 
 describe('LegacyProposalReviewView', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
         featureFlagState.enabled = false
@@ -48,7 +49,9 @@ describe('LegacyProposalReviewView', () => {
             impact: lexicalJson('This could improve treatment outcomes.'),
             additionalNotes: lexicalJson('Funding secured from NIH.'),
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
@@ -86,6 +89,7 @@ describe('LegacyProposalReviewView', () => {
             piName: '',
         })
         const nullStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(nullStudy)) throw new Error('test fixture must be a submitted study')
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
         renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={nullStudy} />)
@@ -108,6 +112,7 @@ describe('LegacyProposalReviewView', () => {
             piName: 'Dr. Jones',
         })
         const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(lexicalStudy)) throw new Error('test fixture must be a submitted study')
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
         renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={lexicalStudy} />)

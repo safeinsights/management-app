@@ -1,4 +1,5 @@
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
@@ -19,7 +20,7 @@ vi.unmock('@/components/page-breadcrumbs')
 const ORG_SLUG = 'test-org'
 
 describe('CodeReviewRedesignView', () => {
-    let study: SelectedStudy
+    let study: Submitted<SelectedStudy>
     let jobCreatedAt: Date
 
     beforeEach(async () => {
@@ -31,7 +32,9 @@ describe('CodeReviewRedesignView', () => {
             jobStatus: 'CODE-SUBMITTED',
             title: 'Effect of Reading Comprehension Tools',
         })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
+        study = loaded
         jobCreatedAt = latestJobWithStatus.createdAt
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     })
@@ -98,13 +101,13 @@ describe('CodeReviewRedesignView', () => {
         renderWithProviders(await CodeReviewRedesignView({ orgSlug: ORG_SLUG, study }))
 
         const criteria = screen.getByTestId('code-review-criteria')
-        expect(criteria).toHaveTextContent('Proposal alignment:')
-        expect(criteria).toHaveTextContent('Does the code align with the approved research proposal?')
-        expect(criteria).toHaveTextContent('Agreement compliance:')
-        expect(criteria).toHaveTextContent('Does the code comply with all the agreements?')
-        expect(criteria).toHaveTextContent('Security checks:')
-        expect(criteria).toHaveTextContent('Have security and vulnerability checks been passed?')
-        expect(criteria).toHaveTextContent('Privacy protection:')
-        expect(criteria).toHaveTextContent('Is there any risk of PII exposure expected in the outputs?')
+        expect(criteria).toHaveTextContent(
+            'Proposal alignment: Does the code align with the approved research proposal?',
+        )
+        expect(criteria).toHaveTextContent('Agreement compliance: Does the code comply with all the agreements?')
+        expect(criteria).toHaveTextContent('Security checks: Have security and vulnerability checks been passed?')
+        expect(criteria).toHaveTextContent(
+            'Privacy protection: Is there any risk of PII exposure expected in the outputs?',
+        )
     })
 })

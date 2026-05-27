@@ -517,12 +517,16 @@ describe('authenticate', () => {
         })
     })
 
-    it('AuthFailureError instances carry name and code', () => {
+    it('AuthFailureError instances carry name, code, and reason', () => {
         const err = new AuthFailureError('NO_MEMBERSHIP', 'no membership in study orgs')
         expect(err).toBeInstanceOf(Error)
         expect(err.name).toBe('AuthFailureError')
         expect(err.code).toBe('NO_MEMBERSHIP')
         expect(err.message).toBe('NO_MEMBERSHIP: no membership in study orgs')
+        // Hocuspocus forwards `err.reason` to the client; without this Hocuspocus
+        // falls back to the literal string "permission-denied" and the client
+        // loses the specific code.
+        expect(err.reason).toBe('NO_MEMBERSHIP: no membership in study orgs')
     })
 })
 

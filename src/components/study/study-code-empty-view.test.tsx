@@ -42,4 +42,12 @@ describe('StudyCodeEmptyView', () => {
         renderWithProviders(<StudyCodeEmptyView {...baseProps} />)
         expect(screen.queryByRole('link', { name: /starter code/i })).not.toBeInTheDocument()
     })
+
+    it('hides the IDE section when showLaunchIde is false', () => {
+        renderWithProviders(<StudyCodeEmptyView {...baseProps} showLaunchIde={false} />)
+        expect(screen.queryByText(/write and test your code in ide/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('OR')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
+        expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
+    })
 })

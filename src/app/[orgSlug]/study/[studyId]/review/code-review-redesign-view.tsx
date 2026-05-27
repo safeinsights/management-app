@@ -3,16 +3,17 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
+import { type Submitted } from '@/schema/study'
 import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
-import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
+import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
 import { SubmittedCodeSection } from './submitted-code-section'
 
 type CodeReviewRedesignViewProps = {
     orgSlug: string
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
 }
 
 function CodeReviewStatusBanner({ labName }: { labName: string }) {
@@ -27,13 +28,13 @@ function CodeReviewStatusBanner({ labName }: { labName: string }) {
                     code based on these criteria:
                 </>
             }
-            criteria={CODE_REVIEW_CRITERIA}
+            criteria={CODE_REVIEW_BANNER_CRITERIA}
         />
     )
 }
 
 type CodeReviewSectionProps = {
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     submittedAt: Date | string
 }
 

@@ -5,6 +5,7 @@ import { useForm, type UseFormReturnType } from '@mantine/form'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { type CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
 import { CodeEvaluationSection } from './code-evaluation-section'
+import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
 
 type FormShape = { criteria: CodeReviewCriteriaDraft }
 
@@ -15,10 +16,6 @@ const initialDraft: CodeReviewCriteriaDraft = {
     privacyProtection: null,
 }
 
-// Mount the form and section in a single React tree so setFieldValue actually
-// re-renders the section. Production wires the form in CodeReviewClient (one
-// tree); rendering useForm via renderHook produces a separate tree and the
-// Clear button visibility (which keys off form.getValues()) would never update.
 const renderSection = () => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
@@ -42,38 +39,31 @@ const renderSection = () => {
 }
 
 describe('CodeEvaluationSection', () => {
-    it('Clear button is hidden until a criterion is selected, then resets it to null', async () => {
-        const user = userEvent.setup()
-        const refs = renderSection()
+    it('renders the heading, intro, attention alert, and the four criteria rows', () => {
+        renderSection()
 
-        expect(screen.queryByTestId('criteria-clear-proposalAlignment')).toBeNull()
+        expect(screen.getByText('Code evaluation')).toBeInTheDocument()
+        expect(screen.getByText(/Use this checklist to guide your review/)).toBeInTheDocument()
+        expect(screen.getByTestId('code-evaluation-attention')).toHaveTextContent(
+            /This checklist is provided as guidance/,
+        )
+        expect(screen.getByText('Evaluation criteria')).toBeInTheDocument()
 
-        const yesRadios = screen.getAllByRole('radio', { name: /^Yes$/i })
-        await user.click(yesRadios[0])
-        expect(refs.form.getValues().criteria.proposalAlignment).toBe('yes')
-
-        const clearBtn = await screen.findByTestId('criteria-clear-proposalAlignment')
-        expect(clearBtn).toBeVisible()
-
-        await user.click(clearBtn)
-        expect(refs.form.getValues().criteria.proposalAlignment).toBeNull()
-        expect(screen.queryByTestId('criteria-clear-proposalAlignment')).toBeNull()
+        for (const descriptor of CODE_REVIEW_CRITERIA) {
+            expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
+        }
     })
 
-    it('Clear is independent per criterion row', async () => {
+    it('updates the form value when a radio is selected', async () => {
         const user = userEvent.setup()
         const refs = renderSection()
 
         const yesRadios = screen.getAllByRole('radio', { name: /^Yes$/i })
-        const noRadios = screen.getAllByRole('radio', { name: /^No$/i })
-
         await user.click(yesRadios[0])
-        await user.click(noRadios[1])
         expect(refs.form.getValues().criteria.proposalAlignment).toBe('yes')
-        expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
 
-        await user.click(await screen.findByTestId('criteria-clear-agreementCompliance'))
-        expect(refs.form.getValues().criteria.proposalAlignment).toBe('yes')
-        expect(refs.form.getValues().criteria.agreementCompliance).toBeNull()
+        const noRadios = screen.getAllByRole('radio', { name: /^No$/i })
+        await user.click(noRadios[1])
+        expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
     })
 })

@@ -8,6 +8,7 @@ import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
     type AuthenticatedContext,
     type StudyStatus,
+    AuthFailureError,
     assertStatelessEventConsistent,
     authenticate,
     parseDocumentName,
@@ -16,6 +17,20 @@ import {
     studyIdForDocument,
 } from './auth.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
+
+// Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
+// logging when authentication has already failed. Returns null on any error.
+function unsafeJwtSubject(token: string | null | undefined): string | null {
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+        return typeof payload?.sub === 'string' ? payload.sub : null
+    } catch {
+        return null
+    }
+}
 
 function log(event: string, fields: Record<string, unknown> = {}): void {
     process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + '\n')
@@ -144,7 +159,9 @@ const server = new Server({
         } catch (err) {
             log('auth.fail', {
                 documentName,
+                code: err instanceof AuthFailureError ? err.code : null,
                 message: err instanceof Error ? err.message : String(err),
+                clerkUserId: unsafeJwtSubject(token),
             })
             throw err
         }

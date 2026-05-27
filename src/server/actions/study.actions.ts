@@ -6,7 +6,7 @@ import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
@@ -37,10 +37,16 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { Action, z } from './action'
 
-// NOT exported, for internal use by actions in this file
+// NOT exported, for internal use by actions in this file.
+// Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
+// Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
+// stay lifecycle-agnostic. Because soft-delete only applies to DRAFTs and a deleted DRAFT is no longer surfaced
+// on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
+// a known gap.
 function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
+        .where('study.deletedAt', 'is', null)
         .leftJoin(
             // Subquery to get the most recent study job for each study
             (eb) =>
@@ -97,6 +103,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.title',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
+            'study.codeResubmissionNoteDraft',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -191,7 +198,7 @@ export const getStudyAction = new Action('getStudyAction')
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
 export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), role: z.enum(['researcher', 'reviewer']) }))
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
@@ -201,32 +208,49 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ study, params: { studyId }, db, session }) => {
+    .handler(async ({ study, params: { studyId, role }, db, session }) => {
         const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
 
-        const isReviewer = userOrgIds.has(study.orgId)
-        const isResearcher = userOrgIds.has(study.submittedByOrgId)
-
-        if (!isReviewer && !isResearcher) {
-            throw new ActionFailure({ user: 'not a member of the study reviewer or submitter org' })
+        // OTTER-546: scope the ack strictly to the role the agreements page was rendered for.
+        // A user who happens to belong to BOTH the reviewer enclave and the submitting lab
+        // (common in test accounts) would otherwise ack both columns when proceeding from
+        // the researcher view, silently consuming the reviewer's gate and skipping the
+        // Agreements page on their next visit.
+        const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
+        if (!userOrgIds.has(requiredOrgId)) {
+            throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
 
-        if (isReviewer) {
-            await db
-                .updateTable('study')
-                .set({ reviewerAgreementsAckedAt: new Date() })
-                .where('id', '=', studyId)
-                .where('reviewerAgreementsAckedAt', 'is', null)
-                .execute()
+        const column = role === 'reviewer' ? 'reviewerAgreementsAckedAt' : 'researcherAgreementsAckedAt'
+        await db
+            .updateTable('study')
+            .set({ [column]: new Date() })
+            .where('id', '=', studyId)
+            .where(column, 'is', null)
+            .execute()
+    })
+
+export const softDeleteStudyAction = new Action('softDeleteStudyAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .where('deletedAt', 'is', null)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('delete', 'Study')
+    .handler(async ({ db, study, params: { studyId }, session }) => {
+        if (study.status !== 'DRAFT') {
+            throw new ActionFailure({ study: 'only draft studies can be deleted' })
         }
-        if (isResearcher) {
-            await db
-                .updateTable('study')
-                .set({ researcherAgreementsAckedAt: new Date() })
-                .where('id', '=', studyId)
-                .where('researcherAgreementsAckedAt', 'is', null)
-                .execute()
+        if (study.researcherId !== session.user.id) {
+            throw new ActionFailure({ user: 'only the draft author can delete this proposal' })
         }
+        await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', studyId).execute()
+        return { title: study.title }
     })
 
 async function approveJobCode({
@@ -722,9 +746,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         if (wordCount < FEEDBACK_MIN_WORDS) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }
-        if (wordCount > FEEDBACK_MAX_WORDS) {
+        if (wordCount > CODE_REVIEW_FEEDBACK_MAX_WORDS) {
             throw new ActionFailure({
-                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
+                feedback: `Feedback must be ${CODE_REVIEW_FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
             })
         }
 
@@ -812,13 +836,38 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
         return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) =>
-        db
+    .handler(async ({ params: { studyId }, db }) => {
+        // Each code job, in creation order, is its own review round (v1, v2, ...).
+        // Reviewer decisions on a job and the researcher's resubmission note on
+        // that same job share the round number. studyJob has no userId column;
+        // the author of the resubmission note is the user recorded on the
+        // CODE-SUBMITTED status change for that job.
+        const codeJobs = await db
+            .selectFrom('studyJob')
+            .leftJoin('jobStatusChange as submission', (join) =>
+                join.onRef('submission.studyJobId', '=', 'studyJob.id').on('submission.status', '=', 'CODE-SUBMITTED'),
+            )
+            .leftJoin('user as author', 'author.id', 'submission.userId')
+            .select([
+                'studyJob.id as studyJobId',
+                'studyJob.resubmissionNote',
+                'studyJob.createdAt',
+                'submission.userId as authorId',
+                'author.fullName as authorName',
+            ])
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('studyJob.createdAt', 'asc')
+            .execute()
+
+        const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
+
+        const reviewerRows = await db
             .selectFrom('studyReviewComment')
             .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
+                'studyReviewComment.studyJobId',
                 'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
@@ -828,9 +877,48 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             ])
             .where('studyReviewComment.studyId', '=', studyId)
             .where('studyReviewComment.reviewKind', '=', 'CODE')
-            .orderBy('studyReviewComment.createdAt', 'desc')
-            .execute(),
-    )
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .execute()
+
+        const reviewerEntries = reviewerRows.map((row) => ({
+            id: row.id,
+            authorId: row.authorId,
+            entryType: 'REVIEWER-FEEDBACK' as const,
+            decision: row.decision,
+            body: row.body,
+            criteria: row.criteria,
+            createdAt: row.createdAt,
+            authorName: row.authorName,
+            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+        }))
+
+        const noteEntries = codeJobs
+            .filter((j) => j.resubmissionNote != null)
+            .map((j) => ({
+                id: `job-note-${j.studyJobId}`,
+                authorId: j.authorId ?? '',
+                entryType: 'RESUBMISSION-NOTE' as const,
+                decision: null,
+                body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
+                criteria: null,
+                createdAt: j.createdAt,
+                authorName: j.authorName ?? '',
+                version: jobVersion.get(j.studyJobId) ?? null,
+            }))
+
+        return [...reviewerEntries, ...noteEntries].sort((a, b) => {
+            const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            if (createdAtDiff !== 0) return createdAtDiff
+
+            const versionDiff = (b.version ?? 0) - (a.version ?? 0)
+            if (versionDiff !== 0) return versionDiff
+
+            const entryTypeDiff = a.entryType.localeCompare(b.entryType)
+            if (entryTypeDiff !== 0) return entryTypeDiff
+
+            return a.id.localeCompare(b.id)
+        })
+    })
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 

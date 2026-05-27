@@ -2,11 +2,15 @@ import { useCallback, useState } from 'react'
 import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { countWordsFromLexical } from '@/lib/lexical'
 
-export function useReviewFeedback() {
+type UseReviewFeedbackOptions = {
+    maxWords?: number
+}
+
+export function useReviewFeedback({ maxWords = FEEDBACK_MAX_WORDS }: UseReviewFeedbackOptions = {}) {
     const [value, setValue] = useState('')
     const [wordCount, setWordCount] = useState(0)
 
-    const isValid = wordCount >= FEEDBACK_MIN_WORDS && wordCount <= FEEDBACK_MAX_WORDS
+    const isValid = wordCount >= FEEDBACK_MIN_WORDS && wordCount <= maxWords
 
     const onChange = useCallback((json: string) => {
         setValue(json)
@@ -18,7 +22,7 @@ export function useReviewFeedback() {
         onChange,
         wordCount,
         minWords: FEEDBACK_MIN_WORDS,
-        maxWords: FEEDBACK_MAX_WORDS,
+        maxWords,
         isValid,
     }
 }

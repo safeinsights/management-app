@@ -1,14 +1,16 @@
 'use client'
 
-import { Alert, Group, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Anchor, Group, Loader, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { CaretRight } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useQuery } from '@/common'
-import { CodeViewer } from '@/components/code-viewer'
+import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
-import type { StudyJobFileType } from '@/database/types'
+import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
+import type { StudyReviewWithMeta } from '@/server/db/queries'
+import type { CodeFile } from './study-code-files'
 
-export type CodeFile = { name: string; fileType: StudyJobFileType }
+export type { CodeFile } from './study-code-files'
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
@@ -43,28 +45,107 @@ function AiSummaryBody({ isVisible, summary }: { isVisible: boolean; summary: st
     )
 }
 
-type AiSummaryProps = { summary: string | null }
+function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
+    return (
+        <CaretRight
+            size={12}
+            weight="bold"
+            style={{
+                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
+                transition: 'transform 200ms ease',
+            }}
+        />
+    )
+}
 
-export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
-    const { isExpanded, toggle } = useAiSummaryToggle()
+const REVIEW_POLL_INTERVAL_MS = 5_000
+
+// The review row is written by a deferred background task triggered at code
+// submission (onStudyReviewRequested). Seed with the server-fetched value and
+// poll until a row lands so a reviewer who opens the page mid-generation sees
+// the summary appear without a manual refresh. A row — even one with a blank
+// codeExplanation — is terminal and stops the poll.
+function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+    return useQuery({
+        queryKey: ['study-review', studyJobId],
+        queryFn: () => getStudyReviewAction({ studyJobId }),
+        initialData: initialReview,
+        refetchInterval: (query) => {
+            if (query.state.error) return false
+            if (query.state.data != null) return false
+            return REVIEW_POLL_INTERVAL_MS
+        },
+    })
+}
+
+function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onToggle: () => void }) {
     const toggleLabel = isExpanded ? 'Hide full AI summary' : 'View full AI summary'
-    const hasSummary = !!summary
+    return (
+        <Anchor
+            component="button"
+            type="button"
+            onClick={onToggle}
+            size="sm"
+            fw={700}
+            display="inline-flex"
+            w="fit-content"
+            style={{ alignItems: 'center', gap: 4 }}
+            data-testid="ai-summary-toggle"
+            aria-expanded={isExpanded}
+        >
+            {toggleLabel}
+            <ToggleChevron isExpanded={isExpanded} />
+        </Anchor>
+    )
+}
 
-    const placeholder = (
+function AiSummaryPending() {
+    return (
+        <Group gap="xs" data-testid="ai-summary-pending">
+            <Loader size="sm" />
+            <Text c="dimmed" size="sm">
+                Review in progress…
+            </Text>
+        </Group>
+    )
+}
+
+function AiSummaryEmpty() {
+    return (
         <Text size="sm" c="dimmed" data-testid="ai-summary-empty">
             No AI summary available yet.
         </Text>
     )
-    const content = (
+}
+
+type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: () => void }
+
+function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
+    return (
         <>
-            <AiSummaryBody isVisible={isExpanded} summary={summary ?? ''} />
-            <UnstyledButton onClick={toggle} data-testid="ai-summary-toggle">
-                <Text size="sm" c="blue.6" td="underline">
-                    {toggleLabel}
-                </Text>
-            </UnstyledButton>
+            <AiSummaryBody isVisible={isExpanded} summary={summary} />
+            <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
+}
+
+type AiSummaryProps = { studyJobId: string; initialReview: StudyReviewWithMeta | null }
+
+export function AiSummaryCollapsible({ studyJobId, initialReview }: AiSummaryProps) {
+    const { isExpanded, toggle } = useAiSummaryToggle()
+    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
+    const summary = review?.report.codeExplanation ?? null
+
+    // A resolved poll (row landed, or errored out) is terminal — show the
+    // summary if present, otherwise the empty state. Until then we're still
+    // generating, so show the spinner.
+    const isResolved = error != null || review != null
+
+    const renderBody = () => {
+        if (!isResolved) return <AiSummaryPending />
+        if (!summary) return <AiSummaryEmpty />
+        return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+    }
 
     return (
         <Stack gap="xs" data-testid="ai-summary">
@@ -72,14 +153,14 @@ export function AiSummaryCollapsible({ summary }: AiSummaryProps) {
             <Text fw={600} size="sm">
                 Overview
             </Text>
-            {hasSummary ? content : placeholder}
+            {renderBody()}
         </Stack>
     )
 }
 
-function useStudyCodeViewer(files: CodeFile[]) {
+function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     const [activeFileName, setActiveFileName] = useState<string | null>(files[0]?.name ?? null)
-    const [isExpanded, setIsExpanded] = useState(true)
+    const [isExpanded, setIsExpanded] = useState(initialExpanded)
     const activeFile = files.find((f) => f.name === activeFileName) ?? files[0] ?? null
     return {
         activeFile,
@@ -100,12 +181,12 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
             px="md"
             py="xs"
             style={{
-                borderBottom: isActive ? '2px solid var(--mantine-color-blue-6)' : '2px solid transparent',
-                fontWeight: isActive ? 700 : 400,
+                backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
+                borderRadius: 0,
                 whiteSpace: 'nowrap',
             }}
         >
-            <Text size="sm" component="span">
+            <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
                 {display}
             </Text>
         </UnstyledButton>
@@ -113,16 +194,19 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
 }
 
 function FileTabsRow({
+    isVisible,
     visible,
     activeFileName,
     onSelect,
     hiddenCount,
 }: {
+    isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
     hiddenCount: number
 }) {
+    if (!isVisible) return null
     const tabs = visible.map((file) => (
         <FileTab
             key={file.name}
@@ -133,9 +217,18 @@ function FileTabsRow({
     ))
     const overflow =
         hiddenCount > 0 ? (
-            <Text size="sm" c="charcoal.7" data-testid="study-code-files-overflow" style={{ whiteSpace: 'nowrap' }}>
-                +{hiddenCount} more files
-            </Text>
+            <Group
+                gap={4}
+                wrap="nowrap"
+                align="center"
+                data-testid="study-code-files-overflow"
+                style={{ whiteSpace: 'nowrap' }}
+            >
+                <Text size="sm" c="charcoal.7" component="span">
+                    +{hiddenCount} more files
+                </Text>
+                <CaretRight size={12} weight="bold" />
+            </Group>
         ) : null
 
     return (
@@ -191,43 +284,78 @@ function StudyCodeBody({
     )
 }
 
+export type StudyCodeToggleLabels = { expand: string; collapse: string }
+
+const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View full study code',
+    collapse: 'Hide full study code',
+}
+
 function StudyCodeToggle({
     isVisible,
     isExpanded,
     onClick,
+    labels,
 }: {
     isVisible: boolean
     isExpanded: boolean
     onClick: () => void
+    labels: StudyCodeToggleLabels
 }) {
     if (!isVisible) return null
-    const label = isExpanded ? 'Hide full study code' : 'View full study code'
+    const label = isExpanded ? labels.collapse : labels.expand
     return (
-        <UnstyledButton onClick={onClick} data-testid="study-code-toggle">
-            <Text size="sm" c="blue.6" td="underline">
-                {label}
-            </Text>
-        </UnstyledButton>
+        <Anchor
+            component="button"
+            type="button"
+            onClick={onClick}
+            size="sm"
+            fw={700}
+            display="inline-flex"
+            w="fit-content"
+            style={{ alignItems: 'center', gap: 4 }}
+            data-testid="study-code-toggle"
+            aria-expanded={isExpanded}
+        >
+            {label}
+            <ToggleChevron isExpanded={isExpanded} />
+        </Anchor>
     )
 }
 
-type StudyCodeViewerProps = { studyJobId: string; files: CodeFile[] }
+type StudyCodeViewerProps = {
+    studyJobId: string
+    files: CodeFile[]
+    initialExpanded?: boolean
+    toggleLabels?: StudyCodeToggleLabels
+}
 
-export function StudyCodeViewer({ studyJobId, files }: StudyCodeViewerProps) {
-    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files)
+export function StudyCodeViewer({
+    studyJobId,
+    files,
+    initialExpanded = true,
+    toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+}: StudyCodeViewerProps) {
+    const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hiddenCount } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
     return (
         <Stack gap="sm" data-testid="study-code-viewer">
             <FileTabsRow
+                isVisible={isExpanded}
                 visible={visible}
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}
                 hiddenCount={hiddenCount}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
-            <StudyCodeToggle isVisible={hasFiles} isExpanded={isExpanded} onClick={toggleExpanded} />
+            <StudyCodeToggle
+                isVisible={hasFiles}
+                isExpanded={isExpanded}
+                onClick={toggleExpanded}
+                labels={toggleLabels}
+            />
         </Stack>
     )
 }

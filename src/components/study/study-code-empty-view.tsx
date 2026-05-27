@@ -19,6 +19,7 @@ interface StudyCodeEmptyViewProps {
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     starterFiles: StarterFile[]
+    showLaunchIde?: boolean
 }
 
 export function StudyCodeEmptyView({
@@ -28,6 +29,7 @@ export function StudyCodeEmptyView({
     uploadFiles,
     isUploading,
     starterFiles,
+    showLaunchIde = true,
 }: StudyCodeEmptyViewProps) {
     const openRef = useRef<() => void>(null)
     const starterLink = starterFiles[0]
@@ -35,36 +37,40 @@ export function StudyCodeEmptyView({
     return (
         <Stack gap="md">
             <Text size="sm">
-                To prepare your code, upload existing files or write new code in our Integrated Development Environment
-                (IDE). Once ready, submit your files to the Data Organization to run against their dataset.
+                To prepare your code, upload existing files
+                {showLaunchIde ? ' or write new code in our Integrated Development Environment (IDE)' : ''}. Once ready,
+                submit your files to the Data Organization to run against their dataset.
             </Text>
 
-            <Paper bg="violet.0" p="lg" radius="md">
-                <Stack gap="sm">
-                    <Text fw={700}>Write and test your code in IDE (recommended)</Text>
-                    <Text size="sm" c="dimmed">
-                        IDE is pre-configured to help you write your code and test it against sample data. It will open
-                        in a new tab and you can write your code there. All files created in the IDE will populate here.
-                    </Text>
-                    <Box>
-                        <LaunchIdeButton
-                            onClick={launchWorkspace}
-                            isLaunching={isLaunching}
-                            launchError={launchError}
-                            variant="cta"
-                        />
-                    </Box>
-                    <Text size="sm">
-                        <Text span fw={700}>
-                            Note:{' '}
+            {showLaunchIde && (
+                <Paper bg="violet.0" p="lg" radius="md">
+                    <Stack gap="sm">
+                        <Text fw={700}>Write and test your code in IDE (recommended)</Text>
+                        <Text size="sm" c="dimmed">
+                            IDE is pre-configured to help you write your code and test it against sample data. It will
+                            open in a new tab and you can write your code there. All files created in the IDE will
+                            populate here.
                         </Text>
-                        After creating or editing files in the IDE, please return here to submit your code to the Data
-                        Organization.
-                    </Text>
-                </Stack>
-            </Paper>
+                        <Box>
+                            <LaunchIdeButton
+                                onClick={launchWorkspace}
+                                isLaunching={isLaunching}
+                                launchError={launchError}
+                                variant="cta"
+                            />
+                        </Box>
+                        <Text size="sm">
+                            <Text span fw={700}>
+                                Note:{' '}
+                            </Text>
+                            After creating or editing files in the IDE, please return here to submit your code to the
+                            Data Organization.
+                        </Text>
+                    </Stack>
+                </Paper>
+            )}
 
-            <Divider label="OR" labelPosition="center" my="sm" />
+            {showLaunchIde && <Divider label="OR" labelPosition="center" my="sm" />}
 
             <FileDropOverlay onDrop={uploadFiles} disabled={isUploading} showHelperText={false} openRef={openRef}>
                 <Paper withBorder p="lg" radius="md">

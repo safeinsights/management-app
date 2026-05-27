@@ -7,11 +7,12 @@ import { stringifyJson } from '@/lib/string'
 import { usePopover } from '@/hooks/use-popover'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
+import { type Submitted } from '@/schema/study'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
 import { ProposalStepHeader } from './proposal-step-header'
 
 type ProposalRequestProps = {
-    study: SelectedStudy
+    study: Submitted<SelectedStudy>
     orgSlug: string
     stepLabel: string
     heading: string

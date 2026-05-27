@@ -112,7 +112,7 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
 // Code-review page helpers shared by both reviewer contexts.
 // ---------------------------------------------------------------------------
 
-// The collab UI (`code-review-feedback-section`) is gated behind
+// The collab UI (`code-review-section`) is gated behind
 // `useCodeReviewCollaborationFeatureFlag` which requires spy mode = on.
 // Spy mode is pure React state toggled by clicking the `𝜋` symbol fixed
 // at the bottom of every page (no localStorage), so each fresh browser
@@ -150,7 +150,7 @@ async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
 }
 
 const feedbackEditorIn = (page: Page) =>
-    page.getByTestId('code-review-feedback-section').locator('[contenteditable="true"]').first()
+    page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
 
 // Hocuspocus auth + Y.Doc sync can take 10-20s in dev with two concurrent
 // contexts; the inner contenteditable only appears after the editor's phase
@@ -207,7 +207,7 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             await enableSpyMode(ctxA.page)
             await ctxA.page.getByRole('button', { name: /Proceed to Step 3/i }).click()
             await ctxA.page.waitForURL(/\/review\?from=agreements-proceed$/)
-            await expect(ctxA.page.getByTestId('code-review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
+            await expect(ctxA.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('reviewer ctxB opens the code-review page directly', async () => {
@@ -217,7 +217,7 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
             await enableSpyMode(ctxB.page)
-            await expect(ctxB.page.getByTestId('code-review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
+            await expect(ctxB.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('feedback typed in ctxA syncs to ctxB in real time', async () => {
@@ -234,7 +234,7 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             })
         })
 
-        await test.step('ctxA selects Yes on Proposal alignment; ctxB sees the selection; ctxB clears; ctxA sees the clear', async () => {
+        await test.step('ctxA selects Yes on Proposal alignment; ctxB sees the selection', async () => {
             // Sanity: both contexts still in collab view (not legacy/redirect).
             await expect(ctxA!.page.getByTestId('code-evaluation-section')).toBeVisible()
             await expect(ctxB!.page.getByTestId('code-evaluation-section')).toBeVisible()
@@ -245,9 +245,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
 
             const radioYesB = criterionRadioIn(ctxB!.page, 'proposalAlignment', 'yes')
             await expect(radioYesB).toBeChecked({ timeout: E2E_TIMEOUT })
-
-            await ctxB!.page.getByTestId('criteria-clear-proposalAlignment').click()
-            await expect(radioYesA).not.toBeChecked({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('ctxA completes criteria + decision, submits; ctxB is redirected with the submission toast', async () => {

@@ -53,12 +53,13 @@ For developing locally without docker compose, you will need to:
 3. Install dependencies:
 
     ```bash
-    npm install
+    corepack enable
+    pnpm install
     ```
 
 4. Run the development server:
     ```bash
-    npm run dev
+    pnpm run dev
     ```
 
 ## Roles and screens
@@ -95,13 +96,13 @@ To develop locally, you'll need to create your own SI Staff admin account:
 2. Run the admin user creation script:
 
     ```bash
-    npm run create-admin-user
+    pnpm run create-admin-user
     ```
 
     Or if using Docker (with `docker compose up` running):
 
     ```bash
-    docker compose exec mgmnt-app npm run create-admin-user
+    docker compose exec mgmnt-app pnpm run create-admin-user
     ```
 
 3. Follow the interactive prompts to enter your email, password, and name
@@ -121,9 +122,9 @@ To develop locally, you'll need to create your own SI Staff admin account:
 
 ### Database Management 🗄️
 
-- `npx kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
-- `npm run db:migrate` - Run database migrations
-- `npx kysely migrate:down -1` - Rollback the last applied migration
+- `pnpm exec kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
+- `pnpm run db:migrate` - Run database migrations
+- `pnpm exec kysely migrate:down -1` - Rollback the last applied migration
 
 ### Database Visualization with DBGate 📊
 
@@ -149,21 +150,21 @@ openssl rsa -pubout -in private_key.pem -out public_key.pem
 ### Unit Testing
 
 ```bash
-npm run test:unit
+pnpm run test:unit
 ```
 
 ### E2E Testing with Playwright 🎭
 
 To run playwright tests locally, you'll need to install playwright:
 
-- `npm install`
-- `npx playwright install`
+- `pnpm install`
+- `pnpm exec playwright install`
 
-And then run playwright: `npx playwright test --ui` to view status, or run `npx playwright test --headed` to interact with browser as it runs.
+And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
 
-If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `npx playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
+If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
-If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
+If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
 
 ### trivy vulnerability scanner
 
@@ -190,10 +191,10 @@ The new way to deploy is from the IaC repo, run:
 There are a few CLI applications to debug the API end endpoints:
 
 ```bash
-npx tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
-npx tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
-npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -r <path to file to upload as results> -l <path of file to upload as logs>
-npx tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
+pnpm exec tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
+pnpm exec tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
+pnpm exec tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -r <path to file to upload as results> -l <path of file to upload as logs>
+pnpm exec tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
 ```
 
 The scripts will use default values tailored for local development:
@@ -204,9 +205,9 @@ The scripts will use default values tailored for local development:
 
 Examples:
 
-- view runnable jobs details (useful for obtaining job uuids): `npx tsx bin/debug/fetch-runnable.ts`
-- set a job as running: `npx tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
-- upload results: `npx tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
+- view runnable jobs details (useful for obtaining job uuids): `pnpm exec tsx bin/debug/fetch-runnable.ts`
+- set a job as running: `pnpm exec tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
+- upload results: `pnpm exec tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
 
 **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
