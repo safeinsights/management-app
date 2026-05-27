@@ -504,17 +504,17 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         await viewStudyDetails(page, studyTitle)
         studyId = extractStudyIdFromUrl(page)
         await goto(page, `/openstax-lab/study/${studyId}/view`)
-        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+        // PENDING-REVIEW + CODE-SUBMITTED renders CodePostSubmissionView (OTTER-563).
+        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
     })
 
     await test.step('researcher navigates back via previous buttons', async () => {
-        // Currently on the CodeOnlyView (study details page)
-        // Click Previous → agreements redirects to /view (study is PENDING-REVIEW, not APPROVED)
-        const previousLink = page.getByRole('link', { name: /Previous/i })
-        await previousLink.scrollIntoViewIfNeeded()
-        await previousLink.click()
-        await page.waitForURL(/\/view/)
+        // CodePostSubmissionView has a "Back" link that returns to the agreements page.
+        const backLink = page.getByRole('link', { name: /^Back$/i })
+        await backLink.scrollIntoViewIfNeeded()
+        await backLink.click()
+        await page.waitForURL(/\/agreements\?from=previous/)
     })
 
     await test.step('reviewer approves code', async () => {
@@ -570,8 +570,9 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
-        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+        // PENDING-REVIEW + CODE-SUBMITTED renders CodePostSubmissionView (OTTER-563).
+        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
