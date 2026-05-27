@@ -24,6 +24,11 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
             queryClient.invalidateQueries({ queryKey: ['agentContext', name, orgId] })
+            notifications.show({
+                color: 'green',
+                title: 'Context saved',
+                message: `Updated ${CONTEXT_LABELS[name].label}.`,
+            })
         },
         onError: (error) => {
             notifications.show({
@@ -57,7 +62,7 @@ function AgentContextEditor({ name, orgId, initialContent }: ContextProps & { in
                     {...form.getInputProps('content')}
                 />
                 <Group justify="flex-end">
-                    <Button type="submit" loading={isPending} disabled={!form.isDirty()}>
+                    <Button type="submit" loading={isPending}>
                         Submit
                     </Button>
                 </Group>

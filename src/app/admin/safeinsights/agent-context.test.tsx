@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { db, mockSessionWithTestData, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import { notifications } from '@mantine/notifications'
 import { AgentContext } from './agent-context'
 
 describe('AgentContext', () => {
@@ -22,16 +23,27 @@ describe('AgentContext', () => {
         expect(await screen.findByLabelText('Python context')).toHaveValue('')
     })
 
-    it('disables the Submit button until content has changed', async () => {
+    it('shows a success notification after saving', async () => {
+        const showSpy = vi.spyOn(notifications, 'show')
         renderWithProviders(<AgentContext />)
 
-        const submitButtons = await screen.findAllByRole('button', { name: 'Submit' })
-        expect(submitButtons[0]).toBeDisabled()
-
         const textarea = await screen.findByLabelText('System context')
-        await userEvent.type(textarea, 'new system content')
+        await userEvent.type(textarea, 'new content')
 
-        expect(submitButtons[0]).not.toBeDisabled()
+        const submitButton = (await screen.findAllByRole('button', { name: 'Submit' }))[0]
+        await userEvent.click(submitButton)
+
+        await waitFor(() => {
+            expect(showSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    color: 'green',
+                    title: 'Context saved',
+                    message: 'Updated System context.',
+                }),
+            )
+        })
+
+        showSpy.mockRestore()
     })
 
     it('saves content to the DB on submit', async () => {
