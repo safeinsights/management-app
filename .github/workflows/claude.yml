@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
-          # SECURITY (OTTER-545): the claude-code-action can run package-manager
+          # SECURITY (OTTER-545): the claude-code-action can run pnpm
           # and other PR-controlled tooling against the checked-out tree, so
           # we must not leave a usable GITHUB_TOKEN on disk for a malicious
           # install script to read.

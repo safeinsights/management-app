@@ -367,7 +367,7 @@ importers:
         specifier: ^3.893.0
         version: 3.1049.0
       '@clerk/backend':
-        specifier: ^2.33.2
+        specifier: ^2.33.4
         version: 2.33.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@hocuspocus/extension-database':
         specifier: ^3.4.4
