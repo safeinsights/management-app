@@ -94,7 +94,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                         Please confirm you are ready to resubmit your study code. Further edits are not permitted once
                         submitted.
                     </Text>
-                    <Group justify="flex-end" mt="md">
+                    <Group justify="flex-start" mt="md">
                         <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSubmitting}>
                             Cancel
                         </Button>
