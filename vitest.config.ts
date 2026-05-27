@@ -1,14 +1,16 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
 
 const IS_CI = !!process.env.CI
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react(), tsconfigPaths()],
+    plugins: [react()],
     resolve: {
+        // Resolve tsconfig.json `paths` (@/*, @/tests/*) natively. Vite 8 added
+        // this, replacing the vite-tsconfig-paths plugin.
+        tsconfigPaths: true,
         // Force single Lexical/Yjs module instances across the test tree.
         // Without this, services/editor's nested node_modules and the root
         // node_modules load separate constructors, which breaks identity checks
