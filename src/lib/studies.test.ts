@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import { decisionTimestampForProposalHeader } from './studies'
+import { decisionTimestampForProposalHeader, draftHasStep2Progress } from './studies'
 
 const submittedAt = new Date('2025-04-16T10:00:00Z')
 const approvedAt = new Date('2026-04-20T10:00:00Z')
@@ -120,4 +120,41 @@ describe('decisionTimestampForProposalHeader', () => {
             'submittedAt is required for proposal header timestamp',
         )
     })
+})
+
+const emptyDraftStep2 = {
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
+}
+
+describe('draftHasStep2Progress', () => {
+    it('returns false when no Step 2 field has been written', () => {
+        expect(draftHasStep2Progress(emptyDraftStep2)).toBe(false)
+    })
+
+    it('returns false when datasets is an empty array', () => {
+        // An empty array means "explicitly cleared" rather than "never touched";
+        // until a dataset is actually picked the researcher has nothing to resume on Step 2.
+        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: [] })).toBe(false)
+    })
+
+    it('returns true once a PI user has been selected', () => {
+        expect(draftHasStep2Progress({ ...emptyDraftStep2, piUserId: 'user-123' })).toBe(true)
+    })
+
+    it('returns true once a dataset has been picked', () => {
+        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: ['students'] })).toBe(true)
+    })
+
+    it.each([['researchQuestions'], ['projectSummary'], ['impact'], ['additionalNotes']] as const)(
+        'returns true once the %s lexical field has been saved',
+        (field) => {
+            const lexicalJson = { root: { children: [{ type: 'text', text: 'hi' }] } }
+            expect(draftHasStep2Progress({ ...emptyDraftStep2, [field]: lexicalJson })).toBe(true)
+        },
+    )
 })
