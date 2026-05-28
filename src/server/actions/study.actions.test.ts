@@ -76,13 +76,14 @@ describe('Study Actions', () => {
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId', 'latestReviewerId'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('APPROVED')
         expect(updatedStudy.approvedAt).toBeTruthy()
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(updatedStudy.latestReviewerId).toBe(user.id)
     })
 
     it('successfully approves a python language study proposal', async () => {
@@ -231,13 +232,14 @@ describe('Study Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId', 'latestReviewerId'])
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
             expect(updatedStudy.status).toBe('REJECTED')
             expect(updatedStudy.rejectedAt).toBeTruthy()
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
+            expect(updatedStudy.latestReviewerId).toBe(user.id)
 
             await waitFor(async () => {
                 expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
@@ -335,13 +337,14 @@ describe('Study Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId', 'latestReviewerId'])
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
             expect(updatedStudy.status).toBe('REJECTED')
             expect(updatedStudy.rejectedAt).toBeTruthy()
             expect(updatedStudy.approvedAt).toBeNull()
             expect(updatedStudy.reviewerId).toBe(user.id)
+            expect(updatedStudy.latestReviewerId).toBe(user.id)
 
             await waitFor(async () => {
                 expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({

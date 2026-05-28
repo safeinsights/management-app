@@ -16,7 +16,6 @@ const RESEARCHER_COLUMNS: ColumnDef[] = [
     { id: 'details', header: 'Study Details' },
 ]
 
-// Reviewer org columns (6) - has "Reviewed By" which shows orgSlug
 const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'lastUpdated', header: 'Last updated' },
