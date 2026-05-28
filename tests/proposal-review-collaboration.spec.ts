@@ -58,7 +58,8 @@ async function createProposalAsResearcher(page: Page, studyTitle: string): Promi
     await piSelect.click()
     await page.getByRole('option').first().click()
 
-    await page.getByRole('button', { name: /Submit study proposal/i }).click()
+    await page.getByRole('button', { name: /Submit initial request/i }).click()
+    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
     await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     await page.getByRole('link', { name: /Go to dashboard/i }).click()
     await page.waitForURL('**/dashboard')

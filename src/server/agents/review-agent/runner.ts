@@ -1,10 +1,11 @@
-import { db, jsonArrayFrom } from '@/database'
+import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 // Written when the API key is missing, before content assembly. This means a
 // no-code-files study with a missing key gets the placeholder too — fine, since
@@ -58,38 +59,6 @@ function lexicalFieldToText(value: unknown): string {
     return extractTextFromLexical(typeof value === 'string' ? value : JSON.stringify(value))
 }
 
-async function fetchDataDocs(orgId: string): Promise<string> {
-    const sources = await db
-        .selectFrom('orgDataSource')
-        .select((eb) => [
-            'name',
-            'description',
-            jsonArrayFrom(
-                eb
-                    .selectFrom('orgDataSourceUrl')
-                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
-                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id'),
-            ).as('urls'),
-        ])
-        .where('orgId', '=', orgId)
-        .execute()
-
-    const sections: string[] = []
-    for (const source of sources) {
-        const lines: string[] = [`### ${source.name}`]
-        if (source.description) lines.push(source.description)
-
-        for (const url of source.urls) {
-            if (url.url !== null) {
-                lines.push(`Documentation: ${url.url} (${url.description || 'No description provided'})`)
-            }
-        }
-
-        sections.push(lines.join('\n'))
-    }
-    return sections.length > 0 ? sections.join('\n\n') : PLACEHOLDER
-}
-
 async function assembleReviewContent(studyJobId: string): Promise<ReviewContent | null> {
     const job = await db
         .selectFrom('studyJob')
@@ -123,7 +92,7 @@ async function assembleReviewContent(studyJobId: string): Promise<ReviewContent 
         return null
     }
 
-    const dataDocs = await fetchDataDocs(job.orgId)
+    const dataDocs = await generateDataSourcesContextString(job.orgId)
 
     return {
         proposal: proposalParts.join('\n\n') || PLACEHOLDER,

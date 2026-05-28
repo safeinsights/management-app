@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
-import { db, insertTestDataSource, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
+import { db, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
 import { getConfigValue } from '@/server/config'
 import type { AnalysisReport, ReviewContent } from './types'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 vi.mock('./agent', () => ({
     generateAnalysis: vi.fn(),
@@ -19,9 +20,14 @@ vi.mock('@/server/config', () => ({
     getConfigValue: vi.fn(),
 }))
 
+vi.mock('@/server/utils', () => ({
+    generateDataSourcesContextString: vi.fn(),
+}))
+
 const generateAnalysisMock = generateAnalysis as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
 const getConfigValueMock = getConfigValue as unknown as Mock
+const generateDataSourcesContextStringMock = generateDataSourcesContextString as unknown as Mock
 
 const stubReport: AnalysisReport = {
     proposalSummary: 'summary',
@@ -35,6 +41,7 @@ describe('generateAndStoreStudyReview', () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
         getConfigValueMock.mockResolvedValue('test-api-key')
         fetchFileContentsMock.mockResolvedValue(new Blob(['print("hi")']))
+        generateDataSourcesContextStringMock.mockResolvedValue('Data sources context')
     })
 
     afterEach(() => {
@@ -61,19 +68,10 @@ describe('generateAndStoreStudyReview', () => {
             })
             .execute()
 
-        await insertTestDataSource({
-            orgId: org.id,
-            name: 'Patients DB',
-            description: 'Patient records',
-            urls: [
-                { url: 'https://docs.example.com/patients', description: 'Schema reference' },
-                { url: 'https://docs.example.com/codes', description: 'ICD codes' },
-            ],
-        })
-
         await generateAndStoreStudyReview(job.id)
 
         expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        expect(generateDataSourcesContextStringMock).toHaveBeenCalledOnce()
         const [config, content] = generateAnalysisMock.mock.calls[0] as [{ apiKey: string }, ReviewContent]
         expect(config.apiKey).toBe('test-api-key')
 
@@ -85,14 +83,7 @@ describe('generateAndStoreStudyReview', () => {
         expect(content.codeFiles).toEqual({ 'main.r': 'print("hi")' })
         expect(fetchFileContentsMock).toHaveBeenCalledWith('studies/main.r')
 
-        expect(content.referenceDocs.dataDocs).toBe(
-            [
-                '### Patients DB',
-                'Patient records',
-                'Documentation: https://docs.example.com/patients (Schema reference)',
-                'Documentation: https://docs.example.com/codes (ICD codes)',
-            ].join('\n'),
-        )
+        expect(content.referenceDocs.dataDocs).toBe('Data sources context')
 
         expect(content.referenceDocs.requirements).toBe(PLACEHOLDER)
         expect(content.referenceDocs.brcDocs).toBe(PLACEHOLDER)
@@ -104,58 +95,6 @@ describe('generateAndStoreStudyReview', () => {
             .where('studyJobId', '=', job.id)
             .executeTakeFirst()
         expect(stored?.studyJobId).toBe(job.id)
-    })
-
-    it('handles null field in data doc URLs in an expected manner', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'main.r',
-                path: 'studies/main.r',
-                fileType: 'MAIN-CODE',
-            })
-            .execute()
-
-        await insertTestDataSource({
-            orgId: org.id,
-            name: 'Patients DB',
-            description: 'Patient records',
-            urls: [
-                { url: 'https://docs.example.com/patients', description: null },
-                { url: null, description: null },
-            ],
-        })
-
-        await generateAndStoreStudyReview(job.id)
-
-        expect(generateAnalysisMock).toHaveBeenCalledOnce()
-        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
-
-        expect(content.referenceDocs.dataDocs).toBe(
-            [
-                '### Patients DB',
-                'Patient records',
-                'Documentation: https://docs.example.com/patients (No description provided)',
-            ].join('\n'),
-        )
-    })
-
-    it('falls back to a placeholder when the org has no data sources', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await db
-            .insertInto('studyJobFile')
-            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
-            .execute()
-
-        await generateAndStoreStudyReview(job.id)
-
-        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
-        expect(content.referenceDocs.dataDocs).toBe('(none provided)')
     })
 
     it('skips when a study review already exists for the job', async () => {
