@@ -545,7 +545,7 @@ async function claimInitialProposalReviewStudy({
 }) {
     const study = await db
         .updateTable('study')
-        .set({ reviewerId: userId, latestReviewerId: userId })
+        .set({ reviewerId: userId })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
         .where('approvedAt', 'is', null)
