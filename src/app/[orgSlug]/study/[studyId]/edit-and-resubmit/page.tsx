@@ -23,7 +23,7 @@ export default async function StudyEditAndResubmitRoute(props: {
     // OTTER-497: any member of the submitting lab may edit/resubmit a
     // change-requested proposal, so gate on lab membership (not the original
     // author). getStudyAction only requires `view Study`, which reviewer-org
-    // users also hold, so this explicit lab check is required — server writes
+    // users also hold, so this explicit lab check is required. Server writes
     // are scoped the same way.
     const session = await sessionFromClerk()
     if (!session) return notFound()

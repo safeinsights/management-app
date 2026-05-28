@@ -219,6 +219,76 @@ describe('resubmitProposalAction', () => {
         // the note is attributed to whoever actually resubmitted, not the owner
         expect(comment.authorId).toBe(teammate.id)
     })
+
+    it('blocks further edits and a second resubmission once any member has resubmitted', async () => {
+        const { org, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-resubmit-sequential',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        const loginAs = (user: { id: string; clerkId: string; email: string | null }) =>
+            mockClerkSession({
+                userId: user.id,
+                clerkUserId: user.clerkId,
+                email: user.email ?? undefined,
+                orgSlug: org.slug,
+                orgId: org.id,
+                orgType: 'lab',
+            })
+
+        // teammate B resubmits first
+        const { user: teammateB } = await insertTestUser({ org })
+        loginAs(teammateB)
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted by B' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        // a third member C now finds the study already submitted (PENDING-REVIEW)
+        const { user: teammateC } = await insertTestUser({ org })
+        loginAs(teammateC)
+
+        // editing is no longer allowed
+        const editResult = await onUpdateClarifiedProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Late edit by C' },
+        })
+        expect('error' in editResult).toBe(true)
+
+        // and a second resubmission is rejected
+        const resubmitResult = await resubmitProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Second resubmit by C' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+        expect('error' in resubmitResult).toBe(true)
+
+        // the study reflects only B's resubmission, and exactly one note was recorded
+        const after = await db
+            .selectFrom('study')
+            .select(['status', 'title'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.status).toBe('PENDING-REVIEW')
+        expect(after.title).toBe('Resubmitted by B')
+
+        const noteCount = await db
+            .selectFrom('studyProposalComment')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'RESUBMISSION-NOTE')
+            .executeTakeFirstOrThrow()
+        expect(Number(noteCount.count)).toBe(1)
+    })
 })
 
 describe('onUpdateClarifiedProposalAction', () => {

@@ -646,7 +646,7 @@ const resubmissionNoteParam = z
     })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click — auto-save is intentionally out of scope for OTTER-521). CASL's
+// click; auto-save is intentionally out of scope for OTTER-521). CASL's
 // `permit('update', 'Study')` is unconditional for any researcher, so the
 // `submittedByOrgId` lab filter below is load-bearing: it scopes writes to
 // members of the study's submitting lab (OTTER-497 allows any RL member to
