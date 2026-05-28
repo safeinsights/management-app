@@ -1,7 +1,14 @@
 // OTTER-521: DB-backed tests for resubmitProposalAction and
 // onUpdateClarifiedProposalAction. Uses the studyProposalComment table that
 // already exists on main (migration 1776200000001).
-import { actionResult, db, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    db,
+    insertTestStudyJobData,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { onUpdateClarifiedProposalAction, resubmitProposalAction } from '@/server/actions/study-request'
 
@@ -161,6 +168,57 @@ describe('resubmitProposalAction', () => {
         expect(unchanged.title).toBe('Other lab study')
         expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
+
+    it('allows any member of the submitting lab to resubmit, not just the original researcher', async () => {
+        const { org, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-resubmit-sameorg',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        // a second researcher in the same lab takes over the resubmission
+        const { user: teammate } = await insertTestUser({ org })
+        mockClerkSession({
+            userId: teammate.id,
+            clerkUserId: teammate.clerkId,
+            email: teammate.email ?? undefined,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'lab',
+        })
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted by teammate' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status', 'title', 'researcherId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('PENDING-REVIEW')
+        expect(updated.title).toBe('Resubmitted by teammate')
+        // owner is preserved: researcherId stays the original creator
+        expect(updated.researcherId).toBe(ownerA.id)
+
+        const comment = await db
+            .selectFrom('studyProposalComment')
+            .select(['authorId', 'entryType'])
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(comment.entryType).toBe('RESUBMISSION-NOTE')
+        // the note is attributed to whoever actually resubmitted, not the owner
+        expect(comment.authorId).toBe(teammate.id)
+    })
 })
 
 describe('onUpdateClarifiedProposalAction', () => {
@@ -189,7 +247,7 @@ describe('onUpdateClarifiedProposalAction', () => {
         expect(after.status).toBe('CHANGE-REQUESTED')
     })
 
-    it('does not modify a study that is not in CHANGE-REQUESTED status', async () => {
+    it('rejects edits to a study that is not in CHANGE-REQUESTED status', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-4', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -198,14 +256,79 @@ describe('onUpdateClarifiedProposalAction', () => {
             title: 'Original',
         })
 
-        actionResult(
-            await onUpdateClarifiedProposalAction({
-                studyId: study.id,
-                studyInfo: { title: 'Should-not-apply' },
-            }),
-        )
+        const result = await onUpdateClarifiedProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Should-not-apply' },
+        })
+        expect('error' in result).toBe(true)
 
         const after = await db.selectFrom('study').select('title').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(after.title).toBe('Original')
+    })
+
+    it('allows any member of the submitting lab to save draft edits on a CHANGE-REQUESTED study', async () => {
+        const { org, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-clarified-sameorg',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original',
+        })
+
+        const { user: teammate } = await insertTestUser({ org })
+        mockClerkSession({
+            userId: teammate.id,
+            clerkUserId: teammate.clerkId,
+            email: teammate.email ?? undefined,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'lab',
+        })
+
+        actionResult(
+            await onUpdateClarifiedProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Edited by teammate' },
+            }),
+        )
+
+        const after = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.title).toBe('Edited by teammate')
+        expect(after.status).toBe('CHANGE-REQUESTED')
+    })
+
+    it('rejects draft edits from a user outside the submitting lab', async () => {
+        const { org: labA, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-clarified-A',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org: labA,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Lab A study',
+        })
+
+        await mockSessionWithTestData({ orgSlug: 'lab-clarified-B', orgType: 'lab' })
+
+        const result = await onUpdateClarifiedProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Hijack attempt' },
+        })
+        expect('error' in result).toBe(true)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('title')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.title).toBe('Lab A study')
     })
 })
