@@ -3,6 +3,7 @@
 // already exists on main (migration 1776200000001).
 import {
     actionResult,
+    buildFeedback,
     db,
     insertTestStudyJobData,
     insertTestUser,
@@ -23,7 +24,7 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-const NOTE_50_WORDS = Array.from({ length: 50 }, (_, i) => `word${i}`).join(' ')
+const NOTE_50_WORDS = buildFeedback(50)
 
 describe('resubmitProposalAction', () => {
     it('transitions a CHANGE-REQUESTED study to PENDING-REVIEW and writes a RESUBMISSION-NOTE comment', async () => {
@@ -71,7 +72,7 @@ describe('resubmitProposalAction', () => {
             }),
         )
         // body is stored as Lexical JSON; the note words should round-trip
-        expect(JSON.stringify(comments[0].body)).toContain('word0')
+        expect(JSON.stringify(comments[0].body)).toContain('word1')
     })
 
     it('deletes stale review-feedback yjs_document rows when resubmitting', async () => {
