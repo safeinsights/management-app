@@ -1,8 +1,9 @@
 'use client'
 
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
-import { useForm, zodResolver } from '@/common'
+import { useForm, useMutation, zodResolver } from '@/common'
+import { reportMutationError } from '@/components/errors'
 import {
     proposalFormSchema,
     initialProposalValues,
@@ -15,10 +16,8 @@ import {
     type ResubmitNoteValue,
     initialResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
 
-// The proposal fields are auto-saved server-side. The resubmission note is
-// kept in client state only and persisted as a studyProposalComment row when
-// resubmitProposalAction runs.
 export type EditResubmitDraftData = Partial<ProposalFormValues>
 
 interface EditResubmitContextValue {
@@ -29,6 +28,8 @@ interface EditResubmitContextValue {
     resubmit: () => void
     isSaving: boolean
     isSubmitting: boolean
+    isSavingNote: boolean
+    noteLastSavedAt: Date | null
 }
 
 const EditResubmitContext = createContext<EditResubmitContextValue | null>(null)
@@ -39,13 +40,19 @@ export function useEditResubmit(): EditResubmitContextValue {
     return ctx
 }
 
+// Matches OTTER-558's debounce window. Long enough that a steady typist isn't
+// firing a save on every keystroke, short enough that a 1-second pause feels
+// like "saved" to the user.
+const AUTOSAVE_DEBOUNCE_MS = 800
+
 interface EditResubmitProviderProps {
     children: ReactNode
     studyId: string
     draftData?: EditResubmitDraftData
+    initialNote?: string
 }
 
-export function EditResubmitProvider({ children, studyId, draftData }: EditResubmitProviderProps) {
+export function EditResubmitProvider({ children, studyId, draftData, initialNote = '' }: EditResubmitProviderProps) {
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(proposalFormSchema),
         initialValues: { ...initialProposalValues, ...draftData },
@@ -54,11 +61,83 @@ export function EditResubmitProvider({ children, studyId, draftData }: EditResub
 
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
-        initialValues: initialResubmitNoteValue,
+        initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
         validateInputOnChange: true,
     })
 
-    const { saveDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
+    const { saveDraft: savePropsalDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
+
+    // OTTER-521 follow-up: persist the resubmission note via the same debounced
+    // autosave the code-resubmission flow uses (OTTER-558). Single in-flight
+    // save tracked by refs so a flurry of keystrokes collapses into one network
+    // call, and saveDraft() can flush the latest typed value synchronously.
+    const [noteLastSavedAt, setNoteLastSavedAt] = useState<Date | null>(null)
+    const lastSavedNoteRef = useRef<string>(initialNote)
+    const pendingNoteRef = useRef<string>(initialNote)
+    const savingNoteRef = useRef<string | null>(null)
+    const inFlightNoteSaveRef = useRef<Promise<boolean> | null>(null)
+
+    const noteSaveMutation = useMutation({
+        mutationFn: (note: string) => saveProposalResubmissionNoteDraftAction({ studyId, note }),
+        onError: reportMutationError('Unable to save resubmission note draft'),
+    })
+
+    const flushNoteSave = useCallback(
+        async (value: string): Promise<boolean> => {
+            if (value === lastSavedNoteRef.current) return true
+
+            if (savingNoteRef.current === value && inFlightNoteSaveRef.current) return inFlightNoteSaveRef.current
+
+            if (inFlightNoteSaveRef.current) {
+                await inFlightNoteSaveRef.current
+                if (value === lastSavedNoteRef.current) return true
+            }
+
+            savingNoteRef.current = value
+            const savePromise = noteSaveMutation
+                .mutateAsync(value)
+                .then(() => {
+                    lastSavedNoteRef.current = value
+                    setNoteLastSavedAt(new Date())
+                    return true
+                })
+                .catch(() => false)
+                .finally(() => {
+                    if (savingNoteRef.current === value) {
+                        savingNoteRef.current = null
+                        inFlightNoteSaveRef.current = null
+                    }
+                })
+            inFlightNoteSaveRef.current = savePromise
+
+            try {
+                return await savePromise
+            } catch {
+                return false
+            }
+        },
+        [noteSaveMutation],
+    )
+
+    const currentNote = noteForm.values.resubmissionNote
+
+    useEffect(() => {
+        pendingNoteRef.current = currentNote
+        if (currentNote === lastSavedNoteRef.current) return
+        const handle = setTimeout(() => {
+            void flushNoteSave(currentNote)
+        }, AUTOSAVE_DEBOUNCE_MS)
+        return () => clearTimeout(handle)
+    }, [currentNote, flushNoteSave])
+
+    // Save-as-draft: flush the proposal fields AND the latest note in parallel.
+    // Returning true only when both succeed lets the Back handler block
+    // navigation on a failed save (existing contract).
+    const saveDraft = useCallback(async () => {
+        const [proposalOk, noteOk] = await Promise.all([savePropsalDraft(), flushNoteSave(pendingNoteRef.current)])
+        return proposalOk && noteOk
+    }, [savePropsalDraft, flushNoteSave])
+
     const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm })
 
     const value = useMemo(
@@ -70,8 +149,20 @@ export function EditResubmitProvider({ children, studyId, draftData }: EditResub
             resubmit,
             isSaving,
             isSubmitting,
+            isSavingNote: noteSaveMutation.isPending,
+            noteLastSavedAt,
         }),
-        [studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting],
+        [
+            studyId,
+            form,
+            noteForm,
+            saveDraft,
+            resubmit,
+            isSaving,
+            isSubmitting,
+            noteSaveMutation.isPending,
+            noteLastSavedAt,
+        ],
     )
 
     return <EditResubmitContext.Provider value={value}>{children}</EditResubmitContext.Provider>

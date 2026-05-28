@@ -646,10 +646,10 @@ const resubmissionNoteParam = z
     })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click — auto-save is intentionally out of scope for OTTER-521). The
-// `researcherId = userId` ownership filter is load-bearing: CASL's
-// `permit('update', 'Study')` is unconditional for any researcher, so this
-// is what actually scopes writes to the study's owner.
+// click). CASL `update Study` is org-type-scoped (any lab member), so we pair
+// it with a `submittedByOrgId in <user's lab orgs>` filter to allow any
+// researcher in the submitting lab to co-author the resubmission (OTTER-521
+// follow-up — see Marvin's comment on 5/13/26). Mirrors onUpdateDraftStudyAction.
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
@@ -657,7 +657,9 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
-        const userId = session.user.id
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
 
         const updateValues = Object.fromEntries(
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
@@ -669,7 +671,7 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
                 .set(updateValues)
                 .where('id', '=', studyId)
                 .where('status', '=', 'CHANGE-REQUESTED')
-                .where('researcherId', '=', userId)
+                .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
                 .execute()
         }
 
@@ -695,13 +697,19 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Same caveat as onUpdateClarifiedProposalAction: pair `requireAbilityTo`
-        // with an explicit ownership filter since CASL doesn't scope by researcher.
+        // CASL `update Study` is org-type-scoped (any lab member). Pair it with
+        // a `submittedByOrgId in <user's lab orgs>` filter so any researcher in
+        // the submitting lab — not just the original author — can resubmit
+        // (OTTER-521 follow-up). Mirrors onUpdateDraftStudyAction.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
         const study = await db
             .selectFrom('study')
             .select(['id', 'status'])
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .executeTakeFirst()
 
         if (!study) throw new Error('Study not found or access denied')
@@ -715,15 +723,17 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         // Don't update study.submittedAt — keep the original first-submission
         // timestamp. The resubmission timeline lives in studyProposalComment
-        // rows (one per resubmit, with its own createdAt).
+        // rows (one per resubmit, with its own createdAt). Clear the saved note
+        // draft now that it's been finalized into a comment row.
         await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
+                proposalResubmissionNoteDraft: null,
             })
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .execute()
 
         await db
@@ -768,6 +778,32 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note } }) => {
         await db.updateTable('study').set({ codeResubmissionNoteDraft: note }).where('id', '=', studyId).execute()
+        return { studyId, savedAt: new Date().toISOString() }
+    })
+
+// OTTER-521 follow-up: Save the in-progress proposal resubmission note as a
+// lab-shared draft. Mirrors saveCodeResubmissionNoteDraftAction — last write
+// wins, lab-scoped via the `submittedByOrgId in <user's lab orgs>` guard so a
+// co-author in the same lab sees the latest draft. Cleared by
+// resubmitProposalAction when the note is finalized into a studyProposalComment.
+export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalResubmissionNoteDraftAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, note }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
+        await db
+            .updateTable('study')
+            .set({ proposalResubmissionNoteDraft: note })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+            .execute()
         return { studyId, savedAt: new Date().toISOString() }
     })
 

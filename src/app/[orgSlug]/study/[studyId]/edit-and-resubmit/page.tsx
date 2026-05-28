@@ -20,11 +20,17 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // Server-side writes are scoped to the original researcher — gate the
-    // page itself to match, so non-authors don't see a form that would
-    // silently no-op when they try to save.
+    // OTTER-521 follow-up: any researcher in the submitting lab can edit &
+    // resubmit (per QA — Malarvizhi/Marvin's comments on 5/13/26). Mirrors
+    // the lab-scoping the server actions enforce, so non-lab visitors see a
+    // 404 rather than a form that would silently no-op on save.
     const session = await sessionFromClerk()
-    if (!session || study.researcherId !== session.user.id) return notFound()
+    const userLabOrgIds = session
+        ? Object.values(session.orgs)
+              .filter((org) => org.type === 'lab')
+              .map((org) => org.id)
+        : []
+    if (!session || !userLabOrgIds.includes(study.submittedByOrgId)) return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
     // Don't render the page with a silent empty feedback list — the researcher
@@ -46,6 +52,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 />
                 <EditResubmitProvider
                     studyId={studyId}
+                    initialNote={study.proposalResubmissionNoteDraft ?? ''}
                     draftData={{
                         title: study.title ?? '',
                         piName: study.piName,

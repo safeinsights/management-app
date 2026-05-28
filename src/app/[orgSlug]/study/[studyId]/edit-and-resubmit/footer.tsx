@@ -20,12 +20,12 @@ interface EditResubmitFooterProps {
 export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting } = useEditResubmit()
+    const { studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting, isSavingNote } = useEditResubmit()
 
     const [isReviewerOpen, setReviewerOpen] = useState(false)
     const [isConfirmOpen, setConfirmOpen] = useState(false)
 
-    const isBusy = isSaving || isSubmitting
+    const isBusy = isSaving || isSavingNote || isSubmitting
 
     const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
@@ -34,7 +34,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
 
     const handleBack = async () => {
-        if (form.isDirty()) {
+        if (form.isDirty() || noteForm.isDirty()) {
             const saved = await saveDraft()
             if (!saved) return
         }
@@ -76,8 +76,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     <Button
                         variant="outline"
                         size="md"
-                        disabled={!form.isDirty() || isBusy}
-                        loading={isSaving}
+                        disabled={(!form.isDirty() && !noteForm.isDirty()) || isBusy}
+                        loading={isSaving || isSavingNote}
                         onClick={saveDraft}
                     >
                         Save as draft

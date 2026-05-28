@@ -104,6 +104,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
+            'study.proposalResubmissionNoteDraft',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
