@@ -800,7 +800,9 @@ test('ProposalReviewView for study without code', async ({ page, studyFeatures }
         await viewLink.click()
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Review initial request/i })).toBeVisible()
+        // "Review initial request" appears as both the page h1 and the section h4;
+        // pin to the h1 to keep the assertion unambiguous.
+        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
 
         // Field labels are rendered inside the (initially expanded) proposal body.
         // "Study title" used to be its own label on the legacy view; the redesign
