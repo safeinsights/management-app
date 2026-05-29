@@ -60,11 +60,44 @@ async function fetchSecret<T extends Record<string, unknown>>(
     }
 }
 
+// Fetches a plain-string (non-JSON) secret by its ARN, given via env var.
+// Used for credentials provisioned by other CDK stacks that store the raw
+// string directly rather than a JSON bundle.
+async function fetchPlainSecret(arnEnvKey: string, throwIfNotFound: boolean): Promise<string | null> {
+    const arn = process.env[arnEnvKey]
+    if (!arn) {
+        if (throwIfNotFound) throw new Error(`missing ARN ${arnEnvKey} in env`)
+        return null
+    }
+    try {
+        const client = new SecretsManagerClient()
+        const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
+        if (!data?.SecretString) {
+            if (throwIfNotFound) throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
+            return null
+        }
+        return data.SecretString
+    } catch (e) {
+        if (throwIfNotFound) throw new Error(`failed to fetch plain secret at ${arnEnvKey}: ${e}`)
+        return null
+    }
+}
+
 export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
 export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
 export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
     const envValue = process.env[key]
     if (envValue != null) return envValue
+
+    // Per-key plain-string secret ARNs: <KEY>_ARN points at a Secrets Manager
+    // entry whose value IS the secret (not a JSON bundle). Takes precedence
+    // over the SECRETS_ARN bundle so a stack can wire a single credential
+    // without round-tripping it into the bundle via set-secrets.ts.
+    const perKeyArnEnv = `${key}_ARN`
+    if (process.env[perKeyArnEnv]) {
+        const value = await fetchPlainSecret(perKeyArnEnv, throwIfNotFound)
+        if (value != null) return value
+    }
 
     const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN', key, throwIfNotFound)
     if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
