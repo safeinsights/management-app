@@ -12,6 +12,15 @@ import { ContextName, getAgentContext } from '@/lib/agent-context'
 import * as database from '@/database'
 import { generateDataSourcesContextString } from '@/server/utils'
 
+// IDE pods bind-mount /efs/studies/<studyId>/home → /home/researcher. The
+// management-app lambda mounts the same EFS at IDE_ROOT (e.g. /mnt/efs) so
+// writes to IDE_ROOT/studies/<studyId>/home/<file> appear inside the pod
+// as /home/researcher/<file>.
+export async function studyFilesDir(studyId: string): Promise<string> {
+    const ideRoot = await getConfigValue('IDE_ROOT')
+    return path.join(ideRoot, 'studies', studyId, 'home')
+}
+
 async function studyDirHasFiles(dir: string): Promise<boolean> {
     try {
         const entries = await fs.readdir(dir)
@@ -23,8 +32,7 @@ async function studyDirHasFiles(dir: string): Promise<boolean> {
 }
 
 export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await studyFilesDir(studyId)
 
     // Idempotent: only copy starter files when the directory is empty.
     // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
@@ -71,7 +79,7 @@ export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<voi
     combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
 
     const targetContextFileName = 'CLAUDE.md'
-    const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
+    const targetContextPath = path.join(studyDir, targetContextFileName)
 
     logger.info(`Writing ${targetContextFileName} to ${targetContextPath} for study ${studyId}`)
 

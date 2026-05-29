@@ -4,11 +4,11 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { currentUser } from '@clerk/nextjs/server'
 import { Action, z } from './action'
-import { getConfigValue } from '@/server/config'
+import { DEPLOYED_ENV, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { resetBaselineJob } from '@/server/db/mutations'
 import { createSession, OrchestratorError } from '@/server/orchestrator/client'
-import { initializeWorkspaceCodeFiles } from '@/server/workspace-files'
+import { initializeWorkspaceCodeFiles, studyFilesDir } from '@/server/workspace-files'
 
 const isMainFile = (filename: string): boolean => {
     const basename = path.basename(filename, path.extname(filename))
@@ -20,14 +20,11 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (await getConfigValue('ORCHESTRATOR_URL', false)) {
-            coderFilesPath += `/${studyId}`
-        }
+        const filesPath = await studyFilesDir(studyId)
 
         let entries: string[] = []
         try {
-            entries = await fs.readdir(coderFilesPath)
+            entries = await fs.readdir(filesPath)
         } catch (e) {
             if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
                 // Directory doesn't exist yet, just return empty list
@@ -46,7 +43,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         for (const entry of entries) {
             if (entry.startsWith('.')) continue
 
-            const filePath = path.join(coderFilesPath, entry)
+            const filePath = path.join(filesPath, entry)
             let stats
             try {
                 stats = await fs.lstat(filePath)
@@ -84,6 +81,11 @@ export const startIdeSessionAction = new Action('startIdeSessionAction', { perfo
 
         const orchestratorURL = await getConfigValue('ORCHESTRATOR_URL', false)
         if (!orchestratorURL) {
+            // Deployed envs must have ORCHESTRATOR_URL configured. Failing fast here
+            // beats handing researchers a dead example.com URL with no error.
+            if (DEPLOYED_ENV) {
+                throw new Error('ORCHESTRATOR_URL is required in deployed environments')
+            }
             // Local dev / CI shortcut: no orchestrator configured.
             await new Promise((resolve) => setTimeout(resolve, 1000))
             return { sessionUrl: `https://ide.dev.example.com/session/${studyId}` }

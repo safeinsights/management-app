@@ -15,7 +15,8 @@ import {
     storeS3File,
     triggerScanForStudyJob,
 } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
+import { studyFilesDir } from '@/server/workspace-files'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug, latestJobForStudyOrNull } from '@/server/db/queries'
 import { db as database } from '@/database'
@@ -579,14 +580,11 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             additionalFileNames,
         )
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const filesPath = await studyFilesDir(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
-            const filePath = path.join(coderFilesPath, sanitizedName)
+            const filePath = path.join(filesPath, sanitizedName)
             const fileStream = createReadStream(filePath)
             const webStream = Readable.toWeb(fileStream) as ReadableStream
             const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitizedName)
@@ -812,13 +810,12 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             additionalFileNames,
         )
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        const filesPath = await studyFilesDir(studyId)
         // Mirrors submitStudyCodeAction: these copies run inside the Action
         // transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
-            const filePath = path.join(coderFilesPath, sanitized)
+            const filePath = path.join(filesPath, sanitized)
             const fileStream = createReadStream(filePath)
             const webStream = Readable.toWeb(fileStream) as ReadableStream
             const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitized)

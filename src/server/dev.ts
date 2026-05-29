@@ -5,7 +5,7 @@ import { CODER_DISABLED, DEV_ENV, getConfigValue } from '@/server/config'
 export async function cleanupCoderDevFiles() {
     if (!DEV_ENV || !CODER_DISABLED) return
 
-    const coderFilesPath = await getConfigValue('CODER_FILES')
+    const coderFilesPath = await getConfigValue('IDE_ROOT')
     await fs.rm(coderFilesPath, { recursive: true, force: true })
     await fs.mkdir(coderFilesPath, { recursive: true })
 }
@@ -23,7 +23,7 @@ async function devDirHasFiles(dir: string): Promise<boolean> {
 export async function initializeDevWorkspaceFiles(studyId: string) {
     if (!CODER_DISABLED) return
 
-    const coderFilesPath = await getConfigValue('CODER_FILES')
+    const coderFilesPath = await getConfigValue('IDE_ROOT')
 
     // Idempotent: skip when files already exist so the late copy doesn't clobber user edits.
     if (await devDirHasFiles(coderFilesPath)) return
