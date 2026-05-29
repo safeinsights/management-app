@@ -673,7 +673,8 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         // (useStudyHref change from the OpenStax-flag removal).
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-        await expect(page.getByText(studyTitle)).toBeVisible()
+        // The title appears in the breadcrumb link and a Text node — match either.
+        await expect(page.getByText(studyTitle).first()).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
 
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
@@ -711,39 +712,40 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         // Navigate to code review via agreements-proceed to bypass the agreements redirect
         await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
 
-        // Redesigned CodeReviewClient: fill criteria, pick Reject, leave feedback,
-        // confirm via modal. The plain inline "Reject" button is gone with the
-        // feature-flag removal.
+        // Redesigned CodeReviewClient: fill criteria, pick "Request revision"
+        // (decision: needs-clarification, → CODE-CHANGES-REQUESTED so the
+        // researcher can resubmit), leave feedback, confirm via the standard modal.
+        // The plain inline "Reject" button is gone with the feature-flag removal.
         const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
         for (const key of criteriaKeys) {
             await page.locator(`input[name="criteria-${key}"][value="no"]`).check()
         }
 
-        await page.getByTestId('code-review-decision-reject').click()
+        await page.getByTestId('code-review-decision-needs-clarification').click()
         const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
         await expect(feedbackEditor).toBeVisible()
         await feedbackEditor.click()
-        await page.keyboard.type('Rejecting submitted code — does not meet criteria.')
+        await page.keyboard.type('Requesting revisions to submitted code — please address criteria.')
 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Reject study code$/i }).click()
+        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await expect(page.getByText(/Change requested on/)).toBeVisible()
         await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
         await goto(page, '/openstax/dashboard')
     })
 
-    await test.step('reviewer sees rejected status on dashboard', async () => {
+    await test.step('reviewer sees change-requested status on dashboard', async () => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+        await expect(studyRow.getByText(/Change requested/i)).toBeVisible()
     })
 
-    await test.step('researcher sees rejection and resubmit link', async () => {
+    await test.step('researcher sees change-requested status and edit-and-resubmit CTA', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -751,8 +753,11 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        await expect(page.getByText(/not been approved/i)).toBeVisible()
-        await expect(page.getByRole('link', { name: /Resubmit study code/i })).toBeVisible()
+        // Redesigned CodePostDecisionView surfaces the change-requested banner
+        // and an "Edit and resubmit" CTA (testid cta-edit-and-resubmit) that
+        // links to /resubmit.
+        await expect(page.getByTestId('decision-banner-code-change-requested')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-and-resubmit')).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
@@ -795,9 +800,11 @@ test('ProposalReviewView for study without code', async ({ page, studyFeatures }
         await viewLink.click()
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Review initial request/i })).toBeVisible()
 
-        await expect(page.getByText('Study title', { exact: true })).toBeVisible()
+        // Field labels are rendered inside the (initially expanded) proposal body.
+        // "Study title" used to be its own label on the legacy view; the redesign
+        // moves the title into the section header instead, so don't assert that label.
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
         await expect(page.getByText('Impact', { exact: true })).toBeVisible()
