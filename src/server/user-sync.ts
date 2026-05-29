@@ -121,8 +121,20 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         }
     }
 
-    // Create the new user
-    const user = await executor.insertInto('user').values(attrs).returning(['id']).executeTakeFirstOrThrow()
+    // Create the new user. Only pass column-backed fields — `metadataUserId`
+    // is a lookup hint from Clerk's publicMetadata and is not stored on `user`,
+    // so spreading raw `attrs` would emit a `metadata_user_id` column that the
+    // schema doesn't have.
+    const user = await executor
+        .insertInto('user')
+        .values({
+            clerkId: attrs.clerkId,
+            firstName: attrs.firstName,
+            lastName: attrs.lastName,
+            email: attrs.email,
+        })
+        .returning(['id'])
+        .executeTakeFirstOrThrow()
 
     return {
         id: user.id,
