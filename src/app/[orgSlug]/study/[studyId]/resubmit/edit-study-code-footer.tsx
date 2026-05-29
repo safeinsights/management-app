@@ -80,7 +80,6 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
             </Group>
 
             <AppModal
-                size="md"
                 isOpen={isConfirmOpen}
                 onClose={() => setConfirmOpen(false)}
                 title="Confirm study code resubmission?"
