@@ -12,12 +12,12 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 // Removes the "Study Code" section. The "Previous" button takes the DO back to
 // the post-code-feedback page from OTTER-552.
 
-type StudyDetailsRedesignViewProps = {
+type StudyDetailsReviewerProps = {
     orgSlug: string
     study: SelectedStudy
 }
 
-export async function StudyDetailsRedesignView({ orgSlug, study }: StudyDetailsRedesignViewProps) {
+export async function StudyDetailsReviewer({ orgSlug, study }: StudyDetailsReviewerProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />

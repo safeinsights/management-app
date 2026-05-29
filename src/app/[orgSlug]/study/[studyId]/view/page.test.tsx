@@ -16,7 +16,7 @@ import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsResearcher } from './study-details-researcher'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -352,7 +352,7 @@ describe('StudyViewPage', () => {
 
     describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'renders StudyDetailsRedesignView when latest job status is %s',
+            'renders StudyDetailsResearcher when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -368,7 +368,7 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(StudyDetailsRedesignView)
+                expect(page?.type).toBe(StudyDetailsResearcher)
             },
         )
     })

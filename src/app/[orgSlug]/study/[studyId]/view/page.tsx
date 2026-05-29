@@ -16,7 +16,7 @@ import { CodePostDecisionView } from './code-post-decision-view'
 import { isCodeDecisionStatus } from './code-decision-status'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsResearcher } from './study-details-researcher'
 
 const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
@@ -86,7 +86,7 @@ export default async function StudyReviewPage(props: {
         // OTTER-538: once results exist, render the redesigned Study Details page
         // (no code section, results-only) instead of the legacy CodeOnlyView.
         if (isStudyResultsStatus(latestJobStatus)) {
-            return <StudyDetailsRedesignView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+            return <StudyDetailsResearcher orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
         }
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
     }

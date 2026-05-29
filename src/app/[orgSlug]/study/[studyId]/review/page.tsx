@@ -19,7 +19,7 @@ import { CodeReview } from './code-review'
 import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsReviewer } from './study-details-reviewer'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -100,7 +100,7 @@ export default async function StudyReviewPage(props: {
             const latestJobStatus = latestJob?.statusChanges[0]?.status
 
             if (isStudyResultsStatus(latestJobStatus)) {
-                return <StudyDetailsRedesignView orgSlug={orgSlug} study={study} />
+                return <StudyDetailsReviewer orgSlug={orgSlug} study={study} />
             }
 
             return <CodeReview orgSlug={orgSlug} study={study} />

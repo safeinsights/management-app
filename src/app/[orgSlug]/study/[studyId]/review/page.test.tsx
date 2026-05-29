@@ -12,7 +12,7 @@ import { CodeReview } from './code-review'
 import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsReviewer } from './study-details-reviewer'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -241,7 +241,7 @@ describe('StudyReviewPage', () => {
 
     describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'renders StudyDetailsRedesignView when latest job status is %s',
+            'renders StudyDetailsReviewer when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
                 const { study, job } = await insertTestStudyJobData({
@@ -265,7 +265,7 @@ describe('StudyReviewPage', () => {
                     searchParams: Promise.resolve({}),
                 })
 
-                expect(page?.type).toBe(StudyDetailsRedesignView)
+                expect(page?.type).toBe(StudyDetailsReviewer)
             },
         )
     })
