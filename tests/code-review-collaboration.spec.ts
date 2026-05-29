@@ -118,6 +118,10 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
     await expect(async () => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
     }).toPass()
+    // APPROVED without job activity routes through /submitted (useStudyHref
+    // change in the flag-removal cleanup); click through to /agreements.
+    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
     await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
