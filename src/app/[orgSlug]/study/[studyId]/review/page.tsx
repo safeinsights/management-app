@@ -15,7 +15,7 @@ import {
 import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
-import { CodeReviewRedesignView } from './code-review-redesign-view'
+import { CodeReview } from './code-review'
 import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -103,7 +103,7 @@ export default async function StudyReviewPage(props: {
                 return <StudyDetailsRedesignView orgSlug={orgSlug} study={study} />
             }
 
-            return <CodeReviewRedesignView orgSlug={orgSlug} study={study} />
+            return <CodeReview orgSlug={orgSlug} study={study} />
         }
 
         if (isSubmittedProposalReviewStatus(study.status)) {

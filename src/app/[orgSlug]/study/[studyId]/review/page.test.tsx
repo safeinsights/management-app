@@ -8,7 +8,7 @@ import {
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
-import { CodeReviewRedesignView } from './code-review-redesign-view'
+import { CodeReview } from './code-review'
 import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -56,7 +56,7 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/agreements'))
     })
 
-    it('renders CodeReviewRedesignView for enclave with code submitted when coming from agreements', async () => {
+    it('renders CodeReview for enclave with code submitted when coming from agreements', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -69,7 +69,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements-proceed' }),
         })
-        expect(page?.type).toBe(CodeReviewRedesignView)
+        expect(page?.type).toBe(CodeReview)
     })
 
     it('renders ProposalReviewFromAgreementsView with agreementsHref when from=agreements and code submitted', async () => {
@@ -89,7 +89,7 @@ describe('StudyReviewPage', () => {
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 
-    it('renders CodeReviewRedesignView when agreements already acknowledged (no redirect)', async () => {
+    it('renders CodeReview when agreements already acknowledged (no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -108,7 +108,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({}),
         })
-        expect(page?.type).toBe(CodeReviewRedesignView)
+        expect(page?.type).toBe(CodeReview)
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
