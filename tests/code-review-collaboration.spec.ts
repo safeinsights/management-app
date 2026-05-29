@@ -113,15 +113,6 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
 // Code-review page helpers shared by both reviewer contexts.
 // ---------------------------------------------------------------------------
 
-// Toggle spy mode by clicking the `𝜋` symbol fixed at the bottom of every
-// page. The element has opacity:0 but `pointer-events: auto`, so a forced
-// click reliably fires the handler. Spy mode adds `.spy-mode` to <body>;
-// we assert that to confirm state flipped.
-async function enableSpyMode(page: Page): Promise<void> {
-    await page.locator('.pi-symbol').click({ force: true })
-    await expect(page.locator('body.spy-mode')).toBeAttached()
-}
-
 // After a Clerk testing-token sign-in, `user.publicMetadata.orgs` is
 // populated either directly (if Clerk already has it) or via a
 // `syncUserMetadataAction` fallback that round-trips to the server.
@@ -200,8 +191,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             })
             await ctxA.page.waitForURL(/\/agreements(\?.*)?$/)
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
-            // Enable spy mode while on /agreements; survives SPA navigation to /review.
-            await enableSpyMode(ctxA.page)
             await ctxA.page.getByRole('button', { name: /Proceed to Step 3/i }).click()
             await ctxA.page.waitForURL(/\/review\?from=agreements-proceed$/)
             await expect(ctxA.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
@@ -213,7 +202,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
                 url: `/openstax/study/${studyId}/review?from=agreements-proceed`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
-            await enableSpyMode(ctxB.page)
             await expect(ctxB.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
