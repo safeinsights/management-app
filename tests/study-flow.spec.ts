@@ -230,6 +230,11 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard')
 }
 
+// Mirrors the redesigned code-review flow (CodeReview / CodeReviewClient): the
+// reviewer answers all four criteria, picks the Approve decision, leaves a
+// feedback comment, then confirms in the modal. The page used to expose a
+// single inline "Approve" button; that flow is gone with the feature-flag
+// removal.
 async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
@@ -243,35 +248,28 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
-
-    // Proceed to code review — Approve button appears after scan completes
+    // Proceed to code review
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
     await page.waitForURL(/\/review\?from=agreements-proceed$/)
 
-    const approveButton = page.getByRole('button', { name: /^Approve$/i })
-    await expect(approveButton).toBeVisible()
+    // Answer all four review criteria with "yes" so the submit button enables.
+    const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
+    for (const key of criteriaKeys) {
+        await page.locator(`input[name="criteria-${key}"][value="yes"]`).check()
+    }
 
-    // Click Previous to navigate to agreements page
-    const previousLink = page.getByRole('link', { name: /Previous/i })
-    await previousLink.scrollIntoViewIfNeeded()
-    await previousLink.click()
-    await page.waitForURL(/\/agreements\?from=previous$/)
+    // Pick the Approve decision and leave the required feedback comment.
+    await page.getByTestId('code-review-decision-approve').click()
+    const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+    await expect(feedbackEditor).toBeVisible()
+    await feedbackEditor.click()
+    await page.keyboard.type('Approving submitted code — looks good to run.')
 
-    // Previous from code review shows the agreements page
-    await expect(page.getByText('STEP 2A')).toBeVisible()
+    // Submit and confirm.
+    await page.getByTestId('code-review-submit').click()
+    await page.getByRole('button', { name: /Yes, submit review/i }).click()
 
-    // Click Previous again to navigate to proposal view
-    await page.getByRole('button', { name: /Previous/i }).click()
-    await page.waitForURL(/\/review\?from=agreements$/)
-    await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
-
-    // Navigate back to code review for approval
-    await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
-    await page.getByRole('button', { name: /^Approve$/i }).click()
-
-    // Wait for the approval mutation to complete and redirect to dashboard
+    // The approval mutation redirects back to the dashboard.
     await page.waitForURL('**/dashboard')
 }
 
