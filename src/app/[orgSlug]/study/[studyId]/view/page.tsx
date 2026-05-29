@@ -1,5 +1,5 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
+import { getOrgNameFromId, latestJobForStudyOrNull, countSubmittedJobsForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -82,6 +82,7 @@ export default async function StudyReviewPage(props: {
 
         if (isUnderReview) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            const submissionVersion = await countSubmittedJobsForStudy(studyId)
             return (
                 <PostCodeSubmissionFeatureFlag
                     defaultContent={
@@ -94,6 +95,7 @@ export default async function StudyReviewPage(props: {
                             job={job}
                             reviewingOrgName={reviewingOrgName}
                             dashboardHref={dashboardHref}
+                            submissionVersion={submissionVersion}
                         />
                     }
                 />

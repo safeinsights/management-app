@@ -12,7 +12,7 @@ import {
     userEvent,
     type Mock,
 } from '@/tests/unit.helpers'
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { Routes } from '@/lib/routes'
 import { CodePostSubmissionView } from './code-post-submission-view'
@@ -58,7 +58,12 @@ async function setupSubmittedStudy() {
 function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
-    overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
+    overrides: {
+        dashboardHref?: Route
+        reviewingOrgName?: string
+        submissionVersion?: number
+        feedbackEntries?: CodeReviewFeedbackEntry[]
+    } = {},
 ) {
     renderWithProviders(
         <CodePostSubmissionView
@@ -67,9 +72,55 @@ function renderView(
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref}
+            submissionVersion={overrides.submissionVersion ?? 1}
+            feedbackEntries={overrides.feedbackEntries ?? []}
         />,
     )
 }
+
+const sampleLexicalBody = (text: string) => ({
+    root: {
+        children: [
+            {
+                children: [{ detail: 0, format: 0, mode: 'normal', style: '', text, type: 'text', version: 1 }],
+                direction: 'ltr',
+                format: '',
+                indent: 0,
+                type: 'paragraph',
+                version: 1,
+            },
+        ],
+        direction: 'ltr',
+        format: '',
+        indent: 0,
+        type: 'root',
+        version: 1,
+    },
+})
+
+const reviewerFeedbackEntry = (): CodeReviewFeedbackEntry => ({
+    id: 'reviewer-fb-1',
+    authorId: 'author-1',
+    entryType: 'REVIEWER-FEEDBACK',
+    decision: 'NEEDS-CLARIFICATION',
+    body: sampleLexicalBody('The submitted code needs some clarification before approval.'),
+    criteria: null,
+    createdAt: new Date('2026-04-02T00:00:00Z'),
+    authorName: 'Jessica Walters',
+    version: 1,
+})
+
+const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
+    id: 'note-1',
+    authorId: 'researcher-1',
+    entryType: 'RESUBMISSION-NOTE',
+    decision: null,
+    body: sampleLexicalBody('All feedback has been reviewed and addressed.'),
+    criteria: null,
+    createdAt: new Date('2026-04-06T00:00:00Z'),
+    authorName: 'Debshilla Basu Mallick',
+    version: 2,
+})
 
 describe('CodePostSubmissionView', () => {
     describe('breadcrumbs and header', () => {
@@ -235,12 +286,12 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Previous as a link to studyAgreements with from=previous and Go to dashboard linking to dashboardHref', async () => {
+        it('renders Back as a link to studyAgreements with from=previous and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
-            const previousLink = screen.getByRole('link', { name: /previous/i })
-            expect(previousLink).toHaveAttribute(
+            const backLink = screen.getByRole('link', { name: /back/i })
+            expect(backLink).toHaveAttribute(
                 'href',
                 expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements?from=previous`),
             )
@@ -254,6 +305,55 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             expect(screen.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/dashboard')
+        })
+    })
+
+    describe('resubmission (v2+)', () => {
+        it('renders the v2 heading, "Resubmitted on" timestamp, and "has been resubmitted" banner', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, {
+                submissionVersion: 2,
+                feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
+            })
+
+            expect(screen.getByRole('heading', { level: 4, name: 'Study code v2.0' })).toBeInTheDocument()
+            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
+                /^Resubmitted on \w{3} \d{2}, \d{4}$/,
+            )
+
+            const banner = screen.getByTestId('code-under-review-banner')
+            expect(banner).toHaveTextContent(/has been resubmitted to/)
+            expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
+            expect(banner).not.toHaveTextContent(/has been submitted to/)
+        })
+
+        it('shows the compact "View submitted study code" toggle (no v1 expand row) and renders the feedback section', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, {
+                submissionVersion: 2,
+                feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
+            })
+
+            expect(screen.getByText('View submitted study code')).toBeInTheDocument()
+            expect(screen.queryByText('View full study code')).not.toBeInTheDocument()
+            expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
+        })
+
+        it('does not render the feedback section when feedbackEntries is empty', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { submissionVersion: 2, feedbackEntries: [] })
+
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+        })
+
+        it('keeps v1 layout unchanged: shows "Study code" (no v suffix), "Submitted on", and no feedback section', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { submissionVersion: 1 })
+
+            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(/^Submitted on /)
+            expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })
 })

@@ -44,7 +44,7 @@ export const mockPathname = (path: string) => {
 export { db } from '@/database'
 export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
-export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
@@ -659,8 +659,11 @@ export const createWorkspaceDir = async (prefix: string) => {
 }
 
 export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
-    const { CODER_DISABLED } = await import('@/server/config')
-    const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
+    // Match the path logic in listWorkspaceFilesAction:
+    // When ORCHESTRATOR_URL is set (real deploy), files live in root/studyId.
+    // Otherwise (local dev / tests), files live directly in root.
+    const useSubDir = !!process.env.ORCHESTRATOR_URL
+    const workspaceDir = useSubDir ? path.join(root, studyId) : root
     await fs.promises.mkdir(workspaceDir, { recursive: true })
     await Promise.all(
         Object.entries(files).map(([fileName, content]) =>

@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { useCallback, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
-import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import {
     uploadWorkspaceFileAction,
@@ -16,6 +15,7 @@ import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/
 
 interface UseIDEFilesOptions {
     studyId: string
+    orgSlug?: string
     onSubmitSuccess?: () => void
 }
 
@@ -50,24 +50,21 @@ function hasChangedSinceLastJob(
     return false
 }
 
-export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
+export function useIDEFiles({ studyId, orgSlug: orgSlugProp, onSubmitSuccess }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const router = useRouter()
+    const params = useParams<{ orgSlug?: string }>()
+    const orgSlug = orgSlugProp ?? params.orgSlug ?? ''
 
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: string } | null>(null)
 
-    const onLaunchSuccess = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-        queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
-    }, [queryClient, studyId])
+    const launchWorkspace = useCallback(() => {
+        window.open(`/${orgSlug}/study/${studyId}/ide/launch`, '_blank', 'noopener,noreferrer')
+    }, [orgSlug, studyId])
 
-    const {
-        launchWorkspace,
-        isLaunching: isLaunchingWorkspace,
-        isCreatingWorkspace,
-        error: launchError,
-    } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
+    const isLaunching = false
+    const launchError = null
 
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
 
@@ -94,7 +91,6 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         [workspace.files, mainFile, lastJob],
     )
 
-    const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 

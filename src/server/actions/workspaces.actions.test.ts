@@ -22,8 +22,7 @@ describe('Workspace Actions', () => {
             const mod = await importOriginal<typeof import('@/server/config')>()
             return {
                 ...mod,
-                CODER_DISABLED: false, // Force false to test production path logic
-                getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
+                getConfigValue: vi.fn().mockImplementation((key) => process.env[key] ?? null),
             }
         })
     })
@@ -64,19 +63,18 @@ describe('Workspace Actions', () => {
     })
 
     test('listWorkspaceFilesAction lists files from workspace directory', async () => {
+        // Without ORCHESTRATOR_URL set, listWorkspaceFilesAction uses CODER_FILES directly (no studyId appended)
         process.env.CODER_FILES = TEST_CODER_FILES
 
         const { org, user } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        const studyDir = path.join(TEST_CODER_FILES, study.id)
-
-        // Create mock workspace with files
-        await fs.mkdir(studyDir, { recursive: true })
-        await fs.writeFile(path.join(studyDir, 'main.py'), 'print("hello")')
-        await fs.writeFile(path.join(studyDir, 'README.md'), '# readme')
-        await fs.writeFile(path.join(studyDir, 'data.csv'), '1,2,3') // File
-        await fs.mkdir(path.join(studyDir, 'subdir')) // Directory (should be ignored based on logic)
+        // Create mock workspace files directly in the base directory (local-dev mode: no studyId subdir)
+        await fs.mkdir(TEST_CODER_FILES, { recursive: true })
+        await fs.writeFile(path.join(TEST_CODER_FILES, 'main.py'), 'print("hello")')
+        await fs.writeFile(path.join(TEST_CODER_FILES, 'README.md'), '# readme')
+        await fs.writeFile(path.join(TEST_CODER_FILES, 'data.csv'), '1,2,3') // File
+        await fs.mkdir(path.join(TEST_CODER_FILES, 'subdir')) // Directory (should be ignored based on logic)
 
         // Dynamic import to ensure it picks up the mock after resetModules
         const { listWorkspaceFilesAction } = await import('./workspaces.actions')

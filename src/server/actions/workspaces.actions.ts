@@ -2,12 +2,13 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import { currentUser } from '@clerk/nextjs/server'
 import { Action, z } from './action'
-import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import { getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { resetBaselineJob } from '@/server/db/mutations'
-import { initializeDevWorkspaceFiles } from '@/server/dev'
+import { createSession, OrchestratorError } from '@/server/orchestrator/client'
+import { initializeWorkspaceCodeFiles } from '@/server/workspace-files'
 
 const isMainFile = (filename: string): boolean => {
     const basename = path.basename(filename, path.extname(filename))
@@ -20,7 +21,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
         let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
+        if (await getConfigValue('ORCHESTRATOR_URL', false)) {
             coderFilesPath += `/${studyId}`
         }
 
@@ -71,45 +72,42 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         }
     })
 
-export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
-    .params(
-        z.object({
-            studyId: z.string().nonempty(),
-        }),
-    )
+export const startIdeSessionAction = new Action('startIdeSessionAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string().nonempty() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
-        await resetBaselineJob(db, studyId)
-        if (CODER_DISABLED) {
-            return {
-                success: true,
-                workspace: { id: `dev-workspace-${studyId}` },
-            }
-        }
-        return await createUserAndWorkspace(studyId)
-    })
 
-export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
-    .params(
-        z.object({
-            studyId: z.string().nonempty(),
-            workspaceId: z.string(),
-        }),
-    )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, workspaceId }, session }) => {
-        if (!session) throw new Error('Unauthorized')
-        if (!workspaceId) return
-        if (CODER_DISABLED) {
-            // these envs do not have a 'real' coder setup
-            await new Promise((resolve) => setTimeout(resolve, 3000))
-            await initializeDevWorkspaceFiles(studyId)
-            return `https://coder.dev.example.com/workspace/${studyId}`
+        await resetBaselineJob(db, studyId)
+        await initializeWorkspaceCodeFiles(studyId)
+
+        const orchestratorURL = await getConfigValue('ORCHESTRATOR_URL', false)
+        if (!orchestratorURL) {
+            // Local dev / CI shortcut: no orchestrator configured.
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+            return { sessionUrl: `https://ide.dev.example.com/session/${studyId}` }
         }
-        return await getCoderWorkspaceUrl(studyId, workspaceId)
+
+        const clerkUser = await currentUser()
+        const userEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? ''
+
+        try {
+            const result = await createSession({
+                user_id: session.user.id,
+                study_id: studyId,
+                user_email: userEmail,
+            })
+            return { sessionUrl: result.session_url }
+        } catch (err) {
+            if (err instanceof OrchestratorError && err.status === 503) {
+                return {
+                    error: 'IDE is starting up — please try again in a few seconds.',
+                    retryAfter: err.retryAfterSec ?? 5,
+                }
+            }
+            throw err
+        }
     })
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})

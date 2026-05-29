@@ -1,8 +1,14 @@
 import { useParams } from 'next/navigation'
-import { type Mock, describe, expect, it } from 'vitest'
-import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { type Mock, describe, expect, it, vi } from 'vitest'
+import { renderWithProviders, screen, userEvent, waitFor, within } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
+import { resubmitStudyCodeAction } from '@/server/actions/study-request'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
+
+vi.mock('@/server/actions/study-request', () => ({
+    resubmitStudyCodeAction: vi.fn(),
+    saveCodeResubmissionNoteDraftAction: vi.fn().mockResolvedValue({ studyId: '', savedAt: '' }),
+}))
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -35,7 +41,7 @@ describe('EditStudyCodeFooter', () => {
         expect(screen.getByRole('button', { name: 'Resubmit study code' })).toBeDisabled()
     })
 
-    it('opens the confirmation modal when Resubmit is clicked with a valid note + files', async () => {
+    it('opens the confirmation modal with the OTTER-563 copy when Resubmit is clicked', async () => {
         const user = userEvent.setup()
         renderFooter({
             initialNote: wordsString(10),
@@ -43,7 +49,69 @@ describe('EditStudyCodeFooter', () => {
             fileNames: ['main.R'],
         })
         await user.click(screen.getByRole('button', { name: 'Resubmit study code' }))
-        expect(screen.getByText(/Are you sure you want to resubmit/i)).toBeInTheDocument()
+
+        const dialog = screen.getByRole('dialog')
+        expect(dialog).toHaveTextContent('Confirm study code resubmission?')
+        expect(dialog).toHaveTextContent(
+            /Please confirm you are ready to resubmit your study code\. Further edits are not permitted once submitted\./,
+        )
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Yes, resubmit study code' })).toBeInTheDocument()
+    })
+
+    it('dismisses the modal when Cancel is clicked, leaving the user on the edit page', async () => {
+        const user = userEvent.setup()
+        renderFooter({
+            initialNote: wordsString(10),
+            mainFileName: 'main.R',
+            fileNames: ['main.R'],
+        })
+        await user.click(screen.getByRole('button', { name: 'Resubmit study code' }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        expect(vi.mocked(resubmitStudyCodeAction)).not.toHaveBeenCalled()
+    })
+
+    it('dismisses the modal when the X close button is clicked', async () => {
+        const user = userEvent.setup()
+        renderFooter({
+            initialNote: wordsString(10),
+            mainFileName: 'main.R',
+            fileNames: ['main.R'],
+        })
+        await user.click(screen.getByRole('button', { name: 'Resubmit study code' }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: /close/i }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        expect(vi.mocked(resubmitStudyCodeAction)).not.toHaveBeenCalled()
+    })
+
+    it('calls resubmitStudyCodeAction when "Yes, resubmit study code" is confirmed', async () => {
+        const user = userEvent.setup()
+        vi.mocked(resubmitStudyCodeAction).mockResolvedValueOnce({ studyJobId: 'new-job' })
+        renderFooter({
+            initialNote: wordsString(10),
+            mainFileName: 'main.R',
+            fileNames: ['main.R', 'helper.R'],
+        })
+        await user.click(screen.getByRole('button', { name: 'Resubmit study code' }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Yes, resubmit study code' }))
+
+        await waitFor(() =>
+            expect(vi.mocked(resubmitStudyCodeAction)).toHaveBeenCalledWith({
+                studyId: STUDY_ID,
+                mainFileName: 'main.R',
+                fileNames: ['main.R', 'helper.R'],
+                resubmissionNote: wordsString(10),
+            }),
+        )
     })
 
     it('shows Cancel (not Save and exit) when no changes have been made', () => {

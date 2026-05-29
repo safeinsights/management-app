@@ -138,6 +138,25 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
+// 1 = first submission, >=2 = resubmission round.
+export const countSubmittedJobsForStudy = async (studyId: string): Promise<number> => {
+    const row = await Action.db
+        .selectFrom('studyJob')
+        .where('studyJob.studyId', '=', studyId)
+        .where((eb) =>
+            eb.exists(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                    .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                    .select('jobStatusChange.id'),
+            ),
+        )
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0)
+}
+
 export const jobInfoForJobId = async (jobId: string) => {
     return await Action.db
         .selectFrom('studyJob')
