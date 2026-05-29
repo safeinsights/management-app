@@ -469,6 +469,10 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     const mainFileName = mainCodeFile.split('/').pop()!
     await expect(page.getByText(mainFileName).first()).toBeVisible()
 
+    // The Resubmit button is gated on a non-empty resubmission note. Fill it
+    // before attempting to enable the button.
+    await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
+
     // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
     const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
     await expect(resubmitButton).toBeEnabled()
@@ -760,6 +764,9 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         // Upload files via the file input in the drop overlay
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+
+        // The Resubmit button is gated on a non-empty resubmission note.
+        await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
         // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
         const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
