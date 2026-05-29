@@ -77,6 +77,9 @@ async function createProposalAsResearcher(page: Page, studyTitle: string): Promi
     await page.waitForURL('**/dashboard')
 }
 
+// Drives the redesigned ProposalReviewView: required feedback + decision +
+// modal confirm, then the post-feedback "Go to dashboard" CTA. The old
+// single-button "Approve request" flow is gone with the flag removal.
 async function approveProposalAsReviewer(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
@@ -84,7 +87,28 @@ async function approveProposalAsReviewer(page: Page, studyTitle: string): Promis
         await studyRow.getByRole('link', { name: 'View' }).first().click()
     }).toPass()
     await page.waitForURL(/\/study\//)
-    await page.getByRole('button', { name: /Approve request/i }).click()
+
+    const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
+    await expect(feedbackEditor).toBeVisible()
+    await feedbackEditor.click()
+    await page.keyboard.type('Approving this initial request — feasibility and impact look reasonable.')
+
+    await page
+        .getByTestId('review-decision-section')
+        .getByRole('radio', { name: /^Approve$/i })
+        .check()
+
+    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    await expect(submitReview).toBeEnabled()
+    await submitReview.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog).toBeHidden()
+
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
 }
 

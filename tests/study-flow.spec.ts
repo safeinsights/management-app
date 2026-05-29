@@ -267,9 +267,15 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     // Submit and confirm.
     await page.getByTestId('code-review-submit').click()
-    await page.getByRole('button', { name: /Yes, submit review/i }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog).toBeHidden()
 
-    // The approval mutation redirects back to the dashboard.
+    // The redesign keeps the reviewer on the post-feedback view; take the
+    // "Go to dashboard" CTA the same way reviewerApprovesProposal does.
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
 }
 
