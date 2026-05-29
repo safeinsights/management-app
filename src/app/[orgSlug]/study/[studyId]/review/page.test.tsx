@@ -9,7 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
-import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsRedesignView } from './study-details-redesign-view'
@@ -72,7 +72,7 @@ describe('StudyReviewPage', () => {
         expect(page?.type).toBe(CodeReviewRedesignView)
     })
 
-    it('renders LegacyProposalReviewView with agreementsHref when from=agreements and code submitted', async () => {
+    it('renders ProposalReviewFromAgreementsView with agreementsHref when from=agreements and code submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -85,7 +85,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
-        expect(page?.type).toBe(LegacyProposalReviewView)
+        expect(page?.type).toBe(ProposalReviewFromAgreementsView)
         expect(page?.props.agreementsHref).toContain('/agreements')
     })
 

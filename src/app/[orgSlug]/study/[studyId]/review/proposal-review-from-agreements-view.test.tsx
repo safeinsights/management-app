@@ -12,9 +12,11 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 
-describe('LegacyProposalReviewView', () => {
+const AGREEMENTS_HREF = '/openstax/study/123/agreements'
+
+describe('ProposalReviewFromAgreementsView', () => {
     let study: Submitted<SelectedStudy>
 
     beforeEach(async () => {
@@ -37,8 +39,10 @@ describe('LegacyProposalReviewView', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: study.id })
     })
 
-    it('renders proposal fields', async () => {
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={study} />)
+    it('renders proposal fields and the Proceed to Step 2 button', async () => {
+        renderWithProviders(
+            <ProposalReviewFromAgreementsView orgSlug="openstax" study={study} agreementsHref={AGREEMENTS_HREF} />,
+        )
 
         await waitFor(() => {
             expect(screen.getByText('What is the effect of X on Y?')).toBeInTheDocument()
@@ -58,8 +62,9 @@ describe('LegacyProposalReviewView', () => {
         expect(screen.getByText('Dataset B')).toBeInTheDocument()
         expect(screen.getByText('Researcher')).toBeInTheDocument()
         expect(screen.getByText(study.createdBy)).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Reject request' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Approve request' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
     })
 
     it('hides fields when values are null', async () => {
@@ -74,7 +79,9 @@ describe('LegacyProposalReviewView', () => {
         if (!isSubmittedStudy(nullStudy)) throw new Error('test fixture must be a submitted study')
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: nullStudy.id })
 
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={nullStudy} />)
+        renderWithProviders(
+            <ProposalReviewFromAgreementsView orgSlug="test-org" study={nullStudy} agreementsHref={AGREEMENTS_HREF} />,
+        )
 
         expect(screen.queryByText('Research question(s)')).not.toBeInTheDocument()
         expect(screen.queryByText('Project summary')).not.toBeInTheDocument()
@@ -97,7 +104,13 @@ describe('LegacyProposalReviewView', () => {
         if (!isSubmittedStudy(lexicalStudy)) throw new Error('test fixture must be a submitted study')
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'test-org', studyId: lexicalStudy.id })
 
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
+        renderWithProviders(
+            <ProposalReviewFromAgreementsView
+                orgSlug="test-org"
+                study={lexicalStudy}
+                agreementsHref={AGREEMENTS_HREF}
+            />,
+        )
 
         await waitFor(() => {
             expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
@@ -108,39 +121,28 @@ describe('LegacyProposalReviewView', () => {
     it('shows approval status when study is APPROVED', () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={approvedStudy} />)
+        renderWithProviders(
+            <ProposalReviewFromAgreementsView
+                orgSlug="openstax"
+                study={approvedStudy}
+                agreementsHref={AGREEMENTS_HREF}
+            />,
+        )
 
         expect(screen.getByText('Approved on Jun 15, 2025')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
     })
 
     it('shows rejection status when study is REJECTED', () => {
         const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15T12:00:00') }
 
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
-
-        expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
-    })
-
-    it('hides proposal review buttons when study is CHANGE-REQUESTED', () => {
-        const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
-
-        renderWithProviders(<LegacyProposalReviewView orgSlug="test-org" study={clarificationStudy} />)
-
-        expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument()
-    })
-
-    it('renders "Proceed to Step 2" when agreementsHref is provided', () => {
-        const agreementsHref = '/openstax/study/123/agreements'
-
         renderWithProviders(
-            <LegacyProposalReviewView orgSlug="openstax" study={study} agreementsHref={agreementsHref} />,
+            <ProposalReviewFromAgreementsView
+                orgSlug="openstax"
+                study={rejectedStudy}
+                agreementsHref={AGREEMENTS_HREF}
+            />,
         )
 
-        expect(screen.getByRole('button', { name: 'Proceed to Step 2' })).toBeInTheDocument()
+        expect(screen.getByText('Rejected on Jun 15, 2025')).toBeInTheDocument()
     })
 })

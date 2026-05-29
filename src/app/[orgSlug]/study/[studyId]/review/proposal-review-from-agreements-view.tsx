@@ -5,19 +5,25 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from '@/components/study/proposal-fields'
 import { stringifyJson } from '@/lib/string'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { Submitted } from '@/schema/study'
 import { usePopover } from '@/hooks/use-popover'
-import { ProposalReviewButtons } from './proposal-review-buttons'
 
-type LegacyProposalReviewViewProps = {
+type ProposalReviewFromAgreementsViewProps = {
     orgSlug: string
     study: Submitted<SelectedStudy>
-    agreementsHref?: string
+    agreementsHref: string
 }
 
-export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: LegacyProposalReviewViewProps) {
+export function ProposalReviewFromAgreementsView({
+    orgSlug,
+    study,
+    agreementsHref,
+}: ProposalReviewFromAgreementsViewProps) {
+    const router = useRouter()
     const { getPopoverProps } = usePopover()
 
     return (
@@ -70,7 +76,9 @@ export function LegacyProposalReviewView({ orgSlug, study, agreementsHref }: Leg
                 </Stack>
             </Paper>
 
-            <ProposalReviewButtons study={study} orgSlug={orgSlug} agreementsHref={agreementsHref} />
+            <Group justify="flex-end">
+                <Button onClick={() => router.push(agreementsHref as Route)}>Proceed to Step 2</Button>
+            </Group>
         </Stack>
     )
 }

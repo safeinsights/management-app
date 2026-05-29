@@ -16,7 +16,7 @@ import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStu
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReviewRedesignView } from './code-review-redesign-view'
-import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsRedesignView } from './study-details-redesign-view'
@@ -80,7 +80,7 @@ export default async function StudyReviewPage(props: {
         // When a reviewer navigates back from the agreements step, show the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
-                <LegacyProposalReviewView
+                <ProposalReviewFromAgreementsView
                     orgSlug={orgSlug}
                     study={study}
                     agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
