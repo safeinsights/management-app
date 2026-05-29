@@ -63,7 +63,6 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         studyId,
         form,
         websocketProvider,
-        enabled: true,
     })
 
     const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
