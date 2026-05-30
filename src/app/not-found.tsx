@@ -1,10 +1,10 @@
 'use client'
 
+import { AppFooter } from '@/components/layout/app-footer'
 import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
 import { Routes } from '@/lib/routes'
 import {
     AppShell,
-    AppShellFooter,
     AppShellHeader,
     AppShellMain,
     Button,
@@ -60,11 +60,7 @@ export default function NotFound() {
                     </Stack>
                 </Paper>
             </AppShellMain>
-            <AppShellFooter p="md" bg="purple.9" bd="none">
-                <Group justify="left" c="white">
-                    <Text c="white">© 2025 - SafeInsights, Rice University</Text>
-                </Group>
-            </AppShellFooter>
+            <AppFooter />
         </AppShell>
     )
 }
