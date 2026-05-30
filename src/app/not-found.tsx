@@ -3,17 +3,7 @@
 import { AppFooter } from '@/components/layout/app-footer'
 import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
 import { Routes } from '@/lib/routes'
-import {
-    AppShell,
-    AppShellHeader,
-    AppShellMain,
-    Button,
-    Group,
-    Paper,
-    Stack,
-    Text,
-    Title,
-} from '@mantine/core'
+import { AppShell, AppShellHeader, AppShellMain, Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { NotFoundImage } from '../../public/svg/404-image'
