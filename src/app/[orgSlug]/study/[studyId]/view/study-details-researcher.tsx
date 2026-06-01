@@ -13,14 +13,14 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 // page only renders while the job is in CODE-SUBMITTED/CODE-SCANNED status; once
 // results exist that page is no longer routable.
 
-type StudyDetailsRedesignViewProps = {
+type StudyDetailsResearcherProps = {
     orgSlug: string
     study: SelectedStudy
     job: LatestJobForStudy
     dashboardHref?: Route
 }
 
-export function StudyDetailsRedesignView({ orgSlug, study, job, dashboardHref }: StudyDetailsRedesignViewProps) {
+export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref }: StudyDetailsResearcherProps) {
     const previousHref = dashboardHref ?? Routes.dashboard
 
     return (

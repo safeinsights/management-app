@@ -23,12 +23,16 @@ describe('useStudyHref', () => {
         expect(useStudyHref('PENDING-REVIEW', false, PARAMS)).toBe(`${BASE}/submitted`)
     })
 
-    it('routes to /agreements for APPROVED without job activity', () => {
-        expect(useStudyHref('APPROVED', false, PARAMS)).toBe(`${BASE}/agreements`)
+    it('routes to /submitted for APPROVED without job activity', () => {
+        expect(useStudyHref('APPROVED', false, PARAMS)).toBe(`${BASE}/submitted`)
     })
 
-    it('routes to /view for REJECTED without job activity', () => {
-        expect(useStudyHref('REJECTED', false, PARAMS)).toBe(`${BASE}/view`)
+    it('routes to /submitted for REJECTED without job activity', () => {
+        expect(useStudyHref('REJECTED', false, PARAMS)).toBe(`${BASE}/submitted`)
+    })
+
+    it('routes to /submitted for CHANGE-REQUESTED without job activity', () => {
+        expect(useStudyHref('CHANGE-REQUESTED', false, PARAMS)).toBe(`${BASE}/submitted`)
     })
 
     it('routes to /view for DRAFT without job activity', () => {
@@ -37,11 +41,11 @@ describe('useStudyHref', () => {
 
     describe('post-submission flow', () => {
         it('routes to /submitted for APPROVED without job activity when agreements are not acknowledged', () => {
-            expect(useStudyHref('APPROVED', false, PARAMS, undefined, true, false)).toBe(`${BASE}/submitted`)
+            expect(useStudyHref('APPROVED', false, PARAMS, undefined, false)).toBe(`${BASE}/submitted`)
         })
 
         it('routes to /code for APPROVED without job activity when agreements are acknowledged', () => {
-            expect(useStudyHref('APPROVED', false, PARAMS, undefined, true, true)).toBe(`${BASE}/code`)
+            expect(useStudyHref('APPROVED', false, PARAMS, undefined, true)).toBe(`${BASE}/code`)
         })
 
         it('routes to /submitted for REJECTED without job activity', () => {
