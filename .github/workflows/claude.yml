@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
-          # SECURITY (OTTER-545): the claude-code-action runs `npm install`
+          # SECURITY (OTTER-545): the claude-code-action can run pnpm
           # and other PR-controlled tooling against the checked-out tree, so
           # we must not leave a usable GITHUB_TOKEN on disk for a malicious
           # install script to read.
@@ -60,7 +60,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@24492741e0ccfdef4c1d19da8e11e0f373d07494 # v1
+        uses: anthropics/claude-code-action@787c5a0ce96a9a6cfb050ea0c8f4c05f2447c251 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -74,7 +74,7 @@ jobs:
           # claude_args: |
           #   --model claude-opus-4-1-20250805
           #   --max-turns 10
-          #   --allowedTools "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
+          #   --allowedTools "Bash(pnpm install),Bash(pnpm run build),Bash(pnpm run test:*),Bash(pnpm run lint:*)"
           #   --system-prompt "Follow our coding standards. Ensure all new code has tests. Use TypeScript for new files."
 
           # Optional: Advanced settings configuration

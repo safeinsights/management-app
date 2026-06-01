@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
     BLANK_UUID,
+    insertTestDataSource,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyJobUsers,
@@ -17,6 +18,7 @@ import {
     getUsersForOrgId,
     jobInfoForJobId,
     studyInfoForStudyId,
+    getDataSourcesForOrg,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -287,5 +289,64 @@ describe('getStudyReviewForJob', () => {
         expect(result.report).toEqual(report)
         expect(result.createdAt).toBeInstanceOf(Date)
         expect(result.files).toEqual([])
+    })
+})
+
+describe('getDataSourcesForOrg', () => {
+    it('returns data source and URLs', async () => {
+        const org = await insertTestOrg()
+        const dataSource1 = {
+            name: 'Name: Data source 1',
+            description: 'Desc: Data source 1',
+            urls: [
+                {
+                    url: 'https://example.com/url1',
+                    description: 'Source 1 url1 desc',
+                },
+                {
+                    url: 'https://example.com/url2',
+                    description: 'Source 1 url2 desc',
+                },
+            ],
+        }
+
+        const dataSource2 = {
+            name: 'Name: Data source 2',
+            description: null,
+            urls: [
+                {
+                    url: 'https://example.com/url3',
+                    description: null,
+                },
+                {
+                    url: null,
+                    description: null,
+                },
+            ],
+        }
+
+        await insertTestDataSource({
+            orgId: org.id,
+            ...dataSource1,
+        })
+
+        await insertTestDataSource({
+            orgId: org.id,
+            ...dataSource2,
+        })
+
+        const result = await getDataSourcesForOrg(org.id)
+
+        expect(result.length).toEqual(2)
+
+        const resDataSource1 = result[0]
+        const resDataSource2 = result[1]
+
+        expect(resDataSource1.name).toEqual(dataSource1.name)
+        expect(resDataSource1.description).toEqual(dataSource1.description)
+        expect(resDataSource1.urls).toStrictEqual(dataSource1.urls)
+        expect(resDataSource2.name).toEqual(dataSource2.name)
+        expect(resDataSource2.description).toEqual(dataSource2.description)
+        expect(resDataSource2.urls).toStrictEqual(dataSource2.urls)
     })
 })

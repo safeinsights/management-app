@@ -2,11 +2,12 @@
 
 import { useState, type FC } from 'react'
 import { ActionIcon, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
-import { EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
+import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { FilePreviewModal } from '@/components/file-preview-modal'
+import { studyCodeURL } from '@/lib/paths'
 
 type SubmittedFile = LatestJobForStudy['files'][number]
 
@@ -23,10 +24,11 @@ const formatUpdatedAt = (date: Date | string) =>
         minute: '2-digit',
     })
 
-const SubmittedCodeRow: FC<{ file: SubmittedFile; onPreview: (file: SubmittedFile) => void }> = ({
-    file,
-    onPreview,
-}) => {
+const SubmittedCodeRow: FC<{
+    file: SubmittedFile
+    jobId: string
+    onPreview: (file: SubmittedFile) => void
+}> = ({ file, jobId, onPreview }) => {
     const isMain = file.fileType === 'MAIN-CODE'
     const starWeight = isMain ? 'fill' : 'regular'
     const starColor = isMain ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'
@@ -61,6 +63,16 @@ const SubmittedCodeRow: FC<{ file: SubmittedFile; onPreview: (file: SubmittedFil
                     >
                         <EyeIcon weight="fill" />
                     </ActionIcon>
+                    <ActionIcon
+                        component="a"
+                        href={studyCodeURL(jobId, file.name)}
+                        download={file.name}
+                        variant="subtle"
+                        color="gray"
+                        aria-label={`Download ${file.name}`}
+                    >
+                        <DownloadSimpleIcon weight="fill" />
+                    </ActionIcon>
                 </Group>
             </Table.Td>
         </Table.Tr>
@@ -90,7 +102,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
         : null
 
     const rowElements = files.map((file) => (
-        <SubmittedCodeRow key={file.name} file={file} onPreview={(f) => setPreviewFileName(f.name)} />
+        <SubmittedCodeRow key={file.name} file={file} jobId={jobId} onPreview={(f) => setPreviewFileName(f.name)} />
     ))
 
     return (

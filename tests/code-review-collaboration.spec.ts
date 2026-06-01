@@ -70,12 +70,16 @@ async function createProposalAsResearcher(page: Page, studyTitle: string): Promi
     await piSelect.click()
     await page.getByRole('option').first().click()
 
-    await page.getByRole('button', { name: /Submit study proposal/i }).click()
-    await expect(page.getByText(/submitted successfully/i)).toBeVisible()
+    await page.getByRole('button', { name: /Submit initial request/i }).click()
+    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
+    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     await page.getByRole('link', { name: /Go to dashboard/i }).click()
     await page.waitForURL('**/dashboard')
 }
 
+// Drives the redesigned ProposalReviewView: required feedback + decision +
+// modal confirm, then the post-feedback "Go to dashboard" CTA. The old
+// single-button "Approve request" flow is gone with the flag removal.
 async function approveProposalAsReviewer(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
@@ -83,7 +87,28 @@ async function approveProposalAsReviewer(page: Page, studyTitle: string): Promis
         await studyRow.getByRole('link', { name: 'View' }).first().click()
     }).toPass()
     await page.waitForURL(/\/study\//)
-    await page.getByRole('button', { name: /Approve request/i }).click()
+
+    const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
+    await expect(feedbackEditor).toBeVisible()
+    await feedbackEditor.click()
+    await page.keyboard.type('Approving this initial request — feasibility and impact look reasonable.')
+
+    await page
+        .getByTestId('review-decision-section')
+        .getByRole('radio', { name: /^Approve$/i })
+        .check()
+
+    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    await expect(submitReview).toBeEnabled()
+    await submitReview.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog).toBeHidden()
+
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -93,6 +118,10 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
     await expect(async () => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
     }).toPass()
+    // APPROVED without job activity routes through /submitted (useStudyHref
+    // change in the flag-removal cleanup); click through to /agreements.
+    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
     await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
@@ -103,7 +132,9 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
     await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
     await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
     await page.getByRole('button', { name: /Submit code/i }).click()
-    await page.waitForURL('**/dashboard')
+    // Post-flag-removal: code-upload always redirects to /view after submit
+    // (usePostCodeSubmissionFeatureFlag was removed).
+    await page.waitForURL(/\/view(\?.*)?$/)
 
     return studyId
 }
@@ -112,26 +143,13 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
 // Code-review page helpers shared by both reviewer contexts.
 // ---------------------------------------------------------------------------
 
-// The collab UI (`code-review-section`) is gated behind
-// `useCodeReviewCollaborationFeatureFlag` which requires spy mode = on.
-// Spy mode is pure React state toggled by clicking the `𝜋` symbol fixed
-// at the bottom of every page (no localStorage), so each fresh browser
-// context must enable it once. The element has opacity:0 but
-// `pointer-events: auto`, so a forced click reliably fires the handler.
-// Spy mode adds `.spy-mode` to <body>; we assert that to confirm state
-// flipped before relying on it gating downstream rendering.
-async function enableSpyMode(page: Page): Promise<void> {
-    await page.locator('.pi-symbol').click({ force: true })
-    await expect(page.locator('body.spy-mode')).toBeAttached()
-}
-
-// `useCodeReviewCollaborationFeatureFlag` returns false until the user's
-// `session.orgs` includes an OpenStax slug. After a Clerk testing-token sign-in,
-// `user.publicMetadata.orgs` is populated either directly (if Clerk already
-// has it) or via a `syncUserMetadataAction` fallback that round-trips to the
-// server. Wait for the metadata to actually contain `openstax` so the feature
-// flag can flip true. If this times out, the failure message points squarely
-// at the seed-side issue rather than at downstream editor mounting.
+// After a Clerk testing-token sign-in, `user.publicMetadata.orgs` is
+// populated either directly (if Clerk already has it) or via a
+// `syncUserMetadataAction` fallback that round-trips to the server.
+// Wait for the metadata to actually contain `openstax` so downstream
+// reviewer interactions have a properly seeded session. If this times
+// out, the failure message points squarely at the seed-side issue
+// rather than at downstream editor mounting.
 async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
     await page.waitForFunction(
         () => {
@@ -203,8 +221,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             })
             await ctxA.page.waitForURL(/\/agreements(\?.*)?$/)
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
-            // Enable spy mode while on /agreements; survives SPA navigation to /review.
-            await enableSpyMode(ctxA.page)
             await ctxA.page.getByRole('button', { name: /Proceed to Step 3/i }).click()
             await ctxA.page.waitForURL(/\/review\?from=agreements-proceed$/)
             await expect(ctxA.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
@@ -216,7 +232,6 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
                 url: `/openstax/study/${studyId}/review?from=agreements-proceed`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
-            await enableSpyMode(ctxB.page)
             await expect(ctxB.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 

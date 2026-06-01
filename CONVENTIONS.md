@@ -18,26 +18,26 @@ This document outlines the coding conventions and best practices used in this pr
 - Never use hardcoded route strings; use `Routes.*` from `src/lib/routes`
 - Unit tests go next to source files with `.test.ts(x)` suffix
 - Don't mock database in unit tests; test actual records exist
-- After any code change: run `npm run lint:fix && npm run test:unit`
+- After any code change: run `pnpm run lint:fix && pnpm run test:unit`
 
 ## Linting and Formatting
 
 - The project uses ESLint and Prettier to ensure consistent code style.
-- Use the following npm scripts:
-    - `npm run lint` - Check for lint issues.
-    - `npm run lint:fix` - Automatically fix lint issues.
-- Also run `npm run checks` to run type checking and linting together.
+- Use the following pnpm scripts:
+    - `pnpm run lint` - Check for lint issues.
+    - `pnpm run lint:fix` - Automatically fix lint issues.
+- Also run `pnpm run checks` to run type checking and linting together.
 
-After making code changes, always run `npm run pre:push` to correct code structure before committing it
+After making code changes, always run `pnpm run pre:push` to correct code structure before committing it
 
 ## Type Checking
 
 - TypeScript is used for static type checking.
-- Use `npm run typecheck` to run the TypeScript compiler for validation.
+- Use `pnpm run typecheck` to run the TypeScript compiler for validation.
 
 ## Unit Testing
 
-Run `npm run test:unit` to test all changes
+Run `pnpm run test:unit` to test all changes
 
 When creating or modifying unit tests:
 

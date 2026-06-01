@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
 import { AppModal } from '@/components/modal'
-import { useCodeReviewCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -269,7 +268,6 @@ function NonEditableBody({ isVisible, job, onBack }: NonEditableBodyProps) {
 }
 
 export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props) {
-    const isCollaborationEnabled = useCodeReviewCollaborationFeatureFlag()
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const {
@@ -286,8 +284,6 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         handleConfirmSubmit,
         isPending,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
-
-    if (!isCollaborationEnabled) return null
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug

@@ -80,6 +80,9 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
 
+    permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
+    permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
+
     // SI admins can do anything
     if (isSiAdmin) {
         permit('create', 'Org')
@@ -92,6 +95,9 @@ export function defineAbilityFor(session: UserSession) {
         permit('delete', 'Org')
         permit('view', 'OrgStudies')
         permit('view', 'OrgMembers')
+        permit('view', 'AgentContext')
+        permit('create', 'AgentContext')
+        permit('update', 'AgentContext')
     }
 
     return build({

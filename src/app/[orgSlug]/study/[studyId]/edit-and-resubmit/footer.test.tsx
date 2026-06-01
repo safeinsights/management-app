@@ -3,9 +3,14 @@ import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEven
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { lexicalJson } from '@/lib/lexical'
+import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { EditResubmitFooter } from './footer'
-import { ResubmissionNoteSection } from './resubmission-note-section'
 import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
+
+function NoteSection({ orgName }: { orgName: string }) {
+    const { noteForm } = useEditResubmit()
+    return <ResubmissionNoteSection noteForm={noteForm} orgName={orgName} />
+}
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -27,7 +32,7 @@ const VALID_PROPOSAL_DRAFT: EditResubmitDraftData = {
 const renderFooterWithNoteSection = (draft: EditResubmitDraftData = VALID_PROPOSAL_DRAFT) =>
     renderWithProviders(
         <EditResubmitProvider studyId={STUDY_ID} draftData={draft}>
-            <ResubmissionNoteSection orgName="Rice University" />
+            <NoteSection orgName="Rice University" />
             <EditResubmitFooter researcherName="Test Researcher" researcherId="" />
         </EditResubmitProvider>,
     )

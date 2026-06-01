@@ -11,13 +11,12 @@ import {
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import StudyReviewPage from './page'
 import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsResearcher } from './study-details-researcher'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -186,11 +185,14 @@ describe('StudyViewPage', () => {
             .select('id')
             .where('studyId', '=', studyId)
             .executeTakeFirstOrThrow()
-        await db.insertInto('jobStatusChange').values({ status, studyJobId: job.id }).execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ status, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+            .execute()
     }
 
-    describe('post-code-submission flag swap (OTTER-537)', () => {
-        it('wraps CodeOnlyView in PostCodeSubmissionFeatureFlag when latest status is CODE-SUBMITTED and study is PENDING-REVIEW', async () => {
+    describe('post-code-submission', () => {
+        it('renders CodePostSubmissionView when latest status is CODE-SUBMITTED and study is PENDING-REVIEW', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -204,12 +206,10 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(PostCodeSubmissionFeatureFlag)
-            expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
-            expect(page?.props.optInContent.type).toBe(CodePostSubmissionView)
+            expect(page?.type).toBe(CodePostSubmissionView)
         })
 
-        it('wraps CodeOnlyView in PostCodeSubmissionFeatureFlag when latest status is CODE-SCANNED and study is PENDING-REVIEW', async () => {
+        it('renders CodePostSubmissionView when latest status is CODE-SCANNED and study is PENDING-REVIEW', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -224,31 +224,8 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(PostCodeSubmissionFeatureFlag)
-            expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
-            expect(page?.props.optInContent.type).toBe(CodePostSubmissionView)
+            expect(page?.type).toBe(CodePostSubmissionView)
         })
-
-        it.each(['CODE-APPROVED', 'CODE-REJECTED'] as const)(
-            'renders CodeOnlyView directly (no flag swap) when latest job status is %s',
-            async (jobStatus) => {
-                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-                const { study } = await insertTestStudyJobData({
-                    org,
-                    researcherId: user.id,
-                    studyStatus: 'APPROVED',
-                    jobStatus: 'CODE-SUBMITTED',
-                })
-                await addJobStatus(study.id, jobStatus)
-
-                const page = await StudyReviewPage({
-                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
-                })
-
-                expect(page?.type).toBe(CodeOnlyView)
-            },
-        )
 
         it('renders ResearcherProposalView when ?from=agreements regardless of latest job status', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -267,7 +244,7 @@ describe('StudyViewPage', () => {
             expect(page?.type).toBe(ResearcherProposalView)
         })
 
-        it('preserves dashboardHref through to the flag swap when ?returnTo=org', async () => {
+        it('preserves dashboardHref when ?returnTo=org', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -281,9 +258,8 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            expect(page?.type).toBe(PostCodeSubmissionFeatureFlag)
-            expect(page?.props.defaultContent.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
-            expect(page?.props.optInContent.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            expect(page?.type).toBe(CodePostSubmissionView)
+            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         })
 
         it('renders CodeOnlyView directly when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW)', async () => {
@@ -304,7 +280,7 @@ describe('StudyViewPage', () => {
         })
     })
 
-    describe('post-code-decision flag swap (OTTER-556)', () => {
+    describe('post-code-decision (OTTER-556)', () => {
         const seedCodeReviewComment = async (
             studyId: string,
             authorId: string,
@@ -334,7 +310,7 @@ describe('StudyViewPage', () => {
             ['CODE-CHANGES-REQUESTED', 'NEEDS-CLARIFICATION'],
             ['CODE-REJECTED', 'REJECT'],
         ] as const)(
-            'wraps CodePostDecisionView in PostCodeSubmissionFeatureFlag when latest status is %s and review feedback exists',
+            'renders CodePostDecisionView when latest status is %s and review feedback exists',
             async (jobStatus, decision) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -351,9 +327,7 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(PostCodeSubmissionFeatureFlag)
-                expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
-                expect(page?.props.optInContent.type).toBe(CodePostDecisionView)
+                expect(page?.type).toBe(CodePostDecisionView)
             },
         )
 
@@ -376,9 +350,9 @@ describe('StudyViewPage', () => {
         })
     })
 
-    describe('study-details redesign flag swap (OTTER-538)', () => {
+    describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'wraps CodeOnlyView in StudyDetailsRedesignFeatureFlag when latest job status is %s',
+            'renders StudyDetailsResearcher when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -394,9 +368,7 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(StudyDetailsRedesignFeatureFlag)
-                expect(page?.props.defaultContent.type).toBe(CodeOnlyView)
-                expect(page?.props.optInContent.type).toBe(StudyDetailsRedesignView)
+                expect(page?.type).toBe(StudyDetailsResearcher)
             },
         )
     })
