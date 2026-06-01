@@ -228,7 +228,6 @@ export interface Study {
     irbDocPath: string | null
     irbProtocols: string | null
     language: Generated<Language>
-    latestReviewerId: string | null
     orgId: string
     outputMimeType: string | null
     piName: string
