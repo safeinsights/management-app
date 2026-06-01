@@ -65,7 +65,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         validateInputOnChange: true,
     })
 
-    const { saveDraft: savePropsalDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
+    const { saveDraft: saveProposalDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
 
     // OTTER-521 follow-up: persist the resubmission note via the same debounced
     // autosave the code-resubmission flow uses (OTTER-558). Single in-flight
@@ -110,11 +110,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
                 })
             inFlightNoteSaveRef.current = savePromise
 
-            try {
-                return await savePromise
-            } catch {
-                return false
-            }
+            return savePromise
         },
         [noteSaveMutation],
     )
@@ -134,9 +130,9 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     // Returning true only when both succeed lets the Back handler block
     // navigation on a failed save (existing contract).
     const saveDraft = useCallback(async () => {
-        const [proposalOk, noteOk] = await Promise.all([savePropsalDraft(), flushNoteSave(pendingNoteRef.current)])
+        const [proposalOk, noteOk] = await Promise.all([saveProposalDraft(), flushNoteSave(pendingNoteRef.current)])
         return proposalOk && noteOk
-    }, [savePropsalDraft, flushNoteSave])
+    }, [saveProposalDraft, flushNoteSave])
 
     const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm })
 

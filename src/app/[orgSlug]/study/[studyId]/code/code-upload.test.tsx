@@ -33,16 +33,6 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-const featureFlagState = vi.hoisted(() => ({ enabled: false }))
-
-vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
-    return {
-        ...actual,
-        usePostCodeSubmissionFeatureFlag: () => featureFlagState.enabled,
-    }
-})
-
 const workspaceRoots: string[] = []
 
 const setupStudy = async (orgSlug = 'openstax') => {
@@ -78,13 +68,11 @@ const renderPage = async (orgSlug = 'openstax') => {
 describe('CodeUploadPage', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
-        featureFlagState.enabled = false
         memoryRouter.setCurrentUrl('/')
     })
 
     afterEach(async () => {
         await cleanupWorkspaceDirs(workspaceRoots)
-        featureFlagState.enabled = false
     })
 
     it('renders the page chrome in the empty state', async () => {
@@ -163,60 +151,43 @@ describe('CodeUploadPage', () => {
         ])
     })
 
-    describe('post-submit redirect (OTTER-537 flag swap)', () => {
-        const submitSuccessfully = async (orgSlug: string) => {
-            const { study } = await setupStudy(orgSlug)
-            await createBaselineJob(study.id)
-            const root = await createWorkspaceDir('code-upload-page')
-            workspaceRoots.push(root)
-            await writeWorkspaceFiles(root, study.id, {
-                'main.r': 'print("main")',
-            })
-
-            renderWithProviders(
-                <CodeUploadPage
-                    orgSlug={orgSlug}
-                    studyId={study.id}
-                    studyTitle={study.title}
-                    previousHref={'/test' as Route}
-                />,
-            )
-
-            await waitFor(() => {
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-            })
-
-            const user = userEvent.setup()
-            await user.click(screen.getByRole('button', { name: /submit code/i }))
-
-            await waitFor(async () => {
-                const updated = await db
-                    .selectFrom('study')
-                    .select(['status'])
-                    .where('id', '=', study.id)
-                    .executeTakeFirstOrThrow()
-                expect(updated.status).toBe('PENDING-REVIEW')
-            })
-
-            return { study }
-        }
-
-        it('flag off: routes to /dashboard after successful submit (legacy path)', async () => {
-            featureFlagState.enabled = false
-            await submitSuccessfully('openstax')
-
-            await waitFor(() => {
-                expect(memoryRouter.asPath).toBe('/dashboard')
-            })
+    it('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
+        const orgSlug = 'openstax'
+        const { study } = await setupStudy(orgSlug)
+        await createBaselineJob(study.id)
+        const root = await createWorkspaceDir('code-upload-page')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, {
+            'main.r': 'print("main")',
         })
 
-        it('flag on: routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
-            featureFlagState.enabled = true
-            const { study } = await submitSuccessfully('openstax')
+        renderWithProviders(
+            <CodeUploadPage
+                orgSlug={orgSlug}
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
+        )
 
-            await waitFor(() => {
-                expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
-            })
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
         })
     })
 

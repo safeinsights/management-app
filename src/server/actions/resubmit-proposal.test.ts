@@ -193,7 +193,7 @@ describe('onUpdateClarifiedProposalAction', () => {
         expect(after.status).toBe('CHANGE-REQUESTED')
     })
 
-    it('does not modify a study that is not in CHANGE-REQUESTED status', async () => {
+    it('rejects edits to a study that is not in CHANGE-REQUESTED status', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-4', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -202,22 +202,20 @@ describe('onUpdateClarifiedProposalAction', () => {
             title: 'Original',
         })
 
-        actionResult(
-            await onUpdateClarifiedProposalAction({
-                studyId: study.id,
-                studyInfo: { title: 'Should-not-apply' },
-            }),
-        )
+        const result = await onUpdateClarifiedProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'Should-not-apply' },
+        })
+        expect('error' in result).toBe(true)
 
         const after = await db.selectFrom('study').select('title').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(after.title).toBe('Original')
     })
 })
 
-// OTTER-521 follow-up: any researcher in the submitting lab — not just the
-// study's original researcher — must be able to edit and resubmit a
-// CHANGE-REQUESTED proposal (per QA — Malarvizhi/Marvin's comments on 5/13/26).
-describe('OTTER-521 follow-up — lab co-author edit & resubmit', () => {
+// Any researcher in the submitting lab — not just the study's original
+// researcher — must be able to edit and resubmit a CHANGE-REQUESTED proposal.
+describe('lab co-author edit & resubmit', () => {
     it('lets a different researcher in the same lab save draft edits', async () => {
         const { org } = await mockSessionWithTestData({ orgSlug: 'lab-coauthor-draft', orgType: 'lab' })
         // original author of the study
@@ -298,9 +296,10 @@ describe('OTTER-521 follow-up — lab co-author edit & resubmit', () => {
             studyId: study.id,
             studyInfo: { title: 'Cross-lab hijack' },
         })
-        // No CASL/ability error today — the action silently no-ops the UPDATE
-        // when the lab guard doesn't match. Assert the data didn't change.
-        expect('error' in result).toBe(false)
+        // Cross-lab attempt now fails loudly via the 0-row UPDATE check;
+        // without that the client would render the action as success while
+        // the row was never touched.
+        expect('error' in result).toBe(true)
         const unchanged = await db
             .selectFrom('study')
             .select('title')
@@ -362,6 +361,50 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
         const tooLong = 'x'.repeat(10_001)
         const result = await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
         expect(result).toHaveProperty('error')
+    })
+
+    it('rejects a cross-lab save attempt instead of silently no-op', async () => {
+        const { org: labA, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-prop-note-cross-A',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org: labA,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        // Switch session to a user in a different lab and try to save
+        await mockSessionWithTestData({ orgSlug: 'lab-prop-note-cross-B', orgType: 'lab' })
+        const result = await saveProposalResubmissionNoteDraftAction({
+            studyId: study.id,
+            note: 'cross-lab attempt',
+        })
+        // Without the 0-row UPDATE check the client would show "All changes
+        // saved" while the note was never persisted.
+        expect('error' in result).toBe(true)
+
+        const row = await db
+            .selectFrom('study')
+            .select('proposalResubmissionNoteDraft')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(row.proposalResubmissionNoteDraft).toBeNull()
+    })
+
+    it('rejects a save attempt when the study is not CHANGE-REQUESTED', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-wrong-status', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        const result = await saveProposalResubmissionNoteDraftAction({
+            studyId: study.id,
+            note: 'wrong-status attempt',
+        })
+        expect('error' in result).toBe(true)
     })
 
     it('clears the draft when the proposal is resubmitted', async () => {

@@ -8,7 +8,6 @@ import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
-import { FeatureFlagGate } from './feature-flag-gate'
 
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -20,10 +19,9 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // OTTER-521 follow-up: any researcher in the submitting lab can edit &
-    // resubmit (per QA — Malarvizhi/Marvin's comments on 5/13/26). Mirrors
-    // the lab-scoping the server actions enforce, so non-lab visitors see a
-    // 404 rather than a form that would silently no-op on save.
+    // Mirrors the lab-scoping the server actions enforce: any researcher in
+    // the submitting lab can edit & resubmit. Non-lab visitors see a 404
+    // rather than a form that would silently no-op on save.
     const session = await sessionFromClerk()
     const userLabOrgIds = session
         ? Object.values(session.orgs)
@@ -33,9 +31,6 @@ export default async function StudyEditAndResubmitRoute(props: {
     if (!session || !userLabOrgIds.includes(study.submittedByOrgId)) return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
-    // Don't render the page with a silent empty feedback list — the researcher
-    // is being asked to address feedback and we'd be hiding the fact that we
-    // couldn't load it.
     if ('error' in entriesResult) return notFound()
     const entries = entriesResult
 
@@ -45,37 +40,33 @@ export default async function StudyEditAndResubmitRoute(props: {
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
-        <FeatureFlagGate>
-            <Stack p="xl" gap="xl">
-                <ResearcherBreadcrumbs
-                    crumbs={{ orgSlug, studyId, studyTitle: study.title, current: 'Edit Initial Request' }}
+        <Stack p="xl" gap="xl">
+            <ResearcherBreadcrumbs
+                crumbs={{ orgSlug, studyId, studyTitle: study.title, current: 'Edit Initial Request' }}
+            />
+            <EditResubmitProvider
+                studyId={studyId}
+                initialNote={study.proposalResubmissionNoteDraft ?? ''}
+                draftData={{
+                    title: study.title ?? '',
+                    piName: study.piName,
+                    piUserId: study.piUserId ?? undefined,
+                    datasets: study.datasets ?? undefined,
+                    researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
+                    projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
+                    impact: study.impact ? JSON.stringify(study.impact) : undefined,
+                    additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
+                }}
+            >
+                <EditResubmitForm
+                    orgName={displayOrgName(enclaveOrg?.name ?? '')}
+                    members={memberOptions}
+                    researcherName={study.createdBy}
+                    researcherId={study.researcherId}
+                    enclaveOrgSlug={study.orgSlug}
+                    feedbackEntries={entries}
                 />
-                <EditResubmitProvider
-                    studyId={studyId}
-                    initialNote={study.proposalResubmissionNoteDraft ?? ''}
-                    draftData={{
-                        title: study.title ?? '',
-                        piName: study.piName,
-                        piUserId: study.piUserId ?? undefined,
-                        datasets: study.datasets ?? undefined,
-                        researchQuestions: study.researchQuestions
-                            ? JSON.stringify(study.researchQuestions)
-                            : undefined,
-                        projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
-                        impact: study.impact ? JSON.stringify(study.impact) : undefined,
-                        additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
-                    }}
-                >
-                    <EditResubmitForm
-                        orgName={displayOrgName(enclaveOrg?.name ?? '')}
-                        members={memberOptions}
-                        researcherName={study.createdBy}
-                        researcherId={study.researcherId}
-                        enclaveOrgSlug={study.orgSlug}
-                        feedbackEntries={entries}
-                    />
-                </EditResubmitProvider>
-            </Stack>
-        </FeatureFlagGate>
+            </EditResubmitProvider>
+        </Stack>
     )
 }

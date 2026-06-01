@@ -47,31 +47,10 @@ const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = (
 }
 
 // Note: DO NOT EXPORT the above items, instead reaname them like the below example
-// with a name that matches the feature you are developing.
+// with a name that matches the overarching feature we are developing. (ask team for the name)
 // Doing so lets us search for that name when removing the flag
 export {
     useOpenStaxFeatureFlag as useUnusedOpenStaxFeatureFlag,
     OpenStaxFeatureFlag as UnusedOpenStaxFeatureFlag,
     FeatureFlagRequiredAlert as UnusedFeatureFlagRequiredAlert,
-    // Card 64: DO Proposal Review redesign
-    useOpenStaxFeatureFlag as useProposalReviewFeatureFlag,
-    OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
-    // OTTER-495 & 519: Post-submission page
-    useOpenStaxFeatureFlag as usePostSubmissionFeatureFlag,
-    OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
-    // Study code review redesign
-    OpenStaxFeatureFlag as CodeReviewFeatureFlag,
-    // OTTER-544: Multi-user code review collaboration
-    useOpenStaxFeatureFlag as useCodeReviewCollaborationFeatureFlag,
-    // OTTER-497: Multi-user proposal collaboration
-    useOpenStaxFeatureFlag as useProposalCollaborationFeatureFlag,
-    OpenStaxFeatureFlag as ProposalCollaborationFeatureFlag,
-    // OTTER-537: post-code-submission page
-    useOpenStaxFeatureFlag as usePostCodeSubmissionFeatureFlag,
-    OpenStaxFeatureFlag as PostCodeSubmissionFeatureFlag,
-    // OTTER-541: RL Code download in view code modal
-    useOpenStaxFeatureFlag as useCodeDownloadFeatureFlag,
-    // OTTER-538: Study Details page changes in preparation for new code page
-    useOpenStaxFeatureFlag as useStudyDetailsRedesignFeatureFlag,
-    OpenStaxFeatureFlag as StudyDetailsRedesignFeatureFlag,
 }

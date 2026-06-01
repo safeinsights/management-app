@@ -11,13 +11,12 @@ import { isStudyResultsStatus } from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import { notFound } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
-import { PostCodeSubmissionFeatureFlag, StudyDetailsRedesignFeatureFlag } from '@/components/openstax-feature-flag'
 import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { isCodeDecisionStatus } from './code-decision-status'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsResearcher } from './study-details-researcher'
 
 const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
@@ -39,7 +38,7 @@ export default async function StudyReviewPage(props: {
 
     const fromAgreements = searchParams.from === 'agreements'
 
-    // Only show CodeOnlyView if code was actually submitted (not just a baseline job from IDE launch).
+    // Only show code views if code was actually submitted (not just a baseline job from IDE launch).
     // When the researcher navigates back from agreements (?from=agreements), show the read-only
     // proposal view instead so they can reach the proposal even after submitting code.
     const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
@@ -48,12 +47,9 @@ export default async function StudyReviewPage(props: {
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
 
         if (isCodeDecisionStatus(latestJobStatus)) {
-            const codeOnlyFallback = (
-                <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
-            )
             const entries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(entries) || entries.length === 0) {
-                return codeOnlyFallback
+                return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
             }
             // A code decision implies the study was submitted long ago — this branch
             // should be unreachable for DRAFTs. Guard explicitly so the narrowed view
@@ -63,19 +59,14 @@ export default async function StudyReviewPage(props: {
             }
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
-                <PostCodeSubmissionFeatureFlag
-                    defaultContent={codeOnlyFallback}
-                    optInContent={
-                        <CodePostDecisionView
-                            orgSlug={orgSlug}
-                            study={study}
-                            job={job}
-                            entries={entries}
-                            reviewingOrgName={reviewingOrgName}
-                            dashboardHref={dashboardHref}
-                            latestJobStatus={latestJobStatus}
-                        />
-                    }
+                <CodePostDecisionView
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    entries={entries}
+                    reviewingOrgName={reviewingOrgName}
+                    dashboardHref={dashboardHref}
+                    latestJobStatus={latestJobStatus}
                 />
             )
         }
@@ -83,42 +74,19 @@ export default async function StudyReviewPage(props: {
         if (isUnderReview) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
-                <PostCodeSubmissionFeatureFlag
-                    defaultContent={
-                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
-                    }
-                    optInContent={
-                        <CodePostSubmissionView
-                            orgSlug={orgSlug}
-                            study={study}
-                            job={job}
-                            reviewingOrgName={reviewingOrgName}
-                            dashboardHref={dashboardHref}
-                        />
-                    }
+                <CodePostSubmissionView
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    reviewingOrgName={reviewingOrgName}
+                    dashboardHref={dashboardHref}
                 />
             )
         }
-        // OTTER-538: once results exist, swap the legacy CodeOnlyView for the
-        // redesigned Study Details page (no code section, results-only) when the
-        // feature flag is on. Only flag-wrap during the results stage; other
-        // job-status branches keep the existing CodeOnlyView.
+        // OTTER-538: once results exist, render the redesigned Study Details page
+        // (no code section, results-only) instead of the legacy CodeOnlyView.
         if (isStudyResultsStatus(latestJobStatus)) {
-            return (
-                <StudyDetailsRedesignFeatureFlag
-                    defaultContent={
-                        <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
-                    }
-                    optInContent={
-                        <StudyDetailsRedesignView
-                            orgSlug={orgSlug}
-                            study={study}
-                            job={job}
-                            dashboardHref={dashboardHref}
-                        />
-                    }
-                />
-            )
+            return <StudyDetailsResearcher orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
         }
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
     }
