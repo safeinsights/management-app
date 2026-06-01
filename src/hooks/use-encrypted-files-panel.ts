@@ -2,6 +2,7 @@ import { useQuery } from '@/common'
 import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
 import {
     ENCRYPTED_TO_APPROVED,
+    encryptedTypeForApproved,
     isApprovedLogType,
     isEncryptedLogType,
     isResultFile,
@@ -22,7 +23,7 @@ type Options = {
     onFilesApproved: (files: JobFileInfo[]) => void
 }
 
-export type FileRowState = 'locked' | 'decrypted' | 'approved'
+export type FileRowState = 'locked' | 'decrypted' | 'approved' | 'not-shared'
 
 export type UnifiedFileRow = {
     key: string
@@ -48,6 +49,9 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     const hasPreviouslyApprovedFiles = (job.files ?? []).some(
         (f) => isApprovedLogType(f.fileType) || f.fileType === 'APPROVED-RESULT',
     )
+
+    // Once a job is approved, files the DO withheld are surfaced as "not shared" (red X) rather than hidden.
+    const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
     const { data: previouslyApprovedFiles = [] } = useQuery({
         queryKey: ['approved-files', job.id],
@@ -159,12 +163,14 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             if (seenApprovedTypes.has(approvedType)) continue
             seenApprovedTypes.add(approvedType)
 
+            const encryptedType = isEncrypted ? f.fileType : encryptedTypeForApproved(f.fileType)
             const approvedFilesForType = approvedFilesByType.get(approvedType) ?? []
             const decryptedFilesForType = decryptedFilesByType.get(approvedType) ?? []
-            const metaList = metadataByFileType.get(f.fileType) ?? []
+            const metaList = metadataByFileType.get(encryptedType) ?? []
             const label = logLabel(f.fileType)
 
-            if (approvedFilesForType.length > 0) {
+            if (isJobApproved) {
+                const approvedPaths = new Set(approvedFilesForType.map((af) => af.path))
                 for (const approvedFile of approvedFilesForType) {
                     rows.push({
                         key: `${f.fileType}-approved-${approvedFile.path}`,
@@ -174,6 +180,18 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
                         fileType: f.fileType,
                         state: 'approved',
                         file: approvedFile,
+                    })
+                }
+                for (const meta of metaList) {
+                    if (approvedPaths.has(meta.path)) continue
+                    rows.push({
+                        key: `${f.fileType}-not-shared-${meta.path}`,
+                        label,
+                        name: meta.path,
+                        bytes: meta.bytes,
+                        fileType: f.fileType,
+                        state: 'not-shared',
+                        file: null,
                     })
                 }
             } else if (decryptedFilesForType.length > 0) {
@@ -215,7 +233,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         }
 
         return rows
-    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType, metadataByFileType])
+    }, [job.files, isJobApproved, approvedFileTypes, approvedFilesByType, decryptedFilesByType, metadataByFileType])
 
     const hasFileRows = fileRows.length > 0
 
