@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
+import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
@@ -17,7 +18,9 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-test('uploading results', async () => {
+// These exercise the real S3 round-trip (storeStudyEncrypted*/fetchFileContents),
+// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+test.skipIf(!s3Available)('uploading results', async () => {
     const org = await insertTestOrg()
 
     const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
@@ -51,7 +54,7 @@ test('uploading results', async () => {
     expect(contents).toBeInstanceOf(Blob)
 })
 
-test('uploading logs', async () => {
+test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'
     const encoder = new TextEncoder()
