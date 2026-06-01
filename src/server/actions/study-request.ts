@@ -720,6 +720,11 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .map((org) => org.id)
         const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
 
+        // This SELECT is not load-bearing for safety: the UPDATE below applies the
+        // same status + lab guards and would claim 0 rows, caught by `if (!claimed)`.
+        // It earns its place by splitting the diagnostics, distinguishing "not your
+        // lab / doesn't exist" from "already submitted (race)" so each case gets a
+        // distinct user-facing message. Don't delete it to "simplify".
         const study = await db
             .selectFrom('study')
             .select(['id', 'status'])
@@ -727,9 +732,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
-        if (!study) throw new Error('Study not found or access denied')
+        // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
+        // so the client receives a structured `{ error: { submission } }` it can show,
+        // rather than a plain Error bubbling up as a generic unhandled exception.
+        if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
-            throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
+            throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
         const updateValues = Object.fromEntries(

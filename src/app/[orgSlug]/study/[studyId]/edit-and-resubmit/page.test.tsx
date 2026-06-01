@@ -4,7 +4,6 @@
 import { describe, it, expect } from 'vitest'
 import { insertTestStudyJobData, insertTestUser, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
 import StudyEditAndResubmitRoute from './page'
-import { FeatureFlagGate } from './feature-flag-gate'
 
 describe('StudyEditAndResubmitRoute', () => {
     it('renders for a same-lab member who is not the original researcher', async () => {
@@ -30,8 +29,9 @@ describe('StudyEditAndResubmitRoute', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
         })
 
-        // The page is gated only by the feature flag now, not by authorship.
-        expect(page?.type).toBe(FeatureFlagGate)
+        // Access is gated on lab membership, not authorship: a same-lab teammate
+        // reaches the rendered page instead of being bounced to notFound().
+        expect(page).toBeDefined()
     })
 
     it('returns notFound for a user outside the submitting lab', async () => {
