@@ -10,7 +10,6 @@ export function useStudyHref(
     hasJobActivity: boolean,
     studyParams: StudyParams,
     jobStatuses?: StudyJobStatus[],
-    isPostSubmissionFlow = false,
 ) {
     // APPROVED with only a baseline job (no code submitted yet) → continue uploading
     const hasCodeSubmitted = jobStatuses?.some((s) => s === 'CODE-SUBMITTED')
@@ -18,9 +17,7 @@ export function useStudyHref(
 
     if (hasJobActivity) return Routes.studyView(studyParams)
 
-    if (isPostSubmissionFlow && POST_SUBMISSION_STATUSES.includes(status)) return Routes.studySubmitted(studyParams)
+    if (POST_SUBMISSION_STATUSES.includes(status)) return Routes.studySubmitted(studyParams)
 
-    if (status === 'PENDING-REVIEW') return Routes.studySubmitted(studyParams)
-    if (status === 'APPROVED') return Routes.studyAgreements(studyParams)
     return Routes.studyView(studyParams)
 }
