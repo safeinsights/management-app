@@ -5,7 +5,7 @@ import { deriveStudyVersion } from '@/lib/studies'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
-import { SubmittedView } from './submitted-view'
+import { ProposalSubmitted } from './proposal-submitted'
 
 export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -35,7 +35,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
     const studyVersion = deriveStudyVersion(entries)
 
     return (
-        <SubmittedView
+        <ProposalSubmitted
             orgSlug={orgSlug}
             study={result}
             orgName={orgName}
