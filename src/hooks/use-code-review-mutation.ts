@@ -8,7 +8,6 @@ import * as Y from 'yjs'
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { useCodeReviewCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
@@ -37,13 +36,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
     const queryClient = useQueryClient()
     const { getToken } = useAuth()
     const { user } = useUser()
-    const isCollaborationEnabled = useCodeReviewCollaborationFeatureFlag()
 
     // Standalone broadcast provider on its own websocket. Standalone so the broadcast
     // survives the mutation tearing down the editor's shared connection.
     const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
     useEffect(() => {
-        if (!isCollaborationEnabled) return undefined
         const doc = new Y.Doc()
         const docName = codeReviewFeedbackDocName(jobId)
         const provider = new HocuspocusProvider({
@@ -63,7 +60,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
 
             setBroadcastProvider(null)
         }
-    }, [isCollaborationEnabled, jobId, getToken])
+    }, [jobId, getToken])
 
     const {
         mutate: submitReview,
@@ -78,7 +75,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
 
             const submittedByClerkId = user?.id
-            if (isCollaborationEnabled && broadcastProvider && submittedByClerkId) {
+            if (broadcastProvider && submittedByClerkId) {
                 const event: SubmissionEvent = {
                     type: 'code-review-submitted',
                     studyId,
