@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
+import { useQueryClient } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
 
@@ -100,12 +101,14 @@ export function AgreementsPage({
     previousLabel = 'Previous',
 }: AgreementsPageProps) {
     const router = useRouter()
+    const queryClient = useQueryClient()
 
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
     const resolvedProceedLabel = proceedLabel ?? (isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4')
 
     const handleProceed = async () => {
         await ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' })
+        await queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
         router.push(proceedHref as Route)
     }
     const handlePrevious = () => router.push(previousHref as Route)
