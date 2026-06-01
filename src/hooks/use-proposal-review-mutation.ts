@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
 import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
@@ -33,7 +32,6 @@ export function useProposalReviewMutation({
     const router = useRouter()
     const queryClient = useQueryClient()
     const { user } = useUser()
-    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
     // Consume the editor's HocuspocusProvider rather than constructing a
     // separate one. The editor's provider has been authenticated since page
     // mount, so the server-side onStateless gate
@@ -56,7 +54,7 @@ export function useProposalReviewMutation({
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
 
             const submittedByClerkId = user?.id
-            if (isCollaborationEnabled && editorProvider && submittedByClerkId) {
+            if (editorProvider && submittedByClerkId) {
                 const event: SubmissionEvent = {
                     type: 'proposal-review-submitted',
                     studyId,

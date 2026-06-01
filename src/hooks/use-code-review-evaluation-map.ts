@@ -36,7 +36,7 @@ type FormShape = { criteria: CodeReviewCriteriaDraft }
 type Args = {
     form: UseFormReturnType<FormShape>
     provider: HocuspocusProvider | null
-    /** When false the hook is inert; gates the bridge behind feature-flag + editable status. */
+    /** When false the hook is inert; lets callers gate the bridge on editable status. */
     enabled: boolean
 }
 

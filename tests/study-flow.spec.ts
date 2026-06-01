@@ -35,6 +35,7 @@ async function navigateToProposeStudy(page: Page, studyTitle: string): Promise<s
     const newStudyButton = page.getByTestId('new-study').first()
     await newStudyButton.waitFor({ state: 'visible' })
     await newStudyButton.click()
+    await page.waitForURL(/\/study\/request$/)
 
     await selectOrgAndLanguage(page)
 
@@ -83,10 +84,13 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
 
     // Wait for the submitted confirmation page
-    await expect(page.getByText(/submitted successfully/i)).toBeVisible()
+    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
 
-    // Go to dashboard
-    await page.getByRole('link', { name: /Go to dashboard/i }).click()
+    // Go to dashboard — Button component={Link} renders as an anchor in the DOM
+    await page
+        .getByRole('link', { name: /Go to dashboard/i })
+        .first()
+        .click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -116,11 +120,17 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
     // Wait for submit to be enabled (files newer than baseline job)
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
+    const submitButton = page.getByRole('button', { name: /Submit code/i })
+    await expect(submitButton).toBeEnabled()
+    // The AppShell footer is fixed at the bottom of the viewport and intercepts pointer events
+    // on Submit code. Scroll the page to the bottom so the button is not under the footer overlay.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await submitButton.click()
 
-    await page.getByRole('button', { name: /Submit code/i }).click()
-
-    await page.waitForURL('**/dashboard')
+    // Code submission redirects to the post-submission code view (CodePostSubmissionView).
+    // Wait on a banner unique to that view rather than the URL — the post-submission
+    // banner only appears after the mutation completes and the page re-renders.
+    await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
 
     return mainFileName
 }
@@ -133,6 +143,10 @@ async function uploadCodeViaIDE(page: Page) {
 
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
+    // Wait for the IDE launch to complete (loading button disappears) before
+    // checking the file table — the IDE warm-up can take longer than the default expect timeout.
+    await expect(page.getByText(/Launching IDE/i)).toBeHidden()
+
     // Starter file appears in the file table after IDE launch
     await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
 
@@ -141,10 +155,14 @@ async function uploadCodeViaIDE(page: Page) {
     await fileInput.setInputFiles(['tests/fixtures/code-samples/code.r'])
     await expect(page.getByText(/code.r/i)).toBeVisible()
 
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
-    await page.getByRole('button', { name: /Submit code/i }).click()
+    const submitButton = page.getByRole('button', { name: /Submit code/i })
+    await expect(submitButton).toBeEnabled()
+    // Footer overlap workaround — see uploadCodeViaFileUpload
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await submitButton.click()
 
-    await page.waitForURL('**/dashboard')
+    // Code submission redirects to the post-submission view; wait on the banner.
+    await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
 
     return 'main.r'
 }
@@ -162,7 +180,13 @@ async function clickViewLink(page: Page, studyRow: ReturnType<Page['getByRole']>
 }
 
 async function viewStudyDetails(page: Page, studyTitle: string) {
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
+    // Match the title row; older code excluded rows containing 'DRAFT', but `hasNotText`
+    // is case-insensitive, so it also excluded intermediate states like "Code draft".
+    // Use a case-sensitive regex to only exclude the top-level "Draft" pill.
+    const studyRow = page
+        .getByRole('row')
+        .filter({ hasText: studyTitle })
+        .filter({ hasNotText: /Proposal draft/ })
     await clickViewLink(page, studyRow)
     await page.waitForURL(/\/study\//)
 }
@@ -174,17 +198,43 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
 
     await viewStudyDetails(page, studyTitle)
 
-    // The reviewer sees ProposalReviewView — approve the proposal
-    await page.getByRole('button', { name: /Approve request/i }).click()
+    // ProposalReviewView: enter feedback in the review-feedback editor
+    const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
+    await expect(feedbackEditor).toBeVisible()
+    await feedbackEditor.click()
+    await page.keyboard.type('Approving this initial request — feasibility and impact look reasonable.')
 
-    // Wait for the approval mutation to complete and redirect to dashboard
+    // Select the Approve decision
+    await page
+        .getByTestId('review-decision-section')
+        .getByRole('radio', { name: /^Approve$/i })
+        .check()
+
+    // Submit + confirm
+    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    await expect(submitReview).toBeEnabled()
+    await submitReview.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+
+    // Wait for the dialog to close (mutation in flight). Use a longer poll since the
+    // review-submission server action does a fair amount of work + revalidations.
+    await expect(dialog).toBeHidden()
+
+    // After the mutation completes, the view re-renders in the post-submission state
+    // with a "Go to dashboard" button (PostFeedbackView).
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
-
-    // Verify approval
-    await viewStudyDetails(page, studyTitle)
-    await expect(page.getByText('Approved on')).toBeVisible()
 }
 
+// Mirrors the redesigned code-review flow (CodeReview / CodeReviewClient): the
+// reviewer answers all four criteria, picks the Approve decision, leaves a
+// feedback comment, then confirms in the modal. The page used to expose a
+// single inline "Approve" button; that flow is gone with the feature-flag
+// removal.
 async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
@@ -198,46 +248,47 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
-
-    // Proceed to code review — Approve button appears after scan completes
+    // Proceed to code review
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
     await page.waitForURL(/\/review\?from=agreements-proceed$/)
 
-    const approveButton = page.getByRole('button', { name: /^Approve$/i })
-    await expect(approveButton).toBeVisible()
+    // Answer all four review criteria with "yes" so the submit button enables.
+    const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
+    for (const key of criteriaKeys) {
+        await page.locator(`input[name="criteria-${key}"][value="yes"]`).check()
+    }
 
-    // Click Previous to navigate to agreements page
-    const previousLink = page.getByRole('link', { name: /Previous/i })
-    await previousLink.scrollIntoViewIfNeeded()
-    await previousLink.click()
-    await page.waitForURL(/\/agreements\?from=previous$/)
+    // Pick the Approve decision and leave the required feedback comment.
+    await page.getByTestId('code-review-decision-approve').click()
+    const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+    await expect(feedbackEditor).toBeVisible()
+    await feedbackEditor.click()
+    await page.keyboard.type('Approving submitted code — looks good to run.')
 
-    // Previous from code review shows the agreements page
-    await expect(page.getByText('STEP 2A')).toBeVisible()
+    // Submit and confirm.
+    await page.getByTestId('code-review-submit').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog).toBeHidden()
 
-    // Click Previous again to navigate to proposal view
-    await page.getByRole('button', { name: /Previous/i }).click()
-    await page.waitForURL(/\/review\?from=agreements$/)
-    await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
-
-    // Navigate back to code review for approval
-    await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
-    await page.getByRole('button', { name: /^Approve$/i }).click()
-
-    // Wait for the approval mutation to complete and redirect to dashboard
+    // The redesign keeps the reviewer on the post-feedback view; take the
+    // "Go to dashboard" CTA the same way reviewerApprovesProposal does.
+    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
 }
 
 async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
-    // After approval, the researcher's "View" link should go to agreements
+    // After approval, "View" lands on the /submitted page (APPROVED + no job activity).
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await clickViewLink(page, studyRow)
+    await page.waitForURL(/\/submitted(\?.*)?$/)
 
-    // Should land on agreements page
+    // Click "Proceed to step 3" to enter the agreements flow.
+    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
     await page.waitForURL(/\/agreements(\?.*)?$/)
 
     await expect(page.getByText('STEP 3A')).toBeVisible()
@@ -406,8 +457,10 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     await expect(resubmitLink).toBeVisible()
     await resubmitLink.click()
 
-    // Wait for resubmit page to load
-    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
+    // Wait for resubmit page to load. The redesigned page header reads
+    // "Edit study code"; the bottom action button is still labelled
+    // "Resubmit study code" (clicked later, via the file-upload form).
+    await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
     // Upload files via the file input in the drop overlay
     const fileInput = page.locator('input[type="file"]')
@@ -416,10 +469,15 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     const mainFileName = mainCodeFile.split('/').pop()!
     await expect(page.getByText(mainFileName).first()).toBeVisible()
 
-    // Wait for submit to be enabled
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
+    // The Resubmit button is gated on a non-empty resubmission note. Fill it
+    // before attempting to enable the button.
+    await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-    await page.getByRole('button', { name: /Submit code/i }).click()
+    // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
+    const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+    await expect(resubmitButton).toBeEnabled()
+    await resubmitButton.click()
+    await page.getByRole('button', { name: /^Yes, resubmit$/i }).click()
 
     // Wait for redirect
     await page.waitForURL('**/view')
@@ -460,17 +518,17 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         await viewStudyDetails(page, studyTitle)
         studyId = extractStudyIdFromUrl(page)
         await goto(page, `/openstax-lab/study/${studyId}/view`)
-        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+        // PENDING-REVIEW + CODE-SUBMITTED renders CodePostSubmissionView (OTTER-563).
+        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
     })
 
     await test.step('researcher navigates back via previous buttons', async () => {
-        // Currently on the CodeOnlyView (study details page)
-        // Click Previous → agreements redirects to /view (study is PENDING-REVIEW, not APPROVED)
-        const previousLink = page.getByRole('link', { name: /Previous/i })
+        // CodePostSubmissionView has a "Previous" link that returns to the agreements page.
+        const previousLink = page.getByRole('link', { name: /^Previous$/i })
         await previousLink.scrollIntoViewIfNeeded()
         await previousLink.click()
-        await page.waitForURL(/\/view/)
+        await page.waitForURL(/\/agreements\?from=previous/)
     })
 
     await test.step('reviewer approves code', async () => {
@@ -526,8 +584,9 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await goto(page, '/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
-        await expect(page.getByRole('heading', { name: /Study Code/i })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Study Status/i })).toBeVisible()
+        // PENDING-REVIEW + CODE-SUBMITTED renders CodePostSubmissionView (OTTER-563).
+        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
@@ -569,7 +628,25 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expect(page.getByText(studyTitle)).toBeVisible()
 
-        await page.getByRole('button', { name: /Reject request/i }).click()
+        // Redesigned ProposalReviewView: feedback + Reject decision + modal confirm.
+        const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
+        await expect(feedbackEditor).toBeVisible()
+        await feedbackEditor.click()
+        await page.keyboard.type('Rejecting this initial request — scope is not aligned with available data.')
+
+        await page
+            .getByTestId('review-decision-section')
+            .getByRole('radio', { name: /^Reject$/i })
+            .check()
+
+        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toBeVisible()
+        await dialog.getByRole('button', { name: /^Reject initial request$/i }).click()
+        await expect(dialog).toBeHidden()
+
+        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -587,20 +664,22 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
     })
 
-    await test.step('researcher views rejected study and sees proposal view', async () => {
+    await test.step('researcher views rejected study and sees post-submission view', async () => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        // Should land on /view and see ResearcherProposalView
-        await page.waitForURL(/\/view(\?.*)?$/)
-        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
+        // POST_SUBMISSION_STATUSES without job activity now route to /submitted
+        // (useStudyHref change from the OpenStax-flag removal).
+        await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-        await expect(page.getByText(studyTitle)).toBeVisible()
+        // The title appears in the breadcrumb link and a Text node — match either.
+        await expect(page.getByText(studyTitle).first()).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
 
-        // Should NOT show "Proceed to Step 3" (no agreementsHref for rejected studies)
+        // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
         await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
+        await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
     })
 })
 
@@ -633,22 +712,40 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         // Navigate to code review via agreements-proceed to bypass the agreements redirect
         await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
 
-        // Wait for Reject button (requires CODE-SCANNED)
-        const rejectButton = page.getByRole('button', { name: 'Reject' })
-        await expect(rejectButton).toBeVisible()
-        await rejectButton.click()
+        // Redesigned CodeReviewClient: fill criteria, pick "Request revision"
+        // (decision: needs-clarification, → CODE-CHANGES-REQUESTED so the
+        // researcher can resubmit), leave feedback, confirm via the standard modal.
+        // The plain inline "Reject" button is gone with the feature-flag removal.
+        const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
+        for (const key of criteriaKeys) {
+            await page.locator(`input[name="criteria-${key}"][value="no"]`).check()
+        }
 
+        await page.getByTestId('code-review-decision-needs-clarification').click()
+        const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+        await expect(feedbackEditor).toBeVisible()
+        await feedbackEditor.click()
+        await page.keyboard.type('Requesting revisions to submitted code — please address criteria.')
+
+        await page.getByTestId('code-review-submit').click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toBeVisible()
+        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await expect(dialog).toBeHidden()
+
+        await expect(page.getByText(/Change requested on/)).toBeVisible()
+        await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
         await goto(page, '/openstax/dashboard')
     })
 
-    await test.step('reviewer sees rejected status on dashboard', async () => {
+    await test.step('reviewer sees change-requested status on dashboard', async () => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+        await expect(studyRow.getByText(/Change requested/i)).toBeVisible()
     })
 
-    await test.step('researcher sees rejection and resubmit link', async () => {
+    await test.step('researcher sees change-requested status and edit-and-resubmit CTA', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -656,24 +753,31 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
         await viewLink.click()
 
-        await expect(page.getByText(/not been approved/i)).toBeVisible()
-        await expect(page.getByRole('link', { name: /Resubmit study code/i })).toBeVisible()
+        // Redesigned CodePostDecisionView surfaces the change-requested banner
+        // and an "Edit and resubmit" CTA (testid cta-edit-and-resubmit) that
+        // links to /resubmit.
+        await expect(page.getByTestId('decision-banner-code-change-requested')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-and-resubmit')).toBeVisible()
         studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('researcher resubmits code', async () => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
 
-        await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
         // Upload files via the file input in the drop overlay
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
-        // Wait for submit to be enabled
-        await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
+        // The Resubmit button is gated on a non-empty resubmission note.
+        await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-        await page.getByRole('button', { name: /Submit code/i }).click()
+        // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        await expect(resubmitButton).toBeEnabled()
+        await resubmitButton.click()
+        await page.getByRole('button', { name: /^Yes, resubmit$/i }).click()
 
         await page.waitForURL('**/view')
     })
@@ -696,15 +800,24 @@ test('ProposalReviewView for study without code', async ({ page, studyFeatures }
         await viewLink.click()
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Review study proposal/i })).toBeVisible()
+        // "Review initial request" appears as both the page h1 and the section h4;
+        // pin to the h1 to keep the assertion unambiguous.
+        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
 
-        await expect(page.getByText('Study title', { exact: true })).toBeVisible()
+        // Field labels are rendered inside the (initially expanded) proposal body.
+        // "Study title" used to be its own label on the legacy view; the redesign
+        // moves the title into the section header instead, so don't assert that label.
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
         await expect(page.getByText('Impact', { exact: true })).toBeVisible()
         await expect(page.getByText('Principal Investigator', { exact: true })).toBeVisible()
 
-        await expect(page.getByRole('button', { name: /Approve request/i })).toBeVisible()
-        await expect(page.getByRole('button', { name: /Reject request/i })).toBeVisible()
+        // Redesigned ProposalReviewView surfaces a Submit review action and
+        // the decision radio group (Approve / Reject / etc.) instead of
+        // inline "Approve request" / "Reject request" buttons.
+        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        const decisionSection = page.getByTestId('review-decision-section')
+        await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
+        await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
     })
 })

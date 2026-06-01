@@ -26,16 +26,6 @@ import {
 } from '@/lib/realtime/review-feedback-provider-context'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
 
-const featureFlagState = vi.hoisted(() => ({ enabled: false }))
-
-vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
-    return {
-        ...actual,
-        useProposalCollaborationFeatureFlag: () => featureFlagState.enabled,
-    }
-})
-
 // Stub the editor's HocuspocusProvider. We publish this into the
 // ReviewFeedbackProviderShare context to imitate what CollaborativeEditor's
 // `onProviderReady` does in production. The mutation hook reads it via
@@ -85,19 +75,17 @@ describe('useProposalReviewMutation', () => {
 
     beforeEach(() => {
         tabSessionId = faker.string.uuid()
-        featureFlagState.enabled = false
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve decision broadcasts via the editor provider and navigates when the flag is ON', async () => {
+    it('approve decision broadcasts via the editor provider and navigates', async () => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        featureFlagState.enabled = true
         const provider = createStubProvider()
 
         const { result } = renderHook(
@@ -139,14 +127,13 @@ describe('useProposalReviewMutation', () => {
     it.each([
         { decision: 'needs-clarification' as const, expectedStatus: 'CHANGE-REQUESTED' as const },
         { decision: 'reject' as const, expectedStatus: 'REJECTED' as const },
-    ])('$decision decision broadcasts with the same wiring (flag ON)', async ({ decision, expectedStatus }) => {
+    ])('$decision decision broadcasts with the same wiring', async ({ decision, expectedStatus }) => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        featureFlagState.enabled = true
         const provider = createStubProvider()
 
         const { result } = renderHook(
@@ -179,52 +166,13 @@ describe('useProposalReviewMutation', () => {
         expect(payload.submittedByTabId).toBe(tabSessionId)
     })
 
-    it('flag OFF: navigates without broadcasting', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgSlug: 'unrelated-enclave', orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-        })
-        const provider = createStubProvider()
-
-        const { result } = renderHook(
-            () =>
-                useProposalReviewMutation({
-                    studyId: study.id,
-                    orgSlug: org.slug,
-                    tabSessionId,
-                    reviewVersion: REVIEW_VERSION,
-                }),
-            { wrapper: makeWrapper(provider) },
-        )
-
-        await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback })
-        })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
-
-        expect(provider.sendStateless).not.toHaveBeenCalled()
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
-        )
-    })
-
-    it('flag ON but no editor provider published: navigates without broadcasting', async () => {
+    it('no editor provider published: navigates without broadcasting', async () => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        featureFlagState.enabled = true
 
         // No provider in the share context, simulating the editor not having
         // mounted yet. The hook should gracefully skip broadcasting rather
@@ -260,7 +208,6 @@ describe('useProposalReviewMutation', () => {
         // Force the action's editable-status guard to reject by promoting the study
         // out of PENDING-REVIEW after fixtures are inserted.
         await setTestStudyStatus(study.id, 'APPROVED')
-        featureFlagState.enabled = true
         const provider = createStubProvider()
 
         const { result } = renderHook(

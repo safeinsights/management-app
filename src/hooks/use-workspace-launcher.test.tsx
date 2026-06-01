@@ -142,7 +142,7 @@ describe('useWorkspaceLauncher', () => {
             })
 
             await waitFor(() => {
-                expect(mockWindowOpen).toHaveBeenCalledWith(workspaceUrl, 'child')
+                expect(mockWindowOpen).toHaveBeenCalledWith(workspaceUrl, `ide-for-study-${studyId}`)
                 expect(result.current.isLaunching).toBe(false)
             })
         })

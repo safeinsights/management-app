@@ -43,11 +43,19 @@ type EditorProps = {
     docName: string
     studyId: string
     placeholder: string | undefined
+    ariaLabel: string
     onTextChange: (json: string) => void
     websocketProvider: HocuspocusProviderWebsocket | null
 }
 
-function ProposalTextEditor({ docName, studyId, placeholder, onTextChange, websocketProvider }: EditorProps) {
+function ProposalTextEditor({
+    docName,
+    studyId,
+    placeholder,
+    ariaLabel,
+    onTextChange,
+    websocketProvider,
+}: EditorProps) {
     if (!websocketProvider) return EDITOR_SKELETON
     return (
         <CollaborativeEditor
@@ -56,6 +64,7 @@ function ProposalTextEditor({ docName, studyId, placeholder, onTextChange, webso
             websocketProvider={websocketProvider}
             contentStyle={contentStyle}
             placeholder={placeholder}
+            ariaLabel={ariaLabel}
             onChange={onTextChange}
         />
     )
@@ -89,6 +98,7 @@ export function CollaborativeProposalTextField({
                         docName={docName}
                         studyId={studyId}
                         placeholder={field.placeholder}
+                        ariaLabel={field.label}
                         onTextChange={onTextChange}
                         websocketProvider={websocketProvider}
                     />
