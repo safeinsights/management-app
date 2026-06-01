@@ -12,7 +12,7 @@ export type StudyRow = {
     createdAt: Date
     submittedAt: Date | null
     lastUpdatedAt: Date
-    latestReviewerName: string | null
+    reviewerName: string | null
     researcherId: string
     reviewerId: string | null
     createdBy: string | null // researcher.fullName

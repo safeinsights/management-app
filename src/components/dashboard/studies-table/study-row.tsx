@@ -40,7 +40,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     // Get the "Submitted By" value (reviewer only)
     const submittedBy = study.createdBy
 
-    const reviewedByOrOrg = scope === 'org' ? (study.latestReviewerName ?? '-') : study.orgName
+    const reviewedByOrOrg = scope === 'org' ? (study.reviewerName ?? '-') : study.orgName
 
     return (
         <TableTr fz={14} style={highlightStyle}>

@@ -41,11 +41,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             })
             .executeTakeFirstOrThrow()
 
-        await db
-            .updateTable('study')
-            .set({ latestReviewerId: session.user.id })
-            .where('id', '=', info.studyId)
-            .execute()
+        await db.updateTable('study').set({ reviewerId: session.user.id }).where('id', '=', info.studyId).execute()
 
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
@@ -71,11 +67,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             })
             .executeTakeFirstOrThrow()
 
-        await db
-            .updateTable('study')
-            .set({ latestReviewerId: session.user.id })
-            .where('id', '=', info.studyId)
-            .execute()
+        await db.updateTable('study').set({ reviewerId: session.user.id }).where('id', '=', info.studyId).execute()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
         onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })

@@ -102,13 +102,13 @@ describe('Study Job Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select('latestReviewerId')
+                .select('reviewerId')
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updatedStudy.latestReviewerId).toBe(user.id)
+            expect(updatedStudy.reviewerId).toBe(user.id)
         })
 
-        test('approveStudyJobFilesAction creates FILES-APPROVED status and stamps latestReviewerId', async () => {
+        test('approveStudyJobFilesAction creates FILES-APPROVED status and stamps reviewerId', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
@@ -127,10 +127,10 @@ describe('Study Job Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select('latestReviewerId')
+                .select('reviewerId')
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updatedStudy.latestReviewerId).toBe(user.id)
+            expect(updatedStudy.reviewerId).toBe(user.id)
         })
 
         test('permission denied for non-enclave user', async () => {
