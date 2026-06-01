@@ -188,6 +188,16 @@ describe('Studies Table', () => {
         expect(screen.getAllByTestId('new-study')).toHaveLength(1)
     })
 
+    it('does not show the new study button on an empty enclave org dashboard', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
+        )
+
+        await screen.findByText(/You currently do not have any studies to review/i)
+        expect(screen.queryByTestId('new-study')).toBeNull()
+    })
+
     it('renders the table when studies exist', async () => {
         renderWithProviders(
             <StudiesTable
