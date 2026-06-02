@@ -7,7 +7,7 @@ import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
-import { CheckCircleIcon, InfoIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, InfoIcon, LockIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 
 type EncryptedFilesPanelProps = {
@@ -132,6 +132,16 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onTo
         approved: <CheckCircleIcon size={18} weight="fill" color="var(--mantine-color-green-6)" />,
         decrypted: (
             <Checkbox checked={isSelected} onChange={() => onToggle(row.name)} aria-label={`Select ${row.label}`} />
+        ),
+        'not-shared': (
+            <InfoTooltip label="Not shared with researcher" withArrow>
+                <XCircleIcon
+                    size={18}
+                    weight="fill"
+                    color="var(--mantine-color-red-6)"
+                    aria-label={`${row.name} not shared with researcher`}
+                />
+            </InfoTooltip>
         ),
     }[row.state]
 

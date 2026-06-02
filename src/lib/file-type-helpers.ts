@@ -21,6 +21,10 @@ export const ENCRYPTED_TO_APPROVED: Record<string, FileType> = {
     'ENCRYPTED-PACKAGING-ERROR-LOG': 'APPROVED-PACKAGING-ERROR-LOG',
 }
 
+export const APPROVED_TO_ENCRYPTED: Record<string, FileType> = Object.fromEntries(
+    Object.entries(ENCRYPTED_TO_APPROVED).map(([encrypted, approved]) => [approved, encrypted as FileType]),
+)
+
 const LOG_LABELS: Partial<Record<FileType, string>> = {
     'APPROVED-CODE-RUN-LOG': 'Code Run Log',
     'APPROVED-SECURITY-SCAN-LOG': 'Security Scan Log',
@@ -36,6 +40,12 @@ export function approvedTypeForFile(fileType: FileType): FileType {
     const approved = ENCRYPTED_TO_APPROVED[fileType]
     if (!approved) throw new Error(`Unknown file type ${fileType}`)
     return approved
+}
+
+export function encryptedTypeForApproved(fileType: FileType): FileType {
+    const encrypted = APPROVED_TO_ENCRYPTED[fileType]
+    if (!encrypted) throw new Error(`Unknown file type ${fileType}`)
+    return encrypted
 }
 
 export function isEncryptedLogType(fileType: FileType): boolean {
