@@ -79,7 +79,10 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await submitBtn.click()
 
-        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
+        // The CI Clerk instance enforces a second factor at first sign-in, so the freshly-created
+        // account's sign-in returns `needs_second_factor` rather than completing. The signup page
+        // surfaces an actionable error for that case instead of stranding the user (see PR #742).
+        await expect(page.getByText(/multi-factor authentication is required before you can sign in/i)).toBeVisible()
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {

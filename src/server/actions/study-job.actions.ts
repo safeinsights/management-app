@@ -9,7 +9,7 @@ import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
 
-export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
+export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -41,10 +41,16 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             })
             .executeTakeFirstOrThrow()
 
+        await db
+            .updateTable('study')
+            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
+            .where('id', '=', info.studyId)
+            .execute()
+
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
-export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
+export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
         minimalJobInfoSchema.extend({
             orgSlug: z.string(),
@@ -64,6 +70,12 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
                 studyJobId: info.studyJobId,
             })
             .executeTakeFirstOrThrow()
+
+        await db
+            .updateTable('study')
+            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
+            .where('id', '=', info.studyId)
+            .execute()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
         onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })
