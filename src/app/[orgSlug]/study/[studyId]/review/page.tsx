@@ -5,7 +5,7 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { isStudyResultsStatus } from '@/lib/study-job-status'
+import { isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
@@ -56,12 +56,21 @@ export default async function StudyReviewPage(props: {
     if (currentOrg.type === 'enclave') {
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
 
-        // When a reviewer navigates back from the code review page, show the post-feedback
-        // view. After a code-review decision exists, render the code-review variant against
-        // studyReviewComment rows. Before a decision is submitted (e.g. clicking the
-        // breadcrumb during active review) fall back to the proposal post-feedback view so
-        // the user lands on a meaningful page instead of a blank PostFeedbackView render.
-        if (searchParams.from === 'code-review' && codeSubmitted) {
+        // OTTER-552: once a code-review decision has been made, opening the study (e.g. via
+        // the dashboard "View" link, which carries no `from` param) must land the DO on the
+        // post-feedback code page — not the active code-review/decision page. We gate on the
+        // *latest* job status so a subsequent resubmission (a fresh CODE-SUBMITTED after a
+        // change request) reopens active review instead of sticking on the decision page.
+        const latestDecisionJob = await latestSubmittedJobForStudy(studyId)
+        const decisionMade = isCodeDecisionStatus(latestDecisionJob?.statusChanges[0]?.status)
+
+        // When a reviewer navigates back from the code review page, OR the code decision has
+        // already been made, show the post-feedback view. After a code-review decision exists,
+        // render the code-review variant against studyReviewComment rows. Before a decision is
+        // submitted (e.g. clicking the breadcrumb during active review) fall back to the
+        // proposal post-feedback view so the user lands on a meaningful page instead of a
+        // blank PostFeedbackView render.
+        if ((searchParams.from === 'code-review' || decisionMade) && codeSubmitted) {
             const codeEntries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(codeEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
@@ -96,8 +105,7 @@ export default async function StudyReviewPage(props: {
 
             // OTTER-538: once the job has reached the results stage, render the
             // redesigned results-only Study Details page.
-            const latestJob = await latestSubmittedJobForStudy(studyId)
-            const latestJobStatus = latestJob?.statusChanges[0]?.status
+            const latestJobStatus = latestDecisionJob?.statusChanges[0]?.status
 
             if (isStudyResultsStatus(latestJobStatus)) {
                 return <StudyDetailsReviewer orgSlug={orgSlug} study={study} />

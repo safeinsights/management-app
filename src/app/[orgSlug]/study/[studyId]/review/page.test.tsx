@@ -239,6 +239,92 @@ describe('StudyReviewPage', () => {
         )
     })
 
+    describe('code decision post-feedback (OTTER-552)', () => {
+        it.each(['CODE-APPROVED', 'CODE-CHANGES-REQUESTED', 'CODE-REJECTED'] as const)(
+            'renders PostFeedbackView (kind=CODE) without a from param when latest job status is %s',
+            async (jobStatus) => {
+                // A DO opens the study from the dashboard "View" link, which carries no
+                // `from` param. Once a code decision exists, they must land on the
+                // post-feedback code page rather than the active code-review/decision page.
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                const { study, job } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: jobStatus, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                    .execute()
+                await db
+                    .insertInto('studyReviewComment')
+                    .values({
+                        studyId: study.id,
+                        studyJobId: job.id,
+                        authorId: user.id,
+                        reviewKind: 'CODE',
+                        entryType: 'DECISION',
+                        decision: jobStatus === 'CODE-APPROVED' ? 'APPROVE' : 'REJECT',
+                        body: { root: { type: 'root', children: [] } },
+                        criteria: {
+                            proposalAlignment: 'yes',
+                            agreementCompliance: 'yes',
+                            securityChecks: 'yes',
+                            privacyProtection: 'yes',
+                        },
+                    })
+                    .execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(PostFeedbackView)
+                expect(page?.props.kind).toBe('CODE')
+                expect(mockRedirect).not.toHaveBeenCalled()
+            },
+        )
+
+        it('renders CodeReview (active review) when code was resubmitted after a change request', async () => {
+            // CODE-CHANGES-REQUESTED followed by a fresh CODE-SUBMITTED means the researcher
+            // resubmitted; the DO must return to active review, not the decision page. Gating
+            // on the *latest* job status (not "any decision in history") is what makes this work.
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    status: 'CODE-CHANGES-REQUESTED',
+                    studyJobId: job.id,
+                    createdAt: new Date(Date.now() + 1000),
+                })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-SUBMITTED', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+            await db
+                .updateTable('study')
+                .set({ reviewerAgreementsAckedAt: new Date() })
+                .where('id', '=', study.id)
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            })
+
+            expect(page?.type).toBe(CodeReview)
+        })
+    })
+
     describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
             'renders StudyDetailsReviewer when latest job status is %s',
