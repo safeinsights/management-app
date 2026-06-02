@@ -137,6 +137,80 @@ describe('Studies Table', () => {
         expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
     })
 
+    it('renders header actions when the table is empty', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+                headerActions={<button type="button">Toggle Placeholder</button>}
+            />,
+        )
+
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
+        expect(screen.getByText('Review Studies')).toBeDefined()
+        expect(screen.getByText('Toggle Placeholder')).toBeDefined()
+    })
+
+    it('renders researcher empty state copy', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable audience="researcher" scope="org" orgSlug="test-org" title="Proposed Studies" paperWrapper />,
+        )
+
+        expect(await screen.findByText(/You haven't started a study yet/i)).toBeDefined()
+    })
+
+    it('renders reviewer empty state copy', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
+        )
+
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
+    })
+
+    it('does not duplicate the new study button on an empty lab org dashboard', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable
+                audience="researcher"
+                scope="org"
+                orgSlug="test-org"
+                title="Proposed Studies"
+                showNewStudyButton
+                paperWrapper
+            />,
+        )
+
+        await screen.findByText(/You haven't started a study yet/i)
+        expect(screen.getAllByTestId('new-study')).toHaveLength(1)
+    })
+
+    it('does not show the new study button on an empty enclave org dashboard', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
+        renderWithProviders(
+            <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
+        )
+
+        await screen.findByText(/You have no studies to review/i)
+        expect(screen.queryByTestId('new-study')).toBeNull()
+    })
+
+    it('surfaces the query error message when loading fails', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockRejectedValueOnce(new Error('boom'))
+        renderWithProviders(
+            <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
+        )
+
+        expect(await screen.findByText(/Failed to load studies: .*boom/i)).toBeDefined()
+        expect(screen.getByText('Review Studies')).toBeDefined()
+    })
+
     it('renders the table when studies exist', async () => {
         renderWithProviders(
             <StudiesTable
