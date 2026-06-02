@@ -31,7 +31,9 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
             } else {
                 const formErrorKeys = Object.keys(failure)
                 const fieldKeys = Object.keys(form.values)
-                const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
+                // `form` is the catch-all alert key; `code` is a reserved companion that lets
+                // callers pass an error code (e.g. a Clerk code) to drive an alert title.
+                const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form' && k !== 'code')
 
                 const unknownKeys = difference(nonFieldKeys, fieldKeys)
 

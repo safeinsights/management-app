@@ -6,6 +6,7 @@ import {
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
 import { useMutation, useQuery, z, zodResolver } from '@/common'
+import { CLERK_ERROR_TITLES } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
@@ -182,7 +183,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     {form.errors.form && (
                         <Alert
                             color="red"
-                            title="Compromised Password"
+                            title={CLERK_ERROR_TITLES[String(form.errors.code)]?.title || 'Could not create account'}
                             withCloseButton
                             onClose={() => form.clearFieldError('form')}
                         >

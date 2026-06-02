@@ -4,6 +4,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
+import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { clerkClient } from '@clerk/nextjs/server'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
@@ -187,13 +188,26 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         } else {
             const createdByCIJobId = process.env.GITHUB_JOB
             const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
-            const clerkUser = await clerk.users.createUser({
-                firstName: form.firstName,
-                lastName: form.lastName,
-                emailAddress: [invite.email],
-                password: form.password,
-                privateMetadata,
-            })
+            let clerkUser
+            try {
+                clerkUser = await clerk.users.createUser({
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    emailAddress: [invite.email],
+                    password: form.password,
+                    privateMetadata,
+                })
+            } catch (error) {
+                // Clerk rejects weak/compromised passwords (and other invalid input) with a 422.
+                // Surface the human-readable reason inline instead of the opaque "Unprocessable
+                // Entity" toast. The signup form renders the `form` key as a dedicated alert and
+                // uses `code` to pick an appropriate title (e.g. "Compromised Password").
+                if (isClerkApiError(error)) {
+                    const { code, message } = extractClerkCodeAndMessage(error)
+                    throw new ActionFailure({ form: message, code })
+                }
+                throw error
+            }
             clerkId = clerkUser.id
 
             const primaryEmail = clerkUser.emailAddresses.find((e) => e.emailAddress === invite.email)
