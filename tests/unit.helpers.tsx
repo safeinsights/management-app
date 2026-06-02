@@ -435,6 +435,10 @@ type MockSession = {
     orgType?: 'enclave' | 'lab'
     isSiAdmin?: boolean
     twoFactorEnabled?: boolean
+    // Additional org memberships beyond the primary `orgSlug`, e.g. to mock a dual-role
+    // user who belongs to both a lab and an enclave. Ids must match real DB org ids when
+    // the mocked session drives server actions that query by org id.
+    extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -475,6 +479,15 @@ export const mockClerkSession = (values: MockSession | null) => {
             slug: CLERK_ADMIN_ORG_SLUG,
             type: 'enclave',
             isAdmin: true,
+        }
+    }
+
+    for (const extra of values.extraOrgs ?? []) {
+        orgs[extra.slug] = {
+            id: extra.id,
+            slug: extra.slug,
+            type: extra.type ?? 'enclave',
+            isAdmin: extra.isAdmin ?? false,
         }
     }
     // Flattened structure - no environment nesting
@@ -611,6 +624,37 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const session = { user, org: { id: org.id, slug: org.slug } }
 
     return { session, org, user, orgUser, ...mocks }
+}
+
+type MockDualRoleSessionOptions = {
+    labSlug?: string
+    enclaveSlug?: string
+    twoFactorEnabled?: boolean
+}
+
+// Creates a real lab org + enclave org and a single user who is a member of BOTH (a
+// "dual-role" user: researcher via the lab, reviewer via the enclave). The Clerk mock's
+// publicMetadata carries both real org ids, so server actions resolve the same dual-role
+// session the real app would. Use for My dashboard Reviewer/Researcher toggle tests.
+export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessionOptions = {}) {
+    const labOrg = await insertTestOrg({ slug: options.labSlug ?? faker.string.alpha(10), type: 'lab' })
+    const enclaveOrg = await insertTestOrg({ slug: options.enclaveSlug ?? faker.string.alpha(10), type: 'enclave' })
+
+    const { user } = await insertTestUser({ org: { id: labOrg.id, slug: labOrg.slug, type: 'lab' } })
+    await findOrCreateOrgMembership({ userId: user.id, slug: enclaveOrg.slug, isAdmin: false })
+
+    const mocks = mockClerkSession({
+        userId: user.id,
+        clerkUserId: user.clerkId,
+        email: user.email ?? undefined,
+        orgSlug: labOrg.slug,
+        orgId: labOrg.id,
+        orgType: 'lab',
+        twoFactorEnabled: options.twoFactorEnabled,
+        extraOrgs: [{ slug: enclaveOrg.slug, id: enclaveOrg.id, type: 'enclave' }],
+    })
+
+    return { user, labOrg, enclaveOrg, ...mocks }
 }
 
 type CreateTestProposalDraftOptions = {
@@ -920,10 +964,13 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     status: 'APPROVED',
     createdAt: new Date(),
     submittedAt: new Date(),
+    lastUpdatedAt: new Date(),
+    reviewerName: null,
     researcherId: 'researcher-1',
     reviewerId: null,
     createdBy: 'Researcher Name',
     jobStatusChanges: [],
+    researcherAgreementsAckedAt: null,
     ...overrides,
 })
 

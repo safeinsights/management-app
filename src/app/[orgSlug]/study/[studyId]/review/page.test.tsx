@@ -268,5 +268,116 @@ describe('StudyReviewPage', () => {
                 expect(page?.type).toBe(StudyDetailsReviewer)
             },
         )
+
+        // OTTER-538 QA finding (DO): "Previous" from the results-stage Study Details page
+        // navigates to /review?from=code-review. After OTTER-552 that param routes to the
+        // post-code-feedback page. This proves the destination renders non-blank (the code
+        // APPROVE decision is present), rather than a null PostFeedbackView, at a results status.
+        it('renders the post-code-feedback page (kind=CODE, non-blank) when from=code-review at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(1)
+            expect(page?.props.entries[0].decision).toBe('APPROVE')
+        })
+
+        // Reachability tripwire for the latent blank-page path: PostFeedbackView returns null
+        // when entries[0].decision is null, and getCodeReviewFeedbackAction sorts newest-first
+        // with resubmission notes carrying decision: null. At a results status the approved job
+        // can itself be a resubmission, so a note (dated at job creation) coexists with the later
+        // APPROVE. This proves the APPROVE stays newest (entries[0]), so the page never blanks.
+        // If the ordering invariant ever regresses, entries[0] becomes the note and this fails
+        // (surfacing the OTTER-552-owned hardening rather than letting it silently break here).
+        it('keeps the APPROVE newest (non-blank) when a resubmission note coexists at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+
+            // The approved job is itself a resubmission: its note is dated at job creation and
+            // the reviewer's APPROVE lands a day later, mirroring the real resubmit -> approve flow.
+            await db
+                .updateTable('studyJob')
+                .set({
+                    createdAt: new Date('2026-03-01T00:00:00Z'),
+                    resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+                })
+                .where('id', '=', job.id)
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date('2026-03-03T00:00:00Z') })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                    createdAt: new Date('2026-03-02T00:00:00Z'),
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            // Newest-first: the APPROVE outranks the older note, so entries[0] is decision-bearing
+            // and PostFeedbackView does not return null. The note is still present for history.
+            expect(page?.props.entries[0].decision).toBe('APPROVE')
+            expect(page?.props.entries.some((e: { entryType: string }) => e.entryType === 'RESUBMISSION-NOTE')).toBe(
+                true,
+            )
+        })
     })
 })

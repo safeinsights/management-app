@@ -516,6 +516,25 @@ describe('Study Actions', () => {
             })
         })
     })
+
+    it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {
+        const { lab, studyId } = await createTestProposalDraft({
+            enclaveSlug: 'last-updated-draft-enclave',
+        })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['createdAt', 'lastUpdatedAt'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.lastUpdatedAt).toEqual(study.createdAt)
+
+        const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+        const row = rows.find((s) => s.id === studyId)!
+        expect(row.status).toBe('DRAFT')
+        expect(row.submittedAt).toBeNull()
+        expect(row.lastUpdatedAt).toEqual(study.createdAt)
+    })
 })
 
 describe('ackAgreementsAction', () => {
@@ -708,6 +727,12 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
+        const beforeAction = await db
+            .selectFrom('study')
+            .select('lastUpdatedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
         const jobStatusBefore = await db
             .selectFrom('jobStatusChange')
             .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
@@ -733,13 +758,16 @@ describe('submitProposalReviewAction', () => {
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId', 'lastUpdatedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('CHANGE-REQUESTED')
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(new Date(updatedStudy.lastUpdatedAt).getTime()).toBeGreaterThan(
+            new Date(beforeAction.lastUpdatedAt).getTime(),
+        )
 
         await waitFor(async () => {
             const audit = await getAuditEntries(study.id, 'STUDY')
@@ -766,6 +794,12 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
+        const beforeAction = await db
+            .selectFrom('study')
+            .select('lastUpdatedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
         await submitProposalReviewAction({
             studyId: study.id,
             orgSlug: org.slug,
@@ -784,13 +818,16 @@ describe('submitProposalReviewAction', () => {
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
+            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId', 'lastUpdatedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('REJECTED')
         expect(updatedStudy.rejectedAt).toBeTruthy()
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(new Date(updatedStudy.lastUpdatedAt).getTime()).toBeGreaterThan(
+            new Date(beforeAction.lastUpdatedAt).getTime(),
+        )
 
         const job = await latestJobForStudy(study.id)
         expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
@@ -1227,6 +1264,70 @@ describe('submitProposalReviewAction', () => {
         expect(JSON.stringify(v2?.body)).toContain('round2marker')
         expect(JSON.stringify(v2?.body)).not.toContain('round-1-original')
     })
+
+    // OTTER-574: reviewerId is dynamic and tracks whoever last took a decision action.
+    it('reviewerId flips to the second reviewer across consecutive review rounds', async () => {
+        const { user: reviewerA, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: reviewerA.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        const afterA = await db
+            .selectFrom('study')
+            .select('reviewerId')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(afterA.reviewerId).toBe(reviewerA.id)
+
+        // Researcher resubmits: bump version + flip status back to PENDING-REVIEW so round 2 can run.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: reviewerA.id,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: lexicalJson('resubmitting'),
+                version: 2,
+            })
+            .execute()
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
+
+        const { user: reviewerB } = await insertTestUser({ org })
+        mockClerkSession({
+            userId: reviewerB.id,
+            clerkUserId: reviewerB.clerkId,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'enclave',
+        })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            reviewVersion: 2,
+        })
+
+        const afterB = await db
+            .selectFrom('study')
+            .select('reviewerId')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(afterB.reviewerId).toBe(reviewerB.id)
+        expect(afterB.reviewerId).not.toBe(reviewerA.id)
+    })
 })
 
 describe('submitCodeReviewDecisionAction', () => {
@@ -1346,15 +1447,16 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows[0].studyJobId).toBe(job.id)
         expect(rows[0].criteria).toEqual(validCriteria)
 
-        // study row is intentionally untouched: proposal-stage state stays approved.
+        // proposal-stage state (status/approvedAt/rejectedAt) stays approved; reviewerId tracks the latest decision.
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt'])
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('APPROVED')
         expect(updatedStudy.approvedAt).toBeTruthy()
         expect(updatedStudy.rejectedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
 
         const latest = await latestJobForStudy(study.id)
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-CHANGES-REQUESTED')).toBeTruthy()

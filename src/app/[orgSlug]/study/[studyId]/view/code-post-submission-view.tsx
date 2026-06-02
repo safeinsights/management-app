@@ -24,9 +24,10 @@ interface CodePostSubmissionViewProps {
     reviewingOrgName: string
     dashboardHref?: Route
     /** 1 = first submission, >=2 = resubmission round. */
-    submissionVersion: number
+    submissionVersion?: number
     /** Reviewer feedback + resubmission notes for v2+. */
     feedbackEntries?: CodeReviewFeedbackEntry[]
+    isUnderReview?: boolean
 }
 
 function useExpandable(initial = false) {
@@ -47,6 +48,22 @@ const SubmittedTimestamp: FC<{ label: string; date: string | null }> = ({ label,
         <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
             {label} {date}
         </Text>
+    )
+}
+
+const UnderReviewBanner: FC<{ isVisible: boolean; reviewingOrgName: string; isResubmission: boolean }> = ({
+    isVisible,
+    reviewingOrgName,
+    isResubmission,
+}) => {
+    if (!isVisible) return null
+    const verb = isResubmission ? 'has been resubmitted to' : 'has been submitted to'
+    return (
+        <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
+            Your study code {verb} {displayOrgName(reviewingOrgName)}. They will have access to your study code and an
+            AI-generated summary of its behavior. Please allow 7-10 business days for review. You&apos;ll receive email
+            notifications about updates.
+        </Alert>
     )
 }
 
@@ -170,8 +187,9 @@ export function CodePostSubmissionView({
     job,
     reviewingOrgName,
     dashboardHref,
-    submissionVersion,
+    submissionVersion = 1,
     feedbackEntries = [],
+    isUnderReview = true,
 }: CodePostSubmissionViewProps) {
     const { expanded, toggle, collapse } = useExpandable()
 
@@ -191,8 +209,6 @@ export function CodePostSubmissionView({
     ]
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
-    const bannerOrg = displayOrgName(reviewingOrgName)
-    const bannerVerb = isResubmission ? 'has been resubmitted to' : 'has been submitted to'
 
     return (
         <Stack p="xl" gap="xl">
@@ -214,11 +230,11 @@ export function CodePostSubmissionView({
                         <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
                     </Group>
                     <Divider my="md" />
-                    <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
-                        Your study code {bannerVerb} {bannerOrg}. They will have access to your study code and an
-                        AI-generated summary of its behavior. Please allow 7-10 business days for review. You&apos;ll
-                        receive email notifications about updates.
-                    </Alert>
+                    <UnderReviewBanner
+                        isVisible={isUnderReview}
+                        reviewingOrgName={reviewingOrgName}
+                        isResubmission={isResubmission}
+                    />
                     <ExpandToggle isVisible={!isResubmission && !expanded} onClick={toggle} />
                     <InlineToggle isVisible={isResubmission} expanded={expanded} onClick={toggle} />
                     <InlineCodePanel isVisible={isResubmission} expanded={expanded} jobId={job.id} files={codeFiles} />
