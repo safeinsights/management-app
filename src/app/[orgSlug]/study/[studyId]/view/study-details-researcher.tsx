@@ -19,10 +19,11 @@ type StudyDetailsResearcherProps = {
     study: SelectedStudy
     job: LatestJobForStudy
     dashboardHref?: Route
+    returnTo?: 'org'
 }
 
-export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref }: StudyDetailsResearcherProps) {
-    const previousHref = Routes.studyView({ orgSlug, studyId: study.id, from: 'code-submission' })
+export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref, returnTo }: StudyDetailsResearcherProps) {
+    const previousHref = Routes.studyView({ orgSlug, studyId: study.id, from: 'code-submission', returnTo })
 
     return (
         <Stack px="xl" gap="xl">

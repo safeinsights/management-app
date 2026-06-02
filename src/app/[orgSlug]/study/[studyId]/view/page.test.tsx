@@ -393,5 +393,57 @@ describe('StudyViewPage', () => {
                 expect(page?.props.isUnderReview).toBe(false)
             },
         )
+
+        it('threads returnTo=org to StudyDetailsResearcher at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'RUN-COMPLETE')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ returnTo: 'org' }),
+            })
+
+            expect(page?.type).toBe(StudyDetailsResearcher)
+            expect(page?.props.returnTo).toBe('org')
+        })
+
+        // Fix 2 (PR #759): the from=code-submission branch is gated on isStudyResultsStatus, so a
+        // stray ?from=code-submission at a code-decision status falls through to CodePostDecisionView
+        // instead of short-circuiting to the post-submission view.
+        it('falls through to CodePostDecisionView when from=code-submission arrives at CODE-APPROVED', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-submission' }),
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
+        })
     })
 })

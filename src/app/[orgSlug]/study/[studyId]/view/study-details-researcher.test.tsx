@@ -27,4 +27,15 @@ describe('StudyDetailsResearcher', () => {
             expect.stringContaining(`/${org.slug}/study/${study.id}/view?from=code-submission`),
         )
     })
+
+    it('preserves org-dashboard context on the Previous link when returnTo=org', async () => {
+        const { org, study, latestJob } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'lab' })
+
+        renderWithProviders(<StudyDetailsResearcher orgSlug={org.slug} study={study} job={latestJob!} returnTo="org" />)
+
+        const previous = screen.getByRole('link', { name: /previous/i })
+        const href = previous.getAttribute('href') ?? ''
+        expect(href).toContain('from=code-submission')
+        expect(href).toContain('returnTo=org')
+    })
 })
