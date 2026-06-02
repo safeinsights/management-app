@@ -9,7 +9,7 @@ import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
 
-export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
+export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -50,7 +50,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
-export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
+export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
         minimalJobInfoSchema.extend({
             orgSlug: z.string(),
