@@ -524,8 +524,8 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher navigates back via previous buttons', async () => {
-        // CodePostSubmissionView has a "Previous" link that returns to the agreements page.
-        const previousLink = page.getByRole('link', { name: /^Previous$/i })
+        // CodePostSubmissionView has a "Back" link that returns to the agreements page.
+        const previousLink = page.getByRole('link', { name: /^Back$/i })
         await previousLink.scrollIntoViewIfNeeded()
         await previousLink.click()
         await page.waitForURL(/\/agreements\?from=previous/)
