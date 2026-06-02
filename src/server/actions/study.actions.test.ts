@@ -517,83 +517,23 @@ describe('Study Actions', () => {
         })
     })
 
-    describe('fetchStudiesForOrgAction lastUpdatedAt', () => {
-        it('falls back to createdAt for DRAFT studies (no status changes yet)', async () => {
-            const { lab, studyId } = await createTestProposalDraft({
-                enclaveSlug: 'last-updated-draft-enclave',
-            })
-            const createdAt = new Date('2026-01-01T00:00:00Z')
-            await db.updateTable('study').set({ createdAt }).where('id', '=', studyId).execute()
-
-            const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
-            const row = rows.find((s) => s.id === studyId)!
-            expect(row.status).toBe('DRAFT')
-            expect(row.submittedAt).toBeNull()
-            expect(row.lastUpdatedAt).toEqual(createdAt)
+    it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {
+        const { lab, studyId } = await createTestProposalDraft({
+            enclaveSlug: 'last-updated-draft-enclave',
         })
 
-        it('advances on CHANGE-REQUESTED clarification then on resubmit', async () => {
-            const { lab, studyId, user } = await createTestProposalDraft({
-                enclaveSlug: 'last-updated-enclave',
-            })
-            const submittedAt = new Date('2026-01-01T00:00:00Z')
-            await db
-                .updateTable('study')
-                .set({ status: 'PENDING-REVIEW', submittedAt })
-                .where('id', '=', studyId)
-                .execute()
+        const study = await db
+            .selectFrom('study')
+            .select(['createdAt', 'lastUpdatedAt'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.lastUpdatedAt).toEqual(study.createdAt)
 
-            const findRow = async () => {
-                const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
-                const row = rows.find((s) => s.id === studyId)
-                if (!row) throw new Error('study not found in dashboard rows')
-                return row
-            }
-
-            const initial = await findRow()
-            expect(initial.lastUpdatedAt).toEqual(submittedAt)
-
-            // Reviewer marks the proposal NEEDS-CLARIFICATION (study → CHANGE-REQUESTED)
-            const clarificationAt = new Date('2026-01-02T00:00:00Z')
-            await db
-                .insertInto('studyProposalComment')
-                .values({
-                    studyId,
-                    authorId: user.id,
-                    authorRole: 'REVIEWER',
-                    entryType: 'REVIEWER-FEEDBACK',
-                    decision: 'NEEDS-CLARIFICATION',
-                    body: lexicalJson('please clarify'),
-                    version: 1,
-                    createdAt: clarificationAt,
-                })
-                .execute()
-            await db.updateTable('study').set({ status: 'CHANGE-REQUESTED' }).where('id', '=', studyId).execute()
-
-            const afterClarification = await findRow()
-            expect(afterClarification.lastUpdatedAt).toEqual(clarificationAt)
-
-            // Researcher resubmits — RESUBMISSION-NOTE comment is the freshest signal
-            const resubmitAt = new Date('2026-01-03T00:00:00Z')
-            await db
-                .insertInto('studyProposalComment')
-                .values({
-                    studyId,
-                    authorId: user.id,
-                    authorRole: 'RESEARCHER',
-                    entryType: 'RESUBMISSION-NOTE',
-                    decision: null,
-                    body: lexicalJson('clarified, resubmitting'),
-                    version: 2,
-                    createdAt: resubmitAt,
-                })
-                .execute()
-            await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
-
-            const afterResubmit = await findRow()
-            expect(afterResubmit.submittedAt).toEqual(submittedAt)
-            expect(afterResubmit.lastUpdatedAt).toEqual(resubmitAt)
-        })
+        const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+        const row = rows.find((s) => s.id === studyId)!
+        expect(row.status).toBe('DRAFT')
+        expect(row.submittedAt).toBeNull()
+        expect(row.lastUpdatedAt).toEqual(study.createdAt)
     })
 })
 
@@ -787,6 +727,12 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
+        const beforeAction = await db
+            .selectFrom('study')
+            .select('lastUpdatedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
         const jobStatusBefore = await db
             .selectFrom('jobStatusChange')
             .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
@@ -812,13 +758,16 @@ describe('submitProposalReviewAction', () => {
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId', 'lastUpdatedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('CHANGE-REQUESTED')
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(new Date(updatedStudy.lastUpdatedAt).getTime()).toBeGreaterThan(
+            new Date(beforeAction.lastUpdatedAt).getTime(),
+        )
 
         await waitFor(async () => {
             const audit = await getAuditEntries(study.id, 'STUDY')
@@ -845,6 +794,12 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
+        const beforeAction = await db
+            .selectFrom('study')
+            .select('lastUpdatedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
         await submitProposalReviewAction({
             studyId: study.id,
             orgSlug: org.slug,
@@ -863,13 +818,16 @@ describe('submitProposalReviewAction', () => {
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
+            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId', 'lastUpdatedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('REJECTED')
         expect(updatedStudy.rejectedAt).toBeTruthy()
         expect(updatedStudy.approvedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(new Date(updatedStudy.lastUpdatedAt).getTime()).toBeGreaterThan(
+            new Date(beforeAction.lastUpdatedAt).getTime(),
+        )
 
         const job = await latestJobForStudy(study.id)
         expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
