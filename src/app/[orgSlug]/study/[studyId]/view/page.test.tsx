@@ -372,23 +372,26 @@ describe('StudyViewPage', () => {
             },
         )
 
-        it('renders CodePostSubmissionView with the banner hidden when from=code-submission at a results status', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            await addJobStatus(study.id, 'RUN-COMPLETE')
+        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
+            'renders CodePostSubmissionView with the banner hidden when from=code-submission at %s',
+            async (jobStatus) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+                const { study } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await addJobStatus(study.id, jobStatus)
 
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'code-submission' }),
-            })
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({ from: 'code-submission' }),
+                })
 
-            expect(page?.type).toBe(CodePostSubmissionView)
-            expect(page?.props.isUnderReview).toBe(false)
-        })
+                expect(page?.type).toBe(CodePostSubmissionView)
+                expect(page?.props.isUnderReview).toBe(false)
+            },
+        )
     })
 })
