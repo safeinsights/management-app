@@ -169,7 +169,12 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             const metaList = metadataByFileType.get(encryptedType) ?? []
             const label = logLabel(f.fileType)
 
-            if (isJobApproved) {
+            // Only trust the approved/not-shared diff once the encrypted-file metadata has loaded:
+            // metaList is the source of the full original file list. While that fetch is in flight —
+            // or if it failed and was swallowed by the Sentry catch above — metaList is empty, and
+            // short-circuiting here would drop the withheld files entirely. Falling through instead
+            // renders the existing locked placeholder until the metadata arrives.
+            if (isJobApproved && metaList.length > 0) {
                 const approvedPaths = new Set(approvedFilesForType.map((af) => af.path))
                 for (const approvedFile of approvedFilesForType) {
                     rows.push({
