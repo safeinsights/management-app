@@ -131,7 +131,7 @@ describe('Studies Table', () => {
             />,
         )
 
-        expect(await screen.findByText(/You currently do not have any studies to review/i)).toBeDefined()
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders header actions when the table is empty', async () => {
@@ -148,7 +148,7 @@ describe('Studies Table', () => {
             />,
         )
 
-        expect(await screen.findByText(/You currently do not have any studies to review/i)).toBeDefined()
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
         expect(screen.getByText('Review Studies')).toBeDefined()
         expect(screen.getByText('Toggle Placeholder')).toBeDefined()
     })
@@ -159,7 +159,7 @@ describe('Studies Table', () => {
             <StudiesTable audience="researcher" scope="org" orgSlug="test-org" title="Proposed Studies" paperWrapper />,
         )
 
-        expect(await screen.findByText(/You have not started a study yet/i)).toBeDefined()
+        expect(await screen.findByText(/You haven't started a study yet/i)).toBeDefined()
     })
 
     it('renders reviewer empty state copy', async () => {
@@ -168,7 +168,7 @@ describe('Studies Table', () => {
             <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
         )
 
-        expect(await screen.findByText(/You currently do not have any studies to review/i)).toBeDefined()
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('does not duplicate the new study button on an empty lab org dashboard', async () => {
@@ -184,7 +184,7 @@ describe('Studies Table', () => {
             />,
         )
 
-        await screen.findByText(/You have not started a study yet/i)
+        await screen.findByText(/You haven't started a study yet/i)
         expect(screen.getAllByTestId('new-study')).toHaveLength(1)
     })
 
@@ -194,7 +194,7 @@ describe('Studies Table', () => {
             <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
         )
 
-        await screen.findByText(/You currently do not have any studies to review/i)
+        await screen.findByText(/You have no studies to review/i)
         expect(screen.queryByTestId('new-study')).toBeNull()
     })
 

@@ -62,7 +62,7 @@ describe('UserStudiesDashboard', () => {
         renderWithProviders(<UserStudiesDashboard />)
 
         expect(await screen.findByText('My dashboard')).toBeDefined()
-        expect(await screen.findByText('You have not started a study yet')).toBeDefined()
+        expect(await screen.findByText("You haven't yet participated in a study")).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
 
@@ -90,7 +90,7 @@ describe('UserStudiesDashboard', () => {
 
         await userEvent.click(screen.getByRole('radio', { name: 'Reviewer' }))
 
-        expect(await screen.findByText('You currently do not have any studies to review')).toBeDefined()
+        expect(await screen.findByText("You haven't yet participated in reviewing a study")).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })
@@ -100,7 +100,7 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText('You have not started a study yet')).toBeDefined()
+        expect(await screen.findByText("You haven't yet participated in a study")).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
     })
@@ -110,7 +110,7 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText('You currently do not have any studies to review')).toBeDefined()
+        expect(await screen.findByText("You haven't yet participated in reviewing a study")).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
     })

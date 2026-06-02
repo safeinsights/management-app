@@ -185,7 +185,7 @@ function StudiesTableBody({ isError, error, isEmpty, studies, audience, scope, o
     }
 
     if (isEmpty) {
-        return <EmptyState audience={audience} />
+        return <EmptyState audience={audience} scope={scope} />
     }
 
     return (
