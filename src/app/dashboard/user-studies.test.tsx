@@ -39,7 +39,8 @@ const insertStudy = ({ orgId, submittedByOrgId, researcherId, reviewerId = null,
             language: 'R',
             submittedAt: new Date(),
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
 
 beforeEach(() => {
     mockPathname('/dashboard')
@@ -48,16 +49,24 @@ beforeEach(() => {
 describe('UserStudiesDashboard', () => {
     it('keeps the toggle visible when the default researcher tab is empty and reviewer has rows', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        // A study authored by someone else but assigned to our user as the reviewer: it
+        // A study authored by someone else but approved by our user as the reviewer: it
         // surfaces under Reviewer but not Researcher, so the default researcher tab is empty.
         const { user: otherResearcher } = await insertTestUser({ org: { ...labOrg, type: 'lab' } })
-        await insertStudy({
+        const study = await insertStudy({
             orgId: enclaveOrg.id,
             submittedByOrgId: labOrg.id,
             researcherId: otherResearcher.id,
-            reviewerId: user.id,
             title: 'Reviewer Study',
         })
+        const job = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, userId: user.id, status: 'CODE-APPROVED' })
+            .execute()
 
         renderWithProviders(<UserStudiesDashboard />)
 
