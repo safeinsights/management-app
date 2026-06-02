@@ -19,8 +19,6 @@ type CodeReviewProps = {
     entries: CodeReviewFeedbackEntry[]
 }
 
-
-
 // Each code job becomes a review round (v1, v2, …) in getCodeReviewFeedbackAction.
 // On the *current* round the page is rendered for, entries are only present when
 // at least one prior round exists, so any entry implies a resubmission.
