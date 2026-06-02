@@ -27,7 +27,7 @@ type DraftStep2Fields = {
 // `piName`, and document paths. Step 2 is the first time any of the columns
 // below are written, so any one being non-empty means the researcher has
 // reached Step 2. Used to route a "resume draft" entry to the step where
-// they last left off instead of always landing on Step 1.
+// they last left off instead of always landing on Step 1. Step 1 never writes these columns
 export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     if (study.piUserId) return true
     if (study.datasets && study.datasets.length > 0) return true
