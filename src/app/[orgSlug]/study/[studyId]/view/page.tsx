@@ -34,9 +34,11 @@ export default async function StudyReviewPage(props: {
 
     const job = await latestJobForStudyOrNull(studyId)
 
-    const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
+    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     const fromAgreements = searchParams.from === 'agreements'
+    const fromCodeSubmission = searchParams.from === 'code-submission'
 
     // Only show code views if code was actually submitted (not just a baseline job from IDE launch).
     // When the researcher navigates back from agreements (?from=agreements), show the read-only
@@ -45,6 +47,25 @@ export default async function StudyReviewPage(props: {
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
+
+        // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
+        // Once results exist the under-review branch no longer fires, so render the OTTER-537 post-submission
+        // page explicitly. Gate on the results status (not the query param alone) so a stray
+        // ?from=code-submission at a code-decision/under-review status falls through to the correct branch
+        // below. The "code under review" banner is hidden because review has already concluded.
+        if (isStudyResultsStatus(latestJobStatus) && fromCodeSubmission) {
+            const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            return (
+                <CodePostSubmissionView
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    reviewingOrgName={reviewingOrgName}
+                    dashboardHref={dashboardHref}
+                    isUnderReview={false}
+                />
+            )
+        }
 
         if (isCodeDecisionStatus(latestJobStatus)) {
             const entries = await getCodeReviewFeedbackAction({ studyId })
@@ -86,7 +107,15 @@ export default async function StudyReviewPage(props: {
         // OTTER-538: once results exist, render the redesigned Study Details page
         // (no code section, results-only) instead of the legacy CodeOnlyView.
         if (isStudyResultsStatus(latestJobStatus)) {
-            return <StudyDetailsResearcher orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+            return (
+                <StudyDetailsResearcher
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    dashboardHref={dashboardHref}
+                    returnTo={returnTo}
+                />
+            )
         }
         return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
     }
@@ -101,7 +130,7 @@ export default async function StudyReviewPage(props: {
             ? Routes.studyAgreements({
                   orgSlug,
                   studyId,
-                  returnTo: searchParams.returnTo === 'org' ? 'org' : undefined,
+                  returnTo,
               })
             : undefined
         return (
