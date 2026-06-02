@@ -9,7 +9,7 @@ const MESSAGES: Record<Scope, Record<Audience, string>> = {
         researcher: "You haven't yet participated in a study",
     },
     org: {
-        reviewer: 'You have no studies to review.',
+        reviewer: 'You have no studies to review',
         researcher: "You haven't started a study yet",
     },
 }

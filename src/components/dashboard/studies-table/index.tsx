@@ -89,6 +89,7 @@ export function StudiesTable({
         data: studies = [],
         refetch,
         isError,
+        error,
         isFetching,
         isRefetching,
         isLoading,
@@ -148,7 +149,7 @@ export function StudiesTable({
             {description && <Text mb="md">{description}</Text>}
             <StudiesTableBody
                 isError={isError}
-                error={errorToString(studies)}
+                error={errorToString(error)}
                 isEmpty={displayedStudies.length === 0}
                 studies={displayedStudies}
                 audience={audience}

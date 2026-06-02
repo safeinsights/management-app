@@ -198,6 +198,16 @@ describe('Studies Table', () => {
         expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
+    it('surfaces the query error message when loading fails', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockRejectedValueOnce(new Error('boom'))
+        renderWithProviders(
+            <StudiesTable audience="reviewer" scope="org" orgSlug="test-org" title="Review Studies" paperWrapper />,
+        )
+
+        expect(await screen.findByText(/Failed to load studies: .*boom/i)).toBeDefined()
+        expect(screen.getByText('Review Studies')).toBeDefined()
+    })
+
     it('renders the table when studies exist', async () => {
         renderWithProviders(
             <StudiesTable
