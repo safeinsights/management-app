@@ -13,11 +13,13 @@ import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
 import { SubmittedCodeSection } from './submitted-code-section'
 
-type CodeReviewRedesignViewProps = {
+type CodeReviewProps = {
     orgSlug: string
     study: Submitted<SelectedStudy>
     entries: CodeReviewFeedbackEntry[]
 }
+
+
 
 // Each code job becomes a review round (v1, v2, …) in getCodeReviewFeedbackAction.
 // On the *current* round the page is rendered for, entries are only present when
@@ -95,7 +97,7 @@ function CodeReviewSection({ study, submittedAt, isResubmission, version }: Code
     )
 }
 
-export async function CodeReviewRedesignView({ orgSlug, study, entries }: CodeReviewRedesignViewProps) {
+export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     const job = await latestJobForStudyOrNull(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />

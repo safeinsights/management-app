@@ -110,7 +110,7 @@ type SubmittedCodeSectionProps = {
     codeInitiallyExpanded?: boolean
 }
 
-// Data fetching lives in the parent (CodeReviewRedesignView) so this component
+// Data fetching lives in the parent (CodeReview) so this component
 // stays a plain sync function. Nested async server components don't render
 // under testing-library / happy-dom — the parent's await is what tests rely on.
 export function SubmittedCodeSection({

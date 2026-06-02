@@ -1,12 +1,6 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import {
-    CodeReviewFeatureFlag,
-    PostSubmissionFeatureFlag,
-    ProposalReviewFeatureFlag,
-    StudyDetailsRedesignFeatureFlag,
-} from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
@@ -21,12 +15,11 @@ import {
 import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
-import { CodeReviewRedesignView } from './code-review-redesign-view'
-import { CodeReviewView } from './code-review-view'
-import { LegacyProposalReviewView } from './legacy-proposal-review-view'
+import { CodeReview } from './code-review'
+import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
-import { StudyDetailsRedesignView } from './study-details-redesign-view'
+import { StudyDetailsReviewer } from './study-details-reviewer'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -87,7 +80,7 @@ export default async function StudyReviewPage(props: {
         // When a reviewer navigates back from the agreements step, show the proposal
         if (searchParams.from === 'agreements' && codeSubmitted) {
             return (
-                <LegacyProposalReviewView
+                <ProposalReviewFromAgreementsView
                     orgSlug={orgSlug}
                     study={study}
                     agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
@@ -101,35 +94,22 @@ export default async function StudyReviewPage(props: {
                 return redirect(Routes.studyAgreements({ orgSlug, studyId }))
             }
 
-            // OTTER-538: once the job has reached the results stage, swap the legacy
-            // CodeReviewView for the redesigned results-only Study Details page when
-            // the feature flag is on.
+            // OTTER-538: once the job has reached the results stage, render the
+            // redesigned results-only Study Details page.
             const latestJob = await latestSubmittedJobForStudy(studyId)
             const latestJobStatus = latestJob?.statusChanges[0]?.status
 
             if (isStudyResultsStatus(latestJobStatus)) {
-                return (
-                    <StudyDetailsRedesignFeatureFlag
-                        defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}
-                        optInContent={<StudyDetailsRedesignView orgSlug={orgSlug} study={study} />}
-                    />
-                )
+                return <StudyDetailsReviewer orgSlug={orgSlug} study={study} />
             }
 
             // Prior code-review entries trigger the resubmission variant inside
-            // CodeReviewRedesignView. Swallow errors so a feedback fetch failure
-            // degrades to the first-submission view rather than blocking review.
+            // CodeReview. Swallow errors so a feedback fetch failure degrades to
+            // the first-submission view rather than blocking review.
             const codeReviewEntries = await getCodeReviewFeedbackAction({ studyId })
             const safeCodeReviewEntries = isActionError(codeReviewEntries) ? [] : codeReviewEntries
 
-            return (
-                <CodeReviewFeatureFlag
-                    defaultContent={<CodeReviewView orgSlug={orgSlug} study={study} />}
-                    optInContent={
-                        <CodeReviewRedesignView orgSlug={orgSlug} study={study} entries={safeCodeReviewEntries} />
-                    }
-                />
-            )
+            return <CodeReview orgSlug={orgSlug} study={study} entries={safeCodeReviewEntries} />
         }
 
         if (isSubmittedProposalReviewStatus(study.status)) {
@@ -137,12 +117,7 @@ export default async function StudyReviewPage(props: {
             if (isActionError(entries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            return (
-                <PostSubmissionFeatureFlag
-                    defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
-                    optInContent={<PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />}
-                />
-            )
+            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />
         }
 
         // Editable PENDING-REVIEW branch: load prior feedback entries and the
@@ -162,16 +137,11 @@ export default async function StudyReviewPage(props: {
         const entries = await getProposalFeedbackForStudyAction({ studyId })
         const safeEntries = isActionError(entries) ? [] : entries
         return (
-            <ProposalReviewFeatureFlag
-                defaultContent={<LegacyProposalReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={
-                    <ProposalReviewView
-                        orgSlug={orgSlug}
-                        study={study}
-                        priorEntries={safeEntries}
-                        reviewVersion={reviewVersion}
-                    />
-                }
+            <ProposalReviewView
+                orgSlug={orgSlug}
+                study={study}
+                priorEntries={safeEntries}
+                reviewVersion={reviewVersion}
             />
         )
     }

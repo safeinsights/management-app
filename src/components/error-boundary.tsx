@@ -1,21 +1,11 @@
 // error boundaries are class components @link https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 'use client'
 
-import {
-    AppShell,
-    AppShellFooter,
-    AppShellHeader,
-    AppShellMain,
-    Button,
-    Group,
-    Paper,
-    Stack,
-    Text,
-    Title,
-} from '@mantine/core'
+import { AppShell, AppShellHeader, AppShellMain, Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import * as Sentry from '@sentry/nextjs'
 import { Component, ErrorInfo, ReactNode } from 'react'
 import { AppErrorImage } from '../../public/svg/app-error-image'
+import { AppFooter } from './layout/app-footer'
 import { SafeInsightsLogo } from './layout/svg/si-logo'
 
 interface Props {
@@ -88,11 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             </Stack>
                         </Paper>
                     </AppShellMain>
-                    <AppShellFooter p="md" bg="purple.9" bd="none">
-                        <Group justify="left" c="white">
-                            <Text c="white">© 2025 - SafeInsights, Rice University</Text>
-                        </Group>
-                    </AppShellFooter>
+                    <AppFooter />
                 </AppShell>
             )
         }

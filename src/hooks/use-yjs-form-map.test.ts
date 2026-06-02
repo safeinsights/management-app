@@ -40,21 +40,19 @@ const buildProposalForm = (overrides: Partial<ProposalFormValues> = {}) => {
 const setupCollabHook = ({
     studyId,
     formInitial,
-    enabled = true,
+    websocketProvider = newWebsocketProvider(),
 }: {
     studyId: string
     formInitial: Partial<ProposalFormValues>
-    enabled?: boolean
+    websocketProvider?: ReturnType<typeof newWebsocketProvider> | null
 }) => {
     const { result: formResult } = buildProposalForm(formInitial)
     const form = formResult.current
-    const websocketProvider = newWebsocketProvider()
     const hookResult = renderHook(() =>
         useYjsFormMap({
             studyId,
             form,
-            websocketProvider: enabled ? websocketProvider : null,
-            enabled,
+            websocketProvider,
         }),
     )
     return { form, hookResult }
@@ -239,12 +237,12 @@ describe('useYjsFormMap', () => {
         fieldsMap.unobserve(observer)
     })
 
-    it('disabled hook is inert', () => {
+    it('hook is inert without a websocket provider', () => {
         const studyId = faker.string.uuid()
         const { hookResult } = setupCollabHook({
             studyId,
             formInitial: { title: 'Original', datasets: ['ds-1'], piName: 'PI', piUserId: faker.string.uuid() },
-            enabled: false,
+            websocketProvider: null,
         })
 
         expect(constructed).toHaveLength(0)

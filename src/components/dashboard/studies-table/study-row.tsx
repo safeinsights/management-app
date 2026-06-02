@@ -38,10 +38,9 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     const submittedTo = study.reviewingEnclaveName || study.orgName || ''
 
     // Get the "Submitted By" value (reviewer only)
-    const submittedBy = scope === 'org' ? study.submittingLabName : study.createdBy
+    const submittedBy = study.createdBy
 
-    // Get the "Reviewed By" / "Organization" value (reviewer only)
-    const reviewedByOrOrg = scope === 'org' ? orgSlug : study.orgName
+    const reviewedByOrOrg = scope === 'org' ? (study.reviewerName ?? '-') : study.orgName
 
     return (
         <TableTr fz={14} style={highlightStyle}>
@@ -59,8 +58,8 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
                 </InfoTooltip>
             </TableTd>
 
-            {/* Submitted On - common to all */}
-            <TableTd>{study.submittedAt ? dayjs(study.submittedAt).format('MMM DD, YYYY') : '-'}</TableTd>
+            {/* Last updated - common to all */}
+            <TableTd>{dayjs(study.lastUpdatedAt).format('MMM DD, YYYY')}</TableTd>
 
             {/* Third column differs by audience */}
             {audience === 'researcher' ? <TableTd>{submittedTo}</TableTd> : <TableTd>{submittedBy}</TableTd>}

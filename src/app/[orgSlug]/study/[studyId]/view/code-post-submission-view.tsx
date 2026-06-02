@@ -20,6 +20,7 @@ interface CodePostSubmissionViewProps {
     job: LatestJobForStudy
     reviewingOrgName: string
     dashboardHref?: Route
+    isUnderReview?: boolean
 }
 
 function useExpandable(initial = false) {
@@ -40,6 +41,17 @@ const SubmittedTimestamp: FC<{ submittedOn: string | null }> = ({ submittedOn })
         <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
             Submitted on {submittedOn}
         </Text>
+    )
+}
+
+const UnderReviewBanner: FC<{ isVisible: boolean; reviewingOrgName: string }> = ({ isVisible, reviewingOrgName }) => {
+    if (!isVisible) return null
+    return (
+        <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
+            Your study code has been submitted to {displayOrgName(reviewingOrgName)}. They will have access to your
+            study code and an AI-generated summary of its behavior. Please allow 7-10 business days for review.
+            You&apos;ll receive email notifications about updates.
+        </Alert>
     )
 }
 
@@ -69,6 +81,7 @@ export function CodePostSubmissionView({
     job,
     reviewingOrgName,
     dashboardHref,
+    isUnderReview = true,
 }: CodePostSubmissionViewProps) {
     const { expanded, toggle, collapse } = useExpandable()
 
@@ -105,11 +118,7 @@ export function CodePostSubmissionView({
                         <SubmittedTimestamp submittedOn={submittedOn} />
                     </Group>
                     <Divider my="md" />
-                    <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
-                        Your study code has been submitted to {displayOrgName(reviewingOrgName)}. They will have access
-                        to your study code and an AI-generated summary of its behavior. Please allow 7-10 business days
-                        for review. You&apos;ll receive email notifications about updates.
-                    </Alert>
+                    <UnderReviewBanner isVisible={isUnderReview} reviewingOrgName={reviewingOrgName} />
                     <ExpandToggle isVisible={!expanded} onClick={toggle} />
                 </Paper>
 

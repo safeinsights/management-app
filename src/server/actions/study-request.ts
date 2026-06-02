@@ -349,7 +349,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         const submittedAt = new Date()
         const claimed = await db
             .updateTable('study')
-            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt })
+            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -536,9 +536,10 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -595,9 +596,10 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -646,10 +648,11 @@ const resubmissionNoteParam = z
     })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click — auto-save is intentionally out of scope for OTTER-521). The
-// `researcherId = userId` ownership filter is load-bearing: CASL's
-// `permit('update', 'Study')` is unconditional for any researcher, so this
-// is what actually scopes writes to the study's owner.
+// click; auto-save is intentionally out of scope for OTTER-521). CASL's
+// `permit('update', 'Study')` is unconditional for any researcher, so the
+// `submittedByOrgId` lab filter below is load-bearing: it scopes writes to
+// members of the study's submitting lab (OTTER-497 allows any RL member to
+// co-edit, not just the original researcher). Mirrors onUpdateDraftStudyAction.
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
@@ -657,20 +660,35 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
-        const userId = session.user.id
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
 
         const updateValues = Object.fromEntries(
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
-        if (Object.keys(updateValues).length > 0) {
-            await db
-                .updateTable('study')
-                .set(updateValues)
-                .where('id', '=', studyId)
-                .where('status', '=', 'CHANGE-REQUESTED')
-                .where('researcherId', '=', userId)
-                .execute()
+        const verified =
+            Object.keys(updateValues).length > 0
+                ? await db
+                      .updateTable('study')
+                      .set(updateValues)
+                      .where('id', '=', studyId)
+                      .where('status', '=', 'CHANGE-REQUESTED')
+                      .where('submittedByOrgId', 'in', labScope)
+                      .returning(['id'])
+                      .executeTakeFirst()
+                : await db
+                      .selectFrom('study')
+                      .select('id')
+                      .where('id', '=', studyId)
+                      .where('status', '=', 'CHANGE-REQUESTED')
+                      .where('submittedByOrgId', 'in', labScope)
+                      .executeTakeFirst()
+
+        if (!verified) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
         return { studyId }
@@ -695,18 +713,33 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Same caveat as onUpdateClarifiedProposalAction: pair `requireAbilityTo`
-        // with an explicit ownership filter since CASL doesn't scope by researcher.
+        // OTTER-497: resubmit is open to any member of the submitting lab (the
+        // original creator stays recorded as researcherId). CASL `update Study`
+        // is org-type-scoped, so the row filter below scopes to the submitting
+        // lab, matching onUpdateDraftStudyAction / finalizeStudySubmissionAction.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
+
+        // This SELECT is not load-bearing for safety: the UPDATE below applies the
+        // same status + lab guards and would claim 0 rows, caught by `if (!claimed)`.
+        // It earns its place by splitting the diagnostics, distinguishing "not your
+        // lab / doesn't exist" from "already submitted (race)" so each case gets a
+        // distinct user-facing message. Don't delete it to "simplify".
         const study = await db
             .selectFrom('study')
             .select(['id', 'status'])
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
+            .where('submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
-        if (!study) throw new Error('Study not found or access denied')
+        // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
+        // so the client receives a structured `{ error: { submission } }` it can show,
+        // rather than a plain Error bubbling up as a generic unhandled exception.
+        if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
-            throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
+            throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
         const updateValues = Object.fromEntries(
@@ -715,16 +748,25 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         // Don't update study.submittedAt — keep the original first-submission
         // timestamp. The resubmission timeline lives in studyProposalComment
-        // rows (one per resubmit, with its own createdAt).
-        await db
+        // rows (one per resubmit, with its own createdAt). The status guard makes
+        // the transition idempotent: a second resubmitter racing past the SELECT
+        // claims 0 rows and fails cleanly rather than double-bumping the version.
+        const claimed = await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
+                lastUpdatedAt: new Date(),
             })
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
-            .execute()
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', labScope)
+            .returning(['id'])
+            .executeTakeFirst()
+
+        if (!claimed) {
+            throw new ActionFailure({ submission: 'Proposal has already been submitted' })
+        }
 
         await db
             .insertInto('studyProposalComment')
@@ -833,9 +875,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyJobId)
             .execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date(), codeResubmissionNoteDraft: null })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now, codeResubmissionNoteDraft: null })
             .where('id', '=', studyId)
             .execute()
 

@@ -1,7 +1,6 @@
 import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { usePostSubmissionFeatureFlag } from '@/components/openstax-feature-flag'
 import { useSession } from '@/hooks/session'
 import { Audience, Scope, StudyRow } from './types'
 import { useStudyHref } from '@/hooks/use-study-href'
@@ -27,12 +26,12 @@ function ResearcherLink({
     isHighlighted: boolean
 }) {
     const { session } = useSession()
-    const isPostSubmissionFlow = usePostSubmissionFeatureFlag()
     const labSlug = study.submittedByOrgSlug || orgSlug
     const hasJobActivity = study.jobStatusChanges.length > 0
     const studyParams = { orgSlug: labSlug, studyId: study.id }
     const jobStatuses = study.jobStatusChanges.map((c) => c.status)
-    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses, isPostSubmissionFlow)
+    const agreementsAcked = !!study.researcherAgreementsAckedAt
+    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses, agreementsAcked)
     const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
 
     if (study.status === 'DRAFT') {

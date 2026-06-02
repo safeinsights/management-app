@@ -1,13 +1,11 @@
 'use client'
 
 import {
-    AppShellFooter,
     AppShellHeader,
     AppShellMain,
     Burger,
     Group,
     AppShell as MantineAppShell,
-    Text,
     useMantineTheme,
 } from '@mantine/core'
 
@@ -17,6 +15,7 @@ import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
+import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
 
 import { RequireMFA } from '../require-mfa'
@@ -72,11 +71,7 @@ export function AppShell({ children }: Props) {
                 {children}
             </AppShellMain>
 
-            <AppShellFooter p="md" bg="purple.9" bd="none">
-                <Text ta="left" c="white" fz="sm">
-                    © 2025 - SafeInsights, Rice University
-                </Text>
-            </AppShellFooter>
+            <AppFooter />
         </MantineAppShell>
     )
 }

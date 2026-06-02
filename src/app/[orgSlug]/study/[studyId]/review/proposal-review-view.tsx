@@ -2,7 +2,6 @@
 
 import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { useProposalCollaborationFeatureFlag } from '@/components/openstax-feature-flag'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -199,7 +198,6 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
         handleConfirmSubmit,
         isPending,
     } = useProposalReview({ orgSlug, studyId: study.id, tabSessionId, reviewVersion })
-    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
     const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
@@ -208,7 +206,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 orgSlug={orgSlug}
                 studyId={study.id}
                 tabSessionId={tabSessionId}
-                enabled={isCollaborationEnabled && isEditable}
+                enabled={isEditable}
             />
             <Stack px="xl" gap="xl" py="xl">
                 <PageBreadcrumbs
@@ -270,7 +268,6 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
 }
 
 export function ProposalReviewView(props: ProposalReviewViewProps) {
-    const isCollaborationEnabled = useProposalCollaborationFeatureFlag()
     const isEditable = !isSubmittedProposalReviewStatus(props.study.status)
 
     return (
@@ -279,7 +276,7 @@ export function ProposalReviewView(props: ProposalReviewViewProps) {
             orgSlug={props.orgSlug}
             editableStatuses={REVIEW_EDITABLE_STATUSES}
             redirectTarget="studyReview"
-            enabled={isCollaborationEnabled && isEditable}
+            enabled={isEditable}
         >
             <ReviewFeedbackProviderShare>
                 <ProposalReviewViewContent {...props} />
