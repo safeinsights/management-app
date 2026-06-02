@@ -58,24 +58,17 @@ async function createProposalAsResearcher(page: Page, studyTitle: string): Promi
     await piSelect.click()
     await page.getByRole('option').first().click()
 
-    await page.getByRole('button', { name: /Submit study proposal/i }).click()
-    await expect(page.getByText(/submitted successfully/i)).toBeVisible()
+    await page.getByRole('button', { name: /Submit initial request/i }).click()
+    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
+    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     await page.getByRole('link', { name: /Go to dashboard/i }).click()
     await page.waitForURL('**/dashboard')
 
     return studyId
 }
 
-// Spy mode toggles the OpenStax feature flags (incl. the proposal-review
-// collaboration flag); each fresh context needs it enabled once. Forced click
-// because the `.pi-symbol` has opacity:0 but pointer-events:auto.
-async function enableSpyMode(page: Page): Promise<void> {
-    await page.locator('.pi-symbol').click({ force: true })
-    await expect(page.locator('body.spy-mode')).toBeAttached()
-}
-
-// useProposalCollaborationFeatureFlag depends on the Clerk session's `orgs`
-// metadata; wait until openstax appears so the flag can flip true.
+// Wait until openstax appears in Clerk session's `orgs` metadata so the
+// reviewer context is properly seeded before interacting with the review page.
 async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
     await page.waitForFunction(
         () => {
@@ -122,11 +115,6 @@ test('a reviewer in two tabs collaborates live on a proposal review; one tab sub
                 url: `/openstax/study/${studyId}/review`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
-            // Spy mode is React state — toggling it re-renders
-            // ProposalReviewFeatureFlag under the flipped flag without a
-            // reload. A hard reload would discard both spy mode and the
-            // Clerk session in CI, so we avoid it.
-            await enableSpyMode(ctxA.page)
             await expect(ctxA.page.getByTestId('review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
@@ -136,7 +124,6 @@ test('a reviewer in two tabs collaborates live on a proposal review; one tab sub
                 url: `/openstax/study/${studyId}/review`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
-            await enableSpyMode(ctxB.page)
             await expect(ctxB.page.getByTestId('review-feedback-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 

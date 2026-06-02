@@ -19,7 +19,7 @@ licenses:
     # Audit the production license inventory whenever a non-trivial
     # dependency change lands:
     #
-    #     npx license-checker --production --summary
+    #     pnpm exec license-checker --production --summary
     - id: LGPL-3.0-or-later
     - id: Apache-2.0 AND LGPL-3.0-or-later
     - id: Apache-2.0 AND LGPL-3.0-or-later AND MIT

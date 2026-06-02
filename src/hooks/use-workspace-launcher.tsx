@@ -9,8 +9,8 @@ interface OpenResult {
     url: string
 }
 
-const openWorkspaceInNewTab = (url: string): OpenResult => {
-    const newWindow = window.open(url, 'child')
+const openWorkspaceInNewTab = (url: string, studyId: string): OpenResult => {
+    const newWindow = window.open(url, `ide-for-study-${studyId}`)
     const blocked = !newWindow || newWindow.closed || typeof newWindow.closed === 'undefined'
     return { success: !blocked, blocked, url }
 }
@@ -102,7 +102,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         const url = workspaceQuery.data
         if (url) {
             setLaunchComplete(true)
-            const result = openWorkspaceInNewTab(url)
+            const result = openWorkspaceInNewTab(url, studyId)
             setLoading(false)
             if (result.blocked) {
                 setError(new Error('Popup blocked'))

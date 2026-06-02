@@ -81,7 +81,7 @@ const AddMember: FC = () => {
 
     return (
         <Flex justify={'space-between'} my="lg" align={'center'}>
-            <Title>Organizations</Title>
+            <Title order={1}>Organizations</Title>
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
                 <EditOrgForm onCompleteAction={close} />
             </Modal>

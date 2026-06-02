@@ -45,17 +45,17 @@ const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle) =>
 describe('ProposalFooter submit gating (OTTER-557)', () => {
     it('keeps Submit disabled when the title is empty', () => {
         renderFooter()
-        expect(screen.getByRole('button', { name: 'Submit study proposal' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
     })
 
     it('keeps Submit disabled when the title is whitespace only', () => {
         renderFooter({ ...fullyValidExceptTitle, title: '   ' })
-        expect(screen.getByRole('button', { name: 'Submit study proposal' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
     })
 
     it('enables Submit when the researcher provides a real title', () => {
         renderFooter({ ...fullyValidExceptTitle, title: 'My Real Study Title' })
-        expect(screen.getByRole('button', { name: 'Submit study proposal' })).toBeEnabled()
+        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
     })
 
     it('enables Submit after the researcher types a real title in the form input', async () => {
@@ -67,7 +67,7 @@ describe('ProposalFooter submit gating (OTTER-557)', () => {
             </ProposalProvider>,
         )
 
-        const submit = screen.getByRole('button', { name: 'Submit study proposal' })
+        const submit = screen.getByRole('button', { name: 'Submit initial request' })
         expect(submit).toBeDisabled()
 
         await user.clear(screen.getByLabelText('Study Title Probe'))

@@ -1,5 +1,5 @@
 # SECURITY (OTTER-545): this workflow runs on `pull_request` and therefore
-# executes PR-controlled code (npm install scripts, build, tests). Two threat
+# executes PR-controlled code (pnpm install scripts, build, tests). Two threat
 # model rules apply across every job here:
 #
 #   1. Every `actions/checkout` MUST set `persist-credentials: false` so the
@@ -29,26 +29,27 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 22
-                  cache: 'npm'
-            - name: npm install
-              run: npm ci
+                  cache: 'pnpm'
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: pnpm audit signatures
+              run: pnpm audit signatures
             - name: show versions
-              run: npm ls
-            - name: Verify npm package signatures
-              run: npm audit signatures
-            - name: npm run checks
-              run: npm run checks
+              run: pnpm list
+            - name: pnpm run checks
+              run: pnpm run checks
             - name: validate actions
-              run: npm run validate-actions
+              run: pnpm run validate-actions
 
     # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
     # exposed to PR-controlled code. This job is safe ONLY because it does not run
-    # `npm ci`, build scripts, or any other PR-supplied code before the Sonar step.
+    # `pnpm install`, build scripts, or any other PR-supplied code before the Sonar step.
     # Do NOT:
-    #   - add `npm ci` / `npm install` / build / test steps to this job
+    #   - add `pnpm install` / build / test steps to this job
     #   - move SONAR_TOKEN to a job-level or workflow-level `env`
     #   - reorder steps so PR code executes before the SonarQube scan
     # If you need to run PR code alongside Sonar, split it into a separate job
@@ -118,7 +119,7 @@ jobs:
             #
             # The load-bearing mitigation here is the CI-only Clerk instance,
             # NOT step- or job-level scoping. Every step that needs Clerk creds
-            # (npm ci, unit tests, e2e tests, coverage) also runs PR-controlled
+            # (pnpm install, unit tests, e2e tests, coverage) also runs PR-controlled
             # code, so moving these to step-level env would not reduce exposure
             # — a malicious PR can put exfil code in any of those steps.
             #
@@ -147,21 +148,21 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 22
-                  cache: 'npm'
+                  cache: 'pnpm'
             - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
               id: cache-all-the-things
               with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: |
-                      ~/.npm
                       ~/.cache
                       ${{ github.workspace }}/.next/cache
                       # Generate a new cache whenever packages or source files change.
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+                      ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
             - name: Start SeaweedFS
               run: |
                   docker run -d \
@@ -187,12 +188,12 @@ jobs:
                   done
             - name: Create S3 bucket
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
-            - name: npm install
-              run: npm ci
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
             - name: provision db
-              run: npm run db:migrate
-            - name: npm run test:unit
-              run: npm run test:unit -- --reporter=verbose
+              run: pnpm run db:migrate
+            - name: pnpm run test:unit
+              run: pnpm run test:unit -- --reporter=verbose
             - name: Start editor-service
               run: |
                   docker build -f Dockerfile.editor-service -t mgmt-editor-service .
@@ -217,14 +218,14 @@ jobs:
                     sleep 1
                   done
             - name: build and run server
-              run: npm run ci:server -- server_output.log
+              run: pnpm run ci:server -- server_output.log
             - name: install playwright dependencies
               if: steps.cache-all-the-things.outputs.cache-hit != 'true'
-              run: npx playwright install --with-deps --only-shell chromium
-            - name: npm run test:e2e
-              run: npm run test:e2e
-            - name: npm run test:coverage
-              run: npm run test:coverage
+              run: pnpm exec playwright install --with-deps --only-shell chromium
+            - name: pnpm run test:e2e
+              run: pnpm run test:e2e
+            - name: pnpm run test:coverage
+              run: pnpm run test:coverage
             - name: Add code coverage to actions summary
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
@@ -251,7 +252,7 @@ jobs:
               run: docker logs editor-service 2>&1 || true
               if: always()
             - name: Delete any test users created
-              run: npx tsx ./bin/delete-clerk-test-users.ts
+              run: pnpm exec tsx ./bin/delete-clerk-test-users.ts
               if: always()
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: failure()

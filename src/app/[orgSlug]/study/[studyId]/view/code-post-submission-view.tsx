@@ -12,6 +12,7 @@ import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 
 interface CodePostSubmissionViewProps {
     orgSlug: string
@@ -42,6 +43,26 @@ const SubmittedTimestamp: FC<{ submittedOn: string | null }> = ({ submittedOn })
     )
 }
 
+const ExpandToggle: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
+    if (!isVisible) return null
+    return (
+        <Anchor
+            component="button"
+            size="sm"
+            fw={700}
+            onClick={onClick}
+            mt="md"
+            display="inline-flex"
+            style={{ alignItems: 'center', gap: 4 }}
+            aria-expanded={false}
+            data-testid="study-code-toggle"
+        >
+            View full study code
+            <CaretRightIcon size={12} />
+        </Anchor>
+    )
+}
+
 export function CodePostSubmissionView({
     orgSlug,
     study,
@@ -62,8 +83,7 @@ export function CodePostSubmissionView({
         ['Study code'],
     ]
 
-    const toggleLabel = expanded ? 'Hide full study code' : 'View full study code'
-    const caretRotation = expanded ? 'rotate(-90deg)' : 'rotate(0deg)'
+    const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
         <Stack p="xl" gap="xl">
@@ -86,37 +106,31 @@ export function CodePostSubmissionView({
                     </Group>
                     <Divider my="md" />
                     <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
-                        Your study code has been successfully submitted to {displayOrgName(reviewingOrgName)}. They will
-                        review it and respond with feedback, follow-up questions, or a decision. You&apos;ll receive
-                        email notifications as your code progresses through the review process. Please allow an
-                        estimated 7-10 days for a complete code review. Review timelines vary by data organization.
+                        Your study code has been submitted to {displayOrgName(reviewingOrgName)}. They will have access
+                        to your study code and an AI-generated summary of its behavior. Please allow 7-10 business days
+                        for review. You&apos;ll receive email notifications about updates.
                     </Alert>
-                    <Anchor
-                        component="button"
-                        size="sm"
-                        fw={700}
-                        onClick={toggle}
-                        mt="md"
-                        display="inline-flex"
-                        style={{ alignItems: 'center', gap: 4 }}
-                        aria-expanded={expanded}
-                        data-testid="study-code-toggle"
-                    >
-                        {toggleLabel}
-                        <CaretRightIcon size={12} style={{ transition: 'transform 200ms', transform: caretRotation }} />
-                    </Anchor>
+                    <ExpandToggle isVisible={!expanded} onClick={toggle} />
                 </Paper>
 
                 <Collapse in={expanded}>
                     <Paper p="xxl">
                         <Stack gap="md">
-                            <Title order={5}>Submitted code</Title>
-                            <Anchor href={proposalHref} target="_blank" rel="noopener noreferrer" fw={700} size="sm">
-                                View approved initial request
-                            </Anchor>
+                            <Group justify="space-between" align="center">
+                                <Title order={5}>Submitted code</Title>
+                                <Anchor
+                                    href={proposalHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    fw={700}
+                                    size="sm"
+                                >
+                                    View approved initial request
+                                </Anchor>
+                            </Group>
                             <Divider />
                             <Text>View the code files that you uploaded to run against the dataset.</Text>
-                            <SubmittedCodeTable jobId={job.id} files={job.files} />
+                            <SubmittedCodeTable jobId={job.id} files={codeFiles} />
                             <Anchor
                                 component="button"
                                 size="sm"

@@ -48,7 +48,6 @@ function fetchStudyQuery(db: DBExecutor) {
         .selectFrom('study')
         .where('study.deletedAt', 'is', null)
         .leftJoin(
-            // Subquery to get the most recent study job for each study
             (eb) =>
                 eb
                     .selectFrom('studyJob')
@@ -85,6 +84,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.containerLocation',
             'study.createdAt',
             'study.submittedAt',
+            'study.lastUpdatedAt',
             'study.datasets',
             'study.dataSources',
             'study.irbProtocols',
@@ -103,12 +103,12 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.title',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
+            'study.codeResubmissionNoteDraft',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
-
-        .orderBy(sql`coalesce(study.submitted_at, study.created_at)`, 'desc')
+        .orderBy('study.lastUpdatedAt', 'desc')
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
@@ -345,7 +345,13 @@ async function performStudyProposalApproval({
     if (isFirstApproval) {
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+            .set({
+                status: 'APPROVED',
+                approvedAt: new Date(),
+                rejectedAt: null,
+                reviewerId: userId,
+                lastUpdatedAt: new Date(),
+            })
             .where('id', '=', studyId)
             .execute()
 
@@ -374,7 +380,7 @@ async function performStudyProposalApproval({
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
             .where('id', '=', studyId)
             .execute()
 
@@ -385,7 +391,13 @@ async function performStudyProposalApproval({
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
     await db
         .updateTable('study')
-        .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+        .set({
+            status: 'REJECTED',
+            rejectedAt: new Date(),
+            approvedAt: null,
+            reviewerId: userId,
+            lastUpdatedAt: new Date(),
+        })
         .where('id', '=', studyId)
         .execute()
 }
@@ -504,7 +516,7 @@ async function claimInitialProposalReviewStudy({
 }) {
     const study = await db
         .updateTable('study')
-        .set({ reviewerId: userId })
+        .set({ reviewerId: userId, lastUpdatedAt: new Date() })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
         .where('approvedAt', 'is', null)
@@ -645,6 +657,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
                 reviewerId: userId,
                 approvedAt: null,
                 rejectedAt: null,
+                lastUpdatedAt: new Date(),
             })
             .where('id', '=', studyId)
             .execute()
@@ -794,7 +807,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
             await db
                 .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
@@ -813,7 +826,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .executeTakeFirstOrThrow()
             await db
                 .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId })
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeChangesRequested({ studyId, userId })
@@ -835,13 +848,38 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
         return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) =>
-        db
+    .handler(async ({ params: { studyId }, db }) => {
+        // Each code job, in creation order, is its own review round (v1, v2, ...).
+        // Reviewer decisions on a job and the researcher's resubmission note on
+        // that same job share the round number. studyJob has no userId column;
+        // the author of the resubmission note is the user recorded on the
+        // CODE-SUBMITTED status change for that job.
+        const codeJobs = await db
+            .selectFrom('studyJob')
+            .leftJoin('jobStatusChange as submission', (join) =>
+                join.onRef('submission.studyJobId', '=', 'studyJob.id').on('submission.status', '=', 'CODE-SUBMITTED'),
+            )
+            .leftJoin('user as author', 'author.id', 'submission.userId')
+            .select([
+                'studyJob.id as studyJobId',
+                'studyJob.resubmissionNote',
+                'studyJob.createdAt',
+                'submission.userId as authorId',
+                'author.fullName as authorName',
+            ])
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('studyJob.createdAt', 'asc')
+            .execute()
+
+        const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
+
+        const reviewerRows = await db
             .selectFrom('studyReviewComment')
             .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
+                'studyReviewComment.studyJobId',
                 'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
@@ -851,9 +889,48 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             ])
             .where('studyReviewComment.studyId', '=', studyId)
             .where('studyReviewComment.reviewKind', '=', 'CODE')
-            .orderBy('studyReviewComment.createdAt', 'desc')
-            .execute(),
-    )
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .execute()
+
+        const reviewerEntries = reviewerRows.map((row) => ({
+            id: row.id,
+            authorId: row.authorId,
+            entryType: 'REVIEWER-FEEDBACK' as const,
+            decision: row.decision,
+            body: row.body,
+            criteria: row.criteria,
+            createdAt: row.createdAt,
+            authorName: row.authorName,
+            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+        }))
+
+        const noteEntries = codeJobs
+            .filter((j) => j.resubmissionNote != null)
+            .map((j) => ({
+                id: `job-note-${j.studyJobId}`,
+                authorId: j.authorId ?? '',
+                entryType: 'RESUBMISSION-NOTE' as const,
+                decision: null,
+                body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
+                criteria: null,
+                createdAt: j.createdAt,
+                authorName: j.authorName ?? '',
+                version: jobVersion.get(j.studyJobId) ?? null,
+            }))
+
+        return [...reviewerEntries, ...noteEntries].sort((a, b) => {
+            const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            if (createdAtDiff !== 0) return createdAtDiff
+
+            const versionDiff = (b.version ?? 0) - (a.version ?? 0)
+            if (versionDiff !== 0) return versionDiff
+
+            const entryTypeDiff = a.entryType.localeCompare(b.entryType)
+            if (entryTypeDiff !== 0) return entryTypeDiff
+
+            return a.id.localeCompare(b.id)
+        })
+    })
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 

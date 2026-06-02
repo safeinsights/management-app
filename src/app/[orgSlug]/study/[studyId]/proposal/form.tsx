@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { useParams } from 'next/navigation'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
@@ -9,7 +9,6 @@ import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
-import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/lexical'
@@ -43,70 +42,20 @@ const EditableTextFieldEntry: FC<{
     form: UseFormReturnType<ProposalFormValues>
     studyId: string
     websocketProvider: HocuspocusProviderWebsocket | null
-    isCollaborationEnabled: boolean
-}> = ({ field, form, studyId, websocketProvider, isCollaborationEnabled }) => {
+}> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
     const error = form.errors[field.id] as string | undefined
     const onChange = (val: string) => form.setFieldValue(field.id, val)
 
-    if (isCollaborationEnabled) {
-        return (
-            <CollaborativeProposalTextField
-                studyId={studyId}
-                field={field as typeof field & { id: ProposalTextFieldKey }}
-                initialValue={value}
-                error={error}
-                onChange={onChange}
-                websocketProvider={websocketProvider}
-            />
-        )
-    }
-
     return (
-        <ProposalTextField
-            field={field}
-            value={value}
+        <CollaborativeProposalTextField
+            studyId={studyId}
+            field={field as typeof field & { id: ProposalTextFieldKey }}
+            initialValue={value}
             error={error}
             onChange={onChange}
-            onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
+            websocketProvider={websocketProvider}
         />
-    )
-}
-
-const ProposalTextField: FC<{
-    field: EditableTextField
-    value: string
-    error: string | undefined
-    onChange: (val: string) => void
-    onBlur: () => void
-}> = ({ field, value, error, onChange, onBlur }) => {
-    const [wordCount, setWordCount] = useState(0)
-
-    return (
-        <Paper p="xxl">
-            <Stack gap="xxl">
-                <Box>
-                    <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
-                    <Text size="xs" c="charcoal.7" mb="xs">
-                        {field.description}
-                    </Text>
-                    <EditableText
-                        id={field.id}
-                        aria-label={field.label}
-                        placeholder={field.placeholder}
-                        value={value}
-                        onChange={onChange}
-                        onBlur={onBlur}
-                        onWordCount={setWordCount}
-                        error={!!error}
-                    />
-                    <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>
-                        {error && <InputError error={error} />}
-                        <WordCounter wordCount={wordCount} maxWords={field.maxWords} />
-                    </Group>
-                </Box>
-            </Stack>
-        </Paper>
     )
 }
 
@@ -117,8 +66,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherId = '',
     enclaveOrgSlug,
 }) => {
-    const { studyId, form, saveDraft, isSaving, isCollaborationEnabled, websocketProvider, yjsForm, tabSessionId } =
-        useProposal()
+    const { studyId, form, saveDraft, isSaving, websocketProvider, yjsForm, tabSessionId } = useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
@@ -128,7 +76,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
         orgSlug,
         studyId,
         currentTabId: tabSessionId,
-        enabled: isCollaborationEnabled,
     })
 
     return (
@@ -137,7 +84,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
             orgSlug={orgSlug}
             editableStatuses={PROPOSAL_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
-            enabled={isCollaborationEnabled}
         >
             <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
                 <Stack gap="xxl">
@@ -225,7 +171,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             form={form}
                             studyId={studyId}
                             websocketProvider={websocketProvider}
-                            isCollaborationEnabled={isCollaborationEnabled}
                         />
                     ))}
 

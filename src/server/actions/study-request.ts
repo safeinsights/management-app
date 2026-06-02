@@ -17,7 +17,7 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
-import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
+import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug, latestJobForStudyOrNull } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -31,6 +31,7 @@ import {
     RESUBMIT_NOTE_MIN_WORDS,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { countWords, lexicalJson } from '@/lib/lexical'
+import { canResubmitStudyCode } from '@/lib/code-resubmission'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -348,7 +349,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         const submittedAt = new Date()
         const claimed = await db
             .updateTable('study')
-            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt })
+            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -535,9 +536,10 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -594,9 +596,10 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -645,10 +648,11 @@ const resubmissionNoteParam = z
     })
 
 // Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click — auto-save is intentionally out of scope for OTTER-521). The
-// `researcherId = userId` ownership filter is load-bearing: CASL's
-// `permit('update', 'Study')` is unconditional for any researcher, so this
-// is what actually scopes writes to the study's owner.
+// click; auto-save is intentionally out of scope for OTTER-521). CASL's
+// `permit('update', 'Study')` is unconditional for any researcher, so the
+// `submittedByOrgId` lab filter below is load-bearing: it scopes writes to
+// members of the study's submitting lab (OTTER-497 allows any RL member to
+// co-edit, not just the original researcher). Mirrors onUpdateDraftStudyAction.
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
@@ -656,20 +660,35 @@ export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProp
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
-        const userId = session.user.id
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
 
         const updateValues = Object.fromEntries(
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
-        if (Object.keys(updateValues).length > 0) {
-            await db
-                .updateTable('study')
-                .set(updateValues)
-                .where('id', '=', studyId)
-                .where('status', '=', 'CHANGE-REQUESTED')
-                .where('researcherId', '=', userId)
-                .execute()
+        const verified =
+            Object.keys(updateValues).length > 0
+                ? await db
+                      .updateTable('study')
+                      .set(updateValues)
+                      .where('id', '=', studyId)
+                      .where('status', '=', 'CHANGE-REQUESTED')
+                      .where('submittedByOrgId', 'in', labScope)
+                      .returning(['id'])
+                      .executeTakeFirst()
+                : await db
+                      .selectFrom('study')
+                      .select('id')
+                      .where('id', '=', studyId)
+                      .where('status', '=', 'CHANGE-REQUESTED')
+                      .where('submittedByOrgId', 'in', labScope)
+                      .executeTakeFirst()
+
+        if (!verified) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
         return { studyId }
@@ -694,18 +713,33 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Same caveat as onUpdateClarifiedProposalAction: pair `requireAbilityTo`
-        // with an explicit ownership filter since CASL doesn't scope by researcher.
+        // OTTER-497: resubmit is open to any member of the submitting lab (the
+        // original creator stays recorded as researcherId). CASL `update Study`
+        // is org-type-scoped, so the row filter below scopes to the submitting
+        // lab, matching onUpdateDraftStudyAction / finalizeStudySubmissionAction.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
+
+        // This SELECT is not load-bearing for safety: the UPDATE below applies the
+        // same status + lab guards and would claim 0 rows, caught by `if (!claimed)`.
+        // It earns its place by splitting the diagnostics, distinguishing "not your
+        // lab / doesn't exist" from "already submitted (race)" so each case gets a
+        // distinct user-facing message. Don't delete it to "simplify".
         const study = await db
             .selectFrom('study')
             .select(['id', 'status'])
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
+            .where('submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
-        if (!study) throw new Error('Study not found or access denied')
+        // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
+        // so the client receives a structured `{ error: { submission } }` it can show,
+        // rather than a plain Error bubbling up as a generic unhandled exception.
+        if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
-            throw new Error(`Cannot resubmit study: expected CHANGE-REQUESTED but got ${study.status}`)
+            throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
         const updateValues = Object.fromEntries(
@@ -714,16 +748,25 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         // Don't update study.submittedAt — keep the original first-submission
         // timestamp. The resubmission timeline lives in studyProposalComment
-        // rows (one per resubmit, with its own createdAt).
-        await db
+        // rows (one per resubmit, with its own createdAt). The status guard makes
+        // the transition idempotent: a second resubmitter racing past the SELECT
+        // claims 0 rows and fails cleanly rather than double-bumping the version.
+        const claimed = await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
+                lastUpdatedAt: new Date(),
             })
             .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
-            .execute()
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', labScope)
+            .returning(['id'])
+            .executeTakeFirst()
+
+        if (!claimed) {
+            throw new ActionFailure({ submission: 'Proposal has already been submitted' })
+        }
 
         await db
             .insertInto('studyProposalComment')
@@ -754,4 +797,98 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         return { studyId }
+    })
+
+// OTTER-558: Save the in-progress resubmission note as a lab-shared draft. Any
+// researcher in the submitting lab can edit; last write wins (no merge / CRDT).
+// Cleared by resubmitStudyCodeAction when the note is finalized.
+export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, note } }) => {
+        await db.updateTable('study').set({ codeResubmissionNoteDraft: note }).where('id', '=', studyId).execute()
+        return { studyId, savedAt: new Date().toISOString() }
+    })
+
+// OTTER-558: Finalize the code resubmission. Creates a new study_job (mirroring
+// submitStudyCodeAction's flow), copies the coder workspace files to S3,
+// records the resubmission note on the job row, clears the draft on study,
+// flips the study to PENDING-REVIEW, and triggers the scan + review-requested
+// events.
+export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
+    .params(
+        z.object({
+            studyId: z.string().uuid(),
+            mainFileName: z.string(),
+            fileNames: z.array(z.string()),
+            resubmissionNote: resubmissionNoteParam,
+        }),
+    )
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'StudyJob')
+    .handler(async ({ orgSlug, params, session, db }) => {
+        const { studyId, mainFileName, fileNames, resubmissionNote } = params
+
+        const latestJob = await latestJobForStudyOrNull(studyId)
+        const latestStatus = latestJob?.statusChanges.at(0)?.status
+        if (!canResubmitStudyCode(latestStatus)) {
+            throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)
+        }
+
+        if (fileNames.length === 0) throw new Error('No files provided')
+        if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
+
+        const userId = session.user.id
+        const sanitizedMainFileName = sanitizeFileName(mainFileName)
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
+
+        const { studyJobId } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            sanitizedMainFileName,
+            additionalFileNames,
+        )
+
+        let coderFilesPath = await getConfigValue('CODER_FILES')
+        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        // Mirrors submitStudyCodeAction: these copies run inside the Action
+        // transaction, so a later rollback can leave orphaned S3 objects.
+        for (const fileName of fileNames) {
+            const sanitized = sanitizeFileName(fileName)
+            const filePath = path.join(coderFilesPath, sanitized)
+            const fileStream = createReadStream(filePath)
+            const webStream = Readable.toWeb(fileStream) as ReadableStream
+            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitized)
+            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+        }
+
+        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson(resubmissionNote)) })
+            .where('id', '=', studyJobId)
+            .execute()
+
+        const now = new Date()
+        await db
+            .updateTable('study')
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now, codeResubmissionNoteDraft: null })
+            .where('id', '=', studyId)
+            .execute()
+
+        onStudyCodeSubmitted({ userId, studyId })
+        onStudyReviewRequested({ studyJobId })
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        triggerCodeScan(studyJobId, orgSlug, studyId)
+
+        return { studyJobId }
     })

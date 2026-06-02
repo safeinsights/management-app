@@ -85,6 +85,15 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export interface AgentContext {
+    content: string
+    id: Generated<string>
+    name: string
+    orgId: string | null
+    updatedAt: Generated<Timestamp>
+    updatedBy: string | null
+}
+
 export interface Audit {
     createdAt: Generated<Timestamp>
     eventType: AuditEventType
@@ -207,6 +216,7 @@ export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
+    codeResubmissionNoteDraft: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>
     datasets: string[] | null
@@ -218,6 +228,7 @@ export interface Study {
     irbDocPath: string | null
     irbProtocols: string | null
     language: Generated<Language>
+    lastUpdatedAt: Generated<Timestamp>
     orgId: string
     outputMimeType: string | null
     piName: string
@@ -238,6 +249,7 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
+    resubmissionNote: Json | null
     studyId: string
 }
 
@@ -311,6 +323,7 @@ export interface YjsDocument {
 }
 
 export interface DB {
+    agentContext: AgentContext
     audit: Audit
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
