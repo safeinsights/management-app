@@ -169,12 +169,9 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             const metaList = metadataByFileType.get(encryptedType) ?? []
             const label = logLabel(f.fileType)
 
-            // Only trust the approved/not-shared diff once the encrypted-file metadata has loaded:
-            // metaList is the source of the full original file list. While that fetch is in flight —
-            // or if it failed and was swallowed by the Sentry catch above — metaList is empty, and
-            // short-circuiting here would drop the withheld files entirely. Falling through instead
-            // renders the existing locked placeholder until the metadata arrives.
-            if (isJobApproved && metaList.length > 0) {
+            // Approved (shared) files always render, independent of whether the encrypted-file
+            // metadata has loaded — the green rows must never blink out while metaList is in flight.
+            if (approvedFilesForType.length > 0) {
                 const approvedPaths = new Set(approvedFilesForType.map((af) => af.path))
                 for (const approvedFile of approvedFilesForType) {
                     rows.push({
@@ -187,6 +184,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
                         file: approvedFile,
                     })
                 }
+                // Withheld files are surfaced only once metadata is available to enumerate them.
+                // Without it we can't tell what was withheld, so we show nothing rather than guess.
                 for (const meta of metaList) {
                     if (approvedPaths.has(meta.path)) continue
                     rows.push({
@@ -213,14 +212,18 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
                     })
                 }
             } else if (metaList.length > 0) {
+                // A type with metadata but no approved files. If the job is approved and no APPROVED-*
+                // rows exist for it, the whole type was withheld → red X. Otherwise (still encrypted, or
+                // approved files merely not fetched yet) keep the lock icon.
+                const withheld = isJobApproved && !approvedFileTypes.has(approvedType)
                 for (const meta of metaList) {
                     rows.push({
-                        key: `${f.fileType}-locked-${meta.path}`,
+                        key: `${f.fileType}-${withheld ? 'not-shared' : 'locked'}-${meta.path}`,
                         label,
                         name: meta.path,
                         bytes: meta.bytes,
                         fileType: f.fileType,
-                        state: 'locked',
+                        state: withheld ? 'not-shared' : 'locked',
                         file: null,
                     })
                 }

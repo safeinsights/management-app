@@ -503,7 +503,7 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
-    it('falls back to a placeholder row (not an empty table) when metadata is unavailable for an approved job', async () => {
+    it('renders a placeholder row rather than silently dropping files when metadata is unavailable for an approved job', async () => {
         const { study, job } = await insertTestStudyJobData({
             org,
             jobStatus: 'FILES-APPROVED',
@@ -511,35 +511,26 @@ describe('EncryptedFilesPanel', () => {
 
         await db
             .insertInto('studyJobFile')
-            .values([
-                {
-                    studyJobId: job.id,
-                    name: 'results.zip',
-                    path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                    fileType: 'ENCRYPTED-RESULT',
-                },
-                {
-                    studyJobId: job.id,
-                    name: 'first.csv',
-                    path: `test-org/${study.id}/${job.id}/results/approved/first.csv`,
-                    fileType: 'APPROVED-RESULT',
-                },
-            ])
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
             .execute()
 
-        // Encrypted-file metadata never arrives (in flight or fetch failed) — metaList stays empty.
+        // Encrypted-file metadata never arrives (fetch in flight or failed and swallowed by Sentry),
+        // and there are no approved files yet — metaList and approvedFilesForType are both empty.
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
-            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
-        ])
+        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([])
 
         const latestJob = await latestJobForStudy(study.id)
         renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
 
-        // The file group still renders a row rather than silently vanishing; without metadata we
+        // The group still renders a placeholder row instead of an empty table; without metadata we
         // can't enumerate withheld files, so no "not shared" indicator is shown yet.
         await waitFor(() => {
-            expect(screen.getByText('first.csv')).toBeDefined()
+            expect(screen.getByText('results.zip')).toBeDefined()
         })
         expect(screen.queryByLabelText(/not shared with researcher/)).toBeNull()
     })
