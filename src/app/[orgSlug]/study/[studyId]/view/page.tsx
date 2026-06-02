@@ -37,6 +37,7 @@ export default async function StudyReviewPage(props: {
     const dashboardHref = searchParams.returnTo === 'org' ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     const fromAgreements = searchParams.from === 'agreements'
+    const fromCodeSubmission = searchParams.from === 'code-submission'
 
     // Only show code views if code was actually submitted (not just a baseline job from IDE launch).
     // When the researcher navigates back from agreements (?from=agreements), show the read-only
@@ -45,6 +46,23 @@ export default async function StudyReviewPage(props: {
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status
         const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
+
+        // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
+        // Once results exist the under-review branch no longer fires, so render the OTTER-537 post-submission
+        // page explicitly. The "code under review" banner is hidden because review has already concluded.
+        if (fromCodeSubmission) {
+            const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            return (
+                <CodePostSubmissionView
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    reviewingOrgName={reviewingOrgName}
+                    dashboardHref={dashboardHref}
+                    isUnderReview={false}
+                />
+            )
+        }
 
         if (isCodeDecisionStatus(latestJobStatus)) {
             const entries = await getCodeReviewFeedbackAction({ studyId })

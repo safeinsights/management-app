@@ -58,7 +58,7 @@ async function setupSubmittedStudy() {
 function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
-    overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
+    overrides: { dashboardHref?: Route; reviewingOrgName?: string; isUnderReview?: boolean } = {},
 ) {
     renderWithProviders(
         <CodePostSubmissionView
@@ -67,6 +67,7 @@ function renderView(
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref}
+            isUnderReview={overrides.isUnderReview}
         />,
     )
 }
@@ -111,6 +112,15 @@ describe('CodePostSubmissionView', () => {
 
             const banner = screen.getByTestId('code-under-review-banner')
             expect(banner).toHaveStyle({ backgroundColor: '#FFF9E5' })
+        })
+
+        it('hides the under-review banner when isUnderReview is false (reached via results-page Previous)', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { isUnderReview: false })
+
+            expect(screen.queryByTestId('code-under-review-banner')).not.toBeInTheDocument()
+            // The rest of the page still renders (e.g. the submitted timestamp).
+            expect(screen.getByTestId('code-submitted-timestamp')).toBeInTheDocument()
         })
     })
 

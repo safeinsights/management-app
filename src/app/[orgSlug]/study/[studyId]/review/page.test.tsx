@@ -268,5 +268,51 @@ describe('StudyReviewPage', () => {
                 expect(page?.type).toBe(StudyDetailsReviewer)
             },
         )
+
+        // OTTER-538 QA finding (DO): "Previous" from the results-stage Study Details page
+        // navigates to /review?from=code-review. After OTTER-552 that param routes to the
+        // post-code-feedback page. This proves the destination renders non-blank (the code
+        // APPROVE decision is present), rather than a null PostFeedbackView, at a results status.
+        it('renders the post-code-feedback page (kind=CODE, non-blank) when from=code-review at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(1)
+            expect(page?.props.entries[0].decision).toBe('APPROVE')
+        })
     })
 })

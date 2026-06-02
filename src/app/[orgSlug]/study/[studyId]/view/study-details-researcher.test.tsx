@@ -16,12 +16,15 @@ describe('StudyDetailsResearcher', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
     })
 
-    it('renders a Previous link', async () => {
+    it('renders a Previous link back to the OTTER-537 code-submission page', async () => {
         const { org, study, latestJob } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'lab' })
 
         renderWithProviders(<StudyDetailsResearcher orgSlug={org.slug} study={study} job={latestJob!} />)
 
         const previous = screen.getByRole('link', { name: /previous/i })
-        expect(previous).toBeInTheDocument()
+        expect(previous).toHaveAttribute(
+            'href',
+            expect.stringContaining(`/${org.slug}/study/${study.id}/view?from=code-submission`),
+        )
     })
 })

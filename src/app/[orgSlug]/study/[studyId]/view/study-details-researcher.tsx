@@ -9,9 +9,10 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 // OTTER-538: Study Details page (RL) — removes the "Study Code" section.
-// "Previous" goes back to the dashboard since the OTTER-537 post-code-submission
-// page only renders while the job is in CODE-SUBMITTED/CODE-SCANNED status; once
-// results exist that page is no longer routable.
+// "Previous" returns to the OTTER-537 post-code-submission page. That page only
+// renders at /view while the job is in CODE-SUBMITTED/CODE-SCANNED status; once
+// results exist it is otherwise unroutable, so we reach it via ?from=code-submission,
+// which page.tsx routes to CodePostSubmissionView with the under-review banner hidden.
 
 type StudyDetailsResearcherProps = {
     orgSlug: string
@@ -21,7 +22,7 @@ type StudyDetailsResearcherProps = {
 }
 
 export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref }: StudyDetailsResearcherProps) {
-    const previousHref = dashboardHref ?? Routes.dashboard
+    const previousHref = Routes.studyView({ orgSlug, studyId: study.id, from: 'code-submission' })
 
     return (
         <Stack px="xl" gap="xl">
