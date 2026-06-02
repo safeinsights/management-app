@@ -349,7 +349,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         const submittedAt = new Date()
         const claimed = await db
             .updateTable('study')
-            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt })
+            .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
             .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -536,9 +536,10 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -595,9 +596,10 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date() })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
             .where('id', '=', studyId)
             .execute()
 
@@ -754,6 +756,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
+                lastUpdatedAt: new Date(),
             })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
@@ -872,9 +875,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyJobId)
             .execute()
 
+        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: new Date(), codeResubmissionNoteDraft: null })
+            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now, codeResubmissionNoteDraft: null })
             .where('id', '=', studyId)
             .execute()
 

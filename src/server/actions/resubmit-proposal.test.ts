@@ -36,6 +36,12 @@ describe('resubmitProposalAction', () => {
             title: 'Original title',
         })
 
+        const beforeResubmit = await db
+            .selectFrom('study')
+            .select('lastUpdatedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
         actionResult(
             await resubmitProposalAction({
                 studyId: study.id,
@@ -46,7 +52,7 @@ describe('resubmitProposalAction', () => {
 
         const updated = await db
             .selectFrom('study')
-            .select(['status', 'title', 'submittedAt'])
+            .select(['status', 'title', 'submittedAt', 'lastUpdatedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
@@ -55,6 +61,9 @@ describe('resubmitProposalAction', () => {
         // first-submission timestamp is preserved; the studyProposalComment
         // row carries the resubmission timestamp instead.
         expect(updated.submittedAt).toEqual(study.submittedAt)
+        expect(new Date(updated.lastUpdatedAt).getTime()).toBeGreaterThan(
+            new Date(beforeResubmit.lastUpdatedAt).getTime(),
+        )
 
         const comments = await db
             .selectFrom('studyProposalComment')
