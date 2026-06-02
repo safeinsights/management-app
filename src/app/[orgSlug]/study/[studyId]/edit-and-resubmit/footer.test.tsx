@@ -138,3 +138,25 @@ describe('EditResubmitFooter — title gating (OTTER-557)', () => {
         expect(submit).toBeEnabled()
     })
 })
+
+describe('EditResubmitFooter — confirmation modal (OTTER-568)', () => {
+    it('opens the modal with the resubmission title and body copy', async () => {
+        const user = userEvent.setup()
+        renderFooterWithTitleProbes(fullyValidExceptTitle, 'My Real Study Title')
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit initial request' }))
+
+        expect(screen.getByText('Confirm initial request resubmission?')).toBeInTheDocument()
+        expect(screen.getByText(/ready to resubmit your initial request/i)).toBeInTheDocument()
+    })
+
+    it('dismisses the modal when Cancel is clicked', async () => {
+        const user = userEvent.setup()
+        renderFooterWithTitleProbes(fullyValidExceptTitle, 'My Real Study Title')
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit initial request' }))
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        expect(screen.queryByText(/ready to resubmit your initial request/i)).not.toBeInTheDocument()
+    })
+})
