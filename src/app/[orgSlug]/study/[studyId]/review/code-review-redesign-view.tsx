@@ -105,8 +105,8 @@ export async function CodeReviewRedesignView({ orgSlug, study, entries }: CodeRe
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
-    const isResubmission = entries.length > 0
     const version = deriveCodeReviewVersion(entries)
+    const isResubmission = version > 1
 
     return (
         <Box bg="grey.10">
