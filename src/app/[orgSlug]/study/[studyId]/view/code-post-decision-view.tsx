@@ -2,7 +2,7 @@
 
 import type { FC, ReactNode } from 'react'
 import type { Route } from 'next'
-import { Box, Group, Stack, Text, Title } from '@mantine/core'
+import { Alert, Box, Group, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -28,6 +28,8 @@ interface CodePostDecisionViewProps {
     reviewingOrgName: string
     dashboardHref: Route
     latestJobStatus: CodeDecisionStatus
+    /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
+    feedbackLoadError?: boolean
 }
 
 type DecisionCopy = {
@@ -66,9 +68,8 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-// Date is sourced from the feedback entry (not the job status row): the entry carries the
-// user-visible "I submitted this decision at T" timestamp, while the status row may be
-// written by a downstream worker on a slight delay.
+// Date is sourced from the decision's own status-change row so it stays correct (and present)
+// even when feedback entries are empty or belong to a different review round.
 function deriveCodePostDecision({
     job,
     entries,
@@ -80,7 +81,7 @@ function deriveCodePostDecision({
 }) {
     return {
         copy: DECISION_COPY[decision],
-        timestampDate: entries[0].createdAt,
+        timestampDate: job.statusChanges.find((s) => s.status === decision)?.createdAt ?? entries[0]?.createdAt ?? null,
         codeFiles: filterAndOrderCodeFiles(job.files),
     }
 }
@@ -135,11 +136,27 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref }
     )
 }
 
+// Reviewer feedback could not be loaded. Degrade gracefully with an inline notice in place
+// of the feedback section rather than falling back to a legacy view.
+const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
+    feedbackLoadError,
+    entries,
+}) => {
+    if (feedbackLoadError) {
+        return (
+            <Alert color="yellow" bg="#FFF9E5" data-testid="feedback-load-error">
+                Reviewer feedback could not be loaded. Please refresh to try again.
+            </Alert>
+        )
+    }
+    return <FeedbackAndNotesSection entries={entries} />
+}
+
 type StepCardProps = {
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy
     copy: DecisionCopy
-    timestampDate: Date | string
+    timestampDate: Date | string | null
     codeFiles: CodeFile[]
     banner: ReactNode
 }
@@ -172,6 +189,7 @@ export function CodePostDecisionView({
     reviewingOrgName,
     dashboardHref,
     latestJobStatus,
+    feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
@@ -201,7 +219,7 @@ export function CodePostDecisionView({
                     codeFiles={codeFiles}
                     banner={banner}
                 />
-                <FeedbackAndNotesSection entries={entries} />
+                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
                 <DecisionActions
                     decision={latestJobStatus}
                     previousHref={previousHref}

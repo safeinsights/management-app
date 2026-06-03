@@ -7,20 +7,20 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
 import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
-import { isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
+import {
+    type CodeDecisionStatus,
+    hasJobStatus,
+    isCodeDecisionStatus,
+    isCodeUnderReviewStatus,
+    isStudyResultsStatus,
+    STUDY_CODE_RUNNING_JOB_STATUSES,
+} from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import { notFound } from 'next/navigation'
-import type { StudyJobStatus } from '@/database/types'
-import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsResearcher } from './study-details-researcher'
-
-const CODE_UNDER_REVIEW_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
-
-const isUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
-    !!status && CODE_UNDER_REVIEW_STATUSES.includes(status)
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -45,13 +45,23 @@ export default async function StudyReviewPage(props: {
     const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status
-        const isUnderReview = study.status === 'PENDING-REVIEW' && isUnderReviewStatus(latestJobStatus)
+
+        // Effective code-decision status for the redesigned decision page. The execution window
+        // (JOB-PROVISIONING/PACKAGING/READY/RUNNING) and an approved-but-late CODE-SCANNED both
+        // resolve to CODE-APPROVED, keeping the researcher on the Code-approved page until results exist.
+        const decisionStatus: CodeDecisionStatus | null = hasJobStatus(job.statusChanges, [
+            'CODE-APPROVED',
+            ...STUDY_CODE_RUNNING_JOB_STATUSES,
+        ])
+            ? 'CODE-APPROVED'
+            : isCodeDecisionStatus(latestJobStatus)
+              ? latestJobStatus
+              : null
 
         // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
-        // Once results exist the under-review branch no longer fires, so render the OTTER-537 post-submission
-        // page explicitly. Gate on the results status (not the query param alone) so a stray
-        // ?from=code-submission at a code-decision/under-review status falls through to the correct branch
-        // below. The "code under review" banner is hidden because review has already concluded.
+        // Render the OTTER-537 post-submission page explicitly, with the "code under review" banner hidden
+        // because review has already concluded. Gate on the results status (not the query param alone) so a
+        // stray ?from=code-submission at a code-decision/under-review status falls through below.
         if (isStudyResultsStatus(latestJobStatus) && fromCodeSubmission) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
@@ -66,11 +76,27 @@ export default async function StudyReviewPage(props: {
             )
         }
 
-        if (isCodeDecisionStatus(latestJobStatus)) {
-            const entries = await getCodeReviewFeedbackAction({ studyId })
-            if (isActionError(entries) || entries.length === 0) {
-                return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
-            }
+        // OTTER-538: once results exist, render the redesigned Study Details page (results-only).
+        // Checked before the decision branch so a study that reached results never resolves to the
+        // Code-approved page; studies/ready/route.ts blocks late scans once a results status exists.
+        if (isStudyResultsStatus(latestJobStatus)) {
+            return (
+                <StudyDetailsResearcher
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    dashboardHref={dashboardHref}
+                    returnTo={returnTo}
+                />
+            )
+        }
+
+        // Decision recorded, or the approved code is executing in the enclave: redesigned post-decision
+        // page. A failed feedback fetch degrades to an inline notice on the same page (never the legacy view).
+        if (decisionStatus !== null) {
+            const entriesResult = await getCodeReviewFeedbackAction({ studyId })
+            const feedbackLoadError = isActionError(entriesResult)
+            const entries = feedbackLoadError ? [] : entriesResult
             // A code decision implies the study was submitted long ago — this branch
             // should be unreachable for DRAFTs. Guard explicitly so the narrowed view
             // type holds and a corrupt row can't surface a runtime error in render.
@@ -86,12 +112,15 @@ export default async function StudyReviewPage(props: {
                     entries={entries}
                     reviewingOrgName={reviewingOrgName}
                     dashboardHref={dashboardHref}
-                    latestJobStatus={latestJobStatus}
+                    latestJobStatus={decisionStatus}
+                    feedbackLoadError={feedbackLoadError}
                 />
             )
         }
 
-        if (isUnderReview) {
+        // Awaiting a decision: post-submission page with the under-review banner. No study.status gate;
+        // the late-scan race is already absorbed by the decision branch above.
+        if (isCodeUnderReviewStatus(latestJobStatus)) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             const submissionVersion = await countSubmittedJobsForStudy(study.id)
             // Feedback section is only meaningful on resubmissions; skip the extra query on v1.
@@ -109,20 +138,19 @@ export default async function StudyReviewPage(props: {
                 />
             )
         }
-        // OTTER-538: once results exist, render the redesigned Study Details page
-        // (no code section, results-only) instead of the legacy CodeOnlyView.
-        if (isStudyResultsStatus(latestJobStatus)) {
-            return (
-                <StudyDetailsResearcher
-                    orgSlug={orgSlug}
-                    study={study}
-                    job={job}
-                    dashboardHref={dashboardHref}
-                    returnTo={returnTo}
-                />
-            )
-        }
-        return <CodeOnlyView orgSlug={orgSlug} study={study} job={job} dashboardHref={dashboardHref} />
+
+        // Any remaining/unmapped status: post-submission page with the banner hidden, never the legacy view.
+        const reviewingOrgName = await getOrgNameFromId(study.orgId)
+        return (
+            <CodePostSubmissionView
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                reviewingOrgName={reviewingOrgName}
+                dashboardHref={dashboardHref}
+                isUnderReview={false}
+            />
+        )
     }
 
     const showProposalView =
