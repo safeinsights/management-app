@@ -1,5 +1,5 @@
 import { TextInput } from '@mantine/core'
-import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { lexicalJson } from '@/lib/lexical'
@@ -157,6 +157,8 @@ describe('EditResubmitFooter — confirmation modal (OTTER-568)', () => {
         await user.click(screen.getByRole('button', { name: 'Resubmit initial request' }))
         await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
-        expect(screen.queryByText(/ready to resubmit your initial request/i)).not.toBeInTheDocument()
+        await waitFor(() =>
+            expect(screen.queryByText(/ready to resubmit your initial request/i)).not.toBeInTheDocument(),
+        )
     })
 })
