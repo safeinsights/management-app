@@ -6,7 +6,6 @@ import {
     updateReviewerPublicKeyAction,
 } from './user-keys.actions'
 import { db } from '@/database'
-import logger from '@/lib/logger'
 
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
@@ -15,17 +14,15 @@ vi.mock('@/server/events', async (importOriginal) => ({
 }))
 
 describe('User Keys Actions', () => {
-    it('only allows reviewer users to access the actions', async () => {
-        await mockSessionWithTestData({ orgType: 'lab' })
-        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+    it('allows lab researchers to access the actions, since they now hold keys too', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        const publicKey = Buffer.from('lab-public-key')
+        const fingerprint = 'lab-fingerprint'
+        await db.insertInto('userPublicKey').values({ userId: user.id, publicKey, fingerprint }).execute()
 
-        try {
-            actionResult(await getReviewerPublicKeyAction())
-            expect.fail('Expected an error to be thrown')
-        } catch (error) {
-            expect(error).toBeInstanceOf(Error)
-            expect((error as Error).message).toMatch(/cannot view ReviewerKey/)
-        }
+        const result = actionResult(await getReviewerPublicKeyAction())
+        expect(result?.fingerprint).toEqual(fingerprint)
     })
 
     it('getReviewerPublicKeyAction returns the public key for the current user', async () => {

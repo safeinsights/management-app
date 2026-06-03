@@ -119,7 +119,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
             }
             onSuccessRef.current?.()
         }
-    }, [workspaceQuery.data, workspaceQuery.error, launchComplete])
+    }, [workspaceQuery.data, workspaceQuery.error, launchComplete, studyId])
 
     const launchWorkspace = useCallback(() => {
         setError(null)

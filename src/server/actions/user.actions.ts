@@ -14,7 +14,7 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
         throw new Error('Failed to establish session')
     }
     onUserLogIn({ userId: session.user.id })
-    if (Object.values(session.orgs).some((org) => orgNeedsKey(org))) {
+    if (Object.values(session.orgs).some(orgNeedsKey)) {
         const publicKey = await getReviewerPublicKey(session.user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
