@@ -1,5 +1,5 @@
 import { TextInput } from '@mantine/core'
-import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { lexicalJson } from '@/lib/lexical'
@@ -136,5 +136,29 @@ describe('EditResubmitFooter — title gating (OTTER-557)', () => {
         await user.type(screen.getByLabelText('Study Title Probe'), 'My Real Study Title')
 
         expect(submit).toBeEnabled()
+    })
+})
+
+describe('EditResubmitFooter — confirmation modal (OTTER-568)', () => {
+    it('opens the modal with the resubmission title and body copy', async () => {
+        const user = userEvent.setup()
+        renderFooterWithTitleProbes(fullyValidExceptTitle, 'My Real Study Title')
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit initial request' }))
+
+        expect(screen.getByText('Confirm initial request resubmission?')).toBeInTheDocument()
+        expect(screen.getByText(/ready to resubmit your initial request/i)).toBeInTheDocument()
+    })
+
+    it('dismisses the modal when Cancel is clicked', async () => {
+        const user = userEvent.setup()
+        renderFooterWithTitleProbes(fullyValidExceptTitle, 'My Real Study Title')
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit initial request' }))
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() =>
+            expect(screen.queryByText(/ready to resubmit your initial request/i)).not.toBeInTheDocument(),
+        )
     })
 })

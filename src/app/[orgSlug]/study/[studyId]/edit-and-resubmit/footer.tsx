@@ -105,14 +105,16 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             </AppModal>
 
             <AppModal
-                size="md"
                 isOpen={isConfirmOpen}
                 onClose={() => setConfirmOpen(false)}
-                title="Resubmit initial request?"
+                title="Confirm initial request resubmission?"
             >
-                <Stack gap="md">
-                    <Text>Are you sure you want to resubmit your initial request for review?</Text>
-                    <Group justify="flex-end" mt="md">
+                <Stack gap="xl">
+                    <Text size="md">
+                        Please confirm you are ready to resubmit your initial request. Further edits are not permitted
+                        once submitted.
+                    </Text>
+                    <Group justify="flex-end">
                         <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSubmitting}>
                             Cancel
                         </Button>
