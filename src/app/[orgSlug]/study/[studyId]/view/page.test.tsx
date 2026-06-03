@@ -338,6 +338,8 @@ describe('StudyViewPage', () => {
                 })
 
                 expect(page?.type).toBe(CodePostDecisionView)
+                // A plain code decision (not executing) still shows the submitted code listing.
+                expect(page?.props.showStudyCode).toBe(true)
             },
         )
 
@@ -402,6 +404,8 @@ describe('StudyViewPage', () => {
 
                 expect(page?.type).toBe(CodePostDecisionView)
                 expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
+                // Execution window reads as "running / results pending": the code listing is hidden.
+                expect(page?.props.showStudyCode).toBe(false)
             },
         )
 
@@ -424,6 +428,7 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
+            expect(page?.props.showStudyCode).toBe(false)
         })
     })
 

@@ -99,7 +99,12 @@ function renderView(
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
-    overrides: { dashboardHref?: Route; reviewingOrgName?: string; feedbackLoadError?: boolean } = {},
+    overrides: {
+        dashboardHref?: Route
+        reviewingOrgName?: string
+        feedbackLoadError?: boolean
+        showStudyCode?: boolean
+    } = {},
 ) {
     renderWithProviders(
         <CodePostDecisionView
@@ -111,6 +116,7 @@ function renderView(
             dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
             feedbackLoadError={overrides.feedbackLoadError}
+            showStudyCode={overrides.showStudyCode}
         />,
     )
 }
@@ -225,6 +231,17 @@ describe('CodePostDecisionView', () => {
 
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(toggle).toHaveTextContent('Hide submitted study code')
+        })
+    })
+
+    describe('study code visibility', () => {
+        it('hides the study code viewer during the execution window (showStudyCode=false)', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { showStudyCode: false })
+
+            expect(screen.queryByTestId('study-code-viewer')).not.toBeInTheDocument()
+            // The approved/running banner still renders so the page reads as "running / results pending".
+            expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
         })
     })
 

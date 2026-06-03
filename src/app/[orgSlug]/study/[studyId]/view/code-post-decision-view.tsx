@@ -30,6 +30,11 @@ interface CodePostDecisionViewProps {
     latestJobStatus: CodeDecisionStatus
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
+    /**
+     * Hidden during the execution window (approved code running in the enclave) so the page reads as
+     * "running / results pending" with no code listing, per OTTER-598. Shown for plain code decisions.
+     */
+    showStudyCode?: boolean
 }
 
 type DecisionCopy = {
@@ -152,6 +157,22 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     return <FeedbackAndNotesSection entries={entries} />
 }
 
+const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFile[] }> = ({
+    isVisible,
+    jobId,
+    codeFiles,
+}) => {
+    if (!isVisible) return null
+    return (
+        <StudyCodeViewer
+            studyJobId={jobId}
+            files={codeFiles}
+            initialExpanded={false}
+            toggleLabels={STUDY_CODE_TOGGLE_LABELS}
+        />
+    )
+}
+
 type StepCardProps = {
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy
@@ -159,9 +180,10 @@ type StepCardProps = {
     timestampDate: Date | string | null
     codeFiles: CodeFile[]
     banner: ReactNode
+    showStudyCode: boolean
 }
 
-function StepCard({ study, job, copy, timestampDate, codeFiles, banner }: StepCardProps) {
+function StepCard({ study, job, copy, timestampDate, codeFiles, banner, showStudyCode }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -171,12 +193,7 @@ function StepCard({ study, job, copy, timestampDate, codeFiles, banner }: StepCa
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeViewer
-                studyJobId={job.id}
-                files={codeFiles}
-                initialExpanded={false}
-                toggleLabels={STUDY_CODE_TOGGLE_LABELS}
-            />
+            <StudyCodeSection isVisible={showStudyCode} jobId={job.id} codeFiles={codeFiles} />
         </ProposalStepHeader>
     )
 }
@@ -190,6 +207,7 @@ export function CodePostDecisionView({
     dashboardHref,
     latestJobStatus,
     feedbackLoadError = false,
+    showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
@@ -218,6 +236,7 @@ export function CodePostDecisionView({
                     timestampDate={timestampDate}
                     codeFiles={codeFiles}
                     banner={banner}
+                    showStudyCode={showStudyCode}
                 />
                 <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
                 <DecisionActions

@@ -104,6 +104,9 @@ export default async function StudyReviewPage(props: {
                 notFound()
             }
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
+            // During the execution window the page reads as "running / results pending": keep the
+            // approved banner but drop the code listing (OTTER-598). Plain code decisions still show it.
+            const isExecuting = hasJobStatus(job.statusChanges, STUDY_CODE_RUNNING_JOB_STATUSES)
             return (
                 <CodePostDecisionView
                     orgSlug={orgSlug}
@@ -114,6 +117,7 @@ export default async function StudyReviewPage(props: {
                     dashboardHref={dashboardHref}
                     latestJobStatus={decisionStatus}
                     feedbackLoadError={feedbackLoadError}
+                    showStudyCode={!isExecuting}
                 />
             )
         }
