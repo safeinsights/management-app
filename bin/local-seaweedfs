@@ -4,4 +4,18 @@
 
 DIR="./tmp/local-s3"; [ -d "$DIR" ] || mkdir -p "$DIR"
 
-AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 weed -v 0 server -s3 -dir="$DIR" -s3.port=8333 -ip=127.0.0.1
+# weed's `server` mode catches SIGINT/SIGTERM and runs a graceful shutdown that
+# retries reconnecting its internal master clients for ~10s before exiting. On
+# Ctrl-C the terminal delivers SIGINT to the whole process group, so weed gets
+# it directly and there's no way for `concurrently --kill-signal SIGKILL` to
+# intervene. Trap those signals here and SIGKILL weed (uncatchable → instant).
+#
+# Clear AWS_PROFILE so the inline local creds win — a profile in the ambient
+# environment otherwise takes precedence and yields "access key ID does not exist".
+env -u AWS_PROFILE AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 \
+    weed -v 0 server -s3 -dir="$DIR" -s3.port=8333 -ip=127.0.0.1 &
+WEED_PID=$!
+
+trap 'kill -KILL "$WEED_PID" 2>/dev/null; exit 0' INT TERM
+
+wait "$WEED_PID"
