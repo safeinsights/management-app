@@ -1,9 +1,8 @@
 import type { StudyJobStatus } from '@/database/types'
 
-// CODE-REJECTED is terminal: a rejected study allows no resubmission, only a brand-new
-// proposal. Only CODE-CHANGES-REQUESTED permits resubmitting the code for the same study.
 export const CODE_RESUBMITTABLE_JOB_STATUSES = [
     'CODE-CHANGES-REQUESTED',
+    'CODE-REJECTED',
     'FILES-APPROVED',
     'FILES-REJECTED',
     'JOB-ERRORED',

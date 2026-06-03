@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import * as RouterMock from 'next-router-mock'
 import {
     insertTestStudyJobData,
@@ -11,27 +11,17 @@ import {
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import StudyReviewPage from './page'
+import { CodeOnlyView } from './code-only-view'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsResearcher } from './study-details-researcher'
 
-// Wrap getCodeReviewFeedbackAction so the real DB-backed implementation runs by default; the
-// feedback-load-error case overrides it per-call to exercise the graceful-degrade path.
-vi.mock('@/server/actions/study.actions', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/actions/study.actions')>()
-    return {
-        ...actual,
-        getCodeReviewFeedbackAction: vi.fn(actual.getCodeReviewFeedbackAction),
-    }
-})
-
 const defaultSearchParams = Promise.resolve({})
 
 describe('StudyViewPage', () => {
-    it('renders CodePostSubmissionView when job has CODE-SUBMITTED', async () => {
+    it('renders CodeOnlyView when job has CODE-SUBMITTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -39,8 +29,9 @@ describe('StudyViewPage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: defaultSearchParams,
         })
+        renderWithProviders(page!)
 
-        expect(page?.type).toBe(CodePostSubmissionView)
+        expect(screen.getByText('Previous')).toBeInTheDocument()
     })
 
     it('renders ResearcherProposalView when code is submitted but from=agreements is set', async () => {
@@ -184,10 +175,6 @@ describe('StudyViewPage', () => {
             | 'CODE-APPROVED'
             | 'CODE-CHANGES-REQUESTED'
             | 'CODE-REJECTED'
-            | 'JOB-PROVISIONING'
-            | 'JOB-PACKAGING'
-            | 'JOB-READY'
-            | 'JOB-RUNNING'
             | 'RUN-COMPLETE'
             | 'FILES-APPROVED'
             | 'FILES-REJECTED'
@@ -198,17 +185,9 @@ describe('StudyViewPage', () => {
             .select('id')
             .where('studyId', '=', studyId)
             .executeTakeFirstOrThrow()
-        // Append strictly after the current latest so multi-status histories keep a stable order.
-        const last = await db
-            .selectFrom('jobStatusChange')
-            .select('createdAt')
-            .where('studyJobId', '=', job.id)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
-        const base = last?.createdAt ? new Date(last.createdAt).getTime() : Date.now()
         await db
             .insertInto('jobStatusChange')
-            .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
+            .values({ status, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
             .execute()
     }
 
@@ -283,7 +262,7 @@ describe('StudyViewPage', () => {
             expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         })
 
-        it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
+        it('renders CodeOnlyView directly when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -297,7 +276,7 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostSubmissionView)
+            expect(page?.type).toBe(CodeOnlyView)
         })
     })
 
@@ -352,7 +331,7 @@ describe('StudyViewPage', () => {
             },
         )
 
-        it('renders CodePostDecisionView when latest status is a decision but no review feedback exists', async () => {
+        it('falls back to CodeOnlyView when latest status is a decision but no review feedback exists', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -367,96 +346,7 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.entries).toEqual([])
-            expect(page?.props.feedbackLoadError).toBe(false)
-        })
-
-        it('renders CodePostDecisionView without crashing for CODE-CHANGES-REQUESTED with empty feedback', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
-            })
-
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(() => renderWithProviders(page!)).not.toThrow()
-        })
-
-        it('renders CodePostDecisionView with feedbackLoadError when the feedback fetch errors', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            await addJobStatus(study.id, 'CODE-APPROVED')
-
-            vi.mocked(getCodeReviewFeedbackAction).mockResolvedValueOnce({ error: 'feedback unavailable' })
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
-            })
-
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.feedbackLoadError).toBe(true)
-            expect(page?.props.entries).toEqual([])
-        })
-    })
-
-    describe('execution window and late-scan race (OTTER-598)', () => {
-        it.each(['JOB-PROVISIONING', 'JOB-PACKAGING', 'JOB-READY', 'JOB-RUNNING'] as const)(
-            'renders CodePostDecisionView with effective CODE-APPROVED while %s',
-            async (jobStatus) => {
-                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-                const { study } = await insertTestStudyJobData({
-                    org,
-                    researcherId: user.id,
-                    studyStatus: 'APPROVED',
-                    jobStatus: 'CODE-SUBMITTED',
-                })
-                await addJobStatus(study.id, 'CODE-APPROVED')
-                await addJobStatus(study.id, jobStatus)
-
-                const page = await StudyReviewPage({
-                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
-                })
-
-                expect(page?.type).toBe(CodePostDecisionView)
-                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            },
-        )
-
-        it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            await addJobStatus(study.id, 'CODE-APPROVED')
-            await addJobStatus(study.id, 'JOB-READY')
-            await addJobStatus(study.id, 'CODE-SCANNED')
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
-            })
-
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
+            expect(page?.type).toBe(CodeOnlyView)
         })
     })
 
