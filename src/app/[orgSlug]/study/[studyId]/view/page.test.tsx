@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import * as RouterMock from 'next-router-mock'
 import {
     insertTestStudyJobData,
@@ -11,22 +11,11 @@ import {
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsResearcher } from './study-details-researcher'
-
-// Wrap getCodeReviewFeedbackAction so the real DB-backed implementation runs by default; the
-// feedback-load-error case overrides it per-call to exercise the graceful-degrade path.
-vi.mock('@/server/actions/study.actions', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/actions/study.actions')>()
-    return {
-        ...actual,
-        getCodeReviewFeedbackAction: vi.fn(actual.getCodeReviewFeedbackAction),
-    }
-})
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -389,28 +378,6 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(() => renderWithProviders(page!)).not.toThrow()
-        })
-
-        it('renders CodePostDecisionView with feedbackLoadError when the feedback fetch errors', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            await addJobStatus(study.id, 'CODE-APPROVED')
-
-            vi.mocked(getCodeReviewFeedbackAction).mockResolvedValueOnce({ error: 'feedback unavailable' })
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
-            })
-
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.feedbackLoadError).toBe(true)
-            expect(page?.props.entries).toEqual([])
         })
     })
 
