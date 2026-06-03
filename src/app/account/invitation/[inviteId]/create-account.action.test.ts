@@ -229,7 +229,10 @@ describe('Create Account Actions', () => {
     })
 
     it('onJoinTeamAccountAction returns needsReviewerKey true for lab org without existing key', async () => {
-        const { user } = await insertTestUser({ org })
+        // insertTestUser only auto-creates a key for enclave-org users, so seed this user in a
+        // lab org to keep them key-less and exercise the lab researcher gate.
+        const existingLabOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: existingLabOrg })
 
         const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
 
