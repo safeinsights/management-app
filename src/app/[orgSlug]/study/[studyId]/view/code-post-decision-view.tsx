@@ -2,8 +2,9 @@
 
 import type { FC, ReactNode } from 'react'
 import type { Route } from 'next'
-import { Alert, Box, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Group, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -141,18 +142,14 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref }
     )
 }
 
-// Reviewer feedback could not be loaded. Degrade gracefully with an inline notice in place
-// of the feedback section rather than falling back to a legacy view.
+// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
+// (same as the DO review page) in place of the feedback section, rather than a legacy view.
 const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
     feedbackLoadError,
     entries,
 }) => {
     if (feedbackLoadError) {
-        return (
-            <Alert color="yellow" bg="#FFF9E5" data-testid="feedback-load-error">
-                Reviewer feedback could not be loaded. Please refresh to try again.
-            </Alert>
-        )
+        return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
     }
     return <FeedbackAndNotesSection entries={entries} />
 }

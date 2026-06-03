@@ -322,7 +322,7 @@ describe('CodePostDecisionView', () => {
 
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('feedback-load-error')).not.toBeInTheDocument()
+            expect(screen.queryByText('Feedback could not be loaded')).not.toBeInTheDocument()
         })
     })
 
@@ -331,9 +331,8 @@ describe('CodePostDecisionView', () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(study, job, [], latestJobStatus, { feedbackLoadError: true })
 
-            expect(screen.getByTestId('feedback-load-error')).toHaveTextContent(
-                'Reviewer feedback could not be loaded. Please refresh to try again.',
-            )
+            expect(screen.getByText('Feedback could not be loaded')).toBeInTheDocument()
+            expect(screen.getByText('please refresh and try again')).toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })
