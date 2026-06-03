@@ -63,12 +63,22 @@ jobs:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
               with:
                   persist-credentials: false
+            # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
+            # every run, so it flakes the same way the SonarQube scanner did when
+            # those fetches hit a transient upstream outage. trivy-action enables
+            # its built-in actions/cache by default; we make that cache effective by
+            # (1) pinning the binary `version` so the cache key is stable across runs
+            # instead of drifting, and (2) pointing both scan steps at one shared
+            # `cache-dir` so the DB is fetched at most once per run and reused on
+            # subsequent runs. A version bump naturally busts the cache.
             - name: Run Trivy vulnerability scanner in fs mode
               uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
               with:
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
+                  version: v0.70.0
+                  cache-dir: ${{ github.workspace }}/.cache/trivy
             - name: Run Trivy license scanner
               uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
               with:
@@ -78,6 +88,8 @@ jobs:
                   severity: 'HIGH,CRITICAL'
                   exit-code: '1'
                   trivyignores: '.trivyignore.yaml'
+                  version: v0.70.0
+                  cache-dir: ${{ github.workspace }}/.cache/trivy
             # Cache the SonarScanner CLI and analysis cache (downloaded into
             # SONAR_USER_HOME by the scan step below). This makes the job resilient
             # to intermittent failures fetching the scanner from
