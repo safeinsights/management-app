@@ -107,12 +107,20 @@ type SubmittedCodeSectionProps = {
     job: Pick<LatestJobForStudy, 'id' | 'files'>
     review: StudyReviewWithMeta | null
     scan: JobScanResult
+    codeInitiallyExpanded?: boolean
 }
 
 // Data fetching lives in the parent (CodeReview) so this component
 // stays a plain sync function. Nested async server components don't render
 // under testing-library / happy-dom — the parent's await is what tests rely on.
-export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: SubmittedCodeSectionProps) {
+export function SubmittedCodeSection({
+    orgSlug,
+    study,
+    job,
+    review,
+    scan,
+    codeInitiallyExpanded = true,
+}: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
     const codeFiles = filterAndOrderCodeFiles(job.files)
@@ -133,7 +141,7 @@ export function SubmittedCodeSection({ orgSlug, study, job, review, scan }: Subm
                     </Paper>
                 </Group>
                 <Divider />
-                <StudyCodeViewer studyJobId={job.id} files={codeFiles} />
+                <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={codeInitiallyExpanded} />
             </Stack>
         </Paper>
     )

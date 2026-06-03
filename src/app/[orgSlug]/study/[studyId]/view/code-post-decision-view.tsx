@@ -18,7 +18,7 @@ import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { type CodeDecisionStatus } from './code-decision-status'
+import { type CodeDecisionStatus } from '@/lib/study-job-status'
 
 interface CodePostDecisionViewProps {
     orgSlug: string

@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
+import { s3Available } from '@/tests/s3.helpers'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -113,7 +114,9 @@ test('inserts JOB-ERRORED status', async () => {
     expect(rows.some((r) => r.status === 'JOB-ERRORED')).toBe(true)
 })
 
-test('stores encrypted and plaintext logs on JOB-ERRORED', async () => {
+// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
+// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+test.skipIf(!s3Available)('stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -128,7 +131,7 @@ test('stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     expect(files.some((f) => f.fileType === 'PACKAGING-ERROR-LOG')).toBe(true)
 })
 
-test('stores encrypted and plaintext logs on CODE-SCANNED', async () => {
+test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]

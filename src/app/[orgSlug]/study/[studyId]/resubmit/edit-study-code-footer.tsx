@@ -80,19 +80,25 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
             </Group>
 
             <AppModal
-                size="md"
                 isOpen={isConfirmOpen}
                 onClose={() => setConfirmOpen(false)}
-                title="Resubmit study code?"
+                title="Confirm study code resubmission?"
+                closeOnClickOutside={!isSubmitting}
+                closeOnEscape={!isSubmitting}
+                withCloseButton={!isSubmitting}
+                closeButtonProps={{ 'aria-label': 'Close' }}
             >
                 <Stack gap="md">
-                    <Text>Are you sure you want to resubmit your study code for review?</Text>
-                    <Group justify="flex-end" mt="md">
+                    <Text>
+                        Please confirm you are ready to resubmit your study code. Further edits are not permitted once
+                        submitted.
+                    </Text>
+                    <Group justify="flex-start" mt="md">
                         <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSubmitting}>
                             Cancel
                         </Button>
                         <Button variant="primary" onClick={handleConfirmResubmit} loading={isSubmitting}>
-                            Yes, resubmit
+                            Yes, resubmit study code
                         </Button>
                     </Group>
                 </Stack>

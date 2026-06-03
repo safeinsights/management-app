@@ -86,6 +86,54 @@ describe('Create Account Actions', () => {
         expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
     })
 
+    it('onCreateAccountAction surfaces Clerk validation errors inline', async () => {
+        const client = clerkClient as unknown as Mock
+        client.mockResolvedValue({
+            users: {
+                // no existing Clerk user, so the handler attempts to create one
+                getUserList: vi.fn(async () => ({ totalCount: 0, data: [] })),
+                createUser: vi.fn(async () => {
+                    throw {
+                        errors: [
+                            {
+                                code: 'form_password_pwned',
+                                message: 'Password has been found in an online data breach.',
+                                longMessage:
+                                    'Password has been found in an online data breach. For account safety, please use a different password.',
+                            },
+                        ],
+                    }
+                }),
+            },
+        })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const form = {
+            firstName: 'Test',
+            lastName: 'User',
+            password: 'hunter2',
+            confirmPassword: 'hunter2',
+        }
+
+        const result = await onCreateAccountAction({ inviteId: invite.id, form })
+        expect(result).toEqual({
+            error: {
+                code: 'form_password_pwned',
+                form: 'Password has been found in an online data breach. For account safety, please use a different password.',
+            },
+        })
+    })
+
     it('onCreateAccountAction rejects existing user', async () => {
         const { user } = await insertTestUser({ org })
 

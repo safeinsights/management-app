@@ -228,11 +228,13 @@ export interface Study {
     irbDocPath: string | null
     irbProtocols: string | null
     language: Generated<Language>
+    lastUpdatedAt: Generated<Timestamp>
     orgId: string
     outputMimeType: string | null
     piName: string
     piUserId: string | null
     projectSummary: Json | null
+    proposalResubmissionNoteDraft: string | null
     rejectedAt: Timestamp | null
     researcherAgreementsAckedAt: Timestamp | null
     researcherId: string

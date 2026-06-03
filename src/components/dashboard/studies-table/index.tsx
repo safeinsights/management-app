@@ -89,6 +89,7 @@ export function StudiesTable({
         data: studies = [],
         refetch,
         isError,
+        error,
         isFetching,
         isRefetching,
         isLoading,
@@ -109,22 +110,15 @@ export function StudiesTable({
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    // Error state
-    if (isError) {
-        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
-    }
-
     // Apply client-side filtering for user scope
     const displayedStudies =
         scope === 'user' && userId
             ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
             : (studies as StudyRowType[])
 
-    // Empty state
-    if (!displayedStudies.length) {
-        return <EmptyState audience={audience} orgSlug={effectiveOrgSlug} showNewStudyButton={showNewStudyButton} />
-    }
-
+    // The header (title, toggle, refresher, CTA) must always render so dual-role users keep
+    // their audience toggle even when the selected role has no studies. Only the body below
+    // reflects error / empty / populated state.
     const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies)
 
     const content = (
@@ -153,20 +147,15 @@ export function StudiesTable({
             </Group>
             <Divider c="charcoal.1" />
             {description && <Text mb="md">{description}</Text>}
-            <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
-                <TableHeader audience={audience} scope={scope} />
-                <TableTbody>
-                    {displayedStudies.map((study) => (
-                        <StudyRow
-                            key={study.id}
-                            study={study}
-                            audience={audience}
-                            scope={scope}
-                            orgSlug={effectiveOrgSlug}
-                        />
-                    ))}
-                </TableTbody>
-            </Table>
+            <StudiesTableBody
+                isError={isError}
+                error={errorToString(error)}
+                isEmpty={displayedStudies.length === 0}
+                studies={displayedStudies}
+                audience={audience}
+                scope={scope}
+                orgSlug={effectiveOrgSlug}
+            />
         </Stack>
     )
 
@@ -179,4 +168,35 @@ export function StudiesTable({
     }
 
     return content
+}
+
+type StudiesTableBodyProps = {
+    isError: boolean
+    error: string
+    isEmpty: boolean
+    studies: StudyRowType[]
+    audience: Audience
+    scope: Scope
+    orgSlug: string
+}
+
+function StudiesTableBody({ isError, error, isEmpty, studies, audience, scope, orgSlug }: StudiesTableBodyProps) {
+    if (isError) {
+        return <ErrorAlert error={`Failed to load studies: ${error}`} />
+    }
+
+    if (isEmpty) {
+        return <EmptyState audience={audience} scope={scope} />
+    }
+
+    return (
+        <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
+            <TableHeader audience={audience} scope={scope} />
+            <TableTbody>
+                {studies.map((study) => (
+                    <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={orgSlug} />
+                ))}
+            </TableTbody>
+        </Table>
+    )
 }
