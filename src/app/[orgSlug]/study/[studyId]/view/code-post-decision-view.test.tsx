@@ -67,10 +67,11 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         jobStatus: 'CODE-SUBMITTED',
         title,
     })
-    // Layer the decision row on top so it's the latest status change.
+    // Layer the decision row on top. Its createdAt is the user-visible decision timestamp the
+    // header now sources from (the matching status-change row, not the feedback entry).
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: new Date(Date.now() + 1000) })
+        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
         .execute()
 
     await db
@@ -98,7 +99,7 @@ function renderView(
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
-    overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
+    overrides: { dashboardHref?: Route; reviewingOrgName?: string; feedbackLoadError?: boolean } = {},
 ) {
     renderWithProviders(
         <CodePostDecisionView
@@ -109,6 +110,7 @@ function renderView(
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
+            feedbackLoadError={overrides.feedbackLoadError}
         />,
     )
 }
@@ -293,6 +295,29 @@ describe('CodePostDecisionView', () => {
             expect(resubmit).toHaveTextContent('Edit and resubmit')
             expect(resubmit).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/resubmit`)
             expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('empty feedback', () => {
+        it('renders without crashing and shows the decision timestamp from the status-change row', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [], latestJobStatus)
+
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('feedback-load-error')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('feedback load error', () => {
+        it('renders the inline notice in place of the feedback section', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [], latestJobStatus, { feedbackLoadError: true })
+
+            expect(screen.getByTestId('feedback-load-error')).toHaveTextContent(
+                'Reviewer feedback could not be loaded. Please refresh to try again.',
+            )
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })
 })

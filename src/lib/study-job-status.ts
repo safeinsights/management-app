@@ -14,6 +14,28 @@ export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
 export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && STUDY_RESULTS_JOB_STATUSES.includes(status)
 
+// Execution window: the code has been approved and is being provisioned/packaged/run in
+// the secure enclave, but no results exist yet. These statuses map to the redesigned
+// Code-approved page until a results status appears.
+export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = [
+    'JOB-PROVISIONING',
+    'JOB-PACKAGING',
+    'JOB-READY',
+    'JOB-RUNNING',
+]
+
+export const isCodeRunningStatus = (status: StudyJobStatus | undefined): boolean =>
+    !!status && STUDY_CODE_RUNNING_JOB_STATUSES.includes(status)
+
+// Code submitted and awaiting a review decision.
+export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
+
+export const isCodeUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
+    !!status && CODE_UNDER_REVIEW_JOB_STATUSES.includes(status)
+
+export const hasJobStatus = (statusChanges: { status: StudyJobStatus }[], statuses: readonly StudyJobStatus[]) =>
+    statusChanges.some((c) => statuses.includes(c.status))
+
 // Job statuses that mean a code-review decision has been recorded. Used to gate the
 // post-decision views: the researcher's study view (OTTER on code-post-decision-view) and
 // the DO's reviewer page (OTTER-552), so a study opened with a decision lands on the
