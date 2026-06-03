@@ -61,10 +61,14 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     const workspaceId = creation.data?.workspace.id ?? null
 
     // Once a workspace exists, poll until Coder hands back a URL (or the request errors out).
+    // The URL is permanent for a given workspace, so once resolved the result never goes stale and
+    // no refetch trigger (remount, reconnect, focus) should re-run the launch on the server.
     const urlQuery = useQuery({
         queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId, workspaceId],
         enabled: !!workspaceId,
+        staleTime: Infinity,
         refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
         queryFn: () => getWorkspaceUrlAction({ studyId, workspaceId: workspaceId as string }),
         refetchInterval: (query) => (query.state.data || query.state.error ? false : 5000),
     })
