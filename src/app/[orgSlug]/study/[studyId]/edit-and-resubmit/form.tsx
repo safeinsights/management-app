@@ -27,7 +27,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { form, noteForm, saveDraft, isSaving } = useEditResubmit()
+    const { form, noteForm, saveDraft, isSaving, isSavingNote, noteLastSavedAt } = useEditResubmit()
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
@@ -43,7 +43,11 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
 
                 <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                <ResubmissionNoteSection noteForm={noteForm} orgName={orgName} />
+                <ResubmissionNoteSection
+                    noteForm={noteForm}
+                    orgName={orgName}
+                    autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
+                />
 
                 <EditResubmitFooter
                     researcherName={researcherName}

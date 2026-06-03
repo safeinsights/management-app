@@ -234,6 +234,7 @@ export interface Study {
     piName: string
     piUserId: string | null
     projectSummary: Json | null
+    proposalResubmissionNoteDraft: string | null
     rejectedAt: Timestamp | null
     researcherAgreementsAckedAt: Timestamp | null
     researcherId: string

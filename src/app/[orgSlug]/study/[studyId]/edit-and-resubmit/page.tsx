@@ -30,9 +30,6 @@ export default async function StudyEditAndResubmitRoute(props: {
     if (!isLabMember) return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
-    // Don't render the page with a silent empty feedback list — the researcher
-    // is being asked to address feedback and we'd be hiding the fact that we
-    // couldn't load it.
     if ('error' in entriesResult) return notFound()
     const entries = entriesResult
 
@@ -48,6 +45,7 @@ export default async function StudyEditAndResubmitRoute(props: {
             />
             <EditResubmitProvider
                 studyId={studyId}
+                initialNote={study.proposalResubmissionNoteDraft ?? ''}
                 draftData={{
                     title: study.title ?? '',
                     piName: study.piName,

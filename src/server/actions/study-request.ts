@@ -647,12 +647,12 @@ const resubmissionNoteParam = z
         message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
     })
 
-// Persist proposal edits to a CHANGE-REQUESTED study (explicit "Save as draft"
-// click; auto-save is intentionally out of scope for OTTER-521). CASL's
-// `permit('update', 'Study')` is unconditional for any researcher, so the
-// `submittedByOrgId` lab filter below is load-bearing: it scopes writes to
-// members of the study's submitting lab (OTTER-497 allows any RL member to
-// co-edit, not just the original researcher). Mirrors onUpdateDraftStudyAction.
+// click). CASL `update Study` is org-type-scoped (any lab member), so we pair
+// it with a `submittedByOrgId in <user's lab orgs>` filter to allow any
+// researcher in the submitting lab to co-author the resubmission. The 0-row
+// `executeTakeFirst()` check turns a cross-lab / wrong-status attempt into a
+// hard ActionFailure instead of a silent no-op that the client would render
+// as success. Mirrors onUpdateDraftStudyAction.
 export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
     performsMutations: true,
 })
@@ -746,16 +746,20 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
-        // Don't update study.submittedAt — keep the original first-submission
-        // timestamp. The resubmission timeline lives in studyProposalComment
-        // rows (one per resubmit, with its own createdAt). The status guard makes
-        // the transition idempotent: a second resubmitter racing past the SELECT
-        // claims 0 rows and fails cleanly rather than double-bumping the version.
+        // First-resubmitter-wins via atomic conditional UPDATE: bundling the
+        // status flip and the note-draft clear in one UPDATE with a status
+        // guard means two concurrent co-authors clicking Resubmit can't both
+        // win the SELECT/UPDATE race and double-insert a RESUBMISSION-NOTE
+        // row. The loser hits the 0-row branch and fails before the comment
+        // insert below runs. submittedAt is intentionally NOT bumped — the
+        // original first-submission timestamp is preserved; the
+        // studyProposalComment row carries the resubmission timestamp.
         const claimed = await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
+                proposalResubmissionNoteDraft: null,
                 lastUpdatedAt: new Date(),
             })
             .where('id', '=', studyId)
@@ -810,6 +814,41 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note } }) => {
         await db.updateTable('study').set({ codeResubmissionNoteDraft: note }).where('id', '=', studyId).execute()
+        return { studyId, savedAt: new Date().toISOString() }
+    })
+
+// Save the in-progress proposal resubmission note as a lab-shared draft.
+// Mirrors saveCodeResubmissionNoteDraftAction — last write wins, lab-scoped
+// via the `submittedByOrgId in <user's lab orgs>` guard so a co-author in the
+// same lab sees the latest draft. Cleared by resubmitProposalAction when the
+// note is finalized into a studyProposalComment. The 0-row check turns a
+// cross-lab / wrong-status attempt into a hard ActionFailure — otherwise the
+// client would render the autosave indicator as "All changes saved" while the
+// note was never persisted.
+export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalResubmissionNoteDraftAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, note }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
+        const saved = await db
+            .updateTable('study')
+            .set({ proposalResubmissionNoteDraft: note })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+            .returning(['id'])
+            .executeTakeFirst()
+
+        if (!saved) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
         return { studyId, savedAt: new Date().toISOString() }
     })
 
