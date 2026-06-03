@@ -9,7 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { EncryptedFilesPanel } from './encrypted-files-panel'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
@@ -396,5 +396,177 @@ describe('EncryptedFilesPanel', () => {
             expect(screen.getByRole('dialog')).toBeDefined()
             expect(screen.getByText(logContent)).toBeDefined()
         })
+    })
+
+    it('shows a green check for shared files and a red "not shared" X for withheld files after approval', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'FILES-APPROVED',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                {
+                    studyJobId: job.id,
+                    name: 'results.zip',
+                    path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                    fileType: 'ENCRYPTED-RESULT',
+                },
+                {
+                    studyJobId: job.id,
+                    name: 'first.csv',
+                    path: `test-org/${study.id}/${job.id}/results/approved/first.csv`,
+                    fileType: 'APPROVED-RESULT',
+                },
+            ])
+            .execute()
+
+        // The original archive contained two files; only first.csv was shared.
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                blob: new Blob(),
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                metadata: [
+                    { path: 'first.csv', bytes: 1024 },
+                    { path: 'second.csv', bytes: 2048 },
+                ],
+            },
+        ])
+
+        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
+            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('first.csv')).toBeDefined()
+            expect(screen.getByLabelText('second.csv not shared with researcher')).toBeDefined()
+        })
+
+        // Withheld file has no View/Download — only the shared file does
+        expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(1)
+        expect(screen.getAllByTestId('download-link')).toHaveLength(1)
+    })
+
+    it('shows a red "not shared" X (not a lock icon) for an entire log type withheld after approval', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'FILES-APPROVED',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                {
+                    studyJobId: job.id,
+                    name: 'first.csv',
+                    path: `test-org/${study.id}/${job.id}/results/approved/first.csv`,
+                    fileType: 'APPROVED-RESULT',
+                },
+                {
+                    studyJobId: job.id,
+                    name: 'scan-log.zip',
+                    path: `test-org/${study.id}/${job.id}/results/scan-log.zip`,
+                    fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+                },
+            ])
+            .execute()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                blob: new Blob(),
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                metadata: [{ path: 'first.csv', bytes: 1024 }],
+            },
+            {
+                blob: new Blob(),
+                sourceId: '456',
+                fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+                metadata: [{ path: 'scan-log.txt', bytes: 40 }],
+            },
+        ])
+
+        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
+            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('scan-log.txt not shared with researcher')).toBeDefined()
+        })
+    })
+
+    it('renders a placeholder row rather than silently dropping files when metadata is unavailable for an approved job', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'FILES-APPROVED',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        // Encrypted-file metadata never arrives (fetch in flight or failed and swallowed by Sentry),
+        // and there are no approved files yet — metaList and approvedFilesForType are both empty.
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        // The group still renders a placeholder row instead of an empty table; without metadata we
+        // can't enumerate withheld files, so no "not shared" indicator is shown yet.
+        await waitFor(() => {
+            expect(screen.getByText('results.zip')).toBeDefined()
+        })
+        expect(screen.queryByLabelText(/not shared with researcher/)).toBeNull()
+    })
+
+    it('does not show any "not shared" indicator while a job is still under review', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                blob: new Blob(),
+                sourceId: '123',
+                fileType: 'ENCRYPTED-RESULT',
+                metadata: [{ path: 'results.csv', bytes: 2048 }],
+            },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('results.csv')).toBeDefined()
+        })
+
+        expect(screen.queryByLabelText(/not shared with researcher/)).toBeNull()
     })
 })

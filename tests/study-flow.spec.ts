@@ -473,11 +473,11 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     // before attempting to enable the button.
     await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-    // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
+    // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit study code".
     const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
     await expect(resubmitButton).toBeEnabled()
     await resubmitButton.click()
-    await page.getByRole('button', { name: /^Yes, resubmit$/i }).click()
+    await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
 
     // Wait for redirect
     await page.waitForURL('**/view')
@@ -524,8 +524,8 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher navigates back via previous buttons', async () => {
-        // CodePostSubmissionView has a "Previous" link that returns to the agreements page.
-        const previousLink = page.getByRole('link', { name: /^Previous$/i })
+        // CodePostSubmissionView has a "Back" link that returns to the agreements page.
+        const previousLink = page.getByRole('link', { name: /^Back$/i })
         await previousLink.scrollIntoViewIfNeeded()
         await previousLink.click()
         await page.waitForURL(/\/agreements\?from=previous/)
@@ -773,11 +773,11 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         // The Resubmit button is gated on a non-empty resubmission note.
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-        // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit".
+        // Resubmit footer: click "Resubmit study code" → confirm modal → "Yes, resubmit study code".
         const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit$/i }).click()
+        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
 
         await page.waitForURL('**/view')
     })

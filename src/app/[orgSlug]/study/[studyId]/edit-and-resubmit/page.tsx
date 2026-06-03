@@ -19,16 +19,15 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // Mirrors the lab-scoping the server actions enforce: any researcher in
-    // the submitting lab can edit & resubmit. Non-lab visitors see a 404
-    // rather than a form that would silently no-op on save.
+    // OTTER-497: any member of the submitting lab may edit/resubmit a
+    // change-requested proposal, so gate on lab membership (not the original
+    // author). getStudyAction only requires `view Study`, which reviewer-org
+    // users also hold, so this explicit lab check is required. Server writes
+    // are scoped the same way.
     const session = await sessionFromClerk()
-    const userLabOrgIds = session
-        ? Object.values(session.orgs)
-              .filter((org) => org.type === 'lab')
-              .map((org) => org.id)
-        : []
-    if (!session || !userLabOrgIds.includes(study.submittedByOrgId)) return notFound()
+    if (!session) return notFound()
+    const isLabMember = Object.values(session.orgs).some((o) => o.id === study.submittedByOrgId)
+    if (!isLabMember) return notFound()
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
     if ('error' in entriesResult) return notFound()

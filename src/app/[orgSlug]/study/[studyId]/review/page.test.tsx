@@ -239,6 +239,92 @@ describe('StudyReviewPage', () => {
         )
     })
 
+    describe('code decision post-feedback (OTTER-552)', () => {
+        it.each(['CODE-APPROVED', 'CODE-CHANGES-REQUESTED', 'CODE-REJECTED'] as const)(
+            'renders PostFeedbackView (kind=CODE) without a from param when latest job status is %s',
+            async (jobStatus) => {
+                // A DO opens the study from the dashboard "View" link, which carries no
+                // `from` param. Once a code decision exists, they must land on the
+                // post-feedback code page rather than the active code-review/decision page.
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                const { study, job } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: jobStatus, studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                    .execute()
+                await db
+                    .insertInto('studyReviewComment')
+                    .values({
+                        studyId: study.id,
+                        studyJobId: job.id,
+                        authorId: user.id,
+                        reviewKind: 'CODE',
+                        entryType: 'DECISION',
+                        decision: jobStatus === 'CODE-APPROVED' ? 'APPROVE' : 'REJECT',
+                        body: { root: { type: 'root', children: [] } },
+                        criteria: {
+                            proposalAlignment: 'yes',
+                            agreementCompliance: 'yes',
+                            securityChecks: 'yes',
+                            privacyProtection: 'yes',
+                        },
+                    })
+                    .execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(PostFeedbackView)
+                expect(page?.props.kind).toBe('CODE')
+                expect(mockRedirect).not.toHaveBeenCalled()
+            },
+        )
+
+        it('renders CodeReview (active review) when code was resubmitted after a change request', async () => {
+            // CODE-CHANGES-REQUESTED followed by a fresh CODE-SUBMITTED means the researcher
+            // resubmitted; the DO must return to active review, not the decision page. Gating
+            // on the *latest* job status (not "any decision in history") is what makes this work.
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    status: 'CODE-CHANGES-REQUESTED',
+                    studyJobId: job.id,
+                    createdAt: new Date(Date.now() + 1000),
+                })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-SUBMITTED', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+            await db
+                .updateTable('study')
+                .set({ reviewerAgreementsAckedAt: new Date() })
+                .where('id', '=', study.id)
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            })
+
+            expect(page?.type).toBe(CodeReview)
+        })
+    })
+
     describe('study-details redesign (OTTER-538)', () => {
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
             'renders StudyDetailsReviewer when latest job status is %s',
@@ -268,5 +354,116 @@ describe('StudyReviewPage', () => {
                 expect(page?.type).toBe(StudyDetailsReviewer)
             },
         )
+
+        // OTTER-538 QA finding (DO): "Previous" from the results-stage Study Details page
+        // navigates to /review?from=code-review. After OTTER-552 that param routes to the
+        // post-code-feedback page. This proves the destination renders non-blank (the code
+        // APPROVE decision is present), rather than a null PostFeedbackView, at a results status.
+        it('renders the post-code-feedback page (kind=CODE, non-blank) when from=code-review at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(1)
+            expect(page?.props.entries[0].decision).toBe('APPROVE')
+        })
+
+        // Reachability tripwire for the latent blank-page path: PostFeedbackView returns null
+        // when entries[0].decision is null, and getCodeReviewFeedbackAction sorts newest-first
+        // with resubmission notes carrying decision: null. At a results status the approved job
+        // can itself be a resubmission, so a note (dated at job creation) coexists with the later
+        // APPROVE. This proves the APPROVE stays newest (entries[0]), so the page never blanks.
+        // If the ordering invariant ever regresses, entries[0] becomes the note and this fails
+        // (surfacing the OTTER-552-owned hardening rather than letting it silently break here).
+        it('keeps the APPROVE newest (non-blank) when a resubmission note coexists at a results status', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+
+            // The approved job is itself a resubmission: its note is dated at job creation and
+            // the reviewer's APPROVE lands a day later, mirroring the real resubmit -> approve flow.
+            await db
+                .updateTable('studyJob')
+                .set({
+                    createdAt: new Date('2026-03-01T00:00:00Z'),
+                    resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
+                })
+                .where('id', '=', job.id)
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date('2026-03-03T00:00:00Z') })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: { root: { type: 'root', children: [] } },
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                    createdAt: new Date('2026-03-02T00:00:00Z'),
+                })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            // Newest-first: the APPROVE outranks the older note, so entries[0] is decision-bearing
+            // and PostFeedbackView does not return null. The note is still present for history.
+            expect(page?.props.entries[0].decision).toBe('APPROVE')
+            expect(page?.props.entries.some((e: { entryType: string }) => e.entryType === 'RESUBMISSION-NOTE')).toBe(
+                true,
+            )
+        })
     })
 })
