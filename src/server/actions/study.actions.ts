@@ -316,6 +316,7 @@ async function approveJobCode({
         const info = { studyId, studyJobId: job.id, orgSlug }
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
+            // TODO Delete me in new approach, no longer storing approved job file
             await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
         }
     }
