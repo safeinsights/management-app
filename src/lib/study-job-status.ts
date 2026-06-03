@@ -24,9 +24,6 @@ export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = [
     'JOB-RUNNING',
 ]
 
-export const isCodeRunningStatus = (status: StudyJobStatus | undefined): boolean =>
-    !!status && STUDY_CODE_RUNNING_JOB_STATUSES.includes(status)
-
 // Code submitted and awaiting a review decision.
 export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
