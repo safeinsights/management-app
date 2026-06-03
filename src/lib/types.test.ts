@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { getLabOrg } from '@/lib/types'
+import { getLabOrg, orgNeedsKey } from '@/lib/types'
 import { mockSessionWithTestData, createMockUserSession } from '@/tests/unit.helpers'
+
+describe('orgNeedsKey helper', () => {
+    it('returns true for enclave orgs', () => {
+        expect(orgNeedsKey({ type: 'enclave' })).toBe(true)
+    })
+
+    it('returns true for lab orgs', () => {
+        expect(orgNeedsKey({ type: 'lab' })).toBe(true)
+    })
+})
 
 describe('getLabOrg helper', () => {
     it('returns null when user has only enclave orgs', async () => {

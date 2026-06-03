@@ -37,6 +37,10 @@ test('reviewer role', () => {
     expect(ability.can('invite', toRecord('User', { orgId: session.orgs.test.id }))).toBe(false)
     expect(ability.can('update', toRecord('User', { id: session.user.id }))).toBe(true)
     expect(ability.can('update', toRecord('User', { id: faker.string.uuid() }))).toBe(false)
+
+    // enclave members hold a key to decrypt results for review
+    expect(ability.can('view', 'ReviewerKey')).toBe(true)
+    expect(ability.can('update', 'ReviewerKey')).toBe(true)
 })
 
 test('researcher role', () => {
@@ -51,6 +55,10 @@ test('researcher role', () => {
 
     // Researchers cannot invite users to their org (not admins)
     expect(ability.can('invite', toRecord('User', { orgId: session.orgs.test.id }))).toBe(false)
+
+    // lab members also hold a key now, to decrypt approved results
+    expect(ability.can('view', 'ReviewerKey')).toBe(true)
+    expect(ability.can('update', 'ReviewerKey')).toBe(true)
 })
 
 test('admin role', () => {

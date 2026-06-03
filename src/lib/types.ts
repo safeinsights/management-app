@@ -38,6 +38,13 @@ export function isLabOrg(org: { type: OrgType }): org is LabOrg {
     return org.type === 'lab'
 }
 
+// Members of these org types hold an encryption key: enclave reviewers decrypt to
+// review, lab researchers decrypt approved results. A user without a key for one of
+// these orgs is gated into key generation.
+export function orgNeedsKey(org: { type: OrgType }): boolean {
+    return isEnclaveOrg(org) || isLabOrg(org)
+}
+
 // Helper functions to get orgs from session
 export function getLabOrg(session: UserSession): Org | null {
     return Object.values(session.orgs).find(isLabOrg) || null

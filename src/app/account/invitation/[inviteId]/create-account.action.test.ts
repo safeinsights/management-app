@@ -180,7 +180,7 @@ describe('Create Account Actions', () => {
         expect(result.needsReviewerKey).toBe(false)
     })
 
-    it('onJoinTeamAccountAction returns needsReviewerKey false for lab org', async () => {
+    it('onJoinTeamAccountAction returns needsReviewerKey true for lab org without existing key', async () => {
         const { user } = await insertTestUser({ org })
 
         const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -197,7 +197,7 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.needsReviewerKey).toBe(false)
+        expect(result.needsReviewerKey).toBe(true)
     })
 
     it('onRevokeInviteAction removes invite', async () => {

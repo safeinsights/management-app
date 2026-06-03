@@ -1,6 +1,6 @@
 'use client'
 
-import { isEnclaveOrg } from '@/lib/types'
+import { orgNeedsKey } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
 import { reviewerKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
@@ -14,8 +14,8 @@ export const RequireReviewerKey = () => {
 
     useLayoutEffect(() => {
         const checkForReviewerKey = async () => {
-            const enclaveOrgs = Object.values(session?.orgs || {}).some(isEnclaveOrg)
-            if (!session || !enclaveOrgs) return
+            const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
+            if (!session || !needsKey) return
 
             const hasKey = actionResult(await reviewerKeyExistsAction())
 

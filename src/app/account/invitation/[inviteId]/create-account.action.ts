@@ -5,6 +5,7 @@ import { updateClerkUserMetadata } from '@/server/clerk'
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
+import { orgNeedsKey } from '@/lib/types'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
@@ -152,7 +153,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('org.id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
-        const needsReviewerKey = org.type === 'enclave' && !(await getReviewerPublicKey(siUser.id))
+        const needsReviewerKey = orgNeedsKey(org) && !(await getReviewerPublicKey(siUser.id))
 
         return { ...siUser, needsReviewerKey }
     })

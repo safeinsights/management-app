@@ -47,6 +47,14 @@ describe('User Actions', () => {
         expect(result).toEqual({})
     })
 
+    test('onUserSignInAction should redirect lab researchers without a key to the key page', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({ redirectToReviewerKey: true })
+    })
+
     test('syncUserMetadataAction should sync metadata', async () => {
         await mockSessionWithTestData()
         const result = await syncUserMetadataAction()

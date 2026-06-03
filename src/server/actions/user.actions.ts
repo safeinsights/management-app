@@ -5,7 +5,7 @@ import { sessionFromClerk } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, z } from './action'
-import { isEnclaveOrg } from '@/lib/types'
+import { orgNeedsKey } from '@/lib/types'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
     // Force metadata sync on sign-in to ensure session has fresh data
@@ -14,7 +14,7 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
         throw new Error('Failed to establish session')
     }
     onUserLogIn({ userId: session.user.id })
-    if (Object.values(session.orgs).some((org) => isEnclaveOrg(org))) {
+    if (Object.values(session.orgs).some((org) => orgNeedsKey(org))) {
         const publicKey = await getReviewerPublicKey(session.user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
