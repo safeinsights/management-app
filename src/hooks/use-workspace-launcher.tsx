@@ -1,18 +1,37 @@
-import { useMutation, useQuery } from '@/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
+import { reportError } from '@/components/errors'
+import { ActionFailure } from '@/lib/errors'
 import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
-interface OpenResult {
-    success: boolean
-    blocked: boolean
-    url: string
+const LAUNCH_FAILED_MESSAGE = 'Failed to launch IDE'
+
+// The wrapped useQuery/useMutation throw an ActionFailure whose message is the raw `error` payload.
+// For an opaque (non-string) action error, surface a friendly fallback instead of leaking raw JSON.
+const toLaunchError = (err: Error | null): Error | null => {
+    if (!err) return null
+    if (err instanceof ActionFailure && typeof err.error !== 'string') return new Error(LAUNCH_FAILED_MESSAGE)
+    return err
 }
 
-const openWorkspaceInNewTab = (url: string, studyId: string): OpenResult => {
+const openWorkspaceInNewTab = (url: string, studyId: string): { blocked: boolean } => {
     const newWindow = window.open(url, `ide-for-study-${studyId}`)
     const blocked = !newWindow || newWindow.closed || typeof newWindow.closed === 'undefined'
-    return { success: !blocked, blocked, url }
+    return { blocked }
+}
+
+const notifyPopupBlocked = (url: string) => {
+    notifications.show({
+        title: 'Popup blocked',
+        message: (
+            <a href={url} target="_blank" rel="noopener noreferrer">
+                Click here to open your workspace
+            </a>
+        ),
+        color: 'yellow',
+        autoClose: false,
+    })
 }
 
 interface UseWorkspaceLauncherOptions {
@@ -22,7 +41,7 @@ interface UseWorkspaceLauncherOptions {
 
 interface UseWorkspaceLauncherReturn {
     launchWorkspace: () => void
-    /** True while the entire launch flow is in progress (from mutation start to workspace open) */
+    /** True while the entire launch flow is in progress (from mutation start until the workspace opens or fails) */
     isLaunching: boolean
     /** True only while the initial workspace creation mutation is in progress */
     isCreatingWorkspace: boolean
@@ -30,112 +49,69 @@ interface UseWorkspaceLauncherReturn {
     clearError: () => void
 }
 
+const WORKSPACE_STATUS_KEY = 'workspaceStatus'
+
 export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
-    const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<Error | null>(null)
-    const [launchComplete, setLaunchComplete] = useState(false)
-    const onSuccessRef = useRef(onSuccess)
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        onSuccessRef.current = onSuccess
-    }, [onSuccess])
-
-    const mutation = useMutation({
-        mutationFn: async ({ studyId }: { studyId: string }) => {
-            const result = await createUserAndWorkspaceAction({ studyId })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : 'Failed to launch IDE')
-            }
-            return result
-        },
-        onMutate: () => {
-            setLoading(true)
-            setError(null)
-        },
-        onSuccess: (data) => {
-            const { id } = data.workspace
-            setWorkspaceId(id)
-        },
-        onError: (err) => {
-            setLoading(false)
-            const errorMessage = err instanceof Error ? err.message : 'Failed to launch IDE'
-            setError(new Error(errorMessage))
-        },
+    const creation = useMutation({
+        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
+        onError: (err) => reportError(err, LAUNCH_FAILED_MESSAGE),
     })
+    const workspaceId = creation.data?.workspace.id ?? null
 
-    const workspaceQuery = useQuery({
-        queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
-        enabled: !!workspaceId && !launchComplete,
+    // Once a workspace exists, poll until Coder hands back a URL (or the request errors out).
+    const urlQuery = useQuery({
+        queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId, workspaceId],
+        enabled: !!workspaceId,
         refetchOnWindowFocus: false,
-        queryFn: async () => {
-            const result = await getWorkspaceUrlAction({
-                studyId,
-                workspaceId: workspaceId as string,
-            })
-            if (result && typeof result === 'object' && 'error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : 'Failed to get workspace URL')
-            }
-            return result
-        },
-        refetchInterval: (query) => {
-            if (!workspaceId || launchComplete) return false
-            if (query.state.error || query.state.data) return false
-            return 5000
-        },
+        queryFn: () => getWorkspaceUrlAction({ studyId, workspaceId: workspaceId as string }),
+        refetchInterval: (query) => (query.state.data || query.state.error ? false : 5000),
     })
 
-    // Handle query results
+    // Opening the tab is a one-shot side effect fired when the poll resolves; the ref latches it to
+    // the current workspace so a re-render (or StrictMode double-invoke) can't open it twice.
+    const handledWorkspaceRef = useRef<string | null>(null)
     useEffect(() => {
-        if (launchComplete) return
+        const url = urlQuery.data
+        if (!url || !workspaceId || handledWorkspaceRef.current === workspaceId) return
 
-        if (workspaceQuery.error) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- React Query v5 requires effects for query side effects
-            setLaunchComplete(true)
-            setLoading(false)
-            const errorMessage =
-                workspaceQuery.error instanceof Error ? workspaceQuery.error.message : 'Failed to get workspace URL'
-            setError(new Error(errorMessage))
-            return
+        handledWorkspaceRef.current = workspaceId
+        const { blocked } = openWorkspaceInNewTab(url, studyId)
+        if (blocked) notifyPopupBlocked(url)
+        onSuccess?.()
+    }, [urlQuery.data, workspaceId, studyId, onSuccess])
+
+    // Latch the report to the specific error so a StrictMode double-invoke (or re-render) can't
+    // fire two Sentry events / notifications for the same failure.
+    const reportedErrorRef = useRef<unknown>(null)
+    useEffect(() => {
+        if (urlQuery.error && reportedErrorRef.current !== urlQuery.error) {
+            reportedErrorRef.current = urlQuery.error
+            reportError(urlQuery.error, LAUNCH_FAILED_MESSAGE)
         }
-
-        const url = workspaceQuery.data
-        if (url) {
-            setLaunchComplete(true)
-            const result = openWorkspaceInNewTab(url, studyId)
-            setLoading(false)
-            if (result.blocked) {
-                setError(new Error('Popup blocked'))
-                notifications.show({
-                    title: 'Popup blocked',
-                    message: (
-                        <a href={url} target="_blank" rel="noopener noreferrer">
-                            Click here to open your workspace
-                        </a>
-                    ),
-                    color: 'yellow',
-                    autoClose: false,
-                })
-            }
-            onSuccessRef.current?.()
-        }
-    }, [workspaceQuery.data, workspaceQuery.error, launchComplete])
-
-    const launchWorkspace = useCallback(() => {
-        setError(null)
-        setLaunchComplete(false)
-        mutation.mutate({ studyId })
-    }, [mutation, studyId])
+    }, [urlQuery.error])
 
     const clearError = useCallback(() => {
-        setError(null)
-    }, [])
+        creation.reset()
+        handledWorkspaceRef.current = null
+        reportedErrorRef.current = null
+        queryClient.removeQueries({ queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId] })
+    }, [creation, queryClient, studyId])
+
+    const launchWorkspace = useCallback(() => {
+        clearError()
+        creation.mutate({ studyId })
+    }, [clearError, creation, studyId])
+
+    const waitingForUrl = !!workspaceId && !urlQuery.data && !urlQuery.error
+    const isLaunching = creation.isPending || waitingForUrl
 
     return {
         launchWorkspace,
-        isLaunching: loading,
-        isCreatingWorkspace: mutation.isPending,
-        error: error || workspaceQuery.error || null,
+        isLaunching,
+        isCreatingWorkspace: creation.isPending,
+        error: toLaunchError(creation.error || urlQuery.error || null),
         clearError,
     }
 }
