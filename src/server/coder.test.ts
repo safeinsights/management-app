@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import {
+    coderFetch,
+    CoderApiError,
     createUserAndWorkspace,
     generateWorkspaceName,
     getCoderOrganizationId,
@@ -8,6 +10,7 @@ import {
     generateCoderUsername,
     shaHash,
 } from './coder'
+import logger from '@/lib/logger'
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
@@ -95,6 +98,7 @@ describe('getOrCreateCoderUser', () => {
                 Accept: 'application/json',
                 'Coder-Session-Token': 'https://api.coder.com',
             },
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -154,6 +158,7 @@ describe('getOrCreateCoderUser', () => {
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -589,6 +594,7 @@ describe('getCoderTemplateId', () => {
                 Accept: 'application/json',
                 'Coder-Session-Token': 'token',
             },
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -604,6 +610,40 @@ describe('getCoderTemplateId', () => {
         getConfigValueMock.mockResolvedValueOnce('my-template')
 
         await expect(getCoderTemplateId()).rejects.toThrow('Failed to fetch templates data from Coder API')
+    })
+})
+
+describe('coderFetch instrumentation', () => {
+    const loggerErrorMock = logger.error as unknown as Mock
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        getConfigValueMock.mockResolvedValue('token')
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+    })
+
+    it('logs and throws CoderApiError on a non-ok response', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 503,
+            text: vi.fn().mockResolvedValue('service unavailable'),
+        })
+
+        await expect(coderFetch('/api/v2/workspaces/abc')).rejects.toBeInstanceOf(CoderApiError)
+        expect(loggerErrorMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v2/workspaces/abc -> 503: service unavailable'),
+        )
+    })
+
+    it('logs and rethrows when the request times out', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        const timeoutError = new Error('The operation timed out')
+        timeoutError.name = 'TimeoutError'
+        mockFetch.mockRejectedValue(timeoutError)
+
+        await expect(coderFetch('/api/v2/workspaces/abc')).rejects.toBe(timeoutError)
+        expect(loggerErrorMock).toHaveBeenCalledWith(expect.stringContaining('timed out'), timeoutError)
     })
 })
 
