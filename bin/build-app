@@ -20,6 +20,13 @@ set -euo pipefail
 
 cp bin/prod.run.sh .next/standalone/run.sh
 
+# -y preserves symlinks instead of following them. Next's standalone output
+# under pnpm keeps node_modules/next (and other deps) as symlinks into the
+# .pnpm store; their transitive deps (@next/env, @swc/helpers, …) only resolve
+# through that symlink graph. Without -y, zip dereferences node_modules/next
+# into real files but strands its .pnpm-nested deps, so the Lambda fails at
+# startup with `Cannot find module '@next/env'` / '@swc/helpers'. Preserving the
+# symlinks keeps the graph intact end to end.
 pushd .next/standalone/
-zip -q -r ../../lambda-server-package.zip .
+zip -q -r -y ../../lambda-server-package.zip .
 popd
