@@ -103,7 +103,13 @@ export default async function StudyReviewPage(props: {
             if (isActionError(proposalEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
+            // Only render the proposal post-feedback view when there is feedback to show. An empty
+            // list would blank the page (PostFeedbackView returns null with no decision). A study
+            // approved with no feedback (approveStudyProposalAction writes no comment) whose code is
+            // still awaiting a decision falls through to the active-review routing below instead.
+            if (proposalEntries.length > 0) {
+                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
+            }
         }
 
         // When a reviewer navigates back from the agreements step, show the proposal

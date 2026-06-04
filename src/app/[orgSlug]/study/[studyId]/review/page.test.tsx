@@ -120,6 +120,20 @@ describe('StudyReviewPage', () => {
             studyStatus: 'APPROVED',
             jobStatus: 'CODE-SUBMITTED',
         })
+        // Proposal feedback so the from=code-review proposal fallback renders a real
+        // PostFeedbackView. With no feedback of any kind the page now falls through to active review.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                version: 1,
+            })
+            .execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -204,6 +218,32 @@ describe('StudyReviewPage', () => {
         expect(page?.props.kind).toBeUndefined()
         expect(page?.props.entries).toHaveLength(1)
         expect(page?.props.entries[0].authorRole).toBe('REVIEWER')
+    })
+
+    it('falls through to active CodeReview (not a blank page) when from=code-review with no code-review, no CODE-APPROVED, and no proposal feedback', async () => {
+        // A study approved with zero feedback (approveStudyProposalAction writes no comment) whose
+        // code still awaits its first decision: the proposal fallback would otherwise render a blank
+        // PostFeedbackView (null on an empty list). Instead the page falls through to active review.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .updateTable('study')
+            .set({ reviewerAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'code-review' }),
+        })
+
+        expect(page?.type).toBe(CodeReview)
+        expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('renders ProposalReviewView for enclave without code', async () => {
