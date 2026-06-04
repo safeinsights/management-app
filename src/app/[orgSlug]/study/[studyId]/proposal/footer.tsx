@@ -1,15 +1,18 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
+import { SubmitConfirmationModal } from '@/components/submit-confirmation-modal'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { hasUserProvidedTitle } from './schema'
 import { ReviewerPreview } from './reviewer-preview'
+
 interface ProposalFooterProps {
     researcherName: string
     researcherId: string
@@ -20,8 +23,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
-    const [isReviewerModalOpen, setIsReviewerModalOpen] = useState(false)
-    const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false)
+    const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSaving || isSubmitting
     // lexical fields store JSON even when empty, so we extract the
@@ -55,12 +58,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                     Previous
                 </Button>
                 <Group>
-                    <Button
-                        variant="outline"
-                        size="md"
-                        disabled={!hasContent || isBusy}
-                        onClick={() => setIsReviewerModalOpen(true)}
-                    >
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
                     </Button>
                     <Button
@@ -77,7 +75,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                         variant="primary"
                         disabled={!canSubmit || isBusy}
                         loading={isSubmitting}
-                        onClick={() => setIsSubmitConfirmOpen(true)}
+                        onClick={openConfirm}
                     >
                         Submit initial request
                     </Button>
@@ -85,18 +83,16 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
             </Group>
 
             <SubmitConfirmationModal
-                isOpen={isSubmitConfirmOpen}
-                onClose={() => setIsSubmitConfirmOpen(false)}
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
                 onConfirm={submitProposal}
                 isSubmitting={isSubmitting}
+                title="Confirm initial request submission?"
+                body="Please confirm you are ready to submit your initial request. Further edits are not permitted once submitted."
+                confirmLabel="Yes, submit initial request"
             />
 
-            <AppModal
-                size="xl"
-                isOpen={isReviewerModalOpen}
-                onClose={() => setIsReviewerModalOpen(false)}
-                title="View as reviewer"
-            >
+            <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
                     values={form.values}
@@ -108,27 +104,3 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
         </>
     )
 }
-
-const SubmitConfirmationModal: FC<{
-    isOpen: boolean
-    onClose: () => void
-    onConfirm: () => void
-    isSubmitting: boolean
-}> = ({ isOpen, onClose, onConfirm, isSubmitting }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Confirm initial request submission?">
-        <Stack gap="xl">
-            <Text size="md">
-                Please confirm you are ready to submit your initial request. Further edits are not permitted once
-                submitted.
-            </Text>
-            <Group justify="flex-end">
-                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                    Cancel
-                </Button>
-                <Button variant="primary" onClick={onConfirm} loading={isSubmitting}>
-                    Yes, submit initial request
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
-)

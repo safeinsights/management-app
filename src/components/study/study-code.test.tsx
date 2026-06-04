@@ -15,6 +15,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { StudyCode } from './study-code'
@@ -164,6 +165,25 @@ describe('StudyCode component', () => {
         })
     })
 
+    it('shows the confirmation modal when Submit study code is clicked', async () => {
+        const user = userEvent.setup()
+        await renderIDE('openstax-lab', { 'main.r': 'print("main")' })
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        const dialog = screen.getByRole('dialog')
+        expect(dialog).toHaveTextContent('Confirm study code submission?')
+        expect(dialog).toHaveTextContent(
+            /Please confirm you are ready to submit your study code\. Further edits are not permitted once submitted\./,
+        )
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Yes, submit study code' })).toBeInTheDocument()
+    })
+
     it('submits IDE files and persists study job records', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
@@ -182,6 +202,8 @@ describe('StudyCode component', () => {
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
             const updated = await db
@@ -218,6 +240,8 @@ describe('StudyCode component', () => {
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        const dialog2 = screen.getByRole('dialog')
+        await user.click(within(dialog2).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
             const updated = await db
@@ -327,6 +351,8 @@ describe('StudyCode component', () => {
 
             const user = userEvent.setup()
             await user.click(screen.getByRole('button', { name: /submit code/i }))
+            const dialog = screen.getByRole('dialog')
+            await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
             await waitFor(async () => {
                 const updated = await db

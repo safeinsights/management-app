@@ -1,10 +1,12 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modal'
+import { SubmitConfirmationModal } from '@/components/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
@@ -22,8 +24,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting, isSavingNote } = useEditResubmit()
 
-    const [isReviewerOpen, setReviewerOpen] = useState(false)
-    const [isConfirmOpen, setConfirmOpen] = useState(false)
+    const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSaving || isSavingNote || isSubmitting
 
@@ -46,7 +48,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     }
 
     const handleConfirmResubmit = () => {
-        setConfirmOpen(false)
+        closeConfirm()
         resubmit()
     }
 
@@ -65,12 +67,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     Back
                 </Button>
                 <Group>
-                    <Button
-                        variant="outline"
-                        size="md"
-                        disabled={!hasContent || isBusy}
-                        onClick={() => setReviewerOpen(true)}
-                    >
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
                     </Button>
                     <Button
@@ -87,14 +84,14 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                         variant="primary"
                         disabled={!isFormValid || isBusy}
                         loading={isSubmitting}
-                        onClick={() => setConfirmOpen(true)}
+                        onClick={openConfirm}
                     >
                         Resubmit initial request
                     </Button>
                 </Group>
             </Group>
 
-            <AppModal size="xl" isOpen={isReviewerOpen} onClose={() => setReviewerOpen(false)} title="View as reviewer">
+            <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
                     values={form.values}
@@ -104,26 +101,15 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 />
             </AppModal>
 
-            <AppModal
-                isOpen={isConfirmOpen}
-                onClose={() => setConfirmOpen(false)}
+            <SubmitConfirmationModal
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={handleConfirmResubmit}
+                isSubmitting={isSubmitting}
                 title="Confirm initial request resubmission?"
-            >
-                <Stack gap="xl">
-                    <Text size="md">
-                        Please confirm you are ready to resubmit your initial request. Further edits are not permitted
-                        once submitted.
-                    </Text>
-                    <Group justify="flex-end">
-                        <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSubmitting}>
-                            Cancel
-                        </Button>
-                        <Button variant="primary" onClick={handleConfirmResubmit} loading={isSubmitting}>
-                            Yes, submit initial request
-                        </Button>
-                    </Group>
-                </Stack>
-            </AppModal>
+                body="Please confirm you are ready to resubmit your initial request. Further edits are not permitted once submitted."
+                confirmLabel="Yes, submit initial request"
+            />
         </>
     )
 }
