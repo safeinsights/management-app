@@ -4,6 +4,7 @@ import type { FC, ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Group, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -28,6 +29,13 @@ interface CodePostDecisionViewProps {
     reviewingOrgName: string
     dashboardHref: Route
     latestJobStatus: CodeDecisionStatus
+    /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
+    feedbackLoadError?: boolean
+    /**
+     * Hidden during the execution window (approved code running in the enclave) so the page reads as
+     * "running / results pending" with no code listing, per OTTER-598. Shown for plain code decisions.
+     */
+    showStudyCode?: boolean
 }
 
 type DecisionCopy = {
@@ -66,9 +74,8 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-// Date is sourced from the feedback entry (not the job status row): the entry carries the
-// user-visible "I submitted this decision at T" timestamp, while the status row may be
-// written by a downstream worker on a slight delay.
+// Date is sourced from the decision's own status-change row so it stays correct (and present)
+// even when feedback entries are empty or belong to a different review round.
 function deriveCodePostDecision({
     job,
     entries,
@@ -80,7 +87,7 @@ function deriveCodePostDecision({
 }) {
     return {
         copy: DECISION_COPY[decision],
-        timestampDate: entries[0].createdAt,
+        timestampDate: job.statusChanges.find((s) => s.status === decision)?.createdAt ?? entries[0]?.createdAt ?? null,
         codeFiles: filterAndOrderCodeFiles(job.files),
     }
 }
@@ -135,16 +142,45 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref }
     )
 }
 
+// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
+// (same as the DO review page) in place of the feedback section, rather than a legacy view.
+const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
+    feedbackLoadError,
+    entries,
+}) => {
+    if (feedbackLoadError) {
+        return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+    }
+    return <FeedbackAndNotesSection entries={entries} />
+}
+
+const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFile[] }> = ({
+    isVisible,
+    jobId,
+    codeFiles,
+}) => {
+    if (!isVisible) return null
+    return (
+        <StudyCodeViewer
+            studyJobId={jobId}
+            files={codeFiles}
+            initialExpanded={false}
+            toggleLabels={STUDY_CODE_TOGGLE_LABELS}
+        />
+    )
+}
+
 type StepCardProps = {
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy
     copy: DecisionCopy
-    timestampDate: Date | string
+    timestampDate: Date | string | null
     codeFiles: CodeFile[]
     banner: ReactNode
+    showStudyCode: boolean
 }
 
-function StepCard({ study, job, copy, timestampDate, codeFiles, banner }: StepCardProps) {
+function StepCard({ study, job, copy, timestampDate, codeFiles, banner, showStudyCode }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -154,12 +190,7 @@ function StepCard({ study, job, copy, timestampDate, codeFiles, banner }: StepCa
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeViewer
-                studyJobId={job.id}
-                files={codeFiles}
-                initialExpanded={false}
-                toggleLabels={STUDY_CODE_TOGGLE_LABELS}
-            />
+            <StudyCodeSection isVisible={showStudyCode} jobId={job.id} codeFiles={codeFiles} />
         </ProposalStepHeader>
     )
 }
@@ -172,6 +203,8 @@ export function CodePostDecisionView({
     reviewingOrgName,
     dashboardHref,
     latestJobStatus,
+    feedbackLoadError = false,
+    showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
@@ -200,8 +233,9 @@ export function CodePostDecisionView({
                     timestampDate={timestampDate}
                     codeFiles={codeFiles}
                     banner={banner}
+                    showStudyCode={showStudyCode}
                 />
-                <FeedbackAndNotesSection entries={entries} />
+                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
                 <DecisionActions
                     decision={latestJobStatus}
                     previousHref={previousHref}

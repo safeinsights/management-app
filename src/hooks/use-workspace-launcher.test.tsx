@@ -18,6 +18,11 @@ vi.mock('@/server/actions/workspaces.actions', () => ({
     getWorkspaceUrlAction: vi.fn(),
 }))
 
+vi.mock('@/components/errors', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/components/errors')>()),
+    reportError: vi.fn(),
+}))
+
 const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {
     value: mockWindowOpen,
@@ -25,6 +30,7 @@ Object.defineProperty(window, 'open', {
 })
 
 import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
+import { reportError } from '@/components/errors'
 import { notifications } from '@mantine/notifications'
 
 const studyId = faker.string.uuid()
@@ -147,7 +153,10 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
-        it('should show notification and set error when popup is blocked', async () => {
+        // A blocked popup is not a launch failure: the workspace launched fine and the user gets a
+        // clickable fallback notification, so the hook must NOT surface it as `error` (which would
+        // render a misleading "Launch failed" state in the UI).
+        it('should show fallback notification without erroring when popup is blocked', async () => {
             const workspaceUrl = 'https://workspace.example.com'
             mockWindowOpen.mockReturnValue(null) // Simulate blocked popup
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
@@ -164,7 +173,6 @@ describe('useWorkspaceLauncher', () => {
             })
 
             await waitFor(() => {
-                expect(result.current.error?.message).toBe('Popup blocked')
                 expect(notifications.show).toHaveBeenCalledWith(
                     expect.objectContaining({
                         title: 'Popup blocked',
@@ -173,6 +181,7 @@ describe('useWorkspaceLauncher', () => {
                     }),
                 )
             })
+            expect(result.current.error).toBeNull()
         })
 
         it('should detect popup blocked when window.closed is true', async () => {
@@ -191,8 +200,11 @@ describe('useWorkspaceLauncher', () => {
             })
 
             await waitFor(() => {
-                expect(result.current.error?.message).toBe('Popup blocked')
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({ title: 'Popup blocked', color: 'yellow' }),
+                )
             })
+            expect(result.current.error).toBeNull()
         })
     })
 
@@ -327,6 +339,69 @@ describe('useWorkspaceLauncher', () => {
             await waitFor(() => {
                 expect(result.current.error).toBeNull()
                 expect(result.current.isLaunching).toBe(true)
+            })
+        })
+    })
+
+    describe('error reporting', () => {
+        it('should report mutation failures to Sentry/notifications', async () => {
+            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'boom' })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => {
+                result.current.launchWorkspace()
+            })
+
+            await waitFor(() => {
+                expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE')
+            })
+        })
+
+        it('should report polling failures to Sentry/notifications', async () => {
+            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ workspace: { id: 'workspace-456' } })
+            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: 'poll exploded' })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => {
+                result.current.launchWorkspace()
+            })
+
+            await waitFor(() => {
+                expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE')
+            })
+        })
+    })
+
+    describe('clearError with a query error', () => {
+        it('should clear a polling error so the UI returns to a non-error state', async () => {
+            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ workspace: { id: 'workspace-456' } })
+            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: 'Workspace not found' })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => {
+                result.current.launchWorkspace()
+            })
+
+            await waitFor(() => {
+                expect(result.current.error).not.toBeNull()
+            })
+
+            act(() => {
+                result.current.clearError()
+            })
+
+            await waitFor(() => {
+                expect(result.current.error).toBeNull()
+                expect(result.current.isLaunching).toBe(false)
             })
         })
     })

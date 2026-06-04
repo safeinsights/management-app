@@ -67,10 +67,11 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         jobStatus: 'CODE-SUBMITTED',
         title,
     })
-    // Layer the decision row on top so it's the latest status change.
+    // Layer the decision row on top. Its createdAt is the user-visible decision timestamp the
+    // header now sources from (the matching status-change row, not the feedback entry).
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: new Date(Date.now() + 1000) })
+        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
         .execute()
 
     await db
@@ -98,7 +99,12 @@ function renderView(
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
-    overrides: { dashboardHref?: Route; reviewingOrgName?: string } = {},
+    overrides: {
+        dashboardHref?: Route
+        reviewingOrgName?: string
+        feedbackLoadError?: boolean
+        showStudyCode?: boolean
+    } = {},
 ) {
     renderWithProviders(
         <CodePostDecisionView
@@ -109,6 +115,8 @@ function renderView(
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
+            feedbackLoadError={overrides.feedbackLoadError}
+            showStudyCode={overrides.showStudyCode}
         />,
     )
 }
@@ -226,6 +234,17 @@ describe('CodePostDecisionView', () => {
         })
     })
 
+    describe('study code visibility', () => {
+        it('hides the study code viewer during the execution window (showStudyCode=false)', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { showStudyCode: false })
+
+            expect(screen.queryByTestId('study-code-viewer')).not.toBeInTheDocument()
+            // The approved/running banner still renders so the page reads as "running / results pending".
+            expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
+        })
+    })
+
     describe('feedback and notes', () => {
         it('expands the latest entry and collapses prior entries', async () => {
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
@@ -293,6 +312,28 @@ describe('CodePostDecisionView', () => {
             expect(resubmit).toHaveTextContent('Edit and resubmit')
             expect(resubmit).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/resubmit`)
             expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('empty feedback', () => {
+        it('renders without crashing and shows the decision timestamp from the status-change row', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [], latestJobStatus)
+
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+            expect(screen.queryByText('Feedback could not be loaded')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('feedback load error', () => {
+        it('renders the inline notice in place of the feedback section', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [], latestJobStatus, { feedbackLoadError: true })
+
+            expect(screen.getByText('Feedback could not be loaded')).toBeInTheDocument()
+            expect(screen.getByText('please refresh and try again')).toBeInTheDocument()
+            expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })
 })
