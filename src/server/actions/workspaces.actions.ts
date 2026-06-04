@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
-import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
+import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus, type WorkspaceLaunchStatus } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { resetBaselineJob } from '@/server/db/mutations'
@@ -71,7 +71,10 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         }
     })
 
-export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
+// Ensures the workspace exists and is running: creates it if missing, starts it if stopped.
+// Kept as a one-shot mutation (not folded into the polled status action) because the baseline
+// reset and the build POST must run once per launch, not on every refetch.
+export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string().nonempty(),
@@ -91,25 +94,39 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
         return await createUserAndWorkspace(studyId)
     })
 
-export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
+const cursorsSchema = z
+    .object({
+        build: z.number().nullable(),
+        agents: z.record(z.string(), z.number().nullable()),
+    })
+    .optional()
+
+export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStatusAction', {})
     .params(
         z.object({
             studyId: z.string().nonempty(),
-            workspaceId: z.string(),
+            cursors: cursorsSchema,
         }),
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, workspaceId }, session }) => {
+    .handler(async ({ params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
-        if (!workspaceId) return
         if (CODER_DISABLED) {
             // these envs do not have a 'real' coder setup
-            await new Promise((resolve) => setTimeout(resolve, 3000))
             await initializeDevWorkspaceFiles(studyId)
-            return `https://coder.dev.example.com/workspace/${studyId}`
+            return {
+                phase: 'ready',
+                buildStatus: 'succeeded',
+                ready: true,
+                failed: false,
+                reason: 'dev workspace ready',
+                lastLogAt: null,
+                cursors: { build: null, agents: {} },
+                url: `https://coder.dev.example.com/workspace/${studyId}`,
+            }
         }
-        return await getCoderWorkspaceUrl(studyId, workspaceId)
+        return await getCoderWorkspaceLaunchStatus(studyId, cursors)
     })
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})
