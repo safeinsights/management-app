@@ -86,30 +86,36 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 
 function latestJobForStudyQuery(studyId: string) {
-    return Action.db
-        .selectFrom('studyJob')
-        .selectAll('studyJob')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
-                    .orderBy('createdAt', 'desc')
-                    .orderBy('jobStatusChange.id', 'desc')
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
-            ).as('statusChanges'),
-            jsonArrayFrom(
-                eb
-                    .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
-                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
-            ).as('files'),
-        ])
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
+    return (
+        Action.db
+            .selectFrom('studyJob')
+            .selectAll('studyJob')
+            .innerJoin('study', 'study.id', 'studyJob.studyId')
+            .select(['study.orgId', 'study.language'])
+            .select((eb) => [
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                        .orderBy('createdAt', 'desc')
+                        .orderBy('jobStatusChange.id', 'desc')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+                ).as('statusChanges'),
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('studyJobFile')
+                        .select(['name', 'fileType', 'createdAt'])
+                        .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+                ).as('files'),
+            ])
+            .where('studyJob.studyId', '=', studyId)
+            // id is a v7 (time-ordered) uuid, so it breaks createdAt ties in insertion order.
+            // Without it, two jobs sharing a createdAt (e.g. inserted in the same transaction,
+            // where now() is constant) make this LIMIT 1 non-deterministic across identical queries.
+            .orderBy('createdAt', 'desc')
+            .orderBy('studyJob.id', 'desc')
+            .limit(1)
+    )
 }
 
 // Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
