@@ -112,7 +112,7 @@ function latestJobForStudyQuery(studyId: string) {
             // id is a v7 (time-ordered) uuid, so it breaks createdAt ties in insertion order.
             // Without it, two jobs sharing a createdAt (e.g. inserted in the same transaction,
             // where now() is constant) make this LIMIT 1 non-deterministic across identical queries.
-            .orderBy('createdAt', 'desc')
+            .orderBy('studyJob.createdAt', 'desc')
             .orderBy('studyJob.id', 'desc')
             .limit(1)
     )
