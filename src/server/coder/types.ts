@@ -3,12 +3,17 @@ export type CoderBaseEntity = {
     name: string
 }
 
-// Named aliases for the various Coder string identifiers, so a function signature makes clear
-// which kind of id it expects (a build id vs an agent id vs a workspace id).
-export type WorkspaceId = string
-export type BuildId = string
-export type AgentId = string
-export type CoderUsername = string
+// Branded (nominal) string identifiers, so a function signature makes clear which kind of id it
+// expects and the compiler rejects passing e.g. an AgentId where a BuildId is required. The brand
+// is phantom (type-only) — at runtime these are plain strings; construct them via a typed
+// `coderFetch<T>` response or an explicit cast.
+declare const coderIdBrand: unique symbol
+type Brand<T, B extends string> = T & { readonly [coderIdBrand]: B }
+
+export type WorkspaceId = Brand<string, 'WorkspaceId'>
+export type BuildId = Brand<string, 'BuildId'>
+export type AgentId = Brand<string, 'AgentId'>
+export type CoderUsername = Brand<string, 'CoderUsername'>
 
 // Coder workspace build status (the computed workspace state) and provisioner job status.
 export type BuildStatus =
@@ -97,7 +102,7 @@ export interface WorkspaceLaunchStatus {
     failed: boolean
     reason: string
     lastLogAt: string | null
-    cursors: { build: number | null; agents: Record<AgentId, number | null> }
+    cursors: { build: number | null; agents: Record<string, number | null> } // keyed by AgentId
     url: string | null
 }
 

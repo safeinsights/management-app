@@ -18,9 +18,11 @@ import type {
     AgentId,
     BuildStatus,
     CoderLog,
+    CoderUsername,
     CoderWorkspace,
     CoderWorkspaceBuild,
     CoderWorkspaceEvent,
+    WorkspaceId,
     WorkspaceLaunchPhase,
     WorkspaceLaunchStatus,
 } from './types'
@@ -180,7 +182,7 @@ export async function getCoderWorkspaceLaunchStatus(
     return { phase, buildStatus, ready: readiness.ready, failed, reason, lastLogAt, cursors: newCursors, url }
 }
 
-async function startWorkspace(workspaceId: string): Promise<void> {
+async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     try {
         await coderFetch<unknown>(coderWorkspaceBuildPath(workspaceId), {
             method: 'POST',
@@ -270,7 +272,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 
 interface CreateCoderWorkspaceOptions {
     studyId: string
-    username: string
+    username: CoderUsername
     containerImage: string
     environment?: Array<{ name: string; value: string }>
 }
