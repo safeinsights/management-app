@@ -539,5 +539,39 @@ describe('StudyReviewPage', () => {
             expect(page?.props.fallbackDecision).toBe('APPROVE')
             expect(page?.props.fallbackTimestamp).toBeTruthy()
         })
+
+        it('uses the submitted job for fallback APPROVE when a newer baseline job exists', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-APPROVED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+            const baselineJob = await db
+                .insertInto('studyJob')
+                .values({ studyId: study.id, createdAt: new Date(Date.now() + 3000) })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            await db.insertInto('jobStatusChange').values({ status: 'INITIATED', studyJobId: baselineJob.id }).execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.job.id).toBe(job.id)
+            expect(page?.props.fallbackDecision).toBe('APPROVE')
+        })
     })
 })

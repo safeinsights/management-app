@@ -12,7 +12,7 @@ import {
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { currentReviewVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReview } from './code-review'
@@ -54,14 +54,15 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-
         // OTTER-552: once a code-review decision has been made, opening the study (e.g. via
         // the dashboard "View" link, which carries no `from` param) must land the DO on the
         // post-feedback code page — not the active code-review/decision page. We gate on the
         // *latest* job status so a subsequent resubmission (a fresh CODE-SUBMITTED after a
         // change request) reopens active review instead of sticking on the decision page.
         const latestDecisionJob = await latestSubmittedJobForStudy(studyId)
+        const codeSubmitted =
+            studyHasJobStatus(study, 'CODE-SUBMITTED') ||
+            (latestDecisionJob?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED') ?? false)
         const decisionMade = isCodeDecisionStatus(latestDecisionJob?.statusChanges[0]?.status)
 
         // When a reviewer navigates back from the code review page, OR the code decision has
@@ -75,7 +76,7 @@ export default async function StudyReviewPage(props: {
             if (isActionError(codeEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
-            const job = await latestJobForStudyOrNull(studyId)
+            const job = latestDecisionJob
             if (codeEntries.length > 0) {
                 return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
