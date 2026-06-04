@@ -8,9 +8,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml panda.config.ts ./
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm exec playwright install chromium
-RUN pnpm exec playwright install-deps chromium
-
 #COPY .gitignore .editorconfig next.config.mjs tsconfig.json kysely.config.ts .eslintrc.json .prettierrc.json .
 
 # Next.js collects completely anonymous telemetry data about general usage. Learn more here: https://nextjs.org/telemetry
