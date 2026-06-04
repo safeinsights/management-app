@@ -9,6 +9,7 @@ import {
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
+import { reEncryptApprovedFiles } from '@/lib/re-encrypt-results'
 import { Button, Group, Stack } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
@@ -32,13 +33,18 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
         isSuccess,
         variables: pendingStatus,
     } = useMutation({
-        mutationFn: (status: StudyStatus) => {
+        mutationFn: async (status: StudyStatus) => {
             if (status === 'APPROVED') {
+                // Re-encrypt approved result files for reviewers + researchers client-side;
+                // the server stores only ciphertext (no plaintext approved copies).
+                const jobFiles = approvedFiles?.length
+                    ? await reEncryptApprovedFiles(study.id, approvedFiles)
+                    : undefined
                 return approveStudyProposalAction({
                     orgSlug,
                     studyId: study.id,
                     useTestImage,
-                    jobFiles: approvedFiles,
+                    jobFiles,
                 })
             }
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })

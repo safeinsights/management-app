@@ -1,14 +1,15 @@
 'use client'
 
-import React, { FC, useMemo } from 'react'
-import { Anchor, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
+import React, { FC, useMemo, useState } from 'react'
+import { Anchor, Button, Group, LoadingOverlay, Stack, Text, Textarea, useMantineTheme } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
+import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { JobFile } from '@/lib/types'
+import { JobFile, JobFileInfo } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
 
 const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
@@ -30,44 +31,79 @@ const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     )
 }
 
+// Researcher-facing view of shared results. There is no plaintext copy: the
+// researcher decrypts the re-encrypted approved files with their own key (they
+// are a recipient of the re-encryption done at approve time).
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>()
+
     const {
         data: approvedFiles,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: ['job-results', job.id],
+        queryKey: ['approved-files', job.id],
         queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: job.id }),
     })
 
-    const { resultsFiles, logFiles } = useMemo(() => {
-        const res: JobFile[] = []
-        const logs: JobFile[] = []
+    const {
+        decrypt,
+        isPending: isDecrypting,
+        form,
+    } = useDecryptFiles({
+        encryptedFiles: approvedFiles as EncryptedJobFile[] | undefined,
+        onSuccess: setDecryptedFiles,
+    })
 
-        approvedFiles?.forEach((f) => {
+    const { resultsFiles, logFiles } = useMemo(() => {
+        const res: JobFileInfo[] = []
+        const logs: JobFileInfo[] = []
+
+        decryptedFiles?.forEach((f) => {
             if (f.fileType === 'APPROVED-RESULT') res.push(f)
             else if (isApprovedLogType(f.fileType)) logs.push(f)
         })
 
         return { resultsFiles: res, logFiles: logs }
-    }, [approvedFiles])
+    }, [decryptedFiles])
 
     if (isError) {
         return <ErrorAlert error={error} />
     }
 
-    if (isLoading || !approvedFiles) {
+    if (isLoading) {
         return <LoadingOverlay />
+    }
+
+    if (!decryptedFiles) {
+        return (
+            <form onSubmit={form.onSubmit((values) => decrypt(values.privateKey))}>
+                <Stack>
+                    <Textarea
+                        label={<Text mb="sm">Enter your key to view results</Text>}
+                        resize="vertical"
+                        placeholder="Enter your key to access encrypted results."
+                        {...form.getInputProps('privateKey')}
+                        key={form.key('privateKey')}
+                    />
+                    <Group>
+                        <Button type="submit" disabled={!form.isValid()} loading={isDecrypting}>
+                            View Results
+                        </Button>
+                    </Group>
+                </Stack>
+            </form>
+        )
     }
 
     return (
         <Stack>
-            {resultsFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
+            {resultsFiles.map((file) => (
+                <ViewFile file={file} key={file.path} />
             ))}
-            {logFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
+            {logFiles.map((file) => (
+                <ViewFile file={file} key={file.path} />
             ))}
         </Stack>
     )

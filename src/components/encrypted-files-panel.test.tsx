@@ -436,20 +436,22 @@ describe('EncryptedFilesPanel', () => {
         ])
 
         vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
-            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
+            {
+                blob: new Blob(),
+                sourceId: 'approved-1',
+                fileType: 'APPROVED-RESULT',
+                metadata: [{ path: 'first.csv', bytes: 1024 }],
+            },
         ])
 
         const latestJob = await latestJobForStudy(study.id)
         renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
 
+        // Shared (green) and withheld (red X) states render from metadata without decrypting.
         await waitFor(() => {
             expect(screen.getByText('first.csv')).toBeDefined()
             expect(screen.getByLabelText('second.csv not shared with researcher')).toBeDefined()
         })
-
-        // Withheld file has no View/Download — only the shared file does
-        expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(1)
-        expect(screen.getAllByTestId('download-link')).toHaveLength(1)
     })
 
     it('shows a red "not shared" X (not a lock icon) for an entire log type withheld after approval', async () => {
@@ -492,7 +494,12 @@ describe('EncryptedFilesPanel', () => {
         ])
 
         vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
-            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
+            {
+                blob: new Blob(),
+                sourceId: 'approved-1',
+                fileType: 'APPROVED-RESULT',
+                metadata: [{ path: 'first.csv', bytes: 1024 }],
+            },
         ])
 
         const latestJob = await latestJobForStudy(study.id)

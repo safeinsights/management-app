@@ -58,7 +58,8 @@ describe('Study Job Actions', () => {
         const result = actionResult(await fetchApprovedJobFilesAction({ studyJobId: job.id }))
 
         expect(result).toHaveLength(1)
-        expect(result[0].path).toBe('test.csv')
+        expect(result[0].fileType).toBe('APPROVED-CODE-RUN-LOG')
+        expect(result[0].metadata).toEqual([{ path: 'test.csv', bytes: 0 }])
     })
 
     test('fetchEncryptedJobFilesAction', async () => {

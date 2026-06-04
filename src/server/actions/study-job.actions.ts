@@ -2,8 +2,13 @@
 
 import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
-import { getStudyJobInfo, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
+import { jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
+import {
+    getResultsRecipientPublicKeys,
+    getStudyJobInfo,
+    getStudyReviewForJob,
+    latestJobForStudy,
+} from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -27,6 +32,15 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { jobInfo: info, jobFiles }, session, db }) => {
+        // jobFiles.contents are now RE-ENCRYPTED zips (the reviewer's browser re-encrypted
+        // each approved file for reviewers + researchers using ResultsWriter). The server
+        // only persists ciphertext — plaintext never reaches it.
+        //
+        // NOTE (future / Card 74 — revocation): re-encryption cannot cleanly *revoke* a
+        // recipient who later leaves the lab; they were baked into this artifact's boxes and
+        // may already have decrypted. True per-recipient revocation would need the re-wrap /
+        // per-recipient PO-box model (a key box you can delete) instead of re-encryption.
+        // Out of scope for now; revisit if revocation becomes a hard requirement.
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
             await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
@@ -48,6 +62,19 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             .execute()
 
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
+    })
+
+// Recipients for re-encrypting approved results: enclave reviewers (so the DO can
+// still view post-approval) + lab researchers (the new audience).
+export const fetchResultsRecipientKeysAction = new Action('fetchResultsRecipientKeysAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
+        return { orgId: study.orgId }
+    })
+    .requireAbilityTo('approve', 'Study')
+    .handler(async ({ params: { studyId } }) => {
+        return await getResultsRecipientPublicKeys(studyId)
     })
 
 export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
@@ -123,22 +150,27 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
     .requireAbilityTo('view', 'StudyJob')
 
     .handler(async ({ studyJob }) => {
+        // Approved files are now re-encrypted zips (not plaintext). Return them in the
+        // same shape as encrypted files so the client decrypts them with the viewer's
+        // key (reviewer or researcher — both are recipients).
         const approvedJobFiles = studyJob.files.filter(
             (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
         )
 
-        const jobFiles: JobFile[] = []
+        const encryptedJobFiles = []
         for (const jobFile of approvedJobFiles) {
             const blob = await fetchFileContents(jobFile.path)
-            const contents = await blob.arrayBuffer()
-            jobFiles.push({
-                contents,
-                path: jobFile.name,
+            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
+            const metadata = await reader.listFiles()
+            encryptedJobFiles.push({
                 fileType: jobFile.fileType,
+                sourceId: jobFile.id,
+                blob,
+                metadata,
             })
         }
 
-        return jobFiles
+        return encryptedJobFiles
     })
 
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')

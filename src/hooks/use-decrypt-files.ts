@@ -1,5 +1,5 @@
 import { reportMutationError } from '@/components/errors'
-import { approvedTypeForFile } from '@/lib/file-type-helpers'
+import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useMutation } from '@/common'
@@ -37,7 +37,9 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 decryptedFiles.push({
                     ...extractedFile,
                     sourceId: encryptedBlob.sourceId,
-                    fileType: approvedTypeForFile(encryptedBlob.fileType),
+                    // Map an encrypted type to its approved form; an already-approved input
+                    // (researcher viewing shared results) keeps its type.
+                    fileType: ENCRYPTED_TO_APPROVED[encryptedBlob.fileType] ?? encryptedBlob.fileType,
                 })
             }
         }

@@ -8,6 +8,7 @@ import { Routes } from '@/lib/routes'
 import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import { reEncryptApprovedFiles } from '@/lib/re-encrypt-results'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -42,7 +43,10 @@ export const JobReviewButtons = ({
             }
 
             if (status === 'FILES-APPROVED') {
-                await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
+                // Re-encrypt approved files for reviewers + researchers client-side; only
+                // ciphertext is sent to the server.
+                const jobFiles = await reEncryptApprovedFiles(job.studyId, decryptedResults)
+                await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles })
             }
 
             if (status === 'FILES-REJECTED') {

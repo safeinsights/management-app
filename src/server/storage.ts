@@ -48,7 +48,8 @@ export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file:
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }
 
-// TODO No longer exists in future iteration
+// Stores an approved results file. Its contents are now a re-encrypted zip (wrapped
+// for reviewers + researchers client-side) — ciphertext, never plaintext.
 export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType, sourceId: string) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType, sourceId)
 }

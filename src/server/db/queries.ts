@@ -455,6 +455,32 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
     })
 }
 
+/**
+ * Recipients for re-encrypting a study's approved results: the enclave org that
+ * runs/reviews it (`study.orgId`, so reviewers keep access) plus the lab org that
+ * submitted it (`study.submittedByOrgId`, the researchers). Deduped by fingerprint
+ * since one person may belong to both orgs with a single key. si-encryption
+ * (ArrayBuffer) format; empty if the study/users have no keys.
+ */
+export async function getResultsRecipientPublicKeys(studyId: string): Promise<PublicKey[]> {
+    const study = await Action.db
+        .selectFrom('study')
+        .where('id', '=', studyId)
+        .select(['orgId', 'submittedByOrgId'])
+        .executeTakeFirst()
+
+    if (!study) return []
+
+    const [reviewerKeys, researcherKeys] = await Promise.all([
+        getOrgPublicKeys(study.orgId),
+        getOrgPublicKeys(study.submittedByOrgId),
+    ])
+
+    const byFingerprint = new Map<string, PublicKey>()
+    for (const key of [...reviewerKeys, ...researcherKeys]) byFingerprint.set(key.fingerprint, key)
+    return [...byFingerprint.values()]
+}
+
 export type StudyReviewWithMeta = {
     report: AnalysisReport
     createdAt: Date

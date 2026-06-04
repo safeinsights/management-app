@@ -14,13 +14,15 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType, type StudyJobStatus, type StudyStatus } from '@/database/types'
-import { type JobFile } from '@/lib/types'
 
-const mockedApprovedJobFiles: JobFile[] = [
+// Approved files are now re-encrypted (same shape as encrypted files); content is
+// viewed by decrypting, so the mock carries metadata, not plaintext contents.
+const mockedApprovedJobFiles = [
     {
-        contents: new TextEncoder().encode('title\nhello world').buffer as ArrayBuffer,
-        path: 'approved.csv',
+        blob: new Blob(),
+        sourceId: 'approved-1',
         fileType: 'APPROVED-RESULT' as FileType,
+        metadata: [{ path: 'approved.csv', bytes: 17 }],
     },
 ]
 
@@ -76,11 +78,12 @@ describe('View Study Results', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={job} />)
 
+        // Approved files render once per file in the unified table (not duplicated). Content
+        // is encrypted now — the row lists by name; downloading requires decryption.
         await waitFor(() => {
-            expect(screen.getByTestId('download-link')).toBeDefined()
+            expect(screen.getByText('approved.csv')).toBeDefined()
         })
-        // approved files render once per file in the unified table — not duplicated by the legacy JobResults section
-        expect(screen.getAllByTestId('download-link')).toHaveLength(1)
+        expect(screen.getAllByText('approved.csv')).toHaveLength(1)
     })
 
     it('does not duplicate rows when multiple APPROVED-RESULT files share a fileType', async () => {
@@ -110,14 +113,16 @@ describe('View Study Results', () => {
 
         vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
             {
-                contents: new TextEncoder().encode('a').buffer as ArrayBuffer,
-                path: 'results.csv',
+                blob: new Blob(),
+                sourceId: 'approved-1',
                 fileType: 'APPROVED-RESULT' as FileType,
+                metadata: [{ path: 'results.csv', bytes: 1 }],
             },
             {
-                contents: new TextEncoder().encode('b').buffer as ArrayBuffer,
-                path: 'results2.csv',
+                blob: new Blob(),
+                sourceId: 'approved-2',
                 fileType: 'APPROVED-RESULT' as FileType,
+                metadata: [{ path: 'results2.csv', bytes: 1 }],
             },
         ])
 
@@ -125,10 +130,9 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         await waitFor(() => {
-            expect(screen.getAllByTestId('download-link')).toHaveLength(2)
+            expect(screen.getAllByText('results.csv')).toHaveLength(1)
+            expect(screen.getAllByText('results2.csv')).toHaveLength(1)
         })
-        expect(screen.getAllByText('results.csv')).toHaveLength(1)
-        expect(screen.getAllByText('results2.csv')).toHaveLength(1)
     })
 
     it('renders the form to unlock results', async () => {

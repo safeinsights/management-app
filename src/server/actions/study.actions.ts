@@ -315,8 +315,9 @@ async function approveJobCode({
     if (jobFiles?.length) {
         const info = { studyId, studyJobId: job.id, orgSlug }
         for (const jobFile of jobFiles) {
+            // jobFile.contents is a RE-ENCRYPTED zip (wrapped client-side for reviewers +
+            // researchers) — we persist ciphertext only, never plaintext.
             const file = new File([jobFile.contents], jobFile.path)
-            // TODO Delete me in new approach, no longer storing approved job file
             await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
         }
     }
