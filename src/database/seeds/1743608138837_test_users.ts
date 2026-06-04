@@ -227,4 +227,28 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             await db.insertInto('orgUser').values({ userId, orgId, isAdmin: membership.isAdmin }).execute()
         }
     }
+
+    // Every test user belongs to an org that requires an encryption key (enclave or lab), so the
+    // RequireReviewerKey gate redirects them to key generation until one exists. Seed a placeholder
+    // key so e2e flows land on the real dashboard; decryption isn't exercised here, so the bytes
+    // only need to exist.
+    for (const user of TEST_USERS) {
+        const userId = userIdByRole.get(user.role)!
+
+        const existing = await db
+            .selectFrom('userPublicKey')
+            .select('id')
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+        if (existing) continue
+
+        await db
+            .insertInto('userPublicKey')
+            .values({
+                userId,
+                publicKey: Buffer.from(`e2e-test-public-key-${user.role}`),
+                fingerprint: `e2e-test-fingerprint-${user.role}`,
+            })
+            .execute()
+    }
 }
