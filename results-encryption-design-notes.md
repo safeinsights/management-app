@@ -8,6 +8,7 @@
 > **Testing: local e2e unreliable — rely on CI for e2e coverage. Unit tests still run/pass locally.**
 >
 > ## ⚠️ APPROACH PIVOT (supersedes §3–§5, §10 below)
+>
 > The detailed "Proposed implementation" (decompose the post office into Postgres + **re-wrap** PO boxes for researchers — §4.2, §4.3, Option B) was **built and then reverted**. We pivoted to **re-encrypt at approve** (Phil + NS in the living doc). See **§11** for the chosen design. Sections §3–§5/§10 are kept for rationale/history but are NOT the implementation.
 >
 > **Why pivot:** re-wrap forced encryption-library changes + new schema (`study_job_file_key`, decompose-on-ingest) + a full read-path rewrite. Re-encrypt needs **zero lib changes, no schema** — the DO browser already holds plaintext at review time, so at approve it re-encrypts the approved files for reviewers+researchers using the existing `ResultsWriter`. It also matches the living doc's own Card 74 recovery mechanic ("remove old lock, put new lock" = re-encrypt), so it's the better foundation for the documented future work. The one thing re-wrap/boxes does better — granular **revocation** ("user leaves the lab") — is noted in code at the approve site as a future consideration.
@@ -147,21 +148,23 @@ Drop `storeApprovedJobFile` plaintext write. Researchers read encrypted body + t
 ### Card 71 — Option B steps
 
 0. ✅ **Migration** (MA): extend `study_job_file` (`iv` text, `bytes` integer — both nullable; NO blob_location, redundant with `path`) + new `study_job_file_key(study_job_file_id, fingerprint, crypt, created_at)` UNIQUE(study_job_file_id, fingerprint). `1780000000000_study_job_file_keys.ts`. Types hand-stubbed in `src/database/types.ts` (CI regenerates — local DB/docker down).
-0b. ✅ **si-encryption primitives** (encryption repo): added zip-free `job-results/crypto.ts` (`unwrapAesKey` exposes raw AES bytes, `wrapAesKey` re-wrap, `decryptFileBody`, `decryptFile`) + `job-results/decompose.ts` (`decomposeResultsZip`). Reader/writer refactored to call primitives (no behavior change). 9/9 tests incl. re-wrap round-trip. **Needs push + MA `package.json` hash bump to consume.** (currently local `link:../encryption` override in `pnpm-workspace.yaml`.)
+   0b. ✅ **si-encryption primitives** (encryption repo): added zip-free `job-results/crypto.ts` (`unwrapAesKey` exposes raw AES bytes, `wrapAesKey` re-wrap, `decryptFileBody`, `decryptFile`) + `job-results/decompose.ts` (`decomposeResultsZip`). Reader/writer refactored to call primitives (no behavior change). 9/9 tests incl. re-wrap round-trip. **Needs push + MA `package.json` hash bump to consume.** (currently local `link:../encryption` override in `pnpm-workspace.yaml`.)
 1. ✅ **Ingest** (`storage.ts`): `storeDecomposedEncryptedFiles(info, file, fileType, subdir)` — `decomposeResultsZip` → per-file S3 bodies + `study_job_file`(+iv,bytes) + `study_job_file_key`(DO boxes) rows, one txn. **Results AND logs decomposed** (logs share ResultsWriter format; `results/encrypted/` vs `results/encrypted-logs/`). `storeStudyEncryptedResultsFiles` + `storeStudyEncryptedLogFile` both delegate. Route + `encrypt-and-store-log.ts` callers unchanged (same signatures).
 2. ✅ **Lab-pubkey query** `getLabPublicKeysForJob(jobId)` keyed on `study.submittedByOrgId` (queries.ts).
 3. ✅ **Decrypt/read path:** `fetchEncryptedJobFilesAction` → per-file shape `{studyJobFileId, fileType, path, iv, crypt(=my box), encryptedBody}` (resolves session fingerprint via `getReviewerPublicKey`, joins `study_job_file_key`). `getStudyJobInfo`/`latestJobForStudyQuery` selects gained `iv`/`bytes`/`id`. `use-decrypt-files` uses `decryptFile`, drops `ResultsReader`, carries `rawAesKey`+`sourceId` on `JobFileInfo`. `use-encrypted-files-panel` rewritten to per-file/option-(a) model (approved=has researcher box via new `fetchSharedFileIdsAction`/`getSharedFileIdsForJob`; one row per `job.files` entry).
 4. ✅ **Approve re-wrap:** `approveStudyJobFilesAction` now takes `sharedFiles:[{studyJobFileId, boxes:[{fingerprint,crypt}]}]`, inserts `study_job_file_key` (idempotent `onConflict doNothing`), server-validates fingerprints ∈ lab keys, no plaintext write. `job-review-buttons` fetches lab pubkeys (`fetchLabPublicKeysAction`) + `wrapAesKey` client-side per selected file. **Server never receives `rawAesKey`.** Old `fetchApprovedJobFilesAction` removed.
-5. ✅ **Researcher view:** `components/job-results.tsx` (rendered in `study/[studyId]/view/`) now fetches encrypted files + prompts for the researcher's key + decrypts (same `useDecryptFiles` path) instead of reading plaintext APPROVED-* files.
+5. ✅ **Researcher view:** `components/job-results.tsx` (rendered in `study/[studyId]/view/`) now fetches encrypted files + prompts for the researcher's key + decrypts (same `useDecryptFiles` path) instead of reading plaintext APPROVED-\* files.
 
 **Source compiles clean (`tsc`).** REMAINING:
+
 - **Tests** (~15 files): mocks still use the old `EncryptedJobFile` `{blob, metadata}` shape + `fetchApprovedJobFilesAction`; test `job.files` mocks need `id`/`bytes`. New unit tests for ingest decompose, re-wrap approve, shared-file signal, researcher decrypt view.
-- **Tangential cleanup:** `study.actions.ts:320` still writes plaintext via `storeApprovedJobFile` in the *proposal/code approval* path (pre-existing "delete me" TODO). Separate from results encryption; evaluate whether it ever carries result files before removing. `storeApprovedJobFile` now used ONLY there.
+- **Tangential cleanup:** `study.actions.ts:320` still writes plaintext via `storeApprovedJobFile` in the _proposal/code approval_ path (pre-existing "delete me" TODO). Separate from results encryption; evaluate whether it ever carries result files before removing. `storeApprovedJobFile` now used ONLY there.
 - **Cross-repo:** push encryption changes, bump MA `package.json` hash, remove `link:../encryption` override.
 
 ## 10. Approval-signal model change (discovered while rewriting panel) — NEEDS DECISION
 
 Today "approved" is encoded by the existence of an `APPROVED-RESULT` plaintext `study_job_file` row (written by `storeApprovedJobFile`). Option B (§4.5) **deletes that write**, and the new approve only inserts **researcher key boxes**. ⇒ **No `APPROVED-*` rows are created anymore.** Consequences:
+
 - `fetchApprovedJobFilesAction` (filters `APPROVED-RESULT`) returns empty → dead.
 - Panel `use-encrypted-files-panel` state model (locked / decrypted / **approved** / not-shared) loses its "approved" + "not-shared" signal.
 - There is no plaintext approved copy to view — researcher & post-approval DO both **decrypt the encrypted body** via the same path.
@@ -243,14 +246,14 @@ If product chooses **all-or-nothing** approve/reject, existing job-level status 
 **Changes — the approve write + approved-file viewing become encrypted:**
 
 1. **Approve (client, `job-review-buttons`):** the DO browser already holds the decrypted plaintext from review. For each selected approved file it re-encrypts with the **existing `ResultsWriter([...reviewerKeys, ...researcherKeys])`** → an encrypted zip, and sends those to the server. **Plaintext never leaves the browser** (improvement over today, where approve POSTs plaintext).
-   - Recipients = enclave org keys (reviewers, so DO can still view post-approval) + lab org keys (researchers). New `fetchResultsRecipientKeysAction({jobId})`.
+    - Recipients = enclave org keys (reviewers, so DO can still view post-approval) + lab org keys (researchers). New `fetchResultsRecipientKeysAction({jobId})`.
 2. **Approve (server, `approveStudyJobFilesAction`):** stores the re-encrypted zips via `storeApprovedJobFile` (now ciphertext, not plaintext). Sets `FILES-APPROVED` + `reviewerId`. No plaintext write.
-   - **Revocation note (future / Card 74):** re-encrypt cannot cleanly *revoke* a recipient who has left the lab (they may have decrypted already, and the box model is needed for true per-recipient removal). A code comment flags this at the approve site. Out of scope now.
+    - **Revocation note (future / Card 74):** re-encrypt cannot cleanly _revoke_ a recipient who has left the lab (they may have decrypted already, and the box model is needed for true per-recipient removal). A code comment flags this at the approve site. Out of scope now.
 3. **Approved viewing (`fetchApprovedJobFilesAction` → blob + metadata; researcher `components/job-results.tsx` + DO post-approval):** returns the encrypted approved zips; the client decrypts with the viewer's key via the **same** `use-decrypt-files` path. Researchers decrypt with their key; reviewers with theirs (both are recipients).
 
 **Kept from the reverted build:** `getLabPublicKeysForJob(jobId)` query (lab keys keyed on `study.submittedByOrgId`) — re-added; needed for recipient assembly.
 
-**Per-file / all-or-nothing (§6):** unaffected — re-encrypt only the selected files. Approval signal stays "APPROVED-* row exists" (unchanged from today), just encrypted content.
+**Per-file / all-or-nothing (§6):** unaffected — re-encrypt only the selected files. Approval signal stays "APPROVED-\* row exists" (unchanged from today), just encrypted content.
 
 ### Status (verified)
 

@@ -60,7 +60,9 @@ describe('approve re-encryption round trip', () => {
 
         // Reviewer retains access with the enclave (test) key.
         const reviewerPrivateKey = pemToArrayBuffer(await readTestSupportFile('private_key.pem'))
-        const reviewerFingerprint = await fingerprintKeyData(pemToArrayBuffer(await readTestSupportFile('public_key.pem')))
+        const reviewerFingerprint = await fingerprintKeyData(
+            pemToArrayBuffer(await readTestSupportFile('public_key.pem')),
+        )
         expect(await decryptWith(reviewerPrivateKey, reviewerFingerprint)).toBe(plaintext)
     })
 })
