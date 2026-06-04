@@ -75,10 +75,30 @@ export default async function StudyReviewPage(props: {
             if (isActionError(codeEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
             }
+            const job = await latestJobForStudyOrNull(studyId)
             if (codeEntries.length > 0) {
-                const job = await latestJobForStudyOrNull(studyId)
                 return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
+
+            // OTTER-538 QA: a study can reach the code-approved/results stage via proposal approval,
+            // which auto-approves the code (CODE-APPROVED) without writing a code-review comment.
+            // With no code-review rows we must still land the DO on the post-code-feedback page
+            // (approved code), not the proposal "Review initial request" fallback below.
+            const codeApprovedAt = job?.statusChanges.find((s) => s.status === 'CODE-APPROVED')?.createdAt
+            if (codeApprovedAt) {
+                return (
+                    <PostFeedbackView
+                        orgSlug={orgSlug}
+                        study={study}
+                        entries={[]}
+                        kind="CODE"
+                        job={job}
+                        fallbackDecision="APPROVE"
+                        fallbackTimestamp={codeApprovedAt}
+                    />
+                )
+            }
+
             const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(proposalEntries)) {
                 return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />

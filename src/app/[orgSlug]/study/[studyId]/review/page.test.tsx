@@ -465,5 +465,39 @@ describe('StudyReviewPage', () => {
                 true,
             )
         })
+
+        // OTTER-538 QA (DO): a study approved via proposal approval auto-approves the code
+        // (CODE-APPROVED) WITHOUT writing a code-review comment. "Previous" from the results-stage
+        // Study Details page (?from=code-review) must still land on the post-code-feedback page,
+        // not the proposal "Review initial request" fallback. Renders kind=CODE via the APPROVE
+        // fallback derived from the CODE-APPROVED job status.
+        it('renders post-code-feedback (kind=CODE, fallback APPROVE) when from=code-review at results with CODE-APPROVED but no code-review comment', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-APPROVED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(0)
+            expect(page?.props.fallbackDecision).toBe('APPROVE')
+            expect(page?.props.fallbackTimestamp).toBeTruthy()
+        })
     })
 })

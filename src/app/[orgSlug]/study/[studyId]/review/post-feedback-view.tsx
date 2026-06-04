@@ -23,6 +23,13 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
+    /**
+     * Render the decision banner + timestamp from these when `entries` carries no decision. Code
+     * auto-approved via proposal approval leaves a CODE-APPROVED job status but no code-review
+     * comment, so the page would otherwise blank out; the fallback keeps the approved code page.
+     */
+    fallbackDecision?: ReviewDecision
+    fallbackTimestamp?: Date | string
 }
 
 type DecisionCopy = {
@@ -135,7 +142,7 @@ type CodeSectionProps = {
     job: LatestJobForStudy | null
     kindCopy: KindCopy
     timestampLabel: string
-    timestampDate: Date
+    timestampDate: Date | string | null
     banner: ReactNode
 }
 
@@ -208,16 +215,25 @@ function buildCrumbs({
     return [dashboard, proposalCrumb, current]
 }
 
-export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', job = null }: PostFeedbackViewProps) {
+export function PostFeedbackView({
+    orgSlug,
+    study,
+    entries,
+    kind = 'PROPOSAL',
+    job = null,
+    fallbackDecision,
+    fallbackTimestamp,
+}: PostFeedbackViewProps) {
     const latest = entries[0]
-    if (!latest || latest.decision === null) {
+    const decision = latest?.decision ?? fallbackDecision ?? null
+    if (decision === null) {
         return null
     }
 
-    const decision = latest.decision
     const kindCopy = COPY_BY_KIND[kind]
     const decisionCopy = kindCopy.decisionCopy[decision]
     const timestampLabel = decisionCopy?.timestampLabel ?? PROPOSAL_DECISION_COPY[decision].timestampLabel
+    const timestampDate = latest?.createdAt ?? fallbackTimestamp ?? null
     const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
     const isCode = kind === 'CODE'
@@ -235,7 +251,7 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', j
                     job={job}
                     kindCopy={kindCopy}
                     timestampLabel={timestampLabel}
-                    timestampDate={latest.createdAt}
+                    timestampDate={timestampDate}
                     banner={banner}
                 />
                 <ProposalSection
