@@ -13,7 +13,8 @@ import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ProposalReviewView, REJECTION_WARNING, ReviewConfirmationModal } from './proposal-review-view'
+import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/review-confirmation-modal'
+import { ProposalReviewView } from './proposal-review-view'
 
 describe('ProposalReviewView', () => {
     let study: Submitted<SelectedStudy>
@@ -151,8 +152,13 @@ describe('ProposalReviewView', () => {
                     title="Reject initial request"
                     confirmLabel="Reject initial request"
                     variant="destructive"
-                    warning={REJECTION_WARNING}
-                />,
+                >
+                    <span>
+                        Please confirm you are ready to submit your review. Further edits are not permitted once
+                        submitted.
+                    </span>
+                    {REJECTION_WARNING}
+                </ReviewConfirmationModal>,
             )
 
             const dialog = screen.getByRole('dialog')
@@ -175,7 +181,12 @@ describe('ProposalReviewView', () => {
                     isPending={false}
                     title="Confirm review submission?"
                     confirmLabel="Yes, submit review"
-                />,
+                >
+                    <span>
+                        Please confirm you are ready to submit your review. Further edits are not permitted once
+                        submitted.
+                    </span>
+                </ReviewConfirmationModal>,
             )
 
             const dialog = screen.getByRole('dialog')

@@ -35,6 +35,11 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
     const canSubmit = form.isValid() && hasUserProvidedTitle(title)
 
+    const handleConfirmSubmit = () => {
+        closeConfirm()
+        submitProposal()
+    }
+
     const handlePrevious = async () => {
         const saved = await saveDraft()
         // Tell the Edit page this nav is the explicit Step 2 → Step 1 back-step
@@ -85,7 +90,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
             <SubmitConfirmationModal
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
-                onConfirm={submitProposal}
+                onConfirm={handleConfirmSubmit}
                 isSubmitting={isSubmitting}
                 title="Confirm initial request submission?"
                 body="Please confirm you are ready to submit your initial request. Further edits are not permitted once submitted."
