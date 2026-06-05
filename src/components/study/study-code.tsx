@@ -20,6 +20,11 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
+    const handleConfirmSubmit = () => {
+        closeConfirm()
+        ide.submitDirectly()
+    }
+
     const footer = (
         <Group mt="xxl" justify="space-between" w="100%">
             <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
@@ -49,7 +54,7 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
             <SubmitConfirmationModal
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
-                onConfirm={ide.submitDirectly}
+                onConfirm={handleConfirmSubmit}
                 isSubmitting={ide.isDirectSubmitting}
                 title="Confirm study code submission?"
                 body="Please confirm you are ready to submit your study code. Further edits are not permitted once submitted."
