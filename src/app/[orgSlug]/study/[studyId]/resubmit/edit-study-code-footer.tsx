@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoTooltip } from '@/components/tooltip'
-import { SubmitConfirmationModal } from '@/components/submit-confirmation-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 

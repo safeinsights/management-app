@@ -2,7 +2,7 @@
 
 import { useMutation } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import {
     Button,

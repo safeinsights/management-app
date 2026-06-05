@@ -1,6 +1,6 @@
 import { type FC, type ReactNode } from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 
 interface ReviewConfirmationModalProps {
     isOpen: boolean

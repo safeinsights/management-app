@@ -1,7 +1,7 @@
 'use client'
 
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/review-confirmation-modal'
+import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'

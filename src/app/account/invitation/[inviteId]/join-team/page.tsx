@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { useAuth, useUser } from '@clerk/nextjs'

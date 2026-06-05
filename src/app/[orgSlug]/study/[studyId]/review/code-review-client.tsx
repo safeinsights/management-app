@@ -7,7 +7,7 @@ import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/review-confirmation-modal'
+import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'

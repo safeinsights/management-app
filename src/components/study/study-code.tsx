@@ -6,7 +6,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
-import { SubmitConfirmationModal } from '@/components/submit-confirmation-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
