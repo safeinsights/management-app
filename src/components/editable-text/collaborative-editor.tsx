@@ -189,7 +189,10 @@ function SaveStatus({
 
 type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
 
-function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null>, currentUserId: string | undefined) {
+export function useActiveEditors(
+    providerRef: React.RefObject<HocuspocusProvider | null>,
+    currentUserId: string | undefined,
+) {
     const [editors, setEditors] = useState<ActiveEditor[]>([])
 
     useEffect(() => {
@@ -201,12 +204,13 @@ function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null
         const update = () => {
             const seen = new Map<string, ActiveEditor>()
             awareness.getStates().forEach((state, clientId) => {
+                if (clientId === awareness.clientID || !state.name) return
                 const userId = state.awarenessData?.userId
-                // current user Yjs client tab || same clerk user in diff tab || no name = skip
-                if (clientId === awareness.clientID || userId === currentUserId || !state.name) return
-                const existing = seen.get(userId)
+                if (userId === currentUserId) return
+                const key = userId ?? `client-${clientId}`
+                const existing = seen.get(key)
                 if (!existing || (!existing.focusing && state.focusing)) {
-                    seen.set(userId, { userId, name: state.name, color: state.color, focusing: state.focusing })
+                    seen.set(key, { userId: key, name: state.name, color: state.color, focusing: state.focusing })
                 }
             })
             setEditors(Array.from(seen.values()))
@@ -388,6 +392,9 @@ export function CollaborativeEditor({
     const { user } = useUser()
     const { getToken } = useAuth()
     const providerRef = useRef<HocuspocusProvider | null>(null)
+    // State mirror of providerRef — the ref is needed for synchronous access in
+    // the factory callback; state is needed so the cleanup effect can depend on
+    // the provider value.
     const [activeProvider, setActiveProvider] = useState<HocuspocusProvider | null>(null)
     const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
     const phase = useConnectionPhase()
@@ -424,7 +431,9 @@ export function CollaborativeEditor({
         publishProvider,
     )
 
-    // Re-publish after strict-mode teardown so subscribers don't stay on null.
+    // Strict-mode cleanup detaches the provider; re-attach and re-publish so
+    // the provider stays in providerMap and subscribers don't stay on null.
+    // attach() is idempotent — on first mount this is a no-op.
     useEffect(() => {
         if (providerRef.current) {
             providerRef.current.attach()
