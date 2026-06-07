@@ -197,6 +197,7 @@ vi.mock('@hocuspocus/provider', async () => {
         // Surfaced so tests can assert which document name a provider was created for.
         configuration: { name?: string } = {}
         attach = vi.fn()
+        detach = vi.fn()
         destroy = vi.fn()
         disconnect = vi.fn()
         connect = vi.fn()
