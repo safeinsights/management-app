@@ -540,6 +540,32 @@ describe('StudyReviewPage', () => {
             expect(page?.props.fallbackTimestamp).toBeTruthy()
         })
 
+        it('renders post-code-feedback (kind=CODE, fallback REJECT) when CODE-REJECTED has no code-review comment', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'REJECTED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-REJECTED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(0)
+            expect(page?.props.fallbackDecision).toBe('REJECT')
+            expect(page?.props.fallbackTimestamp).toBeTruthy()
+            expect(mockRedirect).not.toHaveBeenCalled()
+        })
+
         it('uses the submitted job for fallback APPROVE when a newer baseline job exists', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study, job } = await insertTestStudyJobData({

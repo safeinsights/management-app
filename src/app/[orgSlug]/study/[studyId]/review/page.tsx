@@ -1,6 +1,7 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import type { ReviewDecision } from '@/database/types'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
@@ -20,6 +21,12 @@ import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreeme
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsReviewer } from './study-details-reviewer'
+
+const CODE_DECISION_TO_REVIEW_DECISION: Record<string, ReviewDecision> = {
+    'CODE-APPROVED': 'APPROVE',
+    'CODE-CHANGES-REQUESTED': 'NEEDS-CLARIFICATION',
+    'CODE-REJECTED': 'REJECT',
+}
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -81,12 +88,12 @@ export default async function StudyReviewPage(props: {
                 return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
 
-            // OTTER-538 QA: a study can reach the code-approved/results stage via proposal approval,
-            // which auto-approves the code (CODE-APPROVED) without writing a code-review comment.
+            // OTTER-538 QA: a study can reach a code-decision stage via proposal approve/reject,
+            // which writes a CODE-* job status without writing a code-review comment.
             // With no code-review rows we must still land the DO on the post-code-feedback page
-            // (approved code), not the proposal "Review initial request" fallback below.
-            const codeApprovedAt = job?.statusChanges.find((s) => s.status === 'CODE-APPROVED')?.createdAt
-            if (codeApprovedAt) {
+            // (code decision), not the proposal "Review initial request" fallback below.
+            const fallbackStatus = job?.statusChanges.find((s) => isCodeDecisionStatus(s.status))
+            if (fallbackStatus) {
                 return (
                     <PostFeedbackView
                         orgSlug={orgSlug}
@@ -94,8 +101,8 @@ export default async function StudyReviewPage(props: {
                         entries={[]}
                         kind="CODE"
                         job={job}
-                        fallbackDecision="APPROVE"
-                        fallbackTimestamp={codeApprovedAt}
+                        fallbackDecision={CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status]}
+                        fallbackTimestamp={fallbackStatus.createdAt}
                     />
                 )
             }
