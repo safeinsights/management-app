@@ -82,12 +82,12 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
-                    You&apos;ve been invited to join SafeInsights!
+                    You’ve been invited to join SafeInsights!
                 </Title>
                 <Text size="md" my="xs">
                     {invitingUserName} has invited you to join {orgName} as a {isAdmin ? 'admin' : 'contributor'}. Since
-                    we couldn&apos;t find an existing account associated with this email, please select one of the
-                    options below:
+                    we couldn’t find an existing account associated with this email, please select one of the options
+                    below:
                 </Text>
                 <Text size="md" fw={600} ta="center">
                     Already have a SafeInsights account?
