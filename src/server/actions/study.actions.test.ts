@@ -1395,7 +1395,9 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
     })
 
-    it('reject writes a code-review row, marks job CODE-REJECTED, and rejects the study', async () => {
+    // OTTER-603: rejecting code fails the job only; the proposal must stay APPROVED
+    // so the proposal page keeps showing "approved" rather than flipping to rejected.
+    it('reject writes a code-review row, marks job CODE-REJECTED, and leaves study.status APPROVED', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -1416,9 +1418,9 @@ describe('submitCodeReviewDecisionAction', () => {
             .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('REJECTED')
-        expect(updatedStudy.rejectedAt).toBeTruthy()
-        expect(updatedStudy.approvedAt).toBeNull()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
 
         const latest = await latestJobForStudy(study.id)
