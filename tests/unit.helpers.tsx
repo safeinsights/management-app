@@ -354,6 +354,19 @@ export const insertTestStudyJobData = async ({
     }
 }
 
+// A baseline job is the file-less INITIATED row minted when a workspace is opened (IDE launch /
+// file upload) before any code is submitted. Pass `createdAt` to place it relative to an existing
+// submission when a test needs the baseline to be newer or older than the reviewed job.
+export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
+    const job = await db
+        .insertInto('studyJob')
+        .values(createdAt ? { studyId, createdAt } : { studyId })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
+}
+
 export const insertTestStudyOnly = async ({
     org,
     researcherId,
