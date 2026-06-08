@@ -41,8 +41,7 @@ export function ManageMFA() {
                     Secure your account with <br /> Multi-Factor Authentication
                 </Title>
                 <Text size="md">
-                    To enhance the security of your account, we&apos;re enforcing two-factor verification at
-                    SafeInsights.
+                    To enhance the security of your account, we’re enforcing two-factor verification at SafeInsights.
                 </Text>
                 <Text size="md" mb="xs">
                     You can choose to receive verification codes via text message (SMS) or use an authenticator app.

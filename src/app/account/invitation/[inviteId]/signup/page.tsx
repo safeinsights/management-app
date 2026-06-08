@@ -121,8 +121,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         Welcome To SafeInsights!
                     </Title>
                     <Text size="md">
-                        You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
-                        account.
+                        You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
                     <TextInput
                         label="Email"

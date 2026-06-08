@@ -49,6 +49,27 @@ const eslintConfig = [
             ...reactHooksPlugin.configs.recommended.rules,
             // Disable prop-types for TypeScript projects
             'react/prop-types': 'off',
+            // Ban HTML character entities in JSX text. Our production compiler (SWC)
+            // drops the space between an inline element and adjacent JSX text when that
+            // text contains an entity (swc#11392) — invisible in unit tests (Babel),
+            // broken in prod. Use the literal character instead (e.g. ’ ” &).
+            // Remove this rule once @next/swc ships the fix; see
+            // src/lib/swc-jsx-entity-whitespace.test.ts.
+            'no-restricted-syntax': [
+                'error',
+                {
+                    // typescript-eslint exposes the source text (with entities) on `raw`;
+                    // `value` is already entity-decoded, so it must be `raw` here.
+                    selector: 'JSXText[raw=/&\\w+;/]',
+                    message:
+                        'Do not use HTML character entities (e.g. &apos;, &rsquo;, &amp;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead (e.g. ’ ” &).',
+                },
+                {
+                    selector: 'JSXText[raw=/&#\\w+;/]',
+                    message:
+                        'Do not use numeric HTML character references (e.g. &#39;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead.',
+                },
+            ],
         },
         settings: {
             react: {

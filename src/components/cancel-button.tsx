@@ -25,8 +25,8 @@ export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled
             <AppModal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Cancel proposal?">
                 <Stack>
                     <Text size="md">
-                        You&apos;re about to cancel this study proposal draft. On cancel, the current proposal will be
-                        deleted and you won&apos;t be able to retrieve it in the future.
+                        You’re about to cancel this study proposal draft. On cancel, the current proposal will be
+                        deleted and you won’t be able to retrieve it in the future.
                     </Text>
                     <Text size="md">Do you want to proceed?</Text>
                     <Group>

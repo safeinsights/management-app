@@ -335,8 +335,7 @@ export type CollaborativeEditorProps = {
 function EditorUnavailable() {
     return (
         <Alert color="red" title="Editor unavailable">
-            We couldn&apos;t connect to the collaboration server. Try refreshing the page — your last saved draft is
-            safe.
+            We couldn’t connect to the collaboration server. Try refreshing the page — your last saved draft is safe.
         </Alert>
     )
 }
