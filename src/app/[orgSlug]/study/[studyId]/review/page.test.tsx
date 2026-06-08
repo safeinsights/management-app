@@ -327,6 +327,71 @@ describe('StudyReviewPage', () => {
             },
         )
 
+        // OTTER-552 staging regression: the real submitCodeReviewDecisionAction writes the
+        // CODE-* decision in the same transaction as the CODE-SUBMITTED that opened the round, so
+        // jobStatusChange.createdAt ties (it defaults to now(), constant within a transaction) and
+        // v7 ids are not reliably monotonic within a millisecond. The decision could therefore sort
+        // *behind* CODE-SUBMITTED under `createdAt desc, id desc`, leaving the DO on the active
+        // code-review page. This test pins the single CODE-SUBMITTED and the decision to the SAME
+        // createdAt, with CODE-SUBMITTED inserted last so it wins the id tiebreak — the exact
+        // arrangement that broke the old statusChanges[0] check (which would read CODE-SUBMITTED as
+        // "latest" and route to active review). The count-based routing must still land on
+        // post-feedback: one submission, one decision.
+        it.each(['CODE-APPROVED', 'CODE-CHANGES-REQUESTED', 'CODE-REJECTED'] as const)(
+            'renders PostFeedbackView (kind=CODE) when a %s decision ties on createdAt with CODE-SUBMITTED',
+            async (jobStatus) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                // Build the job by hand (no auto CODE-SUBMITTED) so the round has exactly one
+                // submission and one decision, both stamped at the same instant.
+                const { study, job } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'INITIATED',
+                })
+
+                const tiedAt = new Date('2026-06-01T00:00:00Z')
+                // Decision inserted first → lower id; CODE-SUBMITTED inserted last → higher id.
+                // Under `createdAt desc, id desc` the CODE-SUBMITTED sorts first, reproducing the
+                // non-deterministic staging order where the decision is no longer statusChanges[0].
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: jobStatus, studyJobId: job.id, createdAt: tiedAt })
+                    .execute()
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: 'CODE-SUBMITTED', studyJobId: job.id, createdAt: tiedAt })
+                    .execute()
+                await db
+                    .insertInto('studyReviewComment')
+                    .values({
+                        studyId: study.id,
+                        studyJobId: job.id,
+                        authorId: user.id,
+                        reviewKind: 'CODE',
+                        entryType: 'DECISION',
+                        decision: jobStatus === 'CODE-APPROVED' ? 'APPROVE' : 'REJECT',
+                        body: { root: { type: 'root', children: [] } },
+                        criteria: {
+                            proposalAlignment: 'yes',
+                            agreementCompliance: 'yes',
+                            securityChecks: 'yes',
+                            privacyProtection: 'yes',
+                        },
+                    })
+                    .execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(PostFeedbackView)
+                expect(page?.props.kind).toBe('CODE')
+                expect(mockRedirect).not.toHaveBeenCalled()
+            },
+        )
+
         it('renders CodeReview (active review) when code was resubmitted after a change request', async () => {
             // CODE-CHANGES-REQUESTED followed by a fresh CODE-SUBMITTED means the researcher
             // resubmitted; the DO must return to active review, not the decision page. Gating
@@ -363,6 +428,64 @@ describe('StudyReviewPage', () => {
 
             expect(page?.type).toBe(CodeReview)
         })
+
+        // Execution window: approved code is provisioning/running in the enclave but no results
+        // exist yet. The DO must stay on the post-code-feedback page (mirroring the RL Code-approved
+        // page, view/page.tsx), NOT fall back to active code review — that fallback was the original
+        // OTTER-552 bug's failure mode. Results-status routing (OTTER-538) only takes over once a
+        // RUN-COMPLETE/FILES-*/JOB-ERRORED status exists.
+        it.each(['JOB-PROVISIONING', 'JOB-PACKAGING', 'JOB-READY', 'JOB-RUNNING'] as const)(
+            'renders PostFeedbackView (kind=CODE) while approved code is executing (%s, no results yet)',
+            async (runningStatus) => {
+                const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+                const { study, job } = await insertTestStudyJobData({
+                    org,
+                    researcherId: user.id,
+                    studyStatus: 'APPROVED',
+                    jobStatus: 'CODE-SUBMITTED',
+                })
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: 'CODE-APPROVED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                    .execute()
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ status: runningStatus, studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                    .execute()
+                await db
+                    .insertInto('studyReviewComment')
+                    .values({
+                        studyId: study.id,
+                        studyJobId: job.id,
+                        authorId: user.id,
+                        reviewKind: 'CODE',
+                        entryType: 'DECISION',
+                        decision: 'APPROVE',
+                        body: { root: { type: 'root', children: [] } },
+                        criteria: {
+                            proposalAlignment: 'yes',
+                            agreementCompliance: 'yes',
+                            securityChecks: 'yes',
+                            privacyProtection: 'yes',
+                        },
+                    })
+                    .execute()
+                await db
+                    .updateTable('study')
+                    .set({ reviewerAgreementsAckedAt: new Date() })
+                    .where('id', '=', study.id)
+                    .execute()
+
+                const page = await StudyReviewPage({
+                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                    searchParams: Promise.resolve({}),
+                })
+
+                expect(page?.type).toBe(PostFeedbackView)
+                expect(page?.props.kind).toBe('CODE')
+                expect(mockRedirect).not.toHaveBeenCalled()
+            },
+        )
     })
 
     describe('study-details redesign (OTTER-538)', () => {
