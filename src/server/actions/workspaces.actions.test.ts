@@ -1,4 +1,10 @@
-import { mockSessionWithTestData, actionResult, insertTestStudyJobData, db } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    insertTestBaselineJob,
+    insertTestStudyJobData,
+    db,
+} from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -173,12 +179,7 @@ describe('Workspace Actions', () => {
                 .execute()
 
             // A relaunch opens a fresh INITIATED round-2 job (newer) with no files.
-            const round2 = await db
-                .insertInto('studyJob')
-                .values({ studyId: study.id })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-            await db.insertInto('jobStatusChange').values({ studyJobId: round2.id, status: 'INITIATED' }).execute()
+            await insertTestBaselineJob(study.id)
 
             const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
             const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))

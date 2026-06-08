@@ -1,5 +1,5 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { countSubmittedJobsForStudy, getOrgNameFromId, latestJobForStudyOrNull } from '@/server/db/queries'
+import { countSubmittedJobsForStudy, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -31,7 +31,11 @@ export default async function StudyReviewPage(props: {
 
     const study = actionResult(await getStudyAction({ studyId }))
 
-    const job = await latestJobForStudyOrNull(studyId)
+    // Anchor routing on the latest *submitted* job, not the newest job row. A fresh baseline
+    // job (IDE launch / file upload, status only INITIATED) can be newer than the reviewed
+    // submission and would otherwise mask CODE-SUBMITTED / the code decision, dead-ending the
+    // researcher on the proposal/post-submission page after a refresh (OTTER-556).
+    const job = await latestSubmittedJobForStudy(studyId)
 
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
@@ -39,9 +43,10 @@ export default async function StudyReviewPage(props: {
     const fromAgreements = searchParams.from === 'agreements'
     const fromCodeSubmission = searchParams.from === 'code-submission'
 
-    // Only show code views if code was actually submitted (not just a baseline job from IDE launch).
-    // When the researcher navigates back from agreements (?from=agreements), show the read-only
-    // proposal view instead so they can reach the proposal even after submitting code.
+    // Baseline-only jobs are already excluded by latestSubmittedJobForStudy; this confirms the
+    // submitted job carries CODE-SUBMITTED before routing into the code views. When the researcher
+    // navigates back from agreements (?from=agreements), show the read-only proposal view instead
+    // so they can reach the proposal even after submitting code.
     const codeSubmitted = job?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
     if (job && codeSubmitted && !fromAgreements) {
         const latestJobStatus = job.statusChanges[0]?.status

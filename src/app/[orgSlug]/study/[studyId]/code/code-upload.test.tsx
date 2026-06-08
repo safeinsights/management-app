@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestBaselineJob,
     insertTestStudyOnly,
     it,
     mockSessionWithTestData,
@@ -40,17 +41,6 @@ const setupStudy = async (orgSlug = 'openstax') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
     return { study }
-}
-
-const createBaselineJob = async (studyId: string) => {
-    const createdAt = new Date(Date.now() - 1000)
-    const job = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
-    return job
 }
 
 const renderPage = async (orgSlug = 'openstax') => {
@@ -111,7 +101,7 @@ describe('CodeUploadPage', () => {
 
     it('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -161,7 +151,7 @@ describe('CodeUploadPage', () => {
     it('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
         const orgSlug = 'openstax'
         const { study } = await setupStudy(orgSlug)
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -203,7 +193,7 @@ describe('CodeUploadPage', () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
