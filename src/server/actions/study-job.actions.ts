@@ -174,7 +174,10 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     )
     .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        // Include submittedByOrgId so the 'view StudyJob' ability matches lab researchers
+        // (permissions.ts permits view when submittedByOrgId ∈ the user's researcher orgs),
+        // not just enclave reviewers — researchers fetch their own re-wrapped result files here.
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
     })
     .requireAbilityTo('view', 'StudyJob')
 

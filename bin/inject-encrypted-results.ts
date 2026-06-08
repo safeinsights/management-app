@@ -67,29 +67,61 @@ async function main() {
     }
     console.info(`Encrypting for ${reviewerKeys.length} reviewer key(s) in org ${info.orgSlug}`)
 
-    const resultsZip = await buildZip(
-        [
-            { name: 'results.csv', content: 'group,count\nA,42\nB,17\n' },
-            { name: 'summary.txt', content: 'analysis complete: 2 groups\n' },
-        ],
-        reviewerKeys,
-    )
-    const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
-
-    await storeStudyEncryptedResultsFile(info, resultsZip)
-    await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')
-
-    const already = await db
-        .selectFrom('jobStatusChange')
+    // Idempotent: don't stack duplicate result rows if re-run against the same job.
+    const alreadyHasResults = await db
+        .selectFrom('studyJobFile')
+        .select('id')
         .where('studyJobId', '=', jobId)
-        .where('status', '=', 'RUN-COMPLETE')
+        .where('fileType', '=', 'ENCRYPTED-RESULT')
         .executeTakeFirst()
-    if (!already) {
-        await db.insertInto('jobStatusChange').values({ status: 'RUN-COMPLETE', studyJobId: jobId }).execute()
+
+    if (alreadyHasResults) {
+        console.info(`Job already has encrypted results — skipping store (delete study_job_file rows to re-inject).`)
+    } else {
+        const resultsZip = await buildZip(
+            [
+                { name: 'results.csv', content: 'group,count\nA,42\nB,17\n' },
+                { name: 'summary.txt', content: 'analysis complete: 2 groups\n' },
+            ],
+            reviewerKeys,
+        )
+        const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
+        await storeStudyEncryptedResultsFile(info, resultsZip)
+        await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')
     }
 
-    console.info(`✓ injected encrypted results + logs for job ${jobId} (status RUN-COMPLETE)`)
-    console.info(`  Now: review the study as the reviewer, decrypt with the reviewer PEM, approve.`)
+    // Make the status chain realistic. A results-stage job must have had its code
+    // approved first — otherwise the proposal-level review buttons stay visible (they
+    // only hide once the study is APPROVED *and* the code was reviewed). Inject
+    // CODE-APPROVED before RUN-COMPLETE so the latest status stays RUN-COMPLETE and the
+    // page shows only the results Approve/Reject.
+    const statuses = await db
+        .selectFrom('jobStatusChange')
+        .select(['status', 'createdAt'])
+        .where('studyJobId', '=', jobId)
+        .execute()
+    const has = (s: string) => statuses.some((r) => r.status === s)
+    const runComplete = statuses.find((r) => r.status === 'RUN-COMPLETE')
+
+    if (!has('CODE-APPROVED')) {
+        // 1s before an existing RUN-COMPLETE, or 2s in the past on a fresh job so it
+        // reliably precedes the RUN-COMPLETE inserted just below.
+        const ts = runComplete
+            ? new Date(new Date(runComplete.createdAt).getTime() - 1000)
+            : new Date(Date.now() - 2000)
+        await db
+            .insertInto('jobStatusChange')
+            .values({ status: 'CODE-APPROVED', studyJobId: jobId, createdAt: ts })
+            .execute()
+    }
+    if (!runComplete) {
+        await db.insertInto('jobStatusChange').values({ status: 'RUN-COMPLETE', studyJobId: jobId }).execute()
+    }
+    // Code approved ⇒ proposal-level review is done; study is back to APPROVED.
+    await db.updateTable('study').set({ status: 'APPROVED' }).where('id', '=', info.studyId).execute()
+
+    console.info(`✓ injected encrypted results + logs for job ${jobId} (CODE-APPROVED → RUN-COMPLETE, study APPROVED)`)
+    console.info(`  Now: review as the reviewer, decrypt with the reviewer PEM, Approve in the Study Status card.`)
     await db.destroy()
 }
 

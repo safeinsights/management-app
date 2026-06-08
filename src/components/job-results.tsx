@@ -117,6 +117,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
             <Text size="sm" fw={600}>
                 {logLabel(file.fileType)}:
             </Text>
+            <Text size="sm">{file.path}</Text>
             <ViewResultsLink content={file.contents} />
             <span
                 style={{
