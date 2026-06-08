@@ -120,6 +120,20 @@ describe('StudyReviewPage', () => {
             studyStatus: 'APPROVED',
             jobStatus: 'CODE-SUBMITTED',
         })
+        // Proposal feedback so the from=code-review proposal fallback renders a real
+        // PostFeedbackView. With no feedback of any kind the page now falls through to active review.
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                version: 1,
+            })
+            .execute()
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -204,6 +218,32 @@ describe('StudyReviewPage', () => {
         expect(page?.props.kind).toBeUndefined()
         expect(page?.props.entries).toHaveLength(1)
         expect(page?.props.entries[0].authorRole).toBe('REVIEWER')
+    })
+
+    it('falls through to active CodeReview (not a blank page) when from=code-review with no code-review, no CODE-APPROVED, and no proposal feedback', async () => {
+        // A study approved with zero feedback (approveStudyProposalAction writes no comment) whose
+        // code still awaits its first decision: the proposal fallback would otherwise render a blank
+        // PostFeedbackView (null on an empty list). Instead the page falls through to active review.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .updateTable('study')
+            .set({ reviewerAgreementsAckedAt: new Date() })
+            .where('id', '=', study.id)
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'code-review' }),
+        })
+
+        expect(page?.type).toBe(CodeReview)
+        expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('renders ProposalReviewView for enclave without code', async () => {
@@ -464,6 +504,100 @@ describe('StudyReviewPage', () => {
             expect(page?.props.entries.some((e: { entryType: string }) => e.entryType === 'RESUBMISSION-NOTE')).toBe(
                 true,
             )
+        })
+
+        // OTTER-538 QA (DO): a study approved via proposal approval auto-approves the code
+        // (CODE-APPROVED) WITHOUT writing a code-review comment. "Previous" from the results-stage
+        // Study Details page (?from=code-review) must still land on the post-code-feedback page,
+        // not the proposal "Review initial request" fallback. Renders kind=CODE via the APPROVE
+        // fallback derived from the CODE-APPROVED job status.
+        it('renders post-code-feedback (kind=CODE, fallback APPROVE) when from=code-review at results with CODE-APPROVED but no code-review comment', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-APPROVED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(0)
+            expect(page?.props.fallback?.decision).toBe('APPROVE')
+            expect(page?.props.fallback?.timestamp).toBeTruthy()
+        })
+
+        it('renders post-code-feedback (kind=CODE, fallback REJECT) when CODE-REJECTED has no code-review comment', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'REJECTED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-REJECTED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.entries).toHaveLength(0)
+            expect(page?.props.fallback?.decision).toBe('REJECT')
+            expect(page?.props.fallback?.timestamp).toBeTruthy()
+            expect(mockRedirect).not.toHaveBeenCalled()
+        })
+
+        it('uses the submitted job for fallback APPROVE when a newer baseline job exists', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'CODE-APPROVED', studyJobId: job.id, createdAt: new Date(Date.now() + 1000) })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ status: 'RUN-COMPLETE', studyJobId: job.id, createdAt: new Date(Date.now() + 2000) })
+                .execute()
+            const baselineJob = await db
+                .insertInto('studyJob')
+                .values({ studyId: study.id, createdAt: new Date(Date.now() + 3000) })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            await db.insertInto('jobStatusChange').values({ status: 'INITIATED', studyJobId: baselineJob.id }).execute()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ from: 'code-review' }),
+            })
+
+            expect(page?.type).toBe(PostFeedbackView)
+            expect(page?.props.kind).toBe('CODE')
+            expect(page?.props.job.id).toBe(job.id)
+            expect(page?.props.fallback?.decision).toBe('APPROVE')
         })
     })
 })
