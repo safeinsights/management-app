@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId } from '@/server/db/queries'
+import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
@@ -139,24 +139,39 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
+        // Submit-enable compares workspace file mtimes against this baseline. Anchor it on the last
+        // *submission* (the CODE-SUBMITTED moment), not the current round job's createdAt: reusing a
+        // job means its createdAt no longer advances on relaunch, so anchoring there would let Submit
+        // re-enable with no edits after a study was already submitted (OTTER-601). Comparing against
+        // the submission time means Submit only lights up when a file actually changed since submit.
+        const submittedJob = await latestSubmittedJobForStudy(studyId)
+
+        if (submittedJob) {
+            const submittedAt = submittedJob.statusChanges.find((s) => s.status === 'CODE-SUBMITTED')?.createdAt
+            const codeFiles = submittedJob.files.filter(
+                (f) => f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE',
+            )
+            return {
+                createdAt: new Date(submittedAt ?? submittedJob.createdAt).toISOString(),
+                mainFileName: codeFiles.find((f) => f.fileType === 'MAIN-CODE')?.name ?? null,
+                fileNames: codeFiles.map((f) => f.name),
+            }
+        }
+
+        // No submission yet: fall back to the current round job's createdAt so the first submit
+        // enables once files are edited after the workspace was opened.
         const studyJob = await db
             .selectFrom('studyJob')
-            .select(['id', 'createdAt'])
+            .select(['createdAt'])
             .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
+            .orderBy('id', 'desc')
             .executeTakeFirst()
 
         if (!studyJob) return null
 
-        const files = await db
-            .selectFrom('studyJobFile')
-            .select(['name', 'fileType'])
-            .where('studyJobId', '=', studyJob.id)
-            .execute()
-
         return {
             createdAt: studyJob.createdAt.toISOString(),
-            mainFileName: files.find((f) => f.fileType === 'MAIN-CODE')?.name ?? null,
-            fileNames: files.map((f) => f.name),
+            mainFileName: null,
+            fileNames: [],
         }
     })
