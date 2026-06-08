@@ -14,6 +14,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
@@ -63,6 +64,11 @@ const renderPage = async (orgSlug = 'openstax') => {
         />,
     )
     return { study }
+}
+
+const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 }
 
 describe('CodeUploadPage', () => {
@@ -135,6 +141,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
             const updated = await db
@@ -176,6 +183,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
             const updated = await db
@@ -218,6 +226,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(

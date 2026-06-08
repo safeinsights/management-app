@@ -6,7 +6,7 @@ import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dis
 import { useQuery } from '@/common'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { FilePreviewModal } from '@/components/file-preview-modal'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { studyCodeURL } from '@/lib/paths'
 
 type SubmittedFile = LatestJobForStudy['files'][number]

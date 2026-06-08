@@ -127,6 +127,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
+    // Confirmation modal gates the submission
+    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    await expect(confirmButton).toBeVisible()
+    await confirmButton.click()
+
     // Code submission redirects to the post-submission code view (CodePostSubmissionView).
     // Wait on a banner unique to that view rather than the URL — the post-submission
     // banner only appears after the mutation completes and the page re-renders.
@@ -160,6 +165,11 @@ async function uploadCodeViaIDE(page: Page) {
     // Footer overlap workaround — see uploadCodeViaFileUpload
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
+
+    // Confirmation modal gates the submission
+    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    await expect(confirmButton).toBeVisible()
+    await confirmButton.click()
 
     // Code submission redirects to the post-submission view; wait on the banner.
     await expect(page.getByTestId('code-under-review-banner')).toBeVisible()

@@ -1,5 +1,5 @@
 import { useState, type FC } from '@/common'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { useSession } from '@/hooks/session'
 import { useUser } from '@clerk/nextjs'
 import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
