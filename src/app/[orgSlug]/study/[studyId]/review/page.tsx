@@ -6,7 +6,12 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { type CodeDecisionStatus, isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
+import {
+    type CodeDecisionStatus,
+    isCodeDecisionStatus,
+    isStudyResultsStatus,
+    latestSubmittedJobHasLiveCodeDecision,
+} from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
@@ -63,14 +68,24 @@ export default async function StudyReviewPage(props: {
     if (currentOrg.type === 'enclave') {
         // OTTER-552: once a code-review decision has been made, opening the study (e.g. via
         // the dashboard "View" link, which carries no `from` param) must land the DO on the
-        // post-feedback code page — not the active code-review/decision page. We gate on the
-        // *latest* job status so a subsequent resubmission (a fresh CODE-SUBMITTED after a
-        // change request) reopens active review instead of sticking on the decision page.
+        // post-feedback code page — not the active code-review/decision page. The decision is
+        // detected order-independently (counting submissions vs decisions) so a subsequent
+        // resubmission reopens active review while a decision written in the same transaction as
+        // a sibling status still routes to post-feedback.
         const latestDecisionJob = await latestSubmittedJobForStudy(studyId)
+        const statusChanges = latestDecisionJob?.statusChanges ?? []
         const codeSubmitted =
-            studyHasJobStatus(study, 'CODE-SUBMITTED') ||
-            (latestDecisionJob?.statusChanges.some((s) => s.status === 'CODE-SUBMITTED') ?? false)
-        const decisionMade = isCodeDecisionStatus(latestDecisionJob?.statusChanges[0]?.status)
+            studyHasJobStatus(study, 'CODE-SUBMITTED') || statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        // Order-independent: reading statusChanges[0] (the "latest" status) is non-deterministic
+        // for statuses written in the same transaction. See latestSubmittedJobHasLiveCodeDecision.
+        const hasLiveCodeDecision = latestSubmittedJobHasLiveCodeDecision(statusChanges)
+        // Once the job has reached a results stage (approve -> provisioning/run -> results) the
+        // dashboard "View" link must land on the results-only Study Details page (OTTER-538), not
+        // the post-feedback page. A CODE-APPROVED is always present at that point, so gate it out
+        // here. The explicit `from=code-review` "Previous" navigation still routes to post-feedback
+        // below regardless of results status.
+        const hasResultsStatus = statusChanges.some((s) => isStudyResultsStatus(s.status))
+        const decisionMade = hasLiveCodeDecision && !hasResultsStatus
 
         // When a reviewer navigates back from the code review page, OR the code decision has
         // already been made, show the post-feedback view. After a code-review decision exists,
@@ -142,10 +157,9 @@ export default async function StudyReviewPage(props: {
             }
 
             // OTTER-538: once the job has reached the results stage, render the
-            // redesigned results-only Study Details page.
-            const latestJobStatus = latestDecisionJob?.statusChanges[0]?.status
-
-            if (isStudyResultsStatus(latestJobStatus)) {
+            // redesigned results-only Study Details page. Existence check (not statusChanges[0])
+            // so a results status written alongside a sibling in one transaction still routes here.
+            if (hasResultsStatus) {
                 return <StudyDetailsReviewer orgSlug={orgSlug} study={study} />
             }
 
