@@ -536,8 +536,8 @@ describe('StudyReviewPage', () => {
             expect(page?.type).toBe(PostFeedbackView)
             expect(page?.props.kind).toBe('CODE')
             expect(page?.props.entries).toHaveLength(0)
-            expect(page?.props.fallbackDecision).toBe('APPROVE')
-            expect(page?.props.fallbackTimestamp).toBeTruthy()
+            expect(page?.props.fallback?.decision).toBe('APPROVE')
+            expect(page?.props.fallback?.timestamp).toBeTruthy()
         })
 
         it('renders post-code-feedback (kind=CODE, fallback REJECT) when CODE-REJECTED has no code-review comment', async () => {
@@ -561,8 +561,8 @@ describe('StudyReviewPage', () => {
             expect(page?.type).toBe(PostFeedbackView)
             expect(page?.props.kind).toBe('CODE')
             expect(page?.props.entries).toHaveLength(0)
-            expect(page?.props.fallbackDecision).toBe('REJECT')
-            expect(page?.props.fallbackTimestamp).toBeTruthy()
+            expect(page?.props.fallback?.decision).toBe('REJECT')
+            expect(page?.props.fallback?.timestamp).toBeTruthy()
             expect(mockRedirect).not.toHaveBeenCalled()
         })
 
@@ -597,7 +597,7 @@ describe('StudyReviewPage', () => {
             expect(page?.type).toBe(PostFeedbackView)
             expect(page?.props.kind).toBe('CODE')
             expect(page?.props.job.id).toBe(job.id)
-            expect(page?.props.fallbackDecision).toBe('APPROVE')
+            expect(page?.props.fallback?.decision).toBe('APPROVE')
         })
     })
 })

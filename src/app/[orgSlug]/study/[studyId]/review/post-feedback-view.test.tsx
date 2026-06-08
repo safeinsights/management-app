@@ -435,18 +435,17 @@ describe('PostFeedbackView', () => {
         })
 
         // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
-        // but no code-review comment, so `entries` is empty. The fallback decision/timestamp keep
+        // but no code-review comment, so `entries` is empty. The fallback decision metadata keeps
         // the approved code page rendering instead of blanking out.
         describe('fallback decision (no code-review comment)', () => {
-            it('renders the approved code page from fallbackDecision/fallbackTimestamp when entries are empty', () => {
+            it('renders the approved code page from fallback when entries are empty', () => {
                 renderWithProviders(
                     <PostFeedbackView
                         orgSlug={ORG_SLUG}
                         study={study}
                         entries={[]}
                         kind="CODE"
-                        fallbackDecision="APPROVE"
-                        fallbackTimestamp={new Date('2026-04-21T10:00:00Z')}
+                        fallback={{ decision: 'APPROVE', timestamp: new Date('2026-04-21T10:00:00Z') }}
                     />,
                 )
 

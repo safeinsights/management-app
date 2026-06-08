@@ -101,8 +101,10 @@ export default async function StudyReviewPage(props: {
                         entries={[]}
                         kind="CODE"
                         job={job}
-                        fallbackDecision={CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status]}
-                        fallbackTimestamp={fallbackStatus.createdAt}
+                        fallback={{
+                            decision: CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status],
+                            timestamp: fallbackStatus.createdAt,
+                        }}
                     />
                 )
             }
