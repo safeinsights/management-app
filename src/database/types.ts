@@ -255,13 +255,25 @@ export interface StudyJob {
 }
 
 export interface StudyJobFile {
+    approvedAt: Timestamp | null
+    approvedByUserId: string | null
+    bytes: number | null
     createdAt: Generated<Timestamp>
     fileType: StudyJobFileType
     id: Generated<string>
+    iv: string | null
     name: string
     path: string
     sourceId: string | null
     studyJobId: string
+}
+
+export interface StudyJobFileKey {
+    createdAt: Generated<Timestamp>
+    crypt: string
+    fingerprint: string
+    id: Generated<string>
+    studyJobFileId: string
 }
 
 export interface StudyProposalComment {
@@ -340,6 +352,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileKey: StudyJobFileKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment

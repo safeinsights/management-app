@@ -55,7 +55,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path', 'fileType'])
+                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -103,7 +103,7 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
+                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes', 'createdAt'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -455,30 +455,48 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
     })
 }
 
+const labOrgIdForJob = async (jobId: string) =>
+    await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select('study.submittedByOrgId')
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
+
 /**
- * Recipients for re-encrypting a study's approved results: the enclave org that
- * runs/reviews it (`study.orgId`, so reviewers keep access) plus the lab org that
- * submitted it (`study.submittedByOrgId`, the researchers). Deduped by fingerprint
- * since one person may belong to both orgs with a single key. si-encryption
- * (ArrayBuffer) format; empty if the study/users have no keys.
+ * Public keys of the lab org that submitted the study (`study.submittedByOrgId`) —
+ * the researchers. These are the recipients a reviewer re-wraps approved files for.
  */
-export async function getResultsRecipientPublicKeys(studyId: string): Promise<PublicKey[]> {
-    const study = await Action.db
+export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await labOrgIdForJob(jobId)
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// Same lab (researcher) recipient keys, resolved from the study directly — used by the
+// client approve flow, which knows the study but not necessarily the job id.
+export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await Action.db
         .selectFrom('study')
+        .select('submittedByOrgId')
         .where('id', '=', studyId)
-        .select(['orgId', 'submittedByOrgId'])
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(throwNotFound(`study ${studyId}`))
+    return getOrgPublicKeys(submittedByOrgId)
+}
 
-    if (!study) return []
+/**
+ * IDs of this job's files a reviewer approved & shared with researchers. Driven by the
+ * recorded `approved_at` fact, not by current org membership — removing a researcher from
+ * the lab must not retroactively un-approve files (see `insertSharedFileBoxes`).
+ */
+export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
+    const rows = await Action.db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('approvedAt', 'is not', null)
+        .execute()
 
-    const [reviewerKeys, researcherKeys] = await Promise.all([
-        getOrgPublicKeys(study.orgId),
-        getOrgPublicKeys(study.submittedByOrgId),
-    ])
-
-    const byFingerprint = new Map<string, PublicKey>()
-    for (const key of [...reviewerKeys, ...researcherKeys]) byFingerprint.set(key.fingerprint, key)
-    return [...byFingerprint.values()]
+    return rows.map((r) => r.id)
 }
 
 export type StudyReviewWithMeta = {

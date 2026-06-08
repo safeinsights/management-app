@@ -1,22 +1,14 @@
 import { useQuery } from '@/common'
 import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
-import {
-    ENCRYPTED_TO_APPROVED,
-    encryptedTypeForApproved,
-    isApprovedLogType,
-    isEncryptedLogType,
-    isResultFile,
-    logLabel,
-} from '@/lib/file-type-helpers'
+import { isEncryptedLogType, isResultFile, logLabel } from '@/lib/file-type-helpers'
 import { toSentence } from '@/lib/string'
 import type { JobFile, JobFileInfo } from '@/lib/types'
-import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
 import { useEffect, useMemo, useState } from 'react'
 import type { FileType } from '@/database/types'
-import type { FileInfo } from 'si-encryption/job-results/types'
 
 type Options = {
     job: LatestJobForStudy
@@ -35,26 +27,34 @@ export type UnifiedFileRow = {
     file: JobFile | null
 }
 
+function isEncryptedFile(fileType: FileType): boolean {
+    return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
+}
+
+// State precedence: shared (approved) wins as the durable signal; otherwise a freshly
+// decrypted file is selectable; an approved job with no box for this file means it was
+// withheld; everything else is still locked.
+function fileRowState(opts: { shared: boolean; decrypted: boolean; jobApproved: boolean }): FileRowState {
+    if (opts.shared) return 'approved'
+    if (opts.decrypted) return 'decrypted'
+    if (opts.jobApproved) return 'not-shared'
+    return 'locked'
+}
+
 export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const [viewingFile, setViewingFile] = useState<JobFile | null>(null)
 
-    const approvedFileTypes = useMemo(() => new Set((job.files ?? []).map((f) => f.fileType)), [job.files])
-
-    const hasPreviouslyApprovedFiles = (job.files ?? []).some(
-        (f) => isApprovedLogType(f.fileType) || f.fileType === 'APPROVED-RESULT',
-    )
-
     // Once a job is approved, files the DO withheld are surfaced as "not shared" (red X) rather than hidden.
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Approved files are now re-encrypted (same shape as encrypted files). We use them
-    // to know *which* files were shared; their plaintext for display comes from decrypting.
-    const { data: previouslyApprovedFiles = [] } = useQuery({
-        queryKey: ['approved-files', job.id],
-        queryFn: () => fetchApprovedJobFilesAction({ studyJobId: job.id }),
-        enabled: hasPreviouslyApprovedFiles,
+    // Which files have been shared with researchers (a lab-org PO box exists). Existence
+    // of a box is the approval/shared signal — there is no plaintext approved copy.
+    const { data: sharedFileIds = [] } = useQuery({
+        queryKey: ['shared-file-ids', job.id],
+        queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
+        enabled: isJobApproved,
     })
 
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
@@ -96,17 +96,44 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         })
     }
 
-    const encryptedFileTypes = (job.files ?? [])
-        .filter((f) => isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT')
-        .map((f) => f.fileType)
+    const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
 
-    const hasUndecryptedFiles = encryptedFileTypes.some((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
-    const shouldShowForm = hasUndecryptedFiles && decryptedFiles.length === 0
+    const shouldShowForm = encryptedRows.length > 0 && decryptedFiles.length === 0
 
-    const undecryptedFileTypes = encryptedFileTypes.filter((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
     const encryptedFileTypesLabel = toSentence([
-        ...new Set(undecryptedFileTypes.map((ft) => logLabel(ft).toLowerCase())),
+        ...new Set(encryptedRows.map((f) => logLabel(f.fileType).toLowerCase())),
     ])
+
+    const decryptedById = useMemo(() => {
+        const map = new Map<string, JobFileInfo>()
+        for (const f of decryptedFiles) map.set(f.sourceId, f)
+        return map
+    }, [decryptedFiles])
+
+    const sharedIdSet = useMemo(() => new Set(sharedFileIds), [sharedFileIds])
+
+    // One row per decomposed encrypted file.
+    const fileRows: UnifiedFileRow[] = useMemo(() => {
+        return encryptedRows.map((f) => {
+            const decrypted = decryptedById.get(f.id) ?? null
+            const state = fileRowState({
+                shared: sharedIdSet.has(f.id),
+                decrypted: !!decrypted,
+                jobApproved: isJobApproved,
+            })
+            return {
+                key: `${f.fileType}-${f.id}`,
+                label: logLabel(f.fileType),
+                name: f.name,
+                bytes: f.bytes,
+                fileType: f.fileType,
+                state,
+                file: decrypted,
+            }
+        })
+    }, [encryptedRows, decryptedById, sharedIdSet, isJobApproved])
+
+    const hasFileRows = fileRows.length > 0
 
     const handleSubmit = form.onSubmit(
         (values) => decrypt(values.privateKey),
@@ -116,136 +143,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
             }
         },
     )
-
-    const decryptedFilesByType = useMemo(() => {
-        const map = new Map<FileType, JobFileInfo[]>()
-        for (const f of decryptedFiles) {
-            const list = map.get(f.fileType) ?? []
-            list.push(f)
-            map.set(f.fileType, list)
-        }
-        return map
-    }, [decryptedFiles])
-
-    // Names + sizes of the files that were shared (approved), per approved fileType.
-    const approvedMetaByType = useMemo(() => {
-        const map = new Map<FileType, FileInfo[]>()
-        for (const file of previouslyApprovedFiles) {
-            const list = map.get(file.fileType) ?? []
-            list.push(...file.metadata)
-            map.set(file.fileType, list)
-        }
-        return map
-    }, [previouslyApprovedFiles])
-
-    const metadataByFileType = useMemo(() => {
-        const map = new Map<FileType, FileInfo[]>()
-        for (const file of encryptedFiles ?? []) {
-            map.set(file.fileType, file.metadata)
-        }
-        return map
-    }, [encryptedFiles])
-
-    const fileRows: UnifiedFileRow[] = useMemo(() => {
-        const rows: UnifiedFileRow[] = []
-        const seenApprovedTypes = new Set<FileType>()
-
-        for (const f of job.files ?? []) {
-            const isEncrypted = isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT'
-            const isApproved = isApprovedLogType(f.fileType) || f.fileType === 'APPROVED-RESULT'
-
-            if (!isEncrypted && !isApproved) continue
-
-            const approvedType = isEncrypted ? ENCRYPTED_TO_APPROVED[f.fileType] : f.fileType
-
-            // skip if both encrypted and approved entries exist — we'll use the approved one
-            if (isEncrypted && approvedFileTypes.has(approvedType)) continue
-
-            // an archive can yield multiple per-file APPROVED-RESULT rows in studyJobFile;
-            // process each fileType once so rows aren't multiplied by N×N
-            if (seenApprovedTypes.has(approvedType)) continue
-            seenApprovedTypes.add(approvedType)
-
-            const encryptedType = isEncrypted ? f.fileType : encryptedTypeForApproved(f.fileType)
-            const approvedMeta = approvedMetaByType.get(approvedType) ?? []
-            const decryptedFilesForType = decryptedFilesByType.get(approvedType) ?? []
-            const metaList = metadataByFileType.get(encryptedType) ?? []
-            const label = logLabel(f.fileType)
-
-            // Approved (shared) files. Their plaintext for view/download comes from the
-            // decrypted originals (matched by name) once the DO has entered their key.
-            if (approvedMeta.length > 0) {
-                const approvedNames = new Set(approvedMeta.map((m) => m.path))
-                for (const meta of approvedMeta) {
-                    const decrypted = decryptedFilesForType.find((d) => d.path === meta.path) ?? null
-                    rows.push({
-                        key: `${f.fileType}-approved-${meta.path}`,
-                        label,
-                        name: meta.path,
-                        bytes: meta.bytes,
-                        fileType: f.fileType,
-                        state: 'approved',
-                        file: decrypted,
-                    })
-                }
-                // Withheld files are surfaced only once metadata is available to enumerate them.
-                for (const meta of metaList) {
-                    if (approvedNames.has(meta.path)) continue
-                    rows.push({
-                        key: `${f.fileType}-not-shared-${meta.path}`,
-                        label,
-                        name: meta.path,
-                        bytes: meta.bytes,
-                        fileType: f.fileType,
-                        state: 'not-shared',
-                        file: null,
-                    })
-                }
-            } else if (decryptedFilesForType.length > 0) {
-                for (const decryptedFile of decryptedFilesForType) {
-                    const meta = metaList.find((m) => m.path === decryptedFile.path)
-                    rows.push({
-                        key: `${f.fileType}-decrypted-${decryptedFile.path}`,
-                        label,
-                        name: decryptedFile.path,
-                        bytes: meta?.bytes ?? decryptedFile.contents.byteLength,
-                        fileType: f.fileType,
-                        state: 'decrypted',
-                        file: decryptedFile,
-                    })
-                }
-            } else if (metaList.length > 0) {
-                // A type with metadata but no approved files. If the job is approved and no APPROVED-*
-                // rows exist for it, the whole type was withheld → red X. Otherwise keep the lock icon.
-                const withheld = isJobApproved && !approvedFileTypes.has(approvedType)
-                for (const meta of metaList) {
-                    rows.push({
-                        key: `${f.fileType}-${withheld ? 'not-shared' : 'locked'}-${meta.path}`,
-                        label,
-                        name: meta.path,
-                        bytes: meta.bytes,
-                        fileType: f.fileType,
-                        state: withheld ? 'not-shared' : 'locked',
-                        file: null,
-                    })
-                }
-            } else {
-                rows.push({
-                    key: `${f.fileType}-${f.name}`,
-                    label,
-                    name: f.name,
-                    bytes: null,
-                    fileType: f.fileType,
-                    state: 'locked',
-                    file: null,
-                })
-            }
-        }
-
-        return rows
-    }, [job.files, isJobApproved, approvedFileTypes, approvedMetaByType, decryptedFilesByType, metadataByFileType])
-
-    const hasFileRows = fileRows.length > 0
 
     return {
         fileRows,

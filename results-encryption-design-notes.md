@@ -4,14 +4,20 @@
 > Status: **draft for review.** Locked decisions marked ✅; open items in §8.
 > **Scope: Card 72 (prerequisite) → Card 71 only.** Happy path only. Cards 73/74 (regeneration, recovery) explicitly out of scope.
 > **All phases land on one branch/PR (`researcher-encrypted-results`).** Not split per-card.
-> **Progress: Card 72 code complete on branch (not yet merged to main). Card 71 in progress (re-encrypt approach).**
-> **Testing: local e2e unreliable — rely on CI for e2e coverage. Unit tests still run/pass locally.**
+> **Progress: Card 72 code complete on branch (not yet merged to main). Card 71 NOT YET built in current tree — see DECISION LOG.**
+> **Testing: local e2e unreliable — rely on CI. Unit tests are DB-backed: run inside the `mgmnt-app` docker container, one file at a time (see §12).**
 >
-> ## ⚠️ APPROACH PIVOT (supersedes §3–§5, §10 below)
+> ## ✅ FINAL DIRECTION: RE-WRAP (§4 is the plan). §11 re-encrypt = ABANDONED.
 >
-> The detailed "Proposed implementation" (decompose the post office into Postgres + **re-wrap** PO boxes for researchers — §4.2, §4.3, Option B) was **built and then reverted**. We pivoted to **re-encrypt at approve** (Phil + NS in the living doc). See **§11** for the chosen design. Sections §3–§5/§10 are kept for rationale/history but are NOT the implementation.
+> **Decision log (this session, newest last):**
+> 1. Original detailed plan (§4) = **re-wrap + decompose-on-ingest** (PO boxes in Postgres).
+> 2. Built re-wrap fully → unit tests green → **then reverted** (worried about lib change + scope).
+> 3. Pivoted to **re-encrypt at approve** (§11), built it, tests green, **not committed**.
+> 4. **Pivoted BACK to re-wrap (FINAL).** Reasons: (a) Phil (EM) verbally wants re-wrap; (b) re-wrap is the more correct long-term architecture — immutable ciphertext, add-a-box to share, **delete-a-box to revoke**; (c) it sets up Cards 73/74 (regen/recovery) cleanly; (d) the doc's "re-encrypt" wording was loose — the *detailed* plan was always re-wrap.
 >
-> **Why pivot:** re-wrap forced encryption-library changes + new schema (`study_job_file_key`, decompose-on-ingest) + a full read-path rewrite. Re-encrypt needs **zero lib changes, no schema** — the DO browser already holds plaintext at review time, so at approve it re-encrypts the approved files for reviewers+researchers using the existing `ResultsWriter`. It also matches the living doc's own Card 74 recovery mechanic ("remove old lock, put new lock" = re-encrypt), so it's the better foundation for the documented future work. The one thing re-wrap/boxes does better — granular **revocation** ("user leaves the lab") — is noted in code at the approve site as a future consideration.
+> **⚠️ MUST CONFIRM WITH PHIL BEFORE/AT START:** re-wrap **requires a small `si-encryption` library change** (expose the raw AES key + a zip-free decrypt primitive). This directly conflicts with Phil's "no lib change needed" comment — those two cannot both hold. The change is **small + additive** (~2 new functions, already prototyped this session). Get his explicit OK on the lib change, since it's the thing he thought we'd avoid.
+>
+> **Good news for the implementer:** the entire re-wrap build was already done + verified green earlier this session, then reverted. It is NOT in git, but the recipe is fully captured in §5 "Card 71 — re-wrap steps" (steps 0–5, each was ✅ before revert). This is a **proven recipe to re-apply**, not a green-field design.
 
 ---
 
@@ -145,7 +151,10 @@ Drop `storeApprovedJobFile` plaintext write. Researchers read encrypted body + t
 - e2e seed `src/database/seeds/1743608138837_test_users.ts` — seed placeholder `userPublicKey` for all test users. `RequireReviewerKey` now gates lab researchers too; key-less seeded users were redirected off dashboard, detaching `new-study` button mid-click → all study-flow specs timed out.
 - Unrelated pre-existing lint warning fixed to unblock CI: `studyId` added to `useEffect` dep array in `src/hooks/use-workspace-launcher.tsx:122`.
 
-### Card 71 — Option B steps
+### Card 71 — re-wrap steps (PROVEN RECIPE — built + green this session, then reverted; RE-APPLY)
+
+> Every step below was implemented and unit-tested green this session, then reverted on the (now-undone) pivot to re-encrypt. **None of it is in git** — both MA and the `../encryption` repo are back at baseline. Re-apply in order. The ✅ marks mean "proven works," not "currently in the tree."
+> The `si-encryption` change (step 0b) is the one that **needs Phil's OK** (see top).
 
 0. ✅ **Migration** (MA): extend `study_job_file` (`iv` text, `bytes` integer — both nullable; NO blob_location, redundant with `path`) + new `study_job_file_key(study_job_file_id, fingerprint, crypt, created_at)` UNIQUE(study_job_file_id, fingerprint). `1780000000000_study_job_file_keys.ts`. Types hand-stubbed in `src/database/types.ts` (CI regenerates — local DB/docker down).
    0b. ✅ **si-encryption primitives** (encryption repo): added zip-free `job-results/crypto.ts` (`unwrapAesKey` exposes raw AES bytes, `wrapAesKey` re-wrap, `decryptFileBody`, `decryptFile`) + `job-results/decompose.ts` (`decomposeResultsZip`). Reader/writer refactored to call primitives (no behavior change). 9/9 tests incl. re-wrap round-trip. **Needs push + MA `package.json` hash bump to consume.** (currently local `link:../encryption` override in `pnpm-workspace.yaml`.)
@@ -237,7 +246,9 @@ If product chooses **all-or-nothing** approve/reject, existing job-level status 
 
 ---
 
-## 11. CHOSEN DESIGN — re-encrypt at approve (Card 71)
+## 11. ⛔ ABANDONED ALTERNATIVE — re-encrypt at approve
+
+> **NOT the chosen approach.** Kept only to record what was tried + why we rejected it. We went **re-wrap (§4/§5)**. This re-encrypt version was built this session (tests green, uncommitted) and is being discarded — see DECISION LOG at top. Rejected because: weak/no revocation, new ciphertext each approve, and it diverges from the team's documented re-wrap architecture + Phil's stated preference. Its only advantage (no lib change) wasn't worth losing the long-term-correct foundation for Cards 73/74.
 
 **Zero encryption-lib changes. No schema changes.** Reuses existing `ResultsWriter`/`ResultsReader`.
 
@@ -266,3 +277,27 @@ If product chooses **all-or-nothing** approve/reject, existing job-level status 
 - **Round-trip test added:** `src/server/actions/results-reencryption.test.ts` — real crypto, no mocks. Enclave reviewer (test PEM key) + lab researcher (distinct generated key) on a cross-org study; calls the real `reEncryptApprovedFiles` and asserts both the researcher's own key AND the reviewer's key decrypt the re-encrypted output back to plaintext. (Gotcha: pass `researcherId` to `insertTestStudyJobData` so it doesn't seed a fake-key enclave user that breaks `ResultsWriter`.)
 
 Cross-repo: nothing — encryption lib untouched.
+
+---
+
+## 12. Running the unit tests (non-obvious)
+
+Unit tests are **DB-backed** and the Postgres container's port is **not published to the host** → `pnpm exec vitest` on the host fails with `missing ARN DB_SECRET_ARN`. Run **inside the `mgmnt-app` docker container** (repo bind-mounted at `/app`, `DATABASE_URL` set):
+
+```
+docker exec mgmnt-app pnpm exec vitest run <test-file>
+```
+
+- Run **one file at a time**. Batching suites or `CI=1` (turns on coverage) **OOM-kills the container** (exit 137).
+- Heavy React suites (e.g. study-results) may need `NODE_OPTIONS=--max-old-space-size=4096`, but for most files the default is fine and 4096 can itself trip the kill — try default first.
+- A `137` is often just the harness's 120s timeout on vitest cold start, not real OOM (container had ~6GB free). Give it a longer timeout / re-run.
+- User keeps the docker stack up (`mgmnt-app`, `management-app-postgres-1`, `editor-service`, seaweedfs, dbgate).
+
+## 13. Current git state + recommended clean start for re-wrap
+
+**As of handoff:** branch `researcher-encrypted-results`. A **merge of `main` is IN PROGRESS** (`.git/MERGE_HEAD` present); the one conflict — `src/hooks/use-workspace-launcher.tsx` — was **resolved (took main's refactor) and staged**. The **re-encrypt implementation is in the working tree, uncommitted** (it was never committed — that commit was interrupted). The earlier re-wrap build is **not** present (reverted).
+
+**Recommended clean start (re-wrap):**
+1. This doc's edits are uncommitted — the durable copy of the plan is the handoff in `/tmp` (and the design doc on disk). Don't lose them to a reset.
+2. Discard the abandoned re-encrypt working tree + finish the main merge cleanly. Either complete the in-progress merge then `git reset --hard` away the re-encrypt files, or `git merge --abort` and re-`git merge main` (resolve `use-workspace-launcher.tsx` = **take main's version**, drop the HEAD block).
+3. Build re-wrap fresh per §5 steps 0→5. Step 0b (the `si-encryption` lib change) needs **Phil's OK** first.

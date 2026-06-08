@@ -12,9 +12,9 @@ import { StudyResultsRedesign } from './study-results-redesign'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
+import { decomposeResultsZip } from 'si-encryption/job-results/decompose'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType } from '@/database/types'
-import { type JobFile } from '@/lib/types'
 
 // OTTER-538: focused tests for the redesigned StudyResults panel.
 // The redesign (1) shows the RUN-COMPLETE secondary text on RUN-COMPLETE, (2) hides
@@ -23,12 +23,15 @@ import { type JobFile } from '@/lib/types'
 // JobStatusHelpText for terminal non-COMPLETE statuses so an errored or rejected
 // job doesn't claim it was "successfully processed".
 
-const mockedApprovedJobFiles: JobFile[] = []
-
 vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
     fetchEncryptedJobFilesAction: vi.fn(() => []),
+    fetchSharedFileIdsAction: vi.fn(() => []),
 }))
+
+const toArrayBuffer = (str: string): ArrayBuffer => {
+    const buf = Buffer.from(str, 'utf-8')
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+}
 
 const RUN_COMPLETE_SECONDARY_TEXT =
     'The code was successfully processed! Review results and security logs (if available) to decide if these can be released to the researcher.'
@@ -99,32 +102,38 @@ describe('StudyResultsRedesign', () => {
         const writer = new ResultsWriter([{ publicKey, fingerprint }])
 
         const csv = `title\nhello world`
-        const csvBlob = Buffer.from(csv, 'utf-8')
-        const arrayBuf = csvBlob.buffer.slice(csvBlob.byteOffset, csvBlob.byteOffset + csvBlob.length)
-        await writer.addFile('test.data', arrayBuf)
-        const zip = await writer.generate()
-
-        const encryptedFile = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [{ path: 'test.data', bytes: 4 }],
-        }
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([encryptedFile])
+        await writer.addFile('test.data', toArrayBuffer(csv))
+        const [decomposed] = await decomposeResultsZip(await writer.generate())
 
         const { study, job: rawJob } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })
-        await db
+        const path = `test-org/${study.id}/${rawJob.id}/results/encrypted/test.data`
+        const row = await db
             .insertInto('studyJobFile')
             .values({
                 studyJobId: rawJob.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${rawJob.id}/results/results.zip`,
+                name: 'test.data',
+                path,
                 fileType: 'ENCRYPTED-RESULT',
+                iv: decomposed.iv,
+                bytes: decomposed.bytes,
             })
-            .execute()
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                studyJobFileId: row.id,
+                fileType: 'ENCRYPTED-RESULT' as FileType,
+                path,
+                name: 'test.data',
+                iv: decomposed.iv,
+                crypt: decomposed.keys[fingerprint].crypt,
+                encryptedBody: decomposed.body,
+            },
+        ])
 
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResultsRedesign job={job!} />)

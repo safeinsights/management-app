@@ -9,7 +9,7 @@ import {
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import { reEncryptApprovedFiles } from '@/lib/re-encrypt-results'
+import { buildSharedFiles } from '@/lib/re-wrap-results'
 import { Button, Group, Stack } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
@@ -35,16 +35,16 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
     } = useMutation({
         mutationFn: async (status: StudyStatus) => {
             if (status === 'APPROVED') {
-                // Re-encrypt approved result files for reviewers + researchers client-side;
-                // the server stores only ciphertext (no plaintext approved copies).
-                const jobFiles = approvedFiles?.length
-                    ? await reEncryptApprovedFiles(study.id, approvedFiles)
+                // Re-wrap approved result files for the lab researchers client-side; the
+                // server receives only wrapped keys (PO boxes), never plaintext.
+                const sharedFiles = approvedFiles?.length
+                    ? await buildSharedFiles(study.id, approvedFiles)
                     : undefined
                 return approveStudyProposalAction({
                     orgSlug,
                     studyId: study.id,
                     useTestImage,
-                    jobFiles,
+                    sharedFiles,
                 })
             }
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })

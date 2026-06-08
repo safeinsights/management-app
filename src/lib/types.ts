@@ -216,9 +216,22 @@ export const jobFileSchema = z.object({
     fileType: fileTypeSchema,
 })
 
+// A re-wrapped AES key for one researcher recipient of one approved file.
+export const sharedFileBoxSchema = z.object({ fingerprint: z.string(), crypt: z.string() })
+export const sharedFileSchema = z.object({
+    studyJobFileId: z.string(),
+    boxes: z.array(sharedFileBoxSchema),
+})
+export type SharedFile = z.infer<typeof sharedFileSchema>
+
 export type JobFileInfo = FileEntry & {
-    sourceId: string
+    sourceId: string // the study_job_file row id this decrypted file came from
     fileType: FileType
+    // Raw AES key recovered while decrypting, kept in-memory so the reviewer's browser can
+    // re-wrap it for researchers at approve time without decrypting again. SECURITY: this
+    // unlocks the file body for any recipient — it must never be sent to the server or
+    // persisted. Only the client-side approve/re-wrap flow (buildSharedFiles) reads it.
+    rawAesKey?: ArrayBuffer
 }
 
 export type JobFile = {

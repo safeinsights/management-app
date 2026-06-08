@@ -8,7 +8,7 @@ import { ErrorAlert } from '@/components/errors'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
 import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile, JobFileInfo } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
 
@@ -32,8 +32,9 @@ const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
 }
 
 // Researcher-facing view of shared results. There is no plaintext copy: the
-// researcher decrypts the re-encrypted approved files with their own key (they
-// are a recipient of the re-encryption done at approve time).
+// researcher decrypts the encrypted file bodies with their own key, using the PO box
+// the reviewer re-wrapped for them at approve time (the server only returns files the
+// researcher actually has a box for).
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>()
 
@@ -43,8 +44,8 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         isError,
         error,
     } = useQuery({
-        queryKey: ['approved-files', job.id],
-        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: job.id }),
+        queryKey: ['encrypted-files', job.id],
+        queryFn: async () => await fetchEncryptedJobFilesAction({ jobId: job.id }),
     })
 
     const {

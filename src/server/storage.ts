@@ -1,8 +1,9 @@
-import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
+import { deleteS3File, fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
 import { db } from '@/database'
 import { FileType } from '@/database/types'
+import { decomposeResultsZip } from 'si-encryption/job-results/decompose'
 
 export async function fetchFileContents(filePath: string) {
     const stream = await fetchS3File(filePath)
@@ -34,9 +35,61 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         .executeTakeFirstOrThrow()
 }
 
+/**
+ * Decompose a ResultsWriter zip on ingest (Option B): each encrypted file body
+ * becomes its own S3 object, and its metadata (iv, bytes) + per-recipient wrapped
+ * keys (the DO/reviewer "PO boxes" from the manifest) are stored in Postgres.
+ *
+ * Touches no plaintext and needs no private key — the manifest is plaintext
+ * metadata and the bodies stay ciphertext. One row per decomposed file; sharing
+ * a file later = adding a `study_job_file_key` box, never re-encrypting.
+ */
+async function storeDecomposedEncryptedFiles(info: MinimalJobInfo, file: File, fileType: FileType, subdir: string) {
+    const decomposed = await decomposeResultsZip(file)
+    const items = decomposed.map((entry) => ({
+        entry,
+        path: `${pathForStudyJob(info)}/results/${subdir}/${entry.path}`,
+    }))
+
+    // Write the bodies to S3 first, in parallel. S3 is not part of the DB transaction
+    // below, so if the transaction fails we best-effort delete what we wrote — otherwise a
+    // rollback would leave orphaned objects with no row pointing at them.
+    await Promise.all(items.map(({ entry, path }) => storeS3File(info, new Blob([entry.body]).stream(), path)))
+
+    try {
+        return await db.transaction().execute(async (trx) => {
+            const rows = []
+            const boxes = []
+            for (const { entry, path } of items) {
+                const row = await trx
+                    .insertInto('studyJobFile')
+                    .values({
+                        path,
+                        name: entry.path,
+                        studyJobId: info.studyJobId,
+                        fileType,
+                        iv: entry.iv,
+                        bytes: entry.bytes,
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
+
+                for (const [fingerprint, { crypt }] of Object.entries(entry.keys)) {
+                    boxes.push({ studyJobFileId: row.id, fingerprint, crypt })
+                }
+                rows.push(row)
+            }
+            if (boxes.length) await trx.insertInto('studyJobFileKey').values(boxes).execute()
+            return rows
+        })
+    } catch (err) {
+        await Promise.allSettled(items.map(({ path }) => deleteS3File(path)))
+        throw err
+    }
+}
+
 export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
-    const filename = fileType.toLowerCase()
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.zip`, file, fileType)
+    return await storeDecomposedEncryptedFiles(info, file, fileType, 'encrypted-logs')
 }
 
 export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
@@ -45,11 +98,5 @@ export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileTy
 }
 
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
-}
-
-// Stores an approved results file. Its contents are now a re-encrypted zip (wrapped
-// for reviewers + researchers client-side) — ciphertext, never plaintext.
-export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType, sourceId: string) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType, sourceId)
+    return await storeDecomposedEncryptedFiles(info, file, 'ENCRYPTED-RESULT', 'encrypted')
 }

@@ -1,17 +1,19 @@
 'use server'
 
 import { ActionFailure } from '@/lib/errors'
-import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
+import { isEncryptedLogType } from '@/lib/file-type-helpers'
+import { minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
 import {
-    getResultsRecipientPublicKeys,
+    getLabPublicKeysForStudy,
+    getReviewerPublicKey,
+    getSharedFileIdsForJob,
     getStudyJobInfo,
     getStudyReviewForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
-import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
-import { ResultsReader } from 'si-encryption/job-results/reader'
+import { insertSharedFileBoxes } from '@/server/results-sharing'
+import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
@@ -19,7 +21,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         z.object({
             orgSlug: z.string(),
             jobInfo: minimalJobInfoSchema,
-            jobFiles: z.array(jobFileSchema),
+            sharedFiles: z.array(sharedFileSchema),
         }),
     )
     .middleware(async ({ params: { jobInfo }, db }) => {
@@ -31,20 +33,13 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         return { orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { jobInfo: info, jobFiles }, session, db }) => {
-        // jobFiles.contents are now RE-ENCRYPTED zips (the reviewer's browser re-encrypted
-        // each approved file for reviewers + researchers using ResultsWriter). The server
-        // only persists ciphertext — plaintext never reaches it.
-        //
-        // NOTE (future / Card 74 — revocation): re-encryption cannot cleanly *revoke* a
-        // recipient who later leaves the lab; they were baked into this artifact's boxes and
-        // may already have decrypted. True per-recipient revocation would need the re-wrap /
-        // per-recipient PO-box model (a key box you can delete) instead of re-encryption.
-        // Out of scope for now; revisit if revocation becomes a hard requirement.
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+    .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
+        // Re-wrap, not re-encrypt: the reviewer's browser unwrapped each file's AES key
+        // while reviewing and wrapped it for the lab researchers' public keys. Here we
+        // only persist those new "PO box" rows — the file ciphertext is never touched and
+        // the server never sees plaintext or the raw AES key. Adding a box = sharing;
+        // deleting one (future / Card 74) = revoking.
+        await insertSharedFileBoxes(db, info.studyJobId, sharedFiles, session.user.id)
 
         await db
             .insertInto('jobStatusChange')
@@ -64,9 +59,8 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
-// Recipients for re-encrypting approved results: enclave reviewers (so the DO can
-// still view post-approval) + lab researchers (the new audience).
-export const fetchResultsRecipientKeysAction = new Action('fetchResultsRecipientKeysAction')
+// Lab (researcher) public keys the reviewer's browser re-wraps approved files for.
+export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
@@ -74,7 +68,20 @@ export const fetchResultsRecipientKeysAction = new Action('fetchResultsRecipient
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId } }) => {
-        return await getResultsRecipientPublicKeys(studyId)
+        return await getLabPublicKeysForStudy(studyId)
+    })
+
+// IDs of files already shared with researchers (a lab-org PO box exists). The
+// existence of a box is the "approved & shared" signal — there is no plaintext copy.
+export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
+    .params(z.object({ jobId: z.string() }))
+    .middleware(async ({ params: { jobId } }) => {
+        const studyJob = await getStudyJobInfo(jobId)
+        return { studyJob, orgId: studyJob.orgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { jobId } }) => {
+        return await getSharedFileIdsForJob(jobId)
     })
 
 export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
@@ -141,38 +148,6 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
         return await getStudyReviewForJob(studyJobId)
     })
 
-export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
-    })
-    .requireAbilityTo('view', 'StudyJob')
-
-    .handler(async ({ studyJob }) => {
-        // Approved files are now re-encrypted zips (not plaintext). Return them in the
-        // same shape as encrypted files so the client decrypts them with the viewer's
-        // key (reviewer or researcher — both are recipients).
-        const approvedJobFiles = studyJob.files.filter(
-            (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
-        )
-
-        const encryptedJobFiles = []
-        for (const jobFile of approvedJobFiles) {
-            const blob = await fetchFileContents(jobFile.path)
-            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
-            const metadata = await reader.listFiles()
-            encryptedJobFiles.push({
-                fileType: jobFile.fileType,
-                sourceId: jobFile.id,
-                blob,
-                metadata,
-            })
-        }
-
-        return encryptedJobFiles
-    })
-
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
     .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
@@ -203,23 +178,47 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     })
     .requireAbilityTo('view', 'StudyJob')
 
-    .handler(async ({ studyJob }) => {
+    .handler(async ({ studyJob, session, db }) => {
+        // Per decomposed file (Option B): each row is one encrypted body in S3 + an `iv`,
+        // with the requesting user's wrapped AES key ("PO box") in study_job_file_key.
+        // We return only files this user actually has a box for — others stay opaque.
+        const userKey = await getReviewerPublicKey(session.user.id)
+        if (!userKey) return []
+
         const encryptedFiles = studyJob.files.filter(
             (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
         )
+        if (!encryptedFiles.length) return []
 
-        const encryptedJobFiles = []
-        for (const encryptedFile of encryptedFiles) {
-            const blob = await fetchFileContents(encryptedFile.path)
-            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
-            const fileMetadata = await reader.listFiles()
-            encryptedJobFiles.push({
-                fileType: encryptedFile.fileType,
-                sourceId: encryptedFile.id,
-                blob,
-                metadata: fileMetadata,
-            })
-        }
+        // One query for all of this user's boxes, then fetch the matching bodies in parallel —
+        // avoids a per-file round trip to both Postgres and S3.
+        const boxes = await db
+            .selectFrom('studyJobFileKey')
+            .select(['studyJobFileId', 'crypt'])
+            .where(
+                'studyJobFileId',
+                'in',
+                encryptedFiles.map((f) => f.id),
+            )
+            .where('fingerprint', '=', userKey.fingerprint)
+            .execute()
+        const cryptByFileId = new Map(boxes.map((b) => [b.studyJobFileId, b.crypt]))
 
-        return encryptedJobFiles
+        const ready = encryptedFiles.flatMap((file) => {
+            const crypt = cryptByFileId.get(file.id)
+            // No box for this user, or no iv to decrypt with → stays opaque.
+            return crypt && file.iv ? [{ file, crypt, iv: file.iv }] : []
+        })
+
+        return Promise.all(
+            ready.map(async ({ file, crypt, iv }) => ({
+                studyJobFileId: file.id,
+                fileType: file.fileType,
+                path: file.path,
+                name: file.name,
+                iv,
+                crypt,
+                encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
+            })),
+        )
     })
