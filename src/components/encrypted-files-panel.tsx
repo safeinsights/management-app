@@ -1,4 +1,4 @@
-import { FilePreviewModal } from '@/components/file-preview-modal'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { FilePreviewModal } from '@/components/file-preview-modal'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 

@@ -1,4 +1,10 @@
-import { mockSessionWithTestData, actionResult, insertTestStudyJobData } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    insertTestBaselineJob,
+    insertTestStudyJobData,
+    db,
+} from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -89,5 +95,98 @@ describe('Workspace Actions', () => {
         expect(result.files).toHaveLength(3) // main.py, README.md, data.csv
         expect(result.files[0]).toHaveProperty('size')
         expect(result.files[0]).toHaveProperty('mtime')
+    })
+
+    // OTTER-601: the submit-enable baseline must be the last *submission* time, not the round job's
+    // createdAt — otherwise relaunching an already-submitted study (which no longer mints a fresh
+    // job) re-enables Submit with no edits.
+    describe('getLastSubmissionInfoAction', () => {
+        test('with no submission, falls back to the round job createdAt and no files', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'INITIATED',
+            })
+
+            const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
+            const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
+
+            const jobRow = await db
+                .selectFrom('studyJob')
+                .select('createdAt')
+                .where('id', '=', job.id)
+                .executeTakeFirstOrThrow()
+            expect(result?.createdAt).toBe(jobRow.createdAt.toISOString())
+            expect(result?.fileNames).toEqual([])
+            expect(result?.mainFileName).toBeNull()
+        })
+
+        test('anchors on the CODE-SUBMITTED time and returns the submitted files', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+                jobStatus: 'INITIATED',
+            })
+            await db
+                .insertInto('studyJobFile')
+                .values([
+                    { studyJobId: job.id, name: 'main.r', path: `p/${job.id}/main.r`, fileType: 'MAIN-CODE' },
+                    {
+                        studyJobId: job.id,
+                        name: 'helper.r',
+                        path: `p/${job.id}/helper.r`,
+                        fileType: 'SUPPLEMENTAL-CODE',
+                    },
+                ])
+                .execute()
+            const submittedAt = new Date('2026-01-01T00:00:00.000Z')
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt })
+                .execute()
+
+            const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
+            const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
+
+            expect(result?.createdAt).toBe(submittedAt.toISOString())
+            expect(result?.mainFileName).toBe('main.r')
+            expect(result?.fileNames.sort()).toEqual(['helper.r', 'main.r'])
+        })
+
+        test('ignores a newer INITIATED round job and keeps the prior submission as the baseline', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'INITIATED',
+            })
+            const submittedAt = new Date('2026-01-01T00:00:00.000Z')
+            await db
+                .insertInto('studyJobFile')
+                .values({ studyJobId: job.id, name: 'main.r', path: `p/${job.id}/main.r`, fileType: 'MAIN-CODE' })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt },
+                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: submittedAt },
+                ])
+                .execute()
+
+            // A relaunch opens a fresh INITIATED round-2 job (newer) with no files.
+            await insertTestBaselineJob(study.id)
+
+            const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
+            const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
+
+            // Baseline stays the prior submission, not the empty round-2 job.
+            expect(result?.createdAt).toBe(submittedAt.toISOString())
+            expect(result?.fileNames).toEqual(['main.r'])
+        })
     })
 })

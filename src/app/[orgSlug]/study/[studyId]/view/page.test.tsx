@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as RouterMock from 'next-router-mock'
 import {
+    insertTestBaselineJob,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -429,6 +430,50 @@ describe('StudyViewPage', () => {
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             expect(page?.props.showStudyCode).toBe(false)
+        })
+    })
+
+    describe('baseline-job masking (OTTER-556 refresh dead-end)', () => {
+        // A fresh baseline job (IDE launch / file upload, status only INITIATED) landing on top of
+        // the reviewed submission must not mask the code decision. Routing anchors on the latest
+        // *submitted* job, so the researcher keeps reaching the decision page instead of being
+        // bounced to the proposal / post-submission page on the next view.
+        it('renders CodePostDecisionView for CODE-CHANGES-REQUESTED even when a newer baseline job exists', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() + 60_000) })
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
+        })
+
+        it('renders CodePostDecisionView for CODE-APPROVED even when a newer baseline job exists', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() + 60_000) })
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
         })
     })
 

@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestBaselineJob,
     insertTestStudyOnly,
     it,
     mockSessionWithTestData,
@@ -14,6 +15,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
@@ -41,17 +43,6 @@ const setupStudy = async (orgSlug = 'openstax') => {
     return { study }
 }
 
-const createBaselineJob = async (studyId: string) => {
-    const createdAt = new Date(Date.now() - 1000)
-    const job = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
-    return job
-}
-
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
     renderWithProviders(
@@ -63,6 +54,11 @@ const renderPage = async (orgSlug = 'openstax') => {
         />,
     )
     return { study }
+}
+
+const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 }
 
 describe('CodeUploadPage', () => {
@@ -105,7 +101,7 @@ describe('CodeUploadPage', () => {
 
     it('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -135,6 +131,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
             const updated = await db
@@ -154,7 +151,7 @@ describe('CodeUploadPage', () => {
     it('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
         const orgSlug = 'openstax'
         const { study } = await setupStudy(orgSlug)
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -176,6 +173,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
             const updated = await db
@@ -195,7 +193,7 @@ describe('CodeUploadPage', () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -218,6 +216,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
