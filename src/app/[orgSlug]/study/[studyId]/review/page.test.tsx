@@ -171,6 +171,43 @@ describe('StudyReviewPage', () => {
         expect(page?.props.entries[0].decision).toBe('APPROVE')
     })
 
+    it('renders the approved-proposal PostFeedbackView when from=initial-request, even with code submitted (OTTER-540)', async () => {
+        // The "View approved initial request" link opens this route with from=initial-request.
+        // It must land on the proposal (initial request) feedback view regardless of the
+        // code-submitted/agreements gates that would otherwise redirect or show code review.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user.id,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                version: 1,
+            })
+            .execute()
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'initial-request' }),
+        })
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(page?.type).toBe(PostFeedbackView)
+        // PROPOSAL is the default kind — the approved initial request, not code review.
+        expect(page?.props.kind).toBeUndefined()
+        expect(page?.props.entries).toHaveLength(1)
+        expect(page?.props.entries[0].decision).toBe('APPROVE')
+    })
+
     it('falls back to proposal entries (kind=PROPOSAL) when from=code-review but no code-review rows exist', async () => {
         // A reviewer is kicked out to the post-feedback view before any code-review row
         // has been committed; page.tsx fetches proposal entries instead so the user
