@@ -37,9 +37,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
             if (status === 'APPROVED') {
                 // Re-wrap approved result files for the lab researchers client-side; the
                 // server receives only wrapped keys (PO boxes), never plaintext.
-                const sharedFiles = approvedFiles?.length
-                    ? await buildSharedFiles(study.id, approvedFiles)
-                    : undefined
+                const sharedFiles = approvedFiles?.length ? await buildSharedFiles(study.id, approvedFiles) : undefined
                 return approveStudyProposalAction({
                     orgSlug,
                     studyId: study.id,

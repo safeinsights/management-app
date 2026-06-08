@@ -10,10 +10,11 @@
 > ## ✅ FINAL DIRECTION: RE-WRAP (§4 is the plan). §11 re-encrypt = ABANDONED.
 >
 > **Decision log (this session, newest last):**
+>
 > 1. Original detailed plan (§4) = **re-wrap + decompose-on-ingest** (PO boxes in Postgres).
 > 2. Built re-wrap fully → unit tests green → **then reverted** (worried about lib change + scope).
 > 3. Pivoted to **re-encrypt at approve** (§11), built it, tests green, **not committed**.
-> 4. **Pivoted BACK to re-wrap (FINAL).** Reasons: (a) Phil (EM) verbally wants re-wrap; (b) re-wrap is the more correct long-term architecture — immutable ciphertext, add-a-box to share, **delete-a-box to revoke**; (c) it sets up Cards 73/74 (regen/recovery) cleanly; (d) the doc's "re-encrypt" wording was loose — the *detailed* plan was always re-wrap.
+> 4. **Pivoted BACK to re-wrap (FINAL).** Reasons: (a) Phil (EM) verbally wants re-wrap; (b) re-wrap is the more correct long-term architecture — immutable ciphertext, add-a-box to share, **delete-a-box to revoke**; (c) it sets up Cards 73/74 (regen/recovery) cleanly; (d) the doc's "re-encrypt" wording was loose — the _detailed_ plan was always re-wrap.
 >
 > **⚠️ MUST CONFIRM WITH PHIL BEFORE/AT START:** re-wrap **requires a small `si-encryption` library change** (expose the raw AES key + a zip-free decrypt primitive). This directly conflicts with Phil's "no lib change needed" comment — those two cannot both hold. The change is **small + additive** (~2 new functions, already prototyped this session). Get his explicit OK on the lib change, since it's the thing he thought we'd avoid.
 >
@@ -298,6 +299,7 @@ docker exec mgmnt-app pnpm exec vitest run <test-file>
 **As of handoff:** branch `researcher-encrypted-results`. A **merge of `main` is IN PROGRESS** (`.git/MERGE_HEAD` present); the one conflict — `src/hooks/use-workspace-launcher.tsx` — was **resolved (took main's refactor) and staged**. The **re-encrypt implementation is in the working tree, uncommitted** (it was never committed — that commit was interrupted). The earlier re-wrap build is **not** present (reverted).
 
 **Recommended clean start (re-wrap):**
+
 1. This doc's edits are uncommitted — the durable copy of the plan is the handoff in `/tmp` (and the design doc on disk). Don't lose them to a reset.
 2. Discard the abandoned re-encrypt working tree + finish the main merge cleanly. Either complete the in-progress merge then `git reset --hard` away the re-encrypt files, or `git merge --abort` and re-`git merge main` (resolve `use-workspace-launcher.tsx` = **take main's version**, drop the HEAD block).
 3. Build re-wrap fresh per §5 steps 0→5. Step 0b (the `si-encryption` lib change) needs **Phil's OK** first.
