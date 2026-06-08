@@ -55,6 +55,10 @@ function fetchStudyQuery(db: DBExecutor) {
                     .distinctOn('studyId')
                     .orderBy('studyId')
                     .orderBy('createdAt', 'desc')
+                    // id (v7, insertion-ordered) breaks createdAt ties so the per-study job picked
+                    // here is deterministic when two jobs share a createdAt (e.g. inserted in one
+                    // transaction, where now() is constant). Mirrors latestJobForStudyQuery.
+                    .orderBy('studyJob.id', 'desc')
                     .as('latestStudyJob'),
             (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
         )
