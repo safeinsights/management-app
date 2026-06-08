@@ -26,6 +26,7 @@ export const RegenerateKey: FC = () => {
             <PageBreadcrumbs
                 crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Reviewer Key']]}
             />
+            {/* TODO(UX): "Reviewer key" — researchers now use this same key too; rename to a role-neutral term (e.g. "Encryption key") pending UX. */}
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>

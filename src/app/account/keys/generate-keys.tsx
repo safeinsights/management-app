@@ -63,6 +63,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
     if (keys) {
         return (
             <Paper p="xl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
+                {/* TODO(UX): "Reviewer key" — researchers now generate/use this same key too; rename to a role-neutral term (e.g. "Encryption key") pending UX. */}
                 <Title mb="xxl">Reviewer key</Title>
                 <Paper shadow="xs" p="xl">
                     <Stack>

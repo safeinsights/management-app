@@ -1,5 +1,8 @@
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -229,9 +232,15 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     }
 
     // Every test user belongs to an org that requires an encryption key (enclave or lab), so the
-    // RequireReviewerKey gate redirects them to key generation until one exists. Seed a placeholder
-    // key so e2e flows land on the real dashboard; decryption isn't exercised here, so the bytes
-    // only need to exist.
+    // RequireReviewerKey gate redirects them to key generation until one exists. Seed the shared
+    // test public key (tests/support/public_key.pem) — NOT a placeholder — so results encrypted
+    // for it by the e2e (bin/debug/upload-results.ts) produce a PO box whose fingerprint matches
+    // the seeded user, and decrypt with tests/support/private_key.pem.
+    const publicKeyDer = pemToArrayBuffer(
+        fs.readFileSync(path.resolve(process.cwd(), 'tests/support/public_key.pem'), 'utf8'),
+    )
+    const fingerprint = await fingerprintKeyData(publicKeyDer)
+
     for (const user of TEST_USERS) {
         const userId = userIdByRole.get(user.role)!
 
@@ -246,8 +255,8 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .insertInto('userPublicKey')
             .values({
                 userId,
-                publicKey: Buffer.from(`e2e-test-public-key-${user.role}`),
-                fingerprint: `e2e-test-fingerprint-${user.role}`,
+                publicKey: Buffer.from(publicKeyDer),
+                fingerprint,
             })
             .execute()
     }

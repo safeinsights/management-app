@@ -90,6 +90,7 @@ export function NavbarProfileMenu() {
                 />
 
                 <Protect role={AuthRole.Reviewer}>
+                    {/* TODO(UX): "Reviewer Key" — researchers use the same key; rename to a role-neutral term pending UX. */}
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<LockIcon aria-hidden="true" />}
