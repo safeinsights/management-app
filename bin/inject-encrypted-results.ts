@@ -35,7 +35,10 @@ const toArrayBuffer = (s: string): ArrayBuffer => {
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
 }
 
-async function buildZip(files: Array<{ name: string; content: string }>, keys: { publicKey: ArrayBuffer; fingerprint: string }[]): Promise<File> {
+async function buildZip(
+    files: Array<{ name: string; content: string }>,
+    keys: { publicKey: ArrayBuffer; fingerprint: string }[],
+): Promise<File> {
     const writer = new ResultsWriter(keys)
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
