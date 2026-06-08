@@ -6,7 +6,7 @@ import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
-import { resetBaselineJob } from '@/server/db/mutations'
+import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
 const isMainFile = (filename: string): boolean => {
@@ -81,7 +81,7 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
-        await resetBaselineJob(db, studyId)
+        await ensureRoundJobForLaunch(db, studyId)
         if (CODER_DISABLED) {
             return {
                 success: true,

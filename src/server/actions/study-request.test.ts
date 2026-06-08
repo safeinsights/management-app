@@ -29,6 +29,7 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
+import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/aws', async () => {
@@ -749,6 +750,138 @@ describe('Request Study Actions', () => {
 
             expect(result).toHaveProperty('error')
             expect((result as { error: string }).error).toContain('Main file not in file list')
+        })
+    })
+
+    // OTTER-601: one studyJob per submission round. Launch/upload opens the round's job; submit
+    // fills that same job in rather than minting a second that would mask the real submission.
+    describe('one-job-per-round (OTTER-601)', () => {
+        const jobCount = (studyId: string) =>
+            db
+                .selectFrom('studyJob')
+                .select((eb) => eb.fn.countAll<number>().as('n'))
+                .where('studyId', '=', studyId)
+                .executeTakeFirstOrThrow()
+                .then((r) => Number(r.n))
+
+        const codeFilesFor = async (studyId: string) => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', studyId)
+                .orderBy('createdAt', 'desc')
+                .orderBy('id', 'desc')
+                .executeTakeFirstOrThrow()
+            return db
+                .selectFrom('studyJobFile')
+                .select(['name', 'fileType'])
+                .where('studyJobId', '=', job.id)
+                .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                .orderBy('name')
+                .execute()
+        }
+
+        const submittedStatusCount = (studyId: string) =>
+            db
+                .selectFrom('studyJob')
+                .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+                .select((eb) => eb.fn.countAll<number>().as('n'))
+                .where('studyJob.studyId', '=', studyId)
+                .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirstOrThrow()
+                .then((r) => Number(r.n))
+
+        const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
+            writeWorkspaceFiles(root, studyId, files).then(() =>
+                actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
+            )
+
+        it('submit fills in the launch job instead of creating a second job', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-fill')
+            workspaceRoots.push(root)
+
+            // IDE launch opens the round's job
+            await ensureRoundJobForLaunch(db, study.id)
+            expect(await jobCount(study.id)).toBe(1)
+            const launchJob = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+
+            await submitCode(study.id, root, { 'main.R': 'print(1)', 'helper.R': 'print(2)' }, 'main.R')
+
+            // still one job — the launch job, now carrying the submission
+            expect(await jobCount(study.id)).toBe(1)
+            const afterJob = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(afterJob.id).toBe(launchJob.id)
+            expect(await codeFilesFor(study.id)).toEqual([
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+            ])
+            expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        it('re-submitting before review overwrites files on the same job (no new job, no new version)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-overwrite')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'v1', 'helper.R': 'v1' }, 'main.R')
+            vi.mocked(aws.deleteFolderContents).mockClear()
+
+            // second submit drops helper.R, adds extra.R
+            await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R')
+
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await codeFilesFor(study.id)).toEqual([
+                { name: 'extra.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+            ])
+            // old S3 code objects cleared before re-upload
+            expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
+            // still a single submission/version
+            expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        it('resubmitting after change-requested opens a new round (a second job/version)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
+
+            expect(await jobCount(study.id)).toBe(2)
+            expect(await submittedStatusCount(study.id)).toBe(2)
         })
     })
 

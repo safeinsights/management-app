@@ -1,6 +1,7 @@
 import { Action } from '../actions/action'
-import type { DB } from '@/database/types'
+import type { DB, StudyJobStatus } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
+import { canResubmitStudyCode } from '@/lib/code-resubmission'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -27,7 +28,9 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     return user.id
 }
 
-async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Date) {
+export type RoundJob = { id: string; createdAt: Date; latestStatus: StudyJobStatus | null; created: boolean }
+
+async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date): Promise<RoundJob> {
     const studyJob = await db
         .insertInto('studyJob')
         .values({ studyId, createdAt })
@@ -39,21 +42,78 @@ async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Dat
         .values({ studyJobId: studyJob.id, status: 'INITIATED' })
         .executeTakeFirstOrThrow()
 
-    return studyJob
+    return { id: studyJob.id, createdAt: studyJob.createdAt, latestStatus: 'INITIATED', created: true }
 }
 
-// Submit is enabled when any file's mtime > latest job's createdAt.
+/**
+ * A study accumulates one studyJob per submission *round*: a round opens when work begins (IDE launch
+ * or file upload) and closes once its job reaches a completed/resubmittable state. The latest job is
+ * the "current round" unless it has closed, in which case the next launch/submit starts a new round.
+ *
+ * This is the single source of truth for "which job does this study's in-progress work belong to" —
+ * shared by IDE launch, file upload, and code submission so they all converge on the same job instead
+ * of each minting its own (which is what let an empty IDE-init job mask a real submission, OTTER-601).
+ *
+ * `created` distinguishes a freshly-opened round from a reused one so callers can decide whether to
+ * re-anchor the submit-enable timestamp or overwrite a prior submission's files.
+ */
+export async function getOrCreateCurrentRoundJob(
+    db: Kysely<DB>,
+    studyId: string,
+    { backdateMs = 0 }: { backdateMs?: number } = {},
+): Promise<RoundJob> {
+    const latest = await db
+        .selectFrom('studyJob')
+        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
+        .select((eb) =>
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.status')
+                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .orderBy('jobStatusChange.createdAt', 'desc')
+                .orderBy('jobStatusChange.id', 'desc')
+                .limit(1)
+                .as('latestStatus'),
+        )
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('studyJob.createdAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 
-/** Creates a backdated job if none exists so uploaded files (written after) have newer mtime. */
-export async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
-    const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
-    if (existingJob) return
-    return createBaselineJob(db, studyId, new Date(Date.now() - 1000))
+    const latestStatus = (latest?.latestStatus ?? null) as StudyJobStatus | null
+    if (!latest || canResubmitStudyCode(latestStatus)) {
+        return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
+    }
+    return { id: latest.id, createdAt: latest.createdAt, latestStatus, created: false }
 }
 
-/** Always creates a fresh job for IDE launch. Starter files should have their mtime backdated. */
-export async function resetBaselineJob(db: Kysely<DB>, studyId: string) {
-    return createBaselineJob(db, studyId, new Date())
+// Submit is enabled when any workspace file's mtime > the current round job's createdAt.
+
+/**
+ * IDE launch: ensure the current round has a job. When the round is still open work (no submission
+ * yet — only INITIATED), re-anchor its createdAt to now so edits made after this launch enable Submit.
+ * A round whose job already carries a submission is left untouched. Reuses the round's job rather than
+ * stacking a new one (OTTER-601).
+ */
+export async function ensureRoundJobForLaunch(db: Kysely<DB>, studyId: string): Promise<RoundJob> {
+    const job = await getOrCreateCurrentRoundJob(db, studyId)
+    if (job.created || job.latestStatus !== 'INITIATED') return job
+    const reanchored = await db
+        .updateTable('studyJob')
+        .set({ createdAt: new Date() })
+        .where('id', '=', job.id)
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    return { ...job, createdAt: reanchored.createdAt }
+}
+
+/**
+ * File upload: ensure the current round has a job, backdated so files written immediately after still
+ * register as newer than its createdAt. Reuses the round's job rather than creating a new one.
+ */
+export async function ensureRoundJobForUpload(db: Kysely<DB>, studyId: string): Promise<RoundJob> {
+    return getOrCreateCurrentRoundJob(db, studyId, { backdateMs: 1000 })
 }
 
 /**

@@ -266,7 +266,12 @@ afterEach(async () => {
     delete process.env.UPLOAD_TMP_DIRECTORY
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
+    // Unmount React trees first so query observers (and their refetchInterval timers) are removed,
+    // then clear every test QueryClient so no in-flight refetch or cached state crosses into the
+    // next test (which would read the per-test process.env.CODER_FILES after it's been reassigned).
     cleanup()
+    const { resetTestQueryClients } = await import('@/tests/unit.helpers')
+    resetTestQueryClients()
 })
 
 afterAll(async () => {
