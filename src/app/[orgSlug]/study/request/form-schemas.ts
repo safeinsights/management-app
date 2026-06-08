@@ -42,7 +42,7 @@ export const studyProposalFormSchema = z
             .string()
             .min(1, { message: 'Title is required' })
             .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-        piName: z.string().max(100, { message: 'Word limit is 100 characters' }).trim(),
+        piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
         description: z.string().optional(),
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),

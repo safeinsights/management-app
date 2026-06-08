@@ -22,7 +22,7 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
 
 export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
     if (isActionError(study) || !study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN

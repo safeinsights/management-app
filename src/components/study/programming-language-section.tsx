@@ -29,7 +29,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     if (isSingleLanguage) {
         helperText = `At the present ${orgName} only supports ${languages[0].label}. Code files submitted in other languages will not be able to run.`
     } else {
-        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to setup the right environment for you.`
+        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to set up the right environment for you.`
     }
 
     useEffect(() => {

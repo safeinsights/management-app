@@ -81,7 +81,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
 
                 <Text size="sm">
                     If you&apos;re uploading multiple files, please select your main file (i.e., the script that runs
-                    first)
+                    first).
                 </Text>
 
                 <Table>

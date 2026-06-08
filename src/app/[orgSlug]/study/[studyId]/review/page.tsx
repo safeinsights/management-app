@@ -40,7 +40,7 @@ export default async function StudyReviewPage(props: {
 
     const study = await getStudyAction({ studyId })
     if (isActionError(study) || !study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     if (currentOrg.type === 'lab') {
@@ -50,7 +50,7 @@ export default async function StudyReviewPage(props: {
     // Reviewer dashboards filter out DRAFT studies, but a direct URL could still
     // hit this route. Narrow here so downstream views see a guaranteed non-null title.
     if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     if (currentOrg.type === 'enclave') {
@@ -73,7 +73,7 @@ export default async function StudyReviewPage(props: {
         if ((searchParams.from === 'code-review' || decisionMade) && codeSubmitted) {
             const codeEntries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(codeEntries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
             if (codeEntries.length > 0) {
                 const job = await latestJobForStudyOrNull(studyId)
@@ -81,7 +81,7 @@ export default async function StudyReviewPage(props: {
             }
             const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(proposalEntries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
             return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
         }
@@ -123,7 +123,7 @@ export default async function StudyReviewPage(props: {
         if (isSubmittedProposalReviewStatus(study.status)) {
             const entries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(entries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
             return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />
         }
@@ -154,5 +154,5 @@ export default async function StudyReviewPage(props: {
         )
     }
 
-    return <AlertNotFound title="Study was not found" message="no such study exists" />
+    return <AlertNotFound title="Study was not found" message="No such study exists" />
 }

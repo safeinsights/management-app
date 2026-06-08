@@ -149,7 +149,7 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     entries,
 }) => {
     if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
     }
     return <FeedbackAndNotesSection entries={entries} />
 }
