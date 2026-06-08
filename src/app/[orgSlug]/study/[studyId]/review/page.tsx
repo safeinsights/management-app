@@ -6,7 +6,7 @@ import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
+import { type CodeDecisionStatus, isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
@@ -22,7 +22,7 @@ import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsReviewer } from './study-details-reviewer'
 
-const CODE_DECISION_TO_REVIEW_DECISION: Record<string, ReviewDecision> = {
+const CODE_DECISION_TO_REVIEW_DECISION: Record<CodeDecisionStatus, ReviewDecision> = {
     'CODE-APPROVED': 'APPROVE',
     'CODE-CHANGES-REQUESTED': 'NEEDS-CLARIFICATION',
     'CODE-REJECTED': 'REJECT',
@@ -93,7 +93,12 @@ export default async function StudyReviewPage(props: {
             // With no code-review rows we must still land the DO on the post-code-feedback page
             // (code decision), not the proposal "Review initial request" fallback below.
             const fallbackStatus = job?.statusChanges.find((s) => isCodeDecisionStatus(s.status))
-            if (fallbackStatus) {
+            if (fallbackStatus && isCodeDecisionStatus(fallbackStatus.status)) {
+                const fallback = {
+                    decision: CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status],
+                    timestamp: fallbackStatus.createdAt,
+                }
+
                 return (
                     <PostFeedbackView
                         orgSlug={orgSlug}
@@ -101,10 +106,7 @@ export default async function StudyReviewPage(props: {
                         entries={[]}
                         kind="CODE"
                         job={job}
-                        fallback={{
-                            decision: CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status],
-                            timestamp: fallbackStatus.createdAt,
-                        }}
+                        fallback={fallback}
                     />
                 )
             }
