@@ -17,7 +17,12 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug, latestJobForStudyOrNull } from '@/server/db/queries'
+import {
+    getInfoForStudyId,
+    getInfoForStudyJobId,
+    getOrgIdFromSlug,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -899,7 +904,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
-        const latestJob = await latestJobForStudyOrNull(studyId)
+        // Gate on the latest *submitted* job, not the raw latest: a file upload during resubmit opens
+        // a fresh INITIATED round job that would otherwise mask the prior submission and fail this
+        // guard (OTTER-601). The prior submission's status is what determines resubmit eligibility.
+        const latestJob = await latestSubmittedJobForStudy(studyId)
         const latestStatus = latestJob?.statusChanges.at(0)?.status
         if (!canResubmitStudyCode(latestStatus)) {
             throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)

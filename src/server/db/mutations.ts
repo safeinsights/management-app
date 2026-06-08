@@ -76,7 +76,10 @@ export async function getOrCreateCurrentRoundJob(
                 .as('latestStatus'),
         )
         .where('studyJob.studyId', '=', studyId)
-        .orderBy('studyJob.createdAt', 'desc')
+        // Order by id (v7 = insertion order), NOT createdAt: ensureRoundJobForUpload deliberately
+        // backdates a new round job's createdAt (so uploaded files read as newer for submit-enable),
+        // which would otherwise rank it *behind* the prior submission and make us open yet another
+        // round. id is monotonic with insertion, so the most-recently-created job always wins.
         .orderBy('studyJob.id', 'desc')
         .limit(1)
         .executeTakeFirst()

@@ -29,7 +29,7 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { ensureRoundJobForLaunch } from '@/server/db/mutations'
+import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/aws', async () => {
@@ -880,6 +880,45 @@ describe('Request Study Actions', () => {
                 }),
             )
 
+            expect(await jobCount(study.id)).toBe(2)
+            expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+
+        // Regression: in the real flow the researcher uploads files on the resubmit page *before*
+        // submitting, which opens a fresh INITIATED round job. The resubmit guard must gate on the
+        // prior submitted job (CODE-CHANGES-REQUESTED), not that new INITIATED job, or it throws.
+        it('resubmit succeeds after a file upload opens the new round job first', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-upload')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            // Researcher uploads a file on the resubmit page → opens the round 2 INITIATED job.
+            await ensureRoundJobForUpload(db, study.id)
+            expect(await jobCount(study.id)).toBe(2)
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'addressed the feedback and updated the code',
+            })
+
+            expect(result).not.toHaveProperty('error')
+            // Still exactly the two rounds; the upload job became round 2, now CODE-SUBMITTED.
             expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
