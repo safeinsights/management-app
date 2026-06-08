@@ -813,7 +813,20 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .execute()
             onStudyCodeApproved({ studyId, userId })
         } else if (decision === 'reject') {
-            await performStudyCodeRejection({ db, studyId, userId })
+            // Rejecting code only fails the job, not the proposal. Record
+            // CODE-REJECTED on the job and keep the study APPROVED so the
+            // proposal page keeps showing "approved" (OTTER-603). The study
+            // was already approved (approvedAt set) before code was reviewed.
+            await db
+                .insertInto('jobStatusChange')
+                .values({ userId, status: 'CODE-REJECTED', studyJobId: claimedJob.id })
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
+                .where('id', '=', studyId)
+                .execute()
+            onStudyCodeRejected({ studyId, userId })
         } else {
             // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
             // pill flips to "Change requested") and move the study back to
