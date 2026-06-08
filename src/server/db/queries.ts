@@ -86,40 +86,38 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 
 function latestJobForStudyQuery(studyId: string) {
-    return (
-        Action.db
-            .selectFrom('studyJob')
-            .selectAll('studyJob')
-            .innerJoin('study', 'study.id', 'studyJob.studyId')
-            .select(['study.orgId', 'study.language'])
-            .select((eb) => [
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
-                        .orderBy('createdAt', 'desc')
-                        .orderBy('jobStatusChange.id', 'desc')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
-                ).as('statusChanges'),
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('studyJobFile')
-                        .select(['name', 'fileType', 'createdAt'])
-                        .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
-                ).as('files'),
-            ])
-            .where('studyJob.studyId', '=', studyId)
-            // id is a v7 (time-ordered) uuid, so it breaks createdAt ties in insertion order.
-            // Without it, two jobs sharing a createdAt (e.g. inserted in the same transaction,
-            // where now() is constant) make this LIMIT 1 non-deterministic across identical queries.
-            .orderBy('studyJob.createdAt', 'desc')
-            .orderBy('studyJob.id', 'desc')
-            .limit(1)
-    )
+    return Action.db
+        .selectFrom('studyJob')
+        .selectAll('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select(['study.orgId', 'study.language'])
+        .select((eb) => [
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                    .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType', 'createdAt'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
+        ])
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .limit(1)
 }
 
-// Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
-// anchor on real submissions rather than a bare baseline with no files attached.
+// The latest job that has reached a real submission (any status beyond the initial INITIATED).
+// A study opens a fresh job when work on a new round begins (IDE launch / file upload after a
+// closed round); until that round is submitted its job is INITIATED-only. Reviewer/researcher
+// routing that must anchor on the *submitted* code uses this, not the raw latest job, so an
+// in-progress new round doesn't mask the submission still under review or showing results.
 function latestSubmittedJobForStudyQuery(studyId: string) {
     return latestJobForStudyQuery(studyId).where((eb) =>
         eb.exists(

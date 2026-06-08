@@ -47,3 +47,28 @@ export const CODE_DECISION_JOB_STATUSES: readonly CodeDecisionStatus[] = [
 
 export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status is CodeDecisionStatus =>
     !!status && CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus)
+
+// OTTER-552: "does the current round have a live code-review decision?"
+//
+// The obvious test — isCodeDecisionStatus(statusChanges[0]) — reads the *latest* status, but
+// that ordering is non-deterministic: jobStatusChange.createdAt defaults to now() (constant
+// within a transaction) so statuses written together tie on createdAt, and v7 ids are not
+// reliably monotonic within a millisecond (see mutations.ts getOrCreateCurrentRoundJob). On
+// staging a CODE-APPROVED/REJECTED/CHANGES-REQUESTED row written alongside a sibling status
+// could sort *behind* it, so the DO fell through to the active code-review page instead of
+// the post-feedback page.
+//
+// Each review round is CODE-SUBMITTED → (decision). Counting is order-independent: when at
+// least as many decisions as submissions exist, the latest submission has been decided and the
+// DO belongs on the post-feedback page. A resubmission adds a CODE-SUBMITTED with no following
+// decision — either on a brand-new job (the current resubmission model, where this job is no
+// longer the latest submitted job) or appended to the same job (legacy) — tipping the count
+// back so the DO returns to active review. CODE-SCANNED is an automated step between submit and
+// decision, not a fresh submission, so it is excluded from the submitted count.
+export const latestSubmittedJobHasLiveCodeDecision = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
+): boolean => {
+    const submittedCount = statusChanges.filter((s) => s.status === 'CODE-SUBMITTED').length
+    const decisionCount = statusChanges.filter((s) => isCodeDecisionStatus(s.status)).length
+    return decisionCount > 0 && decisionCount >= submittedCount
+}

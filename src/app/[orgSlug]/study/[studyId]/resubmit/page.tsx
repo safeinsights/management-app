@@ -5,7 +5,7 @@ import { Routes } from '@/lib/routes'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { canResubmitStudyCode } from '@/lib/code-resubmission'
-import { fetchLatestCodeEnvForStudyIdOrNull, latestJobForStudyOrNull } from '@/server/db/queries'
+import { fetchLatestCodeEnvForStudyIdOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
@@ -18,7 +18,10 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
         return notFound()
     }
 
-    const latestJob = await latestJobForStudyOrNull(studyId)
+    // Gate on the latest *submitted* job: opening this page begins a new round, and a file upload
+    // here creates a fresh INITIATED round job that would otherwise mask the prior submission and
+    // make canResubmitStudyCode fail (OTTER-601). The prior submission's status is what gates resubmit.
+    const latestJob = await latestSubmittedJobForStudy(studyId)
     const latestJobStatus = latestJob?.statusChanges.at(0)?.status ?? null
 
     if (!canResubmitStudyCode(latestJobStatus)) return notFound()

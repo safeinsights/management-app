@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 
 export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled: boolean }) {
