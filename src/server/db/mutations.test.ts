@@ -24,7 +24,7 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         const job = await getOrCreateCurrentRoundJob(db, study.id)
 
         expect(job.created).toBe(true)
-        expect(job.latestStatus).toBe('INITIATED')
+        expect(job.hasSubmission).toBe(false)
         expect(await jobsForStudy(study.id)).toHaveLength(1)
     })
 
@@ -51,7 +51,7 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
 
         expect(result.created).toBe(false)
         expect(result.id).toBe(job.id)
-        expect(result.latestStatus).toBe('CODE-SUBMITTED')
+        expect(result.hasSubmission).toBe(true)
         expect(await jobsForStudy(study.id)).toHaveLength(1)
     })
 
@@ -70,6 +70,41 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         expect(result.created).toBe(true)
         expect(result.id).not.toBe(job.id)
         expect(await jobsForStudy(study.id)).toHaveLength(2)
+    })
+
+    // Regression: the reuse-vs-new-round decision must not depend on jobStatusChange ordering.
+    // jobStatusChange.createdAt defaults to now() (constant within a transaction), so two statuses
+    // written together tie on createdAt and v7 ids aren't reliably monotonic within a millisecond.
+    // A "latest status" lookup over them is non-deterministic; this asserts the decision is stable
+    // when a non-resubmittable and a resubmittable status share an exact createdAt.
+    it('deterministically opens a new round when resubmittable and non-resubmittable statuses share a createdAt', async () => {
+        const org = await insertTestOrg()
+
+        // Fresh study per iteration so each decision runs against the same unchanged two-status state;
+        // an order-dependent implementation would flip the verdict across iterations.
+        for (let i = 0; i < 8; i++) {
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addFile(job.id)
+            // Same exact timestamp for both rows — forces the createdAt tie the bug depended on, with
+            // a non-resubmittable (CODE-APPROVED) and a resubmittable (RUN-COMPLETE) status.
+            const tied = new Date()
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: job.id, status: 'CODE-APPROVED', createdAt: tied },
+                    { studyJobId: job.id, status: 'RUN-COMPLETE', createdAt: tied },
+                ])
+                .execute()
+
+            const result = await getOrCreateCurrentRoundJob(db, study.id)
+            expect(result.created).toBe(true)
+            expect(result.id).not.toBe(job.id)
+            expect(await jobsForStudy(study.id)).toHaveLength(2)
+        }
     })
 
     it('does NOT open a new round after a terminal CODE-REJECTED (not resubmittable)', async () => {

@@ -1,7 +1,7 @@
 import { Action } from '../actions/action'
-import type { DB, StudyJobStatus } from '@/database/types'
+import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
-import { canResubmitStudyCode } from '@/lib/code-resubmission'
+import { CODE_RESUBMITTABLE_JOB_STATUSES } from '@/lib/code-resubmission'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -28,7 +28,14 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     return user.id
 }
 
-export type RoundJob = { id: string; createdAt: Date; latestStatus: StudyJobStatus | null; created: boolean }
+export type RoundJob = {
+    id: string
+    createdAt: Date
+    /** True once the round's job carries a real submission (any status beyond the initial INITIATED). */
+    hasSubmission: boolean
+    /** True when this call inserted a brand-new round job (vs. reusing the current one). */
+    created: boolean
+}
 
 async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date): Promise<RoundJob> {
     const studyJob = await db
@@ -42,7 +49,7 @@ async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date):
         .values({ studyJobId: studyJob.id, status: 'INITIATED' })
         .executeTakeFirstOrThrow()
 
-    return { id: studyJob.id, createdAt: studyJob.createdAt, latestStatus: 'INITIATED', created: true }
+    return { id: studyJob.id, createdAt: studyJob.createdAt, hasSubmission: false, created: true }
 }
 
 /**
@@ -65,15 +72,34 @@ export async function getOrCreateCurrentRoundJob(
     const latest = await db
         .selectFrom('studyJob')
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
+        // Both flags are EXISTENCE checks, not "latest status" lookups, so they're independent of
+        // jobStatusChange ordering. jobStatusChange.createdAt defaults to now() (constant within a
+        // transaction), so two statuses written together tie on createdAt and v7 ids aren't reliably
+        // monotonic within a millisecond — ordering by them to pick "the latest status" is
+        // non-deterministic and could flip the reuse-vs-new-round decision. A resubmittable/terminal
+        // status is never followed by another status on the same job (resubmit opens a NEW job), so
+        // "has any resubmittable status" is an equivalent, order-independent test for a closed round.
         .select((eb) =>
             eb
-                .selectFrom('jobStatusChange')
-                .select('jobStatusChange.status')
-                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                .orderBy('jobStatusChange.createdAt', 'desc')
-                .orderBy('jobStatusChange.id', 'desc')
-                .limit(1)
-                .as('latestStatus'),
+                .exists(
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select('jobStatusChange.id')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                        .where('jobStatusChange.status', 'in', CODE_RESUBMITTABLE_JOB_STATUSES),
+                )
+                .as('roundClosed'),
+        )
+        .select((eb) =>
+            eb
+                .exists(
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select('jobStatusChange.id')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                        .where('jobStatusChange.status', '!=', 'INITIATED'),
+                )
+                .as('hasSubmission'),
         )
         .where('studyJob.studyId', '=', studyId)
         // Order by id (v7 = insertion order), NOT createdAt: ensureRoundJobForUpload deliberately
@@ -84,11 +110,10 @@ export async function getOrCreateCurrentRoundJob(
         .limit(1)
         .executeTakeFirst()
 
-    const latestStatus = (latest?.latestStatus ?? null) as StudyJobStatus | null
-    if (!latest || canResubmitStudyCode(latestStatus)) {
+    if (!latest || latest.roundClosed) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
     }
-    return { id: latest.id, createdAt: latest.createdAt, latestStatus, created: false }
+    return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }
 }
 
 // Submit is enabled when any workspace file's mtime > the current round job's createdAt.
@@ -101,7 +126,7 @@ export async function getOrCreateCurrentRoundJob(
  */
 export async function ensureRoundJobForLaunch(db: Kysely<DB>, studyId: string): Promise<RoundJob> {
     const job = await getOrCreateCurrentRoundJob(db, studyId)
-    if (job.created || job.latestStatus !== 'INITIATED') return job
+    if (job.created || job.hasSubmission) return job
     const reanchored = await db
         .updateTable('studyJob')
         .set({ createdAt: new Date() })
