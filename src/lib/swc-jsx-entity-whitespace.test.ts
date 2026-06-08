@@ -34,12 +34,29 @@ import { beforeAll, describe, expect, it } from 'vitest'
  */
 
 // Internal Next compiler API — no public types, but stable enough for a canary.
+// If a future Next relocates this path, require() throws here; rather than crashing
+// the whole suite at module load (which reads as "something broke" instead of
+// "investigate the canary"), capture the failure and skip with an explanatory message.
 const require = createRequire(import.meta.url)
-const swc = require('next/dist/build/swc')
+let swc: { transform: (src: string, opts: unknown) => Promise<{ code: string }>; loadBindings: () => Promise<void> }
+let swcLoadError: unknown = null
+try {
+    swc = require('next/dist/build/swc')
+} catch (err) {
+    swcLoadError = err
+    console.warn(
+        "[swc-jsx-entity-whitespace canary] Could not load 'next/dist/build/swc' — skipping. " +
+            'Next likely relocated this internal entrypoint; re-point the require above and ' +
+            `re-enable the canary. Original error: ${err instanceof Error ? err.message : String(err)}`,
+    )
+}
 
 // Compiles a <p> whose text run after `<b>Note:</b>` starts with " SafeInsights"
-// and contains `token`. Returns the compiled JS so we can check whether the
-// leading space before "SafeInsights" survived.
+// and contains `token`. SWC emits that run as its own string-literal arg, so the
+// leading space (when preserved) shows up as `"<space>SafeInsights`. Matching the
+// opening quote directly pins the assertion to *that* run's leading whitespace
+// rather than any space elsewhere in the compiled output.
+const SPACE_BEFORE_RUN = /"\s+SafeInsights/
 const compile = async (token: string): Promise<string> => {
     const source =
         `const x = (<p>\n` +
@@ -48,12 +65,17 @@ const compile = async (token: string): Promise<string> => {
         `</p>)`
     const { code } = await swc.transform(source, {
         filename: 'probe.tsx',
-        jsc: { parser: { syntax: 'typescript', tsx: true }, transform: { react: { runtime: 'classic', pragma: 'h' } } },
+        // Automatic runtime to mirror the production build (which is what actually breaks). The
+        // whitespace trimming is in SWC's shared JSX transform, so the runtime choice doesn't
+        // affect the result — but matching prod keeps the canary honest.
+        jsc: { parser: { syntax: 'typescript', tsx: true }, transform: { react: { runtime: 'automatic' } } },
     })
     return code
 }
 
-describe('SWC JSX entity whitespace (regression canary — see file header)', () => {
+// Skip (don't error) if the internal SWC entrypoint moved — the canary can't run, but that's a
+// "go re-point this at the new path" signal, not a real failure. The warning makes the skip visible.
+describe.skipIf(swcLoadError != null)('SWC JSX entity whitespace (regression canary — see file header)', () => {
     beforeAll(async () => {
         await swc.loadBindings()
     })
@@ -61,7 +83,7 @@ describe('SWC JSX entity whitespace (regression canary — see file header)', ()
     it('canary: SWC still drops the space when the text run contains an HTML entity', async () => {
         const code = await compile('won&apos;t store it')
         expect(
-            code.includes(' SafeInsights'),
+            SPACE_BEFORE_RUN.test(code),
             'SWC appears to have FIXED the JSX-entity whitespace bug (swc#11392). ' +
                 'Remove this test and the no-restricted-syntax JSX-entity guard in eslint.config.mjs; ' +
                 'HTML entities in JSX text are safe again.',
@@ -70,6 +92,6 @@ describe('SWC JSX entity whitespace (regression canary — see file header)', ()
 
     it('literal apostrophe keeps the space (this is why replacing entities fixes the render)', async () => {
         const code = await compile('won’t store it')
-        expect(code.includes(' SafeInsights')).toBe(true)
+        expect(SPACE_BEFORE_RUN.test(code)).toBe(true)
     })
 })

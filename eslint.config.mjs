@@ -55,6 +55,9 @@ const eslintConfig = [
             // broken in prod. Use the literal character instead (e.g. ’ ” &).
             // Remove this rule once @next/swc ships the fix; see
             // src/lib/swc-jsx-entity-whitespace.test.ts.
+            // NOTE: extend this array to add more restricted-syntax patterns — do NOT add a
+            // second 'no-restricted-syntax' key in this block, it would silently overwrite
+            // these selectors (object-key collision) and disable the entity guard with no error.
             'no-restricted-syntax': [
                 'error',
                 {
@@ -65,6 +68,8 @@ const eslintConfig = [
                         'Do not use HTML character entities (e.g. &apos;, &rsquo;, &amp;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead (e.g. ’ ” &).',
                 },
                 {
+                    // Numeric refs need their own selector because the named pattern above stops at
+                    // `#` (not a `\w`). `&#\w+;` covers both decimal (&#39;) and hex (&#x27;) forms.
                     selector: 'JSXText[raw=/&#\\w+;/]',
                     message:
                         'Do not use numeric HTML character references (e.g. &#39;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead.',
