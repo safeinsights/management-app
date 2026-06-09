@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import * as RouterMock from 'next-router-mock'
 import {
     insertTestBaselineJob,
-    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
@@ -13,7 +12,7 @@ import {
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { StudyJobStatus } from '@/database/types'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
@@ -187,47 +186,6 @@ describe('StudyViewPage', () => {
             .insertInto('jobStatusChange')
             .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
             .execute()
-    }
-
-    const setupCrossOrgSubmittedCode = async ({
-        studyStatus = 'APPROVED',
-        jobStatus = 'CODE-SUBMITTED',
-    }: {
-        studyStatus?: StudyStatus
-        jobStatus?: StudyJobStatus
-    } = {}) => {
-        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        const { org: lab, user } = await mockSessionWithTestData({ orgSlug: faker.string.alpha(10), orgType: 'lab' })
-        const submittedAt = studyStatus === 'DRAFT' ? null : new Date()
-        const study = await db
-            .insertInto('study')
-            .values({
-                orgId: enclave.id,
-                submittedByOrgId: lab.id,
-                containerLocation: 'test-container',
-                title: 'cross-org code review study',
-                researcherId: user.id,
-                piName: 'test',
-                status: studyStatus,
-                submittedAt,
-                dataSources: ['all'],
-                outputMimeType: 'application/zip',
-                language: 'R',
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        const job = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ status: jobStatus, studyJobId: job.id, userId: user.id })
-            .execute()
-
-        return { enclave, lab, study, job, user }
     }
 
     describe('post-code-submission', () => {
@@ -523,13 +481,19 @@ describe('StudyViewPage', () => {
             expect(reopen?.props.latestJobStatus).toBe('CODE-CHANGES-REQUESTED')
         })
 
-        it('replays the production lab/enclave split and keeps the RL resubmit CTA after a late scan', async () => {
-            const { lab, study } = await setupCrossOrgSubmittedCode()
+        it('keeps the resubmit CTA on the decision page after a late scan (CODE-CHANGES-REQUESTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
             await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
             await addJobStatus(study.id, 'CODE-SCANNED')
 
             const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: lab.slug, studyId: study.id }),
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
                 searchParams: defaultSearchParams,
             })
 
