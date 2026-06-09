@@ -1,8 +1,45 @@
 import { describe, it, expect } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
-import { latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
+import { isCodeReviewableLatest, latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
 
 const changes = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
+
+// isCodeReviewableLatest is recency-aware and expects newest-first input (the order the
+// queries return: createdAt desc, id desc). newestFirst() names that explicitly.
+const newestFirst = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
+
+describe('isCodeReviewableLatest', () => {
+    it('is false with no code submission', () => {
+        expect(isCodeReviewableLatest([])).toBe(false)
+        expect(isCodeReviewableLatest(newestFirst('INITIATED'))).toBe(false)
+    })
+
+    it('is true for a fresh first submission (no decision yet)', () => {
+        expect(isCodeReviewableLatest(newestFirst('CODE-SUBMITTED'))).toBe(true)
+        expect(isCodeReviewableLatest(newestFirst('CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(true)
+    })
+
+    it('is true when a resubmission is newer than the prior change request', () => {
+        expect(
+            isCodeReviewableLatest(
+                newestFirst('CODE-SCANNED', 'CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
+            ),
+        ).toBe(true)
+    })
+
+    it('is false when the newest code change is a decision (awaiting the researcher)', () => {
+        expect(isCodeReviewableLatest(newestFirst('CODE-CHANGES-REQUESTED', 'CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(
+            false,
+        )
+        expect(isCodeReviewableLatest(newestFirst('CODE-REJECTED', 'CODE-SUBMITTED'))).toBe(false)
+    })
+
+    it('is false once approved and running (CODE-APPROVED newer than the submission)', () => {
+        expect(
+            isCodeReviewableLatest(newestFirst('JOB-RUNNING', 'CODE-APPROVED', 'CODE-SCANNED', 'CODE-SUBMITTED')),
+        ).toBe(false)
+    })
+})
 
 describe('latestSubmittedJobHasLiveCodeDecision', () => {
     it('is false when no decision exists yet', () => {

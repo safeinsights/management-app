@@ -30,6 +30,24 @@ export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-
 export const isCodeUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && CODE_UNDER_REVIEW_JOB_STATUSES.includes(status)
 
+// Does the latest job change represent code awaiting a (fresh) review decision? A resubmission
+// appends CODE-SUBMITTED/CODE-SCANNED after a prior CODE-CHANGES-REQUESTED, so this is recency-
+// aware rather than "has any submitted status": the newest code-review-relevant change must be a
+// submission, not a decision. `statusChanges` is newest-first (createdAt desc, id desc). Used by
+// reviewer routing/highlighting where study.status stays APPROVED across code rounds (OTTER-552).
+const CODE_REVIEW_DECISION_STATUSES: readonly StudyJobStatus[] = [
+    'CODE-APPROVED',
+    'CODE-CHANGES-REQUESTED',
+    'CODE-REJECTED',
+]
+
+export const isCodeReviewableLatest = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean => {
+    const submissionIdx = statusChanges.findIndex((c) => CODE_UNDER_REVIEW_JOB_STATUSES.includes(c.status))
+    if (submissionIdx === -1) return false
+    const decisionIdx = statusChanges.findIndex((c) => CODE_REVIEW_DECISION_STATUSES.includes(c.status))
+    return decisionIdx === -1 || submissionIdx < decisionIdx
+}
+
 export const hasJobStatus = (statusChanges: { status: StudyJobStatus }[], statuses: readonly StudyJobStatus[]) =>
     statusChanges.some((c) => statuses.includes(c.status))
 
