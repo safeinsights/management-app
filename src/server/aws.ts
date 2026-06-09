@@ -500,7 +500,10 @@ export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobIn
     return {
         projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
-            ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SUBMITTED' },
+            // No ON_START_PAYLOAD: a scan-start webhook would re-post CODE-SUBMITTED onto the job,
+            // and if the scan's start hook lands after a reviewer has already decided the round
+            // (e.g. requested changes) the spurious CODE-SUBMITTED reopens active review. The real
+            // submission is recorded at upload time; the scanner only needs to report completion.
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
             ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
             SCAN_MODE: 'source',
