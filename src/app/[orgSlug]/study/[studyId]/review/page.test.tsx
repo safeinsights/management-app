@@ -81,12 +81,16 @@ describe('StudyReviewPage', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
+        // from=agreements: reviewer clicked Previous on the Agreements page, landing on the proposal view.
+        // The outgoing agreementsHref ("Proceed to Step 2") must carry from=previous so the Agreements
+        // page doesn't auto-redirect back to /review when reviewerAgreementsAckedAt is already set.
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
         })
         expect(page?.type).toBe(ProposalReviewFromAgreementsView)
         expect(page?.props.agreementsHref).toContain('/agreements')
+        expect(page?.props.agreementsHref).toContain('from=previous')
     })
 
     it('renders CodeReview when agreements already acknowledged (no redirect)', async () => {
