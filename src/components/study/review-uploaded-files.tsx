@@ -80,7 +80,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
                 <Divider />
 
                 <Text size="sm">
-                    If you’re uploading multiple files, please select your main file (i.e., the script that runs first)
+                    If you’re uploading multiple files, please select your main file (i.e., the script that runs first).
                 </Text>
 
                 <Table>

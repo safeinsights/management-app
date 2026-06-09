@@ -13,11 +13,11 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
     const result = await getStudyAction({ studyId })
 
     if (isActionError(result) || !result) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     if (!isSubmittedStudy(result)) {
-        return <AlertNotFound title="Study was not found" message="this study has not been submitted yet" />
+        return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />
     }
 
     const [orgName, feedbackResult] = await Promise.all([

@@ -15,7 +15,7 @@ export const Refresher: React.FC<{ isEnabled: boolean; refresh: () => void; isPe
     if (!isEnabled)
         return (
             <Text fz="sm" className="spy-mode-element">
-                Reload inactive, nothing needs refreshed
+                Reload inactive, nothing needs refreshing
             </Text>
         )
 

@@ -15,7 +15,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
         queryFn: () => loadStudyJobAction({ studyJobId: job.id }),
     })
 
-    if (isLoading || !data) return <Text>Loading files...</Text>
+    if (isLoading || !data) return <Text>Loading files…</Text>
 
     if (!data.files?.length) {
         return (

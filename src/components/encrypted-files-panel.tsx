@@ -61,7 +61,7 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
                         <Textarea
                             label={
                                 hideKeyLabel ? undefined : (
-                                    <Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>
+                                    <Text mb="sm">{`Enter Reviewer key to view ${encryptedFileTypesLabel}`}</Text>
                                 )
                             }
                             resize="vertical"

@@ -13,17 +13,20 @@ interface InactivityWarningMessageProps {
     onStaySignedIn: () => Promise<void>
 }
 
-const InactivityWarningMessage = ({ remainingMinutes, onStaySignedIn }: InactivityWarningMessageProps) => (
-    <Stack>
-        <Text>
-            {`To keep your account secure, you'll be logged out in ${remainingMinutes} minutes due to inactivity. Click 'Stay Signed In' to continue your session.`}
-        </Text>
-        <Space h="xs" />
-        <Button variant="filled" size="sm" onClick={onStaySignedIn}>
-            Stay Signed In
-        </Button>
-    </Stack>
-)
+const InactivityWarningMessage = ({ remainingMinutes, onStaySignedIn }: InactivityWarningMessageProps) => {
+    const minuteLabel = remainingMinutes === 1 ? 'minute' : 'minutes'
+    return (
+        <Stack>
+            <Text>
+                {`To keep your account secure, you'll be logged out in ${remainingMinutes} ${minuteLabel} due to inactivity. Click 'Stay Signed In' to continue your session.`}
+            </Text>
+            <Space h="xs" />
+            <Button variant="filled" size="sm" onClick={onStaySignedIn}>
+                Stay Signed In
+            </Button>
+        </Stack>
+    )
+}
 
 export const ActivityContext = () => {
     const { session } = useSession()
