@@ -1,13 +1,16 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { faker } from '@faker-js/faker'
 import { redirect } from 'next/navigation'
 import {
     db,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
+import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { CodeReview } from './code-review'
 import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreements-view'
 import { PostFeedbackView } from './post-feedback-view'
@@ -35,6 +38,51 @@ describe('StudyReviewPage', () => {
         ).rejects.toThrow('NEXT_REDIRECT')
 
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
+    })
+
+    it('lets an SI admin review a study for an enclave org they do not belong to', async () => {
+        // The reported bug: an SI admin opening a review URL for an org they are not a member of
+        // hit "you do not have permission". The page now gates on the review ABILITY (granted to
+        // SI admins via manage/all), not org membership, so this must render the review flow.
+        const { user: siAdmin } = await mockSessionWithTestData({ isSiAdmin: true })
+        const reviewingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: reviewingOrg,
+            researcherId: siAdmin.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: reviewingOrg.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        // No code submitted yet → the proposal review flow, NOT AccessDeniedAlert.
+        expect(page?.type).toBe(ProposalReviewView)
+        expect(page?.type).not.toBe(AccessDeniedAlert)
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it('does not let a non-member, non-SI user reach the review flow for another org', async () => {
+        // A plain enclave reviewer of a DIFFERENT org has no view access to this study, so
+        // getStudyAction's view gate denies first (AlertNotFound). The key assertion is the
+        // negative: they never reach the active review flow and are never treated as a reviewer.
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: otherOrg,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: otherOrg.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(AlertNotFound)
+        expect(page?.type).not.toBe(ProposalReviewView)
+        expect(page?.type).not.toBe(CodeReview)
+        expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('redirects enclave to agreements page when code submitted and not coming from agreements', async () => {
