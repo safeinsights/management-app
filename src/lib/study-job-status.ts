@@ -60,11 +60,11 @@ export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status
 //
 // Each review round is CODE-SUBMITTED → (decision). Counting is order-independent: when at
 // least as many decisions as submissions exist, the latest submission has been decided and the
-// DO belongs on the post-feedback page. A resubmission adds a CODE-SUBMITTED with no following
-// decision — either on a brand-new job (the current resubmission model, where this job is no
-// longer the latest submitted job) or appended to the same job (legacy) — tipping the count
-// back so the DO returns to active review. CODE-SCANNED is an automated step between submit and
-// decision, not a fresh submission, so it is excluded from the submitted count.
+// DO belongs on the post-feedback page. Current resubmissions open a brand-new job, but the
+// count also handles historical/defensive same-job histories where a new CODE-SUBMITTED with
+// no following decision tips the count back so the DO returns to active review. CODE-SCANNED is
+// an automated step between submit and decision, not a fresh submission, so it is excluded from
+// the submitted count.
 export const latestSubmittedJobHasLiveCodeDecision = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): boolean => {
@@ -81,8 +81,8 @@ export const latestSubmittedJobHasLiveCodeDecision = (
 // job's latest status (job-scan-results/route.ts), which would otherwise mask the decision
 // and dead-end the researcher on the under-review page when they reopen the study.
 //
-// When multiple legacy same-job rounds exist, callers pass statusChanges in newest-first DB
-// order so the first decision in the live decided history is the current round's decision.
+// For historical/defensive same-job rounds, callers pass statusChanges in newest-first DB order
+// so the first decision in the live decided history is the current round's decision.
 export const latestSubmittedJobLiveCodeDecisionStatus = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): CodeDecisionStatus | null => {

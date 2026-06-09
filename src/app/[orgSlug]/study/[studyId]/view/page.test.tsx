@@ -548,8 +548,8 @@ describe('StudyViewPage', () => {
                 studyStatus: 'PENDING-REVIEW',
                 jobStatus: 'CODE-SUBMITTED',
             })
-            // Legacy same-job resubmission shape: a new CODE-SUBMITTED after the decision reopens
-            // review, so the decision is no longer live and the under-review page is correct.
+            // Historical same-job resubmission shape: a new CODE-SUBMITTED after the decision
+            // reopens review, so the decision is no longer live and the under-review page is correct.
             await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
             await addJobStatus(study.id, 'CODE-SUBMITTED')
 

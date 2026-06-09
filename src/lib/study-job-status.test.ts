@@ -101,8 +101,8 @@ describe('latestSubmittedJobLiveCodeDecisionStatus', () => {
     })
 
     it('returns a decision once a resubmission is itself decided', () => {
-        // Route data is ordered newest-first by jobStatusChange.createdAt/id. With two same-job
-        // legacy rounds, the first decision in that ordered list is the live round's decision.
+        // Route data is ordered newest-first by jobStatusChange.createdAt/id. In a historical
+        // same-job history, the first decision in that ordered list is the live round's decision.
         expect(
             latestSubmittedJobLiveCodeDecisionStatus(
                 changes('CODE-APPROVED', 'CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
