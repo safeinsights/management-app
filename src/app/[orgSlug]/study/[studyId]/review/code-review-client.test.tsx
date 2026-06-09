@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { Route } from 'next'
 import { memoryRouter } from 'next-router-mock'
 import {
     actionResult,
@@ -82,7 +83,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -121,7 +122,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -143,7 +144,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -162,7 +163,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -187,7 +188,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -212,7 +213,7 @@ describe('CodeReviewClient decision selector', () => {
                 study={study}
                 job={job}
                 latestJobStatus="CODE-SUBMITTED"
-                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous` as Route}
             />,
         )
 
@@ -240,7 +241,7 @@ describe('CodeReviewClient decision selector', () => {
     it('Back button navigates to the agreements page (previousHref), not the dashboard', async () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
-        const previousHref = `/${orgSlug}/study/${study.id}/agreements?from=previous`
+        const previousHref = `/${orgSlug}/study/${study.id}/agreements?from=previous` as Route
         memoryRouter.setCurrentUrl(`/${orgSlug}/study/${study.id}/review`)
         renderWithProviders(
             <CodeReviewClient

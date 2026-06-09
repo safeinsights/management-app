@@ -33,7 +33,7 @@ type Props = {
     study: SelectedStudy
     job: LatestJobForStudy
     latestJobStatus: StudyJobStatus | null
-    previousHref: string
+    previousHref: Route
 }
 
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
@@ -56,7 +56,7 @@ function useCodeReview({
     studyId: string
     jobId: string
     tabSessionId: string
-    previousHref: string
+    previousHref: Route
 }) {
     const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
     const decision = useReviewDecision()
@@ -84,7 +84,7 @@ function useCodeReview({
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleBack = () => {
-        router.push(previousHref as Route)
+        router.push(previousHref)
     }
 
     const handleSubmit = () => {
