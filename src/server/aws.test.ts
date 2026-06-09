@@ -134,8 +134,10 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
                 value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
             },
             {
+                // A failed source scan posts CODE-SCANNED, not JOB-ERRORED: the scan is advisory and
+                // a human reviewer decides. See buildTriggerScanForStudyJobCommandInput.
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
             },
             { name: 'SCAN_MODE', value: 'source' },
             { name: 'STUDY_JOB_ID', value: info.studyJobId },
