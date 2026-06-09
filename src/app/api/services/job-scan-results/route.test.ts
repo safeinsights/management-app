@@ -146,6 +146,28 @@ test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED',
     expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
 })
 
+// The scanner's start webhook can echo CODE-SUBMITTED after a reviewer has already decided the
+// round. That late echo must not append a second CODE-SUBMITTED, which would reopen active review.
+test('drops a late CODE-SUBMITTED once the round has been decided', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
+            { studyJobId: jobId, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
+        ])
+        .execute()
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    expect(resp.ok).toBe(true)
+
+    const rows = await getJobStatusRows(jobId)
+    expect(rows.filter((r) => r.status === 'CODE-SUBMITTED').length).toBe(1)
+})
+
 test('idempotency: duplicate same-status calls do not create duplicate rows', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })

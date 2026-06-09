@@ -5,10 +5,7 @@
 
 set -e
 
-# CI=true lets pnpm auto-purge a stale node_modules volume (e.g. after a lockfile change)
-# without a TTY prompt — the container is non-interactive, so the prompt would otherwise
-# abort the install and crash-loop. Scoped to install so it doesn't affect `pnpm run dev`.
-CI=true pnpm install --frozen-lockfile
+pnpm install --config.confirm-modules-purge=false --frozen-lockfile
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
