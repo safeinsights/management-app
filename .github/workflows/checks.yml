@@ -256,16 +256,20 @@ jobs:
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
                   cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
             - name: Coverage Diff
+              # Only run on pull_request. On the default branch the action
+              # switches to "baseline update" mode and pushes the coverage
+              # summary to the repo .wiki, which needs `contents: write`, a
+              # permission we deliberately withhold from this PR-code-running
+              # job (OTTER-545). That push 403s on every push to main, so we
+              # skip it there. On PRs the action only reads the baseline and
+              # posts the delta comment, which needs no extra permission.
+              if: github.event_name == 'pull_request'
               uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
-                  # Disable badge / wiki publish: pushing to the .wiki repo
-                  # requires `contents: write`, which we deliberately do not
-                  # grant this PR-code-running job (OTTER-545). PR comment
-                  # still works without it.
                   badge-enabled: false
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
