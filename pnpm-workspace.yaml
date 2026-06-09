@@ -3,8 +3,10 @@ packages:
 allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
+    '@swc/core': false
     esbuild: true
     fsevents: true
+    msw: false
     sharp: true
     unrs-resolver: true
 minimumReleaseAge: 2880
