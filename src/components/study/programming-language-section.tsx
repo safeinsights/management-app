@@ -18,6 +18,10 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
+        // A stale session can leave orgSlug empty (new org missing from the
+        // user's JWT). Without this guard the query fires with '' and the org
+        // lookup throws "no result", 500-ing the whole request page.
+        enabled: !!selectedOrgSlug,
     })
 
     const orgName = data?.orgName ?? ''
