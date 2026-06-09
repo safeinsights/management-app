@@ -81,6 +81,9 @@ describe('StudyReviewPage', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
+        // from=agreements: reviewer clicked Previous on the Agreements page, landing on the proposal view.
+        // The outgoing agreementsHref ("Proceed to Step 2") must carry from=previous so the Agreements
+        // page doesn't auto-redirect back to /review when reviewerAgreementsAckedAt is already set.
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
             searchParams: Promise.resolve({ from: 'agreements' }),
