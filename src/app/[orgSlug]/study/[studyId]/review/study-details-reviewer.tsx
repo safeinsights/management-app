@@ -1,11 +1,8 @@
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { AlertNotFound } from '@/components/errors'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Stack, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsRedesignWithReview } from './study-results-redesign-with-review'
+import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 // OTTER-538: Study Details page (DO) — results-only layout.
@@ -26,23 +23,8 @@ export async function StudyDetailsReviewer({ orgSlug, study }: StudyDetailsRevie
     const previousHref = Routes.studyReview({ orgSlug, studyId: study.id, from: 'code-review' })
 
     return (
-        <Stack px="xl" gap="xl">
-            <OrgBreadcrumbs
-                crumbs={{
-                    orgSlug,
-                    current: 'Study Details',
-                }}
-            />
-            <Title order={2} size="h4" fw={500}>
-                Study Details
-            </Title>
-            <Divider />
+        <StudyDetailsReviewerView orgSlug={orgSlug} previousHref={previousHref}>
             <StudyResultsRedesignWithReview job={job} study={study} />
-            <Group>
-                <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                    Previous
-                </ButtonLink>
-            </Group>
-        </Stack>
+        </StudyDetailsReviewerView>
     )
 }
