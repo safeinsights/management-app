@@ -101,8 +101,12 @@ describe('latestSubmittedJobLiveCodeDecisionStatus', () => {
     })
 
     it('returns a decision once a resubmission is itself decided', () => {
-        // Route data is ordered newest-first by jobStatusChange.createdAt/id. In a historical
-        // same-job history, the first decision in that ordered list is the live round's decision.
+        // The only case that genuinely exercises .find()'s position-dependence: two *different*
+        // decisions in one history. The "regardless of array order" test above has a single
+        // decision, so it cannot prove this path. Route data is ordered newest-first by
+        // jobStatusChange.createdAt/id, so the first decision in that list is the live round's.
+        // In page.tsx this exact combo never reaches here: the hasJobStatus(['CODE-APPROVED', ...])
+        // short-circuit picks CODE-APPROVED before this function is consulted.
         expect(
             latestSubmittedJobLiveCodeDecisionStatus(
                 changes('CODE-APPROVED', 'CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),

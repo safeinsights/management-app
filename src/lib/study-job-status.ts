@@ -81,8 +81,12 @@ export const latestSubmittedJobHasLiveCodeDecision = (
 // job's latest status (job-scan-results/route.ts), which would otherwise mask the decision
 // and dead-end the researcher on the under-review page when they reopen the study.
 //
-// For historical/defensive same-job rounds, callers pass statusChanges in newest-first DB order
-// so the first decision in the live decided history is the current round's decision.
+// Whether a decision is live is order-independent (the count gate above); which decision to
+// return uses .find() (first decision in array order). That is safe: two decisions only tie on
+// createdAt when written in one transaction, and a single review round writes exactly one
+// decision, so a tie never spans two different decisions. A history with two *different*
+// decisions comes from separate rounds (separate transactions), so callers passing statusChanges
+// in newest-first DB order get the current round's decision first.
 export const latestSubmittedJobLiveCodeDecisionStatus = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): CodeDecisionStatus | null => {
