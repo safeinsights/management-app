@@ -7,6 +7,8 @@
 *.log
 tmp/
 .next/
+# Ladle production build output (kept under .ladle/, not a top-level build dir)
+.ladle/dist/
 test-results/
 *.tern-port
 node_modules/
