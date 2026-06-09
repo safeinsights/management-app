@@ -3,7 +3,7 @@ import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 
 export function ResubmitCancelButton({
     isDirty,

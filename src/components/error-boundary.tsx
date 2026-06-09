@@ -52,7 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
                                     Something Went Wrong
                                 </Title>
                                 <Text size="md" fw={400} c="grey.6" mt="md">
-                                    We&apos;re experiencing a technical issue. <br /> Please try again in a few minutes.
+                                    We’re experiencing a technical issue. <br /> Please try again in a few minutes.
                                 </Text>
                                 {this.state.eventId && (
                                     <Text size="sm" fw={600} c="grey.5" mt="sm">

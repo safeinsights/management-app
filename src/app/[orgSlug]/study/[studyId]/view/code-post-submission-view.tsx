@@ -61,7 +61,7 @@ const UnderReviewBanner: FC<{ isVisible: boolean; reviewingOrgName: string; isRe
     return (
         <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
             Your study code {verb} {displayOrgName(reviewingOrgName)}. They will have access to your study code and an
-            AI-generated summary of its behavior. Please allow 7-10 business days for review. You&apos;ll receive email
+            AI-generated summary of its behavior. Please allow 7-10 business days for review. You’ll receive email
             notifications about updates.
         </Alert>
     )

@@ -106,7 +106,7 @@ function AddTotpScreenContent({
                 Authenticator app verification
             </Title>
             <Text size="md">
-                Open your authenticator app and scan the QR code to link your account. If you&apos;re unable to scan the
+                Open your authenticator app and scan the QR code to link your account. If you’re unable to scan the
                 code, you can enter the setup key manually.
             </Text>
             <Text size="md" mb="xs">

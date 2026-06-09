@@ -1,18 +1,24 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import type { ReviewDecision } from '@/database/types'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
-import { isCodeDecisionStatus, isStudyResultsStatus } from '@/lib/study-job-status'
+import {
+    type CodeDecisionStatus,
+    isCodeDecisionStatus,
+    isStudyResultsStatus,
+    latestSubmittedJobHasLiveCodeDecision,
+} from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
 import {
     getCodeReviewFeedbackAction,
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion, latestJobForStudyOrNull, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { currentReviewVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReview } from './code-review'
@@ -20,6 +26,12 @@ import { ProposalReviewFromAgreementsView } from './proposal-review-from-agreeme
 import { PostFeedbackView } from './post-feedback-view'
 import { ProposalReviewView } from './proposal-review-view'
 import { StudyDetailsReviewer } from './study-details-reviewer'
+
+const CODE_DECISION_TO_REVIEW_DECISION: Record<CodeDecisionStatus, ReviewDecision> = {
+    'CODE-APPROVED': 'APPROVE',
+    'CODE-CHANGES-REQUESTED': 'NEEDS-CLARIFICATION',
+    'CODE-REJECTED': 'REJECT',
+}
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -40,7 +52,7 @@ export default async function StudyReviewPage(props: {
 
     const study = await getStudyAction({ studyId })
     if (isActionError(study) || !study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     if (currentOrg.type === 'lab') {
@@ -50,19 +62,30 @@ export default async function StudyReviewPage(props: {
     // Reviewer dashboards filter out DRAFT studies, but a direct URL could still
     // hit this route. Narrow here so downstream views see a guaranteed non-null title.
     if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     if (currentOrg.type === 'enclave') {
-        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-
         // OTTER-552: once a code-review decision has been made, opening the study (e.g. via
         // the dashboard "View" link, which carries no `from` param) must land the DO on the
-        // post-feedback code page — not the active code-review/decision page. We gate on the
-        // *latest* job status so a subsequent resubmission (a fresh CODE-SUBMITTED after a
-        // change request) reopens active review instead of sticking on the decision page.
+        // post-feedback code page — not the active code-review/decision page. The decision is
+        // detected order-independently (counting submissions vs decisions) so a subsequent
+        // resubmission reopens active review while a decision written in the same transaction as
+        // a sibling status still routes to post-feedback.
         const latestDecisionJob = await latestSubmittedJobForStudy(studyId)
-        const decisionMade = isCodeDecisionStatus(latestDecisionJob?.statusChanges[0]?.status)
+        const statusChanges = latestDecisionJob?.statusChanges ?? []
+        const codeSubmitted =
+            studyHasJobStatus(study, 'CODE-SUBMITTED') || statusChanges.some((s) => s.status === 'CODE-SUBMITTED')
+        // Order-independent: reading statusChanges[0] (the "latest" status) is non-deterministic
+        // for statuses written in the same transaction. See latestSubmittedJobHasLiveCodeDecision.
+        const hasLiveCodeDecision = latestSubmittedJobHasLiveCodeDecision(statusChanges)
+        // Once the job has reached a results stage (approve -> provisioning/run -> results) the
+        // dashboard "View" link must land on the results-only Study Details page (OTTER-538), not
+        // the post-feedback page. A CODE-APPROVED is always present at that point, so gate it out
+        // here. The explicit `from=code-review` "Previous" navigation still routes to post-feedback
+        // below regardless of results status.
+        const hasResultsStatus = statusChanges.some((s) => isStudyResultsStatus(s.status))
+        const decisionMade = hasLiveCodeDecision && !hasResultsStatus
 
         // When a reviewer navigates back from the code review page, OR the code decision has
         // already been made, show the post-feedback view. After a code-review decision exists,
@@ -73,17 +96,47 @@ export default async function StudyReviewPage(props: {
         if ((searchParams.from === 'code-review' || decisionMade) && codeSubmitted) {
             const codeEntries = await getCodeReviewFeedbackAction({ studyId })
             if (isActionError(codeEntries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
+            const job = latestDecisionJob
             if (codeEntries.length > 0) {
-                const job = await latestJobForStudyOrNull(studyId)
                 return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
             }
+
+            // OTTER-538 QA: a study can reach a code-decision stage via proposal approve/reject,
+            // which writes a CODE-* job status without writing a code-review comment.
+            // With no code-review rows we must still land the DO on the post-code-feedback page
+            // (code decision), not the proposal "Review initial request" fallback below.
+            const fallbackStatus = job?.statusChanges.find((s) => isCodeDecisionStatus(s.status))
+            if (fallbackStatus && isCodeDecisionStatus(fallbackStatus.status)) {
+                const fallback = {
+                    decision: CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status],
+                    timestamp: fallbackStatus.createdAt,
+                }
+
+                return (
+                    <PostFeedbackView
+                        orgSlug={orgSlug}
+                        study={study}
+                        entries={[]}
+                        kind="CODE"
+                        job={job}
+                        fallback={fallback}
+                    />
+                )
+            }
+
             const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(proposalEntries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
-            return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
+            // Only render the proposal post-feedback view when there is feedback to show. An empty
+            // list would blank the page (PostFeedbackView returns null with no decision). A study
+            // approved with no feedback (approveStudyProposalAction writes no comment) whose code is
+            // still awaiting a decision falls through to the active-review routing below instead.
+            if (proposalEntries.length > 0) {
+                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={proposalEntries} />
+            }
         }
 
         // When a reviewer navigates back from the agreements step, show the proposal
@@ -104,10 +157,9 @@ export default async function StudyReviewPage(props: {
             }
 
             // OTTER-538: once the job has reached the results stage, render the
-            // redesigned results-only Study Details page.
-            const latestJobStatus = latestDecisionJob?.statusChanges[0]?.status
-
-            if (isStudyResultsStatus(latestJobStatus)) {
+            // redesigned results-only Study Details page. Existence check (not statusChanges[0])
+            // so a results status written alongside a sibling in one transaction still routes here.
+            if (hasResultsStatus) {
                 return <StudyDetailsReviewer orgSlug={orgSlug} study={study} />
             }
 
@@ -123,7 +175,7 @@ export default async function StudyReviewPage(props: {
         if (isSubmittedProposalReviewStatus(study.status)) {
             const entries = await getProposalFeedbackForStudyAction({ studyId })
             if (isActionError(entries)) {
-                return <AlertNotFound title="Feedback could not be loaded" message="please refresh and try again" />
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
             return <PostFeedbackView orgSlug={orgSlug} study={study} entries={entries} />
         }
@@ -154,5 +206,5 @@ export default async function StudyReviewPage(props: {
         )
     }
 
-    return <AlertNotFound title="Study was not found" message="no such study exists" />
+    return <AlertNotFound title="Study was not found" message="No such study exists" />
 }

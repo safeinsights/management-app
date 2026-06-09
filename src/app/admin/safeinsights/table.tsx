@@ -45,7 +45,7 @@ export function OrgsAdminTable() {
                 withTableBorder
                 withColumnBorders
                 idAccessor="slug"
-                noRecordsText="No organisations yet, add some using button below"
+                noRecordsText="No organizations yet, add some using the button below"
                 noRecordsIcon={<UsersIcon />}
                 records={sortedMembers}
                 sortStatus={sortStatus}

@@ -332,7 +332,7 @@ describe('CodePostDecisionView', () => {
             renderView(study, job, [], latestJobStatus, { feedbackLoadError: true })
 
             expect(screen.getByText('Feedback could not be loaded')).toBeInTheDocument()
-            expect(screen.getByText('please refresh and try again')).toBeInTheDocument()
+            expect(screen.getByText('Please refresh and try again')).toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })

@@ -1,5 +1,5 @@
 import { Center, Group, Loader } from '@mantine/core'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { FileViewer } from '@/components/file-viewers'
 

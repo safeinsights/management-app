@@ -118,11 +118,10 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
                 <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                     <Title mb="lg" order={3} ta="center">
-                        Welcome To SafeInsights!
+                        Welcome to SafeInsights!
                     </Title>
                     <Text size="md">
-                        You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
-                        account.
+                        You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
                     <TextInput
                         label="Email"

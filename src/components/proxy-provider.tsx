@@ -5,7 +5,7 @@
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { FC, PropsWithChildren, createContext, useEffect, useState } from 'react'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { Button, Text, Stack, Group } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import type { Route } from 'next'

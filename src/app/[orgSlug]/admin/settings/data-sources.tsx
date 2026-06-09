@@ -4,7 +4,7 @@ import { Stack, Title, Divider, Paper, Text, Button, Group, ActionIcon, Tooltip,
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { DataSourceForm } from './data-source-form'
 import { TrashIcon, PlusCircleIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sources.actions'

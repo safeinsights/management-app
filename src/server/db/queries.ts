@@ -109,11 +109,15 @@ function latestJobForStudyQuery(studyId: string) {
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
         .limit(1)
 }
 
-// Skips baseline / IDE-init jobs (status sequence: just INITIATED) so callers
-// anchor on real submissions rather than a bare baseline with no files attached.
+// The latest job that has reached a real submission (any status beyond the initial INITIATED).
+// A study opens a fresh job when work on a new round begins (IDE launch / file upload after a
+// closed round); until that round is submitted its job is INITIATED-only. Reviewer/researcher
+// routing that must anchor on the *submitted* code uses this, not the raw latest job, so an
+// in-progress new round doesn't mask the submission still under review or showing results.
 function latestSubmittedJobForStudyQuery(studyId: string) {
     return latestJobForStudyQuery(studyId).where((eb) =>
         eb.exists(

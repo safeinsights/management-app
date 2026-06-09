@@ -21,7 +21,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
         try {
             if (canResendCode) {
                 await signIn.prepareSecondFactor({ strategy: 'phone_code' })
-                notifications.show({ message: 'A new code has been forwarded!', color: 'green' })
+                notifications.show({ message: 'A new code has been sent!', color: 'green' })
                 setCanResendCode(false)
                 setTimeout(() => setCanResendCode(true), 30000)
             }
@@ -54,7 +54,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
             </Button>
             <Group>
                 <Text fz="sm" c="grey.7">
-                    Didn&apos;t receive a code?{' '}
+                    Didn’t receive a code?{' '}
                     <Anchor
                         component="button"
                         type="button"

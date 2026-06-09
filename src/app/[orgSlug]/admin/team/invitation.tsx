@@ -2,7 +2,7 @@
 
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { SuccessPanel } from '@/components/panel'
 import { useSession } from '@/hooks/session'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'

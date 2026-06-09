@@ -2,7 +2,7 @@
 
 import { useMutation } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import {
     Button,
@@ -171,8 +171,8 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
             <Stack>
                 <Text size="md">Make sure you have securely saved your reviewer key. </Text>
                 <Text size="sm" c="red.9">
-                    <b>Note:</b> SafeInsights does not store your reviewer key. If you lose your key, you won&apos;t be
-                    able to access study results and will need to generate a new key.
+                    <b>Note:</b> SafeInsights does not store your reviewer key. If you lose your key, you won’t be able
+                    to access study results and will need to generate a new key.
                 </Text>
                 <Text size="md" mb="md">
                     Do you want to proceed?

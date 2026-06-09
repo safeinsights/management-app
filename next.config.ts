@@ -9,7 +9,15 @@ const securityHeaders = [
     // and we have no in-app frame usage.
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
-    { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+    // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
+    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). We intentionally do not
+    // set script-src/default-src here: Clerk and Sentry inject scripts/connect to
+    // their own origins at runtime, and a restrictive policy would break auth and
+    // error reporting without a nonce-based setup.
+    {
+        key: 'Content-Security-Policy',
+        value: ["frame-ancestors 'none'", "form-action 'self'", "base-uri 'self'"].join('; '),
+    },
     // Prevent MIME-sniffing-based content-type confusion.
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     // Limit referrer leakage to cross-origin destinations.
@@ -18,6 +26,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
     cacheComponents: false,
+    // Don't advertise the framework in responses (SIINFOSEC-771, ZAP-40025).
+    poweredByHeader: false,
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',
@@ -35,6 +45,11 @@ const nextConfig: NextConfig = {
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {
             bodySizeLimit: '6mb',
+        },
+        // Emit Subresource Integrity (integrity=) hashes on Next's own script tags
+        // (SIINFOSEC-772, ZAP-90003).
+        sri: {
+            algorithm: 'sha256',
         },
     },
 }

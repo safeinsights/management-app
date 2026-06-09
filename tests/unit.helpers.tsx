@@ -59,17 +59,42 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-export const createTestQueryClient = () =>
-    new QueryClient({
+// Every QueryClient minted for a test is tracked here and torn down in the global afterEach
+// (see resetTestQueryClients). Without this, a still-live client's scheduled work — most importantly
+// useWorkspaceFiles' refetchInterval timer — outlives its test and fires during the next one, reading
+// the process-global CODER_FILES (reassigned/deleted per test) and flipping a component's state. That
+// surfaced as "intermittent" study-code submit-button failures only under full-suite timing.
+const liveTestQueryClients = new Set<QueryClient>()
+
+// Background refetches (window-focus, mount, reconnect) are also disabled so queries only run when a
+// test explicitly invalidates them — interval polling is stopped by the teardown above.
+export const createTestQueryClient = () => {
+    const client = new QueryClient({
         defaultOptions: {
             queries: {
                 retry: false,
+                refetchOnMount: false,
+                refetchOnWindowFocus: false,
+                refetchOnReconnect: false,
             },
             mutations: {
                 retry: false,
             },
         },
     })
+    liveTestQueryClients.add(client)
+    return client
+}
+
+// Called from the global afterEach (tests/vitest.setup.ts) after RTL cleanup() has unmounted the
+// React trees: clear every test client so no cached data or in-flight refetch crosses into the next
+// test. Observers (and their interval timers) are already gone via cleanup().
+export const resetTestQueryClients = () => {
+    for (const client of liveTestQueryClients) {
+        client.clear()
+    }
+    liveTestQueryClients.clear()
+}
 
 // `renderHook(..., { wrapper: createTestQueryWrapper() })` for hooks that depend on
 // useMutation / useQuery. Each call gets a fresh QueryClient so cached state cannot
@@ -327,6 +352,19 @@ export const insertTestStudyJobData = async ({
         studyJobStatus,
         latestJobWithStatus,
     }
+}
+
+// A baseline job is the file-less INITIATED row minted when a workspace is opened (IDE launch /
+// file upload) before any code is submitted. Pass `createdAt` to place it relative to an existing
+// submission when a test needs the baseline to be newer or older than the reviewed job.
+export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
+    const job = await db
+        .insertInto('studyJob')
+        .values(createdAt ? { studyId, createdAt } : { studyId })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
 }
 
 export const insertTestStudyOnly = async ({

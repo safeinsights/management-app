@@ -20,7 +20,7 @@ import {
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { CodeEnvForm } from './code-env-form'
 import {
     TrashIcon,

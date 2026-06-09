@@ -1,6 +1,6 @@
 'use client'
 
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useSession } from '@/hooks/session'
 import { Routes } from '@/lib/routes'

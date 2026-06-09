@@ -64,7 +64,7 @@ export function PositionForm({
                 <div>
                     <FormFieldLabel label="Link to your profile page" inputId="profileUrl" />
                     <Text size="sm" mb={6}>
-                        Add a link to your personal institutional or organization&apos;s profile page, if available.
+                        Add a link to your personal institutional or organization’s profile page, if available.
                     </Text>
                     <TextInput
                         id="profileUrl"

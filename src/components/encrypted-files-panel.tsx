@@ -1,4 +1,4 @@
-import { FilePreviewModal } from '@/components/file-preview-modal'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
@@ -61,8 +61,8 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
                         <Textarea
                             label={
                                 hideKeyLabel ? undefined : (
-                                    // TODO(UX): "Reviewer Key" — the same key now decrypts for researchers too; rename to a role-neutral term pending UX.
-                                    <Text mb="sm">{`Enter Reviewer Key to view ${encryptedFileTypesLabel}`}</Text>
+// TODO(UX): "Reviewer key" — the same key now decrypts for researchers too; rename to a role-neutral term pending UX.
+                                    <Text mb="sm">{`Enter Reviewer key to view ${encryptedFileTypesLabel}`}</Text>
                                 )
                             }
                             resize="vertical"

@@ -16,8 +16,13 @@ import {
     triggerScanForStudyJob,
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
-import { nextVersionForStudyComment } from '@/server/db/mutations'
-import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug, latestJobForStudyOrNull } from '@/server/db/queries'
+import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
+import {
+    getInfoForStudyId,
+    getInfoForStudyJobId,
+    getOrgIdFromSlug,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -60,36 +65,42 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     }
 }
 
-async function addStudyJob(
+/**
+ * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
+ * launch / file upload instead of minting a new one (OTTER-601). A new job is created only when the
+ * latest round has closed (resubmittable/terminal) — that's a genuine new submission round.
+ *
+ * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
+ * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
+ * prior attempt — in the DB and in S3.
+ */
+async function attachCodeToRoundJob(
     db: Kysely<DB>,
-    userId: string,
     studyId: string,
     orgSlug: string,
     mainCodeFileName: string,
     codeFileNames: string[],
 ) {
-    const studyJob = await db
-        .insertInto('studyJob')
-        .values({
-            studyId: studyId,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+    const job = await getOrCreateCurrentRoundJob(db, studyId)
+    const studyJobId = job.id
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: studyJob.id,
-            status: 'INITIATED',
-        })
-        .executeTakeFirstOrThrow()
+    if (!job.created) {
+        // Reused round: drop any code files a prior attempt left on this job, in the DB and in S3,
+        // so a removed file does not linger in the reviewer's view.
+        await db
+            .deleteFrom('studyJobFile')
+            .where('studyJobId', '=', studyJobId)
+            .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+            .execute()
+        await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
+    }
 
     await db
         .insertInto('studyJobFile')
         .values({
             name: mainCodeFileName,
-            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
-            studyJobId: studyJob.id,
+            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, mainCodeFileName),
+            studyJobId,
             fileType: 'MAIN-CODE',
         })
         .executeTakeFirstOrThrow()
@@ -99,26 +110,33 @@ async function addStudyJob(
             .insertInto('studyJobFile')
             .values({
                 name: fileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
-                studyJobId: studyJob.id,
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName),
+                studyJobId,
                 fileType: 'SUPPLEMENTAL-CODE',
             })
             .executeTakeFirstOrThrow()
     }
 
-    const studyJobCodePath = pathForStudyJobCode({
-        orgSlug,
-        studyId,
-        studyJobId: studyJob.id,
-    })
+    // s3 signed url for client to upload
+    const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
 
-    // s3 signed urls for client to upload
-    const urlForCodeUpload = await createSignedUploadUrl(studyJobCodePath)
+    return { studyJobId, urlForCodeUpload }
+}
 
-    return {
-        studyJobId: studyJob.id,
-        urlForCodeUpload,
-    }
+/**
+ * Record CODE-SUBMITTED for a submission round exactly once. A re-submit within the same un-reviewed
+ * round overwrites the files but stays one submission/version, so we skip if the round's job already
+ * carries a CODE-SUBMITTED status (it may since have advanced to CODE-SCANNED, etc.).
+ */
+async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
+    const alreadySubmitted = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', '=', 'CODE-SUBMITTED')
+        .executeTakeFirst()
+    if (alreadySubmitted) return
+    await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
 // Schema for creating a new draft
@@ -276,10 +294,10 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
-        // Create the study job for the code files
-        const { studyJobId, urlForCodeUpload } = await addStudyJob(
+        // Attach the code to the study's current submission round. finalizeStudySubmissionAction
+        // adds the CODE-SUBMITTED status to this same job, so the two no longer diverge.
+        const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
             db,
-            userId,
             studyId,
             orgSlug,
             mainCodeFileName,
@@ -385,18 +403,35 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow()
 
+        // The round job created by onSubmitDraftStudyAction (id tiebreaker keeps this deterministic
+        // when two jobs share a createdAt). Adding CODE-SUBMITTED here targets that same job.
         const latestJob = await db
             .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', studyId)
-            .orderBy('createdAt', 'desc')
+            .select((eb) => [
+                'studyJob.id as id',
+                eb
+                    .exists(
+                        eb
+                            .selectFrom('jobStatusChange')
+                            .select('jobStatusChange.id')
+                            .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                            .where('jobStatusChange.status', '=', 'CODE-SUBMITTED'),
+                    )
+                    .as('alreadySubmitted'),
+            ])
+            .where('studyJob.studyId', '=', studyId)
+            .orderBy('studyJob.createdAt', 'desc')
+            .orderBy('studyJob.id', 'desc')
+            .limit(1)
             .executeTakeFirst()
 
         if (latestJob) {
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
-                .execute()
+            if (!latestJob.alreadySubmitted) {
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
+                    .execute()
+            }
             triggerCodeScan(latestJob.id, orgSlug, studyId)
             onStudyReviewRequested({ studyJobId: latestJob.id })
         }
@@ -525,16 +560,15 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
     .handler(async ({ orgSlug, params: { studyId, mainCodeFileName, codeFileNames }, session, db }) => {
         const userId = session.user.id
 
-        const { studyJobId, urlForCodeUpload } = await addStudyJob(
+        const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
             db,
-            userId,
             studyId,
             orgSlug,
             mainCodeFileName,
             codeFileNames,
         )
 
-        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+        await markCodeSubmitted(db, { studyJobId, userId })
 
         const now = new Date()
         await db
@@ -571,9 +605,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await addStudyJob(
+        const { studyJobId } = await attachCodeToRoundJob(
             db,
-            userId,
             studyId,
             orgSlug,
             sanitizedMainFileName,
@@ -594,7 +627,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             await storeS3File({ orgSlug, studyId }, webStream, s3Path)
         }
 
-        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+        await markCodeSubmitted(db, { studyJobId, userId })
 
         const now = new Date()
         await db
@@ -871,7 +904,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
-        const latestJob = await latestJobForStudyOrNull(studyId)
+        // Gate on the latest *submitted* job, not the raw latest: a file upload during resubmit opens
+        // a fresh INITIATED round job that would otherwise mask the prior submission and fail this
+        // guard (OTTER-601). The prior submission's status is what determines resubmit eligibility.
+        const latestJob = await latestSubmittedJobForStudy(studyId)
         const latestStatus = latestJob?.statusChanges.at(0)?.status
         if (!canResubmitStudyCode(latestStatus)) {
             throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)
@@ -884,9 +920,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await addStudyJob(
+        // The canResubmitStudyCode guard above means the latest round has closed, so this opens a
+        // genuinely new round job (a new submission/version) rather than reusing the prior one.
+        const { studyJobId } = await attachCodeToRoundJob(
             db,
-            userId,
             studyId,
             orgSlug,
             sanitizedMainFileName,
@@ -906,7 +943,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             await storeS3File({ orgSlug, studyId }, webStream, s3Path)
         }
 
-        await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+        await markCodeSubmitted(db, { studyJobId, userId })
 
         await db
             .updateTable('studyJob')
