@@ -87,6 +87,7 @@ describe('StudyReviewPage', () => {
         })
         expect(page?.type).toBe(ProposalReviewFromAgreementsView)
         expect(page?.props.agreementsHref).toContain('/agreements')
+        expect(page?.props.agreementsHref).toContain('from=previous')
     })
 
     it('renders CodeReview when agreements already acknowledged (no redirect)', async () => {

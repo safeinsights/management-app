@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { memoryRouter } from 'next-router-mock'
 import {
     actionResult,
     beforeEach,
@@ -76,7 +77,13 @@ describe('CodeReviewClient decision selector', () => {
     it('renders all three decision options with their titles and descriptions', async () => {
         const { study, job, orgSlug } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
@@ -109,7 +116,13 @@ describe('CodeReviewClient decision selector', () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -125,7 +138,13 @@ describe('CodeReviewClient decision selector', () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -138,7 +157,13 @@ describe('CodeReviewClient decision selector', () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -157,7 +182,13 @@ describe('CodeReviewClient decision selector', () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -176,7 +207,13 @@ describe('CodeReviewClient decision selector', () => {
         const user = userEvent.setup()
         const { study, job, orgSlug } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={`/${orgSlug}/study/${study.id}/agreements?from=previous`}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -197,6 +234,28 @@ describe('CodeReviewClient decision selector', () => {
                     privacyProtection: 'yes',
                 },
             })
+        })
+    })
+
+    it('Back button navigates to the agreements page (previousHref), not the dashboard', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const previousHref = `/${orgSlug}/study/${study.id}/agreements?from=previous`
+        memoryRouter.setCurrentUrl(`/${orgSlug}/study/${study.id}/review`)
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        await user.click(screen.getByRole('button', { name: /back/i }))
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe(previousHref)
         })
     })
 })
