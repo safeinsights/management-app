@@ -51,6 +51,18 @@ mockState.setRunWithLocalStorage((cb) => {
     localStorageContext.run({ db: undefined as never }, cb)
 })
 
+// Drain the deferred callbacks scheduled so far (the `after()` work the harness collects), so a test
+// can force fire-and-forget side effects to land before continuing. Single-level by design: snapshot
+// then clear before awaiting, so callbacks scheduled *during* the drain stay queued for afterEach
+// rather than being dropped. Use when a later step depends on a deferred side effect having committed
+// (e.g. a deferred CODE-SCANNED insert must land before the test records the next status change, or
+// the time-ordered v7 ids invert and queries reading the "latest" status see the wrong row).
+export async function flushDeferred() {
+    const toRun = mockState.pendingDeferredCallbacks.slice()
+    mockState.pendingDeferredCallbacks.length = 0
+    await Promise.allSettled(toRun)
+}
+
 // vi.mock calls must live at the module top level. Vitest hoists them above imports,
 // so any values referenced by a factory must come from vi.hoisted instead of ordinary
 // module-scope declarations.
