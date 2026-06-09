@@ -130,10 +130,6 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
             {
-                name: 'ON_START_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SUBMITTED' }),
-            },
-            {
                 name: 'ON_SUCCESS_PAYLOAD',
                 value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
             },
@@ -149,6 +145,10 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
 
         expect(input.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
         expect(input.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
+
+        // The scan must NOT post a status on start: a CODE-SUBMITTED echo here would reopen a
+        // round that a reviewer may have already decided. See buildTriggerScanForStudyJobCommandInput.
+        expect(input.environmentVariablesOverride.some((v) => v.name === 'ON_START_PAYLOAD')).toBe(false)
     })
 })
 
