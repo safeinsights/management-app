@@ -5,7 +5,7 @@
 
 set -e
 
-pnpm install --frozen-lockfile
+pnpm install --config.confirm-modules-purge=false --frozen-lockfile
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
