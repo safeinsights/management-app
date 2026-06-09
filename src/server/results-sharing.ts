@@ -25,6 +25,11 @@ export async function insertSharedFileBoxes(
     const labKeys = await getLabPublicKeysForJob(jobId)
     const labFingerprints = new Set(labKeys.map((k) => k.fingerprint))
 
+    // We validate that each box targets a real lab recipient, but — the server being blind —
+    // we cannot verify the `crypt` actually wraps the file's correct AES key. A buggy reviewer
+    // client could persist a box that unwraps to garbage; the researcher would just fail to
+    // decrypt downstream. The reviewer client is trusted (it wraps the same key it just used to
+    // review), so this is accepted by design rather than guarded here.
     const rows = sharedFiles.flatMap((file) =>
         file.boxes.map((box) => {
             if (!labFingerprints.has(box.fingerprint)) {

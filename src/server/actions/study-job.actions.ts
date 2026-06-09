@@ -39,6 +39,11 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         // only persist those new "PO box" rows — the file ciphertext is never touched and
         // the server never sees plaintext or the raw AES key. Adding a box = sharing;
         // deleting one (future / Card 74) = revoking.
+        //
+        // BACKFILL GAP (Card 73/74): boxes are wrapped only for lab members who have a key
+        // *right now*. A researcher who joins the lab or generates their key after approval
+        // gets no box and cannot read already-approved results. Re-wrapping for late joiners
+        // (the reviewer no longer holds the raw AES key, so this needs a recovery flow) lands here.
         await insertSharedFileBoxes(db, info.studyJobId, sharedFiles, session.user.id)
 
         await db
@@ -209,7 +214,9 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
         const ready = encryptedFiles.flatMap((file) => {
             const crypt = cryptByFileId.get(file.id)
-            // No box for this user, or no iv to decrypt with → stays opaque.
+            // No box for this user, or no iv to decrypt with → stays opaque. A null `iv` means
+            // a legacy (pre-decompose) job; those have no encrypted body here and fall back to
+            // the legacy plaintext download route (src/app/dl/results/...). Intended, not a gap.
             return crypt && file.iv ? [{ file, crypt, iv: file.iv }] : []
         })
 

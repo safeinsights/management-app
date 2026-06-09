@@ -43,9 +43,18 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
  * Touches no plaintext and needs no private key — the manifest is plaintext
  * metadata and the bodies stay ciphertext. One row per decomposed file; sharing
  * a file later = adding a `study_job_file_key` box, never re-encrypting.
+ *
+ * Trust model is honest-but-curious: the server is the storage authority for the
+ * ciphertext bodies + IVs but is trusted not to tamper with them. The AES-CBC
+ * scheme gives confidentiality (the server can never read results), not integrity
+ * — there's no auth tag, so a *malicious* server could alter ciphertext undetected.
+ * If that ever becomes part of the threat model, move to AEAD (AES-GCM) or have the
+ * enclave sign (iv ‖ ciphertext) for client-side verification.
  */
 async function storeDecomposedEncryptedFiles(info: MinimalJobInfo, file: File, fileType: FileType, subdir: string) {
     const decomposed = await decomposeResultsZip(file)
+    // entry.path is the inner filename from TOA's manifest. TOA is trusted, so we use it
+    // directly as the S3 key suffix; if that trust ever weakens, sanitize for `..`/collisions.
     const items = decomposed.map((entry) => ({
         entry,
         path: `${pathForStudyJob(info)}/results/${subdir}/${entry.path}`,

@@ -2,6 +2,9 @@ import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.alterTable('study_job_file').addColumn('iv', 'text').execute()
+    // Display-only pre-encryption size. `integer` caps at ~2.15 GB; if result files ever
+    // exceed that, widen to `bigint` (note: pg returns int8 as a string, so add an int8 type
+    // parser or coerce at the read sites — `bytes` is currently typed `number`).
     await db.schema.alterTable('study_job_file').addColumn('bytes', 'integer').execute()
 
     // Records the durable fact that a reviewer approved (and shared) this file. The

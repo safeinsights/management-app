@@ -61,7 +61,7 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
                         <Textarea
                             label={
                                 hideKeyLabel ? undefined : (
-// TODO(UX): "Reviewer key" — the same key now decrypts for researchers too; rename to a role-neutral term pending UX.
+                                    // TODO(UX): "Reviewer key" — the same key now decrypts for researchers too; rename to a role-neutral term pending UX.
                                     <Text mb="sm">{`Enter Reviewer key to view ${encryptedFileTypesLabel}`}</Text>
                                 )
                             }
