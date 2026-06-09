@@ -72,3 +72,24 @@ export const latestSubmittedJobHasLiveCodeDecision = (
     const decisionCount = statusChanges.filter((s) => isCodeDecisionStatus(s.status)).length
     return decisionCount > 0 && decisionCount >= submittedCount
 }
+
+// OTTER-556 follow-up: the live code-review decision on the latest submitted job
+// (CODE-APPROVED / CODE-CHANGES-REQUESTED / CODE-REJECTED), or null when none is live.
+// The researcher's /view routing needs the actual decision (not just the boolean from
+// latestSubmittedJobHasLiveCodeDecision) and must not treat CODE-SCANNED as a new
+// submission. A late CODE-SCANNED webhook can append after the decision and become the
+// job's latest status (job-scan-results/route.ts), which would otherwise mask the decision
+// and dead-end the researcher on the under-review page when they reopen the study.
+//
+// When multiple legacy same-job rounds exist, callers pass statusChanges in newest-first DB
+// order so the first decision in the live decided history is the current round's decision.
+export const latestSubmittedJobLiveCodeDecisionStatus = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
+): CodeDecisionStatus | null => {
+    if (!latestSubmittedJobHasLiveCodeDecision(statusChanges)) {
+        return null
+    }
+
+    const decision = statusChanges.find((s): s is { status: CodeDecisionStatus } => isCodeDecisionStatus(s.status))
+    return decision?.status ?? null
+}
