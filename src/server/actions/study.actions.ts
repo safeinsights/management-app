@@ -701,31 +701,23 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: 
     await purgeCodeReviewFeedbackYjsDoc(database, args)
 })
 
-async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
-    // Mirror the editor auth gate: code review requires both PENDING-REVIEW
-    // study status and a job whose latest status is CODE-SUBMITTED/CODE-SCANNED.
-    // Without the study-status check, a stale APPROVED study with a fresh
-    // CODE-SUBMITTED job would slip through (the job-status check alone would pass).
-    const study = await db
-        .selectFrom('study')
-        .select('status')
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow(throwNotFound('study'))
-    if (study.status !== 'PENDING-REVIEW') {
-        // OTTER-471: race-loser when a peer already submitted a code decision
-        // (post-submit the study flips out of PENDING-REVIEW).
-        throw new ActionFailure({
-            study: 'has already been decided. Refresh to see the updated status.',
-        })
-    }
-
+async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
+    // Code-review eligibility is driven by the JOB status alone, not study.status.
+    // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
+    // approved stays APPROVED while its code is (re)submitted for review, so the
+    // latest job sitting at CODE-SUBMITTED/CODE-SCANNED is the only correct gate. A
+    // peer submitting a decision advances the job past those statuses (and the
+    // unique (studyJobId, reviewKind) index blocks a true insert race), so the
+    // job-status check is also the race-loser guard (OTTER-471).
     const job = await latestJobForStudyOrNull(studyId)
     const latestStatus = job?.statusChanges.at(0)?.status
     if (!job || !latestStatus) {
         throw new ActionFailure({ study: 'has no code submission to review.' })
     }
     if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
-        throw new ActionFailure({ study: 'code is no longer in a reviewable state.' })
+        throw new ActionFailure({
+            study: 'has already been decided. Refresh to see the updated status.',
+        })
     }
     return job
 }
@@ -769,7 +761,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             })
         }
 
-        const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
+        const claimedJob = await claimInitialCodeReviewJob({ studyId })
 
         try {
             await db

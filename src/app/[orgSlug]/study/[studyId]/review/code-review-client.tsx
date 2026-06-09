@@ -35,8 +35,12 @@ type Props = {
     latestJobStatus: StudyJobStatus | null
 }
 
-const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
-    status === 'PENDING-REVIEW' && latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
+// Code-review editability is driven by the JOB status alone. PENDING-REVIEW is a
+// proposal-stage study status; after a code change-request the study correctly stays
+// APPROVED while the resubmitted code sits at CODE-SUBMITTED/CODE-SCANNED, so gating on
+// study.status here wrongly showed "Code review is closed" for legitimate resubmissions.
+const isCodeReviewEditable = ({ latestJobStatus }: EditableSnapshot): boolean =>
+    latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
 
 const CONFIRM_BODY =
     'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.'
