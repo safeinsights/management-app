@@ -27,7 +27,8 @@ describe('StudyCodeReviewView', () => {
         expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /upload files/i })).toBeInTheDocument()
         expect(screen.getByText(/review files/i)).toBeInTheDocument()
-        expect(screen.getByText(/select your main file/i)).toBeInTheDocument()
+        expect(screen.getByText(/review and manage submitted code files/i)).toBeInTheDocument()
+        expect(screen.queryByText(/select your main file/i)).not.toBeInTheDocument()
     })
 
     it('renders each file row', () => {
