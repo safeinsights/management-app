@@ -1,4 +1,5 @@
 import type { Story } from '@ladle/react'
+import { type ReactNode, useState } from 'react'
 import { ActionIcon, Box, Button, Select } from '@mantine/core'
 import { PlusIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modals/app-modal'
@@ -104,14 +105,32 @@ const InviteModalBody = (
     </>
 )
 
-export const InviteModalOpen: Story = () => (
-    <AppModal isOpen onClose={noop} title="Invite others to join your team" size="lg">
-        {InviteModalBody}
-    </AppModal>
-)
+// The modal portals into the document body, so each story drives it from a trigger button with
+// real open/close state — that way the X, Escape and overlay-click actually dismiss it (an
+// always-open `onClose={noop}` modal can't be escaped).
+function InviteModalStory({ children }: { children: ReactNode }) {
+    const [open, setOpen] = useState(true)
+    return (
+        <div style={{ padding: 24 }}>
+            <Button leftSection={<PlusIcon />} onClick={() => setOpen(true)}>
+                Invite People
+            </Button>
+            <AppModal
+                isOpen={open}
+                onClose={() => setOpen(false)}
+                title="Invite others to join your team"
+                size="lg"
+            >
+                {children}
+            </AppModal>
+        </div>
+    )
+}
+
+export const InviteModalOpen: Story = () => <InviteModalStory>{InviteModalBody}</InviteModalStory>
 
 export const InviteModalEmptyPending: Story = () => (
-    <AppModal isOpen onClose={noop} title="Invite others to join your team" size="lg">
+    <InviteModalStory>
         <InviteFormView
             onSubmit={(e) => e.preventDefault()}
             emailProps={{ value: '', onChange: noop }}
@@ -120,5 +139,5 @@ export const InviteModalEmptyPending: Story = () => (
             isSubmitDisabled
         />
         <PendingInvitesView pendingUsers={[]} renderActions={() => PendingActions} />
-    </AppModal>
+    </InviteModalStory>
 )
