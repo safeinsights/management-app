@@ -1,25 +1,25 @@
 'use client'
 
-import type { FC, ReactNode } from 'react'
+import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Box, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Collapse, Group, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import {
-    StudyCodeViewer,
-    type StudyCodeToggleLabels,
-} from '@/app/[orgSlug]/study/[studyId]/review/submitted-code-interactive'
-import { filterAndOrderCodeFiles, type CodeFile } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
+import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
+import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
+import { StudyCodeToggle, useExpandable } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
+
+type CodeFileList = LatestJobForStudy['files']
 
 interface CodePostDecisionViewProps {
     orgSlug: string
@@ -43,11 +43,6 @@ type DecisionCopy = {
     bannerBg: string
     bannerTestId: string
     banner: (orgName: string) => string
-}
-
-const STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View submitted study code',
-    collapse: 'Hide submitted study code',
 }
 
 const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
@@ -154,19 +149,20 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     return <FeedbackAndNotesSection entries={entries} />
 }
 
-const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFile[] }> = ({
+const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFileList }> = ({
     isVisible,
     jobId,
     codeFiles,
 }) => {
+    const { expanded, toggle } = useExpandable()
     if (!isVisible) return null
     return (
-        <StudyCodeViewer
-            studyJobId={jobId}
-            files={codeFiles}
-            initialExpanded={false}
-            toggleLabels={STUDY_CODE_TOGGLE_LABELS}
-        />
+        <Stack gap="sm">
+            <StudyCodeToggle expanded={expanded} onClick={toggle} />
+            <Collapse in={expanded}>
+                <SubmittedCodeTable jobId={jobId} files={codeFiles} />
+            </Collapse>
+        </Stack>
     )
 }
 
@@ -175,7 +171,7 @@ type StepCardProps = {
     job: LatestJobForStudy
     copy: DecisionCopy
     timestampDate: Date | string | null
-    codeFiles: CodeFile[]
+    codeFiles: CodeFileList
     banner: ReactNode
     showStudyCode: boolean
 }
