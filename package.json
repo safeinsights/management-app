@@ -25,6 +25,7 @@
         "build": "next build",
         "ladle": "PANDA_LOG_LEVEL=silent ladle serve",
         "ladle:build": "PANDA_LOG_LEVEL=silent ladle build --outDir .ladle/dist",
+        "ladle:build:standalone": "LADLE_STANDALONE=1 PANDA_LOG_LEVEL=silent ladle build --outDir .ladle/dist-standalone",
         "db:migrate": "./bin/migrate-dev-db",
         "create-admin-user": "tsx bin/create-admin-user.ts",
         "start": "next start",
@@ -161,6 +162,7 @@
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.56.1",
         "vite": ">=8.0.0",
+        "vite-plugin-singlefile": "^2.3.3",
         "vitest": ">=4.1.6",
         "vitest-monocart-coverage": "^4.0.1"
     }

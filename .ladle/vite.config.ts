@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import path from 'node:path'
+import { viteSingleFile } from 'vite-plugin-singlefile'
 
 // Ladle runs components in isolation via Vite — NOT through Next.js. So `next/font`,
 // `next/link`, `next/image`, and `next/navigation` are unavailable. We alias the
@@ -12,6 +13,16 @@ import path from 'node:path'
 // PostCSS (Panda) is picked up from the repo-root postcss.config.cjs automatically,
 // so Ladle gets the SAME Panda + Mantine styling pipeline as the app.
 export default defineConfig({
+    // STANDALONE build: inline all JS/CSS into a single self-contained index.html so the build
+    // opens from a plain file:// double-click with no server (a normal Ladle build emits module
+    // scripts + code-split chunks, which browsers block over file://). Off by default — only the
+    // `ladle:build:standalone` script sets LADLE_STANDALONE, so normal serve/build keep
+    // code-splitting and HMR. inlineDynamicImports merges Ladle's lazy-loaded story chunks into
+    // the single entry so there are no runtime import() fetches (which also fail over file://).
+    plugins: process.env.LADLE_STANDALONE ? [viteSingleFile()] : [],
+    build: process.env.LADLE_STANDALONE
+        ? { rollupOptions: { output: { inlineDynamicImports: true } } }
+        : {},
     // Some deps read process.env.* at module load; Vite only defines NODE_ENV by
     // default, so make the whole env object safe to read (unknown keys → undefined).
     define: {
