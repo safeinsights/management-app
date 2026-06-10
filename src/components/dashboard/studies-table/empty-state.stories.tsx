@@ -1,5 +1,5 @@
 import type { Story } from '@ladle/react'
-import { pageBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { EmptyState } from './empty-state'
 
 const meta = { title: 'Feedback / Empty state', argTypes: pageBackgroundArgTypes }

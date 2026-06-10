@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import { type FileType, type StudyJobStatus } from '@/database/types'
-import { pageBackgroundArgTypes } from '../../../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
 

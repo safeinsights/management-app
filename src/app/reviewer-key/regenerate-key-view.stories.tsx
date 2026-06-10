@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { useDisclosure } from '@mantine/hooks'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { RegenerateKeyView } from './regenerate-key-view'
 
 // The reviewer-key page-view. RegenerateKeyView is presentational; the container derives the

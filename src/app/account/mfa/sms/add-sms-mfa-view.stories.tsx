@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import { Container, Paper, Stack } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { focusedBackgroundArgTypes } from '../../../../../.ladle/backgrounds'
+import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { AddSmsMfaView, type PhoneFormValues } from './add-sms-mfa-view'
 
 // SMS MFA enrollment step-1 page-view. AddSmsMfaView is presentational; the container

@@ -1,5 +1,5 @@
 import type { Story } from '@ladle/react'
-import { pageBackgroundArgTypes } from '../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { PageBreadcrumbs, OrgBreadcrumbs, ResearcherBreadcrumbs } from './page-breadcrumbs'
 
 const meta = { title: 'Navigation / Breadcrumbs', argTypes: pageBackgroundArgTypes }

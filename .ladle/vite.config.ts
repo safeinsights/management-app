@@ -17,6 +17,9 @@ export default defineConfig({
     },
     resolve: {
         alias: {
+            // Ladle-only modules (decorators, background config) — mirrors the tsconfig
+            // "~ladle/*" path so stories import them without deep "../../../.ladle" chains.
+            '~ladle': path.resolve(__dirname),
             // Order matters: the more specific '@/tests' must precede '@'.
             '@/tests': path.resolve(__dirname, '..', 'tests'),
             '@': path.resolve(__dirname, '..', 'src'),

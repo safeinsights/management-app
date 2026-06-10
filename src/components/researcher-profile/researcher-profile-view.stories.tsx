@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import { useState } from 'react'
 import { useForm } from '@mantine/form'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import {
     ResearcherProfileLayout,
     PersonalInfoSectionView,

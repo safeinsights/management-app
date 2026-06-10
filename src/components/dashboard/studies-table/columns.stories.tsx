@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Table } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { TableHeader } from './columns'
 
 // TableHeader renders the <thead> of the studies table. The column set varies by

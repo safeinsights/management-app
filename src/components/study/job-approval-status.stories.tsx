@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Stack, Text } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ApprovalStatus } from './job-approval-status'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { AllStatus } from '@/lib/types'

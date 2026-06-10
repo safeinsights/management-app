@@ -1,5 +1,5 @@
 import type { Story } from '@ladle/react'
-import { focusedBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { ManageMFAView } from './manage-mfa-view'
 
 // MFA status page-view. ManageMFAView is presentational; the `hasMFA` flag (read from

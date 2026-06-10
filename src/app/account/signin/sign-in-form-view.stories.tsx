@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { Container } from '@mantine/core'
 import { useForm } from '@/common'
 import { Routes } from '@/lib/routes'
-import { focusedBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { SignInFormView, type SignInFormValues } from './sign-in-form-view'
 
 // The sign-in page-view. SignInFormView is presentational: the real container owns Clerk's

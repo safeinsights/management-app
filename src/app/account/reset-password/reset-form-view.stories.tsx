@@ -2,7 +2,7 @@ import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Container } from '@mantine/core'
 import { useForm } from '@/common'
-import { focusedBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { ResetFormView, type ResetFormValues } from './reset-form-view'
 
 // The reset-password page-view. ResetFormView is presentational: the real container owns Clerk's

@@ -1,5 +1,5 @@
 import type { Story } from '@ladle/react'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { FileReviewTable } from './file-review-table'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 

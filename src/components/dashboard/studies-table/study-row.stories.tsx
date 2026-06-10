@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Anchor, Table } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudyRowView } from './study-row-view'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'

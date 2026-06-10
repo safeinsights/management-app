@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Stack } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import StudyApprovalStatus from './study-approval-status'
 
 // Only the APPROVED and REJECTED study statuses render; every other status (and a

@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Text } from '@mantine/core'
-import { WithAppShell } from '../../../.ladle/decorators/with-app-shell'
+import { WithAppShell } from '~ladle/decorators/with-app-shell'
 import { AppFooter } from './app-footer'
 
 // The app footer renders an <AppShellFooter>, which only positions correctly inside a real

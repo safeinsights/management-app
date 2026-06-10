@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import type { FC } from 'react'
 import { Stack, Text } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { DisplayStudyStatus } from './display-study-status'
 import { REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS, type StatusLabel } from '@/lib/status-labels'
 

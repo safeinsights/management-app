@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { SubmittedCodeTableView } from './submitted-code-table-view'
 
 // Stories target the presentational SubmittedCodeTableView (the SubmittedCodeTable

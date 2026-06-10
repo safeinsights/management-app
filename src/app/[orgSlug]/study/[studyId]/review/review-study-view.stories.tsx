@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Box, Button, Divider, Flex, Group, Paper, Radio, Stack, Table, Text, Textarea, Title } from '@mantine/core'
 import { CaretLeftIcon, DownloadSimpleIcon, EyeIcon, TrophyIcon } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import { pageBackgroundArgTypes } from '../../../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 

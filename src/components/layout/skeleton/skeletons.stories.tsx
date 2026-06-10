@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
-import { pageBackgroundArgTypes } from '../../../../.ladle/backgrounds'
+import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import DashboardSkeleton, { TableSkeleton } from './dashboard'
 import NavbarSkeleton from './navbar'
 
