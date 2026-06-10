@@ -1,8 +1,8 @@
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -236,10 +236,13 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     // test public key (tests/support/public_key.pem) — NOT a placeholder — so results encrypted
     // for it by the e2e (bin/debug/upload-results.ts) produce a PO box whose fingerprint matches
     // the seeded user, and decrypt with tests/support/private_key.pem.
-    const publicKeyDer = pemToArrayBuffer(
-        fs.readFileSync(path.resolve(process.cwd(), 'tests/support/public_key.pem'), 'utf8'),
-    )
-    const fingerprint = await fingerprintKeyData(publicKeyDer)
+    // Inlined from si-encryption's pemToArrayBuffer/fingerprintKeyData: importing that package
+    // pulls in `debug`, whose CJS require('tty') crashes the esbuild ESM bundle the migrator
+    // Lambda runs seeds from. The fingerprint format (hex of SHA-256 over SPKI DER) must stay
+    // in sync with si-encryption, verified identical for this key.
+    const pem = fs.readFileSync(path.resolve(process.cwd(), 'tests/support/public_key.pem'), 'utf8')
+    const publicKeyDer = Buffer.from(pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''), 'base64')
+    const fingerprint = createHash('sha256').update(publicKeyDer).digest('hex')
 
     for (const user of TEST_USERS) {
         const userId = userIdByRole.get(user.role)!
@@ -255,7 +258,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .insertInto('userPublicKey')
             .values({
                 userId,
-                publicKey: Buffer.from(publicKeyDer),
+                publicKey: publicKeyDer,
                 fingerprint,
             })
             .execute()
