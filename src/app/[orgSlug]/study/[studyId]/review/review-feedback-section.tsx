@@ -81,9 +81,9 @@ export function ReviewFeedbackSection({
                 <Stack gap="md">
                     <Text fz={16} c="charcoal.9">
                         Share your feedback on this request directly with {submittingLabName}. Consider addressing the
-                        initial request&apos;s feasibility given your data and infrastructure, its potential to advance
-                        the understanding of teaching and learning, and any questions or clarifications you need from
-                        the research team.
+                        initial request’s feasibility given your data and infrastructure, its potential to advance the
+                        understanding of teaching and learning, and any questions or clarifications you need from the
+                        research team.
                     </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
                 </Stack>

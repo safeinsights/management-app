@@ -134,7 +134,7 @@ export const SignInForm: FC<{
         <form onSubmit={onSubmit}>
             <Paper bg="white" radius="sm" p="xxl">
                 <Title mb="lg" order={3} ta="center">
-                    Welcome To SafeInsights!
+                    Welcome to SafeInsights!
                 </Title>
                 <Flex direction="column" gap="xs">
                     <TextInput

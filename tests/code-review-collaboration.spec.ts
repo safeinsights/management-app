@@ -132,6 +132,11 @@ async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<s
     await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
     await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
     await page.getByRole('button', { name: /Submit code/i }).click()
+
+    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    await expect(confirmButton).toBeVisible()
+    await confirmButton.click()
+
     // Post-flag-removal: code-upload always redirects to /view after submit
     // (usePostCodeSubmissionFeatureFlag was removed).
     await page.waitForURL(/\/view(\?.*)?$/)

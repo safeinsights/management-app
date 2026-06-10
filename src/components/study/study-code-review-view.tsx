@@ -72,8 +72,8 @@ export function StudyCodeReviewView({
             <Stack gap={4}>
                 <Text fw={600}>Review files</Text>
                 <Text size="sm" c="dimmed">
-                    If you&apos;re creating or uploading multiple files, please select your main file (i.e., the script
-                    that runs first).
+                    If you’re creating or uploading multiple files, please select your main file (i.e., the script that
+                    runs first).
                 </Text>
             </Stack>
 

@@ -3,8 +3,10 @@
 import type { Route } from 'next'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
@@ -16,6 +18,12 @@ interface StudyCodeProps {
 
 export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+
+    const handleConfirmSubmit = () => {
+        closeConfirm()
+        ide.submitDirectly()
+    }
 
     const footer = (
         <Group mt="xxl" justify="space-between" w="100%">
@@ -32,7 +40,7 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
                     variant="primary"
                     disabled={!ide.canSubmit}
                     loading={ide.isDirectSubmitting}
-                    onClick={ide.submitDirectly}
+                    onClick={openConfirm}
                 >
                     Submit code
                 </Button>
@@ -40,5 +48,18 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
         </Group>
     )
 
-    return <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" studyTitle={studyTitle} footer={footer} />
+    return (
+        <>
+            <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" studyTitle={studyTitle} footer={footer} />
+            <SubmitConfirmationModal
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={handleConfirmSubmit}
+                isSubmitting={ide.isDirectSubmitting}
+                title="Confirm study code submission?"
+                body="Please confirm you are ready to submit your study code. Further edits are not permitted once submitted."
+                confirmLabel="Yes, submit study code"
+            />
+        </>
+    )
 }

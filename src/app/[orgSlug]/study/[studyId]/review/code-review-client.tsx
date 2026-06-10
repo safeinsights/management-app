@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, type FC, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Alert, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
+import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
-import { AppModal } from '@/components/modal'
+import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -16,7 +17,6 @@ import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feed
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
-import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
@@ -32,6 +32,7 @@ type Props = {
     study: SelectedStudy
     job: LatestJobForStudy
     latestJobStatus: StudyJobStatus | null
+    previousHref: Route
 }
 
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
@@ -39,13 +40,6 @@ const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): bo
 
 const CONFIRM_BODY =
     'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.'
-
-const REJECTION_WARNING = (
-    <Text size="md" fw={600} c="red.9">
-        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
-        action cannot be undone.
-    </Text>
-)
 
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
@@ -55,11 +49,13 @@ function useCodeReview({
     studyId,
     jobId,
     tabSessionId,
+    previousHref,
 }: {
     orgSlug: string
     studyId: string
     jobId: string
     tabSessionId: string
+    previousHref: Route
 }) {
     const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
     const decision = useReviewDecision()
@@ -83,12 +79,11 @@ function useCodeReview({
     const hasDecision = decision.selected !== null
 
     const canSubmit = feedback.isValid && hasDecision && criteriaComplete
-    const backPath = Routes.orgDashboard({ orgSlug })
 
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleBack = () => {
-        router.push(backPath)
+        router.push(previousHref)
     }
 
     const handleSubmit = () => {
@@ -126,62 +121,6 @@ function useCodeReview({
         isPending,
     }
 }
-
-type ConfirmationModalProps = {
-    isOpen: boolean
-    onClose: () => void
-    onConfirm: () => void
-    isPending: boolean
-    title: string
-    confirmLabel: string
-    variant?: 'default' | 'destructive'
-    bodyParagraphs: ReactNode
-}
-
-const ConfirmationModal: FC<ConfirmationModalProps> = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    isPending,
-    title,
-    confirmLabel,
-    variant = 'default',
-    bodyParagraphs,
-}) => {
-    const isDestructive = variant === 'destructive'
-    return (
-        <AppModal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={title}
-            size={720}
-            closeOnClickOutside={!isPending}
-            closeOnEscape={!isPending}
-            withCloseButton={!isPending}
-        >
-            <Stack>
-                {bodyParagraphs}
-                <Group justify="flex-end">
-                    <Button variant="outline" onClick={onClose} disabled={isPending}>
-                        Cancel
-                    </Button>
-                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
-                        {confirmLabel}
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
-    )
-}
-
-const DEFAULT_MODAL_BODY = <Text size="md">{CONFIRM_BODY}</Text>
-
-const REJECT_MODAL_BODY = (
-    <>
-        <Text size="md">{CONFIRM_BODY}</Text>
-        {REJECTION_WARNING}
-    </>
-)
 
 type EditableBodyProps = {
     isVisible: boolean
@@ -259,7 +198,7 @@ function NonEditableBody({ isVisible, onBack }: NonEditableBodyProps) {
     )
 }
 
-export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props) {
+export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previousHref }: Props) {
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const {
@@ -275,7 +214,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         closeReject,
         handleConfirmSubmit,
         isPending,
-    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
+    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
@@ -312,16 +251,17 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                 <NonEditableBody isVisible={!initiallyEditable} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>
 
-            <ConfirmationModal
+            <ReviewConfirmationModal
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
                 isPending={isPending}
                 title="Confirm review submission?"
                 confirmLabel="Yes, submit review"
-                bodyParagraphs={DEFAULT_MODAL_BODY}
-            />
-            <ConfirmationModal
+            >
+                <Text size="md">{CONFIRM_BODY}</Text>
+            </ReviewConfirmationModal>
+            <ReviewConfirmationModal
                 isOpen={rejectOpen}
                 onClose={closeReject}
                 onConfirm={handleConfirmSubmit}
@@ -329,8 +269,10 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                 title="Reject study code?"
                 confirmLabel="Reject study code"
                 variant="destructive"
-                bodyParagraphs={REJECT_MODAL_BODY}
-            />
+            >
+                <Text size="md">{CONFIRM_BODY}</Text>
+                {REJECTION_WARNING}
+            </ReviewConfirmationModal>
         </StudyKickOutProvider>
     )
 }

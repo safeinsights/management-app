@@ -205,7 +205,7 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
         z.object({
             orgSlug: z.string(),
             name: z.string().trim().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-            description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
+            description: z.string().max(250, 'Description cannot exceed 250 characters').nullable().optional(),
         }),
     )
     .middleware(orgIdFromSlug)

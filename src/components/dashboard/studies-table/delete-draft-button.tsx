@@ -5,7 +5,7 @@ import { notifications } from '@mantine/notifications'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
 

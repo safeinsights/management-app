@@ -108,7 +108,7 @@ export function AddSMSMFA() {
     const resendCode = async () => {
         await sendVerificationCode(phoneForm.values)
         if (!(lastSentTime && Date.now() - lastSentTime < 30000)) {
-            notifications.show({ message: 'A new code has been forwarded!', color: 'green' })
+            notifications.show({ message: 'A new code has been sent!', color: 'green' })
         }
     }
 
@@ -259,7 +259,7 @@ export function AddSMSMFA() {
                                         </Button>
                                         <Group>
                                             <Text fz="md" c="grey.7">
-                                                Didn&apos;t receive a code?{' '}
+                                                Didn’t receive a code?{' '}
                                                 <Anchor component="button" onClick={resendCode}>
                                                     Resend code
                                                 </Anchor>
