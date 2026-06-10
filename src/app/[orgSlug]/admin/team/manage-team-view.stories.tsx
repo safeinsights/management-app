@@ -17,7 +17,18 @@ import { PendingInvitesView } from './pending-invites-view'
 const meta = { title: 'Pages / Manage team', argTypes: pageBackgroundArgTypes }
 export default meta
 
-const user = (o: Partial<OrgUserReturn> = {}): OrgUserReturn => ({
+// A self-contained stub avatar (data URI) so UserAvatar's image path renders in Ladle without a
+// network fetch. UserAvatar reads `imageUrl`, which OrgUserReturn doesn't carry yet — widen the
+// fixture so a story can preview the avatar-with-image state alongside the initials fallback.
+const STUB_AVATAR =
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' rx='32' fill='%237048e8'/><text x='32' y='41' font-family='sans-serif' font-size='26' fill='white' text-anchor='middle'>AL</text></svg>",
+    )
+
+type StoryUser = OrgUserReturn & { imageUrl?: string }
+
+const user = (o: Partial<StoryUser> = {}): StoryUser => ({
     id: '11111111-1111-4111-8111-111111111111',
     fullName: 'Ada Lovelace',
     email: 'ada@mars.example',
@@ -29,8 +40,8 @@ const user = (o: Partial<OrgUserReturn> = {}): OrgUserReturn => ({
     ...o,
 })
 
-const people: OrgUserReturn[] = [
-    user({ id: 'u1', fullName: 'Ada Lovelace', email: 'ada@mars.example', isAdmin: true }),
+const people: StoryUser[] = [
+    user({ id: 'u1', fullName: 'Ada Lovelace', email: 'ada@mars.example', isAdmin: true, imageUrl: STUB_AVATAR }),
     user({ id: 'u2', fullName: 'Grace Hopper', email: 'grace@mars.example', isAdmin: false }),
     user({
         id: 'u3',
@@ -116,12 +127,7 @@ function InviteModalStory({ children }: { children: ReactNode }) {
             <Button leftSection={<PlusIcon />} onClick={() => setOpen(true)}>
                 Invite People
             </Button>
-            <AppModal
-                isOpen={open}
-                onClose={() => setOpen(false)}
-                title="Invite others to join your team"
-                size="lg"
-            >
+            <AppModal isOpen={open} onClose={() => setOpen(false)} title="Invite others to join your team" size="lg">
                 {children}
             </AppModal>
         </div>

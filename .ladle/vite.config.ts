@@ -7,6 +7,8 @@ import path from 'node:path'
 // still render. `@sentry/nextjs` is also aliased: its Next integration imports Next's
 // client router (has-base-path.js) which references the Node `process` global —
 // undefined under Vite — crashing any component whose import graph touches Sentry.
+// `@clerk/nextjs` is aliased too: its hooks throw without a <ClerkProvider>, which Ladle
+// has no session for — the shim makes them inert so e.g. <UserAvatar> renders from its prop.
 // PostCSS (Panda) is picked up from the repo-root postcss.config.cjs automatically,
 // so Ladle gets the SAME Panda + Mantine styling pipeline as the app.
 export default defineConfig({
@@ -27,6 +29,7 @@ export default defineConfig({
             'next/image': path.resolve(__dirname, 'shims/next-image.tsx'),
             'next/navigation': path.resolve(__dirname, 'shims/next-navigation.ts'),
             '@sentry/nextjs': path.resolve(__dirname, 'shims/sentry.ts'),
+            '@clerk/nextjs': path.resolve(__dirname, 'shims/clerk.tsx'),
         },
     },
 })

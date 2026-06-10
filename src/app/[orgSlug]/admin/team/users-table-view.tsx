@@ -1,19 +1,18 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Avatar, Flex, Text } from '@mantine/core'
+import { Flex, Text } from '@mantine/core'
 import { DataTable } from 'mantine-datatable'
 import { InfoIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '@/components/tooltip'
-import { getInitials } from '@/lib/string'
+import { UserAvatar } from '@/components/user-avatar'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
 
-// Presentational "People" table. Renders the DataTable, the Full Name cell (avatar
-// initials + name + email), the Last active cell, and the Permission column header — but
-// NOT the per-row permission mutation, which the container injects via `renderPermission`.
-// Avatar initials are derived locally (no Clerk session) so this renders in isolation
-// (e.g. Ladle, which has no Clerk provider or QueryClient).
+// Presentational "People" table. Renders the DataTable, the Full Name cell (avatar + name +
+// email), the Last active cell, and the Permission column header — but NOT the per-row
+// permission mutation, which the container injects via `renderPermission`. Uses the shared
+// <UserAvatar> (Clerk-aware); Ladle renders it through the .ladle Clerk shim.
 
 type User = OrgUserReturn
 
@@ -44,12 +43,7 @@ const PermissionHeader = (
 
 const FullNameCell: React.FC<{ user: User }> = ({ user }) => (
     <Flex align="center" gap="lg">
-        <Avatar
-            bg="purple.3"
-            color="gray.1"
-            name={user.fullName ? getInitials(user.fullName) : ''}
-            alt="User profile"
-        />
+        <UserAvatar user={user} />
         <Flex direction="column">
             <Text c="dark.9">{user.fullName}</Text>
             <Text size="sm" c="gray.7">
