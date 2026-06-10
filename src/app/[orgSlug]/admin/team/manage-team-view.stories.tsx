@@ -21,9 +21,9 @@ export default meta
 // network fetch. UserAvatar reads `imageUrl`, which OrgUserReturn doesn't carry yet — widen the
 // fixture so a story can preview the avatar-with-image state alongside the initials fallback.
 const STUB_AVATAR =
-    'data:image/svg+xml;utf8,' +
+    'data:image/svg+xml,' +
     encodeURIComponent(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' rx='32' fill='%237048e8'/><text x='32' y='41' font-family='sans-serif' font-size='26' fill='white' text-anchor='middle'>AL</text></svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' rx='32' fill='#7048e8'/><text x='32' y='41' font-family='sans-serif' font-size='26' fill='white' text-anchor='middle'>AL</text></svg>",
     )
 
 type StoryUser = OrgUserReturn & { imageUrl?: string }
