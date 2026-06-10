@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Container } from '@mantine/core'
 import { useForm } from '@/common'
 import { Routes } from '@/lib/routes'
+import { focusedBackgroundArgTypes } from '../../../../.ladle/backgrounds'
 import { SignInFormView, type SignInFormValues } from './sign-in-form-view'
 
 // The sign-in page-view. SignInFormView is presentational: the real container owns Clerk's
@@ -11,7 +12,7 @@ import { SignInFormView, type SignInFormValues } from './sign-in-form-view'
 // submit), passes a no-op onSubmit, and varies the injected state (empty/invalid vs. valid vs.
 // Clerk error banner). The navy focused shell is approximated with a backdrop so the card reads
 // in context without importing the Clerk-coupled FocusedLayoutShell.
-const meta = { title: 'Pages / Sign in' }
+const meta = { title: 'Pages / Sign in', argTypes: focusedBackgroundArgTypes }
 export default meta
 
 const noop = () => {}

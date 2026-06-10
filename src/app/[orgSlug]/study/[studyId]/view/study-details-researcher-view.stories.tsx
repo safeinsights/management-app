@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import { type FileType, type StudyJobStatus } from '@/database/types'
+import { pageBackgroundArgTypes } from '../../../../../../.ladle/backgrounds'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
 
@@ -10,7 +11,7 @@ import { JobResultsStatusMessageView } from './job-results-status-message-view'
 // is presentational; its status body is the real JobResultsStatusMessageView so the production
 // copy/branching renders faithfully. JobResults fetches its files via useQuery, so here we pass
 // an inert placeholder into the `results` slot (the real container injects <JobResults/>).
-const meta = { title: 'Pages / Study details' }
+const meta = { title: 'Pages / Study details', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'

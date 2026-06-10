@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Box, Button, Divider, Flex, Group, Paper, Radio, Stack, Table, Text, Textarea, Title } from '@mantine/core'
 import { CaretLeftIcon, DownloadSimpleIcon, EyeIcon, TrophyIcon } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
+import { pageBackgroundArgTypes } from '../../../../../../.ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 
@@ -12,7 +13,7 @@ import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 // inline, session-free fixtures so the two meaningful states render in isolation (no QueryClient
 // or Clerk in Ladle): (1) the proposal review with its label/value pairs + decision + action bar,
 // and (2) the results review "Study Details" page with the Approved status and files table.
-const meta = { title: 'Pages / Review study' }
+const meta = { title: 'Pages / Review study', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const ORG_SLUG = 'mars-university'

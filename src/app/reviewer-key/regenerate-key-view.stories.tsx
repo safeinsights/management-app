@@ -1,5 +1,6 @@
 import type { Story } from '@ladle/react'
 import { useDisclosure } from '@mantine/hooks'
+import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
 import { RegenerateKeyView } from './regenerate-key-view'
 
 // The reviewer-key page-view. RegenerateKeyView is presentational; the container derives the
@@ -8,7 +9,7 @@ import { RegenerateKeyView } from './regenerate-key-view'
 //
 // Note: this screen only renders the "key already exists" state. The "no key yet" case never
 // reaches this component — the route layout redirects to /account/keys when no key exists.
-const meta = { title: 'Pages / Reviewer key' }
+const meta = { title: 'Pages / Reviewer key', argTypes: pageBackgroundArgTypes }
 export default meta
 
 export const KeyAlreadyExists: Story = () => {

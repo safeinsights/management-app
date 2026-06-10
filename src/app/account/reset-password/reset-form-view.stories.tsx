@@ -2,6 +2,7 @@ import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Container } from '@mantine/core'
 import { useForm } from '@/common'
+import { focusedBackgroundArgTypes } from '../../../../.ladle/backgrounds'
 import { ResetFormView, type ResetFormValues } from './reset-form-view'
 
 // The reset-password page-view. ResetFormView is presentational: the real container owns Clerk's
@@ -9,7 +10,7 @@ import { ResetFormView, type ResetFormValues } from './reset-form-view'
 // submit), passes a no-op onSubmit, and varies the injected state (empty/invalid vs. valid vs.
 // pending). The navy focused shell is approximated with a backdrop so the card reads in context
 // without importing the Clerk-coupled FocusedLayoutShell.
-const meta = { title: 'Pages / Reset password' }
+const meta = { title: 'Pages / Reset password', argTypes: focusedBackgroundArgTypes }
 export default meta
 
 const noop = () => {}

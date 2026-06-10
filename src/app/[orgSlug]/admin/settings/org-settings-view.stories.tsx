@@ -2,6 +2,7 @@ import type { Story } from '@ladle/react'
 import { ActionIcon, Anchor, Box, Stack, Text, Tooltip } from '@mantine/core'
 import { PencilIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Org } from '@/schema/org'
+import { pageBackgroundArgTypes } from '../../../../../.ladle/backgrounds'
 import { OrgSettingsView } from './org-settings-view'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
@@ -10,7 +11,7 @@ import { DataSourceRowView, DataSourcesView } from './data-sources-view'
 // About card is the real OrganizationSettingsDisplay, and the Code Environments / Data
 // Sources cards are the real shells with rows fed inline fixtures. Action controls
 // (edit / delete) are plain stand-ins since the live mutations live in the containers.
-const meta = { title: 'Pages / Org settings' }
+const meta = { title: 'Pages / Org settings', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const org: Org = {

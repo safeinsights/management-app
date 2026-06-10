@@ -1,10 +1,11 @@
 import type { Story } from '@ladle/react'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
 import { SubmittedCodeTableView } from './submitted-code-table-view'
 
 // Stories target the presentational SubmittedCodeTableView (the SubmittedCodeTable
 // container owns the preview query + modal, which need app data plumbing).
-const meta = { title: 'Tables / Submitted code table' }
+const meta = { title: 'Tables / Submitted code table', argTypes: pageBackgroundArgTypes }
 export default meta
 
 type CodeFile = LatestJobForStudy['files'][number]

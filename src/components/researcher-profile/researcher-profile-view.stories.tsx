@@ -1,6 +1,7 @@
 import type { Story } from '@ladle/react'
 import { useState } from 'react'
 import { useForm } from '@mantine/form'
+import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
 import {
     ResearcherProfileLayout,
     PersonalInfoSectionView,
@@ -20,7 +21,7 @@ import type {
 // thin section containers (which own useQuery/useMutation/Clerk). Ladle has no
 // QueryClient/Clerk, so the stories build their own forms here (useForm works fine in
 // Ladle) and pass no-op submit/edit handlers — letting the whole stacked page render.
-const meta = { title: 'Pages / Researcher profile' }
+const meta = { title: 'Pages / Researcher profile', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const noop = () => {}

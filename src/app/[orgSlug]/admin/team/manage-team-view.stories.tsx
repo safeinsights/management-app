@@ -5,6 +5,7 @@ import { PlusIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modals/app-modal'
 import { PERMISSION_LABELS, permissionLabelForUser } from '@/lib/role'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
+import { pageBackgroundArgTypes } from '../../../../../.ladle/backgrounds'
 import { ManageTeamView } from './manage-team-view'
 import { UsersTableView } from './users-table-view'
 import { InviteFormView } from './invite-form-view'
@@ -13,7 +14,7 @@ import { PendingInvitesView } from './pending-invites-view'
 // The org-admin Manage team page-view. UsersTableView, InviteFormView and
 // PendingInvitesView are all presentational; the live mutations / session live in the
 // containers. Stories feed inline fixtures and stand-in action controls.
-const meta = { title: 'Pages / Manage team' }
+const meta = { title: 'Pages / Manage team', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const user = (o: Partial<OrgUserReturn> = {}): OrgUserReturn => ({

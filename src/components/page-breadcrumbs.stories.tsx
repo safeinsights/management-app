@@ -1,7 +1,8 @@
 import type { Story } from '@ladle/react'
+import { pageBackgroundArgTypes } from '../../.ladle/backgrounds'
 import { PageBreadcrumbs, OrgBreadcrumbs, ResearcherBreadcrumbs } from './page-breadcrumbs'
 
-const meta = { title: 'Navigation / Breadcrumbs' }
+const meta = { title: 'Navigation / Breadcrumbs', argTypes: pageBackgroundArgTypes }
 export default meta
 
 // PageBreadcrumbs: each crumb is [label, href?]. With an href it renders a link,

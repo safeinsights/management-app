@@ -1,6 +1,7 @@
 import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Anchor, Table } from '@mantine/core'
+import { pageBackgroundArgTypes } from '../../../../.ladle/backgrounds'
 import { StudyRowView } from './study-row-view'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
@@ -8,7 +9,7 @@ import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 // Stories target the presentational StudyRowView (the StudyRow container reads the
 // Clerk session via StudyActionLink, which isn't available in isolation). The action
 // link is passed in as a plain anchor here.
-const meta = { title: 'Tables / Study row' }
+const meta = { title: 'Tables / Study row', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({

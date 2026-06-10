@@ -1,5 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Stack, Text } from '@mantine/core'
+import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
 import { ApprovalStatus } from './job-approval-status'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { AllStatus } from '@/lib/types'
@@ -7,7 +8,7 @@ import type { AllStatus } from '@/lib/types'
 // `ApprovalStatus` only reads `job.statusChanges` to find the relevant code/files
 // decision, so the fixture is a minimal job cast to the full query type. It renders
 // the Approved/Rejected line for the matching status pair, or null when absent.
-const meta = { title: 'Study / Job approval status' }
+const meta = { title: 'Study / Job approval status', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const createdAt = new Date('2026-05-14T12:00:00Z')

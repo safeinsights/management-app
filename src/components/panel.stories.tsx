@@ -1,8 +1,9 @@
 import type { Story } from '@ladle/react'
 import { Text } from '@mantine/core'
+import { pageBackgroundArgTypes } from '../../.ladle/backgrounds'
 import { Panel, SuccessPanel, ErrorPanel } from './panel'
 
-const meta = { title: 'Feedback / Panel' }
+const meta = { title: 'Feedback / Panel', argTypes: pageBackgroundArgTypes }
 export default meta
 
 export const Default: Story = () => (

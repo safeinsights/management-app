@@ -1,12 +1,13 @@
 import type { Story } from '@ladle/react'
 import type { FC } from 'react'
 import { Stack, Text } from '@mantine/core'
+import { pageBackgroundArgTypes } from '../../../.ladle/backgrounds'
 import { DisplayStudyStatus } from './display-study-status'
 import { REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS, type StatusLabel } from '@/lib/status-labels'
 
 // Renders the real status pill for every status value the app defines, separately
 // for each audience. Each pill carries its real tooltip — hover to read the copy.
-const meta = { title: 'Study / Display study status' }
+const meta = { title: 'Study / Display study status', argTypes: pageBackgroundArgTypes }
 export default meta
 
 type Entry = { key: string; label: StatusLabel }
