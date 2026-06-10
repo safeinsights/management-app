@@ -18,7 +18,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
     return (
         <NavOrgLinksView
             org={org}
-            adminLink={<OrgAdminDashboardLink isVisible={!!session.orgs[org.slug]?.isAdmin} org={org} />}
+            adminLink={<OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} org={org} />}
         />
     )
 }

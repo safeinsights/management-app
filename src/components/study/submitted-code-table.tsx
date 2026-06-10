@@ -29,7 +29,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
     return (
         <>
             <SubmittedCodeTableView jobId={jobId} files={files} onPreview={(file) => setPreviewFileName(file.name)} />
-            <FilePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />
+            {!!files?.length && <FilePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />}
         </>
     )
 }
