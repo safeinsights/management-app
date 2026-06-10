@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useState, type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Anchor, Box, Collapse, Group, Stack, Text, Title } from '@mantine/core'
-import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
+import { Box, Collapse, Group, Stack, Text, Title } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -11,6 +11,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
+import { StudyCodeToggle, useExpandable } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
@@ -147,30 +148,6 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     }
     return <FeedbackAndNotesSection entries={entries} />
 }
-
-function useExpandable(initial = false) {
-    const [expanded, setExpanded] = useState(initial)
-    const toggle = useCallback(() => setExpanded((prev) => !prev), [])
-    return { expanded, toggle }
-}
-
-const StudyCodeToggle: FC<{ expanded: boolean; onClick: () => void }> = ({ expanded, onClick }) => (
-    <Anchor
-        component="button"
-        type="button"
-        size="sm"
-        fw={700}
-        onClick={onClick}
-        display="inline-flex"
-        w="fit-content"
-        style={{ alignItems: 'center', gap: 4 }}
-        aria-expanded={expanded}
-        data-testid="study-code-toggle"
-    >
-        {expanded ? 'Hide submitted study code' : 'View submitted study code'}
-        <CaretRightIcon size={12} weight="bold" style={{ transform: expanded ? 'rotate(90deg)' : undefined }} />
-    </Anchor>
-)
 
 const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFileList }> = ({
     isVisible,
