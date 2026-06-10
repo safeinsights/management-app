@@ -1,32 +1,30 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Paper, Stack, Title } from '@mantine/core'
-import { OrganizationSettingsDisplay } from './organization-settings-display'
-import type { Org } from '@/schema/org'
+import { Stack, Title } from '@mantine/core'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { Routes } from '@/lib/routes'
 
-// Presentational layout for the org-admin Settings page: the page title plus the three
-// stacked cards (About organization / Code Environments / Data Sources). It composes the
-// already-pure card sub-views — the About card from OrganizationSettingsDisplay, and the
-// Code Environments / Data Sources card shells supplied as `codeEnvs` / `dataSources`
-// (the real page injects the data containers; a story injects pre-built card views). No
-// data fetching or session here, so it renders in isolation (e.g. Ladle).
+// The org-admin Settings page layout — the exact shell settings/page.tsx renders (breadcrumbs +
+// title + the four stacked sections), with each data/session-coupled section injected as a slot.
+// page.tsx renders THIS view with the real containers, so the storied layout can't drift from the
+// real page; a story passes presentational stand-ins for the four slots.
 export type OrgSettingsViewProps = {
-    org: Org
-    onStartEditOrg: () => void
+    orgSettings: ReactNode
+    apiKeys: ReactNode
     codeEnvs: ReactNode
     dataSources: ReactNode
 }
 
-export function OrgSettingsView({ org, onStartEditOrg, codeEnvs, dataSources }: OrgSettingsViewProps) {
+export function OrgSettingsView({ orgSettings, apiKeys, codeEnvs, dataSources }: OrgSettingsViewProps) {
     return (
         <Stack p="md">
+            <PageBreadcrumbs crumbs={[['Dashboard', Routes.home], ['Admin'], ['Settings']]} />
             <Title order={1} mb="xl">
                 Settings
             </Title>
-            <Paper shadow="xs" p="xl" mb="xl">
-                <OrganizationSettingsDisplay org={org} onStartEdit={onStartEditOrg} />
-            </Paper>
+            {orgSettings}
+            {apiKeys}
             {codeEnvs}
             {dataSources}
         </Stack>

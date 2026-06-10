@@ -1,16 +1,19 @@
 import type { Story } from '@ladle/react'
-import { ActionIcon, Anchor, Box, Stack, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Anchor, Box, Paper, Stack, Text, Tooltip } from '@mantine/core'
 import { PencilIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Org } from '@/schema/org'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { OrgSettingsView } from './org-settings-view'
+import { OrganizationSettingsDisplay } from './organization-settings-display'
+import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
 
-// The org-admin Settings page-view. Every container piece is presentational here: the
-// About card is the real OrganizationSettingsDisplay, and the Code Environments / Data
-// Sources cards are the real shells with rows fed inline fixtures. Action controls
-// (edit / delete) are plain stand-ins since the live mutations live in the containers.
+// The org-admin Settings page-view — the same layout settings/page.tsx renders (breadcrumbs +
+// title + the four stacked sections). The About card is the real OrganizationSettingsDisplay
+// wrapped like OrganizationSettingsManager does; ApiKeySettingsDisplay renders nothing today
+// (under design); the Code Environments / Data Sources shells are fed inline fixtures. Action
+// controls (edit / delete) are plain stand-ins since the live mutations live in the containers.
 const meta = { title: 'Pages / Org settings', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -27,6 +30,14 @@ const org: Org = {
 }
 
 const noop = () => {}
+
+// The About card exactly as OrganizationSettingsManager renders it in display state (Paper-wrapped
+// OrganizationSettingsDisplay); the edit toggle is a container concern, so onStartEdit is a no-op.
+const orgCard = (o: Org) => (
+    <Paper shadow="xs" p="xl" mb="xl">
+        <OrganizationSettingsDisplay org={o} onStartEdit={noop} />
+    </Paper>
+)
 
 const RowActions = (
     <>
@@ -103,15 +114,20 @@ const DataSourcesCard = (
 
 export const Populated: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto' }}>
-        <OrgSettingsView org={org} onStartEditOrg={noop} codeEnvs={CodeEnvsCard} dataSources={DataSourcesCard} />
+        <OrgSettingsView
+            orgSettings={orgCard(org)}
+            apiKeys={<ApiKeySettingsDisplay />}
+            codeEnvs={CodeEnvsCard}
+            dataSources={DataSourcesCard}
+        />
     </Box>
 )
 
 export const EmptyCards: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto' }}>
         <OrgSettingsView
-            org={{ ...org, description: null }}
-            onStartEditOrg={noop}
+            orgSettings={orgCard({ ...org, description: null })}
+            apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={
                 <CodeEnvsView onAdd={noop}>
                     <Text fz="sm" c="dimmed" ta="center" p="md">
