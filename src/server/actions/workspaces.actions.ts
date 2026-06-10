@@ -124,11 +124,15 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
         if (fileNames.length === 0) return { starterFiles: [] }
 
         const { signedUrlForFile } = await import('@/server/aws')
-        const { basename } = await import('@/lib/paths')
+        const { pathForStarterCode } = await import('@/lib/paths')
+        // starterCodeFileNames holds bare names, not S3 keys — sign the key the upload actually wrote to.
         const starterFiles = await Promise.all(
-            fileNames.map(async (filePath: string) => ({
-                name: basename(filePath),
-                url: await signedUrlForFile(filePath),
+            fileNames.map(async (fileName: string) => ({
+                name: fileName,
+                url: await signedUrlForFile(
+                    pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName }),
+                    { ResponseContentDisposition: 'inline' },
+                ),
             })),
         )
         return { starterFiles }
