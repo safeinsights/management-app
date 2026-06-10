@@ -24,12 +24,15 @@ export COMPOSE_PROJECT_NAME="mgmt-app-test-${project_hash}"
 COMPOSE_FILE="$repo_root/docker-compose.testunit.yml"
 
 usage() {
-    echo "Usage: $0 [--clean | --prune] [-- <vitest-args>]"
+    echo "Usage: $0 [--clean | --down | --prune] [-- <vitest-args>]"
     echo ""
     echo "Run unit tests in Docker containers."
     echo ""
     echo "Options:"
     echo "  --clean    Fresh database + node_modules, but KEEP the pnpm store & corepack cache (fast reinstall)"
+    echo "  --down     Stop and remove the unit-test containers + network, but KEEP all volumes (db, storage,"
+    echo "             node_modules & pnpm store). Manual 'I'm done for now' cleanup so the postgres/seaweedfs"
+    echo "             helper containers don't linger in 'docker ps'. Next run recreates them fast. Then exits."
     echo "  --prune    Stop and delete EVERYTHING for this checkout: containers, networks, and ALL volumes"
     echo "             including the pnpm store & corepack cache. Next run re-downloads deps. Then exits."
     echo "  --print-project-name  Print this checkout's Compose project name and exit"
@@ -45,6 +48,7 @@ usage() {
 }
 
 clean_all=false
+down=false
 prune=false
 vitest_args=""
 
@@ -52,6 +56,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --clean)
             clean_all=true
+            shift
+            ;;
+        --down)
+            down=true
             shift
             ;;
         --prune)
@@ -76,6 +84,33 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ "$down" = true ]; then
+    # Manual "I'm done testing for now" teardown. By design the postgres and
+    # seaweedfs helper containers stay running between test runs (they're marked
+    # `restart: unless-stopped` and `docker compose run --rm` only removes the
+    # test-runner, not its dependencies) so reruns start warm and fast. The
+    # downside is they keep showing up in `docker ps` long after you've stopped
+    # testing. Run this when you want them gone.
+    #
+    # This stops and removes the containers + the project network, but KEEPS all
+    # volumes (pgdata, seaweedfs data, node_modules + the co-located pnpm store /
+    # corepack cache). So nothing is re-downloaded, re-migrated, or rebuilt from
+    # scratch: the next `docker-test` run recreates the containers and reattaches
+    # the existing volumes, costing only a ~1-2s container start + healthcheck.
+    #
+    # An explicit `down` also clears the `restart: unless-stopped` policy, so the
+    # containers stay down until you next run tests (they won't pop back up on a
+    # Docker daemon/Desktop restart). With nothing else running, Docker Desktop's
+    # Resource Saver can then suspend the VM and reclaim its memory too.
+    #
+    # For a heavier teardown that ALSO deletes the volumes (forcing a fresh deps
+    # download + DB rebuild next run), use --prune instead.
+    echo "Stopping and removing unit-test containers + network (volumes kept)..."
+    docker compose -f "$COMPOSE_FILE" down --remove-orphans
+    echo "Done. Containers and network removed; volumes preserved for a fast next run."
+    exit 0
+fi
 
 if [ "$prune" = true ]; then
     # Full teardown: containers, networks, and ALL volumes for this checkout,
