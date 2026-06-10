@@ -145,6 +145,45 @@ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:409
 openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
 
+## Component Explorer (Ladle) 🧩
+
+We use [Ladle](https://ladle.dev) to develop and preview UI in isolation — design-system primitives, page
+layouts, modals, and auth/MFA flows — without running the full app, a session, or a database. Stories live
+next to their components as `*.stories.tsx`; the Ladle config and the Vite shims that let app components
+render outside Next.js live under [`.ladle/`](.ladle/).
+
+### Develop
+
+```bash
+pnpm ladle        # starts the explorer (default http://localhost:61000) with hot reload
+```
+
+### Build a shareable, offline copy
+
+To hand someone a self-contained copy they can open with no server and no install:
+
+```bash
+pnpm ladle:build:standalone   # → .ladle/dist-standalone/index.html
+```
+
+This produces a single (~2 MB) `index.html` with all JS/CSS inlined and no code-split chunks, so it opens
+from a plain `file://` double-click. A normal Ladle build can't do this — it emits ES-module scripts and
+lazy-loaded chunks that browsers block over `file://`. Zip it to share:
+
+```bash
+( cd .ladle/dist-standalone && zip -r ../dist-standalone.zip index.html favicon-*.svg touch-icon-*.png manifest-*.webmanifest )
+# → .ladle/dist-standalone.zip — recipient unzips and double-clicks index.html
+```
+
+The brand font (Open Sans) still loads from Google Fonts, so fully offline it falls back to a system
+sans-serif; everything else is embedded.
+
+### Build for static hosting
+
+```bash
+pnpm ladle:build   # → .ladle/dist/ (code-split; serve over HTTP, e.g. `pnpm dlx serve .ladle/dist`)
+```
+
 ## Testing
 
 ### Unit Testing
