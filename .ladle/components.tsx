@@ -1,5 +1,5 @@
 import type { GlobalProvider } from '@ladle/react'
-import { MantineProvider } from '@mantine/core'
+import { Box, MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 // Import the EXACT same stylesheets, in the same order, as src/app/layout.tsx so
 // Ladle renders through the app's real styling pipeline (Panda globals + Mantine
@@ -12,9 +12,16 @@ import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 // The REAL app theme + resolver — the single source of truth shared with the app.
 import { cssVariablesResolver, theme } from '@/theme'
+// The app's page background (AppShell main) — so Ladle's default canvas matches the app and
+// tracks it if the constant changes.
+import { APP_MAIN_BG } from '@/lib/constants'
 
 export const Provider: GlobalProvider = ({ children }) => (
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-        <ModalsProvider>{children}</ModalsProvider>
+        <ModalsProvider>
+            <Box bg={APP_MAIN_BG} mih="100vh">
+                {children}
+            </Box>
+        </ModalsProvider>
     </MantineProvider>
 )

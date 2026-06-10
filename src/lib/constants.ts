@@ -10,5 +10,9 @@ export const PROPOSAL_GRID_SPAN = {
 export const ENCLAVE_BG = 'purple.6'
 export const LAB_BG = 'green.10'
 
+// The app's content/page background — applied to the Mantine AppShell main area. Exported so
+// Ladle's canvas can reference the same source of truth (change it here → app and Ladle update).
+export const APP_MAIN_BG = 'grey.10'
+
 // 8 seconds
 export const NOTIFICATION_DISPLAY_MS = 8000

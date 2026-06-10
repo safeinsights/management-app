@@ -1,5 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Paper, Stack, Text, Title } from '@mantine/core'
+import { BrowserFrame } from '../../../.ladle/decorators/browser-frame'
 import { FocusedLayoutShellView } from './focused-layout-shell-view'
 
 // The centered/focused shell used by sign-in and reset-password flows. FocusedLayoutShellView is
@@ -18,13 +19,17 @@ const Card = () => (
 )
 
 export const Default: Story = () => (
-    <FocusedLayoutShellView isSignInFlow={false} onHeaderClick={() => {}}>
-        <Card />
-    </FocusedLayoutShellView>
+    <BrowserFrame>
+        <FocusedLayoutShellView isSignInFlow={false} onHeaderClick={() => {}}>
+            <Card />
+        </FocusedLayoutShellView>
+    </BrowserFrame>
 )
 
 export const SignInFlow: Story = () => (
-    <FocusedLayoutShellView isSignInFlow={true} onHeaderClick={() => {}}>
-        <Card />
-    </FocusedLayoutShellView>
+    <BrowserFrame>
+        <FocusedLayoutShellView isSignInFlow={true} onHeaderClick={() => {}}>
+            <Card />
+        </FocusedLayoutShellView>
+    </BrowserFrame>
 )

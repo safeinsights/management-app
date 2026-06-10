@@ -11,7 +11,7 @@ import {
 
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { APP_MAIN_BG, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
@@ -40,7 +40,7 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
-            bg="grey.10"
+            bg={APP_MAIN_BG}
             header={{ height: 60, collapsed: isDesktop }}
             footer={{ height: 60 }}
             navbar={{
@@ -67,7 +67,7 @@ export function AppShell({ children }: Props) {
 
             <AppNav isDesktop={isDesktop} />
 
-            <AppShellMain bg="grey.10" style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
+            <AppShellMain bg={APP_MAIN_BG} style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
                 {children}
             </AppShellMain>
 
