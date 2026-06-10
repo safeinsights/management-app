@@ -21,6 +21,10 @@ const eslintConfig = [
             'build/**',
             'next-env.d.ts',
             '.*',
+            // Lint the .ladle/ source (shims, provider, config) but not its build output.
+            '!.ladle',
+            '!.ladle/**',
+            '.ladle/dist/**',
             'CHANGELOG.md',
             'src/styles/generated/',
             'test-results/**',

@@ -6,6 +6,7 @@ import { DataTable } from 'mantine-datatable'
 import { InfoIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '@/components/tooltip'
+import { getInitials } from '@/lib/string'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
 
 // Presentational "People" table. Renders the DataTable, the Full Name cell (avatar
@@ -17,13 +18,6 @@ import type { OrgUserReturn } from '@/server/actions/org.actions'
 type User = OrgUserReturn
 
 export type TeamSort = { columnAccessor: string; direction: 'asc' | 'desc' }
-
-function getInitials(fullName: string): string {
-    const words = fullName.trim().split(/\s+/)
-    if (words.length === 0 || words[0] === '') return ''
-    if (words.length === 1) return words[0][0].toUpperCase()
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase()
-}
 
 const PermissionHeader = (
     <Flex align="center">

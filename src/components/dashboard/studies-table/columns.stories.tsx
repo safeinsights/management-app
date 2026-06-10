@@ -5,7 +5,7 @@ import { TableHeader } from './columns'
 // TableHeader renders the <thead> of the studies table. The column set varies by
 // audience ('researcher' | 'reviewer') and scope ('org' | 'user'), so each story
 // shows a distinct column layout. It is purely prop-driven (no data fetching).
-const meta = { title: 'Tables / StudiesTableHeader' }
+const meta = { title: 'Tables / Studies table header' }
 export default meta
 
 // Renders the <thead> inside a real <Table> so the markup is valid. An empty

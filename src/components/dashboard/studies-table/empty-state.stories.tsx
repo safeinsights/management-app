@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import { EmptyState } from './empty-state'
 
-const meta = { title: 'Feedback / EmptyState' }
+const meta = { title: 'Feedback / Empty state' }
 export default meta
 
 // Copy varies across every audience x scope combination (see MESSAGES in empty-state.tsx).

@@ -4,7 +4,7 @@ import StudyApprovalStatus from './study-approval-status'
 
 // Only the APPROVED and REJECTED study statuses render; every other status (and a
 // missing date) returns null, so those cases intentionally show nothing.
-const meta = { title: 'Study / StudyApprovalStatus' }
+const meta = { title: 'Study / Study approval status' }
 export default meta
 
 const date = new Date('2026-05-14T12:00:00Z')

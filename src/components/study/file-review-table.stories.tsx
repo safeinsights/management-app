@@ -5,7 +5,7 @@ import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 // FileReviewTable is fully prop-driven: it takes a list of workspace files, the
 // currently-selected main file, and a set of callbacks. No data fetching, so it
 // renders cleanly through Ladle's real-theme pipeline with inline fixtures.
-const meta = { title: 'Study / FileReviewTable' }
+const meta = { title: 'Study / File review table' }
 export default meta
 
 const noop = () => {}

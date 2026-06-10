@@ -4,7 +4,7 @@ import { SubmittedCodeTableView } from './submitted-code-table-view'
 
 // Stories target the presentational SubmittedCodeTableView (the SubmittedCodeTable
 // container owns the preview query + modal, which need app data plumbing).
-const meta = { title: 'Tables / SubmittedCodeTable' }
+const meta = { title: 'Tables / Submitted code table' }
 export default meta
 
 type CodeFile = LatestJobForStudy['files'][number]

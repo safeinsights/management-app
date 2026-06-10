@@ -4,7 +4,7 @@ import { RequiredIndicator } from './required-indicator'
 
 // A small red asterisk (with aria-label="required") that renders nothing when
 // isVisible is false, letting callers pass a boolean instead of `{cond && ...}`.
-const meta = { title: 'Forms / RequiredIndicator' }
+const meta = { title: 'Forms / Required indicator' }
 export default meta
 
 export const Visible: Story = () => (

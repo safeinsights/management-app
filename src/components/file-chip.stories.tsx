@@ -4,7 +4,7 @@ import { FileChip } from './file-chip'
 
 // FileChip renders a downloadable badge. Filenames longer than 20 chars are
 // truncated and gain a hover tooltip showing the full name.
-const meta = { title: 'Components / FileChip' }
+const meta = { title: 'Components / File chip' }
 export default meta
 
 const href = 'https://example.com/download/file'

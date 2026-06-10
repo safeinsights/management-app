@@ -3,7 +3,7 @@ import { Group } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
 
-const meta = { title: 'Study / CompactStatusButton' }
+const meta = { title: 'Study / Compact status button' }
 export default meta
 
 export const Default: Story = () => (

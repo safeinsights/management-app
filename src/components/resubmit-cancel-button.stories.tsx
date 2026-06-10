@@ -4,7 +4,7 @@ import { ResubmitCancelButton } from './resubmit-cancel-button'
 
 // Like CancelButton but navigates to a caller-supplied href instead of home.
 // The confirmation modal appears only when isDirty is true.
-const meta = { title: 'Buttons / ResubmitCancelButton' }
+const meta = { title: 'Buttons / Resubmit cancel button' }
 export default meta
 
 export const Clean: Story = () => (

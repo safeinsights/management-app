@@ -8,7 +8,7 @@ import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 // Stories target the presentational StudyRowView (the StudyRow container reads the
 // Clerk session via StudyActionLink, which isn't available in isolation). The action
 // link is passed in as a plain anchor here.
-const meta = { title: 'Tables / StudyRow' }
+const meta = { title: 'Tables / Study row' }
 export default meta
 
 const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({

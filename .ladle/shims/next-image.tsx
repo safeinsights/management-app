@@ -36,6 +36,8 @@ export default function Image({
     const srcStr = typeof src === 'string' ? src : src.src
     const fillStyle = fill ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%' } : undefined
     return (
+        // This shim deliberately renders a plain <img> in place of next/image (Ladle has no Next image optimizer).
+        // eslint-disable-next-line @next/next/no-img-element
         <img
             src={srcStr}
             alt={alt}
