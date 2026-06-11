@@ -136,7 +136,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     scan={scan}
                     codeInitiallyExpanded={!isResubmission}
                 />
-                {isResubmission && <FeedbackAndNotesSection entries={entries} />}
+                {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}
                 <CodeReviewClient
                     orgSlug={orgSlug}
                     study={study}

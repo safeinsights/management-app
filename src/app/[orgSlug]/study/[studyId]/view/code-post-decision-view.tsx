@@ -151,7 +151,7 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     if (feedbackLoadError) {
         return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
     }
-    return <FeedbackAndNotesSection entries={entries} />
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFile[] }> = ({

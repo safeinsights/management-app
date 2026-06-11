@@ -178,7 +178,7 @@ const ExpandedCodePanel: FC<ExpandedCodePanelProps> = ({
 
 const FeedbackSection: FC<{ isVisible: boolean; entries: CodeReviewFeedbackEntry[] }> = ({ isVisible, entries }) => {
     if (!isVisible) return null
-    return <FeedbackAndNotesSection entries={entries} />
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 export function CodePostSubmissionView({
