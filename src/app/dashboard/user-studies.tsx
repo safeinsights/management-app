@@ -49,7 +49,6 @@ export default function UserStudiesDashboard() {
     }
 
     const audience = showTabs ? activeTab : defaultTab
-    const isResearcher = audience === 'researcher'
 
     return (
         <Stack p="xxl" gap="xxl">
@@ -62,11 +61,6 @@ export default function UserStudiesDashboard() {
                     scope="user"
                     orgSlug=""
                     title="My studies"
-                    description={
-                        !isResearcher
-                            ? "Review all the studies submitted to your organizations. Studies that need your attention will be labeled 'Needs review'."
-                            : undefined
-                    }
                     showRefresher
                     headerActions={
                         showTabs ? (
