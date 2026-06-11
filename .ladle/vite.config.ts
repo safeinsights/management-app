@@ -25,8 +25,10 @@ export default defineConfig({
         : {},
     // Some deps read process.env.* at module load; Vite only defines NODE_ENV by
     // default, so make the whole env object safe to read (unknown keys → undefined).
+    // NODE_ENV tracks the actual mode: the standalone build ships a production bundle
+    // (minified, dev warnings stripped), while serve/HMR stays in development.
     define: {
-        'process.env': '{"NODE_ENV":"development"}',
+        'process.env': JSON.stringify({ NODE_ENV: process.env.LADLE_STANDALONE ? 'production' : 'development' }),
     },
     resolve: {
         alias: {

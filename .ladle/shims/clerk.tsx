@@ -35,6 +35,25 @@ export function useClerk() {
     return { signOut: noop, openSignIn: noop, openSignUp: noop, redirectToSignIn: noop }
 }
 
+// Auth-mutation hooks. Stories that need these flows extract a Clerk-free *-view.tsx instead,
+// so the hooks should never actually run here. We return shapes matching the real API but make
+// the action paths throw — a story that triggers sign-in/reverification is hitting live auth it
+// shouldn't, and the message says so rather than silently no-op'ing.
+const throwIfCalled =
+    (name: string) =>
+    (..._args: unknown[]): never => {
+        throw new Error(`@clerk/nextjs ${name} called in Ladle (stories must use a Clerk-free *-view.tsx)`)
+    }
+
+export function useSignIn() {
+    return { isLoaded: true, setActive: throwIfCalled('signIn.setActive'), signIn: undefined }
+}
+
+export function useReverification<T extends (...args: never[]) => unknown>(fn: T): T {
+    void fn
+    return throwIfCalled('useReverification action') as unknown as T
+}
+
 // Provider + gates: render children (or nothing) so a story tree containing them doesn't crash.
 export const ClerkProvider = ({ children }: { children?: ReactNode }) => <>{children}</>
 export const Protect = ({ children }: { children?: ReactNode }) => <>{children}</>

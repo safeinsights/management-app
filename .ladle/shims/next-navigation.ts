@@ -28,11 +28,17 @@ export function useSelectedLayoutSegments(): string[] {
     return []
 }
 
-export function redirect(url: string): never {
+// Mirrors next/navigation's RedirectType enum so callers passing redirect(url, RedirectType.replace) resolve.
+export enum RedirectType {
+    push = 'push',
+    replace = 'replace',
+}
+
+export function redirect(url: string, _type?: RedirectType): never {
     throw new Error(`next/navigation redirect() called in Ladle (needs a fixture): ${url}`)
 }
 
-export function permanentRedirect(url: string): never {
+export function permanentRedirect(url: string, _type?: RedirectType): never {
     throw new Error(`next/navigation permanentRedirect() called in Ladle (needs a fixture): ${url}`)
 }
 
