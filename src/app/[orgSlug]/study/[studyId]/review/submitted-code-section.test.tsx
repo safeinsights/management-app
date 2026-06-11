@@ -188,29 +188,33 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByText('Overview')).toBeInTheDocument()
     })
 
-    it('renders the toggle with "View full AI summary" by default and the body is collapsed', async () => {
+    it('renders the toggle with "View full AI summary" by default and shows a clamped snippet', async () => {
         await renderSection(fixture)
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('View full AI summary')
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('3')
     })
 
-    it('expands the body and flips the toggle label when clicked', async () => {
+    it('expands the body to full text and flips the toggle label when clicked', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         await user.click(screen.getByTestId('ai-summary-toggle'))
 
-        expect(screen.getByTestId('ai-summary-body')).toHaveTextContent(SUMMARY_TEXT)
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('Hide full AI summary')
     })
 
-    it('collapses the body again when the toggle is clicked twice', async () => {
+    it('collapses back to the clamped snippet when the toggle is clicked twice', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         const toggle = screen.getByTestId('ai-summary-toggle')
         await user.click(toggle)
         await user.click(toggle)
 
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('3')
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
