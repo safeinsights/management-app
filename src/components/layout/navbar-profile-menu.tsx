@@ -90,9 +90,8 @@ export function NavbarProfileMenu() {
                 />
 
                 <Protect role={AuthRole.Reviewer}>
-                    {/* TODO(UX): "Reviewer Key" — researchers use the same key; rename to a role-neutral term pending UX. */}
                     <NavLink
-                        label="Reviewer Key"
+                        label="Results Key"
                         leftSection={<LockIcon aria-hidden="true" />}
                         onClick={navigateTo(Routes.reviewerKey)}
                         c="white"
@@ -100,7 +99,7 @@ export function NavbarProfileMenu() {
                         color="blue.7"
                         variant="filled"
                         className={styles.navLinkProfileHover}
-                        aria-label="Reviewer Key"
+                        aria-label="Results Key"
                         role="menuitem"
                         component="button"
                     />

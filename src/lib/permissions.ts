@@ -65,8 +65,8 @@ export function defineAbilityFor(session: UserSession) {
 
     // users who belong to any key-holding org (enclave or lab) can view/create/update their keys
     if (orgs.some(orgNeedsKey)) {
-        permit('view', 'ReviewerKey')
-        permit('update', 'ReviewerKey')
+        permit('view', 'UserKey')
+        permit('update', 'UserKey')
     }
 
     // allow review of studies for enclave orgs that the user belongs to

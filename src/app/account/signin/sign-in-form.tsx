@@ -88,7 +88,7 @@ export const SignInForm: FC<{
                 await onComplete(false)
                 const result = actionResult(await onUserSignInAction())
                 await getToken({ skipCache: true })
-                if (result?.redirectToReviewerKey) {
+                if (result?.redirectToKeyGeneration) {
                     router.push(Routes.accountKeys as Route)
                 } else {
                     router.push(validatedRedirect)

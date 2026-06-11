@@ -2,7 +2,7 @@
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
-import { getReviewerPublicKey } from '@/server/db/queries'
+import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -145,7 +145,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('claimedByUserId', 'is', null)
             .executeTakeFirst()
 
-        // The client-side RequireReviewerKey guard depends on Clerk's useUser() metadata,
+        // The client-side RequireUserKey guard depends on Clerk's useUser() metadata,
         // which may be stale right after this server-side update. We check here so callers
         // can redirect to the key generation page immediately.
         const org = await db
@@ -154,9 +154,9 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('org.id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
-        const needsReviewerKey = orgNeedsKey(org) && !(await getReviewerPublicKey(siUser.id))
+        const needsUserKey = orgNeedsKey(org) && !(await getUserPublicKey(siUser.id))
 
-        return { ...siUser, needsReviewerKey }
+        return { ...siUser, needsUserKey }
     })
 
 export const onCreateAccountAction = new Action('onCreateAccountAction')

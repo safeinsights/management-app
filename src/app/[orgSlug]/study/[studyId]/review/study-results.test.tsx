@@ -149,7 +149,7 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         expect(screen.getByText(/While logs are not available at this time/)).toBeDefined()
-        expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
+        expect(screen.queryByPlaceholderText('Enter your Results Key to access encrypted content.')).toBeNull()
         expect(screen.queryByText(/Review the error logs/)).toBeNull()
         expect(screen.queryByText('Job ID:')).toBeNull()
     })
@@ -163,7 +163,7 @@ describe('View Study Results', () => {
 
         expect(screen.getByText(/Review the error logs before these can be shared with the researcher/)).toBeDefined()
         expect(screen.getByText('Job ID:')).toBeDefined()
-        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
+        expect(screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')).toBeDefined()
         expect(screen.queryByText(/While logs are not available at this time/)).toBeNull()
     })
 
@@ -185,7 +185,7 @@ describe('View Study Results', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={job} />)
 
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
+        const input = screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')
         fireEvent.change(input, { target: { value: await readTestSupportFile('private_key.pem') } })
         fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
 

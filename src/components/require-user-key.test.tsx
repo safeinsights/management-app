@@ -1,8 +1,8 @@
-import { reviewerKeyExistsAction } from '@/server/actions/user-keys.actions'
+import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { useSession } from '@/hooks/session'
 import { render, waitFor } from '@testing-library/react'
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { RequireReviewerKey } from './require-reviewer-key'
+import { RequireUserKey } from './require-user-key'
 
 vi.mock('@/hooks/session', () => ({ useSession: vi.fn() }))
 
@@ -12,31 +12,31 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/server/actions/user-keys.actions', () => ({
-    reviewerKeyExistsAction: vi.fn(),
+    userKeyExistsAction: vi.fn(),
 }))
 
 const mockSessionOrgs = (orgs: Record<string, { type: string }>) =>
     (useSession as Mock).mockReturnValue({ session: { orgs } })
 
-describe('RequireReviewerKey', () => {
+describe('RequireUserKey', () => {
     it('redirects when key is missing', async () => {
         mockSessionOrgs({ enclave: { type: 'enclave' } })
-        ;(reviewerKeyExistsAction as Mock).mockResolvedValue(false)
-        render(<RequireReviewerKey />)
+        ;(userKeyExistsAction as Mock).mockResolvedValue(false)
+        render(<RequireUserKey />)
         await waitFor(() => expect(push).toHaveBeenCalledWith('/account/keys'))
     })
 
     it('does nothing when key exists', async () => {
         mockSessionOrgs({ enclave: { type: 'enclave' } })
-        ;(reviewerKeyExistsAction as Mock).mockResolvedValue(true)
-        render(<RequireReviewerKey />)
+        ;(userKeyExistsAction as Mock).mockResolvedValue(true)
+        render(<RequireUserKey />)
         expect(push).not.toHaveBeenCalled()
     })
 
     it('redirects lab researchers without a key', async () => {
         mockSessionOrgs({ lab: { type: 'lab' } })
-        ;(reviewerKeyExistsAction as Mock).mockResolvedValue(false)
-        render(<RequireReviewerKey />)
+        ;(userKeyExistsAction as Mock).mockResolvedValue(false)
+        render(<RequireUserKey />)
         await waitFor(() => expect(push).toHaveBeenCalledWith('/account/keys'))
     })
 })

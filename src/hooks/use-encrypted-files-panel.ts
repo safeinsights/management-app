@@ -1,7 +1,6 @@
 import { useQuery } from '@/common'
-import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
+import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import { isEncryptedLogType, isResultFile, logLabel } from '@/lib/file-type-helpers'
-import { toSentence } from '@/lib/string'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -32,8 +31,8 @@ function isEncryptedFile(fileType: FileType): boolean {
 }
 
 // State precedence: shared (approved) wins as the durable signal; otherwise a freshly
-// decrypted file is selectable; an approved job with no box for this file means it was
-// withheld; everything else is still locked.
+// decrypted file is selectable; an approved job where this file was never approved means
+// it was withheld; everything else is still locked.
 function fileRowState(opts: { shared: boolean; decrypted: boolean; jobApproved: boolean }): FileRowState {
     if (opts.shared) return 'approved'
     if (opts.decrypted) return 'decrypted'
@@ -49,8 +48,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     // Once a job is approved, files the DO withheld are surfaced as "not shared" (red X) rather than hidden.
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Which files have been shared with researchers (a lab-org wrapped key exists). Existence
-    // of a wrapped key is the approval/shared signal — there is no plaintext approved copy.
+    // Which files have been shared with researchers, per the recorded `approved_at` fact on
+    // each file row (see getSharedFileIdsForJob) — there is no plaintext approved copy.
     const { data: sharedFileIds = [] } = useQuery({
         queryKey: ['shared-file-ids', job.id],
         queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
@@ -75,7 +74,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         isPending: isDecrypting,
         form,
     } = useDecryptFiles({
-        encryptedFiles: encryptedFiles as EncryptedJobFile[] | undefined,
+        encryptedFiles,
         onSuccess: (files) => {
             setDecryptedFiles(files)
             setSelectedPaths(new Set(files.filter(isResultFile).map((f) => f.path)))
@@ -99,10 +98,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
 
     const shouldShowForm = encryptedRows.length > 0 && decryptedFiles.length === 0
-
-    const encryptedFileTypesLabel = toSentence([
-        ...new Set(encryptedRows.map((f) => logLabel(f.fileType).toLowerCase())),
-    ])
 
     const decryptedById = useMemo(() => {
         const map = new Map<string, JobFileInfo>()
@@ -149,7 +144,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         hasFileRows,
         isLoadingBlob,
         shouldShowForm,
-        encryptedFileTypesLabel,
         selectedPaths,
         toggleFile,
         isDecrypting,

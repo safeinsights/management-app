@@ -63,7 +63,7 @@ export async function getStudyJobInfo(studyJobId: string) {
         .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 }
 
-export const getReviewerPublicKey = async (userId: string) => {
+export const getUserPublicKey = async (userId: string) => {
     const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
@@ -71,16 +71,6 @@ export const getReviewerPublicKey = async (userId: string) => {
         .executeTakeFirst()
 
     return result
-}
-
-export const getReviewerPublicKeyByUserId = async (userId: string) => {
-    const result = await Action.db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.publicKey'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.publicKey
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>

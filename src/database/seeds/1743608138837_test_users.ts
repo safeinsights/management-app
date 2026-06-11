@@ -247,7 +247,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     }
 
     // Every test user belongs to an org that requires an encryption key (enclave or lab), so the
-    // RequireReviewerKey gate redirects them to key generation until one exists. Seed the shared
+    // RequireUserKey gate redirects them to key generation until one exists. Seed the shared
     // test public key (tests/support/public_key.pem) — NOT a placeholder — so results encrypted
     // for it by the e2e (bin/debug/upload-results.ts) produce a wrapped key whose fingerprint matches
     // the seeded user, and decrypt with tests/support/private_key.pem.

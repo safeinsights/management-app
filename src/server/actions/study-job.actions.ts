@@ -5,7 +5,7 @@ import { isEncryptedLogType } from '@/lib/file-type-helpers'
 import { minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
 import {
     getLabPublicKeysForStudy,
-    getReviewerPublicKey,
+    getUserPublicKey,
     getSharedFileIdsForJob,
     getStudyJobInfo,
     getStudyReviewForJob,
@@ -77,8 +77,8 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// IDs of files already shared with researchers (a lab-org wrapped key exists). The
-// existence of a wrapped key is the "approved & shared" signal — there is no plaintext copy.
+// IDs of files a reviewer approved & shared with researchers, per the recorded `approved_at`
+// fact on each file row (see getSharedFileIdsForJob). There is no plaintext approved copy.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
@@ -191,7 +191,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         // Per decomposed file (Option B): each row is one encrypted body in S3 + an `iv`,
         // with the requesting user's wrapped AES key in study_job_file_key.
         // We return only files this user actually has a wrapped key for — others stay opaque.
-        const userKey = await getReviewerPublicKey(session.user.id)
+        const userKey = await getUserPublicKey(session.user.id)
         if (!userKey) return []
 
         const encryptedFiles = studyJob.files.filter(
@@ -221,6 +221,10 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             return crypt && file.iv ? [{ file, crypt, iv: file.iv }] : []
         })
 
+        // TODO(perf): every ciphertext body is buffered into server memory and serialized
+        // through the server-action layer. Fine at current result sizes; if results grow
+        // large, switch to returning signed S3 URLs and let the client fetch/decrypt as a
+        // stream (also relevant: `study_job_file.bytes` is `integer`, capping at ~2.15 GB).
         return Promise.all(
             ready.map(async ({ file, crypt, iv }) => ({
                 studyJobFileId: file.id,

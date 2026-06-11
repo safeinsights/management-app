@@ -52,9 +52,12 @@ export async function insertSharedFileKeys(
             .execute()
     }
 
+    // `approved_at` is the durable historical fact — never overwrite an earlier approval
+    // if this runs again for the same file (e.g. a retried approve).
     await db
         .updateTable('studyJobFile')
         .set({ approvedAt: new Date(), approvedByUserId })
         .where('id', 'in', approvedFileIds)
+        .where('approvedAt', 'is', null)
         .execute()
 }

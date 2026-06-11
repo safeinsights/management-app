@@ -38,7 +38,7 @@ describe('User Actions', () => {
 
         const dbUser = await db.selectFrom('user').where('id', '=', user.id).selectAll('user').executeTakeFirstOrThrow()
         expect(dbUser.clerkId).toBe(user.clerkId)
-        expect(result).toEqual({ redirectToReviewerKey: true })
+        expect(result).toEqual({ redirectToKeyGeneration: true })
     })
 
     test('onUserSignInAction should not redirect if user has a public key', async () => {
@@ -52,7 +52,7 @@ describe('User Actions', () => {
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
         const result = await onUserSignInAction()
-        expect(result).toEqual({ redirectToReviewerKey: true })
+        expect(result).toEqual({ redirectToKeyGeneration: true })
     })
 
     test('syncUserMetadataAction should sync metadata', async () => {

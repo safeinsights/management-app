@@ -8,7 +8,6 @@ import { canViewStudyJob } from '@/server/auth'
 // decomposed + decrypted client-side), so this path is only reachable for pre-encryption
 // studies. It can be deleted — along with pathForStudyJobResults (src/lib/paths.ts) and any
 // remaining plaintext S3 objects — once legacy studies age out.
-// REVIEWER: please flag this during review so we track the eventual removal.
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
     const { jobId, fileName } = await params
 

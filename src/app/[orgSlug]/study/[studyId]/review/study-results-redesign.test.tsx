@@ -69,7 +69,7 @@ describe('StudyResultsRedesign', () => {
         renderWithProviders(<StudyResultsRedesign job={job!} />)
 
         expect(screen.getByText(RUN_COMPLETE_SECONDARY_TEXT)).toBeInTheDocument()
-        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeInTheDocument()
+        expect(screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')).toBeInTheDocument()
         expect(screen.queryByText(/Enter Reviewer Key to view/i)).not.toBeInTheDocument()
     })
 
@@ -145,7 +145,7 @@ describe('StudyResultsRedesign', () => {
         expect(screen.queryByRole('button', { name: /^Reject$/ })).not.toBeInTheDocument()
 
         const privateKey = await readTestSupportFile('private_key.pem')
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
+        const input = screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')
         fireEvent.change(input, { target: { value: privateKey } })
         fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
 

@@ -401,7 +401,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
+    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 

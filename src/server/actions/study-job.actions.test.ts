@@ -64,6 +64,42 @@ describe('Study Job Actions', () => {
         expect(result[0].studyJobFileId).toBe(file.id)
     })
 
+    // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob'
+    // rule matches lab researchers, not just enclave reviewers — researchers fetch their
+    // re-wrapped result files through this same action.
+    test('fetchEncryptedJobFilesAction permits lab researchers to fetch their shared files', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { job } = await insertTestStudyJobData({ org })
+
+        // Lab test users are seeded without a key; give this researcher one plus a wrapped key.
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('labPublicKey'), fingerprint: 'labFingerprint1' })
+            .executeTakeFirstOrThrow()
+
+        const file = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'results/encrypted/results.csv',
+                name: 'results.csv',
+                studyJobId: job.id,
+                fileType: 'ENCRYPTED-RESULT',
+                iv: 'aXY=',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        await db
+            .insertInto('studyJobFileKey')
+            .values({ studyJobFileId: file.id, fingerprint: 'labFingerprint1', crypt: 'wrapped-for-researcher' })
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+
+        expect(result).toHaveLength(1)
+        expect(result[0].crypt).toBe('wrapped-for-researcher')
+    })
+
     test('fetchEncryptedJobFilesAction omits files the user has no box for', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })

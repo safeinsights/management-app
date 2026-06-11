@@ -2,7 +2,7 @@
 
 import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
-import { getReviewerPublicKey } from '../db/queries'
+import { getUserPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, z } from './action'
 import { orgNeedsKey } from '@/lib/types'
@@ -15,9 +15,9 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
     }
     onUserLogIn({ userId: session.user.id })
     if (Object.values(session.orgs).some(orgNeedsKey)) {
-        const publicKey = await getReviewerPublicKey(session.user.id)
+        const publicKey = await getUserPublicKey(session.user.id)
         if (!publicKey) {
-            return { redirectToReviewerKey: true }
+            return { redirectToKeyGeneration: true }
         }
     }
     return {}

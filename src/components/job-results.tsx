@@ -1,13 +1,14 @@
 'use client'
 
 import { FC, useMemo, useState } from 'react'
-import { Anchor, Button, Group, LoadingOverlay, Stack, Text, Textarea, useMantineTheme } from '@mantine/core'
+import { Anchor, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { DownloadBlobLink } from '@/components/download-blob-link'
+import { PrivateKeyForm } from '@/components/private-key-form'
 import { isEncryptedLogType, isResultFile, logLabel } from '@/lib/file-type-helpers'
-import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
+import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFileInfo } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -75,7 +76,7 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         isPending: isDecrypting,
         form,
     } = useDecryptFiles({
-        encryptedFiles: encryptedFiles as EncryptedJobFile[] | undefined,
+        encryptedFiles,
         onSuccess: setDecryptedFiles,
     })
 
@@ -88,9 +89,11 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     // Results first, then logs.
     const orderedFiles = useMemo(() => {
-        const files = (encryptedFiles ?? []) as EncryptedJobFile[]
+        const files = encryptedFiles ?? []
         return [...files.filter(isResultFile), ...files.filter((f) => isEncryptedLogType(f.fileType))]
     }, [encryptedFiles])
+
+    const handleSubmit = form.onSubmit((values) => decrypt(values.privateKey))
 
     if (isError) {
         return <ErrorAlert error={error} />
@@ -110,24 +113,13 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
                     decrypted={decryptedBySourceId.get(file.studyJobFileId)}
                 />
             ))}
-            {!decryptedFiles && (
-                <form onSubmit={form.onSubmit((values) => decrypt(values.privateKey))}>
-                    <Stack>
-                        <Textarea
-                            label={<Text mb="sm">Enter your key to view results</Text>}
-                            resize="vertical"
-                            placeholder="Enter your key to access encrypted results."
-                            {...form.getInputProps('privateKey')}
-                            key={form.key('privateKey')}
-                        />
-                        <Group>
-                            <Button type="submit" disabled={!form.isValid()} loading={isDecrypting}>
-                                View Results
-                            </Button>
-                        </Group>
-                    </Stack>
-                </form>
-            )}
+            <PrivateKeyForm
+                isVisible={!decryptedFiles}
+                form={form}
+                onSubmit={handleSubmit}
+                isDecrypting={isDecrypting}
+                submitLabel="View Results"
+            />
         </Stack>
     )
 }

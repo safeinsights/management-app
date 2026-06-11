@@ -209,13 +209,6 @@ const FILE_TYPES = [
 
 export const fileTypeSchema = z.enum(FILE_TYPES)
 
-export const jobFileSchema = z.object({
-    path: z.string(),
-    contents: z.instanceof(ArrayBuffer),
-    sourceId: z.string(),
-    fileType: fileTypeSchema,
-})
-
 // A re-wrapped AES key for one researcher recipient of one approved file
 // (a `study_job_file_key` row; see src/server/results-sharing.ts for the model).
 export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })

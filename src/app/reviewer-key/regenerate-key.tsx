@@ -24,29 +24,28 @@ export const RegenerateKey: FC = () => {
     return (
         <Stack p="xl" mx="sm">
             <PageBreadcrumbs
-                crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Reviewer Key']]}
+                crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Results Key']]}
             />
-            {/* TODO(UX): "Reviewer key" — researchers now use this same key too; rename to a role-neutral term (e.g. "Encryption key") pending UX. */}
-            <Title my="xxl">Reviewer key</Title>
+            <Title my="xxl">Results Key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>
-                    <Title size="xl">Reviewer key details</Title>
+                    <Title size="xl">Results Key details</Title>
                     <Divider c="charcoal.1" />
                     <Stack gap={8}>
                         <Text size="sm" fw={600}>
-                            Reviewer key already exists
+                            Results Key already exists
                         </Text>
                         <Text size="md" mb={16}>
-                            You have already generated a reviewer key. For security reasons, SafeInsights does not store
+                            You have already generated a Results Key. For security reasons, SafeInsights does not store
                             or display it again.
                         </Text>
                         <Text size="sm" fw={600}>
                             Lost key?
                         </Text>
 
-                        <Text size="md">If you have lost your reviewer key, you will need to generate a new one.</Text>
+                        <Text size="md">If you have lost your Results Key, you will need to generate a new one.</Text>
                         <Text size="md" c="red.9" mb={8}>
-                            Note: If you generate a new reviewer key, you will no longer have access to any study
+                            Note: If you generate a new Results Key, you will no longer have access to any study
                             results associated with your previous key. This action cannot be undone.
                         </Text>
                     </Stack>
@@ -79,7 +78,7 @@ const GenerateNewKeyModal: FC<{
         <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
             <Stack>
                 <Text size="md">
-                    Generating a new reviewer key will permanently remove access to study results tied to your old key.
+                    Generating a new Results Key will permanently remove access to study results tied to your old key.
                 </Text>
                 <Text size="md" mb="md">
                     This action cannot be undone.

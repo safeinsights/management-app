@@ -84,7 +84,7 @@ async function insertEncryptedRow(
         .executeTakeFirstOrThrow()
 }
 
-const READER_KEY_PLACEHOLDER = 'Enter your Reviewer key to access encrypted content.'
+const READER_KEY_PLACEHOLDER = 'Enter your Results Key to access encrypted content.'
 
 describe('EncryptedFilesPanel', () => {
     let org: Org

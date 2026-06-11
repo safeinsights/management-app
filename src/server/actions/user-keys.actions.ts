@@ -1,22 +1,22 @@
 'use server'
 
-import { getReviewerPublicKey } from '@/server/db/queries'
+import { getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Action, ActionFailure, z } from './action'
 
-export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
-    .requireAbilityTo('view', 'ReviewerKey')
+export const getUserPublicKeyAction = new Action('getUserPublicKeyAction')
+    .requireAbilityTo('view', 'UserKey')
     .handler(async ({ session }) => {
-        return await getReviewerPublicKey(session.user.id)
+        return await getUserPublicKey(session.user.id)
     })
 
 // Helper that returns a boolean instead of the full row so we can safely
 // pass the value to client components without serialization issues.
-export const reviewerKeyExistsAction = new Action('reviewerKeyExistsAction')
-    .requireAbilityTo('view', 'ReviewerKey')
+export const userKeyExistsAction = new Action('userKeyExistsAction')
+    .requireAbilityTo('view', 'UserKey')
     .handler(async ({ session }) => {
-        const key = await getReviewerPublicKey(session.user.id)
+        const key = await getUserPublicKey(session.user.id)
         return Boolean(key)
     })
 
@@ -25,9 +25,9 @@ const setOrgUserPublicKeySchema = z.object({
     fingerprint: z.string(),
 })
 
-export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction')
+export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
-    .requireAbilityTo('update', 'ReviewerKey')
+    .requireAbilityTo('update', 'UserKey')
     .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
 
@@ -42,15 +42,15 @@ export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction
                 publicKey: Buffer.from(publicKey),
                 fingerprint,
             })
-            .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set reviewer public key' }))
+            .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set user public key' }))
 
         onUserPublicKeyCreated({ userId })
         revalidatePath('/reviewer')
     })
 
-export const updateReviewerPublicKeyAction = new Action('updateReviewerPublicKeyAction')
+export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
-    .requireAbilityTo('update', 'ReviewerKey')
+    .requireAbilityTo('update', 'UserKey')
     .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
 
@@ -62,7 +62,7 @@ export const updateReviewerPublicKeyAction = new Action('updateReviewerPublicKey
                 updatedAt: new Date(),
             })
             .where('userId', '=', userId)
-            .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to update reviewer public key.' }))
+            .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to update user public key.' }))
 
         onUserPublicKeyUpdated({ userId })
     })
