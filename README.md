@@ -184,6 +184,18 @@ sans-serif; everything else is embedded.
 pnpm ladle:build   # → .ladle/dist/ (code-split; serve over HTTP, e.g. `pnpm dlx serve .ladle/dist`)
 ```
 
+### Published to GitHub Pages
+
+Every push to `main` builds the explorer and publishes it via the
+[`Ladle Pages`](.github/workflows/ladle-pages.yml) workflow — browse it at
+`https://safeinsights.github.io/management-app/`. The build runs
+`ladle:build:pages`, which passes the Pages base path through `--base` so assets
+resolve under the project subpath. Publishing happens only from `main` so the
+Pages deploy credentials are never exposed to PR-controlled code (see OTTER-545).
+
+One-time setup (maintainer, in repo **Settings → Pages**): set **Source** to
+**GitHub Actions**. After that the workflow deploys on its own.
+
 ## Testing
 
 ### Unit Testing
