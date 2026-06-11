@@ -269,7 +269,7 @@ describe('EncryptedFilesPanel', () => {
         const shared = await insertEncryptedRow(job, { name: 'first.csv', fileType: 'ENCRYPTED-RESULT', bytes: 1024 })
         await insertEncryptedRow(job, { name: 'second.csv', fileType: 'ENCRYPTED-RESULT', bytes: 2048 })
 
-        // Only first.csv has a researcher PO box → it's the shared/approved one.
+        // Only first.csv has a researcher wrapped key → it's the shared/approved one.
         vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
         const latestJob = await latestJobForStudy(study.id)

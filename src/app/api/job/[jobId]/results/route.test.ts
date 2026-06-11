@@ -20,7 +20,7 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-// TOA uploads a ResultsWriter zip; ingest decomposes it into per-file rows + PO boxes.
+// TOA uploads a ResultsWriter zip; ingest decomposes it into per-file rows + wrapped keys.
 async function buildEncryptedZip(fileName: string, content: string): Promise<File> {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     const fingerprint = await fingerprintKeyData(publicKey)
@@ -56,9 +56,13 @@ test.skipIf(!s3Available)('uploading results', async () => {
     expect(sr).toMatchObject({ name: 'output.csv', fileType: 'ENCRYPTED-RESULT' })
     expect(sr.iv).toBeTruthy()
 
-    // The manifest's recipient key became a PO box row.
-    const boxes = await db.selectFrom('studyJobFileKey').select('crypt').where('studyJobFileId', '=', sr.id).execute()
-    expect(boxes.length).toBeGreaterThan(0)
+    // The manifest's recipient key became a study_job_file_key row.
+    const wrappedKeys = await db
+        .selectFrom('studyJobFileKey')
+        .select('crypt')
+        .where('studyJobFileId', '=', sr.id)
+        .execute()
+    expect(wrappedKeys.length).toBeGreaterThan(0)
 
     const contents = await fetchFileContents(sr.path)
     expect(contents).toBeInstanceOf(Blob)

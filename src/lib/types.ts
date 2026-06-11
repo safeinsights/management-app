@@ -216,11 +216,12 @@ export const jobFileSchema = z.object({
     fileType: fileTypeSchema,
 })
 
-// A re-wrapped AES key for one researcher recipient of one approved file.
-export const sharedFileBoxSchema = z.object({ fingerprint: z.string(), crypt: z.string() })
+// A re-wrapped AES key for one researcher recipient of one approved file
+// (a `study_job_file_key` row; see src/server/results-sharing.ts for the model).
+export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
 export const sharedFileSchema = z.object({
     studyJobFileId: z.string(),
-    boxes: z.array(sharedFileBoxSchema),
+    keys: z.array(sharedFileKeySchema),
 })
 export type SharedFile = z.infer<typeof sharedFileSchema>
 

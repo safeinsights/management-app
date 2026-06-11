@@ -49,8 +49,8 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     // Once a job is approved, files the DO withheld are surfaced as "not shared" (red X) rather than hidden.
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Which files have been shared with researchers (a lab-org PO box exists). Existence
-    // of a box is the approval/shared signal — there is no plaintext approved copy.
+    // Which files have been shared with researchers (a lab-org wrapped key exists). Existence
+    // of a wrapped key is the approval/shared signal — there is no plaintext approved copy.
     const { data: sharedFileIds = [] } = useQuery({
         queryKey: ['shared-file-ids', job.id],
         queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),

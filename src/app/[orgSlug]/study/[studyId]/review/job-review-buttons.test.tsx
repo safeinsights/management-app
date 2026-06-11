@@ -119,13 +119,13 @@ describe('Study Results Approve/Reject buttons', async () => {
             expect(latestJob.statusChanges.find((sc) => sc.status === 'FILES-APPROVED')).not.toBeUndefined()
         })
 
-        // The re-wrapped researcher box was persisted against the real file row.
-        const boxes = await db
+        // The re-wrapped researcher key was persisted against the real file row.
+        const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
             .select('fingerprint')
             .where('studyJobFileId', '=', row.id)
             .execute()
-        expect(boxes.length).toBeGreaterThan(0)
+        expect(wrappedKeys.length).toBeGreaterThan(0)
     })
 
     it('can reject results', async () => {

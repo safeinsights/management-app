@@ -490,7 +490,7 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 /**
  * IDs of this job's files a reviewer approved & shared with researchers. Driven by the
  * recorded `approved_at` fact, not by current org membership — removing a researcher from
- * the lab must not retroactively un-approve files (see `insertSharedFileBoxes`).
+ * the lab must not retroactively un-approve files (see `insertSharedFileKeys`).
  */
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db

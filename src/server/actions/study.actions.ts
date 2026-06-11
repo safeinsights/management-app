@@ -31,7 +31,7 @@ import {
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
-import { insertSharedFileBoxes } from '@/server/results-sharing'
+import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
@@ -317,9 +317,9 @@ async function approveJobCode({
     }
 
     if (sharedFiles?.length) {
-        // Re-wrap: persist only the per-researcher wrapped AES keys ("PO boxes") the
-        // reviewer's browser produced. Ciphertext is untouched; no plaintext is stored.
-        await insertSharedFileBoxes(db, job.id, sharedFiles, userId)
+        // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's
+        // browser produced. Ciphertext is untouched; no plaintext is stored.
+        await insertSharedFileKeys(db, job.id, sharedFiles, userId)
     }
 }
 

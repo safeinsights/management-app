@@ -12,7 +12,7 @@ import {
     latestJobForStudy,
 } from '@/server/db/queries'
 import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
-import { insertSharedFileBoxes } from '@/server/results-sharing'
+import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 
@@ -36,15 +36,16 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
         // Re-wrap, not re-encrypt: the reviewer's browser unwrapped each file's AES key
         // while reviewing and wrapped it for the lab researchers' public keys. Here we
-        // only persist those new "PO box" rows — the file ciphertext is never touched and
-        // the server never sees plaintext or the raw AES key. Adding a box = sharing;
+        // only persist those new wrapped-key rows — the file ciphertext is never touched and
+        // the server never sees plaintext or the raw AES key. Adding a wrapped key = sharing;
         // deleting one (future / Card 74) = revoking.
         //
-        // BACKFILL GAP (Card 73/74): boxes are wrapped only for lab members who have a key
+        // BACKFILL GAP (Card 73/74): keys are wrapped only for lab members who have a key
         // *right now*. A researcher who joins the lab or generates their key after approval
-        // gets no box and cannot read already-approved results. Re-wrapping for late joiners
-        // (the reviewer no longer holds the raw AES key, so this needs a recovery flow) lands here.
-        await insertSharedFileBoxes(db, info.studyJobId, sharedFiles, session.user.id)
+        // gets no wrapped key and cannot read already-approved results. Re-wrapping for late
+        // joiners (the reviewer no longer holds the raw AES key, so this needs a recovery flow)
+        // lands here.
+        await insertSharedFileKeys(db, info.studyJobId, sharedFiles, session.user.id)
 
         await db
             .insertInto('jobStatusChange')
@@ -76,8 +77,8 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// IDs of files already shared with researchers (a lab-org PO box exists). The
-// existence of a box is the "approved & shared" signal — there is no plaintext copy.
+// IDs of files already shared with researchers (a lab-org wrapped key exists). The
+// existence of a wrapped key is the "approved & shared" signal — there is no plaintext copy.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
@@ -188,8 +189,8 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
     .handler(async ({ studyJob, session, db }) => {
         // Per decomposed file (Option B): each row is one encrypted body in S3 + an `iv`,
-        // with the requesting user's wrapped AES key ("PO box") in study_job_file_key.
-        // We return only files this user actually has a box for — others stay opaque.
+        // with the requesting user's wrapped AES key in study_job_file_key.
+        // We return only files this user actually has a wrapped key for — others stay opaque.
         const userKey = await getReviewerPublicKey(session.user.id)
         if (!userKey) return []
 
@@ -198,9 +199,9 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
         if (!encryptedFiles.length) return []
 
-        // One query for all of this user's boxes, then fetch the matching bodies in parallel —
-        // avoids a per-file round trip to both Postgres and S3.
-        const boxes = await db
+        // One query for all of this user's wrapped keys, then fetch the matching bodies in
+        // parallel — avoids a per-file round trip to both Postgres and S3.
+        const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
             .select(['studyJobFileId', 'crypt'])
             .where(
@@ -210,11 +211,11 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
             .where('fingerprint', '=', userKey.fingerprint)
             .execute()
-        const cryptByFileId = new Map(boxes.map((b) => [b.studyJobFileId, b.crypt]))
+        const cryptByFileId = new Map(wrappedKeys.map((k) => [k.studyJobFileId, k.crypt]))
 
         const ready = encryptedFiles.flatMap((file) => {
             const crypt = cryptByFileId.get(file.id)
-            // No box for this user, or no iv to decrypt with → stays opaque. A null `iv` means
+            // No wrapped key for this user, or no iv to decrypt with → stays opaque. A null `iv` means
             // a legacy (pre-decompose) job; those have no encrypted body here and fall back to
             // the legacy plaintext download route (src/app/dl/results/...). Intended, not a gap.
             return crypt && file.iv ? [{ file, crypt, iv: file.iv }] : []

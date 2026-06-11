@@ -38,11 +38,11 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
 /**
  * Decompose a ResultsWriter zip on ingest (Option B): each encrypted file body
  * becomes its own S3 object, and its metadata (iv, bytes) + per-recipient wrapped
- * keys (the DO/reviewer "PO boxes" from the manifest) are stored in Postgres.
+ * keys (the DO/reviewer recipients from the manifest) are stored in Postgres.
  *
  * Touches no plaintext and needs no private key — the manifest is plaintext
  * metadata and the bodies stay ciphertext. One row per decomposed file; sharing
- * a file later = adding a `study_job_file_key` box, never re-encrypting.
+ * a file later = adding a `study_job_file_key` row, never re-encrypting.
  *
  * Trust model is honest-but-curious: the server is the storage authority for the
  * ciphertext bodies + IVs but is trusted not to tamper with them. The AES-CBC
@@ -68,7 +68,7 @@ async function storeDecomposedEncryptedFiles(info: MinimalJobInfo, file: File, f
     try {
         return await db.transaction().execute(async (trx) => {
             const rows = []
-            const boxes = []
+            const wrappedKeys = []
             for (const { entry, path } of items) {
                 const row = await trx
                     .insertInto('studyJobFile')
@@ -84,11 +84,11 @@ async function storeDecomposedEncryptedFiles(info: MinimalJobInfo, file: File, f
                     .executeTakeFirstOrThrow()
 
                 for (const [fingerprint, { crypt }] of Object.entries(entry.keys)) {
-                    boxes.push({ studyJobFileId: row.id, fingerprint, crypt })
+                    wrappedKeys.push({ studyJobFileId: row.id, fingerprint, crypt })
                 }
                 rows.push(row)
             }
-            if (boxes.length) await trx.insertInto('studyJobFileKey').values(boxes).execute()
+            if (wrappedKeys.length) await trx.insertInto('studyJobFileKey').values(wrappedKeys).execute()
             return rows
         })
     } catch (err) {

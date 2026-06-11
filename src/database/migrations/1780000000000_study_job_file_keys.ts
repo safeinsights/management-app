@@ -8,7 +8,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.alterTable('study_job_file').addColumn('bytes', 'integer').execute()
 
     // Records the durable fact that a reviewer approved (and shared) this file. The
-    // per-recipient `study_job_file_key` boxes are the *access* mechanism; approval is a
+    // per-recipient `study_job_file_key` rows are the *access* mechanism; approval is a
     // historical event and must not be re-derived from current org membership (which can
     // change). A file is approved iff approved_at is set.
     await db.schema.alterTable('study_job_file').addColumn('approved_at', 'timestamptz').execute()

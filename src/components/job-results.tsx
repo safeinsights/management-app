@@ -53,9 +53,10 @@ const FileRow: FC<{ label: string; name: string; decrypted?: JobFileInfo }> = ({
 }
 
 // Researcher-facing view of shared results. There is no plaintext copy: the researcher
-// decrypts the encrypted file bodies with their own key (the PO box the reviewer re-wrapped
-// for them at approve). The file list is shown before decryption — names aren't secret, and
-// the reviewer panel lists them too — and only View/Download are gated behind the key.
+// decrypts the encrypted file bodies with their own key (the wrapped key the reviewer
+// produced for them at approve). The file list is shown before decryption — names aren't
+// secret, and the reviewer panel lists them too — and only View/Download are gated behind
+// the key.
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>()
 
