@@ -76,3 +76,50 @@ describe('ProposalFooter submit gating (OTTER-557)', () => {
         expect(submit).toBeEnabled()
     })
 })
+
+describe('ProposalFooter save-as-draft dirty tracking', () => {
+    const DirtyProbe = () => {
+        const { form } = useProposal()
+        return (
+            <>
+                <button type="button" onClick={() => form.setFieldValue('projectSummary', lexicalText('new summary'))}>
+                    Edit editor field
+                </button>
+                <button type="button" onClick={() => form.setFieldValue('datasets', ['dataset-1', 'dataset-2'])}>
+                    Edit dataset field
+                </button>
+            </>
+        )
+    }
+
+    const renderWithProbe = () =>
+        renderWithProviders(
+            <ProposalProvider studyId={STUDY_ID} draftData={fullyValidExceptTitle}>
+                <DirtyProbe />
+                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
+            </ProposalProvider>,
+        )
+
+    it('keeps Save as draft disabled before any changes', () => {
+        renderWithProbe()
+        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
+    })
+
+    it('keeps Save as draft disabled when only an auto-saved editor field changes', async () => {
+        const user = userEvent.setup()
+        renderWithProbe()
+
+        await user.click(screen.getByRole('button', { name: 'Edit editor field' }))
+
+        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
+    })
+
+    it('enables Save as draft when a draft-tracked field (datasets) changes', async () => {
+        const user = userEvent.setup()
+        renderWithProbe()
+
+        await user.click(screen.getByRole('button', { name: 'Edit dataset field' }))
+
+        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeEnabled()
+    })
+})

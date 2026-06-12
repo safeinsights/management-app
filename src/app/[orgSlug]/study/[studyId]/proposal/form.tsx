@@ -13,7 +13,7 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS, type ProposalFormValues } from './schema'
+import { WORD_LIMITS, isProposalDraftDirty, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -85,7 +85,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
             editableStatuses={PROPOSAL_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
+            <ProxyProvider isDirty={isProposalDraftDirty(form)} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
                 <Stack gap="xxl">
                     <Paper p="xxl">
                         <Text fz={10} fw={700} c="charcoal.7" pb={4}>
