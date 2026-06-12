@@ -17,12 +17,7 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import {
-    getInfoForStudyId,
-    getInfoForStudyJobId,
-    getOrgIdFromSlug,
-    latestSubmittedJobForStudy,
-} from '@/server/db/queries'
+import { getInfoForStudyId, getOrgIdFromSlug, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -514,22 +509,6 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
         }
     })
 
-export const onDeleteStudyJobAction = new Action('onDeleteStudyJobAction', { performsMutations: true })
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => await getInfoForStudyJobId(studyJobId))
-    .requireAbilityTo('delete', 'StudyJob') // will use orgId from above
-    .handler(async ({ db, studyId, orgSlug, params: { studyJobId } }) => {
-        await db.deleteFrom('jobStatusChange').where('studyJobId', '=', studyJobId).execute()
-        await db.deleteFrom('studyJobFile').where('studyJobId', '=', studyJobId).execute()
-        await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
-
-        try {
-            await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyJobId, studyId }))
-        } catch (err) {
-            logger.error(`Failed to delete S3 files for job ${studyJobId}: ${err}`)
-        }
-    })
-
 export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
@@ -845,8 +824,29 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, note } }) => {
-        await db.updateTable('study').set({ codeResubmissionNoteDraft: note }).where('id', '=', studyId).execute()
+    .handler(async ({ db, params: { studyId, note }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
+        // Mirrors saveProposalResubmissionNoteDraftAction (OTTER-607): the
+        // status + lab guard stops a cross-lab member from writing a draft onto
+        // another lab's study, and the 0-row check turns a wrong-status / wrong-lab
+        // attempt into a hard ActionFailure instead of letting the client's
+        // autosave indicator report "saved" when nothing persisted.
+        const saved = await db
+            .updateTable('study')
+            .set({ codeResubmissionNoteDraft: note })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+            .returning(['id'])
+            .executeTakeFirst()
+
+        if (!saved) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
         return { studyId, savedAt: new Date().toISOString() }
     })
 
