@@ -12,6 +12,8 @@ interface StudyCodeReviewViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
+    launchReason?: string | null
+    launchLastLogAt?: string | null
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     files: WorkspaceFileInfo[]
@@ -29,6 +31,8 @@ export function StudyCodeReviewView({
     launchWorkspace,
     isLaunching,
     launchError,
+    launchReason,
+    launchLastLogAt,
     uploadFiles,
     isUploading,
     files,
@@ -50,6 +54,8 @@ export function StudyCodeReviewView({
                 onClick={launchWorkspace}
                 isLaunching={isLaunching}
                 launchError={launchError}
+                reason={launchReason}
+                lastLogAt={launchLastLogAt}
                 variant="outline"
             />
         )

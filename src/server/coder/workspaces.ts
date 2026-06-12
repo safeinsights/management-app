@@ -1,4 +1,7 @@
 import {
+    coderWorkspaceAgentLogsPath,
+    coderWorkspaceBuildByIdPath,
+    coderWorkspaceBuildLogsPath,
     coderWorkspaceBuildPath,
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
@@ -11,7 +14,18 @@ import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } f
 import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
-import { CoderWorkspace, CoderWorkspaceEvent } from './types'
+import type {
+    AgentId,
+    BuildStatus,
+    CoderLog,
+    CoderUsername,
+    CoderWorkspace,
+    CoderWorkspaceBuild,
+    CoderWorkspaceEvent,
+    WorkspaceId,
+    WorkspaceLaunchPhase,
+    WorkspaceLaunchStatus,
+} from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 import { fetchLatestCodeEnvForStudyId } from '../db/queries'
@@ -70,40 +84,105 @@ function describeReadiness(event: CoderWorkspaceEvent): { ready: boolean; reason
     return { ready: false, reason: `build status=${buildStatus}, agents not ready: ${agentStates.join(', ')}` }
 }
 
-export async function getCoderWorkspaceUrl(studyId: string, workspaceId: string): Promise<string | null> {
-    const logCtx = `[coder-launch study=${studyId} workspace=${workspaceId}]`
+// Once the workspace reports ready, copy starter code/context in and produce the IDE url.
+async function finalizeWorkspaceLaunch(studyId: string): Promise<string> {
+    await initializeWorkspaceCodeFiles(studyId)
+    return generateWorkspaceUrl(studyId)
+}
 
-    let step = 'fetch-workspace-status'
+// Fetch logs from an already-built path; returns the new lines (empty on any failure so a
+// missing log stream never aborts the overall status read).
+async function fetchLogs(path: string): Promise<CoderLog[]> {
     try {
-        const workspace = await coderFetch<CoderWorkspaceEvent>(`/api/v2/workspaces/${workspaceId}`, {
-            errorMessage: 'Failed to get workspace status',
-        })
-
-        const readiness = describeReadiness(workspace)
-        if (!readiness.ready) {
-            logger.info(`${logCtx} not ready yet, polling again: ${readiness.reason}`)
-            return null
-        }
-        logger.info(`${logCtx} workspace ready (${readiness.reason}), initializing code files`)
-
-        step = 'initialize-code-files'
-        await initializeWorkspaceCodeFiles(studyId)
-        logger.info(`${logCtx} code files initialized, generating workspace url`)
-
-        step = 'generate-workspace-url'
-        const url = await generateWorkspaceUrl(studyId)
-        logger.info(`${logCtx} launch complete, returning workspace url`)
-        return url
+        return await coderFetch<CoderLog[]>(path, { errorMessage: 'Failed to fetch logs' })
     } catch (error) {
-        // A throw here leaves the client polling forever (the UI spinner), so
-        // make the failing step a loud, Sentry-reported signal rather than a
-        // bare rejection the client can only render as a generic error.
-        logger.error(`${logCtx} FAILED at step "${step}":`, error)
-        throw error
+        logger.warn(`Failed fetching coder logs from ${path}:`, error)
+        return []
     }
 }
 
-async function startWorkspace(workspaceId: string): Promise<void> {
+function maxLogId(logs: CoderLog[], current: number | null): number | null {
+    return logs.reduce((max, log) => (max == null || log.id > max ? log.id : max), current)
+}
+
+// Polls the workspace's latest build (workspacebuilds) and its agents (workspaceagents),
+// returning the build status plus the timestamp of the most recent log line so the client
+// can show real progress. Resolves the IDE url once the workspace is ready.
+export async function getCoderWorkspaceLaunchStatus(
+    studyId: string,
+    cursors?: WorkspaceLaunchStatus['cursors'],
+): Promise<WorkspaceLaunchStatus> {
+    const logCtx = `[coder-status study=${studyId}]`
+
+    const user = await getCoderUser(studyId)
+    if (!user) throw new Error('Coder user not found')
+    const workspaceName = generateWorkspaceName(studyId)
+
+    const workspace = await coderFetch<CoderWorkspaceEvent>(coderWorkspaceDataPath(user.username, workspaceName), {
+        errorMessage: 'Failed to get workspace status',
+    })
+
+    const buildId = workspace.latest_build?.id
+    const agentIds = (workspace.latest_build?.resources ?? []).flatMap((r) =>
+        (r.agents ?? []).map((a) => a.id).filter((id): id is AgentId => Boolean(id)),
+    )
+
+    let build: CoderWorkspaceBuild | undefined
+    if (buildId) {
+        try {
+            build = await coderFetch<CoderWorkspaceBuild>(coderWorkspaceBuildByIdPath(buildId), {
+                errorMessage: 'Failed to get build',
+            })
+        } catch (error) {
+            logger.warn(`${logCtx} failed fetching build ${buildId}:`, error)
+        }
+    }
+
+    const newCursors: WorkspaceLaunchStatus['cursors'] = {
+        build: cursors?.build ?? null,
+        agents: { ...(cursors?.agents ?? {}) },
+    }
+    let lastLogAt: string | null = null
+    const trackLastLog = (logs: CoderLog[]) => {
+        for (const log of logs) {
+            if (!lastLogAt || log.created_at > lastLogAt) lastLogAt = log.created_at
+        }
+    }
+
+    if (buildId) {
+        const buildLogs = await fetchLogs(coderWorkspaceBuildLogsPath(buildId, newCursors.build))
+        trackLastLog(buildLogs)
+        newCursors.build = maxLogId(buildLogs, newCursors.build)
+    }
+    for (const agentId of agentIds) {
+        const agentLogs = await fetchLogs(coderWorkspaceAgentLogsPath(agentId, newCursors.agents[agentId] ?? null))
+        trackLastLog(agentLogs)
+        newCursors.agents[agentId] = maxLogId(agentLogs, newCursors.agents[agentId] ?? null)
+    }
+
+    const readiness = describeReadiness(workspace)
+    const buildStatus: BuildStatus = build?.status ?? workspace.latest_build?.status ?? 'unknown'
+    const jobStatus = build?.job?.status
+    const failedStatuses: BuildStatus[] = ['failed', 'canceled']
+    const failed = failedStatuses.includes(buildStatus) || (jobStatus != null && failedStatuses.includes(jobStatus))
+    const stopped = buildStatus === 'stopped' || workspace.latest_build?.status === 'stopped'
+
+    let phase: WorkspaceLaunchPhase = 'unknown'
+    if (failed) phase = 'failed'
+    else if (readiness.ready) phase = 'ready'
+    else if (stopped) phase = 'stopped'
+    else if (buildStatus === 'succeeded') phase = 'starting'
+    else if (buildStatus === 'running' || buildStatus === 'pending') phase = 'provisioning'
+
+    const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason
+    logger.info(`${logCtx} phase=${phase} buildStatus=${buildStatus}: ${reason}`)
+
+    const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId) : null
+
+    return { phase, buildStatus, ready: readiness.ready, failed, reason, lastLogAt, cursors: newCursors, url }
+}
+
+async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     try {
         await coderFetch<unknown>(coderWorkspaceBuildPath(workspaceId), {
             method: 'POST',
@@ -193,7 +272,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 
 interface CreateCoderWorkspaceOptions {
     studyId: string
-    username: string
+    username: CoderUsername
     containerImage: string
     environment?: Array<{ name: string; value: string }>
 }

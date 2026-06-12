@@ -16,6 +16,8 @@ interface StudyCodeEmptyViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
+    launchReason?: string | null
+    launchLastLogAt?: string | null
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     starterFiles: StarterFile[]
@@ -26,6 +28,8 @@ export function StudyCodeEmptyView({
     launchWorkspace,
     isLaunching,
     launchError,
+    launchReason,
+    launchLastLogAt,
     uploadFiles,
     isUploading,
     starterFiles,
@@ -56,6 +60,8 @@ export function StudyCodeEmptyView({
                                 onClick={launchWorkspace}
                                 isLaunching={isLaunching}
                                 launchError={launchError}
+                                reason={launchReason}
+                                lastLogAt={launchLastLogAt}
                                 variant="cta"
                             />
                         </Box>

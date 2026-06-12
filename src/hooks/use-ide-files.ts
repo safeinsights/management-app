@@ -67,6 +67,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
+        reason: launchReason,
+        lastLogAt: launchLastLogAt,
     } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
 
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
@@ -216,6 +218,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         launchWorkspace,
         isLaunching,
         launchError,
+        launchReason,
+        launchLastLogAt,
 
         isLoadingFiles: workspace.isLoading,
         showEmptyState,

@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
+import { formatTimeAgo } from '@/lib/relative-time'
 import { CompactStatusButton } from './compact-status-button'
 
 export type LaunchIdeButtonVariant = 'cta' | 'outline'
@@ -10,9 +11,20 @@ interface LaunchIdeButtonProps {
     isLaunching: boolean
     launchError: Error | null
     variant: LaunchIdeButtonVariant
+    /** Human-readable build/readiness reason from the status poll */
+    reason?: string | null
+    /** ISO timestamp of the most recent Coder log line — drives the "active … ago" liveness hint */
+    lastLogAt?: string | null
 }
 
-export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: LaunchIdeButtonProps) {
+export function LaunchIdeButton({
+    onClick,
+    isLaunching,
+    launchError,
+    variant,
+    reason,
+    lastLogAt,
+}: LaunchIdeButtonProps) {
     const { messageWithEllipsis } = useLoadingMessages(isLaunching)
 
     if (launchError) {
@@ -28,7 +40,9 @@ export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: 
     }
 
     if (isLaunching) {
-        return <CompactStatusButton primaryText="Launching IDE" secondaryText={messageWithEllipsis} loading />
+        const activity = lastLogAt ? formatTimeAgo(new Date(lastLogAt)) : null
+        const secondaryText = activity ?? reason ?? messageWithEllipsis
+        return <CompactStatusButton primaryText="Launching IDE" secondaryText={secondaryText} loading />
     }
 
     if (variant === 'cta') {
