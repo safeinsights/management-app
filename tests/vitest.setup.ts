@@ -57,6 +57,11 @@ mockState.setRunWithLocalStorage((cb) => {
 // rather than being dropped. Use when a later step depends on a deferred side effect having committed
 // (e.g. a deferred CODE-SCANNED insert must land before the test records the next status change, or
 // the time-ordered v7 ids invert and queries reading the "latest" status see the wrong row).
+//
+// Relies on an invariant: the `after()` mock (`runDeferredTestCallback`) invokes the callback
+// synchronously and pushes the in-flight promise onto `pendingDeferredCallbacks` before `await
+// submitCode(...)` returns. If that collection ever became async (e.g. queued on a microtask before
+// pushing), `flushDeferred()` could snapshot an empty array and silently no-op, reintroducing the race.
 export async function flushDeferred() {
     const toRun = mockState.pendingDeferredCallbacks.slice()
     mockState.pendingDeferredCallbacks.length = 0
