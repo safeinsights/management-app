@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Alert, Box, Button, Group, Stack, Text } from '@mantine/core'
+import { Alert, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import type { Route } from 'next'
@@ -20,7 +20,6 @@ import type { Decision } from '@/lib/review-decision'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
 
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
@@ -153,9 +152,6 @@ function EditableBody({
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <Box bg="white" p="xxl">
-                <StudyCodeDetails job={job} />
-            </Box>
             <CodeEvaluationSection form={evaluationForm} enabled />
             <CodeReviewFeedbackSection
                 feedback={feedback}
@@ -179,7 +175,6 @@ function EditableBody({
 
 type NonEditableBodyProps = {
     isVisible: boolean
-    job: LatestJobForStudy
     onBack: () => void
 }
 
@@ -187,13 +182,10 @@ type NonEditableBodyProps = {
 // "code needs review" (e.g. peer just submitted, or stale URL). The server +
 // editor auth already block writes; this view satisfies the "No further edits"
 // UX expectation by not surfacing the editor / decision / submit controls.
-function NonEditableBody({ isVisible, job, onBack }: NonEditableBodyProps) {
+function NonEditableBody({ isVisible, onBack }: NonEditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <Box bg="white" p="xxl">
-                <StudyCodeDetails job={job} />
-            </Box>
             <Alert color="blue" title="Code review is closed" data-testid="code-review-closed-alert">
                 A decision has already been submitted for this study code. No further edits are allowed at this point.
             </Alert>
@@ -256,7 +248,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                 />
-                <NonEditableBody isVisible={!initiallyEditable} job={job} onBack={handleBack} />
+                <NonEditableBody isVisible={!initiallyEditable} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>
 
             <ReviewConfirmationModal
