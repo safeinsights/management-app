@@ -1,0 +1,117 @@
+services:
+    test-runner:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        working_dir: /app
+        env_file:
+            - .env
+        environment:
+            - DATABASE_URL=postgres://si:si@db-unit-test:5432/si_test
+            - SIMULATE_CODE_BUILD=t
+            - S3_ENDPOINT=http://seaweedfs-unit-test:8333
+            # Explicitly clear so any value from .env can't leak in; getS3BrowserClient()
+            # falls back to S3_ENDPOINT when S3_BROWSER_ENDPOINT is empty.
+            - S3_BROWSER_ENDPOINT=
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
+            - BUCKET_NAME=mgmt-app-local # Aligned with CI
+            - AWS_REGION=us-east-1
+            - NODE_ENV=test # Explicitly set NODE_ENV for tests
+            # Corepack provisions pnpm@11.3.0 at runtime as the `node` user (the
+            # build cached it for root). Disable the interactive download prompt so
+            # a fresh container can't hang. COREPACK_HOME lives INSIDE the
+            # node_modules volume on purpose: a standalone volume is created
+            # root-owned and `node` can't write to it (EACCES on a fresh mkdir after
+            # --prune), whereas the node_modules volume seeds from the image as node.
+            - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+            - COREPACK_HOME=/app/node_modules/.corepack
+        volumes:
+            - ./:/app/
+            - node_modules_unit_test_runner:/app/node_modules
+        # The pnpm store lives INSIDE the node_modules volume (--config.store-dir
+        # below), so store and node_modules share one mount and pnpm hardlinks
+        # instead of copying: cold install ~1.8s vs ~14s from the host bind.
+        # --clean wipes node_modules but preserves the .pnpm-store subdir (see
+        # bin/docker-test), so reinstalls hardlink from cache without network.
+        # --config.trustLockfile=true skips the redundant minimumReleaseAge
+        # supply-chain re-verification (set in pnpm-workspace.yaml) on a frozen lockfile.
+        command: sh -c "pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && pnpm run test:unit"
+        depends_on:
+            db-unit-test:
+                condition: service_healthy
+            seaweedfs-unit-test:
+                condition: service_healthy
+            create-buckets-unit-test:
+                condition: service_completed_successfully
+        networks:
+            - unit-test-net
+        restart: 'no'
+
+    db-unit-test:
+        image: 'postgres:16'
+        volumes:
+            - pgdata-unit-test:/var/lib/postgresql/data
+        networks:
+            - unit-test-net
+        environment:
+            - POSTGRES_USER=si
+            - POSTGRES_PASSWORD=si
+            - POSTGRES_DB=si_test
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U si -d si_test']
+            # Tight interval/start_period: postgres is ready in ~1-2s, so the
+            # default 10s interval adds a variable idle wait (up to ~10s) before the
+            # test-runner is unblocked on cold/clean starts. retries*interval still
+            # leaves ample grace.
+            interval: 2s
+            retries: 10
+            start_period: 2s
+            timeout: 3s
+        restart: unless-stopped
+
+    seaweedfs-unit-test:
+        image: chrislusf/seaweedfs
+        volumes:
+            - seaweedfs-data-unit-test:/data
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        command: server -s3 -dir=/data
+        networks:
+            - unit-test-net
+        healthcheck:
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            # Tight interval so the test-runner isn't gated on a 10-15s idle wait
+            # for the S3 port to come up on cold/clean starts.
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 3s
+        restart: unless-stopped
+
+    create-buckets-unit-test:
+        image: amazon/aws-cli
+        depends_on:
+            seaweedfs-unit-test:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
+        entrypoint: >
+            /bin/sh -c "
+            aws --endpoint-url http://seaweedfs-unit-test:8333 s3 mb s3://mgmt-app-local;
+            exit 0;
+            "
+        networks:
+            - unit-test-net
+        restart: 'no'
+
+networks:
+    unit-test-net:
+
+volumes:
+    pgdata-unit-test:
+    seaweedfs-data-unit-test:
+    node_modules_unit_test_runner: # also holds the co-located pnpm store (.pnpm-store) and corepack cache (.corepack)
