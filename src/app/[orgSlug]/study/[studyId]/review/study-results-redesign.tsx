@@ -58,12 +58,7 @@ export const StudyResultsRedesign: FC<{
                 </Group>
                 <Divider c="dimmed" />
                 <StatusCopy job={job} />
-                <EncryptedFilesPanel
-                    job={job}
-                    onFilesApproved={handleFilesApproved}
-                    hideKeyLabel
-                    hideTableUntilDecrypted
-                />
+                <EncryptedFilesPanel job={job} onFilesApproved={handleFilesApproved} hideTableUntilDecrypted />
             </Stack>
         </Paper>
     )

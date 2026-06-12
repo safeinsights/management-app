@@ -14,7 +14,7 @@ import {
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
-    getReviewerPublicKey,
+    getUserPublicKey,
     getUsersForOrgId,
     jobInfoForJobId,
     studyInfoForStudyId,
@@ -54,15 +54,15 @@ async function insertRecords() {
     }
 }
 
-describe('getReviewerPublicKey', () => {
+describe('getUserPublicKey', () => {
     it('returns public key when userId is valid', async () => {
         const { org1User1 } = await insertRecords()
-        const publicKey = await getReviewerPublicKey(org1User1.id)
+        const publicKey = await getUserPublicKey(org1User1.id)
         expect(publicKey).not.toBeNull()
     })
 
     it('returns null when userId is invalid', async () => {
-        const publicKey = await getReviewerPublicKey(BLANK_UUID)
+        const publicKey = await getUserPublicKey(BLANK_UUID)
         expect(publicKey).toBeUndefined()
     })
 })

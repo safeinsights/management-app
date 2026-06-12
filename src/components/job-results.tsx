@@ -1,14 +1,16 @@
 'use client'
 
-import React, { FC, useMemo } from 'react'
+import { FC, useMemo, useState } from 'react'
 import { Anchor, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { DownloadBlobLink } from '@/components/download-blob-link'
-import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { JobFile } from '@/lib/types'
+import { PrivateKeyForm } from '@/components/private-key-form'
+import { isEncryptedLogType, isResultFile, logLabel } from '@/lib/file-type-helpers'
+import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { JobFileInfo } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
 
 const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
@@ -30,64 +32,94 @@ const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     )
 }
 
+// One file row. Label + name come from the encrypted metadata so the researcher sees what's
+// available before decrypting; View/Download appear only once `decrypted` is set.
+const FileRow: FC<{ label: string; name: string; decrypted?: JobFileInfo }> = ({ label, name, decrypted }) => {
+    const theme = useMantineTheme()
+    return (
+        <Group gap="xs">
+            <Text size="sm" fw={600}>
+                {label}:
+            </Text>
+            <Text size="sm">{name}</Text>
+            {decrypted && (
+                <>
+                    <ViewResultsLink content={decrypted.contents} />
+                    <span style={{ height: 16, borderLeft: `1px solid ${theme.colors.charcoal[4]}` }}></span>
+                    <DownloadBlobLink target="_blank" filename={name} fileContent={decrypted.contents} />
+                </>
+            )}
+        </Group>
+    )
+}
+
+// Researcher-facing view of shared results. There is no plaintext copy: the researcher
+// decrypts the encrypted file bodies with their own key (the wrapped key the reviewer
+// produced for them at approve). The file list is shown before decryption — names aren't
+// secret, and the reviewer panel lists them too — and only View/Download are gated behind
+// the key.
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>()
+
     const {
-        data: approvedFiles,
+        data: encryptedFiles,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: ['job-results', job.id],
-        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: job.id }),
+        queryKey: ['encrypted-files', job.id],
+        queryFn: async () => await fetchEncryptedJobFilesAction({ jobId: job.id }),
     })
 
-    const { resultsFiles, logFiles } = useMemo(() => {
-        const res: JobFile[] = []
-        const logs: JobFile[] = []
+    const {
+        decrypt,
+        isPending: isDecrypting,
+        form,
+    } = useDecryptFiles({
+        encryptedFiles,
+        onSuccess: setDecryptedFiles,
+    })
 
-        approvedFiles?.forEach((f) => {
-            if (f.fileType === 'APPROVED-RESULT') res.push(f)
-            else if (isApprovedLogType(f.fileType)) logs.push(f)
-        })
+    // Decrypted content keyed by source row id, to attach View/Download to the matching row.
+    const decryptedBySourceId = useMemo(() => {
+        const map = new Map<string, JobFileInfo>()
+        for (const f of decryptedFiles ?? []) map.set(f.sourceId, f)
+        return map
+    }, [decryptedFiles])
 
-        return { resultsFiles: res, logFiles: logs }
-    }, [approvedFiles])
+    // Results first, then logs.
+    const orderedFiles = useMemo(() => {
+        const files = encryptedFiles ?? []
+        return [...files.filter(isResultFile), ...files.filter((f) => isEncryptedLogType(f.fileType))]
+    }, [encryptedFiles])
+
+    const handleSubmit = form.onSubmit((values) => decrypt(values.privateKey))
 
     if (isError) {
         return <ErrorAlert error={error} />
     }
 
-    if (isLoading || !approvedFiles) {
+    if (isLoading) {
         return <LoadingOverlay />
     }
 
     return (
         <Stack>
-            {resultsFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
+            {orderedFiles.map((file) => (
+                <FileRow
+                    key={file.studyJobFileId}
+                    label={logLabel(file.fileType)}
+                    name={file.name}
+                    decrypted={decryptedBySourceId.get(file.studyJobFileId)}
+                />
             ))}
-            {logFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
-            ))}
+            <PrivateKeyForm
+                isVisible={!decryptedFiles}
+                form={form}
+                onSubmit={handleSubmit}
+                isDecrypting={isDecrypting}
+                submitLabel="View Results"
+            />
         </Stack>
-    )
-}
-
-export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
-    const theme = useMantineTheme()
-    return (
-        <Group gap="xs">
-            <Text size="sm" fw={600}>
-                {logLabel(file.fileType)}:
-            </Text>
-            <ViewResultsLink content={file.contents} />
-            <span
-                style={{
-                    height: 16,
-                    borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
-                }}
-            ></span>
-            <DownloadBlobLink target="_blank" filename={file.path} fileContent={file.contents} />
-        </Group>
     )
 }

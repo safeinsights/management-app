@@ -3,7 +3,7 @@
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
-import { ActionSuccessType, jobFileSchema } from '@/lib/types'
+import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
@@ -31,7 +31,7 @@ import {
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
-import { storeApprovedJobFile } from '@/server/storage'
+import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
@@ -265,7 +265,7 @@ async function approveJobCode({
     studyId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     job: LatestJobForStudy
@@ -274,7 +274,7 @@ async function approveJobCode({
     studyId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     await db
         .insertInto('jobStatusChange')
@@ -316,12 +316,10 @@ async function approveJobCode({
         })
     }
 
-    if (jobFiles?.length) {
-        const info = { studyId, studyJobId: job.id, orgSlug }
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+    if (sharedFiles?.length) {
+        // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's
+        // browser produced. Ciphertext is untouched; no plaintext is stored.
+        await insertSharedFileKeys(db, job.id, sharedFiles, userId)
     }
 }
 
@@ -334,7 +332,7 @@ async function performStudyProposalApproval({
     userId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     study: StudyForApproval
@@ -342,7 +340,7 @@ async function performStudyProposalApproval({
     userId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
     const isCodeReapproval = !isFirstApproval
@@ -379,7 +377,7 @@ async function performStudyProposalApproval({
         if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
     }
 
-    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
 
     // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
@@ -447,7 +445,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             studyId: z.string(),
             orgSlug: z.string(),
             useTestImage: z.boolean().optional(),
-            jobFiles: z.array(jobFileSchema).optional(),
+            sharedFiles: z.array(sharedFileSchema).optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -459,7 +457,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, useTestImage, sharedFiles }, study, session, db }) => {
         await performStudyProposalApproval({
             db,
             study,
@@ -467,7 +465,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             userId: session.user.id,
             orgSlug,
             useTestImage,
-            jobFiles,
+            sharedFiles,
         })
     })
 

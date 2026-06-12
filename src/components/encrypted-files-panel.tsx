@@ -6,21 +6,20 @@ import { decodeFileContents } from '@/lib/file-content-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
+import { PrivateKeyForm } from '@/components/private-key-form'
+import { Button, Checkbox, Stack, Table } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, LockIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 
 type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
-    hideKeyLabel?: boolean
     hideTableUntilDecrypted?: boolean
 }
 
 export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
     job,
     onFilesApproved,
-    hideKeyLabel = false,
     hideTableUntilDecrypted = false,
 }) => {
     const {
@@ -34,7 +33,6 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
         viewingFile,
         openFileViewer,
         closeFileViewer,
-        encryptedFileTypesLabel,
         selectedPaths,
         toggleFile,
     } = useEncryptedFilesPanel({ job, onFilesApproved })
@@ -55,28 +53,14 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
                     onToggle={toggleFile}
                 />
             )}
-            {shouldShowForm && (
-                <form onSubmit={handleSubmit}>
-                    <Stack>
-                        <Textarea
-                            label={
-                                hideKeyLabel ? undefined : (
-                                    <Text mb="sm">{`Enter Reviewer key to view ${encryptedFileTypesLabel}`}</Text>
-                                )
-                            }
-                            resize="vertical"
-                            {...form.getInputProps('privateKey')}
-                            placeholder="Enter your Reviewer key to access encrypted content."
-                            key={form.key('privateKey')}
-                        />
-                        <Group>
-                            <Button type="submit" disabled={!form.isValid() || isLoadingBlob} loading={isDecrypting}>
-                                Decrypt Files
-                            </Button>
-                        </Group>
-                    </Stack>
-                </form>
-            )}
+            <PrivateKeyForm
+                isVisible={shouldShowForm}
+                form={form}
+                onSubmit={handleSubmit}
+                isDecrypting={isDecrypting}
+                isDisabled={isLoadingBlob}
+                submitLabel="Decrypt Files"
+            />
             <DecryptedFilePreview file={viewingFile} onClose={closeFileViewer} />
         </Stack>
     )

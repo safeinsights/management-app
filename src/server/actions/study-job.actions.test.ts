@@ -2,7 +2,6 @@ import { describe, expect, test, vi } from 'vitest'
 import { db, insertTestStudyJobData, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import {
     approveStudyJobFilesAction,
-    fetchApprovedJobFilesAction,
     fetchEncryptedJobFilesAction,
     loadStudyJobAction,
     rejectStudyJobFilesAction,
@@ -12,15 +11,6 @@ import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
     fetchFileContents: vi.fn(() => new Blob()),
-    storeApprovedJobFile: vi.fn(),
-}))
-
-vi.mock('si-encryption/job-results/reader', () => ({
-    ResultsReader: class {
-        async listFiles() {
-            return [{ path: 'test.csv', bytes: 0 }]
-        }
-    },
 }))
 
 vi.mock('@/server/mailer', () => ({
@@ -43,40 +33,91 @@ describe('Study Job Actions', () => {
         })
     })
 
-    test('fetchApprovedJobFilesAction', async () => {
-        const { org } = await mockSessionWithTestData()
-        const { job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'FILES-APPROVED',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-CODE-RUN-LOG' })
-            .executeTakeFirstOrThrow()
-
-        const result = actionResult(await fetchApprovedJobFilesAction({ studyJobId: job.id }))
-
-        expect(result).toHaveLength(1)
-        expect(result[0].path).toBe('test.csv')
-    })
-
-    test('fetchEncryptedJobFilesAction', async () => {
-        const { org } = await mockSessionWithTestData()
+    test('fetchEncryptedJobFilesAction returns only files the requesting user has a key box for', async () => {
+        // Enclave session users are seeded with fingerprint 'testFingerprint1'.
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
-        await db
+
+        const file = await db
             .insertInto('studyJobFile')
-            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-CODE-RUN-LOG' })
+            .values({
+                path: 'results/encrypted/test.csv',
+                name: 'test.csv',
+                studyJobId: job.id,
+                fileType: 'ENCRYPTED-CODE-RUN-LOG',
+                iv: 'aXY=',
+            })
+            .returning('id')
             .executeTakeFirstOrThrow()
 
-        const result = actionResult(
-            await fetchEncryptedJobFilesAction({
-                jobId: job.id,
-            }),
-        )
+        await db
+            .insertInto('studyJobFileKey')
+            .values({ studyJobFileId: file.id, fingerprint: 'testFingerprint1', crypt: 'wrapped-key' })
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
 
         expect(result).toHaveLength(1)
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
+        expect(result[0].crypt).toBe('wrapped-key')
+        expect(result[0].iv).toBe('aXY=')
+        expect(result[0].studyJobFileId).toBe(file.id)
+    })
+
+    // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob'
+    // rule matches lab researchers, not just enclave reviewers — researchers fetch their
+    // re-wrapped result files through this same action.
+    test('fetchEncryptedJobFilesAction permits lab researchers to fetch their shared files', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { job } = await insertTestStudyJobData({ org })
+
+        // Lab test users are seeded without a key; give this researcher one plus a wrapped key.
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('labPublicKey'), fingerprint: 'labFingerprint1' })
+            .executeTakeFirstOrThrow()
+
+        const file = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'results/encrypted/results.csv',
+                name: 'results.csv',
+                studyJobId: job.id,
+                fileType: 'ENCRYPTED-RESULT',
+                iv: 'aXY=',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        await db
+            .insertInto('studyJobFileKey')
+            .values({ studyJobFileId: file.id, fingerprint: 'labFingerprint1', crypt: 'wrapped-for-researcher' })
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+
+        expect(result).toHaveLength(1)
+        expect(result[0].crypt).toBe('wrapped-for-researcher')
+    })
+
+    test('fetchEncryptedJobFilesAction omits files the user has no box for', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { job } = await insertTestStudyJobData({ org })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'results/encrypted/secret.csv',
+                name: 'secret.csv',
+                studyJobId: job.id,
+                fileType: 'ENCRYPTED-RESULT',
+                iv: 'aXY=',
+            })
+            .executeTakeFirstOrThrow()
+
+        // No study_job_file_key row for this user → nothing they can decrypt.
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+        expect(result).toHaveLength(0)
     })
 
     describe('rejectStudyJobFilesAction', () => {
@@ -115,7 +156,7 @@ describe('Study Job Actions', () => {
             await approveStudyJobFilesAction({
                 orgSlug: org.slug,
                 jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
-                jobFiles: [],
+                sharedFiles: [],
             })
 
             const statusChanges = await db

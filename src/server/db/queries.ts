@@ -55,7 +55,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path', 'fileType'])
+                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -63,7 +63,7 @@ export async function getStudyJobInfo(studyJobId: string) {
         .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 }
 
-export const getReviewerPublicKey = async (userId: string) => {
+export const getUserPublicKey = async (userId: string) => {
     const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
@@ -71,16 +71,6 @@ export const getReviewerPublicKey = async (userId: string) => {
         .executeTakeFirst()
 
     return result
-}
-
-export const getReviewerPublicKeyByUserId = async (userId: string) => {
-    const result = await Action.db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.publicKey'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.publicKey
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
@@ -103,7 +93,7 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
+                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes', 'createdAt'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -457,6 +447,50 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         new Uint8Array(arrayBuffer).set(publicKey)
         return { publicKey: arrayBuffer, fingerprint }
     })
+}
+
+const labOrgIdForJob = async (jobId: string) =>
+    await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select('study.submittedByOrgId')
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
+
+/**
+ * Public keys of the lab org that submitted the study (`study.submittedByOrgId`) —
+ * the researchers. These are the recipients a reviewer re-wraps approved files for.
+ */
+export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await labOrgIdForJob(jobId)
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// Same lab (researcher) recipient keys, resolved from the study directly — used by the
+// client approve flow, which knows the study but not necessarily the job id.
+export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await Action.db
+        .selectFrom('study')
+        .select('submittedByOrgId')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound(`study ${studyId}`))
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+/**
+ * IDs of this job's files a reviewer approved & shared with researchers. Driven by the
+ * recorded `approved_at` fact, not by current org membership — removing a researcher from
+ * the lab must not retroactively un-approve files (see `insertSharedFileKeys`).
+ */
+export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
+    const rows = await Action.db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('approvedAt', 'is not', null)
+        .execute()
+
+    return rows.map((r) => r.id)
 }
 
 export type StudyReviewWithMeta = {

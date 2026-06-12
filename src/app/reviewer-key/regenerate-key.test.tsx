@@ -10,11 +10,11 @@ vi.mock('si-encryption/util/keypair', () => ({
 }))
 
 vi.mock('@/server/actions/user-keys.actions', () => ({
-    updateReviewerPublicKeyAction: vi.fn(),
+    updateUserPublicKeyAction: vi.fn(),
 }))
 
-describe('Reviewer keypair regeneration', () => {
-    it('should regenerate a reviewer key pair and update public key', async () => {
+describe('Results Keypair regeneration', () => {
+    it('should regenerate a Results Key pair and update public key', async () => {
         mockClerkSession({
             clerkUserId: 'user-id',
             orgSlug: 'dev',
@@ -32,7 +32,7 @@ describe('Reviewer keypair regeneration', () => {
         renderWithProviders(<RegenerateKey />)
 
         await waitFor(() => {
-            expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()
+            expect(screen.getByText('Results Key', { selector: 'h1' })).toBeDefined()
         })
 
         // Open the modal requesting regeneration

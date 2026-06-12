@@ -1,7 +1,7 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Group, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { JobResultsStatusMessage } from './job-results-status-message'
@@ -39,17 +39,7 @@ export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref, ret
                 Study Details
             </Title>
             <Divider />
-            <Paper bg="white" p="xxl">
-                <Stack>
-                    <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
-                            Study Status
-                        </Title>
-                    </Group>
-                    <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />
-                </Stack>
-            </Paper>
+            <JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />
             <Group>
                 <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
                     Previous
