@@ -45,8 +45,8 @@ export const RegenerateKey: FC = () => {
 
                         <Text size="md">If you have lost your Results Key, you will need to generate a new one.</Text>
                         <Text size="md" c="red.9" mb={8}>
-                            Note: If you generate a new Results Key, you will no longer have access to any study
-                            results associated with your previous key. This action cannot be undone.
+                            Note: If you generate a new Results Key, you will no longer have access to any study results
+                            associated with your previous key. This action cannot be undone.
                         </Text>
                     </Stack>
                     <Group>

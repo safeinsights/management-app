@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
-import {
-    getUserPublicKeyAction,
-    setUserPublicKeyAction,
-    updateUserPublicKeyAction,
-} from './user-keys.actions'
+import { getUserPublicKeyAction, setUserPublicKeyAction, updateUserPublicKeyAction } from './user-keys.actions'
 import { db } from '@/database'
 
 vi.mock('@/server/events', async (importOriginal) => ({

@@ -29,11 +29,7 @@ async function insertSharedFileScenario() {
 }
 
 const selectKeyRows = (fileId: string) =>
-    db
-        .selectFrom('studyJobFileKey')
-        .select(['fingerprint', 'crypt'])
-        .where('studyJobFileId', '=', fileId)
-        .execute()
+    db.selectFrom('studyJobFileKey').select(['fingerprint', 'crypt']).where('studyJobFileId', '=', fileId).execute()
 
 const selectApproval = (fileId: string) =>
     db

@@ -23,11 +23,29 @@ async function orgPublicKeys(orgId: string): Promise<{ publicKey: ArrayBuffer; f
         .select(['userPublicKey.publicKey', 'userPublicKey.fingerprint'])
         .where('orgUser.orgId', '=', orgId)
         .execute()
-    return rows.map(({ publicKey, fingerprint }) => {
+    const keys = rows.map(({ publicKey, fingerprint }) => {
         const ab = new ArrayBuffer(publicKey.byteLength)
         new Uint8Array(ab).set(publicKey)
         return { publicKey: ab, fingerprint }
     })
+    // Seed data contains placeholder keys (e.g. fingerprint "e2e-test-fingerprint-admin"
+    // with literal text bytes) that aren't real SPKI DER — wrapping for them throws
+    // deep inside ResultsWriter. Pre-validate with the same import params si-encryption
+    // uses and skip the duds.
+    const valid: typeof keys = []
+    for (const k of keys) {
+        try {
+            await crypto.subtle.importKey('spki', k.publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, [
+                'encrypt',
+            ])
+            valid.push(k)
+        } catch {
+            console.warn(
+                `  skipping invalid public key (fingerprint ${k.fingerprint}) — not SPKI DER, likely seed placeholder`,
+            )
+        }
+    }
+    return valid
 }
 
 const toArrayBuffer = (s: string): ArrayBuffer => {
