@@ -25,15 +25,25 @@ const setOrgUserPublicKeySchema = z.object({
     fingerprint: z.string(),
 })
 
+// Reject keys that aren't importable RSA SPKI DER. A single malformed key in an org breaks
+// encryption for every sender wrapping to that org's recipients (TOA results upload, the
+// reviewer's approve/re-wrap), so catch it at storage time. Import params mirror
+// si-encryption's wrapAesKey.
+async function assertValidPublicKey(publicKey: ArrayBuffer): Promise<void> {
+    try {
+        await crypto.subtle.importKey('spki', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
+    } catch {
+        throw new ActionFailure({ publicKey: 'is not a valid RSA public key' })
+    }
+}
+
 export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
     .requireAbilityTo('update', 'UserKey')
     .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
 
-        if (!publicKey.byteLength) {
-            throw new Error('Invalid public key format')
-        }
+        await assertValidPublicKey(publicKey)
 
         await db
             .insertInto('userPublicKey')
@@ -53,6 +63,8 @@ export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
     .requireAbilityTo('update', 'UserKey')
     .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
+
+        await assertValidPublicKey(publicKey)
 
         await db
             .updateTable('userPublicKey')
