@@ -592,8 +592,9 @@ describe('StudyViewPage', () => {
             },
         )
 
+        // OTTER-612: "Previous" from the results page returns to the Code-approved decision page.
         it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'renders CodePostSubmissionView with the banner hidden when from=code-submission at %s',
+            'renders CodePostDecisionView (CODE-APPROVED) when from=code-decision at %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -606,11 +607,11 @@ describe('StudyViewPage', () => {
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: Promise.resolve({ from: 'code-submission' }),
+                    searchParams: Promise.resolve({ from: 'code-decision' }),
                 })
 
-                expect(page?.type).toBe(CodePostSubmissionView)
-                expect(page?.props.isUnderReview).toBe(false)
+                expect(page?.type).toBe(CodePostDecisionView)
+                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             },
         )
 
@@ -633,10 +634,10 @@ describe('StudyViewPage', () => {
             expect(page?.props.returnTo).toBe('org')
         })
 
-        // Fix 2 (PR #759): the from=code-submission branch is gated on isStudyResultsStatus, so a
-        // stray ?from=code-submission at a code-decision status falls through to CodePostDecisionView
-        // instead of short-circuiting to the post-submission view.
-        it('falls through to CodePostDecisionView when from=code-submission arrives at CODE-APPROVED', async () => {
+        // The from=code-decision branch is gated on isStudyResultsStatus, so a stray ?from=code-decision
+        // at a code-decision status (no results yet) falls through to the normal decision routing rather
+        // than short-circuiting. The normal routing also lands on CodePostDecisionView here.
+        it('falls through to CodePostDecisionView when from=code-decision arrives at CODE-APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -660,7 +661,7 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'code-submission' }),
+                searchParams: Promise.resolve({ from: 'code-decision' }),
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
