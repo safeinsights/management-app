@@ -41,7 +41,7 @@ export default async function StudyReviewPage(props: {
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     const fromAgreements = searchParams.from === 'agreements'
-    const fromCodeSubmission = searchParams.from === 'code-submission'
+    const fromCodeDecision = searchParams.from === 'code-decision'
 
     // Baseline-only jobs are already excluded by latestSubmittedJobForStudy; this confirms the
     // submitted job carries CODE-SUBMITTED before routing into the code views. When the researcher
@@ -62,20 +62,27 @@ export default async function StudyReviewPage(props: {
             ? 'CODE-APPROVED'
             : liveDecisionStatus
 
-        // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
-        // Render the OTTER-537 post-submission page explicitly, with the "code under review" banner hidden
-        // because review has already concluded. Gate on the results status (not the query param alone) so a
-        // stray ?from=code-submission at a code-decision/under-review status falls through below.
-        if (isStudyResultsStatus(latestJobStatus) && fromCodeSubmission) {
+        // OTTER-612: ?from=code-decision renders the Code-approved page at a results status
+        // (otherwise unroutable because the results branch below would take precedence).
+        if (isStudyResultsStatus(latestJobStatus) && fromCodeDecision) {
+            if (!isSubmittedStudy(study)) {
+                notFound()
+            }
+            const entriesResult = await getCodeReviewFeedbackAction({ studyId })
+            const feedbackLoadError = isActionError(entriesResult)
+            const entries = feedbackLoadError ? [] : entriesResult
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
-                <CodePostSubmissionView
+                <CodePostDecisionView
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
+                    entries={entries}
                     reviewingOrgName={reviewingOrgName}
                     dashboardHref={dashboardHref}
-                    isUnderReview={false}
+                    latestJobStatus="CODE-APPROVED"
+                    feedbackLoadError={feedbackLoadError}
+                    showStudyCode
                 />
             )
         }
