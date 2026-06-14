@@ -10,6 +10,7 @@ allowBuilds:
 minimumReleaseAge: 2880
 overrides:
     '@types/react': 19.2.14
+    esbuild: ^0.28.1
     minimatch: ^10.2.1
     fast-xml-parser: ^5.7.0
     serialize-javascript: ^7.0.3
