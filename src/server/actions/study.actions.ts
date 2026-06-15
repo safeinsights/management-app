@@ -9,7 +9,7 @@ import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
@@ -704,17 +704,18 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: 
 async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
     // Code-review eligibility is driven by the JOB status alone, not study.status.
     // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
-    // approved stays APPROVED while its code is (re)submitted for review, so the
-    // latest job sitting at CODE-SUBMITTED/CODE-SCANNED is the only correct gate. A
-    // peer submitting a decision advances the job past those statuses (and the
-    // unique (studyJobId, reviewKind) index blocks a true insert race), so the
-    // job-status check is also the race-loser guard (OTTER-471).
+    // approved stays APPROVED while its code is (re)submitted for review, so a latest
+    // job whose newest code change is a fresh submission is the only correct gate. A
+    // peer submitting a decision advances the round past that (and the unique
+    // (studyJobId, reviewKind) index blocks a true insert race), so this check is also
+    // the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
+    // vs decisions rather than reading statusChanges[0], so it is immune to the
+    // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
     const job = await latestJobForStudyOrNull(studyId)
-    const latestStatus = job?.statusChanges.at(0)?.status
-    if (!job || !latestStatus) {
+    if (!job || !job.statusChanges.some((c) => isCodeUnderReviewStatus(c.status))) {
         throw new ActionFailure({ study: 'has no code submission to review.' })
     }
-    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
+    if (!latestCodeChangeIsSubmission(job.statusChanges)) {
         throw new ActionFailure({
             study: 'has already been decided. Refresh to see the updated status.',
         })

@@ -5,7 +5,7 @@ import { TableTd, TableTr, Text, useMantineTheme } from '@mantine/core'
 import dayjs from 'dayjs'
 import { StudyActionLink } from './study-action-link'
 import { studyHasJobStatus } from '@/lib/studies'
-import { isCodeReviewableLatest } from '@/lib/study-job-status'
+import { latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
 
 type StudyRowProps = {
@@ -15,20 +15,16 @@ type StudyRowProps = {
     orgSlug: string
 }
 
-// A reviewer's row is highlighted when something needs their attention. That's the proposal
-// awaiting review (study.status PENDING-REVIEW) OR code awaiting review on the latest job. The
-// code case can't key on study.status: after a code change-request the study stays APPROVED
-// (proposal-stage) while the resubmitted code sits at CODE-SUBMITTED/CODE-SCANNED — exactly the
-// state that must still flag the reviewer (OTTER-552).
-function codeNeedsReview(study: StudyRowType): boolean {
-    return isCodeReviewableLatest(study.jobStatusChanges)
-}
-
+// A reviewer's row is highlighted when something needs their attention: the proposal awaiting
+// review (study.status PENDING-REVIEW) OR code awaiting review on the latest job. The code case
+// can't key on study.status — after a code change-request the study stays APPROVED (proposal-
+// stage) while the resubmitted code sits at CODE-SUBMITTED/CODE-SCANNED, exactly the state that
+// must still flag the reviewer (OTTER-552).
 function shouldHighlight(study: StudyRowType, audience: Audience): boolean {
     if (audience === 'researcher') {
         return studyHasJobStatus(study, 'FILES-APPROVED')
     }
-    return study.status === 'PENDING-REVIEW' || codeNeedsReview(study)
+    return study.status === 'PENDING-REVIEW' || latestCodeChangeIsSubmission(study.jobStatusChanges)
 }
 
 export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {

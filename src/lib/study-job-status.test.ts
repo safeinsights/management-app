@@ -1,43 +1,46 @@
 import { describe, it, expect } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
-import { isCodeReviewableLatest, latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
+import { latestCodeChangeIsSubmission, latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
 
 const changes = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
 
-// isCodeReviewableLatest is recency-aware and expects newest-first input (the order the
-// queries return: createdAt desc, id desc). newestFirst() names that explicitly.
-const newestFirst = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
-
-describe('isCodeReviewableLatest', () => {
+describe('latestCodeChangeIsSubmission', () => {
     it('is false with no code submission', () => {
-        expect(isCodeReviewableLatest([])).toBe(false)
-        expect(isCodeReviewableLatest(newestFirst('INITIATED'))).toBe(false)
+        expect(latestCodeChangeIsSubmission([])).toBe(false)
+        expect(latestCodeChangeIsSubmission(changes('INITIATED'))).toBe(false)
     })
 
     it('is true for a fresh first submission (no decision yet)', () => {
-        expect(isCodeReviewableLatest(newestFirst('CODE-SUBMITTED'))).toBe(true)
-        expect(isCodeReviewableLatest(newestFirst('CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(true)
+        expect(latestCodeChangeIsSubmission(changes('CODE-SUBMITTED'))).toBe(true)
+        expect(latestCodeChangeIsSubmission(changes('CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(true)
     })
 
-    it('is true when a resubmission is newer than the prior change request', () => {
+    it('is true when a resubmission follows the prior change request', () => {
         expect(
-            isCodeReviewableLatest(
-                newestFirst('CODE-SCANNED', 'CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
+            latestCodeChangeIsSubmission(
+                changes('CODE-SCANNED', 'CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
             ),
         ).toBe(true)
     })
 
     it('is false when the newest code change is a decision (awaiting the researcher)', () => {
-        expect(isCodeReviewableLatest(newestFirst('CODE-CHANGES-REQUESTED', 'CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(
+        expect(latestCodeChangeIsSubmission(changes('CODE-CHANGES-REQUESTED', 'CODE-SCANNED', 'CODE-SUBMITTED'))).toBe(
             false,
         )
-        expect(isCodeReviewableLatest(newestFirst('CODE-REJECTED', 'CODE-SUBMITTED'))).toBe(false)
+        expect(latestCodeChangeIsSubmission(changes('CODE-REJECTED', 'CODE-SUBMITTED'))).toBe(false)
     })
 
-    it('is false once approved and running (CODE-APPROVED newer than the submission)', () => {
+    it('is false once approved and running', () => {
         expect(
-            isCodeReviewableLatest(newestFirst('JOB-RUNNING', 'CODE-APPROVED', 'CODE-SCANNED', 'CODE-SUBMITTED')),
+            latestCodeChangeIsSubmission(changes('JOB-RUNNING', 'CODE-APPROVED', 'CODE-SCANNED', 'CODE-SUBMITTED')),
         ).toBe(false)
+    })
+
+    // Counting is order-independent, so a decision and the submission it decides tying on
+    // createdAt (the legacy single-job same-millisecond case) must not flip the result.
+    it('is order-independent for a decided submission (same-millisecond tie)', () => {
+        expect(latestCodeChangeIsSubmission(changes('CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'))).toBe(false)
+        expect(latestCodeChangeIsSubmission(changes('CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'))).toBe(false)
     })
 })
 
