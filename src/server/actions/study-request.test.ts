@@ -31,6 +31,7 @@ import {
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -860,6 +861,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -895,6 +900,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
