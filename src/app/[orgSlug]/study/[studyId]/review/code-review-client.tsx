@@ -20,7 +20,6 @@ import type { Decision } from '@/lib/review-decision'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
-
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
