@@ -58,7 +58,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                     <Textarea
                         id="resubmissionNote"
                         aria-label="Resubmission Note"
-                        placeholder="Ex. Revised sections, added details, and answered reviewer feedback"
+                        placeholder="Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission."
                         autosize
                         minRows={5}
                         styles={{ input: { resize: 'vertical' } }}

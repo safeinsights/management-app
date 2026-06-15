@@ -94,12 +94,44 @@ describe('buildTriggerBuildImageCommandInput', () => {
             { name: 'STUDY_JOB_ID', value: info.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-123/code' },
             { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.codeEnvURL },
-            { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' },
+            { name: 'DOCKER_CMD_LINE', value: "Rscript 'main.R' --arg1 value1" },
             { name: 'DOCKER_CODE_LOCATION', value: 'a-bad-url:job-123' },
         ]
 
         expect(input.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
         expect(input.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
+    })
+
+    it('shell-quotes the entry-point filename so parentheses do not break the command (OTTER-477)', async () => {
+        const info = {
+            studyJobId: 'job-123',
+            codeEnvURL: 'docker.io/my-base-image:latest',
+            codeEntryPointFileName: 'main(1).r',
+            containerLocation: 'a-bad-url',
+            cmdLine: 'Rscript %f --arg1 value1',
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        }
+
+        const input = await buildTriggerBuildImageCommandInput(info)
+
+        const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
+        expect(cmdLineVar?.value).toBe("Rscript 'main(1).r' --arg1 value1")
+    })
+
+    it('substitutes and quotes every %f occurrence in the template', async () => {
+        const input = await buildTriggerBuildImageCommandInput({
+            studyJobId: 'job-123',
+            codeEnvURL: 'docker.io/my-base-image:latest',
+            codeEntryPointFileName: 'main(1).r',
+            containerLocation: 'a-bad-url',
+            cmdLine: 'cp %f /tmp/ && Rscript %f',
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        })
+
+        const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
+        expect(cmdLineVar?.value).toBe("cp 'main(1).r' /tmp/ && Rscript 'main(1).r'")
     })
 })
 
