@@ -74,13 +74,15 @@ export const proposalFormSchema = z.object({
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 
-// The lexical editor fields auto-save to Yjs continuously and rehydrate from it on reload,
-// so they don't trigger the "Save as draft" button or the unsaved-changes prompt.
-// These fields reach the `study` row exclusively via Save as draft / Submit
-export const DRAFT_TRACKED_FIELDS = ['title', 'datasets', 'piName', 'piUserId'] as const
+// The non-lexical proposal fields. These are synced individually through the Yjs
+// fields map (see useYjsFormMap), and are the only fields tracked for the "Save as
+// draft" dirty state: the lexical editor fields auto-save to Yjs continuously
+export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piName', 'piUserId'] as const
+
+export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
 
 export function isProposalDraftDirty(form: UseFormReturnType<ProposalFormValues>): boolean {
-    return DRAFT_TRACKED_FIELDS.some((field) => form.isDirty(field))
+    return COLLAB_FIELD_KEYS.some((field) => form.isDirty(field))
 }
 
 export const initialProposalValues: ProposalFormValues = {
