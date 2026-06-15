@@ -469,8 +469,9 @@ export async function buildTriggerBuildImageCommandInput(
     // Shell-quote the filename so names with parentheses or other shell metacharacters
     // don't break the `/bin/sh` command the containerizer runs (OTTER-477). The
     // replacement must be a function — a string replacement would interpret `$`
-    // sequences in the filename as special replacement patterns.
-    const cmd = info.cmdLine.replace('%f', () => shellQuote(info.codeEntryPointFileName))
+    // sequences in the filename as special replacement patterns. replaceAll covers
+    // templates that reference %f more than once.
+    const cmd = info.cmdLine.replaceAll('%f', () => shellQuote(info.codeEntryPointFileName))
     return {
         projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {

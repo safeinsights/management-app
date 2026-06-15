@@ -118,6 +118,21 @@ describe('buildTriggerBuildImageCommandInput', () => {
         const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
         expect(cmdLineVar?.value).toBe("Rscript 'main(1).r' --arg1 value1")
     })
+
+    it('substitutes and quotes every %f occurrence in the template', async () => {
+        const input = await buildTriggerBuildImageCommandInput({
+            studyJobId: 'job-123',
+            codeEnvURL: 'docker.io/my-base-image:latest',
+            codeEntryPointFileName: 'main(1).r',
+            containerLocation: 'a-bad-url',
+            cmdLine: 'cp %f /tmp/ && Rscript %f',
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        })
+
+        const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
+        expect(cmdLineVar?.value).toBe("cp 'main(1).r' /tmp/ && Rscript 'main(1).r'")
+    })
 })
 
 describe('buildTriggerScanForStudyJobCommandInput', () => {
