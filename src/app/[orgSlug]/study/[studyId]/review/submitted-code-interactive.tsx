@@ -36,10 +36,17 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-function AiSummaryBody({ isVisible, summary }: { isVisible: boolean; summary: string }) {
-    if (!isVisible) return null
+// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
+const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+
+function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
-        <Text size="sm" data-testid="ai-summary-body" style={{ whiteSpace: 'pre-wrap' }}>
+        <Text
+            size="sm"
+            data-testid="ai-summary-body"
+            lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
+            style={{ whiteSpace: 'pre-wrap' }}
+        >
             {summary}
         </Text>
     )
@@ -123,7 +130,7 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
         <>
-            <AiSummaryBody isVisible={isExpanded} summary={summary} />
+            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )

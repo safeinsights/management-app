@@ -10,9 +10,9 @@ import { actionResult } from '@/lib/utils'
 import {
     type CodeDecisionStatus,
     hasJobStatus,
-    isCodeDecisionStatus,
     isCodeUnderReviewStatus,
     isStudyResultsStatus,
+    latestSubmittedJobLiveCodeDecisionStatus,
     STUDY_CODE_RUNNING_JOB_STATUSES,
 } from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
@@ -54,14 +54,13 @@ export default async function StudyReviewPage(props: {
         // Effective code-decision status for the redesigned decision page. The execution window
         // (JOB-PROVISIONING/PACKAGING/READY/RUNNING) and an approved-but-late CODE-SCANNED both
         // resolve to CODE-APPROVED, keeping the researcher on the Code-approved page until results exist.
+        const liveDecisionStatus = latestSubmittedJobLiveCodeDecisionStatus(job.statusChanges)
         const decisionStatus: CodeDecisionStatus | null = hasJobStatus(job.statusChanges, [
             'CODE-APPROVED',
             ...STUDY_CODE_RUNNING_JOB_STATUSES,
         ])
             ? 'CODE-APPROVED'
-            : isCodeDecisionStatus(latestJobStatus)
-              ? latestJobStatus
-              : null
+            : liveDecisionStatus
 
         // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
         // Render the OTTER-537 post-submission page explicitly, with the "code under review" banner hidden

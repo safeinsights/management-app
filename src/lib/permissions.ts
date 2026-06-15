@@ -49,13 +49,16 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any research orgs can create studies for ANY org
+    // users who belong to any research orgs can create studies for ANY org.
+    // create is unconditioned: a new draft has no submittedByOrgId yet — the
+    // submitting lab is chosen in the handler from the user's own orgs. update,
+    // delete, and job mutations are scoped to studies the user's lab submitted,
+    // so a lab member can't mutate another lab's study by guessing its id.
     if (usersResearcherOrgIds.length) {
         permit('create', 'Study')
-        permit('update', 'Study')
-        permit('delete', 'Study')
-        permit('create', 'StudyJob')
-        permit('delete', 'StudyJob')
+        permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
+        permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
+        permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('load', 'IDE')
     }
 

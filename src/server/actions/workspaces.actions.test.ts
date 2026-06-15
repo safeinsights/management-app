@@ -3,11 +3,22 @@ import {
     actionResult,
     insertTestBaselineJob,
     insertTestStudyJobData,
+    insertTestCodeEnv,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import { pathForStarterCode } from '@/lib/paths'
+
+// Echo the key back so a test can assert which S3 key gets signed.
+vi.mock('@/server/aws', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/aws')>()
+    return {
+        ...actual,
+        signedUrlForFile: vi.fn(async (key: string) => `https://signed.example/${key}`),
+    }
+})
 
 // Mock dependencies moved to doMock in beforeEach
 
@@ -95,6 +106,39 @@ describe('Workspace Actions', () => {
         expect(result.files).toHaveLength(3) // main.py, README.md, data.csv
         expect(result.files[0]).toHaveProperty('size')
         expect(result.files[0]).toHaveProperty('mtime')
+    })
+
+    describe('getStarterCodeInfoAction', () => {
+        test('signs the full starter-code key, not the bare file name', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+            const codeEnv = await insertTestCodeEnv({
+                orgId: org.id,
+                language: 'R',
+                starterCodeFileNames: ['main.R'],
+            })
+
+            const { getStarterCodeInfoAction } = await import('./workspaces.actions')
+            const result = actionResult(await getStarterCodeInfoAction({ studyId: study.id }))
+
+            const expectedKey = pathForStarterCode({ orgSlug: org.slug, codeEnvId: codeEnv.id, fileName: 'main.R' })
+            expect(result.starterFiles).toHaveLength(1)
+            expect(result.starterFiles[0].name).toBe('main.R')
+            expect(result.starterFiles[0].url).toContain(expectedKey)
+            // the original bug signed the bare name as the key, which resolves to the bucket root
+            expect(result.starterFiles[0].url).not.toBe('https://signed.example/main.R')
+        })
+
+        test('returns no starter files when the code env has none', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: [] })
+
+            const { getStarterCodeInfoAction } = await import('./workspaces.actions')
+            const result = actionResult(await getStarterCodeInfoAction({ studyId: study.id }))
+
+            expect(result.starterFiles).toEqual([])
+        })
     })
 
     // OTTER-601: the submit-enable baseline must be the last *submission* time, not the round job's

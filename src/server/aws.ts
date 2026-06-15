@@ -31,7 +31,7 @@ import {
     pathForStudyJobCode,
 } from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
-import { strToAscii } from '@/lib/string'
+import { shellQuote, strToAscii } from '@/lib/string'
 import { parseCsv } from '@/lib/file-content-helpers'
 import logger from '@/lib/logger'
 import { Readable } from 'stream'
@@ -466,7 +466,12 @@ export async function buildTriggerBuildImageCommandInput(
         containerLocation: string
     },
 ) {
-    const cmd = info.cmdLine.replace('%f', info.codeEntryPointFileName)
+    // Shell-quote the filename so names with parentheses or other shell metacharacters
+    // don't break the `/bin/sh` command the containerizer runs (OTTER-477). The
+    // replacement must be a function — a string replacement would interpret `$`
+    // sequences in the filename as special replacement patterns. replaceAll covers
+    // templates that reference %f more than once.
+    const cmd = info.cmdLine.replaceAll('%f', () => shellQuote(info.codeEntryPointFileName))
     return {
         projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
@@ -500,9 +505,18 @@ export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobIn
     return {
         projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
-            ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SUBMITTED' },
+            // No ON_START_PAYLOAD: a scan-start webhook would re-post CODE-SUBMITTED onto the job,
+            // and if the scan's start hook lands after a reviewer has already decided the round
+            // (e.g. requested changes) the spurious CODE-SUBMITTED reopens active review. The real
+            // submission is recorded at upload time; the scanner only needs to report completion.
+            //
+            // A failed scan posts CODE-SCANNED too, not JOB-ERRORED. The source scan is advisory:
+            // finding issues means the code reaches the reviewer with the scan log attached so a
+            // human makes the call. JOB-ERRORED is a terminal results-stage status (it routes the
+            // job to the post-run results UI), so erroring the job on a scan finding both ends the
+            // review round prematurely and lands it on a page that assumes a run already happened.
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
-            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
+            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
             SCAN_MODE: 'source',
             STUDY_JOB_ID: info.studyJobId,
             S3_PATH: pathForStudyJobCode(info),

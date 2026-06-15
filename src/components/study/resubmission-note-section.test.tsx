@@ -36,6 +36,14 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText(/Rice University/)).toBeInTheDocument()
     })
 
+    it('renders the placeholder guidance copy on the textarea', () => {
+        renderSection()
+        expect(screen.getByRole('textbox', { name: 'Resubmission Note' })).toHaveAttribute(
+            'placeholder',
+            'Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.',
+        )
+    })
+
     it('renders a 0/300 word counter when empty', () => {
         renderSection()
         expect(screen.getByText('0/300')).toBeInTheDocument()

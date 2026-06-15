@@ -101,7 +101,7 @@ type LanguageOption = {
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
-    .params(z.object({ orgSlug: z.string() }))
+    .params(z.object({ orgSlug: z.string().min(1) }))
     .handler(async ({ db, params: { orgSlug } }) => {
         const { languageLabels } = await import('@/lib/languages')
         const { signedUrlForFile } = await import('@/server/aws')

@@ -70,7 +70,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 footer={null}
             />
 
-            <FeedbackAndNotesSection entries={feedbackEntries} />
+            <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
 
             <ResubmissionNoteSection noteForm={noteForm} orgName={orgName} autosaveStatus={{ isSaving, lastSavedAt }} />
 
