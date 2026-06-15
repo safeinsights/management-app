@@ -31,6 +31,7 @@ import {
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -209,6 +210,19 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    it('onDeleteStudyAction rejects a cross-lab user and leaves the study intact', async () => {
+        const { org: labA } = await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-A', orgType: 'lab' })
+        const { studyId } = await insertTestStudyData({ org: labA })
+
+        // A member of a different lab must not be able to delete labA's study by id.
+        await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-B', orgType: 'lab' })
+        const result = await onDeleteStudyAction({ studyId })
+        expect(result).toHaveProperty('error')
+
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study?.id).toBe(studyId)
     })
 
     // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
@@ -860,6 +874,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -895,6 +913,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -925,9 +947,13 @@ describe('Request Study Actions', () => {
     })
 
     describe('saveCodeResubmissionNoteDraftAction', () => {
-        it('persists the draft note on the study row', async () => {
+        it('persists the draft note on a CHANGE-REQUESTED study for a same-lab user', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
 
             const result = actionResult(
                 await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }),
@@ -944,11 +970,66 @@ describe('Request Study Actions', () => {
 
         it('rejects payloads larger than 10kb', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
 
             const tooLong = 'x'.repeat(10_001)
             const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
             expect(result).toHaveProperty('error')
+        })
+
+        it('rejects a cross-lab save attempt instead of silently no-op (OTTER-607)', async () => {
+            const { org: labA, user: ownerA } = await mockSessionWithTestData({
+                orgSlug: 'lab-code-note-cross-A',
+                orgType: 'lab',
+            })
+            const { study } = await insertTestStudyJobData({
+                org: labA,
+                researcherId: ownerA.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
+
+            // Switch session to a user in a different lab and try to save the draft.
+            await mockSessionWithTestData({ orgSlug: 'lab-code-note-cross-B', orgType: 'lab' })
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'cross-lab attempt',
+            })
+            // Without the 0-row UPDATE check the client would render the autosave
+            // indicator as "All changes saved" while nothing was persisted.
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
+        })
+
+        it('rejects a save attempt when the study is not CHANGE-REQUESTED (OTTER-607)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'wrong-status attempt',
+            })
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
         })
     })
 

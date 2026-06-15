@@ -144,7 +144,7 @@ const CodeEnvDetailPanel: React.FC<{
                         {starterCodeFileNames.length === 0 && '-'}
                     </Stack>
                 </DetailRow>
-                <DetailRow label="Sample Data Path">{image.sampleDataPath || '-'}</DetailRow>
+                <DetailRow label="Example Data Path">{image.sampleDataPath || '-'}</DetailRow>
                 <DetailRow label="Data Source Type">
                     {DATA_SOURCE_TYPES[image.dataSourceType as DataSourceType] || '-'}
                 </DetailRow>

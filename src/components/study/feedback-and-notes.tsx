@@ -123,12 +123,14 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     )
 }
 
-function useExpandedEntries(entries: FeedbackEntryShape[]) {
+function useExpandedEntries(entries: FeedbackEntryShape[], alwaysExpandLatest: boolean) {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-        // Resubmission notes must be collapsed by default per spec,
-        // so only auto-expand the latest entry when it's reviewer feedback.
+        // The newest entry is expanded by default, the rest collapsed. On proposal surfaces a
+        // newest resubmission note stays collapsed (the researcher just wrote it); code surfaces
+        // opt in via alwaysExpandLatest to expand the newest entry regardless of type (OTTER-558).
         const latest = entries[0]
-        if (!latest || latest.entryType === 'RESUBMISSION-NOTE') return new Set()
+        if (!latest) return new Set()
+        if (!alwaysExpandLatest && latest.entryType === 'RESUBMISSION-NOTE') return new Set()
         return new Set([latest.id])
     })
 
@@ -149,8 +151,14 @@ function useExpandedEntries(entries: FeedbackEntryShape[]) {
     return { isExpanded, toggle }
 }
 
-export function FeedbackAndNotesSection({ entries }: { entries: FeedbackEntryShape[] }) {
-    const { isExpanded, toggle } = useExpandedEntries(entries)
+export function FeedbackAndNotesSection({
+    entries,
+    alwaysExpandLatest = false,
+}: {
+    entries: FeedbackEntryShape[]
+    alwaysExpandLatest?: boolean
+}) {
+    const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)
 
     if (entries.length === 0) return null
 

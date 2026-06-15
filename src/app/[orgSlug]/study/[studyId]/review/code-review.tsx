@@ -103,6 +103,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
     const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
+    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     const version = deriveCodeReviewVersion(entries)
@@ -135,8 +136,14 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     scan={scan}
                     codeInitiallyExpanded={!isResubmission}
                 />
-                {isResubmission && <FeedbackAndNotesSection entries={entries} />}
-                <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus={latestJobStatus} />
+                {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}
+                <CodeReviewClient
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    latestJobStatus={latestJobStatus}
+                    previousHref={previousHref}
+                />
             </Stack>
         </Box>
     )

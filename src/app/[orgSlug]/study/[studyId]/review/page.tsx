@@ -151,7 +151,7 @@ export default async function StudyReviewPage(props: {
             <ProposalReviewFromAgreementsView
                 orgSlug={orgSlug}
                 study={study}
-                agreementsHref={Routes.studyAgreements({ orgSlug, studyId })}
+                agreementsHref={Routes.studyAgreements({ orgSlug, studyId, from: 'previous' })}
             />
         )
     }

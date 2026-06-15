@@ -45,7 +45,7 @@ type Abilities =
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
+    | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'ReviewerKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
