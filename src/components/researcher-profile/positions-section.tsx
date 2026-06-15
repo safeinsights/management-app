@@ -1,10 +1,7 @@
 'use client'
 
-import { Paper } from '@mantine/core'
 import { usePositionsSection } from '@/hooks/use-positions-section'
-import { SectionHeader } from '@/components/researcher-profile/section-header'
-import { PositionsTable } from '@/components/researcher-profile/positions-table'
-import { PositionForm, PositionFormActions } from '@/components/researcher-profile/position-form'
+import { PositionsSectionView } from '@/components/researcher-profile/researcher-profile-view'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 interface PositionsSectionProps {
@@ -30,62 +27,24 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
         handleDelete,
     } = usePositionsSection(data, refetch)
 
-    const isFormVisible = !readOnly && editingIndex !== null
-    const actionsDisabled = editingIndex !== null
-
-    const formFields = (
-        <PositionForm
-            isVisible={isFormVisible}
-            editingIndex={editingIndex ?? 0}
-            form={form}
-            isAdding={isAdding}
-            hasExistingPositions={hasExistingPositions}
-            onSubmit={handleSubmit}
-        />
-    )
-
     if (readOnly && !hasExistingPositions) return null
 
     return (
-        <Paper p="xl" radius="sm">
-            <SectionHeader
-                title="Current institutional information"
-                isEditing={false}
-                onEdit={() => {}}
-                showEditButton={false}
-            />
-
-            <PositionsTable
-                isVisible={hasExistingPositions}
-                positions={defaults.positions}
-                editingIndex={editingIndex}
-                form={form}
-                canDelete={canDelete}
-                actionsDisabled={actionsDisabled}
-                readOnly={readOnly}
-                formSlot={formFields}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                onAdd={openAdd}
-            />
-
-            {/* Shown only when no positions exist; otherwise the form renders inside PositionsTable */}
-            <PositionForm
-                isVisible={!hasExistingPositions && isFormVisible}
-                editingIndex={editingIndex ?? 0}
-                form={form}
-                isAdding={isAdding}
-                hasExistingPositions={hasExistingPositions}
-                onSubmit={handleSubmit}
-            />
-
-            <PositionFormActions
-                isVisible={isFormVisible}
-                hasExistingPositions={hasExistingPositions}
-                currentEditValid={currentEditValid}
-                isPending={isPending}
-                onCancel={cancelEdit}
-            />
-        </Paper>
+        <PositionsSectionView
+            form={form}
+            defaults={defaults}
+            editingIndex={editingIndex}
+            isPending={isPending}
+            hasExistingPositions={hasExistingPositions}
+            canDelete={canDelete}
+            isAdding={isAdding}
+            currentEditValid={currentEditValid}
+            readOnly={readOnly}
+            onEdit={openEdit}
+            onAdd={openAdd}
+            onCancel={cancelEdit}
+            onSubmit={handleSubmit}
+            onDelete={handleDelete}
+        />
     )
 }

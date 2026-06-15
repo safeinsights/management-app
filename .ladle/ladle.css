@@ -1,0 +1,51 @@
+/* Ladle-only layout shims (no app styling lives here).
+
+   Ladle renders a story into `.ladle-main` (normal mode — has 48px padding) or directly into
+   `#ladle-root` (preview mode — no `.ladle-main`). Making the relevant host a flex column lets a
+   story's root element stretch to fill the visible area with `flex: 1`, instead of `100vh`/
+   `100dvh` — which overflow the normal-mode padding and produce a stray scrollbar. */
+
+/* Normal mode: `.ladle-main` is the padded scroll container. */
+.ladle-main {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Preview mode (html[data-mode='preview']): the story renders straight into `#ladle-root`.
+   Scope to preview so we don't disturb Ladle's normal-mode root layout (the flex row that holds
+   the sidebar beside the main pane). */
+/* Ladle doesn't size #ladle-root to the viewport in preview mode. Give the html/body/#ladle-root
+   chain an exact full height (no padding here, so no scrollbar) so flex children have a definite
+   full-height column to stretch into — `height: 100%` rather than `min-height: 100vh` so a
+   bordered frame fills it exactly instead of overflowing by its 2px border. Taller-than-viewport
+   leaf stories still overflow and scroll normally. */
+html[data-mode='preview'],
+html[data-mode='preview'] body {
+    height: 100%;
+}
+html[data-mode='preview'] #ladle-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Inside a BrowserFrame, tie the AppShell to the frame's height rather than its own
+   `min-height: 100dvh` (viewport-relative, so decoupled from the frame), filling it exactly with
+   the centered content properly centered. Normal mode only: the frame is shorter than the
+   viewport there (it sits inside `.ladle-main`'s padding), so without this the 100dvh main
+   overflows and the centered card drifts low. In preview the frame *is* the viewport, so the
+   natural 100dvh already fills it perfectly — and a percentage min-height wouldn't resolve
+   against the flex-sized root there anyway. */
+html:not([data-mode='preview']) .ladle-browser-frame .mantine-AppShell-root {
+    height: 100%;
+}
+html:not([data-mode='preview']) .ladle-browser-frame .mantine-AppShell-main {
+    min-height: 100%;
+}
+/* The navbar (and aside) default to `height: calc(100dvh - offsets)` too, so their bottom-pinned
+   content (the user-profile button) overflows the shorter frame. Re-base the same calc on the
+   frame's height (100%) using Mantine's own offset vars. */
+html:not([data-mode='preview']) .ladle-browser-frame .mantine-AppShell-navbar,
+html:not([data-mode='preview']) .ladle-browser-frame .mantine-AppShell-aside {
+    height: calc(100% - var(--app-shell-header-offset, 0rem) - var(--app-shell-footer-offset, 0rem));
+}

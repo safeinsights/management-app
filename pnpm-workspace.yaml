@@ -3,14 +3,19 @@ packages:
 allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
+    '@swc/core': false
     esbuild: true
     fsevents: true
+    msw: false
     sharp: true
     unrs-resolver: true
 minimumReleaseAge: 2880
 overrides:
     '@types/react': 19.2.14
     esbuild: ^0.28.1
+    form-data: ^4.0.6
     minimatch: ^10.2.1
     picomatch: ^4.0.4
     postcss: ^8.5.10
+    vite: ^8.0.16
+    ws: ^8.21.0
