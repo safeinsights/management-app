@@ -40,6 +40,27 @@ describe('syncUserToDatabase', () => {
         expect(user.lastName).toBe('User')
     })
 
+    it('should create new user when metadataUserId is set but matches no existing user', async () => {
+        const attrs = {
+            clerkId: faker.string.alpha(10),
+            firstName: 'Test',
+            lastName: 'User',
+            email: faker.internet.email({ provider: 'test.com' }),
+            metadataUserId: faker.string.uuid(),
+        }
+
+        const result = await db.transaction().execute(async (trx) => {
+            return syncUserToDatabase(attrs, trx)
+        })
+
+        expect(result.id).toBeDefined()
+        expect(result.id).not.toBe(attrs.metadataUserId)
+
+        const user = await db.selectFrom('user').selectAll('user').where('id', '=', result.id).executeTakeFirstOrThrow()
+        expect(user.clerkId).toBe(attrs.clerkId)
+        expect(user.email).toBe(attrs.email)
+    })
+
     it('should update existing user when clerkId exists', async () => {
         const org = await insertTestOrg()
         const { user: existingUser } = await insertTestUser({ org })

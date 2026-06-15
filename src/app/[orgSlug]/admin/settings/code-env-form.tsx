@@ -331,7 +331,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 <Divider />
                 <Box>
                     <Title order={5} mb={4}>
-                        Sample Data
+                        Example Data
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
                         Files available to researchers when they develop in Coder
@@ -344,11 +344,11 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             {...form.getInputProps('sampleDataPath')}
                         />
                         <FileInput
-                            label="Sample Data Files"
+                            label="Example Data Files"
                             description={
                                 isEditMode
-                                    ? 'Upload new files to replace the existing sample data (optional)'
-                                    : 'Upload sample data files for researchers (optional)'
+                                    ? 'Upload new files to replace the existing example data (optional)'
+                                    : 'Upload example data files for researchers (optional)'
                             }
                             placeholder="Select files"
                             multiple

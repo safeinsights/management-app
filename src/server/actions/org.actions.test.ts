@@ -282,5 +282,14 @@ describe('Org Actions', () => {
                 ]),
             )
         })
+
+        // OTTER: a stale session can leave the form's orgSlug empty when a newly
+        // created org is missing from the user's JWT. An empty slug must fail
+        // validation rather than reach the org lookup, which would otherwise
+        // throw an opaque "no result" and 500 the study-request page.
+        it('rejects an empty orgSlug with a validation error', async () => {
+            const result = await getLanguagesForOrgAction({ orgSlug: '' })
+            expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
     })
 })

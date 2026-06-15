@@ -78,6 +78,7 @@ describe('UserStudiesDashboard', () => {
         await userEvent.click(screen.getByRole('radio', { name: 'Reviewer' }))
 
         expect(await screen.findByText('Reviewer Study')).toBeDefined()
+        expect(screen.queryByText(/Review all the studies submitted to your organizations/i)).toBeNull()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })
@@ -100,6 +101,7 @@ describe('UserStudiesDashboard', () => {
         await userEvent.click(screen.getByRole('radio', { name: 'Reviewer' }))
 
         expect(await screen.findByText("You haven't yet participated in reviewing a study")).toBeDefined()
+        expect(screen.queryByText(/Review all the studies submitted to your organizations/i)).toBeNull()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })

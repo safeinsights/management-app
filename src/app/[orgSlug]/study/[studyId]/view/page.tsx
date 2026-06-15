@@ -10,9 +10,9 @@ import { actionResult } from '@/lib/utils'
 import {
     type CodeDecisionStatus,
     hasJobStatus,
-    isCodeDecisionStatus,
     isCodeUnderReviewStatus,
     isStudyResultsStatus,
+    latestSubmittedJobLiveCodeDecisionStatus,
     STUDY_CODE_RUNNING_JOB_STATUSES,
 } from '@/lib/study-job-status'
 import { isSubmittedStudy } from '@/schema/study'
@@ -21,6 +21,13 @@ import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsResearcher } from './study-details-researcher'
+
+async function loadCodeReviewFeedback(studyId: string) {
+    const entriesResult = await getCodeReviewFeedbackAction({ studyId })
+    const feedbackLoadError = isActionError(entriesResult)
+    const entries = feedbackLoadError ? [] : entriesResult
+    return { entries, feedbackLoadError }
+}
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -41,7 +48,7 @@ export default async function StudyReviewPage(props: {
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     const fromAgreements = searchParams.from === 'agreements'
-    const fromCodeSubmission = searchParams.from === 'code-submission'
+    const fromCodeDecision = searchParams.from === 'code-decision'
 
     // Baseline-only jobs are already excluded by latestSubmittedJobForStudy; this confirms the
     // submitted job carries CODE-SUBMITTED before routing into the code views. When the researcher
@@ -54,29 +61,33 @@ export default async function StudyReviewPage(props: {
         // Effective code-decision status for the redesigned decision page. The execution window
         // (JOB-PROVISIONING/PACKAGING/READY/RUNNING) and an approved-but-late CODE-SCANNED both
         // resolve to CODE-APPROVED, keeping the researcher on the Code-approved page until results exist.
+        const liveDecisionStatus = latestSubmittedJobLiveCodeDecisionStatus(job.statusChanges)
         const decisionStatus: CodeDecisionStatus | null = hasJobStatus(job.statusChanges, [
             'CODE-APPROVED',
             ...STUDY_CODE_RUNNING_JOB_STATUSES,
         ])
             ? 'CODE-APPROVED'
-            : isCodeDecisionStatus(latestJobStatus)
-              ? latestJobStatus
-              : null
+            : liveDecisionStatus
 
-        // RL "Previous" from the results-stage Study Details page returns here with ?from=code-submission.
-        // Render the OTTER-537 post-submission page explicitly, with the "code under review" banner hidden
-        // because review has already concluded. Gate on the results status (not the query param alone) so a
-        // stray ?from=code-submission at a code-decision/under-review status falls through below.
-        if (isStudyResultsStatus(latestJobStatus) && fromCodeSubmission) {
+        // OTTER-612: ?from=code-decision renders the Code-approved page at a results status
+        // (otherwise unroutable because the results branch below would take precedence).
+        if (isStudyResultsStatus(latestJobStatus) && fromCodeDecision) {
+            if (!isSubmittedStudy(study)) {
+                notFound()
+            }
+            const { entries, feedbackLoadError } = await loadCodeReviewFeedback(studyId)
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
             return (
-                <CodePostSubmissionView
+                <CodePostDecisionView
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
+                    entries={entries}
                     reviewingOrgName={reviewingOrgName}
                     dashboardHref={dashboardHref}
-                    isUnderReview={false}
+                    latestJobStatus="CODE-APPROVED"
+                    feedbackLoadError={feedbackLoadError}
+                    showStudyCode
                 />
             )
         }
@@ -97,11 +108,9 @@ export default async function StudyReviewPage(props: {
         }
 
         // Decision recorded, or the approved code is executing in the enclave: redesigned post-decision
-        // page. A failed feedback fetch degrades to an inline notice on the same page (never the legacy view).
+        // page. A failed feedback fetch degrades to an inline notice on the same page.
         if (decisionStatus !== null) {
-            const entriesResult = await getCodeReviewFeedbackAction({ studyId })
-            const feedbackLoadError = isActionError(entriesResult)
-            const entries = feedbackLoadError ? [] : entriesResult
+            const { entries, feedbackLoadError } = await loadCodeReviewFeedback(studyId)
             // A code decision implies the study was submitted long ago — this branch
             // should be unreachable for DRAFTs. Guard explicitly so the narrowed view
             // type holds and a corrupt row can't surface a runtime error in render.
@@ -148,7 +157,7 @@ export default async function StudyReviewPage(props: {
             )
         }
 
-        // Any remaining/unmapped status: post-submission page with the banner hidden, never the legacy view.
+        // Any remaining/unmapped status: post-submission page with the banner hidden.
         const reviewingOrgName = await getOrgNameFromId(study.orgId)
         return (
             <CodePostSubmissionView

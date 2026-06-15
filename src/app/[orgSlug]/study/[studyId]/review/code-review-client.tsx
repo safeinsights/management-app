@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Alert, Box, Button, Group, Stack, Text } from '@mantine/core'
+import { Alert, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
+import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
@@ -16,12 +17,9 @@ import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feed
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
-import { Routes } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
-
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
@@ -33,6 +31,7 @@ type Props = {
     study: SelectedStudy
     job: LatestJobForStudy
     latestJobStatus: StudyJobStatus | null
+    previousHref: Route
 }
 
 const isCodeReviewEditable = ({ status, latestJobStatus }: EditableSnapshot): boolean =>
@@ -49,11 +48,13 @@ function useCodeReview({
     studyId,
     jobId,
     tabSessionId,
+    previousHref,
 }: {
     orgSlug: string
     studyId: string
     jobId: string
     tabSessionId: string
+    previousHref: Route
 }) {
     const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
     const decision = useReviewDecision()
@@ -77,12 +78,11 @@ function useCodeReview({
     const hasDecision = decision.selected !== null
 
     const canSubmit = feedback.isValid && hasDecision && criteriaComplete
-    const backPath = Routes.orgDashboard({ orgSlug })
 
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleBack = () => {
-        router.push(backPath)
+        router.push(previousHref)
     }
 
     const handleSubmit = () => {
@@ -151,9 +151,6 @@ function EditableBody({
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <Box bg="white" p="xxl">
-                <StudyCodeDetails job={job} />
-            </Box>
             <CodeEvaluationSection form={evaluationForm} enabled />
             <CodeReviewFeedbackSection
                 feedback={feedback}
@@ -177,7 +174,6 @@ function EditableBody({
 
 type NonEditableBodyProps = {
     isVisible: boolean
-    job: LatestJobForStudy
     onBack: () => void
 }
 
@@ -185,13 +181,10 @@ type NonEditableBodyProps = {
 // "code needs review" (e.g. peer just submitted, or stale URL). The server +
 // editor auth already block writes; this view satisfies the "No further edits"
 // UX expectation by not surfacing the editor / decision / submit controls.
-function NonEditableBody({ isVisible, job, onBack }: NonEditableBodyProps) {
+function NonEditableBody({ isVisible, onBack }: NonEditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <Box bg="white" p="xxl">
-                <StudyCodeDetails job={job} />
-            </Box>
             <Alert color="blue" title="Code review is closed" data-testid="code-review-closed-alert">
                 A decision has already been submitted for this study code. No further edits are allowed at this point.
             </Alert>
@@ -204,7 +197,7 @@ function NonEditableBody({ isVisible, job, onBack }: NonEditableBodyProps) {
     )
 }
 
-export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props) {
+export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previousHref }: Props) {
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const {
@@ -220,7 +213,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
         closeReject,
         handleConfirmSubmit,
         isPending,
-    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
+    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
 
     const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
@@ -254,7 +247,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus }: Props
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                 />
-                <NonEditableBody isVisible={!initiallyEditable} job={job} onBack={handleBack} />
+                <NonEditableBody isVisible={!initiallyEditable} onBack={handleBack} />
             </CodeReviewFeedbackProviderShare>
 
             <ReviewConfirmationModal

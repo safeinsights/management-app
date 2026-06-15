@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { strToAscii, slugify, getInitials } from './string'
+import { strToAscii, slugify, getInitials, shellQuote } from './string'
 
 describe('getInitials', () => {
     it('returns the uppercased first initial for a single name', () => {
@@ -66,5 +66,27 @@ describe('slugify', () => {
 
         expect(output).toBe('this-is-a-very-long-string-that-should-be-truncate')
         expect(output).toHaveLength(50)
+    })
+})
+
+describe('shellQuote', () => {
+    it('wraps a simple value in single quotes', () => {
+        expect(shellQuote('main.R')).toBe("'main.R'")
+    })
+
+    it('keeps parentheses literal so they do not break /bin/sh (OTTER-477)', () => {
+        expect(shellQuote('main(1).r')).toBe("'main(1).r'")
+    })
+
+    it('quotes spaces and other shell metacharacters', () => {
+        expect(shellQuote('my file;rm -rf $HOME.r')).toBe("'my file;rm -rf $HOME.r'")
+    })
+
+    it('escapes embedded single quotes', () => {
+        expect(shellQuote("it's.r")).toBe("'it'\\''s.r'")
+    })
+
+    it('handles an empty string', () => {
+        expect(shellQuote('')).toBe("''")
     })
 })
