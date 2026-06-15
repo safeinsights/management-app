@@ -265,7 +265,7 @@ export function PostFeedbackView({
                     timestampLabel={timestampLabel}
                     banner={banner}
                 />
-                <FeedbackAndNotesSection entries={entries} />
+                <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <Group justify="flex-end">
                     <GoToDashboardButton />
                 </Group>
