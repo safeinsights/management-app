@@ -92,9 +92,9 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Results Key"
                     leftSection={<LockIcon aria-hidden="true" />}
-                    onClick={navigateTo(Routes.reviewerKey)}
+                    onClick={navigateTo(Routes.userKey)}
                     c="white"
-                    active={pathname === Routes.reviewerKey}
+                    active={pathname === Routes.userKey}
                     color="blue.7"
                     variant="filled"
                     className={styles.navLinkProfileHover}

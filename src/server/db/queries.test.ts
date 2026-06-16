@@ -293,6 +293,19 @@ describe('getSharedFileIdsForJob', () => {
         const ids = await getSharedFileIdsForJob(job.id)
         expect(ids).toEqual([result.id])
     })
+
+    // Approval is the durable historical fact (the FILES-APPROVED status event), independent of
+    // current org membership. Removing a researcher from the lab must NOT retroactively
+    // un-approve files. This guards against anyone reintroducing a membership join here.
+    it('stays approved after the lab researchers are removed from the org', async () => {
+        const { org, job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+
+        await db.deleteFrom('orgUser').where('orgId', '=', org.id).execute()
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
+    })
 })
 
 describe('getStudyReviewForJob', () => {

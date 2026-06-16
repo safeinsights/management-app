@@ -5,7 +5,7 @@ import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core
 import { AppModal } from '@/components/modals/app-modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 
-// Presentational reviewer-key screen. It owns the breadcrumbs + "Results Key details" card
+// Presentational user-key screen. It owns the breadcrumbs + "Results Key details" card
 // (lost-key copy, destructive note, regenerate button) and the confirm modal. Kept in its OWN
 // file — free of useSession (Clerk), useRouter and Routes navigation — so it renders in
 // isolation (e.g. Ladle). The RegenerateKey container (./regenerate-key) derives the dashboard
