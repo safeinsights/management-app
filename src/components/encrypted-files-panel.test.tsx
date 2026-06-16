@@ -192,6 +192,44 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
+    it('shares decrypted logs alongside results (all-or-nothing)', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const resultArtifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
+        })
+        const logArtifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            subdir: 'encrypted-logs',
+            files: [{ name: 'run.log', content: 'job started\njob finished ok' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([resultArtifact, logArtifact])
+
+        const onFilesApproved = vi.fn()
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+
+        await enterKeyAndDecrypt()
+
+        await waitFor(() => {
+            expect(onFilesApproved).toHaveBeenLastCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        path: 'results.csv',
+                        fileType: 'APPROVED-RESULT',
+                        sourceId: resultArtifact.studyJobFileId,
+                    }),
+                    expect.objectContaining({
+                        path: 'run.log',
+                        fileType: 'APPROVED-CODE-RUN-LOG',
+                        sourceId: logArtifact.studyJobFileId,
+                    }),
+                ]),
+            )
+        })
+    })
+
     it('opens a modal with CSV content rendered as a table', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         const artifact = await seedArtifact(job, {

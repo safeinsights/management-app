@@ -284,14 +284,14 @@ describe('getSharedFileIdsForJob', () => {
         expect(await getSharedFileIdsForJob(job.id)).toEqual([])
     })
 
-    it('returns result file ids but excludes logs once approved', async () => {
+    it('returns result AND log file ids once approved (all-or-nothing)', async () => {
         const { job } = await insertTestStudyJobData()
         const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
+        const log = await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
 
         const ids = await getSharedFileIdsForJob(job.id)
-        expect(ids).toEqual([result.id])
+        expect(ids.sort()).toEqual([result.id, log.id].sort())
     })
 
     // Approval is the durable historical fact (the FILES-APPROVED status event), independent of

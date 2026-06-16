@@ -223,9 +223,10 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
         }
 
-        // Researcher: results only (logs are never re-wrapped — DO-internal). Return only artifacts
-        // this user has wrapped keys for; the keys exist only after approval, so this is naturally
-        // gated. Build the inner {file_path -> crypt} override map per artifact.
+        // Researcher: return only artifacts this user has wrapped keys for. Approval re-wraps both
+        // results and logs (all-or-nothing), so both can appear here; the keys exist only after
+        // approval, so this is naturally gated. Build the inner {file_path -> crypt} override map
+        // per artifact.
         const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
             .select(['studyJobFileId', 'filePath', 'crypt'])

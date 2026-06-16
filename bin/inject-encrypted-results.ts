@@ -96,13 +96,12 @@ async function main() {
     if (alreadyHasResults) {
         console.info(`Job already has encrypted results — skipping store (delete study_job_file rows to re-inject).`)
     } else {
-        const resultsZip = await buildZip(
-            [
-                { name: 'results.csv', content: 'group,count\nA,42\nB,17\n' },
-                { name: 'summary.txt', content: 'analysis complete: 2 groups\n' },
-            ],
-            reviewerKeys,
-        )
+        // Mirror the real enclave helper (osenclave `toa_results_upload`): it posts exactly ONE
+        // results file and ONE logs file — each artifact's zip therefore holds a single encrypted
+        // inner entry. Do NOT add multiple result files here; that's not a shape the live helper
+        // can produce (one file per upload + MA's RUN-COMPLETE 422 guard), and faking it gave us a
+        // misleading multi-row picture in the DB.
+        const resultsZip = await buildZip([{ name: 'results.csv', content: 'group,count\nA,42\nB,17\n' }], reviewerKeys)
         const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
         await storeStudyEncryptedResultsFile(info, resultsZip)
         await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')

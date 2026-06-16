@@ -1,6 +1,6 @@
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
-import { isEncryptedLogType, isResultFile, logLabel } from '@/lib/file-type-helpers'
+import { isEncryptedLogType, logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -66,10 +66,12 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         onSuccess: (files) => setDecryptedFiles(files),
     })
 
-    // All-or-nothing: approving shares the entire result package (no per-file selection).
-    // Logs are a separate DO-internal artifact and are not shared with researchers.
+    // All-or-nothing: approving shares the entire decrypted package — results AND logs — with
+    // the researchers (no per-file selection). Every decrypted artifact carries its own rawAesKey,
+    // so buildSharedFiles re-wraps each for the lab keys. (Per-artifact selection may return if Phil
+    // wants logs individually withholdable; for now approval shares everything.)
     useEffect(() => {
-        onFilesApproved(decryptedFiles.filter(isResultFile))
+        onFilesApproved(decryptedFiles)
     }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
