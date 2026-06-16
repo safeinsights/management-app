@@ -478,10 +478,12 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 }
 
 /**
- * IDs of this job's files shared with researchers. Approval is all-or-nothing at the job
- * level (per Phil 2026-06): once a FILES-APPROVED event exists, every file of the job is
- * shared. Driven by the recorded status event, not current org membership — removing a
- * researcher from the lab must not retroactively un-approve files. Returns [] if not approved.
+ * IDs of this job's RESULT files shared with researchers. Approval is all-or-nothing at the job
+ * level (per Phil 2026-06): once a FILES-APPROVED event exists, every result file of the job is
+ * shared. Logs are excluded — they are DO-internal and never re-wrapped for researchers, so they
+ * must not show as "shared" (the reviewer panel keys its shared indicator on this set). Driven by
+ * the recorded status event, not current org membership — removing a researcher from the lab must
+ * not retroactively un-approve files. Returns [] if not approved.
  */
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const approved = await Action.db
@@ -493,7 +495,12 @@ export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
 
     if (!approved) return []
 
-    const rows = await Action.db.selectFrom('studyJobFile').select('id').where('studyJobId', '=', jobId).execute()
+    const rows = await Action.db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-RESULT')
+        .execute()
 
     return rows.map((r) => r.id)
 }

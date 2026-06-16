@@ -89,7 +89,7 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
                 key: `${f.sourceId}-${f.path}`,
                 label: logLabel(f.fileType),
                 name: f.path,
-                decrypted: f as JobFileInfo | undefined,
+                decrypted: f,
             }))
         }
         const files = encryptedFiles ?? []

@@ -19,6 +19,7 @@ import {
     jobInfoForJobId,
     studyInfoForStudyId,
     getDataSourcesForOrg,
+    getSharedFileIdsForJob,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -261,6 +262,36 @@ describe('currentReviewVersion', () => {
             })
             .execute()
         await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+})
+
+describe('getSharedFileIdsForJob', () => {
+    const insertFile = (jobId: string, fileType: 'ENCRYPTED-RESULT' | 'ENCRYPTED-CODE-RUN-LOG') =>
+        db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: jobId,
+                name: 'encrypted-results.zip',
+                path: `results/${fileType}.zip`,
+                fileType,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+    it('returns [] when the job is not approved', async () => {
+        const { job } = await insertTestStudyJobData()
+        await insertFile(job.id, 'ENCRYPTED-RESULT')
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([])
+    })
+
+    it('returns result file ids but excludes logs once approved', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+
+        const ids = await getSharedFileIdsForJob(job.id)
+        expect(ids).toEqual([result.id])
     })
 })
 
