@@ -1,26 +1,17 @@
 ## Hard Rules
 
-- Strive for simplicity and clarity
 - Keep JSX minimal: No complex ternary operators, map functions, or calculations inside the return statement.
 - Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
 - Co-locate, don't embed: If logic is used only in the component, define it just above the JSX, keep the JSX clean of declarations and other logic
 - Extract: If a sub-section of a function or JSX is complex, break it into separate, smaller parts.
 - Conditional visibility: Instead of hiding/showing large blocks using `{condition && <Component />}`, have the component accept an `isVisible` prop and return null when it shouldn't render.
 - Comments: Only add comments that explain "why", not "what". Avoid trivial comments like `// Delete users` before `deleteFrom('user')` or `// Create profile` before `insertInto('profile')`. If the code is self-explanatory, no comment is needed.
-- Testing: Write unit tests for new features. Only mock using helpers in tests/unit.helpers.tsx as needed, do not mock out any of our own components or actions.
+- Testing: Write unit tests for new features. Only mock using helpers from `@/tests/unit.helpers` as needed, do not mock out any of our own components or actions.
 - E2E timeouts: Do not set inline timeouts in Playwright tests. Timeouts are configured globally in `playwright.config.ts` using constants from `tests/common.helpers.ts`.
 - Migrations - UUID primary keys: Always default `uuid` id columns to `v7uuid()` (defined in `1727370622500_uuid_fn.ts`), never `gen_random_uuid()`. v7 UUIDs are time-ordered, which gives better index locality and natural insertion order.
 - Migrations - timestamp columns: Always use `'timestamptz'` (timestamp with time zone), never `'timestamp'`. Pattern: `.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql\`now()\`))`.
 
-## Authority & Links
-
-- `@CONVENTIONS.md` - code style rules
-- `src/lib/routes/definitions.ts` - all route definitions (Zod schemas)
-- `src/lib/permissions.ts` - CASL authorization rules
-- `src/server/actions/` - server actions (middleware pattern)
-- `src/server/db/queries.ts` - database reads
-- `src/server/db/mutations.ts` - database writes
-- `src/database/migrations/` - Kysely migrations
+@CONVENTIONS.md
 
 ## Stop Conditions
 
