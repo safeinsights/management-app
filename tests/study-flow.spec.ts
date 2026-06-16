@@ -413,12 +413,8 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     // Wait for decryption to complete — View buttons appear in the file table
     await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
 
-    // Select the error log file to share with the researcher
-    const checkbox = page.getByRole('checkbox', { name: /Select Code Run Log/i })
-    await expect(checkbox).toBeVisible()
-    await checkbox.check()
-
-    // Wait for approve button to be enabled and click it
+    // All-or-nothing: approving shares every decrypted artifact (results + logs) with the
+    // researcher — no per-file selection. Approve directly once decrypted.
     const approveButton = page.getByRole('button', { name: /approve/i }).last()
     await expect(approveButton).toBeEnabled()
     await approveButton.click()

@@ -82,7 +82,8 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     // One row per decrypted inner file once decrypted (each artifact is a whole-zip that unpacks
     // into many files); before that, one locked row per encrypted artifact. Researchers receive
-    // results only — logs are never re-wrapped for them (DO-internal).
+    // both results and approved logs (re-wrapped at approval, all-or-nothing); results are
+    // listed first, then logs.
     const rows = useMemo(() => {
         if (decryptedFiles) {
             return decryptedFiles.map((f) => ({
