@@ -76,9 +76,18 @@ export default async function StudyAgreementsRoute(props: {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
+    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
+
     // Preserve org-scoped breadcrumb context through the Previous → proposal → agreements roundtrip
-    const returnToSuffix = searchParams.returnTo === 'org' ? '&returnTo=org' : ''
+    const returnToSuffix = returnTo ? '&returnTo=org' : ''
     const previousHref = `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements${returnToSuffix}`
+
+    // OTTER-612: once code is submitted, Proceed targets the code-status view (via from=code-decision)
+    // instead of the upload page.
+    const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+    const proceedHref = codeSubmitted
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, from: 'code-decision', returnTo })
+        : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
         <Stack p="xl" gap="xl">
@@ -87,7 +96,7 @@ export default async function StudyAgreementsRoute(props: {
             <AgreementsPage
                 isReviewer={false}
                 studyId={studyId}
-                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={proceedHref}
                 previousHref={previousHref}
                 previousLabel="Previous"
             />

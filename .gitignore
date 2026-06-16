@@ -7,6 +7,10 @@
 *.log
 tmp/
 .next/
+# Ladle build output (normal + standalone single-file) and the shareable zip — all under .ladle/
+.ladle/dist/
+.ladle/dist-standalone/
+.ladle/*.zip
 test-results/
 *.tern-port
 node_modules/

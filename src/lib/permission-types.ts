@@ -41,7 +41,7 @@ type Abilities =
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
+    | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     // NOTE(reviewers): renamed from 'ReviewerKey' — the same encryption key is now held by
     // enclave reviewers AND lab researchers (orgNeedsKey), so the old name was misleading.
     // The /reviewer-key URL and Routes.reviewerKey are intentionally unchanged (route

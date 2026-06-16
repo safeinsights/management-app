@@ -45,16 +45,28 @@ test('reviewer role', () => {
 
 test('researcher role', () => {
     const { ability, session } = createAbilty({}, 'lab')
+    const ownLabId = session.orgs.test.id
+    const otherLabId = faker.string.uuid()
 
     expect(
         // researchers cannot approve studies
-        ability.can('approve', toRecord('Study', { orgId: session.orgs.test.id })),
+        ability.can('approve', toRecord('Study', { orgId: ownLabId })),
     ).toBe(false)
 
     expect(ability.can('create', 'Study')).toBe(true)
 
+    // update/delete are scoped to studies the researcher's own lab submitted
+    expect(ability.can('update', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
+    expect(ability.can('delete', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
+    expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: ownLabId }))).toBe(true)
+
+    // ...but not studies submitted by a different lab
+    expect(ability.can('update', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
+    expect(ability.can('delete', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
+    expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: otherLabId }))).toBe(false)
+
     // Researchers cannot invite users to their org (not admins)
-    expect(ability.can('invite', toRecord('User', { orgId: session.orgs.test.id }))).toBe(false)
+    expect(ability.can('invite', toRecord('User', { orgId: ownLabId }))).toBe(false)
 
     // lab members also hold a key now, to decrypt approved results
     expect(ability.can('view', 'UserKey')).toBe(true)
