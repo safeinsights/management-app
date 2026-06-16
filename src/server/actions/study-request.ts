@@ -32,6 +32,7 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { countWords, lexicalJson } from '@/lib/lexical'
 import { canResubmitStudyCode } from '@/lib/code-resubmission'
+import { isInitialSubmissionRound } from '@/lib/study-job-status'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -572,6 +573,17 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
+        // OTTER-533: this is the first-submission path. If the study already has a submission that has
+        // moved past the open/under-review state (a code decision, run, or results), accepting another
+        // submission here would overwrite the prior round's files or silently open a new one — wiping
+        // results under review. Such updates must go through the guarded resubmit flow instead.
+        const latestSubmitted = await latestSubmittedJobForStudy(studyId)
+        if (latestSubmitted && !isInitialSubmissionRound(latestSubmitted.statusChanges)) {
+            throw new Error(
+                'Cannot submit study code: this study already has a submission under or past review. Use resubmit to provide updated code.',
+            )
+        }
+
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }

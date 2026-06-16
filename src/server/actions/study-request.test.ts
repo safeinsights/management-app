@@ -765,6 +765,95 @@ describe('Request Study Actions', () => {
             expect(result).toHaveProperty('error')
             expect((result as { error: string }).error).toContain('Main file not in file list')
         })
+
+        // OTTER-533: the wizard submit is the first-submission path. Once a round has been decided or
+        // has produced results, re-submitting here would overwrite the prior submission / wipe results
+        // under review, so the action must refuse and leave the study untouched (updates go via resubmit).
+        const countSubmitted = (studyId: string) =>
+            db
+                .selectFrom('jobStatusChange')
+                .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+                .select((eb) => eb.fn.countAll<number>().as('n'))
+                .where('studyJob.studyId', '=', studyId)
+                .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirstOrThrow()
+                .then((r) => Number(r.n))
+
+        it('refuses to submit once the round has a code decision (CODE-APPROVED), leaving the study untouched', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-APPROVED',
+            })
+            const root = await createWorkspaceDir('submit-after-approved')
+            workspaceRoots.push(root)
+            // Provide valid files so the ONLY thing preventing the destructive submit is the guard.
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("new")' })
+
+            const result = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+            })
+
+            expect(result).toHaveProperty('error')
+            const after = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(after.status).toBe('APPROVED') // not flipped back to PENDING-REVIEW
+            expect(await countSubmitted(study.id)).toBe(0) // no new submission recorded
+        })
+
+        it('refuses to submit while results are under review (RUN-COMPLETE)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'RUN-COMPLETE',
+            })
+            const root = await createWorkspaceDir('submit-after-run-complete')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("new")' })
+
+            const result = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+            })
+
+            expect(result).toHaveProperty('error')
+            const after = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(after.status).toBe('APPROVED')
+            expect(await countSubmitted(study.id)).toBe(0)
+        })
+
+        it('still allows (over)writing an undecided submission still under review (CODE-SUBMITTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            const root = await createWorkspaceDir('submit-overwrite-undecided')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("v2")' })
+
+            const result = actionResult(
+                await submitStudyCodeAction({ studyId: study.id, mainFileName: 'main.R', fileNames: ['main.R'] }),
+            )
+
+            expect(result.studyJobId).toBeDefined()
+        })
     })
 
     // OTTER-601: one studyJob per submission round. Launch/upload opens the round's job; submit

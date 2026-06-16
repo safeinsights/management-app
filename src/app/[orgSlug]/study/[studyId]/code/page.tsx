@@ -3,6 +3,9 @@
 import { Stack } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
+import { getStudyAction } from '@/server/actions/study.actions'
+import { studyHasJobStatus } from '@/lib/studies'
+import { isActionError } from '@/lib/errors'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
@@ -21,6 +24,14 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     if (!result.language) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
+    }
+
+    // OTTER-533: this first-submission upload page must not be reachable once code has been submitted
+    // (e.g. via back-navigation from a later step). Re-submitting here overwrites the prior submission
+    // and wipes results under review — send the researcher to the read-only study view instead.
+    const study = await getStudyAction({ studyId })
+    if (!isActionError(study) && study && studyHasJobStatus(study, 'CODE-SUBMITTED')) {
+        redirect(Routes.studyView({ orgSlug, studyId }))
     }
 
     return (

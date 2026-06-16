@@ -82,11 +82,21 @@ export default async function StudyAgreementsRoute(props: {
     const returnToSuffix = returnTo ? '&returnTo=org' : ''
     const previousHref = `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements${returnToSuffix}`
 
+<<<<<<< Updated upstream
     // OTTER-612: once code is submitted, Proceed targets the code-status view (via from=code-decision)
     // instead of the upload page.
     const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
     const proceedHref = codeSubmitted
         ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, from: 'code-decision', returnTo })
+=======
+    // OTTER-533: on back-navigation (isDirectAccess) the redirects above are skipped, so a study whose
+    // code is already submitted would otherwise land "Proceed" on the first-submission upload page and
+    // let the researcher overwrite a submission under review. Proceed forward to the study view in that
+    // case, mirroring the acknowledged-researcher redirect above.
+    const codeAlreadySubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+    const proceedHref = codeAlreadySubmitted
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+>>>>>>> Stashed changes
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
@@ -97,6 +107,10 @@ export default async function StudyAgreementsRoute(props: {
                 isReviewer={false}
                 studyId={studyId}
                 proceedHref={proceedHref}
+<<<<<<< Updated upstream
+=======
+                proceedLabel={codeAlreadySubmitted ? 'View study' : undefined}
+>>>>>>> Stashed changes
                 previousHref={previousHref}
                 previousLabel="Previous"
             />

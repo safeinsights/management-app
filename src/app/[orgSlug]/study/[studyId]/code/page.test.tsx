@@ -90,4 +90,21 @@ describe('StudyCodeUploadRoute', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
     })
+
+    // OTTER-533: the first-submission upload page must not be reachable once code is submitted.
+    it('redirects to view when code has already been submitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await expect(
+            StudyCodeUploadRoute({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
+    })
 })
