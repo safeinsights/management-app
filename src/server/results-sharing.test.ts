@@ -49,6 +49,36 @@ describe('insertSharedFileKeys', () => {
         expect(keyRows[0]).toMatchObject({ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' })
     })
 
+    test('rejects a file that does not belong to the job and writes nothing', async () => {
+        const { job } = await insertSharedFileScenario()
+
+        // A file from a different job — even with a valid lab fingerprint — must not be shareable
+        // through this job's approval.
+        const { job: otherJob } = await insertTestStudyJobData({ org: await insertTestOrg() })
+        const foreign = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'results/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: otherJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        await expect(
+            insertSharedFileKeys(db, job.id, [
+                {
+                    studyJobFileId: foreign.id,
+                    filePath: 'results.csv',
+                    keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }],
+                },
+            ]),
+        ).rejects.toThrow(ActionFailure)
+
+        expect(await selectKeyRows(foreign.id)).toHaveLength(0)
+    })
+
     test('rejects a fingerprint that is not a lab recipient and writes nothing', async () => {
         const { job, file } = await insertSharedFileScenario()
 

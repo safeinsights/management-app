@@ -21,6 +21,19 @@ export async function insertSharedFileKeys(db: DBExecutor, jobId: string, shared
     const labKeys = await getLabPublicKeysForJob(jobId)
     const labFingerprints = new Set(labKeys.map((k) => k.fingerprint))
 
+    // Ownership guard: `studyJobFileId` comes from the client payload, so confirm every file
+    // actually belongs to `jobId` before we mark it shared. Without this, a reviewer with
+    // approve rights on job A could pass file ids from job B and — if B's lab happens to share a
+    // fingerprint — grant access to another job's files. Fingerprint validation below does not
+    // cover this ownership check.
+    const jobFiles = await db.selectFrom('studyJobFile').select('id').where('studyJobId', '=', jobId).execute()
+    const jobFileIds = new Set(jobFiles.map((f) => f.id))
+    for (const file of sharedFiles) {
+        if (!jobFileIds.has(file.studyJobFileId)) {
+            throw new ActionFailure({ file: `file ${file.studyJobFileId} does not belong to job ${jobId}` })
+        }
+    }
+
     // We validate that each wrapped key targets a real lab recipient, but — the server being
     // blind — we cannot verify the `crypt` actually wraps the file's correct AES key. A buggy
     // reviewer client could persist one that unwraps to garbage; the researcher would just fail
