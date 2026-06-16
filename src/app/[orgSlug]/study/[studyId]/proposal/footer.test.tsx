@@ -78,48 +78,60 @@ describe('ProposalFooter submit gating (OTTER-557)', () => {
 })
 
 describe('ProposalFooter save-as-draft dirty tracking', () => {
-    const DirtyProbe = () => {
+    const trackedFieldEdits: Array<[keyof ProposalFormValues, ProposalFormValues[keyof ProposalFormValues]]> = [
+        ['title', 'A brand new title'],
+        ['datasets', ['dataset-1', 'dataset-2']],
+        ['piName', 'Dr. New Name'],
+        ['piUserId', '22222222-2222-4222-8222-222222222222'],
+    ]
+
+    const lexicalFieldEdits: Array<[keyof ProposalFormValues, ProposalFormValues[keyof ProposalFormValues]]> = [
+        ['researchQuestions', lexicalText('A different research question')],
+        ['projectSummary', lexicalText('A different summary')],
+        ['impact', lexicalText('A different impact statement')],
+        ['additionalNotes', lexicalText('Some additional notes')],
+    ]
+
+    const FieldProbe = ({ field, value }: { field: keyof ProposalFormValues; value: unknown }) => {
         const { form } = useProposal()
         return (
-            <>
-                <button type="button" onClick={() => form.setFieldValue('projectSummary', lexicalText('new summary'))}>
-                    Edit editor field
-                </button>
-                <button type="button" onClick={() => form.setFieldValue('datasets', ['dataset-1', 'dataset-2'])}>
-                    Edit dataset field
-                </button>
-            </>
+            <button type="button" onClick={() => form.setFieldValue(field, value as never)}>
+                Edit field
+            </button>
         )
     }
 
-    const renderWithProbe = () =>
+    const renderWithFieldProbe = (field: keyof ProposalFormValues, value: unknown) =>
         renderWithProviders(
             <ProposalProvider studyId={STUDY_ID} draftData={fullyValidExceptTitle}>
-                <DirtyProbe />
+                <FieldProbe field={field} value={value} />
                 <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
             </ProposalProvider>,
         )
 
     it('keeps Save as draft disabled before any changes', () => {
-        renderWithProbe()
+        renderWithFieldProbe('title', 'unused')
         expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
     })
 
-    it('keeps Save as draft disabled when only an auto-saved editor field changes', async () => {
+    it.each(trackedFieldEdits)('enables Save as draft when draft-tracked field "%s" changes', async (field, value) => {
         const user = userEvent.setup()
-        renderWithProbe()
+        renderWithFieldProbe(field, value)
 
-        await user.click(screen.getByRole('button', { name: 'Edit editor field' }))
-
-        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
-    })
-
-    it('enables Save as draft when a draft-tracked field (datasets) changes', async () => {
-        const user = userEvent.setup()
-        renderWithProbe()
-
-        await user.click(screen.getByRole('button', { name: 'Edit dataset field' }))
+        await user.click(screen.getByRole('button', { name: 'Edit field' }))
 
         expect(screen.getByRole('button', { name: 'Save as draft' })).toBeEnabled()
     })
+
+    it.each(lexicalFieldEdits)(
+        'keeps Save as draft disabled when auto-saved editor field "%s" changes',
+        async (field, value) => {
+            const user = userEvent.setup()
+            renderWithFieldProbe(field, value)
+
+            await user.click(screen.getByRole('button', { name: 'Edit field' }))
+
+            expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
+        },
+    )
 })
