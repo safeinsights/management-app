@@ -217,8 +217,8 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1
       si-encryption:
-        specifier: github:safeinsights/encryption#0e892f0f38e8e92182fcf81d22c1760839e1d624
-        version: https://codeload.github.com/safeinsights/encryption/tar.gz/0e892f0f38e8e92182fcf81d22c1760839e1d624
+        specifier: github:safeinsights/encryption#eb2228d5068013640f9bf97debbfccf0ee40eeef
+        version: https://codeload.github.com/safeinsights/encryption/tar.gz/eb2228d5068013640f9bf97debbfccf0ee40eeef
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
@@ -6087,8 +6087,8 @@ packages:
     resolution: {integrity: sha512-VsC6n6vz1ihYYyZZwX7YZSF5l5x36ca17OC+a69h94YqB7X6XLwf+5MOgynYir2SLFUbl8gIYvBo8K8RoNQ6bQ==}
     engines: {node: '>= 0.4'}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/0e892f0f38e8e92182fcf81d22c1760839e1d624:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/0e892f0f38e8e92182fcf81d22c1760839e1d624}
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/eb2228d5068013640f9bf97debbfccf0ee40eeef:
+    resolution: {gitHosted: true, integrity: sha512-IfMAYolRfnN/BmfL6wF2m/3W9IMMbGovjPj5Cb7wj0TcDw53aFLJ6v9gfg8hP6bbHCFgxO9PinVmOFd89+b2bg==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/eb2228d5068013640f9bf97debbfccf0ee40eeef}
     version: 0.0.1
 
   side-channel-list@1.0.1:
@@ -13870,7 +13870,7 @@ snapshots:
 
   shell-quote@1.8.4: {}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/0e892f0f38e8e92182fcf81d22c1760839e1d624:
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/eb2228d5068013640f9bf97debbfccf0ee40eeef:
     dependencies:
       '@zip.js/zip.js': 2.8.26
       debug: 4.4.3
