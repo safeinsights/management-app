@@ -109,7 +109,7 @@
         "react-phone-number-input": "^3.4.16",
         "remeda": "^2.33.6",
         "server-only": "^0.0.1",
-        "si-encryption": "github:safeinsights/encryption#2c495dae94942895a34e64d91f83809750867f4e",
+        "si-encryption": "github:safeinsights/encryption#0e892f0f38e8e92182fcf81d22c1760839e1d624",
         "uuid": "^14.0.0",
         "validator": "^13.15.26",
         "yjs": "^13.6.30",

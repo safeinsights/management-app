@@ -1,9 +1,8 @@
-import { deleteS3File, fetchS3File, signedUrlForFile, storeS3File } from './aws'
+import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
 import { db } from '@/database'
 import { FileType } from '@/database/types'
-import { decomposeResultsZip } from 'si-encryption/job-results/decompose'
 
 export async function fetchFileContents(filePath: string) {
     const stream = await fetchS3File(filePath)
@@ -35,70 +34,9 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         .executeTakeFirstOrThrow()
 }
 
-/**
- * Decompose a ResultsWriter zip on ingest (Option B): each encrypted file body
- * becomes its own S3 object, and its metadata (iv, bytes) + per-recipient wrapped
- * keys (the DO/reviewer recipients from the manifest) are stored in Postgres.
- *
- * Touches no plaintext and needs no private key — the manifest is plaintext
- * metadata and the bodies stay ciphertext. One row per decomposed file; sharing
- * a file later = adding a `study_job_file_key` row, never re-encrypting.
- *
- * Trust model is honest-but-curious: the server is the storage authority for the
- * ciphertext bodies + IVs but is trusted not to tamper with them. The AES-CBC
- * scheme gives confidentiality (the server can never read results), not integrity
- * — there's no auth tag, so a *malicious* server could alter ciphertext undetected.
- * If that ever becomes part of the threat model, move to AEAD (AES-GCM) or have the
- * enclave sign (iv ‖ ciphertext) for client-side verification.
- */
-async function storeDecomposedEncryptedFiles(info: MinimalJobInfo, file: File, fileType: FileType, subdir: string) {
-    const decomposed = await decomposeResultsZip(file)
-    // entry.path is the inner filename from TOA's manifest. TOA is trusted, so we use it
-    // directly as the S3 key suffix; if that trust ever weakens, sanitize for `..`/collisions.
-    const items = decomposed.map((entry) => ({
-        entry,
-        path: `${pathForStudyJob(info)}/results/${subdir}/${entry.path}`,
-    }))
-
-    // Write the bodies to S3 first, in parallel. S3 is not part of the DB transaction
-    // below, so if the transaction fails we best-effort delete what we wrote — otherwise a
-    // rollback would leave orphaned objects with no row pointing at them.
-    await Promise.all(items.map(({ entry, path }) => storeS3File(info, new Blob([entry.body]).stream(), path)))
-
-    try {
-        return await db.transaction().execute(async (trx) => {
-            const rows = []
-            const wrappedKeys = []
-            for (const { entry, path } of items) {
-                const row = await trx
-                    .insertInto('studyJobFile')
-                    .values({
-                        path,
-                        name: entry.path,
-                        studyJobId: info.studyJobId,
-                        fileType,
-                        iv: entry.iv,
-                        bytes: entry.bytes,
-                    })
-                    .returning('id')
-                    .executeTakeFirstOrThrow()
-
-                for (const [fingerprint, { crypt }] of Object.entries(entry.keys)) {
-                    wrappedKeys.push({ studyJobFileId: row.id, fingerprint, crypt })
-                }
-                rows.push(row)
-            }
-            if (wrappedKeys.length) await trx.insertInto('studyJobFileKey').values(wrappedKeys).execute()
-            return rows
-        })
-    } catch (err) {
-        await Promise.allSettled(items.map(({ path }) => deleteS3File(path)))
-        throw err
-    }
-}
-
 export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
-    return await storeDecomposedEncryptedFiles(info, file, fileType, 'encrypted-logs')
+    const filename = fileType.toLowerCase()
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.zip`, file, fileType)
 }
 
 export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
@@ -106,6 +44,18 @@ export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileTy
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.txt`, file, fileType)
 }
 
+// Encryption granularity vs storage granularity — two different levels, easy to conflate:
+//   - CRYPTO is PER FILE: TOA's ResultsWriter gives each inner file its own AES key + IV and
+//     encrypts it individually; the wrapped keys live in a manifest.json embedded in the zip.
+//   - STORAGE is the WHOLE ZIP: that manifest + all the per-file ciphertexts are one archive,
+//     persisted as a single S3 object / a single `study_job_file` row here.
+// So sharing with a researcher re-wraps EACH file's key (one `study_job_file_key` row per inner
+// file per researcher) — not one key for the whole archive. The format is unchanged from prod;
+// we deliberately do NOT re-encrypt or repackage on ingest.
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
-    return await storeDecomposedEncryptedFiles(info, file, 'ENCRYPTED-RESULT', 'encrypted')
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
+}
+
+export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType, sourceId: string) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType, sourceId)
 }

@@ -213,7 +213,8 @@ export const fileTypeSchema = z.enum(FILE_TYPES)
 // (a `study_job_file_key` row; see src/server/results-sharing.ts for the model).
 export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
 export const sharedFileSchema = z.object({
-    studyJobFileId: z.string(),
+    studyJobFileId: z.string(), // the whole-zip study_job_file row
+    filePath: z.string(), // the inner file within that archive (one AES key per inner file)
     keys: z.array(sharedFileKeySchema),
 })
 export type SharedFile = z.infer<typeof sharedFileSchema>

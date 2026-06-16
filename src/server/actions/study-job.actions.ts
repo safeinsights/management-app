@@ -34,18 +34,21 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
-        // Re-wrap, not re-encrypt: the reviewer's browser unwrapped each file's AES key
+        // Re-wrap, not re-encrypt: the reviewer's browser unwrapped the results' AES key
         // while reviewing and wrapped it for the lab researchers' public keys. Here we
         // only persist those new wrapped-key rows — the file ciphertext is never touched and
-        // the server never sees plaintext or the raw AES key. Adding a wrapped key = sharing;
-        // deleting one (future / Card 74) = revoking.
+        // the server never sees plaintext or the raw AES key. Adding a wrapped key = sharing.
+        // The FILES-APPROVED status change below is the all-or-nothing approval fact itself.
         //
-        // BACKFILL GAP (Card 73/74): keys are wrapped only for lab members who have a key
-        // *right now*. A researcher who joins the lab or generates their key after approval
-        // gets no wrapped key and cannot read already-approved results. Re-wrapping for late
-        // joiners (the reviewer no longer holds the raw AES key, so this needs a recovery flow)
-        // lands here.
-        await insertSharedFileKeys(db, info.studyJobId, sharedFiles, session.user.id)
+        // KNOWN LIMITATION — late-joining researchers (OUT OF SCOPE, per Phil 2026-06):
+        // Keys are wrapped only for lab members who have a registered public key at the moment
+        // of approval. A researcher who joins the lab or generates their key *after* approval
+        // gets no wrapped key and cannot read already-approved results. There is intentionally
+        // NO backfill/recovery flow: once approved, the reviewer's browser no longer holds the
+        // raw AES key, so re-wrapping for a late joiner would require a reviewer to re-open and
+        // re-decrypt the results. Researchers must have their keys registered before approval.
+        // FLAG FOR PO: if backfill is ever required, a recovery flow would land here.
+        await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
 
         await db
             .insertInto('jobStatusChange')
@@ -77,8 +80,8 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// IDs of files a reviewer approved & shared with researchers, per the recorded `approved_at`
-// fact on each file row (see getSharedFileIdsForJob). There is no plaintext approved copy.
+// IDs of files shared with researchers — all of the job's files once it's FILES-APPROVED,
+// none before (all-or-nothing; see getSharedFileIdsForJob). There is no plaintext approved copy.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
@@ -188,9 +191,6 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     .requireAbilityTo('view', 'StudyJob')
 
     .handler(async ({ studyJob, session, db }) => {
-        // Per decomposed file (Option B): each row is one encrypted body in S3 + an `iv`,
-        // with the requesting user's wrapped AES key in study_job_file_key.
-        // We return only files this user actually has a wrapped key for — others stay opaque.
         const userKey = await getUserPublicKey(session.user.id)
         if (!userKey) return []
 
@@ -199,11 +199,36 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
         if (!encryptedFiles.length) return []
 
-        // One query for all of this user's wrapped keys, then fetch the matching bodies in
-        // parallel — avoids a per-file round trip to both Postgres and S3.
+        // Each artifact is the prod whole-zip (embedded manifest). Enclave reviewers are manifest
+        // recipients and decrypt with their own key; lab researchers are not, so they decrypt with
+        // per-file re-wrapped keys (study_job_file_key) supplied as `overrideKeys`. A reviewer is a
+        // member of the study's enclave org (study.orgId); everyone else takes the researcher path.
+        const isEnclaveReviewer = Object.values(session.orgs).some(
+            (org) => org.id === studyJob.orgId && org.type === 'enclave',
+        )
+
+        // TODO(perf): every ciphertext body is buffered into server memory and serialized through
+        // the server-action layer. DEFERRED on purpose (Phil 2026-06) — fine at current result
+        // sizes. ESCAPE HATCH if we hit limits: hand the client a short-lived signed S3 URL and let
+        // it fetch ciphertext directly + decrypt, instead of proxying through here.
+        if (isEnclaveReviewer) {
+            return Promise.all(
+                encryptedFiles.map(async (file) => ({
+                    studyJobFileId: file.id,
+                    fileType: file.fileType,
+                    name: file.name,
+                    encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
+                    overrideKeys: {} as Record<string, string>,
+                })),
+            )
+        }
+
+        // Researcher: results only (logs are never re-wrapped — DO-internal). Return only artifacts
+        // this user has wrapped keys for; the keys exist only after approval, so this is naturally
+        // gated. Build the inner {file_path -> crypt} override map per artifact.
         const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
-            .select(['studyJobFileId', 'crypt'])
+            .select(['studyJobFileId', 'filePath', 'crypt'])
             .where(
                 'studyJobFileId',
                 'in',
@@ -211,29 +236,24 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
             .where('fingerprint', '=', userKey.fingerprint)
             .execute()
-        const cryptByFileId = new Map(wrappedKeys.map((k) => [k.studyJobFileId, k.crypt]))
+        if (!wrappedKeys.length) return []
 
-        const ready = encryptedFiles.flatMap((file) => {
-            const crypt = cryptByFileId.get(file.id)
-            // No wrapped key for this user, or no iv to decrypt with → stays opaque. A null `iv` means
-            // a legacy (pre-decompose) job; those have no encrypted body here and fall back to
-            // the legacy plaintext download route (src/app/dl/results/...). Intended, not a gap.
-            return crypt && file.iv ? [{ file, crypt, iv: file.iv }] : []
-        })
+        const overrideByFileId = new Map<string, Record<string, string>>()
+        for (const key of wrappedKeys) {
+            const map = overrideByFileId.get(key.studyJobFileId) ?? {}
+            map[key.filePath] = key.crypt
+            overrideByFileId.set(key.studyJobFileId, map)
+        }
 
-        // TODO(perf): every ciphertext body is buffered into server memory and serialized
-        // through the server-action layer. Fine at current result sizes; if results grow
-        // large, switch to returning signed S3 URLs and let the client fetch/decrypt as a
-        // stream (also relevant: `study_job_file.bytes` is `integer`, capping at ~2.15 GB).
         return Promise.all(
-            ready.map(async ({ file, crypt, iv }) => ({
-                studyJobFileId: file.id,
-                fileType: file.fileType,
-                path: file.path,
-                name: file.name,
-                iv,
-                crypt,
-                encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-            })),
+            encryptedFiles
+                .filter((file) => overrideByFileId.has(file.id))
+                .map(async (file) => ({
+                    studyJobFileId: file.id,
+                    fileType: file.fileType,
+                    name: file.name,
+                    encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
+                    overrideKeys: overrideByFileId.get(file.id)!,
+                })),
         )
     })

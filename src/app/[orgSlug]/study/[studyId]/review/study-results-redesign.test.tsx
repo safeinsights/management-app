@@ -12,7 +12,6 @@ import { StudyResultsRedesign } from './study-results-redesign'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { decomposeResultsZip } from 'si-encryption/job-results/decompose'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType } from '@/database/types'
 
@@ -103,13 +102,13 @@ describe('StudyResultsRedesign', () => {
 
         const csv = `title\nhello world`
         await writer.addFile('test.data', toArrayBuffer(csv))
-        const [decomposed] = await decomposeResultsZip(await writer.generate())
+        const zip = await writer.generate()
 
         const { study, job: rawJob } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })
-        const path = `test-org/${study.id}/${rawJob.id}/results/encrypted/test.data`
+        const path = `test-org/${study.id}/${rawJob.id}/results/encrypted-results.zip`
         const row = await db
             .insertInto('studyJobFile')
             .values({
@@ -117,8 +116,6 @@ describe('StudyResultsRedesign', () => {
                 name: 'test.data',
                 path,
                 fileType: 'ENCRYPTED-RESULT',
-                iv: decomposed.iv,
-                bytes: decomposed.bytes,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
@@ -127,11 +124,9 @@ describe('StudyResultsRedesign', () => {
             {
                 studyJobFileId: row.id,
                 fileType: 'ENCRYPTED-RESULT' as FileType,
-                path,
                 name: 'test.data',
-                iv: decomposed.iv,
-                crypt: decomposed.keys[fingerprint].crypt,
-                encryptedBody: decomposed.body,
+                encryptedBody: await zip.arrayBuffer(),
+                overrideKeys: {} as Record<string, string>,
             },
         ])
 

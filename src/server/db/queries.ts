@@ -55,7 +55,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes'])
+                    .select(['id', 'name', 'path', 'fileType'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -93,7 +93,7 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path', 'fileType', 'iv', 'bytes', 'createdAt'])
+                    .select(['id', 'name', 'path', 'fileType', 'createdAt'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -478,17 +478,22 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 }
 
 /**
- * IDs of this job's files a reviewer approved & shared with researchers. Driven by the
- * recorded `approved_at` fact, not by current org membership — removing a researcher from
- * the lab must not retroactively un-approve files (see `insertSharedFileKeys`).
+ * IDs of this job's files shared with researchers. Approval is all-or-nothing at the job
+ * level (per Phil 2026-06): once a FILES-APPROVED event exists, every file of the job is
+ * shared. Driven by the recorded status event, not current org membership — removing a
+ * researcher from the lab must not retroactively un-approve files. Returns [] if not approved.
  */
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
-    const rows = await Action.db
-        .selectFrom('studyJobFile')
+    const approved = await Action.db
+        .selectFrom('jobStatusChange')
         .select('id')
         .where('studyJobId', '=', jobId)
-        .where('approvedAt', 'is not', null)
-        .execute()
+        .where('status', '=', 'FILES-APPROVED')
+        .executeTakeFirst()
+
+    if (!approved) return []
+
+    const rows = await Action.db.selectFrom('studyJobFile').select('id').where('studyJobId', '=', jobId).execute()
 
     return rows.map((r) => r.id)
 }

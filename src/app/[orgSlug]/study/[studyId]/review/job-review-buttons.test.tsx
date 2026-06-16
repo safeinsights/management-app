@@ -90,7 +90,6 @@ describe('Study Results Approve/Reject buttons', async () => {
                 name: 'test.csv',
                 path: `results/encrypted/test.csv`,
                 fileType: 'ENCRYPTED-RESULT',
-                iv: 'aXY=',
             })
             .returning('id')
             .executeTakeFirstOrThrow()

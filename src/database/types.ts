@@ -255,13 +255,9 @@ export interface StudyJob {
 }
 
 export interface StudyJobFile {
-    approvedAt: Timestamp | null
-    approvedByUserId: string | null
-    bytes: number | null
     createdAt: Generated<Timestamp>
     fileType: StudyJobFileType
     id: Generated<string>
-    iv: string | null
     name: string
     path: string
     sourceId: string | null
@@ -271,6 +267,7 @@ export interface StudyJobFile {
 export interface StudyJobFileKey {
     createdAt: Generated<Timestamp>
     crypt: string
+    filePath: string
     fingerprint: string
     id: Generated<string>
     studyJobFileId: string

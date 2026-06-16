@@ -1,12 +1,10 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestOrg, insertTestStudyData, readTestSupportFile } from '@/tests/unit.helpers'
+import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 
 vi.mock('@/server/mailer', () => ({
     sendResultsReadyForReviewEmail: vi.fn(),
@@ -20,26 +18,20 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-// TOA uploads a ResultsWriter zip; ingest decomposes it into per-file rows + wrapped keys.
-async function buildEncryptedZip(fileName: string, content: string): Promise<File> {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    const buf = Buffer.from(content, 'utf-8')
-    await writer.addFile(fileName, buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
-    const zip = await writer.generate()
-    return new File([zip], 'encrypted.zip', { type: 'application/zip' })
-}
-
 // These exercise the real S3 round-trip (storeStudyEncrypted*/fetchFileContents),
 // so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('uploading results', async () => {
     const org = await insertTestOrg()
 
-    const formData = new FormData()
-    formData.append('result', await buildEncryptedZip('output.csv', 'a,b\n1,2'))
+    const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
 
-    const req = new Request('http://localhost', { method: 'PUT', body: formData })
+    const formData = new FormData()
+    formData.append('result', file)
+
+    const req = new Request('http://localhost', {
+        method: 'PUT',
+        body: formData,
+    })
 
     const { jobIds } = await insertTestStudyData({ org })
 
@@ -49,20 +41,14 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const sr = await db
         .selectFrom('studyJobFile')
-        .select(['id', 'path', 'name', 'fileType', 'iv'])
+        .select(['path', 'fileType'])
         .where('studyJobFile.studyJobId', '=', jobIds[0])
         .executeTakeFirstOrThrow()
 
-    expect(sr).toMatchObject({ name: 'output.csv', fileType: 'ENCRYPTED-RESULT' })
-    expect(sr.iv).toBeTruthy()
-
-    // The manifest's recipient key became a study_job_file_key row.
-    const wrappedKeys = await db
-        .selectFrom('studyJobFileKey')
-        .select('crypt')
-        .where('studyJobFileId', '=', sr.id)
-        .execute()
-    expect(wrappedKeys.length).toBeGreaterThan(0)
+    expect(sr).toMatchObject({
+        path: expect.any(String),
+        fileType: 'ENCRYPTED-RESULT',
+    })
 
     const contents = await fetchFileContents(sr.path)
     expect(contents).toBeInstanceOf(Blob)
@@ -70,11 +56,17 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
+    const logContents = 'long line one\nlog line two\n'
+    const encoder = new TextEncoder()
+    const file = new File([encoder.encode(logContents)], 'testfile.log', { type: 'text/plain' })
 
     const formData = new FormData()
-    formData.append('log', await buildEncryptedZip('run.log', 'log line one\nlog line two\n'))
+    formData.append('log', file)
 
-    const req = new Request('http://localhost', { method: 'PUT', body: formData })
+    const req = new Request('http://localhost', {
+        method: 'PUT',
+        body: formData,
+    })
 
     const { jobIds } = await insertTestStudyData({ org })
 
@@ -84,12 +76,14 @@ test.skipIf(!s3Available)('uploading logs', async () => {
 
     const sr = await db
         .selectFrom('studyJobFile')
-        .select(['path', 'name', 'fileType', 'iv'])
+        .select(['path', 'fileType'])
         .where('studyJobFile.studyJobId', '=', jobIds[0])
         .executeTakeFirstOrThrow()
 
-    expect(sr).toMatchObject({ name: 'run.log', fileType: 'ENCRYPTED-CODE-RUN-LOG' })
-    expect(sr.iv).toBeTruthy()
+    expect(sr).toMatchObject({
+        path: expect.any(String),
+        fileType: 'ENCRYPTED-CODE-RUN-LOG',
+    })
 
     const contents = await fetchFileContents(sr.path)
     expect(contents).toBeInstanceOf(Blob)

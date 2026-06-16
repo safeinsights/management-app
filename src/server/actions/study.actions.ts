@@ -319,7 +319,7 @@ async function approveJobCode({
     if (sharedFiles?.length) {
         // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's
         // browser produced. Ciphertext is untouched; no plaintext is stored.
-        await insertSharedFileKeys(db, job.id, sharedFiles, userId)
+        await insertSharedFileKeys(db, job.id, sharedFiles)
     }
 }
 

@@ -25,8 +25,6 @@ const buildFile = (overrides: Partial<LatestJobForStudy['files'][number]>): Late
     name: 'main.py',
     path: 'code/main.py',
     fileType: 'MAIN-CODE',
-    iv: null,
-    bytes: null,
     createdAt: '2026-01-01T12:00:00Z',
     ...overrides,
 })

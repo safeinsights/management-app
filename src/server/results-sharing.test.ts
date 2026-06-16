@@ -16,11 +16,10 @@ async function insertSharedFileScenario() {
     const file = await db
         .insertInto('studyJobFile')
         .values({
-            path: 'results/encrypted/results.csv',
-            name: 'results.csv',
+            path: 'results/encrypted-results.zip',
+            name: 'encrypted-results.zip',
             studyJobId: job.id,
             fileType: 'ENCRYPTED-RESULT',
-            iv: 'aXY=',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -31,76 +30,54 @@ async function insertSharedFileScenario() {
 const selectKeyRows = (fileId: string) =>
     db.selectFrom('studyJobFileKey').select(['fingerprint', 'crypt']).where('studyJobFileId', '=', fileId).execute()
 
-const selectApproval = (fileId: string) =>
-    db
-        .selectFrom('studyJobFile')
-        .select(['approvedAt', 'approvedByUserId'])
-        .where('id', '=', fileId)
-        .executeTakeFirstOrThrow()
-
+// Approval is recorded by the caller as a job-level FILES-APPROVED status change, not here.
+// These tests cover only the access mechanism: persisting validated wrapped-key rows.
 describe('insertSharedFileKeys', () => {
-    test('persists wrapped keys and records the approval on the file', async () => {
-        const { approver, job, file } = await insertSharedFileScenario()
+    test('persists wrapped keys for a valid lab recipient', async () => {
+        const { job, file } = await insertSharedFileScenario()
 
-        await insertSharedFileKeys(
-            db,
-            job.id,
-            [{ studyJobFileId: file.id, keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }] }],
-            approver.id,
-        )
+        await insertSharedFileKeys(db, job.id, [
+            {
+                studyJobFileId: file.id,
+                filePath: 'results.csv',
+                keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }],
+            },
+        ])
 
         const keyRows = await selectKeyRows(file.id)
         expect(keyRows).toHaveLength(1)
         expect(keyRows[0]).toMatchObject({ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' })
-
-        const approval = await selectApproval(file.id)
-        expect(approval.approvedAt).toBeInstanceOf(Date)
-        expect(approval.approvedByUserId).toBe(approver.id)
     })
 
     test('rejects a fingerprint that is not a lab recipient and writes nothing', async () => {
-        const { approver, job, file } = await insertSharedFileScenario()
+        const { job, file } = await insertSharedFileScenario()
 
         await expect(
-            insertSharedFileKeys(
-                db,
-                job.id,
-                [{ studyJobFileId: file.id, keys: [{ fingerprint: 'not-a-lab-key', crypt: 'bogus' }] }],
-                approver.id,
-            ),
+            insertSharedFileKeys(db, job.id, [
+                {
+                    studyJobFileId: file.id,
+                    filePath: 'results.csv',
+                    keys: [{ fingerprint: 'not-a-lab-key', crypt: 'bogus' }],
+                },
+            ]),
         ).rejects.toThrow(ActionFailure)
 
         expect(await selectKeyRows(file.id)).toHaveLength(0)
-        const approval = await selectApproval(file.id)
-        expect(approval.approvedAt).toBeNull()
     })
 
     test('is idempotent: re-running the same share does not duplicate key rows', async () => {
-        const { approver, job, file } = await insertSharedFileScenario()
+        const { job, file } = await insertSharedFileScenario()
         const sharedFiles = [
-            { studyJobFileId: file.id, keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }] },
+            {
+                studyJobFileId: file.id,
+                filePath: 'results.csv',
+                keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }],
+            },
         ]
 
-        await insertSharedFileKeys(db, job.id, sharedFiles, approver.id)
-        await insertSharedFileKeys(db, job.id, sharedFiles, approver.id)
+        await insertSharedFileKeys(db, job.id, sharedFiles)
+        await insertSharedFileKeys(db, job.id, sharedFiles)
 
         expect(await selectKeyRows(file.id)).toHaveLength(1)
-    })
-
-    test('never overwrites an earlier approval timestamp or approver', async () => {
-        const { org, approver, job, file } = await insertSharedFileScenario()
-        const sharedFiles = [
-            { studyJobFileId: file.id, keys: [{ fingerprint: LAB_FINGERPRINT, crypt: 'wrapped-key' }] },
-        ]
-
-        await insertSharedFileKeys(db, job.id, sharedFiles, approver.id)
-        const first = await selectApproval(file.id)
-
-        const { user: secondApprover } = await insertTestUser({ org })
-        await insertSharedFileKeys(db, job.id, sharedFiles, secondApprover.id)
-
-        const second = await selectApproval(file.id)
-        expect(second.approvedAt?.getTime()).toBe(first.approvedAt?.getTime())
-        expect(second.approvedByUserId).toBe(approver.id)
     })
 })

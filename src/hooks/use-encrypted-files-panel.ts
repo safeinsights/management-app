@@ -14,7 +14,7 @@ type Options = {
     onFilesApproved: (files: JobFileInfo[]) => void
 }
 
-export type FileRowState = 'locked' | 'decrypted' | 'approved' | 'not-shared'
+export type FileRowState = 'locked' | 'decrypted' | 'approved'
 
 export type UnifiedFileRow = {
     key: string
@@ -30,26 +30,14 @@ function isEncryptedFile(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
 }
 
-// State precedence: shared (approved) wins as the durable signal; otherwise a freshly
-// decrypted file is selectable; an approved job where this file was never approved means
-// it was withheld; everything else is still locked.
-function fileRowState(opts: { shared: boolean; decrypted: boolean; jobApproved: boolean }): FileRowState {
-    if (opts.shared) return 'approved'
-    if (opts.decrypted) return 'decrypted'
-    if (opts.jobApproved) return 'not-shared'
-    return 'locked'
-}
-
 export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
-    const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const [viewingFile, setViewingFile] = useState<JobFile | null>(null)
 
-    // Once a job is approved, files the DO withheld are surfaced as "not shared" (red X) rather than hidden.
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Which files have been shared with researchers, per the recorded `approved_at` fact on
-    // each file row (see getSharedFileIdsForJob) — there is no plaintext approved copy.
+    // Which files are shared with researchers — all of the job's files once it's FILES-APPROVED,
+    // none before (all-or-nothing; see getSharedFileIdsForJob). There is no plaintext approved copy.
     const { data: sharedFileIds = [] } = useQuery({
         queryKey: ['shared-file-ids', job.id],
         queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
@@ -75,58 +63,47 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         form,
     } = useDecryptFiles({
         encryptedFiles,
-        onSuccess: (files) => {
-            setDecryptedFiles(files)
-            setSelectedPaths(new Set(files.filter(isResultFile).map((f) => f.path)))
-        },
+        onSuccess: (files) => setDecryptedFiles(files),
     })
 
+    // All-or-nothing: approving shares the entire result package (no per-file selection).
+    // Logs are a separate DO-internal artifact and are not shared with researchers.
     useEffect(() => {
-        const approved = decryptedFiles.filter((f) => selectedPaths.has(f.path))
-        onFilesApproved(approved)
-    }, [selectedPaths]) // eslint-disable-line react-hooks/exhaustive-deps
-
-    const toggleFile = (path: string) => {
-        setSelectedPaths((prev) => {
-            const next = new Set(prev)
-            if (next.has(path)) next.delete(path)
-            else next.add(path)
-            return next
-        })
-    }
+        onFilesApproved(decryptedFiles.filter(isResultFile))
+    }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
 
     const shouldShowForm = encryptedRows.length > 0 && decryptedFiles.length === 0
 
-    const decryptedById = useMemo(() => {
-        const map = new Map<string, JobFileInfo>()
-        for (const f of decryptedFiles) map.set(f.sourceId, f)
-        return map
-    }, [decryptedFiles])
-
     const sharedIdSet = useMemo(() => new Set(sharedFileIds), [sharedFileIds])
 
-    // One row per decomposed encrypted file.
+    // Before decryption: one locked row per encrypted artifact (results, logs); size is unknown
+    // until decrypted (pre-encryption byte counts aren't stored). After: one row per decrypted
+    // inner file — each artifact is a whole-zip that unpacks into many files, all sharing the
+    // artifact's row id (sourceId), so "shared" is keyed on that id.
     const fileRows: UnifiedFileRow[] = useMemo(() => {
-        return encryptedRows.map((f) => {
-            const decrypted = decryptedById.get(f.id) ?? null
-            const state = fileRowState({
-                shared: sharedIdSet.has(f.id),
-                decrypted: !!decrypted,
-                jobApproved: isJobApproved,
-            })
-            return {
-                key: `${f.fileType}-${f.id}`,
+        if (decryptedFiles.length > 0) {
+            return decryptedFiles.map((f) => ({
+                key: `${f.sourceId}-${f.path}`,
                 label: logLabel(f.fileType),
-                name: f.name,
-                bytes: f.bytes,
+                name: f.path,
+                bytes: f.contents.byteLength,
                 fileType: f.fileType,
-                state,
-                file: decrypted,
-            }
-        })
-    }, [encryptedRows, decryptedById, sharedIdSet, isJobApproved])
+                state: sharedIdSet.has(f.sourceId) ? 'approved' : 'decrypted',
+                file: f,
+            }))
+        }
+        return encryptedRows.map((f) => ({
+            key: `${f.fileType}-${f.id}`,
+            label: logLabel(f.fileType),
+            name: f.name,
+            bytes: null,
+            fileType: f.fileType,
+            state: sharedIdSet.has(f.id) ? 'approved' : 'locked',
+            file: null,
+        }))
+    }, [encryptedRows, decryptedFiles, sharedIdSet])
 
     const hasFileRows = fileRows.length > 0
 
@@ -144,8 +121,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         hasFileRows,
         isLoadingBlob,
         shouldShowForm,
-        selectedPaths,
-        toggleFile,
         isDecrypting,
         form,
         handleSubmit,

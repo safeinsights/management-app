@@ -80,18 +80,27 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         onSuccess: setDecryptedFiles,
     })
 
-    // Decrypted content keyed by source row id, to attach View/Download to the matching row.
-    const decryptedBySourceId = useMemo(() => {
-        const map = new Map<string, JobFileInfo>()
-        for (const f of decryptedFiles ?? []) map.set(f.sourceId, f)
-        return map
-    }, [decryptedFiles])
-
-    // Results first, then logs.
-    const orderedFiles = useMemo(() => {
+    // One row per decrypted inner file once decrypted (each artifact is a whole-zip that unpacks
+    // into many files); before that, one locked row per encrypted artifact. Researchers receive
+    // results only — logs are never re-wrapped for them (DO-internal).
+    const rows = useMemo(() => {
+        if (decryptedFiles) {
+            return decryptedFiles.map((f) => ({
+                key: `${f.sourceId}-${f.path}`,
+                label: logLabel(f.fileType),
+                name: f.path,
+                decrypted: f as JobFileInfo | undefined,
+            }))
+        }
         const files = encryptedFiles ?? []
-        return [...files.filter(isResultFile), ...files.filter((f) => isEncryptedLogType(f.fileType))]
-    }, [encryptedFiles])
+        const ordered = [...files.filter(isResultFile), ...files.filter((f) => isEncryptedLogType(f.fileType))]
+        return ordered.map((f) => ({
+            key: f.studyJobFileId,
+            label: logLabel(f.fileType),
+            name: f.name,
+            decrypted: undefined as JobFileInfo | undefined,
+        }))
+    }, [encryptedFiles, decryptedFiles])
 
     const handleSubmit = form.onSubmit((values) => decrypt(values.privateKey))
 
@@ -105,13 +114,8 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     return (
         <Stack>
-            {orderedFiles.map((file) => (
-                <FileRow
-                    key={file.studyJobFileId}
-                    label={logLabel(file.fileType)}
-                    name={file.name}
-                    decrypted={decryptedBySourceId.get(file.studyJobFileId)}
-                />
+            {rows.map((row) => (
+                <FileRow key={row.key} label={row.label} name={row.name} decrypted={row.decrypted} />
             ))}
             <PrivateKeyForm
                 isVisible={!decryptedFiles}

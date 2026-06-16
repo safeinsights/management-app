@@ -12,7 +12,6 @@ import { StudyResults } from './study-results'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { decomposeResultsZip } from 'si-encryption/job-results/decompose'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType, type StudyJobStatus, type StudyStatus } from '@/database/types'
 
@@ -36,23 +35,21 @@ async function seedEncryptedFile(
     const fingerprint = await fingerprintKeyData(publicKey)
     const writer = new ResultsWriter([{ publicKey, fingerprint }])
     await writer.addFile(name, toArrayBuffer(content))
-    const [decomposed] = await decomposeResultsZip(await writer.generate())
+    const zip = await writer.generate()
 
-    const path = `test-org/${job.id}/results/encrypted/${name}`
+    const path = `test-org/${job.id}/results/encrypted-results.zip`
     const row = await db
         .insertInto('studyJobFile')
-        .values({ studyJobId: job.id, name, path, fileType, iv: decomposed.iv, bytes: decomposed.bytes })
+        .values({ studyJobId: job.id, name, path, fileType })
         .returning('id')
         .executeTakeFirstOrThrow()
 
     return {
         studyJobFileId: row.id,
         fileType,
-        path,
         name,
-        iv: decomposed.iv,
-        crypt: decomposed.keys[fingerprint].crypt,
-        encryptedBody: decomposed.body,
+        encryptedBody: await zip.arrayBuffer(),
+        overrideKeys: {} as Record<string, string>,
     }
 }
 
@@ -64,7 +61,6 @@ async function insertEncryptedRow(job: MinimalJob, { name, fileType }: { name: s
             name,
             path: `test-org/${job.id}/results/encrypted/${name}`,
             fileType,
-            iv: 'aXY=',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
