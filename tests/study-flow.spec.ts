@@ -445,8 +445,9 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     // Verify Job ID is displayed
     await expect(page.getByText(/Job ID/i)).toBeVisible()
 
-    // Verify logs section exists (async-loaded via JobResults)
-    await expect(page.getByText(/Code Run Log:/i)).toBeVisible()
+    // Verify logs row exists in the results table (JobResults now renders EncryptedFilesPanel,
+    // which lists the log artifact by its file-type label before decryption).
+    await expect(page.getByText('Code Run Log')).toBeVisible()
 }
 
 // ============================================================================
