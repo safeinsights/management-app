@@ -3,7 +3,15 @@
 import { getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
+import { Routes } from '@/lib/routes'
 import { Action, ActionFailure, z } from './action'
+
+// Pages that render the user's key state — bust both after a key write so presence/fingerprint
+// don't read stale. Both reviewers and researchers use the same key now (orgNeedsKey).
+function revalidateKeyPages(): void {
+    revalidatePath(Routes.accountKeys)
+    revalidatePath(Routes.userKey)
+}
 
 export const getUserPublicKeyAction = new Action('getUserPublicKeyAction')
     .requireAbilityTo('view', 'UserKey')
@@ -55,7 +63,7 @@ export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
             .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set user public key' }))
 
         onUserPublicKeyCreated({ userId })
-        revalidatePath('/reviewer')
+        revalidateKeyPages()
     })
 
 export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
@@ -77,4 +85,5 @@ export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
             .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to update user public key.' }))
 
         onUserPublicKeyUpdated({ userId })
+        revalidateKeyPages()
     })
