@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { JobResults, ViewFile } from './job-results'
+import { JobResults } from './job-results'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { type JobFile } from '@/lib/types'
 import { type FileType } from '@/database/types'
