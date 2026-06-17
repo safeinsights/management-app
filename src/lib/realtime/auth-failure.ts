@@ -12,6 +12,10 @@ export type AuthFailureCode =
     | 'STUDY_NOT_FOUND'
     | 'NO_MEMBERSHIP'
     | 'STUDY_NOT_EDITABLE'
+    // Not an auth rejection: the server hit an infra failure (DB unreachable or
+    // rejected its credentials) while authenticating. Recoverable, not terminal
+    // — the client retries instead of showing "editor unavailable" (OTTER-626).
+    | 'INFRA_UNAVAILABLE'
     | 'UNKNOWN'
 
 const KNOWN_CODES: Record<string, AuthFailureCode> = {
@@ -22,6 +26,7 @@ const KNOWN_CODES: Record<string, AuthFailureCode> = {
     STUDY_NOT_FOUND: 'STUDY_NOT_FOUND',
     NO_MEMBERSHIP: 'NO_MEMBERSHIP',
     STUDY_NOT_EDITABLE: 'STUDY_NOT_EDITABLE',
+    INFRA_UNAVAILABLE: 'INFRA_UNAVAILABLE',
 }
 
 export type ParsedAuthFailure = {

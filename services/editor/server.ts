@@ -1,14 +1,13 @@
 import { Server } from '@hocuspocus/server'
 import { Database } from '@hocuspocus/extension-database'
 import { verifyToken } from '@clerk/backend'
-import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
-import pg from 'pg'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
     type AuthenticatedContext,
     type StudyStatus,
     AuthFailureError,
+    InfraUnavailableError,
     assertStatelessEventConsistent,
     authenticate,
     parseDocumentName,
@@ -16,6 +15,8 @@ import {
     shouldPersistDocument,
     studyIdForDocument,
 } from './auth.ts'
+import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
+import { ResilientDbPool } from './db-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
@@ -58,36 +59,19 @@ log('startup.config', {
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
-// Mirrors src/server/config.ts:databaseURL() — accept DATABASE_URL directly for local/dev,
-// otherwise fetch the RDS-managed secret JSON (host/username/password/dbname) and assemble.
-async function resolvePoolConfig(): Promise<pg.PoolConfig> {
-    if (process.env.DATABASE_URL) {
-        log('db.config.source', { source: 'DATABASE_URL' })
-        return { connectionString: process.env.DATABASE_URL }
-    }
-
-    const arn = process.env.DB_SECRET_ARN
-    if (!arn) throw new Error('DATABASE_URL or DB_SECRET_ARN is required')
-
-    log('db.config.source', { source: 'secretsManager', arn })
-    const client = new SecretsManagerClient({})
-    const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
-    if (!data.SecretString) throw new Error(`failed to fetch db secret from ${arn}`)
-    const db = JSON.parse(data.SecretString) as { username: string; password: string; host: string; dbname: string }
-    log('db.config.resolved', { host: db.host, dbname: db.dbname, user: db.username })
-    return {
-        connectionString: `postgres://${encodeURIComponent(db.username)}:${encodeURIComponent(db.password)}@${db.host}/${db.dbname}`,
-        // Aurora Postgres has rds.force_ssl=1; matches src/database/dialect.ts.
-        ssl: { rejectUnauthorized: false },
-    }
-}
-
-const pool = new pg.Pool(await resolvePoolConfig())
-pool.on('error', (err) => log('db.pool.error', { message: err.message }))
+// Resolve the DB source once at boot, then wrap it in a self-healing pool. The
+// pool re-reads the secret and rebuilds itself if a deploy rotates the DB
+// password, so the long-running editor task recovers without a restart
+// (OTTER-626). DATABASE_URL (local/dev) is static and has nothing to refresh.
+const source = await resolveDbSource(process.env, createSecretsClient())
+log('db.config.source', {
+    source: source.kind === 'connectionString' ? 'DATABASE_URL' : 'secretsManager',
+})
+const pool = new ResilientDbPool(source, log)
 
 try {
-    const ping = await pool.query<{ now: Date }>('SELECT now() AS now')
-    log('db.ping.ok', { now: ping.rows[0]?.now })
+    const now = await pool.ping()
+    log('db.ping.ok', { now })
 } catch (err) {
     log('db.ping.fail', { message: err instanceof Error ? err.message : String(err) })
     throw err
@@ -157,13 +141,23 @@ const server = new Server({
             log('auth.ok', { documentName, internalUserId: ctx.user.id, clerkUserId: ctx.user.clerkId })
             return ctx
         } catch (err) {
-            log('auth.fail', {
-                documentName,
-                code: err instanceof AuthFailureError ? err.code : null,
-                message: err instanceof Error ? err.message : String(err),
-                clerkUserId: unsafeJwtSubject(token),
-            })
-            throw err
+            // A genuine auth rejection carries an AuthFailureError with a stable
+            // CODE. Anything else (DB unreachable, password rejected even after
+            // the pool's self-heal attempt) is an infra failure: re-wrap it so
+            // the client shows a recoverable "reconnecting" state and retries,
+            // rather than the terminal "editor unavailable" banner (OTTER-626).
+            if (err instanceof AuthFailureError) {
+                log('auth.fail', {
+                    documentName,
+                    code: err.code,
+                    message: err.message,
+                    clerkUserId: unsafeJwtSubject(token),
+                })
+                throw err
+            }
+            const message = err instanceof Error ? err.message : String(err)
+            log('auth.infra', { documentName, message, clerkUserId: unsafeJwtSubject(token) })
+            throw new InfraUnavailableError(message)
         }
     },
     async onLoadDocument({ documentName, document }) {

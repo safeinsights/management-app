@@ -293,6 +293,23 @@ export class AuthFailureError extends Error {
     }
 }
 
+// Reason code for an infrastructure failure (e.g. the DB is unreachable or
+// rejected our credentials) encountered while authenticating. Distinct from
+// AuthFailureError so the client can show a recoverable "reconnecting" state
+// instead of a terminal "editor unavailable" banner — a transient DB problem
+// must not masquerade as a permanent auth denial (OTTER-626).
+export const INFRA_UNAVAILABLE_CODE = 'INFRA_UNAVAILABLE'
+
+export class InfraUnavailableError extends Error {
+    readonly reason: string
+    constructor(message: string) {
+        const wire = `${INFRA_UNAVAILABLE_CODE}: ${message}`
+        super(wire)
+        this.name = 'InfraUnavailableError'
+        this.reason = wire
+    }
+}
+
 export async function authenticate(
     args: { token: string | null | undefined; documentName: string },
     deps: AuthenticateDeps,

@@ -26,6 +26,13 @@ describe('parseAuthFailureReason', () => {
         expect(parseAuthFailureReason(undefined)).toEqual({ code: 'UNKNOWN', message: 'unknown' })
     })
 
+    it('parses INFRA_UNAVAILABLE as a recoverable (non-terminal) code', () => {
+        expect(parseAuthFailureReason('INFRA_UNAVAILABLE: password authentication failed')).toEqual({
+            code: 'INFRA_UNAVAILABLE',
+            message: 'password authentication failed',
+        })
+    })
+
     it('round-trips every known code', () => {
         const codes = [
             'MISSING_TOKEN',
@@ -35,6 +42,7 @@ describe('parseAuthFailureReason', () => {
             'STUDY_NOT_FOUND',
             'NO_MEMBERSHIP',
             'STUDY_NOT_EDITABLE',
+            'INFRA_UNAVAILABLE',
         ] as const
         for (const code of codes) {
             expect(parseAuthFailureReason(`${code}: any message`)).toEqual({ code, message: 'any message' })
