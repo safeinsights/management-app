@@ -34,8 +34,8 @@ describe('Study Job Actions', () => {
     })
 
     test('fetchEncryptedJobFilesAction returns the whole-zip artifacts to an enclave reviewer', async () => {
-        // Enclave reviewers are recipients in the embedded manifest, so they get every encrypted
-        // artifact (results + logs) with no override keys — they decrypt with their own key.
+        // Enclave reviewers are manifest recipients, so they get every artifact with no
+        // researcherKeys — they decrypt with their own key.
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
 
@@ -58,10 +58,10 @@ describe('Study Job Actions', () => {
         expect(result[0].researcherKeys).toEqual({})
     })
 
-    // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob'
-    // rule matches lab researchers, not just enclave reviewers — researchers fetch their
-    // re-wrapped result files through this same action, with their per-file override keys.
-    test('fetchEncryptedJobFilesAction returns researcher override keys for shared files', async () => {
+    // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob' rule
+    // matches lab researchers, not just enclave reviewers — researchers fetch their re-wrapped
+    // result files through this same action.
+    test('fetchEncryptedJobFilesAction returns researcher keys for shared files', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { job } = await insertTestStudyJobData({ org })
 

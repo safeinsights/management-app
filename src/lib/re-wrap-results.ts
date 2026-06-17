@@ -4,14 +4,9 @@ import { fetchLabPublicKeysAction } from '@/server/actions/study-job.actions'
 import type { JobFileInfo, SharedFile } from '@/lib/types'
 
 /**
- * Re-wrap (not re-encrypt) approved files — results and logs — for the study's lab researchers,
- * client-side.
- *
- * Each archive keeps the prod whole-zip format: one AES key PER inner file, embedded in the
- * manifest for the enclave recipients. While reviewing, the reviewer's browser recovered each
- * file's raw AES key (see use-decrypt-files). Here, for every researcher public key, we wrap that
- * raw key into a new wrapped key (`crypt`); the ciphertext is never touched. The server only ever
- * receives wrapped keys — never the raw AES key or plaintext.
+ * Re-wrap (not re-encrypt) approved files for the study's lab researchers, client-side. Each inner
+ * file has its own AES key; for every researcher key we wrap that raw key into a new `crypt`.
+ * Ciphertext is untouched — the server only ever receives wrapped keys, never plaintext.
  */
 export async function buildSharedFiles(studyId: string, files: JobFileInfo[]): Promise<SharedFile[]> {
     const labKeys = actionResult(await fetchLabPublicKeysAction({ studyId }))

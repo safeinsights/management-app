@@ -457,17 +457,13 @@ const labOrgIdForJob = async (jobId: string) =>
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
 
-/**
- * Public keys of the lab org that submitted the study (`study.submittedByOrgId`) — the
- * researchers. These are the recipients a reviewer re-wraps approved files for.
- */
+// Public keys of the lab org that submitted the study — the researchers a reviewer re-wraps for.
 export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
     const { submittedByOrgId } = await labOrgIdForJob(jobId)
     return getOrgPublicKeys(submittedByOrgId)
 }
 
-// Same lab (researcher) recipient keys, resolved from the study directly — used by the client
-// approve flow, which knows the study but not necessarily the job id.
+// Same lab keys, resolved from the study id — used by the client approve flow.
 export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
     const { submittedByOrgId } = await Action.db
         .selectFrom('study')
@@ -477,15 +473,9 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
     return getOrgPublicKeys(submittedByOrgId)
 }
 
-/**
- * IDs of this job's artifacts shared with researchers — those with at least one re-wrapped key row
- * in study_job_file_key. "Shared" is derived from the keys themselves (what the researcher decrypts
- * with), so it is granularity-agnostic: all-or-nothing, results-only, or results+logs all fall out
- * of which artifacts got wrapped at approve time — no status/file-type inference. Key rows only
- * exist post-approval, so this is naturally empty before then. Independent of current org
- * membership: removing a researcher from the lab does not delete their key rows, so it never
- * retroactively un-shares. The reviewer panel keys its "shared" indicator on this set.
- */
+// IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
+// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
+// their key rows, so this never retroactively un-shares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
         .selectFrom('studyJobFileKey')

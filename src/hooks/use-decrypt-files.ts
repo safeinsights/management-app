@@ -7,13 +7,10 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
-// One encrypted artifact from fetchEncryptedJobFilesAction: the whole-zip ciphertext blob (prod
-// format, embedded manifest). Decrypting it yields the inner plaintext files.
-//
-// `researcherKeys` (inner file path -> wrapped AES key) is set only for lab researchers, who are
-// NOT manifest recipients: their per-file re-wrapped keys come from study_job_file_key and are
-// merged into the manifest under their fingerprint by ResultsReader. Empty for enclave reviewers,
-// who decrypt via the embedded manifest using their own key's fingerprint.
+// One encrypted artifact from fetchEncryptedJobFilesAction: whole-zip ciphertext (embedded
+// manifest). `researcherKeys` (inner path -> wrapped AES key) is set only for lab researchers, who
+// aren't manifest recipients; ResultsReader merges them into the manifest under their fingerprint.
+// Empty for enclave reviewers, who decrypt with their own key.
 export type EncryptedJobFile = {
     studyJobFileId: string
     fileType: FileType
@@ -44,8 +41,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 fingerprint,
                 artifact.researcherKeys,
             )
-            // Per-file raw AES key: each inner file has its own key, so re-wrap at approval wraps
-            // each file's key for the researchers (see buildSharedFiles).
+            // Capture each inner file's raw AES key so approval can re-wrap it per researcher.
             const entries = await reader.extractFilesWithKeys()
             for (const entry of entries) {
                 files.push({
@@ -53,8 +49,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                     contents: entry.contents,
                     rawAesKey: entry.rawAesKey,
                     sourceId: artifact.studyJobFileId,
-                    // Map an encrypted type to its approved form; an already-approved input
-                    // (researcher viewing shared results) keeps its own type.
+                    // Encrypted type -> approved form; an already-approved input keeps its type.
                     fileType: ENCRYPTED_TO_APPROVED[artifact.fileType] ?? artifact.fileType,
                 })
             }

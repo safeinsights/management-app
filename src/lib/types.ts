@@ -39,8 +39,7 @@ export function isLabOrg(org: { type: OrgType }): org is LabOrg {
 }
 
 // Members of these org types hold an encryption key: enclave reviewers decrypt to review, lab
-// researchers decrypt approved results. A user without a key for one of these orgs is gated into
-// key generation.
+// researchers decrypt approved results. Members without a key are gated into key generation.
 export function orgNeedsKey(org: { type: OrgType }): boolean {
     return isEnclaveOrg(org) || isLabOrg(org)
 }
@@ -222,10 +221,9 @@ export type SharedFile = z.infer<typeof sharedFileSchema>
 export type JobFileInfo = FileEntry & {
     sourceId: string // the study_job_file row this decrypted file came from
     fileType: FileType
-    // Raw AES key recovered while decrypting, kept in-memory so the reviewer's browser can re-wrap
-    // it for researchers at approve time without decrypting again. SECURITY: this unlocks the file
-    // body for any recipient — it must never be sent to the server or persisted. Only the
-    // client-side approve/re-wrap flow (buildSharedFiles) reads it.
+    // Raw AES key recovered while decrypting, kept in-memory so the browser can re-wrap for
+    // researchers at approve time. SECURITY: unlocks the file body — must never be sent to the
+    // server or persisted. Only the client-side re-wrap flow (buildSharedFiles) reads it.
     rawAesKey?: ArrayBuffer
 }
 

@@ -4,26 +4,20 @@ import type { SharedFile } from '@/lib/types'
 import { getLabPublicKeysForJob } from '@/server/db/queries'
 
 /**
- * Persist re-wrapped AES keys that grant lab researchers access to a job's files. Each
- * `study_job_file_key` row holds a file's AES key wrapped to a recipient's public key; only the
- * holder of the matching private key can unwrap it. Each wrapped key is validated against the lab
- * org's known public keys so a client can never share a file with an arbitrary fingerprint.
- * Idempotent via the (study_job_file_id, file_path, fingerprint) unique constraint. The file
- * ciphertext is untouched.
+ * Persist re-wrapped AES keys granting lab researchers access to a job's files. Each
+ * `study_job_file_key` row holds a file's AES key wrapped to a recipient's public key. Validated
+ * against the lab org's known keys so a client can't share to an arbitrary fingerprint. Idempotent
+ * via the (study_job_file_id, file_path, fingerprint) unique constraint; ciphertext untouched.
  *
- * Approval itself is recorded by the caller as a job-level FILES-APPROVED `job_status_change`
- * event (all-or-nothing, per Phil 2026-06) — NOT as a per-file column. The wrapped keys are just
- * the access mechanism; deleting one to revoke is *prospective only*: a researcher who already
- * unwrapped the AES key keeps it, so deletion stops future reads, not past ones.
+ * Revocation is prospective only: a researcher who already unwrapped a key keeps it.
  */
 export async function insertSharedFileKeys(db: DBExecutor, jobId: string, sharedFiles: SharedFile[]): Promise<void> {
     const labKeys = await getLabPublicKeysForJob(jobId)
     const labFingerprints = new Set(labKeys.map((k) => k.fingerprint))
 
-    // Ownership guard: `studyJobFileId` comes from the client payload, so confirm every file
-    // belongs to `jobId` before marking it shared. Without this, a reviewer with approve rights on
-    // job A could pass job B's file ids and — if B's lab shares a fingerprint — grant access to
-    // another job's files. The fingerprint validation below does not cover this.
+    // Ownership guard: `studyJobFileId` is client-supplied, so confirm every file belongs to
+    // `jobId` — else a reviewer could share another job's files by passing its ids. The fingerprint
+    // check below doesn't cover this.
     const jobFiles = await db.selectFrom('studyJobFile').select('id').where('studyJobId', '=', jobId).execute()
     const jobFileIds = new Set(jobFiles.map((f) => f.id))
     for (const file of sharedFiles) {
@@ -32,11 +26,8 @@ export async function insertSharedFileKeys(db: DBExecutor, jobId: string, shared
         }
     }
 
-    // We validate that each wrapped key targets a real lab recipient, but the server is blind: it
-    // cannot verify the `crypt` actually wraps the file's correct AES key. A buggy reviewer client
-    // could persist one that unwraps to garbage, and the researcher would fail to decrypt
-    // downstream. The reviewer client is trusted (it wraps the same key it just reviewed with), so
-    // this is accepted by design rather than guarded here.
+    // Server can't verify `crypt` wraps the correct AES key — only that the fingerprint is a real
+    // lab recipient. The reviewer client is trusted (wraps the key it just reviewed with).
     const rows = sharedFiles.flatMap((file) =>
         file.keys.map((key) => {
             if (!labFingerprints.has(key.fingerprint)) {

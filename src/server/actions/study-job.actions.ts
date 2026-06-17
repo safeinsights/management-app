@@ -34,19 +34,13 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
-        // Re-wrap, not re-encrypt: the reviewer's browser unwrapped the results' AES key while
-        // reviewing and wrapped it for the lab researchers' public keys. We only persist those
-        // wrapped-key rows — the ciphertext is never touched and the server never sees plaintext
-        // or the raw AES key. Adding a wrapped key = sharing. The FILES-APPROVED status change
-        // below is the all-or-nothing approval fact itself.
+        // Re-wrap, not re-encrypt: persist only the wrapped-key rows the reviewer's browser
+        // produced. Ciphertext untouched; server never sees plaintext. The FILES-APPROVED status
+        // below is the all-or-nothing approval fact.
         //
-        // KNOWN LIMITATION — late-joining researchers (OUT OF SCOPE, per Phil 2026-06):
-        // Keys are wrapped only for lab members with a registered public key at approval time. A
-        // researcher who joins or generates their key *after* approval gets no wrapped key and
-        // cannot read already-approved results. There is intentionally NO backfill: once approved,
-        // the reviewer's browser no longer holds the raw AES key, so re-wrapping for a late joiner
-        // would require re-opening and re-decrypting. Researchers must register keys before
-        // approval. FLAG FOR PO: if backfill is ever required, a recovery flow would land here.
+        // No backfill for late joiners: keys are wrapped only for lab members with a registered key
+        // at approval time. Registering a key later can't unlock already-approved results —
+        // re-wrapping needs the raw AES key, which the browser no longer holds.
         await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
 
         await db
@@ -79,9 +73,8 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// IDs of the job's artifacts shared with researchers — derived from the re-wrapped key rows (see
-// getSharedFileIdsForJob), so it reflects whatever was shared at approve time (results, or
-// results + logs). Empty before approval. There is no plaintext approved copy.
+// IDs of the job's artifacts shared with researchers, derived from the re-wrapped key rows. Empty
+// before approval.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
@@ -183,9 +176,8 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     )
     .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
-        // Include submittedByOrgId so the 'view StudyJob' ability matches lab researchers, not
-        // just enclave reviewers (permissions.ts permits view when submittedByOrgId ∈ the user's
-        // researcher orgs) — researchers fetch their own re-wrapped result files here.
+        // Include submittedByOrgId so 'view StudyJob' matches lab researchers, not just enclave
+        // reviewers — researchers fetch their own re-wrapped result files here.
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
     })
     .requireAbilityTo('view', 'StudyJob')
@@ -199,19 +191,16 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
         if (!encryptedFiles.length) return []
 
-        // Each artifact is the prod whole-zip (embedded manifest). Enclave reviewers are manifest
-        // recipients and decrypt with their own key; lab researchers are not, so they decrypt with
-        // per-file re-wrapped keys (study_job_file_key) supplied as `researcherKeys`. A reviewer is
-        // a member of the study's enclave org (study.orgId); everyone else takes the researcher
-        // path.
+        // Enclave reviewers are manifest recipients and decrypt with their own key; lab researchers
+        // aren't, so they get per-file re-wrapped keys (study_job_file_key) as `researcherKeys`. A
+        // reviewer is a member of the study's enclave org; everyone else takes the researcher path.
         const isEnclaveReviewer = Object.values(session.orgs).some(
             (org) => org.id === studyJob.orgId && org.type === 'enclave',
         )
 
-        // TODO(perf): every ciphertext body is buffered into server memory and serialized through
-        // the server-action layer. DEFERRED on purpose (Phil 2026-06) — fine at current result
-        // sizes. ESCAPE HATCH if we hit limits: hand the client a short-lived signed S3 URL to
-        // fetch + decrypt ciphertext directly, instead of proxying through here.
+        // TODO(perf): ciphertext bodies are buffered into server memory and serialized through the
+        // action layer. Fine at current sizes; if it grows, hand the client a signed S3 URL to
+        // fetch + decrypt directly instead.
         if (isEnclaveReviewer) {
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
@@ -224,10 +213,8 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
         }
 
-        // Researcher: return only artifacts this user has wrapped keys for. Approval re-wraps both
-        // results and logs (all-or-nothing), so both can appear here; keys exist only after
-        // approval, so this is naturally gated. Build the {file_path -> crypt} key map per
-        // artifact.
+        // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
+        // naturally gated). Build the {file_path -> crypt} map per artifact.
         const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
             .select(['studyJobFileId', 'filePath', 'crypt'])

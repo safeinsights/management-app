@@ -27,10 +27,9 @@ const toArrayBuffer = (str: string): ArrayBuffer => {
 
 type MinimalJob = { id: string }
 
-// Encrypt one results artifact the way TOA would (the prod whole-zip format with an embedded
-// manifest), persist the matching study_job_file row, and return the artifact entry the
-// fetchEncryptedJobFilesAction mock will serve. The reviewer is a manifest recipient, so the
-// override map is empty — they decrypt with their own key (no per-file re-wrapped keys needed).
+// Encrypt one results artifact the way TOA would (prod whole-zip + embedded manifest), persist the
+// study_job_file row, and return the entry the fetchEncryptedJobFilesAction mock serves. The
+// reviewer is a manifest recipient, so researcherKeys is empty — they decrypt with their own key.
 async function seedArtifact(
     job: MinimalJob,
     { fileType, subdir, files }: { fileType: FileType; subdir: string; files: { name: string; content: string }[] },

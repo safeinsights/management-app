@@ -28,10 +28,8 @@ async function orgPublicKeys(orgId: string): Promise<{ publicKey: ArrayBuffer; f
         new Uint8Array(ab).set(publicKey)
         return { publicKey: ab, fingerprint }
     })
-    // Seed data contains placeholder keys (e.g. fingerprint "e2e-test-fingerprint-admin"
-    // with literal text bytes) that aren't real SPKI DER — wrapping for them throws
-    // deep inside ResultsWriter. Pre-validate with the same import params si-encryption
-    // uses and skip the duds.
+    // Seed data has placeholder keys (literal text bytes, not SPKI DER) that throw when wrapped.
+    // Pre-validate with si-encryption's import params and skip the duds.
     const valid: typeof keys = []
     for (const k of keys) {
         try {
@@ -96,21 +94,15 @@ async function main() {
     if (alreadyHasResults) {
         console.info(`Job already has encrypted results — skipping store (delete study_job_file rows to re-inject).`)
     } else {
-        // Mirror the real enclave helper (osenclave `toa_results_upload`): it posts exactly ONE
-        // results file and ONE logs file, so each artifact's zip holds a single encrypted inner
-        // entry. Do NOT add multiple result files here — the live helper can't produce that shape
-        // (one file per upload + MA's RUN-COMPLETE 422 guard), and faking it gave a misleading
-        // multi-row picture in the DB.
+        // One results file + one logs file, matching the real enclave helper (one file per upload).
         const resultsZip = await buildZip([{ name: 'results.csv', content: 'group,count\nA,42\nB,17\n' }], reviewerKeys)
         const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
         await storeStudyEncryptedResultsFile(info, resultsZip)
         await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')
     }
 
-    // Make the status chain realistic. A results-stage job must have had its code approved first,
-    // or the proposal-level review buttons stay visible (they only hide once the study is APPROVED
-    // *and* the code was reviewed). Inject CODE-APPROVED before RUN-COMPLETE so the latest status
-    // stays RUN-COMPLETE and the page shows only the results Approve/Reject.
+    // A results-stage job needs code approved first, else the proposal review buttons stay visible.
+    // Inject CODE-APPROVED before RUN-COMPLETE so the latest status stays RUN-COMPLETE.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status', 'createdAt'])
