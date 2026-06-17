@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Center, Group, Image } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
@@ -11,9 +11,13 @@ type ImagePreviewModalProps = {
 }
 
 export function ImagePreviewModal({ name, contents, mime, onClose }: ImagePreviewModalProps) {
-    const src = useMemo(() => {
-        const blob = new Blob([contents], { type: mime })
-        return URL.createObjectURL(blob)
+    const [src, setSrc] = useState('')
+
+    useEffect(() => {
+        const url = URL.createObjectURL(new Blob([contents], { type: mime }))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSrc(url)
+        return () => URL.revokeObjectURL(url)
     }, [contents, mime])
 
     const title = (
