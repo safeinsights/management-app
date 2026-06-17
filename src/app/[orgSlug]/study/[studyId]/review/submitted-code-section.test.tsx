@@ -429,6 +429,31 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(body).toHaveTextContent('hello from main.R')
         expect(body).toHaveTextContent('main.R')
     })
+
+    it('renders a download link on every visible file tab (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
+        await renderSection(fixture)
+
+        const mainDownload = await screen.findByRole('link', { name: 'Download main.R' })
+        expect(mainDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/main.R`)
+        expect(mainDownload).toHaveAttribute('download', 'main.R')
+
+        const helpersDownload = screen.getByRole('link', { name: 'Download helpers.R' })
+        expect(helpersDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/helpers.R`)
+        expect(helpersDownload).toHaveAttribute('download', 'helpers.R')
+    })
+
+    it('exposes a download link for a file hidden in the overflow menu (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+
+        const hiddenDownload = await screen.findByRole('link', { name: 'Download hidden-target.R' })
+        expect(hiddenDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/hidden-target.R`)
+        expect(hiddenDownload).toHaveAttribute('download', 'hidden-target.R')
+    })
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
