@@ -3,6 +3,11 @@
  * Codes mirror the server-side `AuthFailureCode` union; an unknown prefix is
  * treated as a generic auth failure so the client never crashes on a future
  * code the server adds.
+ *
+ * This union is a superset of the server's: the server splits terminal
+ * rejections (AuthFailureError) from the recoverable INFRA_UNAVAILABLE
+ * (InfraUnavailableError), but both reach the client over the same wire, so the
+ * client lists both. Keep the two in sync by hand (OTTER-626).
  */
 export type AuthFailureCode =
     | 'MISSING_TOKEN'

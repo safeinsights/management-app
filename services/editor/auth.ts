@@ -268,6 +268,14 @@ export async function studyIdForDocument(parsed: ParsedDocumentName, db: Pick<Db
 // `onAuthenticationFailed.reason`. The wire format is `CODE: message` so the
 // client can split on the first colon and dispatch on `code` rather than
 // pattern-matching the message text.
+//
+// These are *terminal* auth rejections only. INFRA_UNAVAILABLE is intentionally
+// NOT a member: it travels the same `CODE: message` wire but is a recoverable
+// infra failure carried by InfraUnavailableError (below), and the client treats
+// it as non-terminal (retry, not "editor unavailable"). Do not fold it in here —
+// making it an AuthFailureError code would latch the terminal banner (OTTER-626).
+// The client's AuthFailureCode union (src/lib/realtime/auth-failure.ts) is the
+// superset that lists both; keep the two in sync by hand.
 export type AuthFailureCode =
     | 'MISSING_TOKEN'
     | 'INVALID_TOKEN'
