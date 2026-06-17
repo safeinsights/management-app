@@ -30,14 +30,10 @@ export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-
 export const isCodeUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && CODE_UNDER_REVIEW_JOB_STATUSES.includes(status)
 
-// OTTER-533: the wizard "Submit code" step is the *first-submission* path for a round. A round is
-// still on that first, undecided submission while every recorded status is INITIATED (round opened)
-// or under review (CODE-SUBMITTED/CODE-SCANNED). Once a code decision, run, or result lands, the
-// round is closed to the wizard — re-entering it (e.g. via stale back-navigation) would let
-// getOrCreateCurrentRoundJob overwrite the prior submission's files or open a new round behind the
-// reviewer's back, wiping results under review. Those transitions belong to the guarded resubmit
-// flow. Testing every status (not just the latest) is order-independent: sibling statuses written
-// in one transaction tie on createdAt and can't be ranked reliably (see getOrCreateCurrentRoundJob).
+// A round is still on its first submission while every status is INITIATED or under review
+// (CODE-SUBMITTED/CODE-SCANNED); past that, the wizard submit must refuse (see submitStudyCodeAction).
+// Check every status rather than the latest: statuses written in one transaction tie on createdAt
+// and sort unreliably (see getOrCreateCurrentRoundJob).
 export const OPEN_SUBMISSION_JOB_STATUSES: readonly StudyJobStatus[] = ['INITIATED', ...CODE_UNDER_REVIEW_JOB_STATUSES]
 
 export const isInitialSubmissionRound = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>

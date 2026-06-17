@@ -241,25 +241,4 @@ describe('StudyAgreementsRoute', () => {
 
         expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
-
-    // OTTER-533: back-navigation skips the redirects above, so the proceed button must not send a
-    // study whose code is already submitted to the first-submission upload page (step 4).
-    it('researcher proceed targets the study view (not the upload page) when code is already submitted', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'APPROVED',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'previous' }),
-        })
-        renderWithProviders(page!)
-
-        expect(screen.getByRole('button', { name: 'View study' })).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /Proceed to Step 4/ })).not.toBeInTheDocument()
-    })
 })

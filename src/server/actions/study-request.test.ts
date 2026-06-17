@@ -766,9 +766,8 @@ describe('Request Study Actions', () => {
             expect((result as { error: string }).error).toContain('Main file not in file list')
         })
 
-        // OTTER-533: the wizard submit is the first-submission path. Once a round has been decided or
-        // has produced results, re-submitting here would overwrite the prior submission / wipe results
-        // under review, so the action must refuse and leave the study untouched (updates go via resubmit).
+        // Once a round is decided or has results, the first-submission action must refuse and leave
+        // the study untouched (updates go via resubmit).
         const countSubmitted = (studyId: string) =>
             db
                 .selectFrom('jobStatusChange')
@@ -789,7 +788,7 @@ describe('Request Study Actions', () => {
             })
             const root = await createWorkspaceDir('submit-after-approved')
             workspaceRoots.push(root)
-            // Provide valid files so the ONLY thing preventing the destructive submit is the guard.
+            // Valid files, so only the guard can stop the otherwise-destructive submit.
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("new")' })
 
             const result = await submitStudyCodeAction({

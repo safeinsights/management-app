@@ -573,10 +573,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
-        // OTTER-533: this is the first-submission path. If the study already has a submission that has
-        // moved past the open/under-review state (a code decision, run, or results), accepting another
-        // submission here would overwrite the prior round's files or silently open a new one — wiping
-        // results under review. Such updates must go through the guarded resubmit flow instead.
+        // First-submission path only: once a prior submission is decided or has results, re-submitting
+        // here overwrites it and wipes results under review. Those updates go through resubmitStudyCodeAction.
         const latestSubmitted = await latestSubmittedJobForStudy(studyId)
         if (latestSubmitted && !isInitialSubmissionRound(latestSubmitted.statusChanges)) {
             throw new Error(

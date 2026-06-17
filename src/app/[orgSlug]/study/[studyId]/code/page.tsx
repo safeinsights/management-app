@@ -26,9 +26,8 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
-    // OTTER-533: this first-submission upload page must not be reachable once code has been submitted
-    // (e.g. via back-navigation from a later step). Re-submitting here overwrites the prior submission
-    // and wipes results under review — send the researcher to the read-only study view instead.
+    // Once code is submitted, this upload page is a dead end: re-submitting would clobber the prior
+    // submission, so send them to the study view.
     const study = await getStudyAction({ studyId })
     if (!isActionError(study) && study && studyHasJobStatus(study, 'CODE-SUBMITTED')) {
         redirect(Routes.studyView({ orgSlug, studyId }))

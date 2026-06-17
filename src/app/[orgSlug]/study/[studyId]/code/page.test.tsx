@@ -91,7 +91,7 @@ describe('StudyCodeUploadRoute', () => {
         })
     })
 
-    // OTTER-533: the first-submission upload page must not be reachable once code is submitted.
+    // The upload page must not be reachable once code is submitted.
     it('redirects to view when code has already been submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
