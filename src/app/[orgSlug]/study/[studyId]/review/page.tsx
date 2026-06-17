@@ -1,7 +1,7 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import type { ReviewDecision } from '@/database/types'
+import type { ReviewDecision, StudyStatus } from '@/database/types'
 import { isActionError } from '@/lib/errors'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
@@ -31,6 +31,16 @@ const CODE_DECISION_TO_REVIEW_DECISION: Record<CodeDecisionStatus, ReviewDecisio
     'CODE-APPROVED': 'APPROVE',
     'CODE-CHANGES-REQUESTED': 'NEEDS-CLARIFICATION',
     'CODE-REJECTED': 'REJECT',
+}
+
+// A decided proposal doesn't always carry a studyProposalComment row: the approve/reject paths
+// (performStudyProposalApproval) record the decision on the study itself without writing feedback.
+// Mapping the study status lets the "initial request" view synthesize a decision so it renders the
+// decided proposal instead of a blank PostFeedbackView (which returns null when no decision exists).
+const PROPOSAL_STATUS_TO_REVIEW_DECISION: Partial<Record<StudyStatus, ReviewDecision>> = {
+    APPROVED: 'APPROVE',
+    REJECTED: 'REJECT',
+    'CHANGE-REQUESTED': 'NEEDS-CLARIFICATION',
 }
 
 export default async function StudyReviewPage(props: {
@@ -66,6 +76,36 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
+        // OTTER-540: the "View approved initial request" link on the code-review page opens
+        // this route in a new tab with `from=initial-request`. It must always land on the
+        // approved *proposal* (initial request) feedback view — never the code-review page —
+        // so it sits ahead of the code-submitted/agreements branches and ignores `codeSubmitted`.
+        if (searchParams.from === 'initial-request') {
+            const proposalEntries = await getProposalFeedbackForStudyAction({ studyId })
+            if (isActionError(proposalEntries)) {
+                return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
+            }
+            // proposalEntries is commonly empty (approve-without-written-feedback writes no comment),
+            // so derive the decision from the study status. Without this the branch would render a
+            // blank PostFeedbackView for the standard approved study and the link would open an empty tab.
+            const proposalDecision = PROPOSAL_STATUS_TO_REVIEW_DECISION[study.status]
+            const proposalFallback = proposalDecision
+                ? { decision: proposalDecision, timestamp: study.approvedAt ?? study.rejectedAt ?? study.createdAt }
+                : undefined
+            // Only render when there's something to show — feedback entries or a decided status. An
+            // undecided proposal with no feedback falls through to the standard routing below.
+            if (proposalEntries.length > 0 || proposalFallback) {
+                return (
+                    <PostFeedbackView
+                        orgSlug={orgSlug}
+                        study={study}
+                        entries={proposalEntries}
+                        fallback={proposalFallback}
+                    />
+                )
+            }
+        }
+
         // OTTER-552: once a code-review decision has been made, opening the study (e.g. via
         // the dashboard "View" link, which carries no `from` param) must land the DO on the
         // post-feedback code page — not the active code-review/decision page. The decision is

@@ -1,18 +1,11 @@
 'use client'
 
-import { Link } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { useMutation } from '@/common'
-import { Button, Flex, Paper, Stack, TextInput, Title } from '@mantine/core'
 import { isEmail, useForm } from '@mantine/form'
-import { CaretLeftIcon } from '@phosphor-icons/react'
-import { Routes } from '@/lib/routes'
-
-interface ResetFormValues {
-    email: string
-}
+import { ResetFormValues, ResetFormView } from './reset-form-view'
 
 interface ResetFormProps {
     onCompleteAction: (_reset: SignInResource) => void
@@ -60,45 +53,10 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
     })
 
     return (
-        <form onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}>
-            <Paper bg="white" shadow="none" p="xxl">
-                <Flex direction="column" gap="md" mb="lg">
-                    <Title mb="xs" ta="center" order={3}>
-                        Reset your password
-                    </Title>
-
-                    <TextInput
-                        key={emailForm.key('email')}
-                        {...emailForm.getInputProps('email')}
-                        label="Enter registered email"
-                        placeholder="Email address"
-                        aria-label="Email"
-                    />
-                    <Stack align="center" gap="xs">
-                        <Button
-                            w="100%"
-                            mt="xs"
-                            type="submit"
-                            size="lg"
-                            loading={isPending}
-                            disabled={!emailForm.isValid()}
-                        >
-                            Send Verification Code
-                        </Button>
-                        <Link
-                            href={Routes.accountSignin}
-                            mt="md"
-                            c="purple.5"
-                            fw={600}
-                            fz="md"
-                            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                        >
-                            <CaretLeftIcon size={20} />
-                            Back to log in
-                        </Link>
-                    </Stack>
-                </Flex>
-            </Paper>
-        </form>
+        <ResetFormView
+            form={emailForm}
+            onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}
+            isPending={isPending}
+        />
     )
 }

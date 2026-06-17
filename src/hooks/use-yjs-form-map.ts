@@ -9,11 +9,12 @@ import * as Y from 'yjs'
 import { isActionError } from '@/lib/errors'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
-import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import {
+    COLLAB_FIELD_KEYS,
+    type CollabFieldKey,
+    type ProposalFormValues,
+} from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
-export type CollabFieldKey = 'title' | 'datasets' | 'piName' | 'piUserId'
-
-const COLLAB_FIELD_KEYS: CollabFieldKey[] = ['title', 'datasets', 'piName', 'piUserId']
 const FIELDS_MAP_NAME = 'fields'
 
 const LOCAL_ORIGIN = Symbol('use-yjs-form-map.local')
