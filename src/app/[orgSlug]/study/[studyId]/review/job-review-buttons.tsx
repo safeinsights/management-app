@@ -44,7 +44,7 @@ export const JobReviewButtons = ({
 
             if (status === 'FILES-APPROVED') {
                 // Re-wrap each approved file's AES key for the lab researchers, client-side.
-                // Only the new wrapped keys are sent — never the raw key or plaintext.
+                // Only the wrapped keys are sent — never the raw key or plaintext.
                 const sharedFiles = await buildSharedFiles(job.studyId, decryptedResults)
                 await approveStudyJobFilesAction({ orgSlug, jobInfo, sharedFiles })
             }

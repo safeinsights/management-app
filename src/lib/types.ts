@@ -38,9 +38,9 @@ export function isLabOrg(org: { type: OrgType }): org is LabOrg {
     return org.type === 'lab'
 }
 
-// Members of these org types hold an encryption key: enclave reviewers decrypt to
-// review, lab researchers decrypt approved results. A user without a key for one of
-// these orgs is gated into key generation.
+// Members of these org types hold an encryption key: enclave reviewers decrypt to review, lab
+// researchers decrypt approved results. A user without a key for one of these orgs is gated into
+// key generation.
 export function orgNeedsKey(org: { type: OrgType }): boolean {
     return isEnclaveOrg(org) || isLabOrg(org)
 }
@@ -209,23 +209,23 @@ const FILE_TYPES = [
 
 export const fileTypeSchema = z.enum(FILE_TYPES)
 
-// A re-wrapped AES key for one researcher recipient of one approved file
-// (a `study_job_file_key` row; see src/server/results-sharing.ts for the model).
+// A re-wrapped AES key for one researcher recipient of one approved file (a `study_job_file_key`
+// row; see src/server/results-sharing.ts for the model).
 export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
 export const sharedFileSchema = z.object({
     studyJobFileId: z.string(), // the whole-zip study_job_file row
-    filePath: z.string(), // the inner file within that archive (one AES key per inner file)
+    filePath: z.string(), // the inner file within the archive (one AES key per inner file)
     keys: z.array(sharedFileKeySchema),
 })
 export type SharedFile = z.infer<typeof sharedFileSchema>
 
 export type JobFileInfo = FileEntry & {
-    sourceId: string // the study_job_file row id this decrypted file came from
+    sourceId: string // the study_job_file row this decrypted file came from
     fileType: FileType
-    // Raw AES key recovered while decrypting, kept in-memory so the reviewer's browser can
-    // re-wrap it for researchers at approve time without decrypting again. SECURITY: this
-    // unlocks the file body for any recipient — it must never be sent to the server or
-    // persisted. Only the client-side approve/re-wrap flow (buildSharedFiles) reads it.
+    // Raw AES key recovered while decrypting, kept in-memory so the reviewer's browser can re-wrap
+    // it for researchers at approve time without decrypting again. SECURITY: this unlocks the file
+    // body for any recipient — it must never be sent to the server or persisted. Only the
+    // client-side approve/re-wrap flow (buildSharedFiles) reads it.
     rawAesKey?: ArrayBuffer
 }
 

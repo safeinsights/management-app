@@ -97,21 +97,20 @@ async function main() {
         console.info(`Job already has encrypted results — skipping store (delete study_job_file rows to re-inject).`)
     } else {
         // Mirror the real enclave helper (osenclave `toa_results_upload`): it posts exactly ONE
-        // results file and ONE logs file — each artifact's zip therefore holds a single encrypted
-        // inner entry. Do NOT add multiple result files here; that's not a shape the live helper
-        // can produce (one file per upload + MA's RUN-COMPLETE 422 guard), and faking it gave us a
-        // misleading multi-row picture in the DB.
+        // results file and ONE logs file, so each artifact's zip holds a single encrypted inner
+        // entry. Do NOT add multiple result files here — the live helper can't produce that shape
+        // (one file per upload + MA's RUN-COMPLETE 422 guard), and faking it gave a misleading
+        // multi-row picture in the DB.
         const resultsZip = await buildZip([{ name: 'results.csv', content: 'group,count\nA,42\nB,17\n' }], reviewerKeys)
         const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
         await storeStudyEncryptedResultsFile(info, resultsZip)
         await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')
     }
 
-    // Make the status chain realistic. A results-stage job must have had its code
-    // approved first — otherwise the proposal-level review buttons stay visible (they
-    // only hide once the study is APPROVED *and* the code was reviewed). Inject
-    // CODE-APPROVED before RUN-COMPLETE so the latest status stays RUN-COMPLETE and the
-    // page shows only the results Approve/Reject.
+    // Make the status chain realistic. A results-stage job must have had its code approved first,
+    // or the proposal-level review buttons stay visible (they only hide once the study is APPROVED
+    // *and* the code was reviewed). Inject CODE-APPROVED before RUN-COMPLETE so the latest status
+    // stays RUN-COMPLETE and the page shows only the results Approve/Reject.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status', 'createdAt'])

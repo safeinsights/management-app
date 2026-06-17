@@ -278,29 +278,59 @@ describe('getSharedFileIdsForJob', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-    it('returns [] when the job is not approved', async () => {
+    // Sharing = a re-wrapped key row for the artifact. This is what getSharedFileIdsForJob reads,
+    // so tests grant access by inserting these rows rather than flipping a status.
+    const shareFile = (studyJobFileId: string, filePath: string, fingerprint: string) =>
+        db
+            .insertInto('studyJobFileKey')
+            .values({ studyJobFileId, filePath, fingerprint, crypt: 'wrapped-key' })
+            .execute()
+
+    it('returns [] when nothing has been shared', async () => {
         const { job } = await insertTestStudyJobData()
         await insertFile(job.id, 'ENCRYPTED-RESULT')
         expect(await getSharedFileIdsForJob(job.id)).toEqual([])
     })
 
-    it('returns result AND log file ids once approved (all-or-nothing)', async () => {
+    it('returns each artifact that has a re-wrapped key, results and logs alike', async () => {
         const { job } = await insertTestStudyJobData()
         const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
         const log = await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
+        await shareFile(log.id, 'run.log', 'fp-researcher')
 
         const ids = await getSharedFileIdsForJob(job.id)
         expect(ids.sort()).toEqual([result.id, log.id].sort())
     })
 
-    // Approval is the durable historical fact (the FILES-APPROVED status event), independent of
-    // current org membership. Removing a researcher from the lab must NOT retroactively
-    // un-approve files. This guards against anyone reintroducing a membership join here.
-    it('stays approved after the lab researchers are removed from the org', async () => {
+    // The query reports exactly the artifacts with key rows, so a file that exists but was never
+    // re-wrapped is not "shared". (All-or-nothing approval shares results + logs together, but the
+    // query stays correct for any subset — keeping the door open to splitting them later.)
+    it('excludes artifacts that have no re-wrapped key', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG') // present but not re-wrapped
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
+    })
+
+    it('returns an artifact once even when shared with multiple researchers', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await shareFile(result.id, 'results.csv', 'fp-a')
+        await shareFile(result.id, 'results.csv', 'fp-b')
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
+    })
+
+    // Sharing is recorded by the key rows, independent of current org membership. Removing a
+    // researcher from the lab must NOT delete their key rows / retroactively un-share. This guards
+    // against anyone reintroducing a membership join here.
+    it('stays shared after the lab researchers are removed from the org', async () => {
         const { org, job } = await insertTestStudyJobData()
         const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
 
         await db.deleteFrom('orgUser').where('orgId', '=', org.id).execute()
 

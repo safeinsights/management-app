@@ -53,11 +53,10 @@ const FileRow: FC<{ label: string; name: string; decrypted?: JobFileInfo }> = ({
     )
 }
 
-// Researcher-facing view of shared results. There is no plaintext copy: the researcher
-// decrypts the encrypted file bodies with their own key (the wrapped key the reviewer
-// produced for them at approve). The file list is shown before decryption — names aren't
-// secret, and the reviewer panel lists them too — and only View/Download are gated behind
-// the key.
+// Researcher-facing view of shared results. There is no plaintext copy: the researcher decrypts
+// the file bodies with their own key (the wrapped key the reviewer produced at approve). The file
+// list shows before decryption — names aren't secret, and the reviewer panel lists them too —
+// only View/Download are gated behind the key.
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>()
 
@@ -80,10 +79,10 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         onSuccess: setDecryptedFiles,
     })
 
-    // One row per decrypted inner file once decrypted (each artifact is a whole-zip that unpacks
+    // After decryption, one row per decrypted inner file (each artifact is a whole-zip unpacking
     // into many files); before that, one locked row per encrypted artifact. Researchers receive
-    // both results and approved logs (re-wrapped at approval, all-or-nothing); results are
-    // listed first, then logs.
+    // both results and approved logs (re-wrapped at approval, all-or-nothing); results listed
+    // first, then logs.
     const rows = useMemo(() => {
         if (decryptedFiles) {
             return decryptedFiles.map((f) => ({

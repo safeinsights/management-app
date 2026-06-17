@@ -5,7 +5,6 @@ import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
-import { ENCRYPTED_LOG_TYPES } from '@/lib/file-type-helpers'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -459,16 +458,16 @@ const labOrgIdForJob = async (jobId: string) =>
         .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
 
 /**
- * Public keys of the lab org that submitted the study (`study.submittedByOrgId`) —
- * the researchers. These are the recipients a reviewer re-wraps approved files for.
+ * Public keys of the lab org that submitted the study (`study.submittedByOrgId`) — the
+ * researchers. These are the recipients a reviewer re-wraps approved files for.
  */
 export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
     const { submittedByOrgId } = await labOrgIdForJob(jobId)
     return getOrgPublicKeys(submittedByOrgId)
 }
 
-// Same lab (researcher) recipient keys, resolved from the study directly — used by the
-// client approve flow, which knows the study but not necessarily the job id.
+// Same lab (researcher) recipient keys, resolved from the study directly — used by the client
+// approve flow, which knows the study but not necessarily the job id.
 export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
     const { submittedByOrgId } = await Action.db
         .selectFrom('study')
@@ -479,32 +478,24 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 }
 
 /**
- * IDs of this job's files shared with researchers. Approval is all-or-nothing at the job level
- * (per Phil 2026-06): once a FILES-APPROVED event exists, every researcher-facing encrypted
- * artifact of the job is shared — results AND logs (code-run, security-scan, packaging-error),
- * matching what the reviewer's browser re-wrapped on approve. The reviewer panel keys its "shared"
- * indicator on this set, so it must list every shared artifact, not just results. Driven by the
- * recorded status event, not current org membership — removing a researcher from the lab must not
- * retroactively un-approve files. Returns [] if not approved.
+ * IDs of this job's artifacts shared with researchers — those with at least one re-wrapped key row
+ * in study_job_file_key. "Shared" is derived from the keys themselves (what the researcher decrypts
+ * with), so it is granularity-agnostic: all-or-nothing, results-only, or results+logs all fall out
+ * of which artifacts got wrapped at approve time — no status/file-type inference. Key rows only
+ * exist post-approval, so this is naturally empty before then. Independent of current org
+ * membership: removing a researcher from the lab does not delete their key rows, so it never
+ * retroactively un-shares. The reviewer panel keys its "shared" indicator on this set.
  */
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
-    const approved = await Action.db
-        .selectFrom('jobStatusChange')
-        .select('id')
-        .where('studyJobId', '=', jobId)
-        .where('status', '=', 'FILES-APPROVED')
-        .executeTakeFirst()
-
-    if (!approved) return []
-
     const rows = await Action.db
-        .selectFrom('studyJobFile')
-        .select('id')
-        .where('studyJobId', '=', jobId)
-        .where('fileType', 'in', ['ENCRYPTED-RESULT', ...ENCRYPTED_LOG_TYPES])
+        .selectFrom('studyJobFileKey')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileKey.studyJobFileId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select('studyJobFileKey.studyJobFileId')
+        .distinct()
         .execute()
 
-    return rows.map((r) => r.id)
+    return rows.map((r) => r.studyJobFileId)
 }
 
 export type StudyReviewWithMeta = {

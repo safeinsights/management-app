@@ -8,10 +8,10 @@ import type { JobFileInfo, SharedFile } from '@/lib/types'
  * client-side.
  *
  * Each archive keeps the prod whole-zip format: one AES key PER inner file, embedded in the
- * manifest for the enclave recipients. While decrypting to review, the reviewer's browser
- * recovered each file's raw AES key (see use-decrypt-files). Here, for every researcher public
- * key, we wrap that file's raw key into a new wrapped key (`crypt`); the ciphertext is never
- * touched. The server only ever receives wrapped keys — never the raw AES key or plaintext.
+ * manifest for the enclave recipients. While reviewing, the reviewer's browser recovered each
+ * file's raw AES key (see use-decrypt-files). Here, for every researcher public key, we wrap that
+ * raw key into a new wrapped key (`crypt`); the ciphertext is never touched. The server only ever
+ * receives wrapped keys — never the raw AES key or plaintext.
  */
 export async function buildSharedFiles(studyId: string, files: JobFileInfo[]): Promise<SharedFile[]> {
     const labKeys = actionResult(await fetchLabPublicKeysAction({ studyId }))

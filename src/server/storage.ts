@@ -44,14 +44,14 @@ export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileTy
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.txt`, file, fileType)
 }
 
-// Encryption granularity vs storage granularity — two different levels, easy to conflate:
-//   - CRYPTO is PER FILE: TOA's ResultsWriter gives each inner file its own AES key + IV and
-//     encrypts it individually; the wrapped keys live in a manifest.json embedded in the zip.
-//   - STORAGE is the WHOLE ZIP: that manifest + all the per-file ciphertexts are one archive,
-//     persisted as a single S3 object / a single `study_job_file` row here.
+// Crypto granularity vs storage granularity differ:
+//   - CRYPTO is PER FILE: TOA's ResultsWriter gives each inner file its own AES key + IV; the
+//     wrapped keys live in a manifest.json embedded in the zip.
+//   - STORAGE is the WHOLE ZIP: that manifest + all per-file ciphertexts are one archive,
+//     persisted as a single S3 object / `study_job_file` row.
 // So sharing with a researcher re-wraps EACH file's key (one `study_job_file_key` row per inner
-// file per researcher) — not one key for the whole archive. The format is unchanged from prod;
-// we deliberately do NOT re-encrypt or repackage on ingest.
+// file per researcher), not one key for the whole archive. Format is unchanged from prod; we
+// deliberately do NOT re-encrypt or repackage on ingest.
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }

@@ -1,16 +1,15 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // Per-recipient wrapped AES keys that grant a lab researcher access to one inner file of an
+    // Per-recipient wrapped AES keys granting a lab researcher access to one inner file of an
     // approved results archive. The encrypted artifact stays a single whole-zip `study_job_file`
     // row whose embedded manifest already holds the enclave recipients' keys (unchanged, prod
     // format); these rows ADD researcher recipients without re-encrypting. `study_job_file_id`
-    // points at the whole-zip row, `file_path` is the inner file within it.
+    // points at the whole-zip row, `file_path` is the inner file.
     //
     // Approval is all-or-nothing at the job level (per Phil 2026-06): it lives in
     // `job_status_change` as a FILES-APPROVED event, NOT per file. A file is "shared with
-    // researchers" iff the job is approved — derived from job status, never a per-file column.
-    // These rows are the *access* mechanism.
+    // researchers" iff the job is approved. These rows are the *access* mechanism.
     await db.schema
         .createTable('study_job_file_key')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())

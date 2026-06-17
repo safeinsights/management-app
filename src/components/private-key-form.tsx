@@ -15,10 +15,10 @@ type PrivateKeyFormProps = {
     submitLabel: string
 }
 
-// Private-key entry form shared by the reviewer decrypt panel (encrypted-files-panel.tsx)
-// and the researcher results view (job-results.tsx). The key never leaves the browser —
-// it only feeds useDecryptFiles. "Results Key" is the role-neutral term: the same kind of
-// key decrypts for reviewers and researchers alike.
+// Private-key entry form shared by the reviewer decrypt panel (encrypted-files-panel.tsx) and the
+// researcher results view (job-results.tsx). The key never leaves the browser — it only feeds
+// useDecryptFiles. "Results Key" is the role-neutral term: the same kind of key decrypts for
+// reviewers and researchers alike.
 export const PrivateKeyForm: FC<PrivateKeyFormProps> = ({
     isVisible = true,
     form,

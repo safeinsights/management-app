@@ -42,7 +42,7 @@ type Abilities =
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
-    // Renamed from 'ReviewerKey' — the same encryption key is now held by enclave reviewers
+    // Renamed from 'ReviewerKey' — the same encryption key is now held by both enclave reviewers
     // AND lab researchers (orgNeedsKey), so the old name was misleading. Route + UI copy match:
     // /user-key (Routes.userKey), "Results Key" in copy.
     | Ability<'UserKey', 'view' | 'update', object>

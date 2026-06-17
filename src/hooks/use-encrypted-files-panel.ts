@@ -36,8 +36,9 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Which files are shared with researchers — all of the job's files once it's FILES-APPROVED,
-    // none before (all-or-nothing; see getSharedFileIdsForJob). There is no plaintext approved copy.
+    // Which artifacts are shared with researchers — derived from the re-wrapped key rows
+    // (getSharedFileIdsForJob), so it reflects exactly what was shared at any granularity. There
+    // is no plaintext approved copy.
     const { data: sharedFileIds = [] } = useQuery({
         queryKey: ['shared-file-ids', job.id],
         queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
@@ -66,10 +67,10 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         onSuccess: (files) => setDecryptedFiles(files),
     })
 
-    // All-or-nothing: approving shares the entire decrypted package — results AND logs — with
-    // the researchers (no per-file selection). Every decrypted artifact carries its own rawAesKey,
-    // so buildSharedFiles re-wraps each for the lab keys. (Per-artifact selection may return if Phil
-    // wants logs individually withholdable; for now approval shares everything.)
+    // All-or-nothing: approving shares the entire decrypted package — results AND logs — with the
+    // researchers (no per-file selection). Every decrypted artifact carries its own rawAesKey, so
+    // buildSharedFiles re-wraps each for the lab keys. (buildSharedFiles is already per-file, so
+    // splitting results vs logs later would be a UI change only.)
     useEffect(() => {
         onFilesApproved(decryptedFiles)
     }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,7 +83,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
     // Before decryption: one locked row per encrypted artifact (results, logs); size is unknown
     // until decrypted (pre-encryption byte counts aren't stored). After: one row per decrypted
-    // inner file — each artifact is a whole-zip that unpacks into many files, all sharing the
+    // inner file — each artifact is a whole-zip unpacking into many files, all sharing the
     // artifact's row id (sourceId), so "shared" is keyed on that id.
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         if (decryptedFiles.length > 0) {
