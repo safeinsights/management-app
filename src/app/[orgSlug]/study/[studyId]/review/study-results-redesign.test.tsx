@@ -126,7 +126,7 @@ describe('StudyResultsRedesign', () => {
                 fileType: 'ENCRYPTED-RESULT' as FileType,
                 name: 'test.data',
                 encryptedBody: await zip.arrayBuffer(),
-                overrideKeys: {} as Record<string, string>,
+                researcherKeys: {} as Record<string, string>,
             },
         ])
 

@@ -201,7 +201,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
         // Each artifact is the prod whole-zip (embedded manifest). Enclave reviewers are manifest
         // recipients and decrypt with their own key; lab researchers are not, so they decrypt with
-        // per-file re-wrapped keys (study_job_file_key) supplied as `overrideKeys`. A reviewer is
+        // per-file re-wrapped keys (study_job_file_key) supplied as `researcherKeys`. A reviewer is
         // a member of the study's enclave org (study.orgId); everyone else takes the researcher
         // path.
         const isEnclaveReviewer = Object.values(session.orgs).some(
@@ -219,14 +219,14 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    overrideKeys: {} as Record<string, string>,
+                    researcherKeys: {} as Record<string, string>,
                 })),
             )
         }
 
         // Researcher: return only artifacts this user has wrapped keys for. Approval re-wraps both
         // results and logs (all-or-nothing), so both can appear here; keys exist only after
-        // approval, so this is naturally gated. Build the {file_path -> crypt} override map per
+        // approval, so this is naturally gated. Build the {file_path -> crypt} key map per
         // artifact.
         const wrappedKeys = await db
             .selectFrom('studyJobFileKey')
@@ -240,22 +240,22 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             .execute()
         if (!wrappedKeys.length) return []
 
-        const overrideByFileId = new Map<string, Record<string, string>>()
+        const keysByFileId = new Map<string, Record<string, string>>()
         for (const key of wrappedKeys) {
-            const map = overrideByFileId.get(key.studyJobFileId) ?? {}
+            const map = keysByFileId.get(key.studyJobFileId) ?? {}
             map[key.filePath] = key.crypt
-            overrideByFileId.set(key.studyJobFileId, map)
+            keysByFileId.set(key.studyJobFileId, map)
         }
 
         return Promise.all(
             encryptedFiles
-                .filter((file) => overrideByFileId.has(file.id))
+                .filter((file) => keysByFileId.has(file.id))
                 .map(async (file) => ({
                     studyJobFileId: file.id,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    overrideKeys: overrideByFileId.get(file.id)!,
+                    researcherKeys: keysByFileId.get(file.id)!,
                 })),
         )
     })

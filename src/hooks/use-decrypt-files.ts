@@ -10,15 +10,16 @@ import type { FileType } from '@/database/types'
 // One encrypted artifact from fetchEncryptedJobFilesAction: the whole-zip ciphertext blob (prod
 // format, embedded manifest). Decrypting it yields the inner plaintext files.
 //
-// `overrideKeys` (inner file path -> wrapped AES key) is set only for lab researchers, who are
-// NOT manifest recipients: their per-file re-wrapped keys come from study_job_file_key. Empty for
-// enclave reviewers, who decrypt via the embedded manifest using their own key's fingerprint.
+// `researcherKeys` (inner file path -> wrapped AES key) is set only for lab researchers, who are
+// NOT manifest recipients: their per-file re-wrapped keys come from study_job_file_key and are
+// merged into the manifest under their fingerprint by ResultsReader. Empty for enclave reviewers,
+// who decrypt via the embedded manifest using their own key's fingerprint.
 export type EncryptedJobFile = {
     studyJobFileId: string
     fileType: FileType
     name: string
     encryptedBody: ArrayBuffer
-    overrideKeys: Record<string, string>
+    researcherKeys: Record<string, string>
 }
 
 class KeyParseError extends Error {}
@@ -41,7 +42,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 new Blob([artifact.encryptedBody]),
                 privateKeyBuffer,
                 fingerprint,
-                artifact.overrideKeys,
+                artifact.researcherKeys,
             )
             // Per-file raw AES key: each inner file has its own key, so re-wrap at approval wraps
             // each file's key for the researchers (see buildSharedFiles).

@@ -53,7 +53,7 @@ async function seedArtifact(
         fileType,
         name: 'encrypted-results.zip',
         encryptedBody: await zip.arrayBuffer(),
-        overrideKeys: {} as Record<string, string>,
+        researcherKeys: {} as Record<string, string>,
     }
 }
 

@@ -55,7 +55,7 @@ describe('Study Job Actions', () => {
         expect(result).toHaveLength(1)
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
         expect(result[0].studyJobFileId).toBe(file.id)
-        expect(result[0].overrideKeys).toEqual({})
+        expect(result[0].researcherKeys).toEqual({})
     })
 
     // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob'
@@ -95,7 +95,7 @@ describe('Study Job Actions', () => {
         const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
 
         expect(result).toHaveLength(1)
-        expect(result[0].overrideKeys).toEqual({ 'results.csv': 'wrapped-for-researcher' })
+        expect(result[0].researcherKeys).toEqual({ 'results.csv': 'wrapped-for-researcher' })
     })
 
     test('fetchEncryptedJobFilesAction returns nothing to a researcher with no shared keys', async () => {
