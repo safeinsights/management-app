@@ -575,6 +575,29 @@ describe('ackAgreementsAction', () => {
         expect(updated.researcherAgreementsAckedAt).toBeNull()
     })
 
+    // SI admins (manage/all) review studies for enclaves they don't belong to. The reviewer
+    // ack must succeed on their behalf, otherwise the agreements gate blocks them from the
+    // code-submitted review flow even though every page-level check lets them through.
+    it('sets reviewerAgreementsAckedAt when an SI admin acks as reviewer for a non-member org', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'si-admin-enclave', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'si-admin-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.reviewerAgreementsAckedAt).not.toBeNull()
+        expect(updated.researcherAgreementsAckedAt).toBeNull()
+    })
+
     // OTTER-546: a user who is a member of BOTH orgs (e.g. multi-org QA accounts, or
     // a test fixture where orgId === submittedByOrgId) used to silently ack both
     // columns when proceeding from the researcher view, which skipped the reviewer's
