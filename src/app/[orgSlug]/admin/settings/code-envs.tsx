@@ -1,36 +1,13 @@
 'use client'
 
-import {
-    Stack,
-    Title,
-    Divider,
-    Paper,
-    Text,
-    Button,
-    Group,
-    Flex,
-    ActionIcon,
-    Tooltip,
-    Collapse,
-    Grid,
-    GridCol,
-    Badge,
-    Box,
-} from '@mantine/core'
+import { Stack, Text, Group, ActionIcon, Tooltip, Collapse, Grid, GridCol, Box } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { CodeEnvForm } from './code-env-form'
-import {
-    TrashIcon,
-    PlusCircleIcon,
-    PencilIcon,
-    FileMagnifyingGlassIcon,
-    CaretDownIcon,
-    CheckCircleIcon,
-    WarningCircleIcon,
-} from '@phosphor-icons/react/dist/ssr'
+import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
+import { TrashIcon, PencilIcon, FileMagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
@@ -45,41 +22,6 @@ import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
-
-const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
-    'SCAN-PENDING': { color: 'dark', label: 'Scan Pending' },
-    'SCAN-RUNNING': { color: 'blue', label: 'Scanning...' },
-    'SCAN-COMPLETE': { color: 'teal', label: 'Scan Passed' },
-    'SCAN-FAILED': { color: 'red', label: 'Scan Failed' },
-}
-
-const SCAN_BADGE_ICONS: Partial<Record<ScanStatus, React.ReactNode>> = {
-    'SCAN-COMPLETE': <CheckCircleIcon size={14} weight="fill" />,
-    'SCAN-FAILED': <WarningCircleIcon size={14} weight="fill" />,
-}
-
-const CLICKABLE_SCAN_STATUSES: ScanStatus[] = ['SCAN-COMPLETE', 'SCAN-FAILED']
-
-const ScanStatusBadge: React.FC<{ status: string | null; onClick?: () => void }> = ({ status, onClick }) => {
-    if (!status) return null
-    const config = SCAN_BADGE_CONFIG[status as ScanStatus]
-    if (!config) return null
-
-    const isClickable = CLICKABLE_SCAN_STATUSES.includes(status as ScanStatus)
-
-    return (
-        <Badge
-            variant="light"
-            size="sm"
-            color={config.color}
-            leftSection={SCAN_BADGE_ICONS[status as ScanStatus]}
-            style={isClickable ? { cursor: 'pointer' } : undefined}
-            onClick={isClickable ? onClick : undefined}
-        >
-            {config.label}
-        </Badge>
-    )
-}
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -144,7 +86,7 @@ const CodeEnvDetailPanel: React.FC<{
                         {starterCodeFileNames.length === 0 && '-'}
                     </Stack>
                 </DetailRow>
-                <DetailRow label="Sample Data Path">{image.sampleDataPath || '-'}</DetailRow>
+                <DetailRow label="Example Data Path">{image.sampleDataPath || '-'}</DetailRow>
                 <DetailRow label="Data Source Type">
                     {DATA_SOURCE_TYPES[image.dataSourceType as DataSourceType] || '-'}
                 </DetailRow>
@@ -225,46 +167,33 @@ const CodeEnvRow: React.FC<{
     }
 
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-            <Group justify="space-between" p="sm" wrap="nowrap">
-                <Group gap="sm" wrap="nowrap">
-                    <ActionIcon size="sm" variant="subtle" onClick={toggleDetail}>
-                        <CaretDownIcon
-                            style={{
-                                transform: detailOpened ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                transition: 'transform 200ms',
-                            }}
-                        />
-                    </ActionIcon>
-                    <Text fw={500}>{image.name}</Text>
-                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={() => handleViewCode()}>
-                        {image.language}
-                    </Badge>
-                    {image.isTesting && (
-                        <Badge variant="light" size="sm" color="orange">
-                            Testing
-                        </Badge>
-                    )}
-                    {isDefault && (
-                        <Badge variant="filled" size="sm" color="dark">
-                            Default
-                        </Badge>
-                    )}
-                    <ScanStatusBadge status={image.latestScanStatus} onClick={openScanResults} />
-                </Group>
-                <Group gap={4} wrap="nowrap">
-                    <Tooltip label="Edit" withArrow>
-                        <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
-                            <PencilIcon />
-                        </ActionIcon>
-                    </Tooltip>
-                    <DeleteCodeEnv />
-                </Group>
-            </Group>
-
-            <Collapse in={detailOpened}>
-                <CodeEnvDetailPanel image={image} onViewCode={handleViewCode} isLoadingCode={isLoadingCode} />
-            </Collapse>
+        <>
+            <CodeEnvRowView
+                name={image.name}
+                language={image.language}
+                isTesting={image.isTesting}
+                isDefault={isDefault}
+                latestScanStatus={image.latestScanStatus}
+                detailOpened={detailOpened}
+                onToggleDetail={toggleDetail}
+                onLanguageBadgeClick={() => handleViewCode()}
+                onScanBadgeClick={openScanResults}
+                actions={
+                    <>
+                        <Tooltip label="Edit" withArrow>
+                            <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
+                                <PencilIcon />
+                            </ActionIcon>
+                        </Tooltip>
+                        <DeleteCodeEnv />
+                    </>
+                }
+                detail={
+                    <Collapse in={detailOpened}>
+                        <CodeEnvDetailPanel image={image} onViewCode={handleViewCode} isLoadingCode={isLoadingCode} />
+                    </Collapse>
+                }
+            />
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment" size="xl">
                 <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
@@ -294,7 +223,7 @@ const CodeEnvRow: React.FC<{
             >
                 <FileViewer path="scan-results.txt" text={image.latestScanResults || 'No results available.'} />
             </AppModal>
-        </Box>
+        </>
     )
 }
 
@@ -362,21 +291,13 @@ export const CodeEnvs: React.FC = () => {
     const shouldRefresh = needsRefresh(codeEnvs ?? [])
 
     return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Code Environments
-                    </Title>
-                    <Flex justify="flex-end" align="center" gap="md">
-                        <Refresher isEnabled={shouldRefresh} refresh={refetch} isPending={isRefetching || isFetching} />
-                        <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                            Add Code Environment
-                        </Button>
-                    </Flex>
-                </Group>
-                <Divider c="dimmed" />
-
+        <>
+            <CodeEnvsView
+                onAdd={openAddModal}
+                refresher={
+                    <Refresher isEnabled={shouldRefresh} refresh={refetch} isPending={isRefetching || isFetching} />
+                }
+            >
                 {isLoading && <LoadingMessage message="Loading code environments" />}
 
                 {isError && (
@@ -389,11 +310,11 @@ export const CodeEnvs: React.FC = () => {
                 )}
 
                 {!isLoading && !isError && <CodeEnvsTable images={codeEnvs || []} />}
-            </Stack>
+            </CodeEnvsView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment" size="xl">
                 <CodeEnvForm onCompleteAction={handleFormComplete} />
             </AppModal>
-        </Paper>
+        </>
     )
 }

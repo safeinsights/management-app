@@ -29,7 +29,9 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
+import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -208,6 +210,19 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    it('onDeleteStudyAction rejects a cross-lab user and leaves the study intact', async () => {
+        const { org: labA } = await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-A', orgType: 'lab' })
+        const { studyId } = await insertTestStudyData({ org: labA })
+
+        // A member of a different lab must not be able to delete labA's study by id.
+        await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-B', orgType: 'lab' })
+        const result = await onDeleteStudyAction({ studyId })
+        expect(result).toHaveProperty('error')
+
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study?.id).toBe(studyId)
     })
 
     // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
@@ -752,10 +767,193 @@ describe('Request Study Actions', () => {
         })
     })
 
-    describe('saveCodeResubmissionNoteDraftAction', () => {
-        it('persists the draft note on the study row', async () => {
+    // OTTER-601: one studyJob per submission round. Launch/upload opens the round's job; submit
+    // fills that same job in rather than minting a second that would mask the real submission.
+    describe('one-job-per-round (OTTER-601)', () => {
+        const jobCount = (studyId: string) =>
+            db
+                .selectFrom('studyJob')
+                .select((eb) => eb.fn.countAll<number>().as('n'))
+                .where('studyId', '=', studyId)
+                .executeTakeFirstOrThrow()
+                .then((r) => Number(r.n))
+
+        const codeFilesFor = async (studyId: string) => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', studyId)
+                .orderBy('createdAt', 'desc')
+                .orderBy('id', 'desc')
+                .executeTakeFirstOrThrow()
+            return db
+                .selectFrom('studyJobFile')
+                .select(['name', 'fileType'])
+                .where('studyJobId', '=', job.id)
+                .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                .orderBy('name')
+                .execute()
+        }
+
+        const submittedStatusCount = (studyId: string) =>
+            db
+                .selectFrom('studyJob')
+                .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+                .select((eb) => eb.fn.countAll<number>().as('n'))
+                .where('studyJob.studyId', '=', studyId)
+                .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirstOrThrow()
+                .then((r) => Number(r.n))
+
+        const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
+            writeWorkspaceFiles(root, studyId, files).then(() =>
+                actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
+            )
+
+        it('submit fills in the launch job instead of creating a second job', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-fill')
+            workspaceRoots.push(root)
+
+            // IDE launch opens the round's job
+            await ensureRoundJobForLaunch(db, study.id)
+            expect(await jobCount(study.id)).toBe(1)
+            const launchJob = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+
+            await submitCode(study.id, root, { 'main.R': 'print(1)', 'helper.R': 'print(2)' }, 'main.R')
+
+            // still one job — the launch job, now carrying the submission
+            expect(await jobCount(study.id)).toBe(1)
+            const afterJob = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(afterJob.id).toBe(launchJob.id)
+            expect(await codeFilesFor(study.id)).toEqual([
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+            ])
+            expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        it('re-submitting before review overwrites files on the same job (no new job, no new version)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-overwrite')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'v1', 'helper.R': 'v1' }, 'main.R')
+            vi.mocked(aws.deleteFolderContents).mockClear()
+
+            // second submit drops helper.R, adds extra.R
+            await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R')
+
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await codeFilesFor(study.id)).toEqual([
+                { name: 'extra.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+            ])
+            // old S3 code objects cleared before re-upload
+            expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
+            // still a single submission/version
+            expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        it('resubmitting after change-requested opens a new round (a second job/version)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
+
+            expect(await jobCount(study.id)).toBe(2)
+            expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+
+        // Regression: in the real flow the researcher uploads files on the resubmit page *before*
+        // submitting, which opens a fresh INITIATED round job. The resubmit guard must gate on the
+        // prior submitted job (CODE-CHANGES-REQUESTED), not that new INITIATED job, or it throws.
+        it('resubmit succeeds after a file upload opens the new round job first', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-upload')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            // Researcher uploads a file on the resubmit page → opens the round 2 INITIATED job.
+            await ensureRoundJobForUpload(db, study.id)
+            expect(await jobCount(study.id)).toBe(2)
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'addressed the feedback and updated the code',
+            })
+
+            expect(result).not.toHaveProperty('error')
+            // Still exactly the two rounds; the upload job became round 2, now CODE-SUBMITTED.
+            expect(await jobCount(study.id)).toBe(2)
+            expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+    })
+
+    describe('saveCodeResubmissionNoteDraftAction', () => {
+        it('persists the draft note on a CHANGE-REQUESTED study for a same-lab user', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
 
             const result = actionResult(
                 await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }),
@@ -772,11 +970,66 @@ describe('Request Study Actions', () => {
 
         it('rejects payloads larger than 10kb', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
 
             const tooLong = 'x'.repeat(10_001)
             const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
             expect(result).toHaveProperty('error')
+        })
+
+        it('rejects a cross-lab save attempt instead of silently no-op (OTTER-607)', async () => {
+            const { org: labA, user: ownerA } = await mockSessionWithTestData({
+                orgSlug: 'lab-code-note-cross-A',
+                orgType: 'lab',
+            })
+            const { study } = await insertTestStudyJobData({
+                org: labA,
+                researcherId: ownerA.id,
+                studyStatus: 'CHANGE-REQUESTED',
+            })
+
+            // Switch session to a user in a different lab and try to save the draft.
+            await mockSessionWithTestData({ orgSlug: 'lab-code-note-cross-B', orgType: 'lab' })
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'cross-lab attempt',
+            })
+            // Without the 0-row UPDATE check the client would render the autosave
+            // indicator as "All changes saved" while nothing was persisted.
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
+        })
+
+        it('rejects a save attempt when the study is not CHANGE-REQUESTED (OTTER-607)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'wrong-status attempt',
+            })
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
         })
     })
 

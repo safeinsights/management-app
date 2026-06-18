@@ -433,5 +433,34 @@ describe('PostFeedbackView', () => {
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(toggle).toHaveTextContent('Hide full study code')
         })
+
+        // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
+        // but no code-review comment, so `entries` is empty. The fallback decision metadata keeps
+        // the approved code page rendering instead of blanking out.
+        describe('fallback decision (no code-review comment)', () => {
+            it('renders the approved code page from fallback when entries are empty', () => {
+                renderWithProviders(
+                    <PostFeedbackView
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        entries={[]}
+                        kind="CODE"
+                        fallback={{ decision: 'APPROVE', timestamp: new Date('2026-04-21T10:00:00Z') }}
+                    />,
+                )
+
+                expect(screen.getByText('Review study code')).toBeInTheDocument()
+                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
+                expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
+                // No code-review comments => no Feedback and notes section.
+                expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+            })
+
+            it('renders nothing when entries are empty and no fallback decision is provided', () => {
+                renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[]} kind="CODE" />)
+
+                expect(screen.queryByText('Review study code')).not.toBeInTheDocument()
+            })
+        })
     })
 })

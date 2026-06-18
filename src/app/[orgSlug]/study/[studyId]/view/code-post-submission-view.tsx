@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, type FC } from 'react'
+import { type FC } from 'react'
 import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -14,6 +14,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
+import { StudyCodeToggle, useExpandable } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -28,13 +29,6 @@ interface CodePostSubmissionViewProps {
     /** Reviewer feedback + resubmission notes for v2+. */
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
-}
-
-function useExpandable(initial = false) {
-    const [expanded, setExpanded] = useState(initial)
-    const toggle = useCallback(() => setExpanded((prev) => !prev), [])
-    const collapse = useCallback(() => setExpanded(false), [])
-    return { expanded, toggle, collapse }
 }
 
 const getCodeSubmittedDate = (job: LatestJobForStudy): string | null => {
@@ -61,7 +55,7 @@ const UnderReviewBanner: FC<{ isVisible: boolean; reviewingOrgName: string; isRe
     return (
         <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
             Your study code {verb} {displayOrgName(reviewingOrgName)}. They will have access to your study code and an
-            AI-generated summary of its behavior. Please allow 7-10 business days for review. You&apos;ll receive email
+            AI-generated summary of its behavior. Please allow 7-10 business days for review. You’ll receive email
             notifications about updates.
         </Alert>
     )
@@ -83,30 +77,6 @@ const ExpandToggle: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisib
         >
             View full study code
             <CaretRightIcon size={12} />
-        </Anchor>
-    )
-}
-
-const InlineToggle: FC<{ isVisible: boolean; expanded: boolean; onClick: () => void }> = ({
-    isVisible,
-    expanded,
-    onClick,
-}) => {
-    if (!isVisible) return null
-    return (
-        <Anchor
-            component="button"
-            size="sm"
-            fw={700}
-            onClick={onClick}
-            mt="md"
-            display="inline-flex"
-            style={{ alignItems: 'center', gap: 4 }}
-            aria-expanded={expanded}
-            data-testid="study-code-toggle"
-        >
-            {expanded ? 'Hide submitted study code' : 'View submitted study code'}
-            <CaretRightIcon size={12} weight="bold" style={{ transform: expanded ? 'rotate(-90deg)' : undefined }} />
         </Anchor>
     )
 }
@@ -178,7 +148,7 @@ const ExpandedCodePanel: FC<ExpandedCodePanelProps> = ({
 
 const FeedbackSection: FC<{ isVisible: boolean; entries: CodeReviewFeedbackEntry[] }> = ({ isVisible, entries }) => {
     if (!isVisible) return null
-    return <FeedbackAndNotesSection entries={entries} />
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 export function CodePostSubmissionView({
@@ -236,7 +206,7 @@ export function CodePostSubmissionView({
                         isResubmission={isResubmission}
                     />
                     <ExpandToggle isVisible={!isResubmission && !expanded} onClick={toggle} />
-                    <InlineToggle isVisible={isResubmission} expanded={expanded} onClick={toggle} />
+                    <StudyCodeToggle isVisible={isResubmission} expanded={expanded} onClick={toggle} mt="md" />
                     <InlineCodePanel isVisible={isResubmission} expanded={expanded} jobId={job.id} files={codeFiles} />
                 </Paper>
 

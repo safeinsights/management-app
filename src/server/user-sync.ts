@@ -122,7 +122,16 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
     }
 
     // Create the new user
-    const user = await executor.insertInto('user').values(attrs).returning(['id']).executeTakeFirstOrThrow()
+    const user = await executor
+        .insertInto('user')
+        .values({
+            clerkId: attrs.clerkId,
+            firstName: attrs.firstName,
+            lastName: attrs.lastName,
+            email: attrs.email,
+        })
+        .returning(['id'])
+        .executeTakeFirstOrThrow()
 
     return {
         id: user.id,

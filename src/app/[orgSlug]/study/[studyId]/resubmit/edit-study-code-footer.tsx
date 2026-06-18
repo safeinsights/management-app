@@ -1,10 +1,11 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group, Stack, Text } from '@mantine/core'
-import { AppModal } from '@/components/modal'
+import { Button, Group } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { InfoTooltip } from '@/components/tooltip'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 
@@ -28,7 +29,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, noteForm, saveDraft, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
 
-    const [isConfirmOpen, setConfirmOpen] = useState(false)
+    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
@@ -48,7 +49,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     const canResubmit = hasFiles && mainFileName !== '' && noteForm.isValid() && !isBusy
     const handleConfirmResubmit = () => {
-        setConfirmOpen(false)
+        closeConfirm()
         resubmit({ mainFileName, fileNames })
     }
 
@@ -73,36 +74,21 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                     size="md"
                     disabled={!canResubmit}
                     loading={isSubmitting}
-                    onClick={() => setConfirmOpen(true)}
+                    onClick={openConfirm}
                 >
                     Resubmit study code
                 </Button>
             </Group>
 
-            <AppModal
-                isOpen={isConfirmOpen}
-                onClose={() => setConfirmOpen(false)}
+            <SubmitConfirmationModal
+                isOpen={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={handleConfirmResubmit}
+                isSubmitting={isSubmitting}
                 title="Confirm study code resubmission?"
-                closeOnClickOutside={!isSubmitting}
-                closeOnEscape={!isSubmitting}
-                withCloseButton={!isSubmitting}
-                closeButtonProps={{ 'aria-label': 'Close' }}
-            >
-                <Stack gap="md">
-                    <Text>
-                        Please confirm you are ready to resubmit your study code. Further edits are not permitted once
-                        submitted.
-                    </Text>
-                    <Group justify="flex-start" mt="md">
-                        <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSubmitting}>
-                            Cancel
-                        </Button>
-                        <Button variant="primary" onClick={handleConfirmResubmit} loading={isSubmitting}>
-                            Yes, resubmit study code
-                        </Button>
-                    </Group>
-                </Stack>
-            </AppModal>
+                body="Please confirm you are ready to resubmit your study code. Further edits are not permitted once submitted."
+                confirmLabel="Yes, resubmit study code"
+            />
         </>
     )
 }

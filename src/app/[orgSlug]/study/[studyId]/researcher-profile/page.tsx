@@ -24,7 +24,7 @@ export default async function ResearcherProfilePage(props: {
 
     const study = await getStudyAction({ studyId })
     if (isActionError(study) || !study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
     const profileData = await getResearcherProfileByUserIdAction({

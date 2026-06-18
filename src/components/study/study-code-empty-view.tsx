@@ -51,7 +51,7 @@ export function StudyCodeEmptyView({
                     <Stack gap="sm">
                         <Text fw={700}>Write and test your code in IDE (recommended)</Text>
                         <Text size="sm" c="dimmed">
-                            IDE is pre-configured to help you write your code and test it against sample data. It will
+                            IDE is pre-configured to help you write your code and test it against example data. It will
                             open in a new tab and you can write your code there. All files created in the IDE will
                             populate here.
                         </Text>

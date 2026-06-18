@@ -111,13 +111,15 @@ describe('SubmittedCodeSection — Section header', () => {
         expect(screen.getByRole('heading', { name: 'Submitted code', level: 3 })).toBeInTheDocument()
     })
 
-    it('renders "View approved initial request" link that opens the post-proposal feedback page in a new tab', async () => {
+    it('renders "View approved initial request" link that opens the approved-proposal feedback page in a new tab', async () => {
         await renderSection(fixture)
         const link = screen.getByTestId('view-approved-initial-request')
         expect(link).toHaveTextContent('View approved initial request')
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
-        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review?from=code-review`)
+        // OTTER-540: must point at the approved *initial request* (proposal feedback),
+        // not the code-review page that from=code-review resolves to.
+        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review?from=initial-request`)
     })
 
     it('renders the section content beneath the header', async () => {
@@ -188,29 +190,33 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByText('Overview')).toBeInTheDocument()
     })
 
-    it('renders the toggle with "View full AI summary" by default and the body is collapsed', async () => {
+    it('renders the toggle with "View full AI summary" by default and shows a clamped snippet', async () => {
         await renderSection(fixture)
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('View full AI summary')
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('3')
     })
 
-    it('expands the body and flips the toggle label when clicked', async () => {
+    it('expands the body to full text and flips the toggle label when clicked', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         await user.click(screen.getByTestId('ai-summary-toggle'))
 
-        expect(screen.getByTestId('ai-summary-body')).toHaveTextContent(SUMMARY_TEXT)
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('Hide full AI summary')
     })
 
-    it('collapses the body again when the toggle is clicked twice', async () => {
+    it('collapses back to the clamped snippet when the toggle is clicked twice', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         const toggle = screen.getByTestId('ai-summary-toggle')
         await user.click(toggle)
         await user.click(toggle)
 
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('3')
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
@@ -350,6 +356,34 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.getByTestId('study-code-files-overflow')).toHaveTextContent('+4 more files')
     })
 
+    it('opens a menu listing every hidden file when the overflow is clicked (OTTER-540)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        // Hidden files are not in the document until the overflow menu is opened.
+        expect(screen.queryAllByTestId('study-code-files-overflow-item')).toHaveLength(0)
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        expect(items.map((item) => item.getAttribute('title'))).toEqual(['c.R', 'd.R', 'e.R'])
+    })
+
+    it('selecting a hidden file from the overflow menu makes it the active file (OTTER-540)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        await user.click(await screen.findByTitle('hidden-target.R'))
+
+        // Reopen the menu; the chosen file is now marked as the selected entry.
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        const selected = await screen.findByTitle('hidden-target.R')
+        expect(selected.getAttribute('data-selected')).toBe('true')
+    })
+
     it('truncates long file names with an ellipsis and capping at ~22 chars', async () => {
         const longName = 'a-very-long-supplemental-code-filename.R'
         const fixture = await setupFilesFixture(['main.R', longName])
@@ -420,8 +454,9 @@ describe('SubmittedCodeSection — pure helpers', () => {
             name,
             fileType: 'SUPPLEMENTAL-CODE' as const,
         }))
-        const { visible, hiddenCount } = splitVisibleFiles(files)
+        const { visible, hidden, hiddenCount } = splitVisibleFiles(files)
         expect(visible.map((f) => f.name)).toEqual(['m', 'a', 'b'])
+        expect(hidden.map((f) => f.name)).toEqual(['c', 'd', 'e'])
         expect(hiddenCount).toBe(3)
     })
 })

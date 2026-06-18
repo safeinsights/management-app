@@ -106,7 +106,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                 <Box>
                     <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                     <Text size="xs" mb="xs" c="charcoal.7">
-                        Select the dataset(s) you&apos;d like to use for your research.
+                        Select the dataset(s) you’d like to use for your research.
                     </Text>
                     <Group align="center" gap="xxl">
                         <Box w="50%">

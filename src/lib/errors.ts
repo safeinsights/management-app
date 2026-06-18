@@ -146,7 +146,7 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
         return String(error)
     }
 
-    return 'Unknown error occured'
+    return 'Unknown error occurred'
 }
 
 class RecordError extends ActionFailure {

@@ -1,6 +1,6 @@
 'use client'
 
-import { Alert, Anchor, Group, Loader, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
 import { CaretRight } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useQuery } from '@/common'
@@ -23,12 +23,13 @@ export function truncateFileName(name: string, max = MAX_TAB_CHARS): string {
 
 export function splitVisibleFiles(files: CodeFile[]) {
     if (files.length <= MAX_VISIBLE_TABS_BEFORE_OVERFLOW) {
-        return { visible: files, hiddenCount: 0 }
+        return { visible: files, hidden: [] as CodeFile[], hiddenCount: 0 }
     }
     // When overflowing, the last visible slot becomes the "+N more files" indicator,
-    // so we keep three real tabs and roll the remainder into the overflow count.
+    // so we keep three real tabs and roll the remainder into the overflow menu.
     const visibleSlots = MAX_VISIBLE_TABS_BEFORE_OVERFLOW - 1
-    return { visible: files.slice(0, visibleSlots), hiddenCount: files.length - visibleSlots }
+    const hidden = files.slice(visibleSlots)
+    return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
 }
 
 function useAiSummaryToggle() {
@@ -36,10 +37,17 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-function AiSummaryBody({ isVisible, summary }: { isVisible: boolean; summary: string }) {
-    if (!isVisible) return null
+// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
+const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+
+function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
-        <Text size="sm" data-testid="ai-summary-body" style={{ whiteSpace: 'pre-wrap' }}>
+        <Text
+            size="sm"
+            data-testid="ai-summary-body"
+            lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
+            style={{ whiteSpace: 'pre-wrap' }}
+        >
             {summary}
         </Text>
     )
@@ -123,7 +131,7 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
         <>
-            <AiSummaryBody isVisible={isExpanded} summary={summary} />
+            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
@@ -193,18 +201,63 @@ function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolea
     )
 }
 
+function OverflowFilesMenu({
+    hidden,
+    activeFileName,
+    onSelect,
+}: {
+    hidden: CodeFile[]
+    activeFileName: string | null
+    onSelect: (name: string) => void
+}) {
+    if (hidden.length === 0) return null
+    const items = hidden.map((file) => (
+        <Menu.Item
+            key={file.name}
+            onClick={() => onSelect(file.name)}
+            data-testid="study-code-files-overflow-item"
+            data-selected={file.name === activeFileName ? 'true' : 'false'}
+            title={file.name}
+        >
+            <Text size="sm" component="span">
+                {truncateFileName(file.name)}
+            </Text>
+        </Menu.Item>
+    ))
+    return (
+        <Menu position="bottom-start" withinPortal shadow="md">
+            <Menu.Target>
+                <UnstyledButton
+                    data-testid="study-code-files-overflow"
+                    px="md"
+                    py="xs"
+                    style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
+                >
+                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c="charcoal.7" component="span">
+                            +{hidden.length} more files
+                        </Text>
+                        <CaretRight size={12} weight="bold" />
+                    </Group>
+                </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown data-testid="study-code-files-overflow-menu">{items}</Menu.Dropdown>
+        </Menu>
+    )
+}
+
 function FileTabsRow({
     isVisible,
     visible,
     activeFileName,
     onSelect,
-    hiddenCount,
+    hidden,
 }: {
     isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
-    hiddenCount: number
+    hidden: CodeFile[]
 }) {
     if (!isVisible) return null
     const tabs = visible.map((file) => (
@@ -215,26 +268,11 @@ function FileTabsRow({
             onClick={() => onSelect(file.name)}
         />
     ))
-    const overflow =
-        hiddenCount > 0 ? (
-            <Group
-                gap={4}
-                wrap="nowrap"
-                align="center"
-                data-testid="study-code-files-overflow"
-                style={{ whiteSpace: 'nowrap' }}
-            >
-                <Text size="sm" c="charcoal.7" component="span">
-                    +{hiddenCount} more files
-                </Text>
-                <CaretRight size={12} weight="bold" />
-            </Group>
-        ) : null
 
     return (
         <Group gap="sm" wrap="nowrap" style={{ overflow: 'hidden' }} data-testid="study-code-file-tabs">
             {tabs}
-            {overflow}
+            <OverflowFilesMenu hidden={hidden} activeFileName={activeFileName} onSelect={onSelect} />
         </Group>
     )
 }
@@ -337,7 +375,7 @@ export function StudyCodeViewer({
     toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
-    const { visible, hiddenCount } = splitVisibleFiles(files)
+    const { visible, hidden } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
     return (
@@ -347,7 +385,7 @@ export function StudyCodeViewer({
                 visible={visible}
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}
-                hiddenCount={hiddenCount}
+                hidden={hidden}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
             <StudyCodeToggle

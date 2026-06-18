@@ -23,6 +23,15 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
+    /**
+     * Render the decision banner + timestamp from this when `entries` carries no decision. Proposal
+     * approve/reject can write a CODE-* job status without a code-review comment, so the page would
+     * otherwise blank out; the fallback keeps the code decision page.
+     */
+    fallback?: {
+        decision: ReviewDecision
+        timestamp: Date | string
+    }
 }
 
 type DecisionCopy = {
@@ -135,7 +144,7 @@ type CodeSectionProps = {
     job: LatestJobForStudy | null
     kindCopy: KindCopy
     timestampLabel: string
-    timestampDate: Date
+    timestampDate: Date | string | null
     banner: ReactNode
 }
 
@@ -208,16 +217,25 @@ function buildCrumbs({
     return [dashboard, proposalCrumb, current]
 }
 
-export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', job = null }: PostFeedbackViewProps) {
+export function PostFeedbackView({
+    orgSlug,
+    study,
+    entries,
+    kind = 'PROPOSAL',
+    job = null,
+    fallback,
+}: PostFeedbackViewProps) {
     const latest = entries[0]
-    if (!latest || latest.decision === null) {
+    const latestDecision = latest?.decision ?? null
+    const decision = latestDecision ?? fallback?.decision ?? null
+    if (decision === null) {
         return null
     }
 
-    const decision = latest.decision
     const kindCopy = COPY_BY_KIND[kind]
     const decisionCopy = kindCopy.decisionCopy[decision]
     const timestampLabel = decisionCopy?.timestampLabel ?? PROPOSAL_DECISION_COPY[decision].timestampLabel
+    const timestampDate = latestDecision ? latest?.createdAt : (fallback?.timestamp ?? null)
     const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
     const isCode = kind === 'CODE'
@@ -235,7 +253,7 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', j
                     job={job}
                     kindCopy={kindCopy}
                     timestampLabel={timestampLabel}
-                    timestampDate={latest.createdAt}
+                    timestampDate={timestampDate}
                     banner={banner}
                 />
                 <ProposalSection
@@ -247,7 +265,7 @@ export function PostFeedbackView({ orgSlug, study, entries, kind = 'PROPOSAL', j
                     timestampLabel={timestampLabel}
                     banner={banner}
                 />
-                <FeedbackAndNotesSection entries={entries} />
+                <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <Group justify="flex-end">
                     <GoToDashboardButton />
                 </Group>

@@ -204,7 +204,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                             </Stack>
                             <Divider my="xs" c="charcoal.1" />
                             <Text size="md" c="grey.7">
-                                Can&apos;t access your MFA device?
+                                Can’t access your MFA device?
                             </Text>
                             <Button
                                 w="100%"

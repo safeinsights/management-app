@@ -215,31 +215,31 @@ describe('CodePostDecisionView', () => {
         })
     })
 
-    describe('study code viewer', () => {
-        it('starts collapsed and toggles to "Hide submitted study code" with body visible', async () => {
+    describe('submitted code table', () => {
+        it('starts collapsed and toggles to "Hide submitted study code", rendering the file table', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
-
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveTextContent('View submitted study code')
+            expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
-            expect(toggle).toHaveTextContent('Hide submitted study code')
+            await waitFor(() => expect(toggle).toHaveTextContent('Hide submitted study code'))
+            expect(toggle).toHaveAttribute('aria-expanded', 'true')
+            expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         })
     })
 
     describe('study code visibility', () => {
-        it('hides the study code viewer during the execution window (showStudyCode=false)', async () => {
+        it('hides the submitted code table during the execution window (showStudyCode=false)', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { showStudyCode: false })
 
-            expect(screen.queryByTestId('study-code-viewer')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             // The approved/running banner still renders so the page reads as "running / results pending".
             expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
         })
@@ -332,7 +332,7 @@ describe('CodePostDecisionView', () => {
             renderView(study, job, [], latestJobStatus, { feedbackLoadError: true })
 
             expect(screen.getByText('Feedback could not be loaded')).toBeInTheDocument()
-            expect(screen.getByText('please refresh and try again')).toBeInTheDocument()
+            expect(screen.getByText('Please refresh and try again')).toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })

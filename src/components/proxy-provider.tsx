@@ -5,7 +5,7 @@
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { FC, PropsWithChildren, createContext, useEffect, useState } from 'react'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { Button, Text, Stack, Group } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import type { Route } from 'next'
@@ -180,7 +180,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
                         </Text>
                         <Group justify="flex-end">
                             <Button variant="outline" onClick={handleDiscard} disabled={isSavingDraft}>
-                                Discard study
+                                Discard changes
                             </Button>
                             <Button variant="filled" onClick={handleSaveDraft} loading={isSavingDraft}>
                                 Save as draft

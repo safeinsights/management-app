@@ -24,7 +24,7 @@ export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) =
 
 export const settingsFormSchema = z.object({
     name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-    description: z.string().max(250, 'Word limit is 250 characters').default(''),
+    description: z.string().max(250, 'Description cannot exceed 250 characters').default(''),
 })
 
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
@@ -110,14 +110,14 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                     form.errors.name && (
                                         <Group gap="xs">
                                             <InputError error={form.errors.name} />
-                                            <span>{(form.values.name || '').length} /50 characters</span>
+                                            <span>{(form.values.name || '').length}/50 characters</span>
                                         </Group>
                                     )
                                 }
                             />
                             {/* If there is no name error show the characters count */}
                             {form.errors.name && (
-                                <FormFieldMessage message={(form.values.name || '').length + ' /50 characters'} />
+                                <FormFieldMessage message={(form.values.name || '').length + '/50 characters'} />
                             )}
                         </Grid.Col>
                     </Grid>
@@ -138,7 +138,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                     form.errors.description && (
                                         <Group gap="xs">
                                             <InputError error={form.errors.description} />
-                                            <span>{(form.values.description || '').length} /250 characters</span>
+                                            <span>{(form.values.description || '').length}/250 characters</span>
                                         </Group>
                                     )
                                 }

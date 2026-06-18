@@ -10,6 +10,7 @@ import {
     screen,
     setTestStudyStatus,
     userEvent,
+    waitFor,
 } from '@/tests/unit.helpers'
 import StudyAgreementsRoute from './page'
 
@@ -148,6 +149,46 @@ describe('StudyAgreementsRoute', () => {
         const { asPath } = (RouterMock as any).memoryRouter
         expect(asPath).toContain('from=agreements')
         expect(asPath).toContain('returnTo=org')
+    })
+
+    it('Proceed targets the code-status view via from=code-decision (not code upload) when code is already submitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'previous' }),
+        })
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Proceed to Step 4/ }))
+
+        await waitFor(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { asPath } = (RouterMock as any).memoryRouter
+            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view?from=code-decision`)
+        })
+    })
+
+    it('Proceed targets code upload when no code has been submitted yet', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const page = await StudyAgreementsRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({ from: 'previous' }),
+        })
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Proceed to Step 4/ }))
+
+        await waitFor(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { asPath } = (RouterMock as any).memoryRouter
+            expect(asPath).toBe(`/${org.slug}/study/${study.id}/code`)
+        })
     })
 
     it('renders Previous button for researcher', async () => {

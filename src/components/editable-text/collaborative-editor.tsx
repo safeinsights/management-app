@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { Alert, Badge, Box, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
@@ -187,9 +187,12 @@ function SaveStatus({
     )
 }
 
-type ActiveEditor = { name: string; color: string; focusing: boolean }
+type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
 
-function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null>) {
+export function useActiveEditors(
+    providerRef: React.RefObject<HocuspocusProvider | null>,
+    currentUserId: string | undefined,
+) {
     const [editors, setEditors] = useState<ActiveEditor[]>([])
 
     useEffect(() => {
@@ -199,13 +202,18 @@ function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null
         const awareness = provider.awareness!
 
         const update = () => {
-            const states: ActiveEditor[] = []
+            const seen = new Map<string, ActiveEditor>()
             awareness.getStates().forEach((state, clientId) => {
-                if (clientId !== awareness.clientID && state.name) {
-                    states.push({ name: state.name, color: state.color, focusing: state.focusing })
+                if (clientId === awareness.clientID || !state.name) return
+                const userId = state.awarenessData?.userId
+                if (userId === currentUserId) return
+                const key = userId ?? `client-${clientId}`
+                const existing = seen.get(key)
+                if (!existing || (!existing.focusing && state.focusing)) {
+                    seen.set(key, { userId: key, name: state.name, color: state.color, focusing: state.focusing })
                 }
             })
-            setEditors(states)
+            setEditors(Array.from(seen.values()))
         }
 
         awareness.on('change', update)
@@ -214,13 +222,19 @@ function useActiveEditors(providerRef: React.RefObject<HocuspocusProvider | null
         return () => {
             awareness.off('change', update)
         }
-    }, [providerRef])
+    }, [providerRef, currentUserId])
 
     return editors
 }
 
-function ActiveEditorsList({ providerRef }: { providerRef: React.RefObject<HocuspocusProvider | null> }) {
-    const editors = useActiveEditors(providerRef)
+function ActiveEditorsList({
+    providerRef,
+    currentUserId,
+}: {
+    providerRef: React.RefObject<HocuspocusProvider | null>
+    currentUserId: string | undefined
+}) {
+    const editors = useActiveEditors(providerRef, currentUserId)
 
     if (editors.length === 0) return null
 
@@ -230,7 +244,7 @@ function ActiveEditorsList({ providerRef }: { providerRef: React.RefObject<Hocus
                 Also editing:
             </Text>
             {editors.map((editor) => (
-                <Badge key={editor.name} color={editor.color} variant="light" size="sm">
+                <Badge key={editor.userId} color={editor.color} variant="light" size="sm">
                     {editor.name}
                 </Badge>
             ))}
@@ -335,8 +349,7 @@ export type CollaborativeEditorProps = {
 function EditorUnavailable() {
     return (
         <Alert color="red" title="Editor unavailable">
-            We couldn&apos;t connect to the collaboration server. Try refreshing the page — your last saved draft is
-            safe.
+            We couldn’t connect to the collaboration server. Try refreshing the page — your last saved draft is safe.
         </Alert>
     )
 }
@@ -353,6 +366,8 @@ function ReconnectingBanner() {
 // in this set means the editor genuinely cannot show — wrong user, missing token,
 // wrong document name. STUDY_NOT_EDITABLE intentionally falls through to the
 // kick-out flow handled by useSubmissionRedirectListener / useStudyStatusOnReconnect.
+// INFRA_UNAVAILABLE is deliberately absent: it is recoverable and drives a retry,
+// not a terminal banner (OTTER-626).
 const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'MISSING_TOKEN',
     'INVALID_TOKEN',
@@ -362,6 +377,10 @@ const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'NO_MEMBERSHIP',
     'UNKNOWN',
 ])
+
+// How long to wait before re-attempting a connection that failed with
+// INFRA_UNAVAILABLE, giving the editor service time to self-heal its DB pool.
+const INFRA_RETRY_DELAY_MS = 5000
 
 export function CollaborativeEditor({
     id,
@@ -378,11 +397,18 @@ export function CollaborativeEditor({
     const { user } = useUser()
     const { getToken } = useAuth()
     const providerRef = useRef<HocuspocusProvider | null>(null)
+    // State mirror of providerRef — the ref is needed for synchronous access in
+    // the factory callback; state is needed so the cleanup effect can depend on
+    // the provider value.
+    const [activeProvider, setActiveProvider] = useState<HocuspocusProvider | null>(null)
     const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
+    const infraRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const phase = useConnectionPhase()
     const triggerKickOut = useTriggerStudyKickOut()
+    const userId = user?.id
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
     const cursorColor = pickCursorColor(username)
+    const awarenessData = useMemo(() => ({ userId }), [userId])
     const fetchToken = useCallback(async () => getToken(), [getToken])
     const onAuthError = useCallback(
         (reason: string) => {
@@ -393,32 +419,66 @@ export function CollaborativeEditor({
             // websocket dropping (server forcibly closes one handshake), so the page-level
             // reconnect listener wouldn't run. Drive the kick-out check from here too.
             if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
+            // INFRA_UNAVAILABLE means the server's DB was momentarily unreachable, not
+            // that we're unauthorized. The handshake closed this one provider while the
+            // shared transport stayed up, so nothing else will retry it — re-attempt the
+            // connection after a backoff. Clearing the code drops the banner once the
+            // retry's handshake succeeds.
+            if (code === 'INFRA_UNAVAILABLE') {
+                if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
+                infraRetryTimer.current = setTimeout(() => {
+                    setAuthFailureCode(null)
+                    providerRef.current?.connect()
+                }, INFRA_RETRY_DELAY_MS)
+            }
         },
         [id, triggerKickOut],
+    )
+    const publishProvider = useCallback(
+        (provider: HocuspocusProvider | null) => {
+            setActiveProvider(provider)
+            onProviderReady?.(provider)
+        },
+        [onProviderReady],
     )
     const providerFactory = useCollaborationProvider(
         websocketProvider,
         providerRef,
         fetchToken,
         onAuthError,
-        onProviderReady,
+        publishProvider,
     )
 
+    // Strict-mode cleanup detaches the provider; re-attach and re-publish so
+    // the provider stays in providerMap and subscribers don't stay on null.
+    // attach() is idempotent — on first mount this is a no-op.
     useEffect(() => {
-        // React strict mode (dev) runs setup-cleanup-setup on mount; the cleanup's
-        // `onProviderReady(null)` would otherwise wipe the provider that the
-        // factory just published during render, leaving subscribers stuck on null
-        // (criteria Y.Map bridge, submission listener). Re-publishing the current
-        // provider on setup undoes the strict-mode null publish; the cleanup still
-        // fires on real unmount. Production is unaffected (single mount, single
-        // setup, cleanup only on real unmount).
-        if (providerRef.current && onProviderReady) {
-            onProviderReady(providerRef.current)
+        if (providerRef.current) {
+            providerRef.current.attach()
+            publishProvider(providerRef.current)
         }
         return () => {
-            onProviderReady?.(null)
+            publishProvider(null)
         }
-    }, [onProviderReady])
+    }, [publishProvider])
+
+    // Clean up the per-document subscription so re-entering peers get a fresh
+    // server Connection with full awareness of who's already editing.
+    useEffect(() => {
+        if (!activeProvider) return
+        return () => {
+            activeProvider.awareness?.setLocalState(null)
+            activeProvider.detach()
+        }
+    }, [activeProvider])
+
+    // Cancel any pending INFRA_UNAVAILABLE retry on unmount.
+    useEffect(
+        () => () => {
+            if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
+        },
+        [],
+    )
 
     // STUDY_NOT_EDITABLE: a peer submitted while we were disconnected. The kick-out
     // flow (toast + redirect) is wired up at the page level; render nothing here so
@@ -436,7 +496,7 @@ export function CollaborativeEditor({
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
-                {phase === 'reconnecting' && <ReconnectingBanner />}
+                {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
@@ -472,6 +532,7 @@ export function CollaborativeEditor({
                         shouldBootstrap={false}
                         username={username}
                         cursorColor={cursorColor}
+                        awarenessData={awarenessData}
                     />
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
@@ -485,7 +546,7 @@ export function CollaborativeEditor({
                         <SaveStatus documentId={id} studyId={studyId} providerRef={providerRef} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
-                    <ActiveEditorsList providerRef={providerRef} />
+                    <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />
                 </Stack>
             </LexicalCollaboration>
         </LexicalComposer>

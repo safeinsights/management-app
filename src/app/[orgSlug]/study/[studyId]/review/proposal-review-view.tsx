@@ -1,7 +1,6 @@
 'use client'
 
-import { AppModal } from '@/components/modal'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -10,11 +9,12 @@ import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-prov
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { ReviewSubmissionListener } from './review-submission-listener'
-import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { ProposalReviewLayoutView } from './proposal-review-layout-view'
+import { Button, Group, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import { useState, type FC, type ReactNode } from 'react'
+import { useState, type FC } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalSection } from './proposal-section'
@@ -115,62 +115,8 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPendi
     )
 }
 
-type ReviewConfirmationModalProps = {
-    isOpen: boolean
-    onClose: () => void
-    onConfirm: () => void
-    isPending: boolean
-    title: string
-    confirmLabel: string
-    variant?: 'default' | 'destructive'
-    warning?: ReactNode
-}
-
-export const REJECTION_WARNING = (
-    <Text size="md" fw={600} c="red.9">
-        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
-        action cannot be undone.
-    </Text>
-)
-
-export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    isPending,
-    title,
-    confirmLabel,
-    variant = 'default',
-    warning,
-}) => {
-    const isDestructive = variant === 'destructive'
-    return (
-        <AppModal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={title}
-            size={720}
-            closeOnClickOutside={!isPending}
-            closeOnEscape={!isPending}
-            withCloseButton={!isPending}
-        >
-            <Stack>
-                <Text size="md">
-                    Please confirm you are ready to submit your review. Further edits are not permitted once submitted.
-                </Text>
-                {warning}
-                <Group justify="flex-end">
-                    <Button variant="outline" onClick={onClose} disabled={isPending}>
-                        Cancel
-                    </Button>
-                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
-                        {confirmLabel}
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
-    )
-}
+const CONFIRM_BODY =
+    'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.'
 
 /**
  * Inner component that does all the hook work. Lives **inside**
@@ -201,41 +147,36 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
     const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
-        <Box bg="grey.10">
-            <ReviewSubmissionListener
-                orgSlug={orgSlug}
-                studyId={study.id}
-                tabSessionId={tabSessionId}
-                enabled={isEditable}
-            />
-            <Stack px="xl" gap="xl" py="xl">
-                <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Data use request', Routes.studyReview({ orgSlug, studyId: study.id })],
-                        ['Review initial request'],
-                    ]}
+        <ProposalReviewLayoutView
+            orgSlug={orgSlug}
+            studyId={study.id}
+            listener={
+                <ReviewSubmissionListener
+                    orgSlug={orgSlug}
+                    studyId={study.id}
+                    tabSessionId={tabSessionId}
+                    enabled={isEditable}
                 />
-
-                <Title order={1} fz={40} fw={700}>
-                    Review initial request
-                </Title>
-
+            }
+            proposal={
                 <ProposalSection
                     study={study}
                     orgSlug={orgSlug}
                     priorEntries={priorEntries}
                     reviewVersion={reviewVersion}
                 />
-                <FeedbackAndNotesSection entries={priorEntries} />
+            }
+            feedbackAndNotes={<FeedbackAndNotesSection entries={priorEntries} />}
+            feedback={
                 <ReviewFeedbackSection
                     feedback={feedback}
                     submittingLabName={study.submittingLabName}
                     studyId={study.id}
                     reviewVersion={reviewVersion}
                 />
-                <ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />
-
+            }
+            decision={<ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />}
+            actions={
                 <ReviewActionsBar
                     study={study}
                     canSubmit={canSubmit}
@@ -243,27 +184,34 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                     onBack={handleBack}
                     onSubmit={handleSubmit}
                 />
-            </Stack>
-
-            <ReviewConfirmationModal
-                isOpen={confirmOpen}
-                onClose={closeConfirm}
-                onConfirm={handleConfirmSubmit}
-                isPending={isPending}
-                title="Confirm review submission?"
-                confirmLabel="Yes, submit review"
-            />
-            <ReviewConfirmationModal
-                isOpen={rejectOpen}
-                onClose={closeReject}
-                onConfirm={handleConfirmSubmit}
-                isPending={isPending}
-                title="Reject initial request"
-                confirmLabel="Reject initial request"
-                variant="destructive"
-                warning={REJECTION_WARNING}
-            />
-        </Box>
+            }
+            modals={
+                <>
+                    <ReviewConfirmationModal
+                        isOpen={confirmOpen}
+                        onClose={closeConfirm}
+                        onConfirm={handleConfirmSubmit}
+                        isPending={isPending}
+                        title="Confirm review submission?"
+                        confirmLabel="Yes, submit review"
+                    >
+                        <Text size="md">{CONFIRM_BODY}</Text>
+                    </ReviewConfirmationModal>
+                    <ReviewConfirmationModal
+                        isOpen={rejectOpen}
+                        onClose={closeReject}
+                        onConfirm={handleConfirmSubmit}
+                        isPending={isPending}
+                        title="Reject initial request"
+                        confirmLabel="Reject initial request"
+                        variant="destructive"
+                    >
+                        <Text size="md">{CONFIRM_BODY}</Text>
+                        {REJECTION_WARNING}
+                    </ReviewConfirmationModal>
+                </>
+            }
+        />
     )
 }
 

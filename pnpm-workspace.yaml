@@ -3,19 +3,24 @@ packages:
 allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
+    '@swc/core': false
     esbuild: true
     fsevents: true
+    msw: false
     sharp: true
     unrs-resolver: true
 minimumReleaseAge: 2880
 overrides:
     '@types/react': 19.2.14
+    esbuild: ^0.28.1
+    form-data: ^4.0.6
     minimatch: ^10.2.1
-    fast-xml-parser: ^5.7.0
-    serialize-javascript: ^7.0.3
-    express-rate-limit: ^8.2.2
-    flatted: ^3.4.0
-    nodemailer: ^8.0.4
     picomatch: ^4.0.4
     postcss: ^8.5.10
-    uuid: ^14.0.0
+    vite: ^8.0.16
+    ws: ^8.21.0
+    'hono@<4.12.25': '>=4.12.25'
+    'js-yaml@<=4.1.1': '>=4.1.2'
+    'nodemailer@<=8.0.8': '>=8.0.9'
+    '@opentelemetry/core@<2.8.0': '>=2.8.0'
+    '@babel/core@<=7.29.0': '>=7.29.1'
