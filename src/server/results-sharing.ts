@@ -10,6 +10,13 @@ import { getLabPublicKeysForJob } from '@/server/db/queries'
  * via the (study_job_file_id, file_path, fingerprint) unique constraint; ciphertext untouched.
  *
  * Revocation is prospective only: a researcher who already unwrapped a key keeps it.
+ *
+ * FOLLOW-UP (renewal re-wrap): today these rows are only written when a reviewer approves results,
+ * so a recipient added/changed afterward has no access. The committed direction is a "renew
+ * encryption" flow — any current recipient decrypts the artifact, re-wraps each file's AES key for
+ * the up-to-date recipient set, and writes new rows here — to cover key rotation (fingerprint
+ * changes, orphaning old rows), lost/compromised keys, new hires, and departed members without
+ * re-running the job. This insert path is the mechanism that flow will reuse/extend.
  */
 export async function insertSharedFileKeys(db: DBExecutor, jobId: string, sharedFiles: SharedFile[]): Promise<void> {
     const labKeys = await getLabPublicKeysForJob(jobId)
