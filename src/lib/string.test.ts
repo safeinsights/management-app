@@ -1,5 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { strToAscii, slugify, shellQuote } from './string'
+import { strToAscii, slugify, getInitials, shellQuote } from './string'
+
+describe('getInitials', () => {
+    it('returns the uppercased first initial for a single name', () => {
+        expect(getInitials('Ada')).toBe('A')
+        expect(getInitials('ada')).toBe('A')
+    })
+
+    it('returns first + last initials for a full name', () => {
+        expect(getInitials('Ada Lovelace')).toBe('AL')
+    })
+
+    it('uses the first and last word for three or more names', () => {
+        expect(getInitials('Katherine Coleman Johnson')).toBe('KJ')
+    })
+
+    it('ignores extra surrounding and internal whitespace', () => {
+        expect(getInitials('  Ada   Lovelace  ')).toBe('AL')
+    })
+
+    it('returns an empty string for empty or whitespace-only input', () => {
+        expect(getInitials('')).toBe('')
+        expect(getInitials('   ')).toBe('')
+    })
+})
 
 describe('strToAscii', () => {
     it('removes non-alphanumeric characters', () => {

@@ -180,7 +180,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
                         </Text>
                         <Group justify="flex-end">
                             <Button variant="outline" onClick={handleDiscard} disabled={isSavingDraft}>
-                                Discard study
+                                Discard changes
                             </Button>
                             <Button variant="filled" onClick={handleSaveDraft} loading={isSavingDraft}>
                                 Save as draft

@@ -1,0 +1,4 @@
+/* Mirror the font Next.js sets up via next/font/google in src/app/layout.tsx so
+ * Ladle renders with the SAME typeface as the app (not a system fallback).
+ * Keep this in sync with layout.tsx + theme.ts whenever the brand font changes. */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap');
