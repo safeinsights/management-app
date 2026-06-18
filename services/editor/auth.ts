@@ -268,6 +268,14 @@ export async function studyIdForDocument(parsed: ParsedDocumentName, db: Pick<Db
 // `onAuthenticationFailed.reason`. The wire format is `CODE: message` so the
 // client can split on the first colon and dispatch on `code` rather than
 // pattern-matching the message text.
+//
+// These are *terminal* auth rejections only. INFRA_UNAVAILABLE is intentionally
+// NOT a member: it travels the same `CODE: message` wire but is a recoverable
+// infra failure carried by InfraUnavailableError (below), and the client treats
+// it as non-terminal (retry, not "editor unavailable"). Do not fold it in here —
+// making it an AuthFailureError code would latch the terminal banner (OTTER-626).
+// The client's AuthFailureCode union (src/lib/realtime/auth-failure.ts) is the
+// superset that lists both; keep the two in sync by hand.
 export type AuthFailureCode =
     | 'MISSING_TOKEN'
     | 'INVALID_TOKEN'
@@ -289,6 +297,23 @@ export class AuthFailureError extends Error {
         super(wire)
         this.name = 'AuthFailureError'
         this.code = code
+        this.reason = wire
+    }
+}
+
+// Reason code for an infrastructure failure (e.g. the DB is unreachable or
+// rejected our credentials) encountered while authenticating. Distinct from
+// AuthFailureError so the client can show a recoverable "reconnecting" state
+// instead of a terminal "editor unavailable" banner — a transient DB problem
+// must not masquerade as a permanent auth denial (OTTER-626).
+export const INFRA_UNAVAILABLE_CODE = 'INFRA_UNAVAILABLE'
+
+export class InfraUnavailableError extends Error {
+    readonly reason: string
+    constructor(message: string) {
+        const wire = `${INFRA_UNAVAILABLE_CODE}: ${message}`
+        super(wire)
+        this.name = 'InfraUnavailableError'
         this.reason = wire
     }
 }
