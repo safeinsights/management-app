@@ -10,7 +10,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
-import { hasUserProvidedTitle } from './schema'
+import { hasUserProvidedTitle, isProposalDraftDirty } from './schema'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
@@ -69,7 +69,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                     <Button
                         variant="outline"
                         size="md"
-                        disabled={!form.isDirty() || isBusy}
+                        disabled={!isProposalDraftDirty(form) || isBusy}
                         loading={isSaving}
                         onClick={saveDraft}
                     >

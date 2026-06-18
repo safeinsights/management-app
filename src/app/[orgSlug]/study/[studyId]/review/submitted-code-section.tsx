@@ -122,7 +122,7 @@ export function SubmittedCodeSection({
     codeInitiallyExpanded = true,
 }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
-    const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
+    const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=initial-request`
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (

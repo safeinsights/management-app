@@ -11,7 +11,7 @@ import {
 
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { APP_MAIN_BG, APP_SHELL, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
@@ -40,15 +40,15 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
-            bg="grey.10"
-            header={{ height: 60, collapsed: isDesktop }}
-            footer={{ height: 60 }}
+            bg={APP_MAIN_BG}
+            header={{ height: APP_SHELL.headerHeight, collapsed: isDesktop }}
+            footer={{ height: APP_SHELL.footerHeight }}
             navbar={{
-                width: 260,
-                breakpoint: 'sm',
+                width: APP_SHELL.navbarWidth,
+                breakpoint: APP_SHELL.navbarBreakpoint,
                 collapsed: { mobile: !opened, desktop: false },
             }}
-            padding="md"
+            padding={APP_SHELL.padding}
         >
             <RequireUser />
             <RequireMFA />
@@ -56,7 +56,7 @@ export function AppShell({ children }: Props) {
             <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
-            <AppShellHeader bg="purple.8" w="100%">
+            <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
                     <Link href={Routes.home}>
@@ -67,7 +67,10 @@ export function AppShell({ children }: Props) {
 
             <AppNav isDesktop={isDesktop} />
 
-            <AppShellMain bg="grey.10" style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
+            <AppShellMain
+                bg={APP_MAIN_BG}
+                style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
+            >
                 {children}
             </AppShellMain>
 

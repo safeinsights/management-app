@@ -244,4 +244,60 @@ describe('useStudyStatus', () => {
             expect(result?.label).toBe('Rejected')
         })
     })
+
+    // OTTER-552: a code resubmission appends a fresh CODE-SUBMITTED/CODE-SCANNED after the
+    // prior round's CODE-CHANGES-REQUESTED. jobStatusChanges is newest-first. The pill must
+    // reflect the fresh submission ("Needs Review" / "Under Review"), not the stale decision.
+    describe('code resubmission recency', () => {
+        it('reviewer: resubmitted code after a change request reads "Needs Review", not "Change requested"', () => {
+            const params = createTestParams('APPROVED', 'reviewer', [
+                { status: 'CODE-SCANNED' },
+                { status: 'CODE-SUBMITTED' },
+                { status: 'CODE-CHANGES-REQUESTED' },
+                { status: 'CODE-SUBMITTED' },
+            ])
+            const result = useStudyStatus(params)
+
+            expect(result.stage).toBe('Code')
+            expect(result.label).toBe('Needs Review')
+        })
+
+        it('researcher: resubmitted code after a change request reads "Under Review"', () => {
+            const params = createTestParams('APPROVED', 'researcher', [
+                { status: 'CODE-SCANNED' },
+                { status: 'CODE-SUBMITTED' },
+                { status: 'CODE-CHANGES-REQUESTED' },
+                { status: 'CODE-SUBMITTED' },
+            ])
+            const result = useStudyStatus(params)
+
+            expect(result.stage).toBe('Code')
+            expect(result.label).toBe('Under Review')
+        })
+
+        it('still shows "Change requested" when no newer submission exists', () => {
+            const params = createTestParams('APPROVED', 'reviewer', [
+                { status: 'CODE-CHANGES-REQUESTED' },
+                { status: 'CODE-SCANNED' },
+                { status: 'CODE-SUBMITTED' },
+            ])
+            const result = useStudyStatus(params)
+
+            expect(result.label).toBe('Change requested')
+        })
+
+        it('does not disturb the approved -> running flow (CODE-APPROVED stays)', () => {
+            const params = createTestParams('APPROVED', 'reviewer', [
+                { status: 'JOB-RUNNING' },
+                { status: 'JOB-PACKAGING' },
+                { status: 'CODE-APPROVED' },
+                { status: 'CODE-SCANNED' },
+                { status: 'CODE-SUBMITTED' },
+            ])
+            const result = useStudyStatus(params)
+
+            // JOB-RUNNING is newest and is not a decision; CODE-APPROVED must not be dropped.
+            expect(result.label).toBe('Processing')
+        })
+    })
 })

@@ -16,7 +16,7 @@ describe('StudyDetailsResearcher', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
     })
 
-    it('renders a Previous link back to the OTTER-537 code-submission page', async () => {
+    it('renders a Previous link back to the OTTER-612 code-decision page', async () => {
         const { org, study, latestJob } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'lab' })
 
         renderWithProviders(<StudyDetailsResearcher orgSlug={org.slug} study={study} job={latestJob!} />)
@@ -24,7 +24,7 @@ describe('StudyDetailsResearcher', () => {
         const previous = screen.getByRole('link', { name: /previous/i })
         expect(previous).toHaveAttribute(
             'href',
-            expect.stringContaining(`/${org.slug}/study/${study.id}/view?from=code-submission`),
+            expect.stringContaining(`/${org.slug}/study/${study.id}/view?from=code-decision`),
         )
     })
 
@@ -35,7 +35,7 @@ describe('StudyDetailsResearcher', () => {
 
         const previous = screen.getByRole('link', { name: /previous/i })
         const href = previous.getAttribute('href') ?? ''
-        expect(href).toContain('from=code-submission')
+        expect(href).toContain('from=code-decision')
         expect(href).toContain('returnTo=org')
     })
 })
