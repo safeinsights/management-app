@@ -23,12 +23,14 @@ const defaultPoolFactory: PoolFactory = (settings) => new pg.Pool(settings)
 
 export class ResilientDbPool {
     private pool: pg.Pool
+    private readonly source: DbSource
+    private readonly log: Logger
+    private readonly makePool: PoolFactory
 
-    constructor(
-        private readonly source: DbSource,
-        private readonly log: Logger,
-        private readonly makePool: PoolFactory = defaultPoolFactory,
-    ) {
+    constructor(source: DbSource, log: Logger, makePool: PoolFactory = defaultPoolFactory) {
+        this.source = source
+        this.log = log
+        this.makePool = makePool
         this.pool = this.build()
     }
 

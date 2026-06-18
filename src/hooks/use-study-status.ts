@@ -1,5 +1,6 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, StatusLabel } from '@/lib/status-labels'
+import { isCodeDecisionStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { AllStatus } from '@/lib/types'
 
 export type MinimalStatusChange = {
@@ -30,6 +31,18 @@ const LABELS: Record<'reviewer' | 'researcher', Partial<Record<AllStatus, Status
     researcher: RESEARCHER_STATUS_LABELS,
 }
 
+// A code resubmission appends a fresh CODE-SUBMITTED (then CODE-SCANNED) after the prior round's
+// CODE-CHANGES-REQUESTED. The pill is priority-set based and ignores recency, so the stale
+// CODE-CHANGES-REQUESTED would otherwise outrank the newer submission and the study would read
+// "Change requested" when its code is actually awaiting a fresh review. When the latest code
+// change is a (re)submission, drop the stale decision statuses so the submission drives the
+// Code-stage label. The "is the latest change a submission?" question is centralized in
+// study-job-status.ts so this pill, reviewer routing, and the row highlight can't drift.
+const dropStaleCodeDecisions = (changes: MinimalStatusChange[]): MinimalStatusChange[] => {
+    if (!latestCodeChangeIsSubmission(changes)) return changes
+    return changes.filter((c) => !isCodeDecisionStatus(c.status))
+}
+
 export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
     // Researchers must not see "Errored" until the reviewer has reviewed the error logs
     // and recorded a FILES-APPROVED/FILES-REJECTED decision. Until then, hide JOB-ERRORED
@@ -38,10 +51,11 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
     const hasReviewerDecision = jobStatusChanges.some(
         (c) => c.status === 'FILES-APPROVED' || c.status === 'FILES-REJECTED',
     )
+    const recencyAdjusted = dropStaleCodeDecisions(jobStatusChanges)
     const visibleJobChanges =
         audience === 'researcher' && !hasReviewerDecision
-            ? jobStatusChanges.filter((c) => c.status !== 'JOB-ERRORED')
-            : jobStatusChanges
+            ? recencyAdjusted.filter((c) => c.status !== 'JOB-ERRORED')
+            : recencyAdjusted
 
     // add studyStatus as the last entry as a fallback in case a job hasn't started yet
     const statuses: AllStatus[] = [...visibleJobChanges.map((change) => change.status), studyStatus]
