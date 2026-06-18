@@ -61,13 +61,13 @@ export function isInvalidPasswordError(err: unknown): boolean {
 // Secrets Manager when a connection rejects the cached password.
 export class DbCredentials {
     private secret: ResolvedDbSecret
+    private readonly arn: string
+    private readonly client: SecretFetcher
 
-    private constructor(
-        secret: ResolvedDbSecret,
-        private readonly arn: string,
-        private readonly client: SecretFetcher,
-    ) {
+    private constructor(secret: ResolvedDbSecret, arn: string, client: SecretFetcher) {
         this.secret = secret
+        this.arn = arn
+        this.client = client
     }
 
     static async resolve(arn: string, client: SecretFetcher): Promise<DbCredentials> {
