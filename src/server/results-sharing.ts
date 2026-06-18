@@ -5,7 +5,7 @@ import { getLabPublicKeysForJob } from '@/server/db/queries'
 
 /**
  * Persist re-wrapped AES keys granting lab researchers access to a job's files. Each
- * `study_job_file_key` row holds a file's AES key wrapped to a recipient's public key. Validated
+ * `study_job_file_recipient_key` row holds a file's AES key wrapped to a recipient's public key. Validated
  * against the lab org's known keys so a client can't share to an arbitrary fingerprint. Idempotent
  * via the (study_job_file_id, file_path, fingerprint) unique constraint; ciphertext untouched.
  *
@@ -45,7 +45,7 @@ export async function insertSharedFileKeys(db: DBExecutor, jobId: string, shared
     if (!rows.length) return
 
     await db
-        .insertInto('studyJobFileKey')
+        .insertInto('studyJobFileRecipientKey')
         .values(rows)
         .onConflict((oc) => oc.columns(['studyJobFileId', 'filePath', 'fingerprint']).doNothing())
         .execute()

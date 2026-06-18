@@ -264,7 +264,7 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
-export interface StudyJobFileKey {
+export interface StudyJobFileRecipientKey {
     createdAt: Generated<Timestamp>
     crypt: string
     filePath: string
@@ -349,7 +349,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
-    studyJobFileKey: StudyJobFileKey
+    studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment

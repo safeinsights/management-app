@@ -69,7 +69,6 @@ describe('Results Keypair generation', () => {
             expect(setUserPublicKeyAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     publicKey: mockKeys.exportedPublicKey,
-                    fingerprint: mockKeys.fingerprint,
                 }),
             )
         })

@@ -12,6 +12,10 @@ import type { FileType } from '@/database/types'
 type Options = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
+    // Reviewers are manifest recipients and see every artifact (and a job-wide "shared with lab"
+    // indicator). Researchers see only artifacts they hold a wrapped key for, so row visibility and
+    // state are driven off their own decryptable set, not the job-wide one.
+    isReviewer: boolean
 }
 
 export type FileRowState = 'locked' | 'decrypted' | 'approved'
@@ -30,7 +34,7 @@ function isEncryptedFile(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
 }
 
-export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
+export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Options) {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const [viewingFile, setViewingFile] = useState<JobFile | null>(null)
 
@@ -73,13 +77,28 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
     const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
 
-    const shouldShowForm = encryptedRows.length > 0 && decryptedFiles.length === 0
+    // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
+    // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.
+    const accessibleIdSet = useMemo(
+        () => new Set((encryptedFiles ?? []).map((f) => f.studyJobFileId)),
+        [encryptedFiles],
+    )
+    const visibleRows = useMemo(
+        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessibleIdSet.has(f.id))),
+        [isReviewer, encryptedRows, accessibleIdSet],
+    )
+
+    // Gate the decrypt form on what THIS user can actually decrypt: a researcher with no wrapped
+    // keys (e.g. late joiner, pre-renewal) has nothing to decrypt, so don't show a form to nowhere.
+    const accessibleCount = isReviewer ? encryptedRows.length : (encryptedFiles?.length ?? 0)
+    const shouldShowForm = accessibleCount > 0 && decryptedFiles.length === 0
 
     const sharedIdSet = useMemo(() => new Set(sharedFileIds), [sharedFileIds])
 
     // Before decryption: one locked row per encrypted artifact (size unknown until decrypted).
     // After: one row per inner file, all sharing the artifact's row id (sourceId) that "shared" is
-    // keyed on.
+    // keyed on. The green "shared" state is a reviewer-facing signal (job-wide sharedFileIds = "I've
+    // shared this with the lab"); a researcher only ever sees rows they can already decrypt.
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         if (decryptedFiles.length > 0) {
             return decryptedFiles.map((f) => ({
@@ -88,20 +107,20 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
                 name: f.path,
                 bytes: f.contents.byteLength,
                 fileType: f.fileType,
-                state: sharedIdSet.has(f.sourceId) ? 'approved' : 'decrypted',
+                state: isReviewer && sharedIdSet.has(f.sourceId) ? 'approved' : 'decrypted',
                 file: f,
             }))
         }
-        return encryptedRows.map((f) => ({
+        return visibleRows.map((f) => ({
             key: `${f.fileType}-${f.id}`,
             label: logLabel(f.fileType),
             name: f.name,
             bytes: null,
             fileType: f.fileType,
-            state: sharedIdSet.has(f.id) ? 'approved' : 'locked',
+            state: isReviewer && sharedIdSet.has(f.id) ? 'approved' : 'locked',
             file: null,
         }))
-    }, [encryptedRows, decryptedFiles, sharedIdSet])
+    }, [visibleRows, decryptedFiles, sharedIdSet, isReviewer])
 
     const hasFileRows = fileRows.length > 0
 

@@ -120,7 +120,7 @@ describe('Study Results Approve/Reject buttons', async () => {
 
         // The re-wrapped researcher key was persisted against the real file row.
         const wrappedKeys = await db
-            .selectFrom('studyJobFileKey')
+            .selectFrom('studyJobFileRecipientKey')
             .select('fingerprint')
             .where('studyJobFileId', '=', row.id)
             .execute()

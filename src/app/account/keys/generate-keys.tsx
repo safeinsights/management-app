@@ -150,12 +150,10 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
             if (isRegenerating) {
                 return updateUserPublicKeyAction({
                     publicKey: keys.binaryPublicKey,
-                    fingerprint: keys.fingerprint,
                 })
             } else {
                 return setUserPublicKeyAction({
                     publicKey: keys.binaryPublicKey,
-                    fingerprint: keys.fingerprint,
                 })
             }
         },

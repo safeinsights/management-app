@@ -282,7 +282,7 @@ describe('getSharedFileIdsForJob', () => {
     // so tests grant access by inserting these rows rather than flipping a status.
     const shareFile = (studyJobFileId: string, filePath: string, fingerprint: string) =>
         db
-            .insertInto('studyJobFileKey')
+            .insertInto('studyJobFileRecipientKey')
             .values({ studyJobFileId, filePath, fingerprint, crypt: 'wrapped-key' })
             .execute()
 

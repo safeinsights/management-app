@@ -192,7 +192,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         if (!encryptedFiles.length) return []
 
         // Enclave reviewers are manifest recipients and decrypt with their own key; lab researchers
-        // aren't, so they get per-file re-wrapped keys (study_job_file_key) as `researcherKeys`. A
+        // aren't, so they get per-file re-wrapped keys (study_job_file_recipient_key) as `recipientKeys`. A
         // reviewer is a member of the study's enclave org; everyone else takes the researcher path.
         const isEnclaveReviewer = Object.values(session.orgs).some(
             (org) => org.id === studyJob.orgId && org.type === 'enclave',
@@ -208,7 +208,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    researcherKeys: {} as Record<string, string>,
+                    recipientKeys: {} as Record<string, string>,
                 })),
             )
         }
@@ -216,7 +216,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
         // naturally gated). Build the {file_path -> crypt} map per artifact.
         const wrappedKeys = await db
-            .selectFrom('studyJobFileKey')
+            .selectFrom('studyJobFileRecipientKey')
             .select(['studyJobFileId', 'filePath', 'crypt'])
             .where(
                 'studyJobFileId',
@@ -242,7 +242,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    researcherKeys: keysByFileId.get(file.id)!,
+                    recipientKeys: keysByFileId.get(file.id)!,
                 })),
         )
     })

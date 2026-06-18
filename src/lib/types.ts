@@ -208,7 +208,7 @@ const FILE_TYPES = [
 
 export const fileTypeSchema = z.enum(FILE_TYPES)
 
-// A re-wrapped AES key for one researcher recipient of one approved file (a `study_job_file_key`
+// A re-wrapped AES key for one researcher recipient of one approved file (a `study_job_file_recipient_key`
 // row; see src/server/results-sharing.ts for the model).
 export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
 export const sharedFileSchema = z.object({

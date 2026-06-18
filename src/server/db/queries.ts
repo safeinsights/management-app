@@ -64,6 +64,8 @@ export async function getStudyJobInfo(studyJobId: string) {
 }
 
 export const getUserPublicKey = async (userId: string) => {
+    // executeTakeFirst is deterministic here: user_public_key has a unique constraint on user_id
+    // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
@@ -478,10 +480,10 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 // their key rows, so this never retroactively un-shares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
-        .selectFrom('studyJobFileKey')
-        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileKey.studyJobFileId')
+        .selectFrom('studyJobFileRecipientKey')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
         .where('studyJobFile.studyJobId', '=', jobId)
-        .select('studyJobFileKey.studyJobFileId')
+        .select('studyJobFileRecipientKey.studyJobFileId')
         .distinct()
         .execute()
 

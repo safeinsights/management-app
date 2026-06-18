@@ -28,7 +28,11 @@ async function insertSharedFileScenario() {
 }
 
 const selectKeyRows = (fileId: string) =>
-    db.selectFrom('studyJobFileKey').select(['fingerprint', 'crypt']).where('studyJobFileId', '=', fileId).execute()
+    db
+        .selectFrom('studyJobFileRecipientKey')
+        .select(['fingerprint', 'crypt'])
+        .where('studyJobFileId', '=', fileId)
+        .execute()
 
 // Approval is recorded by the caller as a job-level FILES-APPROVED status change, not here.
 // These tests cover only the access mechanism: persisting validated wrapped-key rows.

@@ -14,12 +14,14 @@ type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
     hideTableUntilDecrypted?: boolean
+    isReviewer: boolean
 }
 
 export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
     job,
     onFilesApproved,
     hideTableUntilDecrypted = false,
+    isReviewer,
 }) => {
     const {
         fileRows,
@@ -32,8 +34,11 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
         viewingFile,
         openFileViewer,
         closeFileViewer,
-    } = useEncryptedFilesPanel({ job, onFilesApproved })
+    } = useEncryptedFilesPanel({ job, onFilesApproved, isReviewer })
 
+    // No decryptable rows for this user (a researcher with no wrapped keys yet — late joiner, or
+    // pre-renewal). Render nothing rather than a form to nowhere. Future: an honest "no results
+    // shared with you yet" empty state + the renewal re-wrap request affordance lives here.
     if (!hasFileRows) {
         return null
     }

@@ -10,5 +10,5 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 const noop = () => {}
 
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    return <EncryptedFilesPanel job={job} onFilesApproved={noop} />
+    return <EncryptedFilesPanel isReviewer={false} job={job} onFilesApproved={noop} />
 }

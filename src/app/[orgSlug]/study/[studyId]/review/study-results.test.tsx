@@ -49,7 +49,7 @@ async function seedEncryptedFile(
         fileType,
         name,
         encryptedBody: await zip.arrayBuffer(),
-        researcherKeys: {} as Record<string, string>,
+        recipientKeys: {} as Record<string, string>,
     }
 }
 

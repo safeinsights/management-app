@@ -4,6 +4,7 @@ import { getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
+import { fingerprintKeyData } from 'si-encryption/util'
 import { Action, ActionFailure, z } from './action'
 
 // Pages that render the user's key state — bust both after a key write so presence/fingerprint
@@ -28,9 +29,11 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
+// No `fingerprint` field: it's derived server-side from `publicKey` (deterministic SHA-256 over the
+// SPKI bytes). A client-supplied fingerprint that didn't match would make every sender wrap to a
+// key the owner can't unwrap — silent, permanent decrypt failure with no recourse until renewal.
 const setOrgUserPublicKeySchema = z.object({
     publicKey: z.instanceof(ArrayBuffer),
-    fingerprint: z.string(),
 })
 
 // Reject keys that aren't importable RSA SPKI DER. A single malformed key in an org breaks
@@ -48,10 +51,11 @@ async function assertValidPublicKey(publicKey: ArrayBuffer): Promise<void> {
 export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
     .requireAbilityTo('update', 'UserKey')
-    .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
+    .handler(async ({ params: { publicKey }, session, db }) => {
         const userId = session.user.id
 
         await assertValidPublicKey(publicKey)
+        const fingerprint = await fingerprintKeyData(publicKey)
 
         await db
             .insertInto('userPublicKey')
@@ -69,11 +73,16 @@ export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
 export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
     .requireAbilityTo('update', 'UserKey')
-    .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
+    .handler(async ({ params: { publicKey }, session, db }) => {
         const userId = session.user.id
 
         await assertValidPublicKey(publicKey)
+        const fingerprint = await fingerprintKeyData(publicKey)
 
+        // Rotation swaps the fingerprint, orphaning study_job_file_recipient_key rows wrapped to the
+        // old one — the researcher loses access to already-approved results. Recovery is the renewal
+        // re-wrap flow (a teammate re-wraps for the new key); until that ships, self-rotate is not
+        // surfaced to researchers. See renewal follow-up.
         await db
             .updateTable('userPublicKey')
             .set({

@@ -35,7 +35,7 @@ describe('Study Job Actions', () => {
 
     test('fetchEncryptedJobFilesAction returns the whole-zip artifacts to an enclave reviewer', async () => {
         // Enclave reviewers are manifest recipients, so they get every artifact with no
-        // researcherKeys — they decrypt with their own key.
+        // recipientKeys — they decrypt with their own key.
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
 
@@ -55,7 +55,7 @@ describe('Study Job Actions', () => {
         expect(result).toHaveLength(1)
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
         expect(result[0].studyJobFileId).toBe(file.id)
-        expect(result[0].researcherKeys).toEqual({})
+        expect(result[0].recipientKeys).toEqual({})
     })
 
     // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob' rule
@@ -83,7 +83,7 @@ describe('Study Job Actions', () => {
             .executeTakeFirstOrThrow()
 
         await db
-            .insertInto('studyJobFileKey')
+            .insertInto('studyJobFileRecipientKey')
             .values({
                 studyJobFileId: file.id,
                 filePath: 'results.csv',
@@ -95,7 +95,7 @@ describe('Study Job Actions', () => {
         const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
 
         expect(result).toHaveLength(1)
-        expect(result[0].researcherKeys).toEqual({ 'results.csv': 'wrapped-for-researcher' })
+        expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-researcher' })
     })
 
     test('fetchEncryptedJobFilesAction returns nothing to a researcher with no shared keys', async () => {
@@ -117,7 +117,7 @@ describe('Study Job Actions', () => {
             })
             .executeTakeFirstOrThrow()
 
-        // No study_job_file_key row for this researcher → nothing they can decrypt.
+        // No study_job_file_recipient_key row for this researcher → nothing they can decrypt.
         const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
         expect(result).toHaveLength(0)
     })

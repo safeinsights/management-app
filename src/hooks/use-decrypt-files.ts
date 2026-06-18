@@ -8,7 +8,7 @@ import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuf
 import type { FileType } from '@/database/types'
 
 // One encrypted artifact from fetchEncryptedJobFilesAction: whole-zip ciphertext (embedded
-// manifest). `researcherKeys` (inner path -> wrapped AES key) is set only for lab researchers, who
+// manifest). `recipientKeys` (inner path -> wrapped AES key) is set only for lab researchers, who
 // aren't manifest recipients; ResultsReader merges them into the manifest under their fingerprint.
 // Empty for enclave reviewers, who decrypt with their own key.
 export type EncryptedJobFile = {
@@ -16,7 +16,7 @@ export type EncryptedJobFile = {
     fileType: FileType
     name: string
     encryptedBody: ArrayBuffer
-    researcherKeys: Record<string, string>
+    recipientKeys: Record<string, string>
 }
 
 class KeyParseError extends Error {}
@@ -39,7 +39,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 new Blob([artifact.encryptedBody]),
                 privateKeyBuffer,
                 fingerprint,
-                artifact.researcherKeys,
+                artifact.recipientKeys,
             )
             // Capture each inner file's raw AES key so approval can re-wrap it per researcher.
             const entries = await reader.extractFilesWithKeys()

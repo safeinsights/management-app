@@ -46,8 +46,10 @@ describe('User Keys Actions', () => {
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         const { publicKey, fingerprint } = await validTestKey()
 
-        await setUserPublicKeyAction({ publicKey, fingerprint })
+        await setUserPublicKeyAction({ publicKey })
 
+        // Fingerprint is derived server-side from publicKey, not taken from the client. It must match
+        // an independent derivation of the same key.
         const newKeyResult = actionResult(await getUserPublicKeyAction())
         expect(newKeyResult).toBeDefined()
         expect(newKeyResult?.fingerprint).toEqual(fingerprint)
@@ -59,7 +61,6 @@ describe('User Keys Actions', () => {
 
         const result = await setUserPublicKeyAction({
             publicKey: Buffer.from('not-a-real-key').buffer,
-            fingerprint: 'garbage-fingerprint',
         })
 
         expect(isActionError(result)).toBe(true)
@@ -79,7 +80,7 @@ describe('User Keys Actions', () => {
 
         const { publicKey, fingerprint } = await validTestKey()
 
-        await updateUserPublicKeyAction({ publicKey, fingerprint })
+        await updateUserPublicKeyAction({ publicKey })
 
         const updatedKeyResult = actionResult(await getUserPublicKeyAction())
         expect(updatedKeyResult).toBeDefined()
@@ -96,7 +97,6 @@ describe('User Keys Actions', () => {
 
         const result = await updateUserPublicKeyAction({
             publicKey: Buffer.from('still-not-a-key').buffer,
-            fingerprint: 'garbage-fingerprint',
         })
 
         expect(isActionError(result)).toBe(true)

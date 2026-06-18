@@ -26,6 +26,8 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
 }
 
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
+    // If the insert below fails (or the process dies between these two writes), the S3 object is
+    // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
     await storeS3File(info, file.stream(), path)
 
     return await db

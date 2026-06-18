@@ -29,7 +29,7 @@ type MinimalJob = { id: string }
 
 // Encrypt one results artifact the way TOA would (prod whole-zip + embedded manifest), persist the
 // study_job_file row, and return the entry the fetchEncryptedJobFilesAction mock serves. The
-// reviewer is a manifest recipient, so researcherKeys is empty — they decrypt with their own key.
+// reviewer is a manifest recipient, so recipientKeys is empty — they decrypt with their own key.
 async function seedArtifact(
     job: MinimalJob,
     { fileType, subdir, files }: { fileType: FileType; subdir: string; files: { name: string; content: string }[] },
@@ -52,7 +52,7 @@ async function seedArtifact(
         fileType,
         name: 'encrypted-results.zip',
         encryptedBody: await zip.arrayBuffer(),
-        researcherKeys: {} as Record<string, string>,
+        recipientKeys: {} as Record<string, string>,
     }
 }
 
@@ -90,7 +90,9 @@ describe('EncryptedFilesPanel', () => {
     it('returns null when no encrypted files exist', async () => {
         const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
-        const { container } = renderWithProviders(<EncryptedFilesPanel job={job} onFilesApproved={vi.fn()} />)
+        const { container } = renderWithProviders(
+            <EncryptedFilesPanel isReviewer job={job} onFilesApproved={vi.fn()} />,
+        )
         expect(container.querySelector('form')).toBeNull()
         expect(screen.queryByText('Decrypt Files')).toBeNull()
     })
@@ -100,7 +102,7 @@ describe('EncryptedFilesPanel', () => {
         await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         expect(screen.getByText('Results')).toBeDefined()
         expect(screen.getByLabelText('Encrypted')).toBeDefined()
@@ -119,7 +121,7 @@ describe('EncryptedFilesPanel', () => {
         await insertEncryptedRow(job, { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', subdir: 'encrypted-logs' })
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => {
             expect(screen.getByText('Results')).toBeDefined()
@@ -138,7 +140,7 @@ describe('EncryptedFilesPanel', () => {
 
         const onFilesApproved = vi.fn()
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
 
         await enterKeyAndDecrypt()
 
@@ -170,7 +172,7 @@ describe('EncryptedFilesPanel', () => {
 
         const onFilesApproved = vi.fn()
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
 
         await enterKeyAndDecrypt()
 
@@ -207,7 +209,7 @@ describe('EncryptedFilesPanel', () => {
 
         const onFilesApproved = vi.fn()
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
 
         await enterKeyAndDecrypt()
 
@@ -239,7 +241,7 @@ describe('EncryptedFilesPanel', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await enterKeyAndDecrypt()
 
@@ -265,7 +267,7 @@ describe('EncryptedFilesPanel', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await enterKeyAndDecrypt()
 
@@ -286,7 +288,7 @@ describe('EncryptedFilesPanel', () => {
         vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => {
             expect(screen.getByText('Results')).toBeDefined()
@@ -299,10 +301,50 @@ describe('EncryptedFilesPanel', () => {
         await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => expect(screen.getByText('Results')).toBeDefined())
         expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
         expect(screen.getByLabelText('Encrypted')).toBeDefined()
+    })
+
+    // Researcher path: visibility and the decrypt form are gated on the user's own wrapped-key set
+    // (what fetchEncryptedJobFilesAction returns), not the job-wide artifact list.
+    it('renders nothing for a researcher with no wrapped keys, even when the job has artifacts', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
+        // Job is approved/shared at the job level, but this researcher holds no key for it.
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+        vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
+
+        const latestJob = await latestJobForStudy(study.id)
+        const { container } = renderWithProviders(
+            <EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />,
+        )
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        // No form to nowhere, and no false green "shared" check on an artifact they can't decrypt.
+        expect(container.querySelector('form')).toBeNull()
+        expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
+        expect(screen.queryByText('Results')).toBeNull()
+    })
+
+    it('shows the decrypt form (no shared check) for a researcher who holds a wrapped key', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+        vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([artifact.studyJobFileId])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await waitFor(() => expect(screen.getByText('Results')).toBeDefined())
+        // Green "shared with researcher" is a reviewer-facing signal — researchers never see it.
+        expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
+        expect(screen.getByPlaceholderText(READER_KEY_PLACEHOLDER)).toBeDefined()
     })
 })

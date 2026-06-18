@@ -40,6 +40,7 @@ export const StudyResults: FC<{
                     <Divider c="dimmed" />
                     {job && (
                         <EncryptedFilesPanel
+                            isReviewer
                             job={job}
                             onFilesApproved={(files) => {
                                 setDecryptedResults(files)
@@ -65,6 +66,7 @@ export const StudyResults: FC<{
                 <Divider c="dimmed" />
                 <JobStatusHelpText job={job} hasEncryptedLogs={hasEncryptedLogs} />
                 <EncryptedFilesPanel
+                    isReviewer
                     job={job}
                     onFilesApproved={(files) => {
                         setDecryptedResults(files)
