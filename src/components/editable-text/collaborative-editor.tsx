@@ -366,6 +366,8 @@ function ReconnectingBanner() {
 // in this set means the editor genuinely cannot show — wrong user, missing token,
 // wrong document name. STUDY_NOT_EDITABLE intentionally falls through to the
 // kick-out flow handled by useSubmissionRedirectListener / useStudyStatusOnReconnect.
+// INFRA_UNAVAILABLE is deliberately absent: it is recoverable and drives a retry,
+// not a terminal banner (OTTER-626).
 const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'MISSING_TOKEN',
     'INVALID_TOKEN',
@@ -375,6 +377,10 @@ const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'NO_MEMBERSHIP',
     'UNKNOWN',
 ])
+
+// How long to wait before re-attempting a connection that failed with
+// INFRA_UNAVAILABLE, giving the editor service time to self-heal its DB pool.
+const INFRA_RETRY_DELAY_MS = 5000
 
 export function CollaborativeEditor({
     id,
@@ -396,6 +402,7 @@ export function CollaborativeEditor({
     // the provider value.
     const [activeProvider, setActiveProvider] = useState<HocuspocusProvider | null>(null)
     const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
+    const infraRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const phase = useConnectionPhase()
     const triggerKickOut = useTriggerStudyKickOut()
     const userId = user?.id
@@ -412,6 +419,18 @@ export function CollaborativeEditor({
             // websocket dropping (server forcibly closes one handshake), so the page-level
             // reconnect listener wouldn't run. Drive the kick-out check from here too.
             if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
+            // INFRA_UNAVAILABLE means the server's DB was momentarily unreachable, not
+            // that we're unauthorized. The handshake closed this one provider while the
+            // shared transport stayed up, so nothing else will retry it — re-attempt the
+            // connection after a backoff. Clearing the code drops the banner once the
+            // retry's handshake succeeds.
+            if (code === 'INFRA_UNAVAILABLE') {
+                if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
+                infraRetryTimer.current = setTimeout(() => {
+                    setAuthFailureCode(null)
+                    providerRef.current?.connect()
+                }, INFRA_RETRY_DELAY_MS)
+            }
         },
         [id, triggerKickOut],
     )
@@ -453,6 +472,14 @@ export function CollaborativeEditor({
         }
     }, [activeProvider])
 
+    // Cancel any pending INFRA_UNAVAILABLE retry on unmount.
+    useEffect(
+        () => () => {
+            if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
+        },
+        [],
+    )
+
     // STUDY_NOT_EDITABLE: a peer submitted while we were disconnected. The kick-out
     // flow (toast + redirect) is wired up at the page level; render nothing here so
     // we don't flash a red error before the navigation completes.
@@ -469,7 +496,7 @@ export function CollaborativeEditor({
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
-                {phase === 'reconnecting' && <ReconnectingBanner />}
+                {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
