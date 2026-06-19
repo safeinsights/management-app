@@ -1579,10 +1579,13 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
     })
 
-    it('rejects when study.status is not PENDING-REVIEW even if the latest job is reviewable', async () => {
-        // Pathological state: study moved off PENDING-REVIEW (e.g. APPROVED) but
-        // the latest job is still CODE-SUBMITTED. The auth gate blocks editor
-        // connections here; the action handler must match.
+    it('accepts a code review when study is APPROVED but the latest job is reviewable (resubmission after change request)', async () => {
+        // OTTER-552: after a code change-request the proposal-stage study status
+        // correctly stays APPROVED while the researcher resubmits code, so the latest
+        // job sits at CODE-SUBMITTED awaiting a fresh decision. Eligibility is driven
+        // by the JOB status, not study.status, so the reviewer can decide on the
+        // resubmission. (Previously a study.status === PENDING-REVIEW gate wrongly
+        // rejected this with "already been decided".)
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -1594,15 +1597,13 @@ describe('submitCodeReviewDecisionAction', () => {
         const result = await submitCodeReviewDecisionAction({
             studyId: study.id,
             orgSlug: org.slug,
-            decision: 'approve',
+            decision: 'needs-clarification',
             feedback: validFeedback,
             criteria: validCriteria,
         })
 
-        expect(result).toMatchObject({
-            error: expect.objectContaining({ study: expect.stringMatching(/already been decided/i) }),
-        })
-        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+        expect(result).not.toMatchObject({ error: expect.anything() })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
     it('rejects a duplicate code-review submission for the same job', async () => {

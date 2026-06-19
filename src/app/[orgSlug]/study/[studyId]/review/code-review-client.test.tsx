@@ -32,12 +32,15 @@ const mockUseCodeReviewMutation = vi.mocked(useCodeReviewMutation)
 const mockUseReviewFeedback = vi.mocked(useReviewFeedback)
 const submitReview = vi.fn()
 
-async function setupValidReviewableJob(labName = 'Rice University') {
+async function setupValidReviewableJob(
+    labName = 'Rice University',
+    studyStatus: SelectedStudy['status'] = 'PENDING-REVIEW',
+) {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
     const { study: dbStudy } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        studyStatus: 'PENDING-REVIEW',
+        studyStatus,
         jobStatus: 'CODE-SUBMITTED',
         title: 'Effect of Reading Comprehension Tools',
     })
@@ -112,6 +115,41 @@ describe('CodeReviewClient decision selector', () => {
             ),
         ).toBeInTheDocument()
         expect(screen.getByText('Warning: This terminates the study and cannot be undone.')).toBeInTheDocument()
+    })
+
+    it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
+        // OTTER-552: a resubmission after a code change-request leaves the study APPROVED
+        // (proposal-stage status) while the latest job is CODE-SUBMITTED. Editability is
+        // job-driven, so the DO must see the editor, not the closed-review alert.
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        expect(screen.queryByTestId('code-review-closed-alert')).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-review-submit')).toBeInTheDocument()
+    })
+
+    it('renders "Code review is closed" once the job has a decision (CODE-CHANGES-REQUESTED)', async () => {
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-CHANGES-REQUESTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        expect(screen.getByTestId('code-review-closed-alert')).toBeInTheDocument()
+        expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
     })
 
     it('disables Submit when no decision is selected even with valid feedback and criteria', async () => {

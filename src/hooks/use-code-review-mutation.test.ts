@@ -137,8 +137,13 @@ describe('useCodeReviewMutation', () => {
 
     it('action error: no navigation, no broadcast', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        // Force the action's editable-state guard to reject.
-        await db.updateTable('study').set({ status: 'APPROVED' }).where('id', '=', study.id).execute()
+        // Force the action's job-status guard to reject: eligibility keys on job status
+        // alone (OTTER-552), so record a decision on the job. The latest code change is
+        // then a decision, not a submission, and claimInitialCodeReviewJob rejects.
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
+            .execute()
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
