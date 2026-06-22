@@ -509,16 +509,45 @@ accept the descriptor instead.
 
 ## 8. Routing changes
 
-- DB state selects the _flow_; a URL **step** segment selects the _position_ within it. This
-  eliminates `?from=` for state entirely — back/forward destinations become real URLs the
-  machine computes, so deep-linking and refresh just work.
-- Dashboard links unconditionally to `/view` (researcher) or `/review` (reviewer) via the
-  Tier-1 href; it no longer predicts a panel.
-- Multi-step editing flows (draft Step 1A → Step 2, edit-and-resubmit) keep a `step` URL
-  segment that the machine reads and refines on.
-- Exact final route shapes (whether step is a path segment or a sub-route) are settled in
-  writing-plans. Any change to `src/lib/routes/definitions.ts` requires explicit approval per
-  CLAUDE.md.
+**Goal: delete `?from=` entirely (researcher side) — it is the documented source of the routing
+bugs.** `?from=` exists only because today no single authority decides "what screen should this
+study show," so each page guesses and patches itself with defensive redirects, and `?from=` is
+the escape hatch on those patches. `resolveScreen` becomes that authority, which lets the whole
+structure collapse.
+
+Resolved during planning (verified against the code, supersedes the earlier "`step` segment" idea):
+
+- **No `step` URL segment is needed.** The researcher `/view` page never renders a multi-step
+  screen: the draft proposal steps are already **separate routes** (`/edit` = Step 1, `/proposal`
+  = Step 2). Every screen `resolveScreen` returns for `/view` is a single page; the draft case
+  just points its forward/back at those existing routes. The `ScreenDescriptor.step` field stays
+  as harmless metadata (breadcrumb labels) but drives no routing.
+- **Two distinct `?from=` categories, both removed (researcher side):**
+    - _Category 1 — screen selection_ (`?from=agreements`, `?from=code-decision` in `view/page.tsx`;
+      and the `previousHref`/`agreementsHref` that produce them in the view components). These make
+      the **same study state** render **different screens** — exactly what `resolveScreen` replaces.
+      Deleted: the machine computes each screen's `back`/`forward` as real route hrefs.
+    - _Category 2 — redirect suppression_ (`?from=step2` on `/edit`, `?from=previous` on
+      `/agreements`). These suppress a page's defensive "resume/skip-forward" auto-redirect on
+      intentional back-navigation (OTTER-572). **Both the auto-redirects AND these flags are
+      deleted** — not renamed. They only exist because pages guess; once the machine is the
+      authority, pages don't self-correct, so there is nothing to suppress.
+- **Pages become dumb renderers that defer to the machine on load.** For deep-link / refresh /
+  stale-bookmark safety (the legitimate concern the old redirects also covered), each sub-page
+  (`/edit`, `/proposal`, `/agreements`, `/code`), on load, asks `resolveScreen` whether **this
+  route is still correct for the study's current state**; if yes it renders, if not it redirects
+  to the machine's canonical screen. This is still a redirect in mechanism, but driven by the
+  **one** authority — not ad-hoc `draftHasStep2Progress` + `?from=` logic. One decider, no escape
+  param. (A shared helper, e.g. `redirectUnlessCanonical(role, studyId, expectedScreen)`,
+  centralizes this.)
+- Dashboard links unconditionally to `/view` (researcher) via the Tier-1 href; it no longer
+  predicts a panel.
+- **`definitions.ts` changes (require explicit approval per CLAUDE.md):** drop the `from` param
+  from the researcher routes (`studyView`, `studyEdit`, `studyAgreements`) — `returnTo` stays.
+  The reviewer routes keep `from` (the reviewer page is a separate, later migration).
+- **Reviewer side is untouched** in this plan: `review/page.tsx`'s `?from=` (`initial-request`,
+  `code-review`, `agreements`, `agreements-proceed`) and its routes remain until the reviewer
+  flow is migrated.
 
 ## 9. Invariants & error handling
 

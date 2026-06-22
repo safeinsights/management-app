@@ -15,10 +15,24 @@
 - Cut over the **researcher `/view` page** to fetch a full `RawStudyState` and render via `resolveScreen` + a `SCREEN_COMPONENTS` registry, adapting existing view components.
 - Delete `latestSubmittedJobHasLiveCodeDecision`, `latestSubmittedJobLiveCodeDecisionStatus`, `latestCodeChangeIsSubmission` once their last callers are gone.
 
-**Explicitly DEFERRED to follow-up plans (out of scope here):**
+**IN SCOPE (scope expanded mid-execution — design §8 updated):** full `?from=` elimination on the
+**researcher** flow. `resolveScreen` becomes the single authority on which screen a study shows;
+the researcher view's if-cascade is replaced; the researcher view components drop their `?from=`
+nav wiring in favour of machine-computed `descriptor.back`/`forward`; the sub-pages (`/edit`,
+`/proposal`, `/agreements`, `/code`) become dumb renderers that defer to the machine on load
+(deleting their defensive auto-redirects AND the `?from=step2`/`?from=previous` escape flags); and
+`from` is removed from the researcher route builders in `definitions.ts` (approval granted for this
+work). This is Tasks 15a–15i + 16.
 
-- Reviewer `/review` page cutover (spec §13; reviewer rule table is stubbed). It keeps working unchanged in this plan because we do **not** delete the helpers it still uses until Task 14 verifies zero callers — see Task 14's guard.
-- Route-segment restructuring for multi-step flows (`?from=` removal beyond what the researcher view needs, new `step` path segments). Spec §8/§12 mark route changes as needing explicit approval to `definitions.ts`. This plan keeps existing routes and only removes `?from=` reads that the researcher-view rewrite makes dead.
+**Explicitly DEFERRED to a follow-up plan (out of scope here):**
+
+- Reviewer `/review` page cutover (spec §13; reviewer rule table is stubbed). It keeps working
+  unchanged: we do **not** delete the order-dependent helpers it still uses, and we KEEP `?from=`
+  on the reviewer routes (`studyReview`, and the reviewer's use of `studyAgreements`). The reviewer
+  flow's `?from=` is removed when that page is migrated.
+- Intent→action wiring (`intents.ts`) for submit/resubmit confirm modals — the researcher screens
+  we migrate are read-only or use existing route navigation; the submit/resubmit CTAs that open
+  modals continue to use their existing component-local actions for now.
 
 **Resolved during planning (was spec §12 open Q1):** `hasSavedEdits` does NOT need a comment join. The `study` table already has `proposalResubmissionNoteDraft` and `codeResubmissionNoteDraft` columns (`database/types.ts:219,237`), already selected by `fetchStudyQuery` (`study.actions.ts:110-111`). So `hasSavedEdits = !!raw.proposalResubmissionNoteDraft` and a code variant `hasSavedCodeEdits = !!raw.codeResubmissionNoteDraft`.
 
@@ -1754,74 +1768,176 @@ git commit -m "feat(study-view): compute screen descriptor at page top (legacy f
 
 ---
 
-### Task 15: Wire the simplest leaf screen — `proposal-feedback` — end to end
+> **SCOPE EXPANDED (design §8 updated):** this plan now ELIMINATES `?from=` from the researcher
+> flow entirely, rather than deferring it. `resolveScreen` becomes the single authority on which
+> screen a study shows; pages become dumb renderers that defer to it on load; the defensive
+> auto-redirects and their `?from=` escape flags are DELETED. Reviewer side stays untouched.
+> Tasks 15a–15h below replace the old single "Task 15". Tasks 13 & 14 (already done) stand.
+
+### Task 15a: Make `resolveScreen` carry every screen's real back/forward hrefs
+
+The researcher view components today build `previousHref` / `agreementsHref` with `?from=…`
+(Category-1). The machine must instead supply those as `descriptor.back` / `descriptor.forward`
+route targets so the components can drop their own `?from=` wiring. Before wiring components, make
+sure `SCREEN_RULES` produces the right nav for each researcher screen.
 
 **Files:**
 
-- Create: `src/app/[orgSlug]/study/[studyId]/_screens/proposal-feedback-screen.tsx`
-- Modify: `src/app/[orgSlug]/study/[studyId]/_screens/registry.ts`
-- Modify: `src/app/[orgSlug]/study/[studyId]/view/page.tsx` (remove the now-dead `showProposalView` branch for REJECTED/APPROVED/CHANGE-REQUESTED)
-- Test: extend `view/page.test.tsx`
+- Modify: `src/lib/study-screen/screen-rules.ts`
+- Modify: `src/lib/study-screen/resolve.ts` (so the ctx can carry `returnTo`)
+- Test: `src/lib/study-screen/resolve.test.ts` (extend)
 
-> Pick `proposal-feedback` first: it maps to the existing `ResearcherProposalView` and is a
-> read-only leaf (no intent buttons), so wiring it is low-risk and demonstrates the full path:
-> registry entry → renderer picks it → legacy branch deleted.
+- [ ] **Step 1: Add `returnTo` to the resolve ctx.** Today `resolveScreen(role, state, step, ctx)`
+      with `ctx = { orgSlug, studyId }`. The view threads `returnTo: 'org'` into dashboard/agreements
+      hrefs. Extend `ScreenRuleCtx` to `{ orgSlug, studyId, returnTo?: 'org' }` and pass it through.
+      The dashboard href helper and the agreements/code hrefs in rules append `returnTo` when present
+      (use the existing `Routes.studyAgreements({…, returnTo})` / `Routes.orgDashboard` builders).
+      WRITE the failing test first: assert e.g. for a results state the `back` href targets the
+      Code-approved screen's route WITHOUT `?from=` and WITH `returnTo=org` when ctx.returnTo is set.
 
-- [ ] **Step 1: Create the screen wrapper adapting the existing component**
+- [ ] **Step 2: For each researcher screen, set `back`/`forward` to the destinations the legacy
+      components used — but as plain routes, no `?from=`.** Concretely, map the legacy `previousHref`
+      targets to descriptor.back:
+    - `study-results` (was `StudyDetailsResearcher`, previous → `studyView({from:'code-decision'})`):
+      `back` → the **Code-approved screen**. Since the machine owns selection, "go back to the
+      code-approved view" is just `Routes.studyView({orgSlug, studyId, returnTo})` (no `from`) — the
+      machine will resolve `/view` to `code-approved` for that study's state. (This is the key
+      insight: the circular `?from=code-decision` is replaced by a plain `/view` link; the machine
+      re-resolves.)
+    - `code-approved` / `code-under-review` (were `studyAgreements({from:'previous'})`): `back` →
+      `Routes.studyAgreements({orgSlug, studyId})` (the agreements page will itself defer-to-machine
+      on load, per Task 15g — no `from` needed).
+    - `agreements` screen forward → `Routes.studyCode({orgSlug, studyId})`.
+    - `proposal-feedback` (read-only): keep `back` → dashboard (already set).
+      Adjust the existing `SCREEN_RULES` entries to include these `back`/`forward` targets. Update
+      `resolve.test.ts` to assert the hrefs contain NO `from=` and the right path.
 
-```tsx
-import { ResearcherProposalView } from '../view/researcher-proposal-view'
-import type { ScreenComponentProps } from './types'
+- [ ] **Step 3:** Run `pnpm exec vitest run src/lib/study-screen/` — all green (extend, don't break
+      existing). `pnpm exec tsc --noEmit` exit 0. Commit:
+      `git commit -m "feat(study-screen): screen descriptors carry from-less back/forward hrefs"`
 
-// Adapts the existing read-only proposal view. The machine supplies the forward/back via
-// descriptor, so this wrapper passes dashboardHref through and lets the view render the proposal.
-export function ProposalFeedbackScreen({ study, orgSlug, dashboardHref }: ScreenComponentProps) {
-    return <ResearcherProposalView orgSlug={orgSlug} study={study} dashboardHref={dashboardHref} />
-}
-```
+### Task 15b: Adapt the researcher screen components to consume `descriptor` nav
 
-- [ ] **Step 2: Register it**
+Each researcher view component currently computes its own `previousHref`/`agreementsHref`. Change
+each to accept and render the machine-supplied `descriptor.back`/`forward` instead, and DROP the
+`?from=` construction. Do them one component per commit to keep diffs reviewable.
 
-In `registry.ts`:
+**Components (each → a thin `_screens/*-screen.tsx` wrapper + the component edited to take nav from props):**
 
-```ts
-import { ProposalFeedbackScreen } from './proposal-feedback-screen'
-export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
-    'proposal-feedback': ProposalFeedbackScreen,
-}
-```
+- `researcher-proposal-view.tsx` → `ProposalFeedbackScreen` (drop `agreementsHref` `?from=` usage; the proposal's "Proceed" forward comes from `descriptor.forward` when the machine routes here as the agreements step).
+- `code-post-submission-view.tsx` → `CodeUnderReviewScreen` (drop `previousHref = studyAgreements({from:'previous'})`; take `descriptor.back`).
+- `code-post-decision-view.tsx` → `CodeApprovedScreen` / `CodeFeedbackScreen` (drop its `previousHref`/`from:'previous'`; take `descriptor.back`; the resubmit CTA stays).
+- `study-details-researcher.tsx` → `StudyResultsScreen` (drop `previousHref = studyView({from:'code-decision'})`; take `descriptor.back`).
 
-- [ ] **Step 3: Write the test — a CHANGE-REQUESTED study renders the proposal view through the machine**
+For EACH component task:
 
-```tsx
-// in view/page.test.tsx, add a case that renders the page for a CHANGE-REQUESTED study and
-// asserts the proposal content shows (same assertion the old showProposalView path used).
-```
+- [ ] Create the `_screens/<name>-screen.tsx` wrapper passing `descriptor`, `study`, `raw`,
+      `orgSlug`, `dashboardHref` to the (edited) component. The wrapper renders `<StudyNavButtons
+back={descriptor.back} forward={descriptor.forward} onIntent={…}/>` where the component used to
+      render its own previous/next buttons — OR the component keeps its layout but takes `back`/`forward`
+      hrefs as props. (Read the component to choose the lower-risk shape; prefer passing hrefs as props
+      over moving its buttons, to minimize layout churn.)
+- [ ] Delete the component's internal `Routes.*({…, from: …})` line(s).
+- [ ] Register the screen in `registry.ts`.
+- [ ] Verify against `view/page.test.tsx` as each is wired (see Task 15h for the test migration).
+- [ ] Commit per component: `feat(study-view): wire <screen> screen, drop ?from=`.
 
-(Use the existing test's setup helpers; assert on a stable element the proposal view renders, e.g. the study title or "Study request" heading.)
+### Task 15c: Register `study-overview` (the generic fallback screen)
 
-- [ ] **Step 4: Remove the dead legacy branch**
+The bottom-of-page generic "Study Details" JSX in `view/page.tsx` becomes `StudyOverviewScreen`.
 
-In `view/page.tsx`, delete the `showProposalView` block that returned `<ResearcherProposalView>` for `REJECTED`/`APPROVED`/`CHANGE-REQUESTED` (the renderer now handles it). Keep the branch's other responsibilities (e.g. `agreementsHref`) only if a remaining fallback path needs them; otherwise remove.
+- [ ] Extract that JSX into `_screens/study-overview-screen.tsx` as `StudyOverviewScreen(props)`.
+- [ ] Register it. Now the registry covers every `ScreenId` the researcher view can resolve.
+- [ ] Commit.
 
-- [ ] **Step 5: Run tests**
+### Task 15d: Delete the legacy cascade from `view/page.tsx`
 
-Run: `pnpm exec vitest run "src/app/[orgSlug]/study/[studyId]/view/page.test.tsx"`
-Expected: PASS.
+Once Tasks 15b–15c register every researcher screen, the entire if-cascade in `view/page.tsx`
+(the `job`/`codeSubmitted`/`fromAgreements`/`fromCodeDecision` logic and all its `return`s) is
+dead — every request is handled by the registry-first dispatch added in Task 14.
 
-- [ ] **Step 6: Commit**
+**Files:** Modify `src/app/[orgSlug]/study/[studyId]/view/page.tsx`.
 
-```bash
-git add "src/app/[orgSlug]/study/[studyId]/_screens/proposal-feedback-screen.tsx" "src/app/[orgSlug]/study/[studyId]/_screens/registry.ts" "src/app/[orgSlug]/study/[studyId]/view/page.tsx" "src/app/[orgSlug]/study/[studyId]/view/page.test.tsx"
-git commit -m "feat(study-view): wire proposal-feedback screen via registry"
-```
+- [ ] Replace the whole function body with: resolve params → `study` (for not-found guard) →
+      `rawStudyStateForStudy` → if null `notFound()` → `resolveScreen('researcher', projectStudyState(raw),
+undefined, { orgSlug, studyId, returnTo })` → `SCREEN_COMPONENTS[descriptor.screen]` → render it.
+      The registry is now total for researcher screens, so a missing component is a bug (throw a clear
+      error rather than silently blanking). Remove imports of `latestSubmittedJobForStudy`,
+      `getCodeReviewFeedbackAction`, the OTTER helpers, and all `searchParams.from` reads.
+- [ ] Run `pnpm exec vitest run "src/app/[orgSlug]/study/[studyId]/view/page.test.tsx"` — see Task 15h:
+      the tests are migrated alongside. Expected: green.
+- [ ] `pnpm run checks`. Commit: `refactor(study-view): replace if-cascade with state machine; drop ?from=`.
 
-> **Follow-up (separate plan):** wire the remaining researcher screens (`proposal-submitted`,
-> `code-under-review`, `code-approved`, `code-feedback`, `code-upload`, `agreements`,
-> `study-results`, `proposal-edit`) one task each, deleting each legacy branch as it migrates,
-> then add the intent→action wiring (`intents.ts`) for `submit-code`/`resubmit-code` confirm
-> modals. Each follows the exact pattern of Task 15. This is deferred because several touch
-> `?from=` navigation and route shapes that need the §8/§12 route-change approval.
+### Task 15e: Tighten the registry to a total `Record<ScreenId, …>`
+
+- [ ] Change `SCREEN_COMPONENTS` from `Partial<Record<ScreenId, ScreenComponent>>` to
+      `Record<ScreenId, ScreenComponent>` so the compiler enforces every screen is wired. Fix any
+      resulting type error by ensuring all 11 `ScreenId`s have an entry (reviewer-only screens, if any
+      remain unmapped, can point at `StudyOverviewScreen` as a safe default with a comment).
+- [ ] `pnpm exec tsc --noEmit` exit 0. Commit.
+
+### Task 15f: Shared "defer to the machine on load" guard
+
+**Files:** Create `src/server/study-screen-guard.ts` (server util).
+
+- [ ] Implement `async function redirectUnlessCanonical(role, studyId, orgSlug, expectedScreen, returnTo?)`:
+      fetch `rawStudyStateForStudy(studyId)`; if null → `notFound()`. Compute
+      `resolveScreen(role, projectStudyState(raw), undefined, { orgSlug, studyId, returnTo }).screen`.
+      If it !== `expectedScreen`, `redirect(Routes.studyView({ orgSlug, studyId, returnTo }))` (the
+      machine's canonical location). Else return the raw/state for the page to use.
+- [ ] Unit-test it against the real DB (a draft study expecting `proposal-edit` stays; a submitted
+      study expecting `proposal-edit` redirects). Commit.
+
+### Task 15g: Convert sub-pages to dumb renderers that defer to the machine
+
+Remove every researcher-side defensive redirect AND its `?from=` flag; replace with the Task-15f
+guard.
+
+**Files:** `edit/page.tsx`, `proposal/footer.tsx`, `agreements/page.tsx`, `code/page.tsx`.
+
+- [ ] `edit/page.tsx`: delete the `searchParams.from !== 'step2' && draftHasStep2Progress(...)`
+      redirect (lines ~53). The page now renders the edit form unconditionally for a DRAFT, OR uses the
+      15f guard to confirm `/edit` is canonical for this study (redirecting if not). Remove the `from`
+      from its `searchParams` type.
+- [ ] `proposal/footer.tsx`: change `handlePrevious` to `router.push(Routes.studyEdit({ orgSlug, studyId }))`
+      WITHOUT `from: 'step2'`. (The edit page no longer bounces, so no suppression flag is needed.)
+- [ ] `agreements/page.tsx`: delete the `isDirectAccess = searchParams.from === 'previous'` logic and
+      the `!isDirectAccess` redirect guards; replace with the 15f guard (or render unconditionally if
+      analysis shows the redirect was only the `?from=` dance). Remove its `from:'code-decision'`
+      producer (line ~89) — link plainly to `/view`. NOTE: `agreements/page.tsx` is shared with the
+      reviewer; scope changes to the researcher branch only, leave reviewer logic intact.
+- [ ] `code/page.tsx`: change the `previousHref` from `studyAgreements({from:'previous'})` to
+      `studyAgreements({orgSlug, studyId})` (no `from`).
+- [ ] Each page: run its existing test (`agreements/page.test.tsx`, `edit/page.test.tsx`, etc.) and
+      migrate assertions that referenced `?from=` to the new behavior. Commit per page.
+
+### Task 15h: Migrate `view/page.test.tsx` (and sub-page tests) to the from-less behavior
+
+The 43 `view/page.test.tsx` cases include several asserting `?from=agreements` / `?from=code-decision`
+behavior. Under the new model those params don't exist.
+
+- [ ] For each `?from=`-based test: rewrite it to assert the NEW behavior — e.g. the test that
+      asserted "`?from=agreements` shows the proposal with a Proceed-to-Step-3 button" becomes "an
+      APPROVED-no-code study resolves to the `agreements` screen" (or whichever screen the machine now
+      returns for that state), and the navigation assertions target plain `/agreements` / `/view` URLs
+      with no `from=`. Tests asserting the circular `?from=code-decision` results→code-approved nav now
+      assert the results screen's back link is a plain `/view`.
+- [ ] Keep every test that asserts a screen for a STATE (those still hold — they now flow through the
+      machine). Only the `?from=`-context tests change.
+- [ ] Run the full file green. Commit: `test(study-view): assert state-machine routing, drop ?from= cases`.
+
+### Task 15i: Purge `?from=` (researcher) from `definitions.ts` and confirm zero researcher `from=` remains
+
+**Files:** `src/lib/routes/definitions.ts` (REQUIRES the approval already granted for this work).
+
+- [ ] Remove the `from` param from `studyView`, `studyEdit`, and (for the researcher usage)
+      `studyAgreements` route builders. KEEP `returnTo`. KEEP `from` on `studyReview` (reviewer).
+      NOTE: `studyAgreements` is shared with the reviewer (`from:'previous'` on the reviewer side via
+      `code-review.tsx`/`review/page.tsx`); if the reviewer still needs `from` there, KEEP the param on
+      the builder but ensure no researcher caller passes it. Verify by grep.
+- [ ] `grep -rn "from: '" src/app/[orgSlug]/study/[studyId]/view src/app/[orgSlug]/study/[studyId]/code src/app/[orgSlug]/study/[studyId]/edit src/app/[orgSlug]/study/[studyId]/agreements src/app/[orgSlug]/study/[studyId]/proposal | grep -v "\.test\." | grep -v "\.stories\."` → expect NO researcher screen-selection `from=` producers (reviewer-shared ones on agreements, if any, are documented).
+- [ ] `grep -rn "searchParams.from" src/app/[orgSlug]/study/[studyId]/view` → expect NONE.
+- [ ] `pnpm run checks`. Commit: `chore(routes): drop ?from= from researcher study routes`.
 
 ---
 
@@ -1921,8 +2037,16 @@ git add -A && git commit -m "chore(study-screen): final validation fixups"
 - **Never read `statusChanges[0]`** anywhere in `src/lib/study-screen/`. All status questions are
   set-existence; the only ordering is latest-job-by-`max(id)`. The shuffle test (Task 3) enforces this.
 - **Do not change server-action behavior.** The machine names intents; actions stay as-is.
-- **Do not modify `src/lib/permissions.ts` or `src/lib/routes/definitions.ts`** without explicit
-  approval (CLAUDE.md stop conditions). This plan uses existing `Routes.*` builders only.
-- **Reviewer page is untouched.** It keeps its current helpers until a follow-up plan migrates it.
-- If `pnpm run test:unit` surfaces any unrelated failing/warning test, fix it (per the user's
-  global instruction to fix errors regardless of origin) — do not skip.
+- **Do not modify `src/lib/permissions.ts`** without explicit approval (CLAUDE.md stop condition).
+- **`src/lib/routes/definitions.ts` IS modified, but ONLY in Task 15i**, and ONLY to remove the
+  researcher `from` params (approval granted for this specific change). No other task touches it;
+  every other task uses existing `Routes.*` builders.
+- **Reviewer page is untouched.** It keeps its current helpers AND its `?from=` routing until a
+  follow-up plan migrates it. When removing researcher `?from=`, scope every change to researcher
+  callers; the `studyAgreements` builder is shared with the reviewer — verify before removing.
+- **Known pre-existing failures (out of scope, do NOT fix):** `code-upload.test.tsx` →
+  "shows workspace files and allows submission" and "routes to /view after successful submit"
+  fail on `origin/main` independently of this work (a code-submit status-transition / harness
+  issue). Note them in the PR; exclude them when asserting this branch's suite is green.
+- If `pnpm run test:unit` surfaces any OTHER unrelated failing/warning test, fix it (per the
+  user's global instruction to fix errors regardless of origin) — do not skip.
