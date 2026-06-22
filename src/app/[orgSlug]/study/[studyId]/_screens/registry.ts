@@ -2,9 +2,13 @@ import type React from 'react'
 import type { ScreenId } from '@/lib/study-screen'
 import type { ScreenComponentProps } from './types'
 
-export type ScreenComponent = React.ComponentType<ScreenComponentProps>
+// Screens may be async server components (they load their own data). Returned node is awaited
+// at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
+// would not resolve).
+export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>
 
-// Each entry is wired in its own task. Until then the renderer falls back to the legacy page
-// output (see study-screen-renderer.tsx). Partial now; tightened to a full Record<ScreenId, …>
-// once every screen is wired.
-export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {}
+import { ProposalFeedbackScreen } from './proposal-feedback-screen'
+
+export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
+    'proposal-feedback': ProposalFeedbackScreen,
+}

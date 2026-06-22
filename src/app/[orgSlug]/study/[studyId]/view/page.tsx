@@ -1,3 +1,4 @@
+import type React from 'react'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { countSubmittedJobsForStudy, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
@@ -61,15 +62,15 @@ export default async function StudyReviewPage(props: {
         })
         const RegisteredScreen = SCREEN_COMPONENTS[descriptor.screen]
         if (RegisteredScreen) {
-            return (
-                <RegisteredScreen
-                    descriptor={descriptor}
-                    study={study}
-                    raw={rawStudyState}
-                    orgSlug={orgSlug}
-                    dashboardHref={dashboardHref as string} // Next typed Route extends string; the screen prop is a plain string
-                />
-            )
+            // Screens are awaited (not rendered as JSX children) so async server components resolve
+            // in the test harness. Cast back to React.JSX.Element: all screen components return elements.
+            return (await RegisteredScreen({
+                descriptor,
+                study,
+                raw: rawStudyState,
+                orgSlug,
+                dashboardHref: dashboardHref as string,
+            })) as React.JSX.Element
         }
     }
 
