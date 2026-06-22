@@ -17,7 +17,6 @@ import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsResearcher } from './study-details-researcher'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -588,34 +587,19 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(StudyDetailsResearcher)
+                renderWithProviders(page!)
+                expect(screen.getByText('Study Status')).toBeInTheDocument()
+                expect(screen.getByText('Study Details')).toBeInTheDocument()
+                // Results screen is terminal — no "Previous" link
+                expect(screen.queryByRole('link', { name: /previous/i })).not.toBeInTheDocument()
             },
         )
 
-        // OTTER-612: "Previous" from the results page returns to the Code-approved decision page.
-        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'renders CodePostDecisionView (CODE-APPROVED) when from=code-decision at %s',
-            async (jobStatus) => {
-                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-                const { study } = await insertTestStudyJobData({
-                    org,
-                    researcherId: user.id,
-                    studyStatus: 'APPROVED',
-                    jobStatus: 'CODE-SUBMITTED',
-                })
-                await addJobStatus(study.id, jobStatus)
+        // ?from=code-decision back-nav to the Code-approved page was removed when results became
+        // terminal (OTTER-612 back removed). The state machine now handles results states directly
+        // and does not branch on from=code-decision.
 
-                const page = await StudyReviewPage({
-                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: Promise.resolve({ from: 'code-decision' }),
-                })
-
-                expect(page?.type).toBe(CodePostDecisionView)
-                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            },
-        )
-
-        it('threads returnTo=org to StudyDetailsResearcher at a results status', async () => {
+        it('threads returnTo=org to the results screen via dashboardHref', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -630,8 +614,11 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            expect(page?.type).toBe(StudyDetailsResearcher)
-            expect(page?.props.returnTo).toBe('org')
+            // returnTo=org is baked into dashboardHref by the page dispatch before the screen
+            // is called (ResearcherBreadcrumbs is mocked to null in tests, so we verify via props).
+            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            renderWithProviders(page!)
+            expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
 
         // The from=code-decision branch is gated on isStudyResultsStatus, so a stray ?from=code-decision

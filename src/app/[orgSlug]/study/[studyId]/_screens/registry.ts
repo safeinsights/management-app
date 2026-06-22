@@ -2,6 +2,7 @@ import type React from 'react'
 import type { ScreenId } from '@/lib/study-screen'
 import type { ScreenComponentProps } from './types'
 import { ProposalFeedbackScreen } from './proposal-feedback-screen'
+import { StudyResultsScreen } from './study-results-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
 // at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
@@ -10,4 +11,5 @@ export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode |
 
 export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
     'proposal-feedback': ProposalFeedbackScreen,
+    'study-results': StudyResultsScreen,
 }
