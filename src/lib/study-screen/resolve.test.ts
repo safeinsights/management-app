@@ -21,6 +21,7 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     hasSavedEdits: false,
     hasSavedCodeEdits: false,
     displayStatus: 'DRAFT',
+    latestJobStatuses: [],
     ...overrides,
 })
 

@@ -18,6 +18,7 @@ const dstate = (overrides: Partial<DashboardState>): DashboardState => ({
     resultsErrored: false,
     resultsDisplayStatus: null,
     displayStatus: 'DRAFT',
+    latestJobStatuses: [],
     ...overrides,
 })
 

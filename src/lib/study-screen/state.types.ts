@@ -45,6 +45,9 @@ export type StudyState = {
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean
     displayStatus: AllStatus
+    // Raw status set of the LATEST job (max id), for resolvers that need to walk statuses
+    // role-aware (e.g. the pill, which only labels statuses its role defines). Set, not ordered.
+    latestJobStatuses: StudyJobStatus[]
 }
 
 // Dashboard tier may read everything EXCEPT the two facts its query doesn't fetch.

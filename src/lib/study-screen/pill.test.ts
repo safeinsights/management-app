@@ -21,21 +21,47 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     hasSavedEdits: false,
     hasSavedCodeEdits: false,
     displayStatus: 'CODE-SUBMITTED',
+    latestJobStatuses: [],
     ...overrides,
 })
 
 describe('resolvePillStatus', () => {
-    it('researcher does NOT see Errored until a reviewer files a decision', () => {
-        const label = resolvePillStatus('researcher', state({ displayStatus: 'JOB-ERRORED', resultsErrored: true }))
+    it('researcher does NOT see Errored until a reviewer files a decision (falls back to Approved)', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({
+                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'],
+                resultsErrored: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
         expect(label.label).not.toBe('Errored')
+        expect(label.label).toBe('Approved')
     })
     it('reviewer sees Errored immediately', () => {
-        const label = resolvePillStatus('reviewer', state({ displayStatus: 'JOB-ERRORED', resultsErrored: true }))
+        const label = resolvePillStatus(
+            'reviewer',
+            state({ latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'], resultsErrored: true }),
+        )
         expect(label.label).toBe('Errored')
     })
-    it('execution sub-status keeps its distinct label (Packaging)', () => {
-        const label = resolvePillStatus('researcher', state({ displayStatus: 'JOB-PACKAGING', isExecuting: true }))
+    it('reviewer execution sub-status keeps its distinct label (Packaging)', () => {
+        const label = resolvePillStatus(
+            'reviewer',
+            state({ latestJobStatuses: ['CODE-APPROVED', 'JOB-PACKAGING'], isExecuting: true }),
+        )
         expect(label.label).toBe('Packaging')
+    })
+    it('researcher during execution shows Approved, NOT Packaging (no researcher exec label)', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({
+                latestJobStatuses: ['CODE-APPROVED', 'JOB-PACKAGING'],
+                isExecuting: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(label.label).toBe('Approved')
     })
 })
 

@@ -36,6 +36,7 @@ describe('projectStudyState', () => {
         expect(s.isDraft).toBe(true)
         expect(s.submissionRound).toBe(0)
         expect(s.displayStatus).toBe('DRAFT')
+        expect(s.latestJobStatuses).toEqual([])
     })
 
     it('CODE-APPROVED stays approved even with a later CODE-SCANNED on the same job', () => {
@@ -74,5 +75,6 @@ describe('projectStudyState', () => {
         expect(s.hasResults).toBe(true)
         expect(s.resultsApproved).toBe(true)
         expect(s.resultsDisplayStatus).toBe('FILES-APPROVED')
+        expect(s.latestJobStatuses).toContain('FILES-APPROVED')
     })
 })
