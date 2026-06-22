@@ -94,10 +94,16 @@ reused-job resubmission reads "v2".
 It already anchors on the last `CODE-SUBMITTED` moment (not job `createdAt`), so it is already robust
 to job reuse. Confirm with its existing test.
 
-### 5. `projectStudyState.latestJob` (`state.ts`) — NO CHANGE NEEDED
+### 5. `projectStudyState.latestJob` (`state.ts`) — defensive INITIATED-skip RETAINED
 
-Under the fixed write path, no stray `INITIATED` baseline job exists, so `max(id)` across all jobs is
-correct. (The `latestJob` stays as-is; the fix is upstream in job creation.)
+Although the write-path fix means no stray `INITIATED` baseline job should be created, `latestJob`
+ALSO keeps a defensive belt-and-suspenders filter: **prefer the latest job that has any
+non-`INITIATED` status; fall back to the newest job only when every job is `INITIATED`-only** (a
+brand-new draft). This mirrors the legacy `latestSubmittedJobForStudy` anchor and means a stray
+baseline job (from old data, or any future regression) still cannot mask a decision. It remains
+order-independent (filter + `max(id)` over a set — shuffle test green), so it does not violate the
+core invariant. The two `view/page.test.tsx` "baseline-job masking (OTTER-556)" tests
+(`insertTestBaselineJob`) stay as a regression guard for this filter rather than being deleted.
 
 ### 6. Tests
 
