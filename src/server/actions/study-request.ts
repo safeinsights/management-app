@@ -829,16 +829,29 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // Mirrors saveProposalResubmissionNoteDraftAction (OTTER-607): the
-        // status + lab guard stops a cross-lab member from writing a draft onto
-        // another lab's study, and the 0-row check turns a wrong-status / wrong-lab
-        // attempt into a hard ActionFailure instead of letting the client's
-        // autosave indicator report "saved" when nothing persisted.
+        // OTTER-558: code resubmission runs while the study is still APPROVED — the
+        // resubmittable state lives on the JOB (CODE-CHANGES-REQUESTED / RUN-COMPLETE /
+        // FILES-APPROVED / FILES-REJECTED / JOB-ERRORED), never on study.status. Gating on
+        // study.status = 'CHANGE-REQUESTED' (the proposal-phase value) made every autosave
+        // claim 0 rows and throw "Study is not editable". Gate on the latest *submitted*
+        // job instead, mirroring resubmit/page.tsx's render gate. Use .some() (not
+        // resubmitStudyCodeAction's .at(0)): a late CODE-SCANNED row can sort ahead of the
+        // decision, and the autosave guard must be at least as permissive as the page gate
+        // or the page renders while every keystroke errors.
+        const canResubmit = (await latestSubmittedJobForStudy(studyId))?.statusChanges.some((s) =>
+            canResubmitStudyCode(s.status),
+        )
+        if (!canResubmit) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
+        // The lab-scope guard stops a cross-lab member from writing a draft onto another
+        // lab's study; the 0-row check turns a wrong-lab attempt into a hard ActionFailure
+        // instead of letting the client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
             .set({ codeResubmissionNoteDraft: note })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
             .executeTakeFirst()

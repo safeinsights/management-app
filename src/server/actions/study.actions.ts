@@ -52,8 +52,27 @@ function fetchStudyQuery(db: DBExecutor) {
                 eb
                     .selectFrom('studyJob')
                     .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
+                    // OTTER-558: prefer the latest *submitted* job. A file upload during a code-resubmit
+                    // edit session opens a fresh INITIATED round job that would otherwise become "latest"
+                    // and mask the prior job's decision (CODE-CHANGES-REQUESTED / results) — making the DO
+                    // pill read "Proposal · Approved" and routing the RL back to the initial /code flow.
+                    // Ordering submitted jobs first un-masks the decision; the fallback to the newest job
+                    // when none is submitted preserves the INITIATED-only baseline (hasJobActivity derives
+                    // from this same array, so the row must never come back empty when a job exists).
+                    .select((sub) =>
+                        sub
+                            .exists(
+                                sub
+                                    .selectFrom('jobStatusChange')
+                                    .select('jobStatusChange.id')
+                                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                                    .where('jobStatusChange.status', '!=', 'INITIATED'),
+                            )
+                            .as('isSubmitted'),
+                    )
                     .distinctOn('studyId')
                     .orderBy('studyId')
+                    .orderBy('isSubmitted', 'desc')
                     .orderBy('createdAt', 'desc')
                     // id (v7, insertion-ordered) breaks createdAt ties so the per-study job picked
                     // here is deterministic when two jobs share a createdAt (e.g. inserted in one
@@ -78,6 +97,12 @@ function fetchStudyQuery(db: DBExecutor) {
                     .select(['orgDataSource.id', 'orgDataSource.name'])
                     .where(sql<boolean>`"org_data_source"."id"::text = ANY("study"."datasets")`),
             ).as('orgDataSources'),
+            // OTTER-558: a non-empty code resubmission note draft means the RL has an in-progress
+            // "code draft" (saved via Save & exit, not yet resubmitted). Surface only the boolean —
+            // reviewer dashboards receive this row too and must not see the draft note content.
+            sql<boolean>`coalesce(btrim(${eb.ref('study.codeResubmissionNoteDraft')}) <> '', false)`.as(
+                'hasCodeResubmissionDraft',
+            ),
         ])
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
         .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))

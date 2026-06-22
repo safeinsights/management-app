@@ -29,6 +29,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
         studyStatus: study.status,
         audience,
         jobStatusChanges: study.jobStatusChanges,
+        hasCodeResubmissionDraft: study.hasCodeResubmissionDraft,
     })
 
     const isHighlighted = shouldHighlight(study, audience)

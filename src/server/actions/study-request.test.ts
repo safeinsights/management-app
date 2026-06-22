@@ -947,12 +947,17 @@ describe('Request Study Actions', () => {
     })
 
     describe('saveCodeResubmissionNoteDraftAction', () => {
-        it('persists the draft note on a CHANGE-REQUESTED study for a same-lab user', async () => {
+        // OTTER-558: code resubmission runs while the study is still APPROVED — eligibility is
+        // determined by the latest submitted JOB status, never study.status. The earlier guard on
+        // study.status = 'CHANGE-REQUESTED' (proposal phase) made every autosave keystroke throw
+        // "Study is not editable", which was the showstopper. These tests pin the real preconditions.
+        it('persists the draft note on an APPROVED study whose code change was requested', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             const result = actionResult(
@@ -968,12 +973,35 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBe('A draft note')
         })
 
+        it('persists the draft note on an APPROVED study with results ready (RUN-COMPLETE)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'RUN-COMPLETE',
+            })
+
+            const result = actionResult(
+                await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'note on results' }),
+            )
+            expect(result.studyId).toBe(study.id)
+
+            const row = await db
+                .selectFrom('study')
+                .select(['codeResubmissionNoteDraft'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBe('note on results')
+        })
+
         it('rejects payloads larger than 10kb', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             const tooLong = 'x'.repeat(10_001)
@@ -989,7 +1017,8 @@ describe('Request Study Actions', () => {
             const { study } = await insertTestStudyJobData({
                 org: labA,
                 researcherId: ownerA.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             // Switch session to a user in a different lab and try to save the draft.
@@ -1010,17 +1039,18 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBeNull()
         })
 
-        it('rejects a save attempt when the study is not CHANGE-REQUESTED (OTTER-607)', async () => {
+        it('rejects a save when the latest submitted job is not resubmittable (still under review)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
             })
 
             const result = await saveCodeResubmissionNoteDraftAction({
                 studyId: study.id,
-                note: 'wrong-status attempt',
+                note: 'too-early attempt',
             })
             expect('error' in result).toBe(true)
 

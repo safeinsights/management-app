@@ -31,7 +31,14 @@ function ResearcherLink({
     const studyParams = { orgSlug: labSlug, studyId: study.id }
     const jobStatuses = study.jobStatusChanges.map((c) => c.status)
     const agreementsAcked = !!study.researcherAgreementsAckedAt
-    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses, agreementsAcked)
+    const baseHref = useStudyHref(
+        study.status,
+        hasJobActivity,
+        studyParams,
+        jobStatuses,
+        agreementsAcked,
+        study.hasCodeResubmissionDraft,
+    )
     const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
 
     if (study.status === 'DRAFT') {

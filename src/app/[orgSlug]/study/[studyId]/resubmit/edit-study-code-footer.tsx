@@ -13,7 +13,9 @@ interface EditStudyCodeFooterProps {
     mainFileName: string
     fileNames: string[]
     hasFiles: boolean
-    filesChanged: boolean
+    // True only once the user has uploaded, deleted, or chosen a main file this session (OTTER-558).
+    // Not the mtime-based `filesChanged`, which is already true on load and hid the Cancel button.
+    filesEdited: boolean
 }
 
 const SAVE_AND_EXIT_TOOLTIP =
@@ -23,7 +25,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     mainFileName,
     fileNames,
     hasFiles,
-    filesChanged,
+    filesEdited,
 }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -33,7 +35,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
-    const hasChanges = noteForm.values.resubmissionNote.length > 0 || filesChanged
+    const hasChanges = noteForm.values.resubmissionNote.length > 0 || filesEdited
 
     const handleCancel = () => {
         if (isBusy) return

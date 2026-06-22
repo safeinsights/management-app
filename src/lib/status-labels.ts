@@ -22,6 +22,18 @@ const COLORS = {
     default: { bg: 'gray.1', c: 'dark.5' },
 }
 
+// OTTER-558: researcher-only pill for an in-progress code resubmission that has been saved
+// (Save & exit) but not yet resubmitted. It is derived from the study's codeResubmissionNoteDraft,
+// not a real job/study status, so it lives outside the priority-set maps below and is returned
+// directly by useStudyStatus for the researcher audience. The DO continues to see the underlying
+// code decision (e.g. "Code · Change requested").
+export const CODE_DRAFT_STATUS_LABEL: StatusLabel = {
+    stage: 'Code',
+    label: 'Draft',
+    tooltip: 'You have unsaved code changes saved as a draft. Resubmit your study code to send them for review.',
+    colors: COLORS.draft,
+}
+
 // ORDER MATTERS in the below lists
 // The LAST status found will be displayed
 // EXCEPT for 'JOB-ERRORED' which takes precedence over all other statuses if it exists,

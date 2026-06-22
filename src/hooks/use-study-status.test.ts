@@ -300,4 +300,43 @@ describe('useStudyStatus', () => {
             expect(result.label).toBe('Processing')
         })
     })
+
+    // OTTER-558: after Save & exit the RL has a saved-but-not-resubmitted code draft. The researcher
+    // pill reads "Code · Draft" while the DO keeps seeing the underlying code decision.
+    describe('code draft (OTTER-558)', () => {
+        it('researcher with a code draft reads "Code · Draft"', () => {
+            const result = useStudyStatus({
+                studyStatus: 'APPROVED',
+                audience: 'researcher',
+                jobStatusChanges: [{ status: 'CODE-CHANGES-REQUESTED' }],
+                hasCodeResubmissionDraft: true,
+            })
+
+            expect(result.stage).toBe('Code')
+            expect(result.label).toBe('Draft')
+        })
+
+        it('reviewer ignores the draft flag and still shows the code decision', () => {
+            const result = useStudyStatus({
+                studyStatus: 'APPROVED',
+                audience: 'reviewer',
+                jobStatusChanges: [{ status: 'CODE-CHANGES-REQUESTED' }],
+                hasCodeResubmissionDraft: true,
+            })
+
+            expect(result.stage).toBe('Code')
+            expect(result.label).toBe('Change requested')
+        })
+
+        it('researcher without a draft is unaffected', () => {
+            const result = useStudyStatus({
+                studyStatus: 'APPROVED',
+                audience: 'researcher',
+                jobStatusChanges: [{ status: 'CODE-CHANGES-REQUESTED' }],
+                hasCodeResubmissionDraft: false,
+            })
+
+            expect(result.label).toBe('Change requested')
+        })
+    })
 })

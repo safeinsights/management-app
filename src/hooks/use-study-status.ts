@@ -1,5 +1,10 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, StatusLabel } from '@/lib/status-labels'
+import {
+    CODE_DRAFT_STATUS_LABEL,
+    RESEARCHER_STATUS_LABELS,
+    REVIEWER_STATUS_LABELS,
+    StatusLabel,
+} from '@/lib/status-labels'
 import { isCodeDecisionStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { AllStatus } from '@/lib/types'
 
@@ -11,6 +16,9 @@ export type UseStudyStatusParams = {
     studyStatus: StudyStatus
     audience: 'reviewer' | 'researcher'
     jobStatusChanges: MinimalStatusChange[]
+    // OTTER-558: researcher-only. When the RL has a saved-but-not-resubmitted code draft, the
+    // pill reads "Code · Draft". The reviewer keeps seeing the underlying code decision.
+    hasCodeResubmissionDraft?: boolean
 }
 
 export type UseStudyStatusReturn = {
@@ -43,7 +51,18 @@ const dropStaleCodeDecisions = (changes: MinimalStatusChange[]): MinimalStatusCh
     return changes.filter((c) => !isCodeDecisionStatus(c.status))
 }
 
-export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
+export const useStudyStatus = ({
+    studyStatus,
+    audience,
+    jobStatusChanges,
+    hasCodeResubmissionDraft,
+}: UseStudyStatusParams): StatusLabel => {
+    // OTTER-558: a saved code draft is researcher-only and not a real status, so it short-circuits
+    // the priority-set lookup below. Reviewers never see it — they keep the underlying code decision.
+    if (audience === 'researcher' && hasCodeResubmissionDraft) {
+        return CODE_DRAFT_STATUS_LABEL
+    }
+
     // Researchers must not see "Errored" until the reviewer has reviewed the error logs
     // and recorded a FILES-APPROVED/FILES-REJECTED decision. Until then, hide JOB-ERRORED
     // so the pill falls back to the prior state (typically CODE-APPROVED). Reviewers

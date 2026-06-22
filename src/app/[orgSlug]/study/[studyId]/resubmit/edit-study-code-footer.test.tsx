@@ -15,7 +15,7 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
 const renderFooter = (
-    opts: { initialNote?: string; mainFileName?: string; fileNames?: string[]; filesChanged?: boolean } = {},
+    opts: { initialNote?: string; mainFileName?: string; fileNames?: string[]; filesEdited?: boolean } = {},
 ) => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
     return renderWithProviders(
@@ -24,7 +24,7 @@ const renderFooter = (
                 mainFileName={opts.mainFileName ?? ''}
                 fileNames={opts.fileNames ?? []}
                 hasFiles={(opts.fileNames ?? []).length > 0}
-                filesChanged={opts.filesChanged ?? false}
+                filesEdited={opts.filesEdited ?? false}
             />
         </EditCodeResubmitProvider>,
     )
@@ -114,6 +114,9 @@ describe('EditStudyCodeFooter', () => {
         )
     })
 
+    // OTTER-558 regression: on initial load the user has made no edits this session, so Cancel must
+    // show. The footer keys on `filesEdited` (real session edits), not the mtime-based `filesChanged`
+    // that is already true on load — which is what previously hid Cancel and only showed "Save and exit".
     it('shows Cancel (not Save and exit) when no changes have been made', () => {
         renderFooter()
         expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
@@ -126,8 +129,8 @@ describe('EditStudyCodeFooter', () => {
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    it('shows Save and exit when files have changed even with an empty note', () => {
-        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'], filesChanged: true })
+    it('shows Save and exit when files have been edited this session even with an empty note', () => {
+        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'], filesEdited: true })
         expect(screen.getByRole('button', { name: 'Save and exit' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })

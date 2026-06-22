@@ -17,6 +17,9 @@ export type StudyRow = {
     reviewerId: string | null
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
+    // OTTER-558: true when the RL has a saved-but-not-resubmitted code draft (non-empty
+    // codeResubmissionNoteDraft). Drives the researcher "Code draft" pill and resume routing.
+    hasCodeResubmissionDraft?: boolean
     researcherAgreementsAckedAt: Date | null
     // Org actions return these
     reviewingEnclaveName?: string
