@@ -43,7 +43,9 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
     for (const s of viewStates) {
         it(`status=${s.status} code=${s.codeDecision} → 'View' route resolves to a real screen`, () => {
             const action = resolveDashboardAction('researcher', s as DashboardState, ctx)
-            if (action.label !== 'View') return // only assert View links land on a real /view screen
+            // These fixtures are all non-draft studies the dashboard sends to /view; assert that
+            // explicitly so a future Tier-1 rule change can't silently make this invariant vacuous.
+            expect(action.label).toBe('View')
             expect(resolveScreen('researcher', s, undefined, ctx).screen).not.toBe('study-overview')
         })
     }
