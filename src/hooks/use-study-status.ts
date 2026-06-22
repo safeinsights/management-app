@@ -18,6 +18,8 @@ export type UseStudyStatusParams = {
 export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
     const state = projectStudyState({
         status: studyStatus,
+        // The pill only needs status + jobs; fields this hook doesn't receive (agreements,
+        // draft notes, dates) are null and don't affect any pill fact.
         approvedAt: null,
         rejectedAt: null,
         researcherAgreementsAckedAt: null,
