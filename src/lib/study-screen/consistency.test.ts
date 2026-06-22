@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest'
+import type { DashboardState, StudyState } from './state.types'
+import { resolveDashboardAction, resolveScreen } from './resolve'
+
+// Every href Tier-1 can emit must resolve to a NON-fallback screen for the same state.
+// study-overview is the fallback; reaching it from a Tier-1 link means the tiers disagree.
+const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
+
+const full = (overrides: Partial<StudyState>): StudyState => ({
+    status: 'DRAFT',
+    isDraft: true,
+    researcherAgreementsAcked: false,
+    reviewerAgreementsAcked: false,
+    hasAnyJob: false,
+    hasSubmittedCode: false,
+    codeDecision: null,
+    codeAwaitingDecision: false,
+    isExecuting: false,
+    hasResults: false,
+    resultsApproved: false,
+    resultsRejected: false,
+    resultsErrored: false,
+    resultsDisplayStatus: null,
+    submissionRound: 0,
+    hasSavedEdits: false,
+    hasSavedCodeEdits: false,
+    displayStatus: 'DRAFT',
+    latestJobStatuses: [],
+    ...overrides,
+})
+
+describe('Tier-1 ↔ Tier-2 consistency', () => {
+    // Representative states the dashboard 'View' link is emitted for.
+    const viewStates: StudyState[] = [
+        full({ status: 'PENDING-REVIEW', isDraft: false }),
+        full({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }),
+        full({ status: 'APPROVED', isDraft: false, codeAwaitingDecision: true, hasSubmittedCode: true }),
+        full({ status: 'REJECTED', isDraft: false }),
+        full({ status: 'CHANGE-REQUESTED', isDraft: false }),
+        full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true }),
+    ]
+
+    for (const s of viewStates) {
+        it(`status=${s.status} code=${s.codeDecision} → 'View' route resolves to a real screen`, () => {
+            const action = resolveDashboardAction('researcher', s as DashboardState, ctx)
+            if (action.label !== 'View') return // only assert View links land on a real /view screen
+            expect(resolveScreen('researcher', s, undefined, ctx).screen).not.toBe('study-overview')
+        })
+    }
+})
