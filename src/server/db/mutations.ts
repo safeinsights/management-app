@@ -1,7 +1,7 @@
 import { Action } from '../actions/action'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
-import { CODE_RESUBMITTABLE_JOB_STATUSES } from '@/lib/code-resubmission'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/code-resubmission'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -76,9 +76,10 @@ export async function getOrCreateCurrentRoundJob(
         // jobStatusChange ordering. jobStatusChange.createdAt defaults to now() (constant within a
         // transaction), so two statuses written together tie on createdAt and v7 ids aren't reliably
         // monotonic within a millisecond — ordering by them to pick "the latest status" is
-        // non-deterministic and could flip the reuse-vs-new-round decision. A resubmittable/terminal
-        // status is never followed by another status on the same job (resubmit opens a NEW job), so
-        // "has any resubmittable status" is an equivalent, order-independent test for a closed round.
+        // non-deterministic and could flip the reuse-vs-new-round decision. A round-closing status
+        // (FILES-APPROVED/FILES-REJECTED) is never followed by another status on the same job (the
+        // next round opens a NEW job), so "has any round-closing status" is an order-independent test
+        // for a closed round.
         .select((eb) =>
             eb
                 .exists(
@@ -86,7 +87,7 @@ export async function getOrCreateCurrentRoundJob(
                         .selectFrom('jobStatusChange')
                         .select('jobStatusChange.id')
                         .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', 'in', CODE_RESUBMITTABLE_JOB_STATUSES),
+                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
                 )
                 .as('roundClosed'),
         )
