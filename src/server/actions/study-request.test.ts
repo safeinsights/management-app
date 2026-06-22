@@ -866,7 +866,7 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        it('resubmitting after change-requested opens a new round (a second job/version)', async () => {
+        it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit')
@@ -898,14 +898,18 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            expect(await jobCount(study.id)).toBe(2)
-            expect(await submittedStatusCount(study.id)).toBe(2)
+            // CR resubmit reuses the existing job — no new job is opened until FILES-APPROVED/REJECTED.
+            // markCodeSubmitted is idempotent: if the reused job already has CODE-SUBMITTED it is not
+            // duplicated, so the count stays at 1 across the initial submit and the CR resubmit.
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
         // Regression: in the real flow the researcher uploads files on the resubmit page *before*
-        // submitting, which opens a fresh INITIATED round job. The resubmit guard must gate on the
-        // prior submitted job (CODE-CHANGES-REQUESTED), not that new INITIATED job, or it throws.
-        it('resubmit succeeds after a file upload opens the new round job first', async () => {
+        // submitting. Under the new model ensureRoundJobForUpload REUSES the existing job (no new
+        // round job is minted on CR). The resubmit must still succeed and append a second
+        // CODE-SUBMITTED to the same job.
+        it('resubmit succeeds after a file upload reuses the round job (no new job on CR upload)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-upload')
@@ -927,9 +931,9 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // Researcher uploads a file on the resubmit page → opens the round 2 INITIATED job.
+            // Researcher uploads a file on the resubmit page → reuses the existing round job (no new job).
             await ensureRoundJobForUpload(db, study.id)
-            expect(await jobCount(study.id)).toBe(2)
+            expect(await jobCount(study.id)).toBe(1)
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             const result = await resubmitStudyCodeAction({
@@ -940,9 +944,10 @@ describe('Request Study Actions', () => {
             })
 
             expect(result).not.toHaveProperty('error')
-            // Still exactly the two rounds; the upload job became round 2, now CODE-SUBMITTED.
-            expect(await jobCount(study.id)).toBe(2)
-            expect(await submittedStatusCount(study.id)).toBe(2)
+            // Still one job — reused throughout. markCodeSubmitted is idempotent: the job already
+            // has CODE-SUBMITTED from round 1 so it is not duplicated on resubmit (count stays 1).
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(1)
         })
     })
 
