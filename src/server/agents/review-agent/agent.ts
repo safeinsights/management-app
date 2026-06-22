@@ -19,7 +19,7 @@ const ANALYSIS_TOOL_NAME = 'submit_analysis'
 // at the API boundary, not in our app. Requires `additionalProperties: false`
 // at every object level. Docs:
 //   https://platform.claude.com/docs/en/build-with-claude/structured-outputs
-const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
+export const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     name: ANALYSIS_TOOL_NAME,
     description:
         'Submit the structured review of the research proposal. Always call this tool exactly once with the full report.',
