@@ -67,7 +67,7 @@ export default async function StudyReviewPage(props: {
                     study={study}
                     raw={rawStudyState}
                     orgSlug={orgSlug}
-                    dashboardHref={dashboardHref as string}
+                    dashboardHref={dashboardHref as string} // Next typed Route extends string; the screen prop is a plain string
                 />
             )
         }
