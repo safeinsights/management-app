@@ -8,6 +8,15 @@ export type DashboardRule = {
     action: (ctx: DashboardRuleCtx) => DashboardAction
 }
 
+// Mirrors useStudyHref: statuses whose study has been submitted for review (any outcome) but
+// has no job activity yet → the submitted-confirmation page.
+const POST_SUBMISSION_STATUSES: ReadonlyArray<DashboardState['status']> = [
+    'PENDING-REVIEW',
+    'APPROVED',
+    'REJECTED',
+    'CHANGE-REQUESTED',
+]
+
 export const DASHBOARD_RULES: DashboardRule[] = [
     // DRAFT: edit, with a delete affordance (component still gates on author).
     {
@@ -17,7 +26,7 @@ export const DASHBOARD_RULES: DashboardRule[] = [
 
     // Faithful to useStudyHref. Label stays "View" for every non-draft destination (matches the
     // current UI — the dashboard cell reads "View" even when it links to /code or /submitted).
-    // 1. APPROVED with a job but code not yet submitted → continue uploading.
+    // 1. APPROVED with a job but code not yet submitted → the code upload page (labelled "View").
     {
         when: (s) => s.status === 'APPROVED' && s.hasAnyJob && !s.hasSubmittedCode,
         action: (ctx) => ({ label: 'View', href: Routes.studyCode(ctx) }),
@@ -31,11 +40,7 @@ export const DASHBOARD_RULES: DashboardRule[] = [
     },
     // 4. Submitted-but-no-job proposal states → the submitted confirmation page.
     {
-        when: (s) =>
-            s.status === 'PENDING-REVIEW' ||
-            s.status === 'APPROVED' ||
-            s.status === 'REJECTED' ||
-            s.status === 'CHANGE-REQUESTED',
+        when: (s) => POST_SUBMISSION_STATUSES.includes(s.status),
         action: (ctx) => ({ label: 'View', href: Routes.studySubmitted(ctx) }),
     },
     // 5. Fallback.
