@@ -138,3 +138,13 @@ wrappers and (until deleted) the cascade import it.
 ## Out of scope (unchanged)
 
 Reviewer `/review` page + its `?from=` and routes; intent→action modal wiring; `permissions.ts`.
+
+## Decision log (during execution)
+
+- **`?from=agreements` "proposal on /view" removed (accepted behavior change).** Today
+  `?from=agreements` on a code-submitted study showed the read-only proposal on `/view`. Under the
+  machine that study resolves to `code-under-review` and `?from=` is ignored. The capability to
+  view a submitted study's proposal already lives at **`/submitted`** (`ProposalSubmitted`, shows
+  proposal + feedback). So the agreements "Previous" button (Task 15g) targets `/submitted`, and
+  the two `view/page.test.tsx` tests asserting the removed `?from=agreements`-shows-proposal-on-`/view`
+  behavior are deleted. Same proposal content reachable, cleaner routing, `?from=` gone.
