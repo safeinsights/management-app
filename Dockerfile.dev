@@ -14,6 +14,10 @@ RUN pnpm install --frozen-lockfile
 # Uncomment the following line to disable telemetry at run time
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Pre-create .next so the anonymous volume masking it (see docker-compose.yml)
+# initializes owned by node, not root — otherwise next dev hits EACCES on mkdir.
+RUN mkdir -p /app/.next
+
 # do not run as root user
 RUN chown -R node:node /app
 USER node
