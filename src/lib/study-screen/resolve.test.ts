@@ -83,6 +83,12 @@ describe('resolveScreen (researcher)', () => {
             'proposal-edit',
         )
     })
+    it('CHANGE-REQUESTED proposal-feedback is read-only (no forward; back to dashboard)', () => {
+        const d = resolveScreen('researcher', state({ status: 'CHANGE-REQUESTED', isDraft: false }), undefined, ctx)
+        expect(d.screen).toBe('proposal-feedback')
+        expect(d.forward).toBeUndefined()
+        expect(d.back?.title).toBe('Go to dashboard')
+    })
     it('study-results is terminal: no back link (avoids /view self-loop)', () => {
         const d = resolveScreen('researcher', state({ hasResults: true }), undefined, { ...ctx, returnTo: 'org' })
         expect(d.screen).toBe('study-results')

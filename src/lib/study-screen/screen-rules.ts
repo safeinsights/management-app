@@ -104,16 +104,7 @@ export const SCREEN_RULES: ScreenRule[] = [
     },
     {
         when: (s) => s.status === 'CHANGE-REQUESTED',
-        screen: (_s, ctx) => ({
-            screen: 'proposal-feedback',
-            forward: {
-                title: 'Edit and resubmit',
-                target: {
-                    kind: 'route',
-                    href: Routes.studyEditAndResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
-                },
-            },
-        }),
+        screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
     },
     // Decided proposal (read-only): REJECTED, or APPROVED that already has code (the no-code
     // APPROVED case is handled by the agreements/upload rule above).
