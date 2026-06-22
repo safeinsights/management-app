@@ -21,6 +21,9 @@ import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 import { ResearcherProposalView } from './researcher-proposal-view'
 import { StudyDetailsResearcher } from './study-details-researcher'
+import { projectStudyState, resolveScreen } from '@/lib/study-screen'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
+import { SCREEN_COMPONENTS } from '../_screens/registry'
 
 async function loadCodeReviewFeedback(studyId: string) {
     const entriesResult = await getCodeReviewFeedbackAction({ studyId })
@@ -46,6 +49,29 @@ export default async function StudyReviewPage(props: {
 
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+
+    // State-machine dispatch: when a screen has been migrated into SCREEN_COMPONENTS, render it
+    // from the resolved descriptor. Until a screen is registered this is a no-op and the legacy
+    // cascade below runs unchanged (the registry is empty during migration).
+    const rawStudyState = await rawStudyStateForStudy(studyId)
+    if (rawStudyState) {
+        const descriptor = resolveScreen('researcher', projectStudyState(rawStudyState), searchParams.step, {
+            orgSlug,
+            studyId,
+        })
+        const RegisteredScreen = SCREEN_COMPONENTS[descriptor.screen]
+        if (RegisteredScreen) {
+            return (
+                <RegisteredScreen
+                    descriptor={descriptor}
+                    study={study}
+                    raw={rawStudyState}
+                    orgSlug={orgSlug}
+                    dashboardHref={dashboardHref as string}
+                />
+            )
+        }
+    }
 
     const fromAgreements = searchParams.from === 'agreements'
     const fromCodeDecision = searchParams.from === 'code-decision'
