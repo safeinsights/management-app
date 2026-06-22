@@ -18,7 +18,12 @@ import {
     getProposalFeedbackForStudyAction,
     getStudyAction,
 } from '@/server/actions/study.actions'
-import { currentReviewVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
+import {
+    currentReviewVersion,
+    getStudyReviewForJob,
+    jobScanResultForJob,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { CodeReview } from './code-review'
@@ -139,8 +144,24 @@ export default async function StudyReviewPage(props: {
                 return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
             }
             const job = latestDecisionJob
+            // The post-decision code page shows the full "Submitted code" section (datasets, AI
+            // summary, security scan log, code viewer), the same section as active review, so it
+            // needs the review + scan rows, not just the job (OTTER-613).
+            const [review, scan] = job
+                ? await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
+                : [null, null]
             if (codeEntries.length > 0) {
-                return <PostFeedbackView orgSlug={orgSlug} study={study} entries={codeEntries} kind="CODE" job={job} />
+                return (
+                    <PostFeedbackView
+                        orgSlug={orgSlug}
+                        study={study}
+                        entries={codeEntries}
+                        kind="CODE"
+                        job={job}
+                        review={review}
+                        scan={scan}
+                    />
+                )
             }
 
             // OTTER-538 QA: a study can reach a code-decision stage via proposal approve/reject,
@@ -161,6 +182,8 @@ export default async function StudyReviewPage(props: {
                         entries={[]}
                         kind="CODE"
                         job={job}
+                        review={review}
+                        scan={scan}
                         fallback={fallback}
                     />
                 )

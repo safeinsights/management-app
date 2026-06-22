@@ -389,6 +389,11 @@ describe('StudyReviewPage', () => {
 
                 expect(page?.type).toBe(PostFeedbackView)
                 expect(page?.props.kind).toBe('CODE')
+                // OTTER-613: the post-decision code page renders the full "Submitted code" section,
+                // so the page must fetch and pass the job + scan (and review) it depends on.
+                expect(page?.props.job?.id).toBe(job.id)
+                expect(page?.props.scan?.status).toBeDefined()
+                expect(page?.props).toHaveProperty('review')
                 expect(mockRedirect).not.toHaveBeenCalled()
             },
         )
