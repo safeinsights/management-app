@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type FC, type ReactNode } from 'react'
 import { HocuspocusProviderWebsocket, WebSocketStatus } from '@hocuspocus/provider'
 
-import { WS_URL } from '@/lib/config'
+import { IS_SINGLE_USER_EDITING, WS_URL } from '@/lib/config'
 
 /** Coarse connection phase exposed to consumers. See useEditorConnection for details. */
 export type ConnectionPhase = 'initial' | 'connected' | 'reconnecting' | 'failed'
@@ -32,7 +32,7 @@ function getOrCreateSharedSocket(): HocuspocusProviderWebsocket {
     return sharedSocket
 }
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !IS_SINGLE_USER_EDITING) {
     window.addEventListener('pagehide', () => {
         sharedSocket?.destroy()
         sharedSocket = null
@@ -86,8 +86,10 @@ export const YjsWebsocketProvider: FC<Props> = ({
     reconnectingThresholdMs = DEFAULT_RECONNECTING_THRESHOLD_MS,
     failureThresholdMs = DEFAULT_FAILURE_THRESHOLD_MS,
 }) => {
+    // In single-user mode no collaboration websocket is ever opened — the editor
+    // surface is standalone — so the socket stays null and the phase stays inert.
     const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(() =>
-        typeof window === 'undefined' ? null : getOrCreateSharedSocket(),
+        typeof window === 'undefined' || IS_SINGLE_USER_EDITING ? null : getOrCreateSharedSocket(),
     )
     const [phase, setPhase] = useState<ConnectionPhase>('initial')
 
