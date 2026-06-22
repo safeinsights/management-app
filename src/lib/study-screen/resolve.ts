@@ -1,6 +1,7 @@
-import type { StudyRole, StudyState } from './state.types'
-import type { ScreenDescriptor } from './screens'
+import type { StudyRole, StudyState, DashboardState } from './state.types'
+import type { ScreenDescriptor, DashboardAction } from './screens'
 import { SCREEN_RULES, type ScreenRuleCtx } from './screen-rules'
+import { DASHBOARD_RULES, type DashboardRuleCtx } from './dashboard-rules'
 
 export function resolveScreen(
     role: StudyRole,
@@ -18,4 +19,10 @@ export function resolveScreen(
     // step against the screen's allowed steps belongs with the multi-step screen work (deferred).
     // No screen consumes `step` in this plan, so a passthrough is correct and sufficient here.
     return step ? { ...descriptor, step } : descriptor
+}
+
+export function resolveDashboardAction(role: StudyRole, state: DashboardState, ctx: DashboardRuleCtx): DashboardAction {
+    // researcher-only for now; reviewer dashboard link is unchanged in this plan.
+    const rule = DASHBOARD_RULES.find((r) => r.when(state))!
+    return rule.action(ctx)
 }
