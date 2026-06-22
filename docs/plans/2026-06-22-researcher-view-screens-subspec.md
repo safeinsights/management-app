@@ -148,3 +148,28 @@ Reviewer `/review` page + its `?from=` and routes; intent→action modal wiring;
   proposal + feedback). So the agreements "Previous" button (Task 15g) targets `/submitted`, and
   the two `view/page.test.tsx` tests asserting the removed `?from=agreements`-shows-proposal-on-`/view`
   behavior are deleted. Same proposal content reachable, cleaner routing, `?from=` gone.
+
+## Decision: latestJob uses the ideal job model (baseline-masking is a write-path bug)
+
+**Decision (user):** The state machine is built on the _intended_ job model: a CHANGE-REQUESTED
+resubmission **reuses the existing job** (uploading new files / launching the IDE changes that
+job's files) and does **NOT** create a fresh `INITIATED` baseline job. Therefore
+`projectStudyState.latestJob()` selecting `max(studyJob.id)` across all jobs is correct — under the
+intended model no stray `INITIATED` job exists to mask a decision.
+
+**Consequences:**
+
+- The two `view/page.test.tsx` "baseline-job masking (OTTER-556 refresh dead-end)" tests assert a
+  state produced only by the **current write-path bug** (the stray `INITIATED` job that
+  `getOrCreateCurrentRoundJob` opens when it treats `CODE-CHANGES-REQUESTED` as a closed round).
+  They are **deleted** — they test a state that should not exist under the intended model.
+- **WRITE-PATH FOLLOW-UP (out of scope for this branch, REQUIRED before/with shipping):**
+  `getOrCreateCurrentRoundJob` / `resubmitStudyCodeAction` / `ensureRoundJobForUpload` currently
+  open a new `INITIATED` round job during a CR resubmission (see the OTTER-601 comment in
+  `study-request.ts`: "a file upload during resubmit opens a fresh INITIATED round job"). That must
+  be changed so CR resubmission reuses the existing job. **Until that write-path fix lands, an
+  in-progress CR resubmission can still create a stray baseline job and mis-route on `/view`** (the
+  state machine, built on the ideal model, will read the empty baseline as "no code submitted").
+  This is an accepted, time-boxed gap: the write-path fix is a required companion change.
+- `latestSubmittedJobForStudy`'s `INITIATED`-skip becomes unnecessary under the fixed model; it can
+  be retired when the write path is corrected.
