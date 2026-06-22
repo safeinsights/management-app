@@ -83,4 +83,42 @@ describe('resolveScreen (researcher)', () => {
             'proposal-edit',
         )
     })
+    it('study-results back link targets /view with returnTo, and NO from=', () => {
+        const d = resolveScreen('researcher', state({ hasResults: true }), undefined, { ...ctx, returnTo: 'org' })
+        expect(d.screen).toBe('study-results')
+        expect(d.back?.target.kind).toBe('route')
+        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
+        expect(href).toContain('/view')
+        expect(href).toContain('returnTo=org')
+        expect(href).not.toContain('from=')
+    })
+    it('code-approved back link targets /agreements with NO from=', () => {
+        const d = resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), undefined, ctx)
+        expect(d.back?.target.kind).toBe('route')
+        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
+        expect(href).toContain('/agreements')
+        expect(href).not.toContain('from=')
+    })
+    it('code-under-review back link targets /agreements with NO from=', () => {
+        const d = resolveScreen(
+            'researcher',
+            state({ codeAwaitingDecision: true, hasSubmittedCode: true }),
+            undefined,
+            ctx,
+        )
+        expect(d.back?.target.kind).toBe('route')
+        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
+        expect(href).toContain('/agreements')
+        expect(href).not.toContain('from=')
+    })
+    it('dashboard forward honors returnTo (org dashboard)', () => {
+        const d = resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false }), undefined, {
+            ...ctx,
+            returnTo: 'org',
+        })
+        // proposal-submitted forward is "Go to dashboard"
+        expect(d.forward?.title).toBe('Go to dashboard')
+        const href = d.forward?.target.kind === 'route' ? d.forward.target.href : ''
+        expect(href).toContain('/lab/dashboard') // orgDashboard for returnTo=org
+    })
 })
