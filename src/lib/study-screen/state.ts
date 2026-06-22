@@ -86,6 +86,6 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
         displayStatus,
-        latestJobStatuses: [...jobStatuses].sort(),
+        latestJobStatuses: [...jobStatuses].sort(), // stable order for deterministic output/tests
     }
 }

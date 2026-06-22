@@ -1,5 +1,6 @@
 import type { StudyJobStatus } from '@/database/types'
 import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, type StatusLabel } from '@/lib/status-labels'
+import { CODE_DECISION_JOB_STATUSES, type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StudyRole, StudyState } from './state.types'
 import { DISPLAY_STATUS_PRIORITY } from './state'
 
@@ -25,8 +26,7 @@ export function resolvePillStatus(role: StudyRole, state: StudyState): StatusLab
     const candidate = DISPLAY_STATUS_PRIORITY.find((st) => {
         if (!present.has(st)) return false
         if (hideErrored && st === 'JOB-ERRORED') return false
-        if (dropStaleDecisions && (st === 'CODE-APPROVED' || st === 'CODE-REJECTED' || st === 'CODE-CHANGES-REQUESTED'))
-            return false
+        if (dropStaleDecisions && CODE_DECISION_JOB_STATUSES.includes(st as CodeDecisionStatus)) return false
         return labels[st] !== undefined // only statuses THIS ROLE can label
     })
 
