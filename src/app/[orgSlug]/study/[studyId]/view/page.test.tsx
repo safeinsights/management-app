@@ -16,7 +16,6 @@ import type { StudyJobStatus } from '@/database/types'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
-import { ResearcherProposalView } from './researcher-proposal-view'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -33,21 +32,8 @@ describe('StudyViewPage', () => {
         expect(page?.type).toBe(CodePostSubmissionView)
     })
 
-    it('renders ResearcherProposalView when code is submitted but from=agreements is set', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements' }),
-        })
-        renderWithProviders(page!)
-
-        // Proposal view shows STEP 2 / "Study proposal" and the Proceed button back to agreements.
-        expect(screen.getByText('STEP 2')).toBeInTheDocument()
-        expect(screen.getByText('Study proposal')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
-    })
+    // ?from=agreements no longer shows the proposal on /view — a code-submitted study resolves to
+    // code-under-review. Viewing a submitted proposal lives at /submitted.
 
     it('renders ResearcherProposalView for APPROVED study without job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -221,23 +207,6 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-        })
-
-        it('renders ResearcherProposalView when ?from=agreements regardless of latest job status', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'agreements' }),
-            })
-
-            expect(page?.type).toBe(ResearcherProposalView)
         })
 
         it('preserves dashboardHref when ?returnTo=org', async () => {

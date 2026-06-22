@@ -1,6 +1,7 @@
 import type React from 'react'
 import type { ScreenId } from '@/lib/study-screen'
 import type { ScreenComponentProps } from './types'
+import { CodeUnderReviewScreen } from './code-under-review-screen'
 import { ProposalFeedbackScreen } from './proposal-feedback-screen'
 import { StudyResultsScreen } from './study-results-screen'
 
@@ -10,6 +11,7 @@ import { StudyResultsScreen } from './study-results-screen'
 export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>
 
 export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
+    'code-under-review': CodeUnderReviewScreen,
     'proposal-feedback': ProposalFeedbackScreen,
     'study-results': StudyResultsScreen,
 }
