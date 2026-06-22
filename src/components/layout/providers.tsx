@@ -29,6 +29,7 @@ function makeQueryClient() {
 let browserQueryClient: QueryClient | undefined = undefined
 type Props = {
     children: ReactNode
+    singleUserEditing?: boolean
 }
 export function getQueryClient() {
     if (isServer) {
@@ -44,7 +45,7 @@ export function getQueryClient() {
     }
 }
 
-export const Providers: FC<Props> = ({ children }) => {
+export const Providers: FC<Props> = ({ children, singleUserEditing = false }) => {
     const queryClient = getQueryClient()
 
     useEffect(() => {
@@ -57,7 +58,9 @@ export const Providers: FC<Props> = ({ children }) => {
                 <ModalsProvider>
                     <ErrorBoundary>
                         <SpyModeProvider>
-                            <YjsWebsocketProvider>{children}</YjsWebsocketProvider>
+                            <YjsWebsocketProvider singleUserEditing={singleUserEditing}>
+                                {children}
+                            </YjsWebsocketProvider>
                         </SpyModeProvider>
                     </ErrorBoundary>
                 </ModalsProvider>

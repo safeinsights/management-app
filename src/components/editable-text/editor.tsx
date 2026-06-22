@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { Skeleton } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
 
-import { IS_SINGLE_USER_EDITING } from '@/lib/config'
+import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { SingleUserEditor } from './single-user-editor'
 
 const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
@@ -13,9 +13,10 @@ const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then(
 
 /**
  * Single entry point for the proposal/review editors. Renders the Yjs-backed
- * CollaborativeEditor by default, or the standalone SingleUserEditor when
- * NEXT_PUBLIC_SINGLE_USER_EDITING is set. The collaborative chunk is loaded
- * lazily, so single-user builds never pull the Yjs/Hocuspocus code into view.
+ * CollaborativeEditor by default, or the standalone SingleUserEditor when the
+ * app is in single-user mode (a server-read flag exposed via the websocket
+ * provider context). The collaborative chunk is loaded lazily, so it isn't
+ * pulled into view in single-user mode.
  *
  * Collaboration-only props (`websocketProvider`, `onProviderReady`) are accepted
  * for call-site parity and ignored in single-user mode.
@@ -38,7 +39,9 @@ export type EditorProps = {
 }
 
 export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: EditorProps) {
-    if (IS_SINGLE_USER_EDITING) {
+    const singleUserEditing = useSingleUserEditing()
+
+    if (singleUserEditing) {
         return <SingleUserEditor {...props} />
     }
 
