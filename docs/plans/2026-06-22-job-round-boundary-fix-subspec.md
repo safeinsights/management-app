@@ -125,15 +125,17 @@ core invariant. The two `view/page.test.tsx` "baseline-job masking (OTTER-556)" 
   `insertTestBaselineJob`. Decision: rewrite them to NOT manufacture an impossible state (or delete
   them), since the masking they defend against no longer occurs. (They currently fail because the SM
   reads the manufactured baseline.)
-- Resubmission-version tests: verify "v2" still shows for a CR resubmission under the new
-  count-by-CODE-SUBMITTED logic.
+- Resubmission-version tests: verify "v2" shows after a `CODE-CHANGES-REQUESTED` + resubmit on the
+  reused job (see the corrected formula in §3 — count `CODE-CHANGES-REQUESTED`, not submissions).
 
 ## Decisions (confirmed)
 
-1. **Version count scope: PER CURRENT JOB.** `submissionVersion` = count of `CODE-SUBMITTED`
-   occurrences on the **latest job only**. A same-job CR revision appends a 2nd `CODE-SUBMITTED` →
-   v2. A new round (new job after `FILES-APPROVED`/`FILES-REJECTED`) starts back at **v1**. So
-   `countSubmittedJobsForStudy` becomes "count CODE-SUBMITTED on the latest job."
+1. **Version = review-round count, PER CURRENT JOB.** `submissionVersion` =
+   `(count of CODE-CHANGES-REQUESTED on the latest job) + 1`. A same-job CR revision adds a
+   `CODE-CHANGES-REQUESTED` → v2; two rounds → v3. A new round (new job after
+   `FILES-APPROVED`/`FILES-REJECTED`) has zero `CODE-CHANGES-REQUESTED` → back to **v1**.
+   (Superseded an earlier "count CODE-SUBMITTED" idea, which fails because `markCodeSubmitted` is
+   idempotent — see §3.)
 2. **`canResubmitStudyCode` / resubmit eligibility:** unchanged by this fix (still gates on
    `CODE_RESUBMITTABLE_JOB_STATUSES`). `CODE-REJECTED` stays excluded (terminal); the post-run states
    stay included.
