@@ -1,34 +1,61 @@
 import { useCallback } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { resubmitProposalAction } from '@/server/actions/study-request'
+import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type ResubmitNoteValue } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from '@/contexts/proposal/hooks/use-save-draft'
 
 interface UseResubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     noteForm: UseFormReturnType<ResubmitNoteValue>
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    tabSessionId: string
 }
 
-export function useResubmitProposal({ studyId, form, noteForm }: UseResubmitProposalOptions) {
+export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId }: UseResubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { user } = useUser()
 
     const mutation = useMutation({
-        mutationFn: () =>
-            resubmitProposalAction({
-                studyId,
-                studyInfo: buildStudyInfo(form.getValues()),
-                resubmissionNote: noteForm.values.resubmissionNote,
-            }),
-        onSuccess: () => {
+        mutationFn: async () =>
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: buildStudyInfo(form.getValues()),
+                    resubmissionNote: noteForm.values.resubmissionNote,
+                }),
+            ),
+        onSuccess: (result) => {
             form.resetDirty()
             noteForm.resetDirty()
+            const submittedByClerkId = user?.id
+            if (!submittedByClerkId) {
+                router.push(Routes.studySubmitted({ orgSlug, studyId }))
+                return
+            }
+            const event: SubmissionEvent = {
+                type: 'proposal-submitted',
+                studyId,
+                submittedByTabId: tabSessionId,
+                submittedByClerkId,
+                submittedByName: result.submitterFullName,
+                orgName: result.orgName,
+            }
+            // The action has already flipped status to PENDING-REVIEW, so the
+            // editor service accepts this stateless event on the proposal-fields
+            // doc. Peers that miss it fall through to the status poll mounted in
+            // the resubmit form. Mirrors the draft submit flow.
+            yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
         onError: (error) => {

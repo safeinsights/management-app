@@ -766,13 +766,14 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // insert below runs. submittedAt is intentionally NOT bumped — the
         // original first-submission timestamp is preserved; the
         // studyProposalComment row carries the resubmission timestamp.
+        const resubmittedAt = new Date()
         const claimed = await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
                 proposalResubmissionNoteDraft: null,
-                lastUpdatedAt: new Date(),
+                lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
@@ -808,11 +809,45 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('name', 'like', `review-feedback-${studyId}%`)
             .execute()
 
+        // OTTER-497: change-requested editing is collaborative, so drop the
+        // proposal-* yjs_document rows on resubmit for the same reason
+        // finalizeStudySubmissionAction does — a future CHANGE-REQUESTED reopen
+        // should fall through to onLoadDocument's seeder (study columns) instead
+        // of re-loading stale CRDT from before this resubmit. The deferred purge
+        // catches any Hocuspocus debounce landing after commit.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `proposal-${studyId}-%`)
+            .execute()
+
+        // Metadata for the `proposal-submitted` stateless broadcast: peers still
+        // editing get a toast naming the submitter and the reviewing org. Mirrors
+        // finalizeStudySubmissionAction's return.
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        const reviewerOrg = await db
+            .selectFrom('study')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['org.name as orgName'])
+            .where('study.id', '=', studyId)
+            .executeTakeFirstOrThrow()
+
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/dashboard`)
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        return { studyId }
+        purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
+
+        return {
+            studyId,
+            submitterFullName: submitter.fullName,
+            orgName: reviewerOrg.orgName,
+        }
     })
 
 // OTTER-558: Save the in-progress resubmission note as a lab-shared draft. Any
