@@ -920,8 +920,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        // The canResubmitStudyCode guard above means the latest round has closed, so this opens a
-        // genuinely new round job (a new submission/version) rather than reusing the prior one.
+        // attachCodeToRoundJob → getOrCreateCurrentRoundJob decides reuse-vs-new-round by whether the
+        // round has CLOSED (FILES-APPROVED/FILES-REJECTED only). A CODE-CHANGES-REQUESTED resubmit
+        // revises IN PLACE (same job, overwritten files, a new CODE-SUBMITTED); a resubmit after a
+        // post-run results decision opens a genuinely new round job.
         const { studyJobId } = await attachCodeToRoundJob(
             db,
             studyId,
