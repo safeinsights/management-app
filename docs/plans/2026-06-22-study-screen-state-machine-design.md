@@ -52,13 +52,29 @@ The machine must treat a job's `statusChanges` as an **unordered set** and ask o
 existence questions (`statusChanges.some(s => s.status === X)`) — never "what is the newest
 status." Concretely:
 
-- A code-review decision is **monotonic and cumulative**: once `CODE-APPROVED`,
-  `CODE-REJECTED`, or `CODE-CHANGES-REQUESTED` appears on a job, that decision is in effect
-  permanently. There is no "stale" or "superseded" decision to detect. `CODE-APPROVED` is
-  **always** in effect once present — a later `CODE-SCANNED` or any other row does not
-  un-approve it.
+- A code-review decision is **in effect while it is the latest word on the latest job** — and
+  whether it is "the latest word" is decided by **counting, not by reading the newest row**
+  (which is unsafe — see below). Concretely (mirroring the battle-tested
+  `latestSubmittedJobHasLiveCodeDecision` in `study-job-status.ts`): a decision on the latest job
+  is **live** iff `decisionCount > 0 && decisionCount >= submittedCount` within that job, where
+  `submittedCount` counts `CODE-SUBMITTED` and `decisionCount` counts decision statuses
+  (`CODE-APPROVED`/`REJECTED`/`CODE-CHANGES-REQUESTED`). When live, `codeDecision` is the
+  highest-priority decision present (APPROVED wins); otherwise `codeDecision` is `null` and the
+  study reads as awaiting review.
+    - **Why counting, not "is a decision present?":** the normal path opens a **new job** per round
+      (so the latest job has exactly one round and counting is trivially "a decision is present").
+      But **historical/defensive same-job shapes** exist — a single job carrying
+      `CODE-SUBMITTED → decision → CODE-SUBMITTED` (a resubmission appended to the same job). There,
+      a newer `CODE-SUBMITTED` tips `submittedCount` past `decisionCount`, so the decision is no
+      longer live and the study correctly reads "under review again." Pure set-existence would
+      wrongly keep it decided. **Counting handles both shapes and is order-independent** (it counts
+      occurrences in the set, so it's permutation-invariant — verified by the shuffle test).
+    - `CODE-APPROVED` is still "permanent" in the common case (no newer same-job submission ever
+      follows it, because approval closes the round / a resubmission opens a new job). A late
+      `CODE-SCANNED` or any non-submission row does **not** un-approve it (it doesn't change the
+      counts). The nuance only bites the historical same-job resubmission shape.
 - Results statuses (`FILES-APPROVED` / `FILES-REJECTED` / `RUN-COMPLETE` / `JOB-ERRORED`) are
-  likewise terminal-and-permanent for their job.
+  terminal-and-permanent for their job (pure set-existence — no counting needed).
 - **Resubmission opens a brand-new `studyJob`** (a closed round is never reopened — see
   `getOrCreateCurrentRoundJob`, `mutations.ts`). So a multi-round study has multiple jobs, and
   **only the latest job feeds `StudyState`'s phase facts** — earlier rounds are history and
