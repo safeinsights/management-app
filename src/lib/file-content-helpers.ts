@@ -15,7 +15,9 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
 }
 
 export function imageMimeType(path: string): string | null {
-    const ext = path.slice(path.lastIndexOf('.')).toLowerCase()
+    const dotIndex = path.lastIndexOf('.')
+    if (dotIndex < 0) return null
+    const ext = path.slice(dotIndex).toLowerCase()
     return IMAGE_MIME_TYPES[ext] ?? null
 }
 

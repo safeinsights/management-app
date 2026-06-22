@@ -37,14 +37,13 @@ const ViewResultsLink: FC<{ content: ArrayBuffer; path: string }> = ({ content, 
             <Anchor role="button" onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
                 View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
             </Anchor>
-            {showImageModal && mime && (
-                <ImagePreviewModal
-                    name={path}
-                    contents={content}
-                    mime={mime}
-                    onClose={() => setShowImageModal(false)}
-                />
-            )}
+            <ImagePreviewModal
+                isVisible={showImageModal}
+                name={path}
+                contents={content}
+                mime={mime}
+                onClose={() => setShowImageModal(false)}
+            />
         </>
     )
 }

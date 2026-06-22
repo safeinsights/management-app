@@ -173,7 +173,7 @@ const DecryptedFilePreview: FC<{ file: JobFile | null; onClose: () => void }> = 
 
     const mime = imageMimeType(file.path)
     if (mime) {
-        return <ImagePreviewModal name={file.path} contents={file.contents} mime={mime} onClose={onClose} />
+        return <ImagePreviewModal isVisible name={file.path} contents={file.contents} mime={mime} onClose={onClose} />
     }
 
     const previewFile = { name: file.path, contents: decodeFileContents(file.contents) }
