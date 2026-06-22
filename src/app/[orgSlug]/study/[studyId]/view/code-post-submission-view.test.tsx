@@ -297,15 +297,14 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyAgreements with from=previous and Go to dashboard linking to dashboardHref', async () => {
+        it('renders Back as a link to studyAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const backLink = screen.getByRole('link', { name: /back/i })
-            expect(backLink).toHaveAttribute(
-                'href',
-                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements?from=previous`),
-            )
+            const backHref = backLink.getAttribute('href') ?? ''
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements`)
+            expect(backHref).not.toContain('from=')
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
             expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
