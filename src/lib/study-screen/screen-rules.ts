@@ -60,6 +60,8 @@ export const SCREEN_RULES: ScreenRule[] = [
             forward: { title: 'Edit and resubmit', target: { kind: 'route', href: Routes.studyEditAndResubmit(ctx) } },
         }),
     },
+    // Decided proposal (read-only): REJECTED, or APPROVED that already has code (the no-code
+    // APPROVED case is handled by the agreements/upload rule above).
     {
         when: (s) => s.status === 'REJECTED' || s.status === 'APPROVED',
         screen: () => ({ screen: 'proposal-feedback', back: dashboard() }),
