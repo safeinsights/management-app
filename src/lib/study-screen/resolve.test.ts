@@ -78,9 +78,9 @@ describe('resolveScreen (researcher)', () => {
             resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false }), undefined, ctx).screen,
         ).toBe('proposal-submitted')
     })
-    it('draft → proposal-edit', () => {
+    it('draft → study-overview (generic layout; editing lives on /edit)', () => {
         expect(resolveScreen('researcher', state({ status: 'DRAFT', isDraft: true }), undefined, ctx).screen).toBe(
-            'proposal-edit',
+            'study-overview',
         )
     })
     it('CHANGE-REQUESTED proposal-feedback is read-only (no forward; back to dashboard)', () => {

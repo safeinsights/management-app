@@ -5,6 +5,7 @@ import { CodeDecisionScreen } from './code-decision-screen'
 import { CodeUnderReviewScreen } from './code-under-review-screen'
 import { ProposalFeedbackScreen } from './proposal-feedback-screen'
 import { StudyResultsScreen } from './study-results-screen'
+import { StudyOverviewScreen } from './study-overview-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
 // at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
@@ -17,4 +18,5 @@ export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
     'code-under-review': CodeUnderReviewScreen,
     'proposal-feedback': ProposalFeedbackScreen,
     'study-results': StudyResultsScreen,
+    'study-overview': StudyOverviewScreen,
 }

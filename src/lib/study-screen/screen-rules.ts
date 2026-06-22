@@ -113,17 +113,7 @@ export const SCREEN_RULES: ScreenRule[] = [
         screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
     },
 
-    {
-        when: (s) => s.isDraft,
-        screen: (_s, ctx) => ({
-            screen: 'proposal-edit',
-            step: 'data-org',
-            forward: {
-                title: 'Proceed to step 2',
-                target: { kind: 'route', href: Routes.studyProposal({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }) },
-            },
-        }),
-    },
+    { when: (s) => s.isDraft, screen: () => ({ screen: 'study-overview' }) },
 
     { when: () => true, screen: () => ({ screen: 'study-overview' }) },
 ]
