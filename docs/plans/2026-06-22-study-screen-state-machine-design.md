@@ -532,14 +532,26 @@ Resolved during planning (verified against the code, supersedes the earlier "`st
       intentional back-navigation (OTTER-572). **Both the auto-redirects AND these flags are
       deleted** — not renamed. They only exist because pages guess; once the machine is the
       authority, pages don't self-correct, so there is nothing to suppress.
-- **Pages become dumb renderers that defer to the machine on load.** For deep-link / refresh /
-  stale-bookmark safety (the legitimate concern the old redirects also covered), each sub-page
-  (`/edit`, `/proposal`, `/agreements`, `/code`), on load, asks `resolveScreen` whether **this
-  route is still correct for the study's current state**; if yes it renders, if not it redirects
-  to the machine's canonical screen. This is still a redirect in mechanism, but driven by the
-  **one** authority — not ad-hoc `draftHasStep2Progress` + `?from=` logic. One decider, no escape
-  param. (A shared helper, e.g. `redirectUnlessCanonical(role, studyId, expectedScreen)`,
-  centralizes this.)
+- **Two route kinds — canonical-only vs revisitable (refinement after discovering `/agreements`
+  is deliberately re-viewable):**
+    - **Canonical-only — `/view`:** state-resolved. `resolveScreen` picks the screen; `/view`
+      always shows the canonical screen for the study's state. The if-cascade dies here.
+    - **Revisitable steps — `/agreements`, `/code`, and the draft `/edit` + `/proposal`:** these are
+      destinations a researcher can navigate to directly, forward OR backward, even when they are no
+      longer the study's "canonical" screen (e.g. viewing agreements after acking them). They render
+      their own content for an authorized researcher **without** a "is this canonical?" redirect.
+      No `?from=` needed — they simply stop redirecting. This is what makes "Previous Step →
+      /agreements" work without a signal: the agreements page just renders.
+    - The only redirect that remains is each revisitable page's **pre-existing, non-`?from=`
+      authorization/eligibility guard** (e.g. `/edit` already requires DRAFT status — keep that;
+      only the `?from=step2` _resume_ redirect is deleted). A `redirectUnlessCanonical` helper is
+      therefore needed for **few or no** pages — most just delete their `?from=`-gated redirects.
+- **Consequence for back-links:** a screen's "Previous Step" may target a revisitable route
+  (`/agreements`) and it just works. It may NOT target `/view` expecting a _non-canonical_ screen
+  (that self-loops, since `/view` re-resolves to the canonical screen). The `study-results` screen
+  therefore has **no back button** (its legacy "Previous" forced the code-approved page via
+  `?from=code-decision` on `/view` — unexpressible without a signal, and results is terminal in the
+  product spec anyway).
 - Dashboard links unconditionally to `/view` (researcher) via the Tier-1 href; it no longer
   predicts a panel.
 - **`definitions.ts` changes (require explicit approval per CLAUDE.md):** drop the `from` param
