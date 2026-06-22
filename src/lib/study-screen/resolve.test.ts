@@ -83,14 +83,10 @@ describe('resolveScreen (researcher)', () => {
             'proposal-edit',
         )
     })
-    it('study-results back link targets /view with returnTo, and NO from=', () => {
+    it('study-results is terminal: no back link (avoids /view self-loop)', () => {
         const d = resolveScreen('researcher', state({ hasResults: true }), undefined, { ...ctx, returnTo: 'org' })
         expect(d.screen).toBe('study-results')
-        expect(d.back?.target.kind).toBe('route')
-        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
-        expect(href).toContain('/view')
-        expect(href).toContain('returnTo=org')
-        expect(href).not.toContain('from=')
+        expect(d.back).toBeUndefined()
     })
     it('code-approved back link targets /agreements with NO from=', () => {
         const d = resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), undefined, ctx)

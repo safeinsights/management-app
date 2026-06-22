@@ -18,19 +18,7 @@ const dashboard = (ctx: ScreenRuleCtx): ScreenDescriptor['forward'] => ({
 
 // Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins.
 export const SCREEN_RULES: ScreenRule[] = [
-    {
-        when: (s) => s.hasResults,
-        screen: (_s, ctx) => ({
-            screen: 'study-results',
-            back: {
-                title: 'Previous Step',
-                target: {
-                    kind: 'route',
-                    href: Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }),
-                },
-            },
-        }),
-    },
+    { when: (s) => s.hasResults, screen: () => ({ screen: 'study-results' }) },
 
     {
         when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting,
