@@ -24,7 +24,7 @@ const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJ
 
 // Pill display-status priority (highest-priority PRESENT status on the latest job wins).
 // Mirrors useStudyStatus's intent; finer-grained than the screen booleans (keeps exec sub-statuses).
-const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
+export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'JOB-ERRORED',
     'FILES-REJECTED',
     'FILES-APPROVED',
@@ -88,5 +88,3 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         displayStatus,
     }
 }
-
-export { DISPLAY_STATUS_PRIORITY }
