@@ -6,8 +6,8 @@ import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/st
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { Routes } from '@/lib/routes'
-import { isActionError } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import { loadCodeReviewFeedback } from './load-code-review-feedback'
 import {
     type CodeDecisionStatus,
     hasJobStatus,
@@ -25,13 +25,6 @@ import { StudyDetailsResearcher } from './study-details-researcher'
 import { projectStudyState, resolveScreen } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { SCREEN_COMPONENTS } from '../_screens/registry'
-
-async function loadCodeReviewFeedback(studyId: string) {
-    const entriesResult = await getCodeReviewFeedbackAction({ studyId })
-    const feedbackLoadError = isActionError(entriesResult)
-    const entries = feedbackLoadError ? [] : entriesResult
-    return { entries, feedbackLoadError }
-}
 
 export default async function StudyReviewPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>

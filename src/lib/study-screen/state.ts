@@ -3,6 +3,7 @@ import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
     CODE_DECISION_JOB_STATUSES,
+    isCodeDecisionStatus,
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
@@ -51,7 +52,14 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const job = latestJob(raw.jobs)
     const jobStatuses = new Set<StudyJobStatus>(job?.statusChanges.map((c) => c.status) ?? [])
 
-    const codeDecision = CODE_DECISION_PRIORITY.find((d) => jobStatuses.has(d)) ?? null
+    // Count-based liveness: a decision is live only when decisions >= submissions. This correctly
+    // handles same-job resubmissions (historical shape: CODE-SUBMITTED → decision → CODE-SUBMITTED)
+    // where a new CODE-SUBMITTED tips the count back so the decision is no longer live.
+    // Mirrors latestSubmittedJobHasLiveCodeDecision from study-job-status.ts.
+    const submittedCount = job?.statusChanges.filter((c) => c.status === 'CODE-SUBMITTED').length ?? 0
+    const decisionCount = job?.statusChanges.filter((c) => isCodeDecisionStatus(c.status)).length ?? 0
+    const hasLiveDecision = decisionCount > 0 && decisionCount >= submittedCount
+    const codeDecision = hasLiveDecision ? (CODE_DECISION_PRIORITY.find((d) => jobStatuses.has(d)) ?? null) : null
     const hasSubmittedCode = jobStatuses.has('CODE-SUBMITTED')
     const codeAwaitingDecision = hasSubmittedCode && codeDecision === null
     const hasResults = has(job, STUDY_RESULTS_JOB_STATUSES)

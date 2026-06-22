@@ -205,7 +205,7 @@ export function CodePostDecisionView({
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
+    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const breadcrumbs: Array<[string, string?]> = [
