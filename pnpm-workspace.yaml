@@ -26,5 +26,6 @@ overrides:
     'hono@<4.12.25': '>=4.12.25'
     'js-yaml@<=4.1.1': '>=4.1.2'
     'nodemailer@<=8.0.8': '>=8.0.9'
+    'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
