@@ -7,5 +7,5 @@ import { SCREEN_COMPONENTS } from './registry'
 export function StudyScreenRenderer({ props, fallback }: { props: ScreenComponentProps; fallback: React.ReactNode }) {
     const Component = SCREEN_COMPONENTS[props.descriptor.screen]
     if (!Component) return <>{fallback}</>
-    return <>{Component(props)}</>
+    return <Component {...props} />
 }
