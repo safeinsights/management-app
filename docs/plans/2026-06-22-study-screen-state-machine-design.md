@@ -46,11 +46,11 @@ comes from:
 - `?from=` query params used to paper over the fact that one URL maps to many possible
   screens depending on how the user navigated there.
 
-### Core invariant: statuses are a _set_, decisions are _permanent_
+### Core invariant: statuses are read as an unordered _set_ (by existence/count), never by recency
 
 The machine must treat a job's `statusChanges` as an **unordered set** and ask only
-existence questions (`statusChanges.some(s => s.status === X)`) — never "what is the newest
-status." Concretely:
+existence/count questions (`some(...)` / counting occurrences) — never "what is the newest
+status" (`statusChanges[0]`). Concretely:
 
 - A code-review decision is **in effect while it is the latest word on the latest job** — and
   whether it is "the latest word" is decided by **counting, not by reading the newest row**
