@@ -108,7 +108,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 isSubmitting={isSubmitting}
                 title="Confirm initial request resubmission?"
                 body="Please confirm you are ready to resubmit your initial request. Further edits are not permitted once submitted."
-                confirmLabel="Yes, submit initial request"
+                confirmLabel="Yes, resubmit initial request"
             />
         </>
     )
