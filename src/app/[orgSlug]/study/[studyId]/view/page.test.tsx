@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import * as RouterMock from 'next-router-mock'
 import {
     insertTestBaselineJob,
     insertTestStudyJobData,
@@ -8,7 +7,6 @@ import {
     renderWithProviders,
     screen,
     setTestStudyStatus,
-    userEvent,
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -34,6 +32,8 @@ describe('StudyViewPage', () => {
 
     // ?from=agreements no longer shows the proposal on /view — a code-submitted study resolves to
     // code-under-review. Viewing a submitted proposal lives at /submitted.
+    // APPROVED-no-code resolves to proposal-feedback via the registry (ProposalFeedbackScreen),
+    // which never passes agreementsHref — the ?from=agreements Proceed button is removed.
 
     it('renders ResearcherProposalView for APPROVED study without job', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -48,50 +48,7 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('STEP 2')).toBeInTheDocument()
         expect(screen.getByText('Study proposal')).toBeInTheDocument()
         expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
-    })
-
-    it('renders ResearcherProposalView with agreementsHref when from=agreements', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements' }),
-        })
-        renderWithProviders(page!)
-
-        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
-    })
-
-    it('agreementsHref preserves returnTo=org through the proposal view', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements', returnTo: 'org' }),
-        })
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: 'Proceed to Step 3' }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toContain(`/${org.slug}/study/${study.id}/agreements`)
-        expect(asPath).toContain('returnTo=org')
-    })
-
-    it('renders ResearcherProposalView without agreementsHref when from is absent', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
-        })
-        renderWithProviders(page!)
-
+        // No Proceed button: proposal-feedback is read-only (no agreementsHref).
         expect(screen.queryByRole('button', { name: 'Proceed to Step 3' })).not.toBeInTheDocument()
     })
 

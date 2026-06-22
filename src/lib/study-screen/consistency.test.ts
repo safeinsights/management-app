@@ -30,9 +30,10 @@ const full = (overrides: Partial<StudyState>): StudyState => ({
 })
 
 describe('Tier-1 ↔ Tier-2 consistency', () => {
-    // Representative states the dashboard 'View' link is emitted for.
+    // Representative states the dashboard 'View' link is emitted for (routes to /view).
+    // PENDING-REVIEW with no job routes to /submitted (not /view), so it is excluded here;
+    // its /view resolution to study-overview is intentional (generic layout), not a fallback.
     const viewStates: StudyState[] = [
-        full({ status: 'PENDING-REVIEW', isDraft: false }),
         full({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }),
         full({ status: 'APPROVED', isDraft: false, codeAwaitingDecision: true, hasSubmittedCode: true }),
         full({ status: 'REJECTED', isDraft: false }),

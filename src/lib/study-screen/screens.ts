@@ -1,15 +1,10 @@
 import type { Route } from 'next'
 
 export type ScreenId =
-    | 'proposal-edit'
-    | 'proposal-submitted'
     | 'proposal-feedback'
-    | 'agreements'
-    | 'code-upload'
     | 'code-under-review'
     | 'code-approved'
     | 'code-feedback'
-    | 'code-edit'
     | 'study-results'
     | 'study-overview'
 

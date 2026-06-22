@@ -45,7 +45,12 @@ export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
 function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
     // max(id): v7 ids are insertion-ordered, so lexical max === most recently created round.
-    return jobs.reduce((a, b) => (b.id > a.id ? b : a))
+    // Prefer the latest job that has been submitted (has a non-INITIATED status), matching the
+    // legacy latestSubmittedJobForStudy anchor. A baseline-only INITIATED job (IDE launch / file
+    // upload) that lands after a reviewed submission must not mask the code decision.
+    const submitted = jobs.filter((j) => j.statusChanges.some((c) => c.status !== 'INITIATED'))
+    const pool = submitted.length > 0 ? submitted : jobs
+    return pool.reduce((a, b) => (b.id > a.id ? b : a))
 }
 
 export function projectStudyState(raw: RawStudyState): StudyState {

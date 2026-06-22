@@ -53,7 +53,7 @@ describe('resolveScreen (researcher)', () => {
                 .screen,
         ).toBe('code-under-review')
     })
-    it('approved proposal, no code, agreements not acked → agreements', () => {
+    it('approved proposal, no code → read-only proposal-feedback', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -61,9 +61,9 @@ describe('resolveScreen (researcher)', () => {
                 undefined,
                 ctx,
             ).screen,
-        ).toBe('agreements')
+        ).toBe('proposal-feedback')
     })
-    it('approved proposal, no code, agreements acked → code-upload', () => {
+    it('approved proposal, no code, agreements acked → still proposal-feedback (no code-upload phantom screen)', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -71,12 +71,12 @@ describe('resolveScreen (researcher)', () => {
                 undefined,
                 ctx,
             ).screen,
-        ).toBe('code-upload')
+        ).toBe('proposal-feedback')
     })
-    it('pending review → proposal-submitted', () => {
+    it('pending review (no job) → study-overview (generic layout)', () => {
         expect(
             resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false }), undefined, ctx).screen,
-        ).toBe('proposal-submitted')
+        ).toBe('study-overview')
     })
     it('draft → study-overview (generic layout; editing lives on /edit)', () => {
         expect(resolveScreen('researcher', state({ status: 'DRAFT', isDraft: true }), undefined, ctx).screen).toBe(
@@ -114,11 +114,14 @@ describe('resolveScreen (researcher)', () => {
         expect(href).not.toContain('from=')
     })
     it('dashboard forward honors returnTo (org dashboard)', () => {
-        const d = resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false }), undefined, {
-            ...ctx,
-            returnTo: 'org',
-        })
-        // proposal-submitted forward is "Go to dashboard"
+        // PENDING-REVIEW now resolves to study-overview (no forward). Use code-under-review,
+        // which produces a dashboard forward, to verify returnTo=org routing.
+        const d = resolveScreen(
+            'researcher',
+            state({ codeAwaitingDecision: true, hasSubmittedCode: true }),
+            undefined,
+            { ...ctx, returnTo: 'org' },
+        )
         expect(d.forward?.title).toBe('Go to dashboard')
         const href = d.forward?.target.kind === 'route' ? d.forward.target.href : ''
         expect(href).toContain('/lab/dashboard') // orgDashboard for returnTo=org

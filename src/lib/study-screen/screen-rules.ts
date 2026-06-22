@@ -74,33 +74,12 @@ export const SCREEN_RULES: ScreenRule[] = [
 
     {
         when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode,
-        screen: (s, ctx) =>
-            s.researcherAgreementsAcked
-                ? {
-                      screen: 'code-upload',
-                      back: {
-                          title: 'Previous Step',
-                          target: {
-                              kind: 'route',
-                              href: Routes.studyAgreements({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
-                          },
-                      },
-                  }
-                : {
-                      screen: 'agreements',
-                      forward: {
-                          title: 'Proceed to Step 4',
-                          target: {
-                              kind: 'route',
-                              href: Routes.studyCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
-                          },
-                      },
-                  },
+        screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
     },
 
     {
         when: (s) => s.status === 'PENDING-REVIEW',
-        screen: (_s, ctx) => ({ screen: 'proposal-submitted', forward: dashboard(ctx) }),
+        screen: () => ({ screen: 'study-overview' }),
     },
     {
         when: (s) => s.status === 'CHANGE-REQUESTED',
