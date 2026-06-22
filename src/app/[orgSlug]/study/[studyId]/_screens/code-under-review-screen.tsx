@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { countSubmittedJobsForStudy, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { countCodeSubmissionsForStudy, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import { actionResult } from '@/lib/utils'
 import { CodePostSubmissionView } from '../view/code-post-submission-view'
@@ -13,7 +13,7 @@ export async function CodeUnderReviewScreen({ study, orgSlug, dashboardHref }: S
     if (!job) notFound()
 
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
-    const submissionVersion = await countSubmittedJobsForStudy(study.id)
+    const submissionVersion = await countCodeSubmissionsForStudy(study.id)
     // Feedback is only meaningful on resubmissions; skip the extra query on v1.
     const feedbackEntries =
         submissionVersion > 1 ? actionResult(await getCodeReviewFeedbackAction({ studyId: study.id })) : []
