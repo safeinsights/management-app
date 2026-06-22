@@ -78,16 +78,25 @@ The comment that says "A resubmittable/terminal status is never followed by anot
 same job (resubmit opens a NEW job)" must be updated: it's now "a ROUND-CLOSING status
 (FILES-APPROVED/FILES-REJECTED) is never followed by another status on the same job."
 
-### 3. Version numbering — `countSubmittedJobsForStudy` (`queries.ts`)
+### 3. Version numbering — count the review rounds, NOT the submissions (`queries.ts`)
 
-Today `submissionVersion` = number of JOBS with `CODE-SUBMITTED`. Under reuse, a CR resubmission
-appends a 2nd `CODE-SUBMITTED` to the SAME job, so counting jobs would wrongly stay "v1". Change the
-semantics to **count `CODE-SUBMITTED` occurrences** (the number of submission attempts), so a
-reused-job resubmission reads "v2".
+**CORRECTED (an earlier "count CODE-SUBMITTED" idea was broken):** `markCodeSubmitted` is
+**idempotent** — it skips inserting `CODE-SUBMITTED` if the job already has one (study-request.ts:131).
+So under job-reuse, a same-job CR resubmission does NOT add a 2nd `CODE-SUBMITTED`; counting
+submissions would always yield 1. The reliable per-round counter is the **reviewer's decision event**.
 
-- Rename/repurpose to `countCodeSubmissions(studyId)` returning the count of `CODE-SUBMITTED` status
-  rows for the study (across jobs — or on the latest job; **DECISION NEEDED**, see open questions).
-- Update its one caller (`code-under-review-screen.tsx`) accordingly.
+**Formula:** `submissionVersion = (count of CODE-CHANGES-REQUESTED on the latest job) + 1`.
+
+- First submission: 0 `CODE-CHANGES-REQUESTED` → v1.
+- After one change-request + same-job resubmit: 1 `CODE-CHANGES-REQUESTED` → v2.
+- Two review rounds → v3.
+- `FILES-REJECTED` is a POST-RUN results-sharing decision (and opens a NEW job/round) — it has **no
+  bearing** on the code-submission version. Only `CODE-CHANGES-REQUESTED` (pre-run review) counts.
+- Order-independent (a count over the latest job's status set); immune to the idempotency issue.
+
+Implementation: replace `countCodeSubmissionsForStudy` (the broken count-submissions version) with
+`codeSubmissionVersion(studyId): Promise<number>` = `count(CODE-CHANGES-REQUESTED on latest job) + 1`.
+Update the one caller (`code-under-review-screen.tsx`).
 
 ### 4. Submit-enable (`workspaces.actions.ts`) — NO CHANGE NEEDED
 
