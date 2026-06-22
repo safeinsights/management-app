@@ -76,18 +76,36 @@ screens need `job` + feedback + org-name + counts. Two options:
   typing but re-introduces "the page knows about every screen's data," which is the coupling we're
   removing.
 
-**Recommendation: (A).** Each `*-screen.tsx` wrapper does its own `await loadCodeReviewFeedback` /
-`getOrgNameFromId` / `countSubmittedJobsForStudy` / `latestSubmittedJobForStudy` as needed, then
-renders the legacy component. This keeps `ScreenComponentProps` minimal and each screen
-self-contained. The renderer renders `<Component {...props} />` (JSX) so async server components
-work. The wrappers reuse the SAME helper functions the cascade uses (move `loadCodeReviewFeedback`
-to a shared util).
+**Decision: (A), with the integration pattern VERIFIED by probe.** Each `*-screen.tsx` wrapper is
+an **async server component** that does its own `await loadCodeReviewFeedback` / `getOrgNameFromId`
+/ `countSubmittedJobsForStudy` / `latestSubmittedJobForStudy`, then renders the (sync) legacy leaf
+component with props. (The legacy leaf components — `CodePostDecisionView`, `CodePostSubmissionView`,
+`StudyDetailsResearcher` — are all SYNC; only the data-loading is async, exactly as in the cascade.)
 
-OPEN VERIFICATION (do in the first wrapper task): confirm an `async` function component rendered
-via `<Component {...props}/>` inside the (also async) `StudyScreenRenderer` works in this Next
-version and in the vitest render harness. If the test harness can't render nested async server
-components, fall back to (B) for the data-heavy screens (page pre-loads, passes via props) — decide
-then. (The dashboard/pill/core are unaffected either way.)
+**Integration pattern (verified):** a probe confirmed RTL/vitest does NOT resolve an async component
+rendered as a JSX child (`<AsyncScreen/>`), but DOES render it when the async function is **awaited**
+and its resolved element is returned. So:
+
+- `view/page.tsx` dispatch (already in an async function) **awaits the component function directly**:
+    ```tsx
+    const Screen = SCREEN_COMPONENTS[descriptor.screen]
+    return await Screen({ descriptor, study, raw, orgSlug, dashboardHref })
+    ```
+    NOT `return <Screen {...props}/>` (that JSX-child form leaves the async wrapper unresolved in the
+    test harness).
+- Consequently the `StudyScreenRenderer` JSX wrapper from Task 13 is **not** the integration point
+  for async screens. The page dispatch calls the component function and awaits it. (`StudyScreenRenderer`
+  can be removed, or kept only for sync usage; the page no longer needs it.) Update Task 14's dispatch
+  block accordingly when the cascade is deleted (Task 15d): it already looks up
+  `SCREEN_COMPONENTS[descriptor.screen]` — change `return <RegisteredScreen .../>` to
+  `return await RegisteredScreen({ ...props })`.
+- `ScreenComponent` type becomes `(props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>`
+  to allow async wrappers (or keep `React.ComponentType` and await its call — awaiting a sync return
+  is harmless).
+
+The wrappers reuse the SAME helper functions the cascade uses; move `loadCodeReviewFeedback` (today
+a local in `page.tsx`) to a shared util (e.g. `view/load-code-review-feedback.ts`) so both the
+wrappers and (until deleted) the cascade import it.
 
 ## Revised task sequence (replaces 15b–15i)
 
