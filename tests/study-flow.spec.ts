@@ -81,7 +81,7 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await submitButton.click()
 
     // Confirm submission in modal
-    await page.getByRole('button', { name: /Yes, resubmit initial request/i }).click()
+    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
 
     // Wait for the submitted confirmation page
     await expect(page.getByText(/successfully submitted/i)).toBeVisible()
