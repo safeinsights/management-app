@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
-import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
@@ -64,32 +63,15 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     return (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={submittingOrgSlug} studyId={studyId} studyTitle={draftData?.title} />
-            <ProxyProvider
-                isDirty={form.isDirty()}
-                onSaveDraft={() =>
-                    new Promise<boolean>((resolve) => {
-                        saveDraft({
-                            onSuccess: () => {
-                                form.resetDirty()
-                                resolve(true)
-                            },
-                            onError: () => resolve(false),
-                        })
-                    })
-                }
-                isSavingDraft={isSaving}
-                onNavigateAway={() => reset()}
-            >
-                <StudyProposalForm studyProposalForm={form} />
+            <StudyProposalForm studyProposalForm={form} />
 
-                <ProposalFooterActions
-                    isSaving={isSaving || isProceeding}
-                    isValid={isStep1Valid}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    proceedLabel="Proceed to Step 2"
-                />
-            </ProxyProvider>
+            <ProposalFooterActions
+                isSaving={isSaving || isProceeding}
+                isValid={isStep1Valid}
+                onSave={handleSave}
+                onCancel={handleCancel}
+                proceedLabel="Proceed to Step 2"
+            />
         </Stack>
     )
 }
