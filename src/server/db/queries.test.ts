@@ -9,6 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import {
+    codeSubmissionVersion,
     currentReviewVersion,
     getStudyReviewForJob,
     getOrgIdForJobId,
@@ -348,5 +349,20 @@ describe('getDataSourcesForOrg', () => {
         expect(resDataSource2.name).toEqual(dataSource2.name)
         expect(resDataSource2.description).toEqual(dataSource2.description)
         expect(resDataSource2.urls).toStrictEqual(dataSource2.urls)
+    })
+})
+
+describe('codeSubmissionVersion', () => {
+    it('v1 for first submission, v2 after a change request on the same job', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        expect(await codeSubmissionVersion(study.id)).toBe(1)
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+            .execute()
+        expect(await codeSubmissionVersion(study.id)).toBe(2)
     })
 })

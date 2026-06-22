@@ -1,6 +1,6 @@
 import type React from 'react'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { countCodeSubmissionsForStudy, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { codeSubmissionVersion, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -160,7 +160,7 @@ export default async function StudyReviewPage(props: {
         // the late-scan race is already absorbed by the decision branch above.
         if (isCodeUnderReviewStatus(latestJobStatus)) {
             const reviewingOrgName = await getOrgNameFromId(study.orgId)
-            const submissionVersion = await countCodeSubmissionsForStudy(study.id)
+            const submissionVersion = await codeSubmissionVersion(study.id)
             // Feedback section is only meaningful on resubmissions; skip the extra query on v1.
             const feedbackEntries =
                 submissionVersion > 1 ? actionResult(await getCodeReviewFeedbackAction({ studyId })) : []

@@ -142,15 +142,16 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
-// Count of CODE-SUBMITTED on the study's LATEST job (max id). 1 = first submission of this round,
-// >=2 = a resubmission within the same round (CODE-CHANGES-REQUESTED revises in place). A new round
-// (new job after FILES-APPROVED/FILES-REJECTED) resets to 1.
-export const countCodeSubmissionsForStudy = async (studyId: string): Promise<number> => {
+// Submission version of the latest round = (number of CODE-CHANGES-REQUESTED review rounds on the
+// latest job) + 1. First submission = v1; each same-job change-request + resubmit bumps the version.
+// markCodeSubmitted is idempotent so we cannot count CODE-SUBMITTED; the reviewer's CODE-CHANGES-
+// REQUESTED is the reliable per-round counter. FILES-REJECTED (post-run, opens a new job) does not count.
+export const codeSubmissionVersion = async (studyId: string): Promise<number> => {
     const row = await Action.db
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .where('jobStatusChange.status', '=', 'CODE-CHANGES-REQUESTED')
         .where('studyJob.id', '=', (eb) =>
             eb
                 .selectFrom('studyJob as latest')
@@ -161,7 +162,7 @@ export const countCodeSubmissionsForStudy = async (studyId: string): Promise<num
         )
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
-    return Number(row?.count ?? 0)
+    return Number(row?.count ?? 0) + 1
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
