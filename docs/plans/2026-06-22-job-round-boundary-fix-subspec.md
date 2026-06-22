@@ -113,18 +113,19 @@ correct. (The `latestJob` stays as-is; the fix is upstream in job creation.)
 - Resubmission-version tests: verify "v2" still shows for a CR resubmission under the new
   count-by-CODE-SUBMITTED logic.
 
-## Open questions for review
+## Decisions (confirmed)
 
-1. **Version count scope:** count `CODE-SUBMITTED` across ALL the study's jobs, or only the latest
-   job? (A study that ran, got FILES-REJECTED, and resubmitted into a NEW job — is that new job's
-   first submission "v2" [count across study] or "v1" [count on latest job]?) Need the intended
-   version semantics across a run-boundary.
-2. **`canResubmitStudyCode` / resubmit eligibility:** unchanged by this fix (still gates on the
-   resubmittable set). Confirm `CODE-REJECTED` stays excluded (terminal) and the post-run states stay
-   included.
-3. **Scope/sequencing:** land this write-path fix as its own commit(s) on THIS branch (it unblocks
-   the state-machine cascade deletion), or as a separate PR? It's small and well-bounded, but it
-   changes a load-bearing mutation.
+1. **Version count scope: PER CURRENT JOB.** `submissionVersion` = count of `CODE-SUBMITTED`
+   occurrences on the **latest job only**. A same-job CR revision appends a 2nd `CODE-SUBMITTED` →
+   v2. A new round (new job after `FILES-APPROVED`/`FILES-REJECTED`) starts back at **v1**. So
+   `countSubmittedJobsForStudy` becomes "count CODE-SUBMITTED on the latest job."
+2. **`canResubmitStudyCode` / resubmit eligibility:** unchanged by this fix (still gates on
+   `CODE_RESUBMITTABLE_JOB_STATUSES`). `CODE-REJECTED` stays excluded (terminal); the post-run states
+   stay included.
+3. **Sequencing: land on THIS branch now**, as discrete reviewed commits. It unblocks the cascade
+   deletion (15d). Order: (a) revert the currently-red cascade-deletion commit to restore green,
+   (b) implement this round-boundary fix + its tests, (c) re-do the cascade deletion (now green
+   because jobs are created correctly and all screens are wired).
 
 ## Out of scope
 
