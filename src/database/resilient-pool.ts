@@ -1,5 +1,5 @@
 import PG from 'pg'
-import { databaseURL, DEPLOYED_ENV } from '@/server/config'
+import { databaseURL, DEPLOYED_ENV } from '../server/config'
 
 // Postgres SQLSTATE for "password authentication failed". A connection that
 // fails with this code is the signal that the cached DB password may be stale.
