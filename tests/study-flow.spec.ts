@@ -258,9 +258,10 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    // Proceed to code review
+    // Proceed to code review. ?from= routing has been removed; bare /review resolves to the
+    // code-review screen via the reviewer state machine.
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
-    await page.waitForURL(/\/review\?from=agreements-proceed$/)
+    await page.waitForURL(/\/review(\?.*)?$/)
 
     // Answer all four review criteria with "yes" so the submit button enables.
     const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
@@ -720,8 +721,9 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await page.waitForURL(/\/agreements(\?.*)?$/, { timeout: 10000 })
         const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
 
-        // Navigate to code review via agreements-proceed to bypass the agreements redirect
-        await goto(page, `${studyBaseUrl}/review?from=agreements-proceed`)
+        // Navigate straight to /review; with code submitted the reviewer state machine resolves
+        // the code-review screen directly (no agreements redirect, no ?from= needed).
+        await goto(page, `${studyBaseUrl}/review`)
 
         // Redesigned CodeReviewClient: fill criteria, pick "Request revision"
         // (decision: needs-clarification, → CODE-CHANGES-REQUESTED so the
