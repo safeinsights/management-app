@@ -6,6 +6,12 @@ import { CodeUnderReviewScreen } from './code-under-review-screen'
 import { ProposalFeedbackScreen } from './proposal-feedback-screen'
 import { StudyResultsScreen } from './study-results-screen'
 import { StudyOverviewScreen } from './study-overview-screen'
+import { ReviewerProposalReviewScreen } from './reviewer-proposal-review-screen'
+import { ReviewerProposalFeedbackScreen } from './reviewer-proposal-feedback-screen'
+import { ReviewerAgreementsScreen } from './reviewer-agreements-screen'
+import { ReviewerCodeReviewScreen } from './reviewer-code-review-screen'
+import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
+import { ReviewerStudyResultsScreen } from './reviewer-study-results-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
 // at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
@@ -21,4 +27,10 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'proposal-feedback': ProposalFeedbackScreen,
     'study-results': StudyResultsScreen,
     'study-overview': StudyOverviewScreen,
+    'reviewer-proposal-review': ReviewerProposalReviewScreen,
+    'reviewer-proposal-feedback': ReviewerProposalFeedbackScreen,
+    'reviewer-agreements': ReviewerAgreementsScreen,
+    'reviewer-code-review': ReviewerCodeReviewScreen,
+    'reviewer-code-feedback': ReviewerCodeFeedbackScreen,
+    'reviewer-study-results': ReviewerStudyResultsScreen,
 }
