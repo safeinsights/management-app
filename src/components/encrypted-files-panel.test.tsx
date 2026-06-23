@@ -280,6 +280,29 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
+    it('opens image preview modal when clicking View on a PNG result', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'plot.png', content: 'fake-png-bytes' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await enterKeyAndDecrypt()
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeDefined())
+        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog')).toBeDefined()
+            expect(screen.getByAltText('plot.png')).toBeDefined()
+        })
+    })
+
     it('shows a green "shared with researcher" check on an approved artifact', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
         const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
