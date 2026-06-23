@@ -1,14 +1,15 @@
 # Study Screen Logic
 
-How the app decides **which screen a researcher sees, which link/pill/highlight the dashboard
-shows, and which status label is displayed** for a given study.
+How the app decides **which screen a researcher or reviewer sees, which link/pill/highlight the
+dashboard shows, and which status label is displayed** for a given study.
 
 All of this logic lives in one pure module — `src/lib/study-screen/` — with **no React, DB, or
 Next imports**. It takes raw study rows in and returns plain decisions out, so the whole machine
 is unit-testable with object literals. The app layer (pages, dashboard) only fetches data, calls
 the resolvers, and renders the result.
 
-> Background and rationale: `docs/plans/2026-06-22-study-screen-state-machine-design.md`.
+> Background and rationale: `docs/plans/2026-06-22-study-screen-state-machine-design.md`
+> (researcher) and `docs/plans/2026-06-23-reviewer-screen-state-machine-design.md` (reviewer).
 
 ---
 
@@ -120,8 +121,12 @@ correctly reads "under review again." Counting handles both shapes and is permut
 
 ## Stage 2 — Screen resolution (`screen-rules.ts` + `resolve.ts`)
 
-`resolveScreen(role, state, step, ctx)` walks an **ordered, first-match-wins** rule table.
-Order is display precedence; the last rule is `when: () => true`, so the function is **total**.
+`resolveScreen(role, state, step, ctx)` walks an **ordered, first-match-wins** rule table,
+**selected by `role`** (`role === 'reviewer' ? REVIEWER_SCREEN_RULES : SCREEN_RULES`). Order is
+display precedence; each table ends with `when: () => true`, so the function is **total** for both
+roles. Both tables read the **same** `StudyState` — only the projection feeds them, never raw jobs.
+
+**Researcher table (`screen-rules.ts`):**
 
 | #   | When                                                                   | Screen              |
 | --- | ---------------------------------------------------------------------- | ------------------- |
@@ -137,25 +142,48 @@ Order is display precedence; the last rule is `when: () => true`, so the functio
 | 10  | `isDraft`                                                              | `study-overview`    |
 | 11  | fallback                                                               | `study-overview`    |
 
+**Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
+cascade with the `?from=` cases removed (those became routing, not screen-selection):
+
+| #   | When                                                                     | Screen                       |
+| --- | ------------------------------------------------------------------------ | ---------------------------- |
+| 1   | `hasResults`                                                             | `reviewer-study-results`     |
+| 2   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
+| 3   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
+| 4   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
+| 5   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
+| 6   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
+| 7   | fallback                                                                 | `study-overview`             |
+
+Precedence notes: results out-rank a present code decision (#1 > #2 — `CODE-APPROVED` is always
+present once results land, mirroring legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`);
+the agreements gate sits **above** active review (#3 > #4 — a reviewer must ack before the review
+page renders); and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own
+the screen once code exists.
+
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
-buttons. The `?from=` query param is gone — revisitable pages no longer redirect, because the
-state machine derives the screen directly. A URL `step` is passed through as breadcrumb metadata.
+buttons. The `?from=` query param is gone on **both** sides — revisitable pages no longer redirect,
+because the state machine derives the screen directly. A URL `step` is passed through as breadcrumb
+metadata.
 
 ### Screen registry (`_screens/registry.ts`)
 
-`SCREEN_COMPONENTS` maps every `ScreenId` to a React component, typed as a total
-`Record<ScreenId, ScreenComponent>` so a missing screen is a **compile error**, not a runtime
-throw. `view/page.tsx` resolves the descriptor and awaits the mapped component (screens may be
-async server components that load their own data):
+`SCREEN_COMPONENTS` maps every `ScreenId` (researcher **and** the six `reviewer-*` ids) to a React
+component, typed as a total `Record<ScreenId, ScreenComponent>` so a missing screen is a **compile
+error**, not a runtime throw. Both pages dispatch through the shared `renderStudyScreen` helper
+(`_screens/render-screen.tsx`), which resolves the descriptor and awaits the mapped component
+(screens may be async server components that load their own data):
 
 ```ts
-const descriptor = resolveScreen('researcher', projectStudyState(rawStudyState), undefined, ctx)
-const Screen = SCREEN_COMPONENTS[descriptor.screen]
-return await Screen({ descriptor, study, raw: rawStudyState, ... })
+// view/page.tsx → role: 'researcher'   |   review/page.tsx → role: 'reviewer'
+return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref, returnTo })
 ```
 
-Note two `ScreenId`s (`code-approved`, `code-feedback`) share one `CodeDecisionScreen` component
-— it branches internally on the decision.
+The `reviewer-*` components are **thin adapters** over the existing reviewer views
+(`ProposalReviewView`, `PostFeedbackView`, `CodeReview`, `StudyDetailsReviewer`, `AgreementsPage`) —
+each fetches its own feedback/job data, exactly as the researcher screens do. Two `ScreenId`s share
+a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
+`reviewer-code-feedback` branches internally on the decision for the reviewer.
 
 ---
 
@@ -211,28 +239,51 @@ highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
 
 ## Role dimension
 
-The resolvers take a `role` (`'researcher' | 'reviewer'`), but only the **researcher** rules are
-implemented today. Reviewer rules are stubbed: `resolveScreen` falls through to the researcher
-table's fallback so callers never crash, and the reviewer `/review` page is **not** migrated yet —
-it keeps working unchanged. Adding the reviewer flow later means adding a reviewer rule table, not
-re-architecting.
+Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
+picks the matching rule table, and the pill/highlight resolvers already branch on role. The
+**projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts
+(notably `reviewerAgreementsAcked`, previously unused) and inherits all the order-independence
+guarantees for free. Adding the reviewer flow was adding a rule table + adapters, not
+re-architecting — exactly as the design intended.
+
+### Reviewer routing (`/review`)
+
+`/review` is pure state-machine dispatch, mirroring `/view`. The legacy `?from=`-keyed cascade and
+**all** reviewer `?from=` values (`initial-request`, `code-review`, `agreements`,
+`agreements-proceed`, `previous`) are gone. Notable pieces:
+
+- **Shared guard** (`review/reviewer-page-guard.tsx`): both reviewer entry points run the same
+  access preamble (session/org → study → lab-org redirect to `/view` → `isSubmittedStudy` →
+  enclave-only), so a non-reviewer hitting either URL directly is handled identically.
+- **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
+  screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
+  (no `?from=`), like the researcher branch.
+- **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
+  initial request" link. It always shows the **decided** initial request regardless of code stage,
+  and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the
+  proposal isn't decided yet — so it never renders a blank page.
 
 ---
 
 ## File map
 
-| File                             | Responsibility                                               |
-| -------------------------------- | ------------------------------------------------------------ |
-| `state.types.ts`                 | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole` |
-| `state.ts`                       | `projectStudyState` + priority constants                     |
-| `screens.ts`                     | `ScreenId`, `ScreenDescriptor`, `DashboardAction` types      |
-| `screen-rules.ts`                | `SCREEN_RULES` table                                         |
-| `dashboard-rules.ts`             | `DASHBOARD_RULES` table                                      |
-| `resolve.ts`                     | `resolveScreen`, `resolveDashboardAction`                    |
-| `pill.ts`                        | `resolvePillStatus`, `resolveRowHighlight`                   |
-| `index.ts`                       | public barrel                                                |
-| `server/db/study-state-query.ts` | `rawStudyStateForStudy` — the single fetch                   |
-| `_screens/registry.ts`           | `SCREEN_COMPONENTS` id → component map                       |
+| File                             | Responsibility                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `state.types.ts`                 | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                  |
+| `state.ts`                       | `projectStudyState` + priority constants                                      |
+| `screens.ts`                     | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction` |
+| `screen-rules.ts`                | `SCREEN_RULES` (researcher table)                                             |
+| `reviewer-screen-rules.ts`       | `REVIEWER_SCREEN_RULES` (reviewer table)                                      |
+| `dashboard-rules.ts`             | `DASHBOARD_RULES` table                                                       |
+| `resolve.ts`                     | `resolveScreen` (role-keyed), `resolveDashboardAction`                        |
+| `pill.ts`                        | `resolvePillStatus`, `resolveRowHighlight`                                    |
+| `index.ts`                       | public barrel                                                                 |
+| `server/db/study-state-query.ts` | `rawStudyStateForStudy` — the single fetch                                    |
+| `_screens/registry.ts`           | `SCREEN_COMPONENTS` id → component map (both roles)                           |
+| `_screens/render-screen.tsx`     | `renderStudyScreen` — shared `/view` + `/review` dispatch                     |
+| `_screens/reviewer-*-screen.tsx` | six reviewer adapters over existing reviewer views                            |
+| `review/reviewer-page-guard.tsx` | shared reviewer access preamble                                               |
+| `lib/review-decision.ts`         | status/`CODE-*` → `ReviewDecision` fallback maps                              |
 
 Tests sit next to each module; `state.shuffle.test.ts` and `consistency.test.ts` enforce the
-order-independence and cross-resolver-agreement invariants.
+order-independence and cross-resolver-agreement invariants (the latter covers both roles).
