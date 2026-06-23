@@ -20,7 +20,7 @@ export async function StudyDetailsReviewer({ orgSlug, study }: StudyDetailsRevie
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const previousHref = Routes.studyReview({ orgSlug, studyId: study.id, from: 'code-review' })
+    const previousHref = Routes.studyReview({ orgSlug, studyId: study.id })
 
     return (
         <StudyDetailsReviewerView orgSlug={orgSlug} previousHref={previousHref}>

@@ -50,7 +50,9 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
     })
 
-    it('redirects reviewer to review when agreements already acknowledged', async () => {
+    // /agreements is now revisitable for reviewers too: once code is submitted it renders the
+    // agreements page regardless of ack state. The /review state machine is the screen authority.
+    it('renders reviewer agreements even after acknowledging (revisitable, no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         await db
@@ -59,8 +61,11 @@ describe('StudyAgreementsRoute', () => {
             .where('id', '=', study.id)
             .execute()
 
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText('STEP 2A')).toBeInTheDocument()
     })
 
     it('renders researcher agreements for APPROVED study not yet acknowledged', async () => {

@@ -7,42 +7,26 @@ import { isSubmittedStudy } from '@/schema/study'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { sessionFromClerk } from '@/server/clerk'
-import { redirect } from 'next/navigation'
-import { renderStudyScreen } from '../_screens/render-screen'
+import { ReviewerProposalFeedbackScreen } from '../../_screens/reviewer-proposal-feedback-screen'
 
-export default async function StudyReviewPage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
+export default async function ReviewProposalPage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
     const { orgSlug, studyId } = await props.params
-
     const session = await sessionFromClerk()
     const currentOrg = session?.orgs[orgSlug]
     if (!session || !currentOrg) return <AccessDeniedAlert />
 
     const study = await getStudyAction({ studyId })
-    if (isActionError(study) || !study) {
+    if (isActionError(study) || !study || !isSubmittedStudy(study)) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
-
-    // A lab member who lands on /review belongs on the researcher /view of the submitting org.
-    if (currentOrg.type === 'lab') {
-        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
-    }
-
-    if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
-    if (currentOrg.type !== 'enclave') {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
-
     const raw = await rawStudyStateForStudy(studyId)
     if (!raw) return <AlertNotFound title="Study was not found" message="No such study exists" />
 
-    return renderStudyScreen({
-        role: 'reviewer',
-        raw,
+    return (await ReviewerProposalFeedbackScreen({
+        descriptor: { screen: 'reviewer-proposal-feedback' },
         study,
+        raw,
         orgSlug,
-        studyId,
         dashboardHref: Routes.orgDashboard({ orgSlug }),
-    })
+    })) as React.JSX.Element
 }

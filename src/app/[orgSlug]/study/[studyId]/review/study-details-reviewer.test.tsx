@@ -5,8 +5,8 @@ import { type Mock, describe, expect, it } from 'vitest'
 import { StudyDetailsReviewer } from './study-details-reviewer'
 
 // OTTER-538: server-side smoke tests for the new DO Study Details page —
-// it drops the Study Code section and points "Previous" at the OTTER-552
-// post-code-feedback page (i.e. /review?from=code-review).
+// it drops the Study Code section and points "Previous" at /review, which the
+// reviewer state machine re-resolves to the post-code-feedback page.
 
 describe('StudyDetailsReviewer', () => {
     it('omits the Study Code section', async () => {
@@ -35,6 +35,6 @@ describe('StudyDetailsReviewer', () => {
         renderWithProviders(await StudyDetailsReviewer({ orgSlug: org.slug, study }))
 
         const previousButton = screen.getByRole('link', { name: /previous/i })
-        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/review?from=code-review'))
+        expect(previousButton).toHaveAttribute('href', `/${org.slug}/study/${study.id}/review`)
     })
 })

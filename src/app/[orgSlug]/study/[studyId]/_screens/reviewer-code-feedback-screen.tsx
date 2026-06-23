@@ -1,21 +1,12 @@
-import type { ReviewDecision } from '@/database/types'
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { isCodeDecisionStatus, type CodeDecisionStatus } from '@/lib/study-job-status'
+import { isCodeDecisionStatus } from '@/lib/study-job-status'
+import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
-
-// Code decided, read-only. A decision can be written (proposal approve/reject path) without a
-// code-review comment, so synthesize the decision from the job's CODE-* status when no comment rows
-// exist — keeps the page on the code post-feedback view rather than blanking out.
-const CODE_DECISION_TO_REVIEW_DECISION: Record<CodeDecisionStatus, ReviewDecision> = {
-    'CODE-APPROVED': 'APPROVE',
-    'CODE-CHANGES-REQUESTED': 'NEEDS-CLARIFICATION',
-    'CODE-REJECTED': 'REJECT',
-}
 
 export async function ReviewerCodeFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {

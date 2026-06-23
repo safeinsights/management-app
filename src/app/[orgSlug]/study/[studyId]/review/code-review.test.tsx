@@ -71,7 +71,7 @@ describe('CodeReview', () => {
             expect(dashboardLink).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
 
             const proposalLink = screen.getByRole('link', { name: 'Study proposal' })
-            expect(proposalLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/review?from=code-review`)
+            expect(proposalLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/review/proposal`)
 
             // "Study code" is the terminal crumb and should not be a link
             expect(screen.getByText('Study code')).toBeInTheDocument()

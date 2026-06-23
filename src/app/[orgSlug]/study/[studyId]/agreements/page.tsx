@@ -32,15 +32,6 @@ export default async function StudyAgreementsRoute(props: {
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
-        // Reviewer branch only: allow direct access when navigating back via the Previous button.
-        const isDirectAccess = searchParams.from === 'previous'
-
-        // Once the reviewer has acknowledged agreements, skip straight to review
-        // (unless they navigated back here intentionally)
-        if (study.reviewerAgreementsAckedAt && !isDirectAccess) {
-            redirect(Routes.studyReview({ orgSlug, studyId }))
-        }
-
         // No code submitted yet — nothing to review, show proposal instead
         const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
         if (!codeSubmitted) {
@@ -54,8 +45,8 @@ export default async function StudyAgreementsRoute(props: {
                 <AgreementsPage
                     isReviewer
                     studyId={studyId}
-                    proceedHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements-proceed`}
-                    previousHref={`${Routes.studyReview({ orgSlug, studyId })}?from=agreements`}
+                    proceedHref={Routes.studyReview({ orgSlug, studyId })}
+                    previousHref={Routes.studyReview({ orgSlug, studyId })}
                     previousLabel="Previous"
                 />
             </Stack>
