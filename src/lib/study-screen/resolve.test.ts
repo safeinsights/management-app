@@ -127,3 +127,13 @@ describe('resolveScreen (researcher)', () => {
         expect(href).toContain('/lab/dashboard') // orgDashboard for returnTo=org
     })
 })
+
+// Reviewer rules are deferred (spec §13): resolveScreen('reviewer', …) currently falls through to
+// the researcher table rather than erroring. This pins that contract — when reviewer rules land,
+// this test should be updated, not silently start passing for the wrong reason.
+describe('resolveScreen (reviewer fall-through, not yet implemented)', () => {
+    it('returns a defined descriptor for the reviewer role (researcher fallback for now)', () => {
+        const d = resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), undefined, ctx)
+        expect(d.screen).toBeDefined()
+    })
+})

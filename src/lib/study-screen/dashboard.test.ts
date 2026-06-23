@@ -58,6 +58,26 @@ describe('resolveDashboardAction (researcher)', () => {
         expect(a.label).toBe('View')
         expect(a.href).toContain('/code')
     })
+    // Negative of the rule above: APPROVED with NO job and agreements NOT acked must fall through the
+    // code-upload rules to /submitted (the OTTER boundary — don't send them to /code before they ack).
+    it('APPROVED, agreements NOT acked, no job → View → /submitted', () => {
+        const a = resolveDashboardAction(
+            'researcher',
+            dstate({ status: 'APPROVED', isDraft: false, hasAnyJob: false, researcherAgreementsAcked: false }),
+            ctx,
+        )
+        expect(a.label).toBe('View')
+        expect(a.href).toContain('/submitted')
+    })
+    it('REJECTED with job activity → View → /view', () => {
+        const a = resolveDashboardAction(
+            'researcher',
+            dstate({ status: 'REJECTED', isDraft: false, hasAnyJob: true }),
+            ctx,
+        )
+        expect(a.label).toBe('View')
+        expect(a.href).toContain('/view')
+    })
     it('PENDING-REVIEW, no job → View → /submitted', () => {
         const a = resolveDashboardAction(
             'researcher',

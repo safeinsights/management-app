@@ -365,4 +365,55 @@ describe('codeSubmissionVersion', () => {
             .execute()
         expect(await codeSubmissionVersion(study.id)).toBe(2)
     })
+
+    it('v3 after two change-request rounds on the same job', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
+                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
+            ])
+            .execute()
+        expect(await codeSubmissionVersion(study.id)).toBe(3)
+    })
+
+    // The version counts CODE-CHANGES-REQUESTED, not CODE-SUBMITTED, so it's unaffected by how many
+    // CODE-SUBMITTED rows a round accumulates (an idempotent-submit safety property).
+    it('is unaffected by extra CODE-SUBMITTED rows with no new change request', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-SUBMITTED' }).execute()
+        expect(await codeSubmissionVersion(study.id)).toBe(1)
+    })
+
+    // Scoped to the LATEST job: a change request on a prior (post-run, closed) round's job must not
+    // inflate the new round's version.
+    it('ignores CODE-CHANGES-REQUESTED on an older job (latest-job only)', async () => {
+        const { study, job: oldJob } = await insertTestStudyJobData({
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: oldJob.id, status: 'CODE-CHANGES-REQUESTED' })
+            .execute()
+
+        // A newer round opens a fresh job with its own first submission → back to v1.
+        const newJob = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
+
+        expect(await codeSubmissionVersion(study.id)).toBe(1)
+    })
 })
