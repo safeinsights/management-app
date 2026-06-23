@@ -454,6 +454,20 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(hiddenDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/hidden-target.R`)
         expect(hiddenDownload).toHaveAttribute('download', 'hidden-target.R')
     })
+
+    it('keeps the overflow menu open when a hidden file is downloaded (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        await user.click(await screen.findByRole('link', { name: 'Download hidden-target.R' }))
+
+        // stopPropagation on the download icon must prevent Mantine's closeOnItemClick,
+        // so the dropdown stays mounted and the hidden file is not made active.
+        expect(screen.getByTestId('study-code-files-overflow-menu')).toBeInTheDocument()
+        expect(screen.getByTitle('hidden-target.R')).toHaveAttribute('data-selected', 'false')
+    })
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
