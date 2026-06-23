@@ -62,8 +62,9 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
 
 /**
  * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only when the
- * latest round has closed (resubmittable/terminal) — that's a genuine new submission round.
+ * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
+ * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
+ * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in code-resubmission.ts).
  *
  * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
  * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a

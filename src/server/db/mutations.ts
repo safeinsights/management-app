@@ -54,8 +54,10 @@ async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date):
 
 /**
  * A study accumulates one studyJob per submission *round*: a round opens when work begins (IDE launch
- * or file upload) and closes once its job reaches a completed/resubmittable state. The latest job is
- * the "current round" unless it has closed, in which case the next launch/submit starts a new round.
+ * or file upload) and closes only when its job reaches a post-run results decision (FILES-APPROVED /
+ * FILES-REJECTED — see ROUND_CLOSING_JOB_STATUSES). Change-requested/errored rounds stay on the same
+ * job. The latest job is the "current round" unless it has closed, in which case the next
+ * launch/submit starts a new round.
  *
  * This is the single source of truth for "which job does this study's in-progress work belong to" —
  * shared by IDE launch, file upload, and code submission so they all converge on the same job instead
