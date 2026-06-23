@@ -5,8 +5,8 @@ import { type Mock, describe, expect, it } from 'vitest'
 import { StudyDetailsReviewer } from './study-details-reviewer'
 
 // OTTER-538: server-side smoke tests for the new DO Study Details page —
-// it drops the Study Code section and points "Previous" at /review, which the
-// reviewer state machine re-resolves to the post-code-feedback page.
+// it drops the Study Code section and points "Previous" at bare /review (no ?from=);
+// the reviewer state machine re-resolves that to the canonical screen for the study's state.
 
 describe('StudyDetailsReviewer', () => {
     it('omits the Study Code section', async () => {

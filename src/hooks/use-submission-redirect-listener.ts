@@ -144,9 +144,9 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                     message: `${event.submittedByName} has proceeded to submit a decision on this study code. No further edits are allowed at this point.`,
                     autoClose: NOTIFICATION_DISPLAY_MS,
                 })
-                // `?from=code-review` is load-bearing: studyHasJobStatus(study, 'CODE-SUBMITTED')
-                // checks history, so a bare studyReview would re-enter the code-review page.
-                router.push(`${Routes.studyReview({ orgSlug, studyId })}?from=code-review`)
+                // The decision was just recorded, so the reviewer state machine resolves bare
+                // /review to the code post-feedback screen (codeDecision !== null) — no ?from= needed.
+                router.push(Routes.studyReview({ orgSlug, studyId }))
                 return
             }
 
