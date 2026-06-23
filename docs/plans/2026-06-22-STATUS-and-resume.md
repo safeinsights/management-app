@@ -77,38 +77,43 @@ and ordered rule tables resolve the screen / dashboard-link / pill / highlight. 
 
 ---
 
-## REMAINING (not started / in progress)
+## REMAINING
 
-In suggested order. None of these are blocked.
+All researcher-flow tasks are DONE. The only remaining items are out-of-scope (reviewer flow, see
+below) and an optional manual smoke test.
 
-- **15e — Tighten registry to `Record<ScreenId, ScreenComponent>`** (TRIVIAL, ~1 line). The registry
-  is currently `Partial<Record<...>>` but all 6 ScreenIds are registered, so it can become a total
-  `Record` (compiler-enforced exhaustiveness). IN PROGRESS — do this next.
-- **15f/15g — Revisitable sub-pages stop redirecting on `?from=`.** Convert `/edit`, `/proposal`,
-  `/agreements` (RESEARCHER branch only — it's shared with reviewer!), `/code`:
-    - `edit/page.tsx`: delete the `from!=='step2' && draftHasStep2Progress` resume-redirect (keep the
-      DRAFT-only auth guard).
-    - `proposal/footer.tsx`: `handlePrevious` → `studyEdit` WITHOUT `from:'step2'`.
-    - `agreements/page.tsx`: delete `isDirectAccess`/`from==='previous'` + the `!isDirectAccess`
-      redirects for the RESEARCHER branch; drop its `from:'code-decision'` producer → plain `/view`.
-      **Leave the reviewer branch of this page untouched.**
-    - `code/page.tsx`: `previousHref` → `studyAgreements` WITHOUT `from:'previous'`.
-    - Model: revisitable pages render WITHOUT a canonical-check redirect (a researcher can view
-      agreements/upload even past those steps). See design §8 "two route kinds".
-    - Migrate each page's tests.
-- **15h — Migrate any remaining `?from=` researcher tests** to assert state-based routing + plain URLs.
-  (Most `view/page.test.tsx` `?from=` tests were already migrated/deleted during the cascade work.)
-- **15i — Remove `from` from researcher route builders in `definitions.ts`** (CLAUDE.md
-  "ask before routes" — ALREADY APPROVED for this). Remove `from` from `studyView`, `studyEdit`.
-  `studyAgreements` is SHARED with the reviewer — KEEP its `from` param on the builder if the
-  reviewer still passes it; just ensure no researcher caller does. Grep-verify zero researcher
-  `from=` producers/consumers.
-- **16 — Delete dead helpers:** `git rm src/hooks/use-study-href.ts` (+ its test) — confirm zero
-  importers first. Then delete `latestSubmittedJobHasLiveCodeDecision` /
-  `latestSubmittedJobLiveCodeDecisionStatus` / `latestCodeChangeIsSubmission` from
-  `study-job-status.ts` ONLY IF they have zero non-test callers (the **reviewer page** likely still
-  uses some — gate each deletion on a grep; do NOT break the reviewer page).
-- **17 — Final validation:** `pnpm run lint:fix`, `pnpm run test:unit`, `pnpm run checks`, manual smoke.
+### DONE 2026-06-22 (this session)
+
+- **15e — registry tightened to `Record<ScreenId, ScreenComponent>`.** Total map; the dead
+  `if (!Screen) throw` guard in `view/page.tsx` was removed (compiler now enforces exhaustiveness).
+- **15f/15g — revisitable sub-pages no longer `?from=`-redirect (RESEARCHER side):**
+    - `edit/page.tsx`: OTTER-572 resume-redirect + `draftHasStep2Progress` import + `from`
+      searchParam deleted. Keeps the DRAFT-only not-found guard. Always renders Step 1.
+    - `proposal/footer.tsx`: `handlePrevious` → `studyEdit` with NO `from`.
+    - `agreements/page.tsx`: researcher-branch `!isDirectAccess` redirects deleted; `previousHref`
+      and `proceedHref` now plain `/view` (no `from=agreements` / `from=code-decision`). The
+      reviewer branch is UNTOUCHED — `isDirectAccess` moved inside `if (isReviewer)`.
+    - `code/page.tsx`: `previousHref` → `studyAgreements` with NO `from`.
+    - All four pages' tests migrated to assert state-based routing + plain URLs.
+- **15h — `view/page.test.tsx`** `from=code-decision` test renamed/de-`from`'d ("routes a
+  CODE-APPROVED study to CodePostDecisionView regardless of query params"). `stories.tsx` producer
+  dropped.
+- **15i — `definitions.ts`:** `from` removed from `studyView` and `studyEdit` builders.
+  `studyAgreements` KEEPS `from` (reviewer still uses it). Grep-verified zero researcher `from=`
+  producers/consumers remain; the only survivors are reviewer-flow (`studyReview` + the reviewer
+  branch of `agreements/page.tsx`).
+- **16 — dead helpers deleted:** `src/hooks/use-study-href.ts` + test (zero importers).
+  `latestSubmittedJobLiveCodeDecisionStatus` deleted (zero non-test callers) + its test block.
+  `latestSubmittedJobHasLiveCodeDecision` (reviewer page) and `latestCodeChangeIsSubmission`
+  (`study.actions.ts`) KEPT — both have live non-test callers.
+- **17 — validation green:** `pnpm run lint:fix`, `pnpm exec tsc --noEmit` (exit 0),
+  `pnpm run checks` (typecheck + lint + validate-actions all exit 0), `pnpm run test:unit`
+  (1591 passed; only the 5 documented pre-existing failures below). **Not yet committed.**
+
+### Still open
+
+- Manual smoke test of the researcher flow (optional).
+- Everything under OUT OF SCOPE below (reviewer flow).
 
 ---
 
