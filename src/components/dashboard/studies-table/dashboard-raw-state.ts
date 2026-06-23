@@ -21,11 +21,10 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         rejectedAt: null,
         researcherAgreementsAckedAt: study.researcherAgreementsAckedAt,
         reviewerAgreementsAckedAt: null,
-        language: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
         jobs: hasActivity
-            ? [{ id: '0', statusChanges: study.jobStatusChanges.map((c) => ({ status: c.status })), files: [] }]
+            ? [{ id: '0', statusChanges: study.jobStatusChanges.map((c) => ({ status: c.status })) }]
             : [],
     }
 }

@@ -16,7 +16,6 @@ function permutations<T>(arr: readonly T[]): T[][] {
 const job = (id: string, statuses: string[]): RawJob => ({
     id,
     statusChanges: statuses.map((status) => ({ status: status as RawJob['statusChanges'][number]['status'] })),
-    files: [],
 })
 
 const base = (jobs: RawJob[]): RawStudyState => ({
@@ -25,7 +24,6 @@ const base = (jobs: RawJob[]): RawStudyState => ({
     rejectedAt: null,
     researcherAgreementsAckedAt: null,
     reviewerAgreementsAckedAt: null,
-    language: 'R',
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
     jobs,

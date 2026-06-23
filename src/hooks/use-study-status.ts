@@ -24,10 +24,9 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
         rejectedAt: null,
         researcherAgreementsAckedAt: null,
         reviewerAgreementsAckedAt: null,
-        language: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
-        jobs: jobStatusChanges.length ? [{ id: '0', statusChanges: jobStatusChanges, files: [] }] : [],
+        jobs: jobStatusChanges.length ? [{ id: '0', statusChanges: jobStatusChanges }] : [],
     })
     return resolvePillStatus(audience, state)
 }

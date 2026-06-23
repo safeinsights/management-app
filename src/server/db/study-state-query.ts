@@ -11,7 +11,6 @@ export async function rawStudyStateForStudy(studyId: string): Promise<RawStudySt
             'study.rejectedAt',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
-            'study.language',
             'study.proposalResubmissionNoteDraft',
             'study.codeResubmissionNoteDraft',
         ])
@@ -31,12 +30,6 @@ export async function rawStudyStateForStudy(studyId: string): Promise<RawStudySt
                                 .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                                 .select(['jobStatusChange.status']),
                         ).as('statusChanges'),
-                        jsonArrayFrom(
-                            j
-                                .selectFrom('studyJobFile')
-                                .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id')
-                                .select(['studyJobFile.fileType']),
-                        ).as('files'),
                     ]),
             ).as('jobs'),
         ])

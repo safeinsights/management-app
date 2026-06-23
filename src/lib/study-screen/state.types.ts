@@ -1,4 +1,4 @@
-import type { Language, StudyJobFileType, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 
@@ -9,7 +9,6 @@ export type StudyRole = 'researcher' | 'reviewer'
 export type RawJob = {
     id: string
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>
-    files: ReadonlyArray<{ fileType: StudyJobFileType }>
 }
 
 export type RawStudyState = {
@@ -18,7 +17,6 @@ export type RawStudyState = {
     rejectedAt: Date | null
     researcherAgreementsAckedAt: Date | null
     reviewerAgreementsAckedAt: Date | null
-    language: Language | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
     jobs: ReadonlyArray<RawJob>

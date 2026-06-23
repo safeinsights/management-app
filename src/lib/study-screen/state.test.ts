@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { RawStudyState, RawJob } from './state.types'
 import { projectStudyState } from './state'
 
-const job = (id: string, statuses: string[], files: string[] = []): RawJob => ({
+const job = (id: string, statuses: string[]): RawJob => ({
     id,
     statusChanges: statuses.map((status) => ({ status: status as RawJob['statusChanges'][number]['status'] })),
-    files: files.map((fileType) => ({ fileType: fileType as RawJob['files'][number]['fileType'] })),
 })
 
 const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
@@ -14,7 +13,6 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     rejectedAt: null,
     researcherAgreementsAckedAt: null,
     reviewerAgreementsAckedAt: null,
-    language: 'R',
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
     jobs: [],
