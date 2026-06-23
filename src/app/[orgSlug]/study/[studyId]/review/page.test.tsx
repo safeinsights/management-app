@@ -49,7 +49,9 @@ const ackReviewerAgreements = (studyId: string) =>
 // The page's return type is the ReactNode union (guard branches can hand back AlertNotFound JSX),
 // so narrow to an element to read `.type` / pass to render.
 const callPage = async (orgSlug: string, studyId: string) =>
-    (await StudyReviewPage({ params: Promise.resolve({ orgSlug, studyId }) })) as React.ReactElement
+    (await StudyReviewPage({
+        params: Promise.resolve({ orgSlug, studyId }),
+    })) as React.ReactElement<Record<string, unknown>>
 
 describe('StudyReviewPage', () => {
     it('redirects a lab org to the researcher /view', async () => {
@@ -87,7 +89,9 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
+        // Distinguish from the code-feedback screen, which also renders PostFeedbackView with kind="CODE".
         expect(page?.type).toBe(PostFeedbackView)
+        expect(page?.props.kind).not.toBe('CODE')
     })
 
     it('renders the reviewer agreements gate when code is submitted but agreements are not acked', async () => {
@@ -132,7 +136,10 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
+        // Both feedback screens render PostFeedbackView; assert kind="CODE" so this can't pass via
+        // the proposal-feedback variant (which would mean the code decision routed to the wrong screen).
         expect(page?.type).toBe(PostFeedbackView)
+        expect(page?.props.kind).toBe('CODE')
     })
 
     it('renders StudyDetailsReviewer when results are present', async () => {
