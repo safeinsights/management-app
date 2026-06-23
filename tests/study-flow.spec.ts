@@ -311,15 +311,16 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await expect(previousButton).toBeVisible()
     await previousButton.click()
 
-    // Should land on /view?from=agreements and show ResearcherProposalView
-    await page.waitForURL(/\/view\?from=agreements(&|$)/)
+    // Previous now lands on /submitted (the approved-proposal page), which shows the proposal
+    // and its own "Proceed to step 3" forward path — ?from= routing has been removed.
+    await page.waitForURL(/\/submitted(\?.*)?$/)
     await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-    await expect(page.getByText(studyTitle)).toBeVisible()
+    // Title renders in both the breadcrumb and the proposal body — assert the body copy.
+    await expect(page.getByText(`Title: ${studyTitle}`)).toBeVisible()
     await expect(page.getByText(/Approved on/)).toBeVisible()
 
-    // Should show "Proceed to Step 3" since we came from agreements
-    const proceedToStep3 = page.getByRole('button', { name: /Proceed to Step 3/i })
+    const proceedToStep3 = page.getByRole('link', { name: /Proceed to step 3/i })
     await expect(proceedToStep3).toBeVisible()
     await proceedToStep3.click()
 
@@ -538,7 +539,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         const previousLink = page.getByRole('link', { name: /^Back$/i })
         await previousLink.scrollIntoViewIfNeeded()
         await previousLink.click()
-        await page.waitForURL(/\/agreements\?from=previous/)
+        await page.waitForURL(/\/agreements(\?.*)?$/)
     })
 
     await test.step('reviewer approves code', async () => {
