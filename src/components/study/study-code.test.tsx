@@ -137,10 +137,14 @@ describe('StudyCode component', () => {
 
         const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
-        expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
-            'aria-pressed',
-            'true',
-        )
+        // The override is synchronous useState, but the re-render can lag the click under parallel
+        // load — wait for the aria-pressed flip rather than asserting it synchronously.
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
+        })
         expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
             'aria-pressed',
             'false',
