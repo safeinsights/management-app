@@ -63,6 +63,19 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Approved')
     })
+    // Deliberate divergence from legacy (which ranked CODE-CHANGES-REQUESTED higher): a job carrying
+    // both a round-1 change-request and a terminal round-2 rejection reads "Rejected" — the truthful
+    // terminal state, matching the code-rejected screen routing.
+    it('job with both CODE-CHANGES-REQUESTED and CODE-REJECTED reads Rejected (terminal wins)', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({
+                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'],
+                codeDecision: 'CODE-REJECTED',
+            }),
+        )
+        expect(label.label).toBe('Rejected')
+    })
 })
 
 describe('resolveRowHighlight', () => {

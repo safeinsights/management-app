@@ -25,6 +25,10 @@ const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJ
 
 // Pill display-status priority (highest-priority PRESENT status on the latest job wins).
 // Mirrors useStudyStatus's intent; finer-grained than the screen booleans (keeps exec sub-statuses).
+// Deliberate divergence from legacy: CODE-REJECTED outranks CODE-CHANGES-REQUESTED here (legacy's
+// reversed-label-order ranked them the other way). When a single job carries both (round-1 changes
+// requested, then a terminal round-2 rejection), the truthful terminal state is "rejected" — and it
+// agrees with the code-rejected screen routing — so Rejected wins, not the stale earlier round.
 export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'JOB-ERRORED',
     'FILES-REJECTED',
@@ -66,6 +70,9 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const decisionCount = job?.statusChanges.filter((c) => isCodeDecisionStatus(c.status)).length ?? 0
     const hasLiveDecision = decisionCount > 0 && decisionCount >= submittedCount
     const codeDecision = hasLiveDecision ? (CODE_DECISION_PRIORITY.find((d) => jobStatuses.has(d)) ?? null) : null
+    // Intentionally CODE-SUBMITTED only (legacy gated on ['CODE-SUBMITTED','CODE-SCANNED']): the scan
+    // is an automated step, never present without a preceding CODE-SUBMITTED on the same job, so
+    // adding it would not change the result — keep this anchored on the actual submission event.
     const hasSubmittedCode = jobStatuses.has('CODE-SUBMITTED')
     const codeAwaitingDecision = hasSubmittedCode && codeDecision === null
     const hasResults = has(job, STUDY_RESULTS_JOB_STATUSES)
@@ -79,6 +86,10 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     )
     const displayStatus: AllStatus = visible[0] ?? raw.status
 
+    // Count of jobs that ever carried a submission = which submission round this is across ALL jobs.
+    // Distinct from the displayed version (CODE-CHANGES-REQUESTED count + 1 on the latest job, see
+    // codeSubmissionVersion): do NOT use this as the user-facing version. Currently has no consumer
+    // outside this module/tests — kept as the one deliberate cross-job fact (see state.types.ts).
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
 
     return {
