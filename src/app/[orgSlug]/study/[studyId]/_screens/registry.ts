@@ -12,7 +12,9 @@ import { StudyOverviewScreen } from './study-overview-screen'
 // would not resolve).
 export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>
 
-export const SCREEN_COMPONENTS: Partial<Record<ScreenId, ScreenComponent>> = {
+// Total: every ScreenId maps to a component, so the dispatch in view/page.tsx is exhaustive and a
+// missing screen is a compile error (not a runtime throw).
+export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-approved': CodeDecisionScreen,
     'code-feedback': CodeDecisionScreen,
     'code-under-review': CodeUnderReviewScreen,

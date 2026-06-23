@@ -29,7 +29,6 @@ export default async function StudyReviewPage(props: {
         returnTo,
     })
     const Screen = SCREEN_COMPONENTS[descriptor.screen]
-    if (!Screen) throw new Error(`No screen component registered for "${descriptor.screen}"`)
 
     // Screens are awaited (not JSX children) so async server components resolve in the test harness.
     return (await Screen({
