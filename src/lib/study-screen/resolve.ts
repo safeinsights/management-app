@@ -8,15 +8,11 @@ export function resolveScreen(
     role: StudyRole,
     state: StudyState,
     step: string | undefined,
-    ctx: ScreenRuleCtx,
+    _ctx: ScreenRuleCtx,
 ): ScreenDescriptor {
     const rules = role === 'reviewer' ? REVIEWER_SCREEN_RULES : SCREEN_RULES
-    const rule = rules.find((r) => r.when(state))! // total: the last rule is `when: () => true`
-    const descriptor = rule.screen(state, ctx)
-    // Per spec §9, an explicit URL `step` overrides the descriptor's default step. Validating a
-    // step against the screen's allowed steps belongs with the multi-step screen work (deferred).
-    // No screen consumes `step` in this plan, so a passthrough is correct and sufficient here.
-    return step ? { ...descriptor, step } : descriptor
+    const [screen] = rules.find(([, rule]) => rule.when(state))! // total: last entry is `when: () => true`
+    return step ? { screen, step } : { screen }
 }
 
 export function resolveDashboardAction(role: StudyRole, state: DashboardState, ctx: DashboardRuleCtx): DashboardAction {

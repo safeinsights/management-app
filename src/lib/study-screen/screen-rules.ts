@@ -1,35 +1,31 @@
 import type { StudyState } from './state.types'
-import type { ScreenDescriptor } from './screens'
+import type { ScreenId } from './screens'
 
 export type ScreenRuleCtx = { orgSlug: string; studyId: string; returnTo?: 'org' }
-export type ScreenRule = {
-    when: (s: StudyState) => boolean
-    screen: (s: StudyState, ctx: ScreenRuleCtx) => ScreenDescriptor
-}
+export type ScreenRule = { when: (s: StudyState) => boolean }
+export type ScreenRuleEntry = readonly [ScreenId, ScreenRule]
 
-// Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each rule
-// resolves only WHICH screen renders; the leaf view owns its own back/forward buttons.
-export const SCREEN_RULES: ScreenRule[] = [
-    { when: (s) => s.hasResults, screen: () => ({ screen: 'study-results' }) },
+// Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each entry
+// pairs the screen it routes to with the condition that selects it; the leaf view owns its own
+// back/forward buttons.
+export const SCREEN_RULES = [
+    ['study-results', { when: (s) => s.hasResults }],
 
-    { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting, screen: () => ({ screen: 'code-approved' }) },
-    { when: (s) => s.codeDecision === 'CODE-CHANGES-REQUESTED', screen: () => ({ screen: 'code-feedback' }) },
-    { when: (s) => s.codeDecision === 'CODE-REJECTED', screen: () => ({ screen: 'code-feedback' }) },
+    ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting }],
+    ['code-feedback', { when: (s) => s.codeDecision === 'CODE-CHANGES-REQUESTED' }],
+    ['code-feedback', { when: (s) => s.codeDecision === 'CODE-REJECTED' }],
 
-    { when: (s) => s.codeAwaitingDecision, screen: () => ({ screen: 'code-under-review' }) },
+    ['code-under-review', { when: (s) => s.codeAwaitingDecision }],
 
-    { when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode, screen: () => ({ screen: 'proposal-feedback' }) },
+    ['proposal-feedback', { when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode }],
 
-    { when: (s) => s.status === 'PENDING-REVIEW', screen: () => ({ screen: 'study-overview' }) },
-    { when: (s) => s.status === 'CHANGE-REQUESTED', screen: () => ({ screen: 'proposal-feedback' }) },
+    ['study-overview', { when: (s) => s.status === 'PENDING-REVIEW' }],
+    ['proposal-feedback', { when: (s) => s.status === 'CHANGE-REQUESTED' }],
     // Decided proposal (read-only): REJECTED, or APPROVED that already has code (the no-code
     // APPROVED case is handled by the proposal-feedback rule above).
-    {
-        when: (s) => s.status === 'REJECTED' || s.status === 'APPROVED',
-        screen: () => ({ screen: 'proposal-feedback' }),
-    },
+    ['proposal-feedback', { when: (s) => s.status === 'REJECTED' || s.status === 'APPROVED' }],
 
-    { when: (s) => s.isDraft, screen: () => ({ screen: 'study-overview' }) },
+    ['study-overview', { when: (s) => s.isDraft }],
 
-    { when: () => true, screen: () => ({ screen: 'study-overview' }) },
-]
+    ['study-overview', { when: () => true }],
+] as const satisfies ReadonlyArray<ScreenRuleEntry>
