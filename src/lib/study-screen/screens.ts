@@ -8,21 +8,12 @@ export type ScreenId =
     | 'study-results'
     | 'study-overview'
 
-export type ScreenIntent = 'submit-proposal' | 'resubmit-proposal' | 'submit-code' | 'resubmit-code'
-
-export type ButtonDescriptor = {
-    title: string
-    target: { kind: 'route'; href: Route } | { kind: 'intent'; intent: ScreenIntent }
-}
-
-export type ModalDescriptor = { intent: ScreenIntent }
-
+// The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
+// buttons (nav is simple and stable, and the screen-selection logic is the part that needed
+// centralizing). `step` is harmless breadcrumb metadata.
 export type ScreenDescriptor = {
     screen: ScreenId
     step?: string
-    back?: ButtonDescriptor
-    forward?: ButtonDescriptor
-    modal?: ModalDescriptor
 }
 
 export type DashboardAction = {

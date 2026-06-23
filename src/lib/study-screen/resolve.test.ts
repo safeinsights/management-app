@@ -42,10 +42,9 @@ describe('resolveScreen (researcher)', () => {
     it('executing window → code-approved', () => {
         expect(resolveScreen('researcher', state({ isExecuting: true }), undefined, ctx).screen).toBe('code-approved')
     })
-    it('changes requested → code-feedback with Edit and resubmit forward', () => {
+    it('changes requested → code-feedback', () => {
         const d = resolveScreen('researcher', state({ codeDecision: 'CODE-CHANGES-REQUESTED' }), undefined, ctx)
         expect(d.screen).toBe('code-feedback')
-        expect(d.forward?.title).toBe('Edit and resubmit')
     })
     it('awaiting decision → code-under-review', () => {
         expect(
@@ -83,48 +82,10 @@ describe('resolveScreen (researcher)', () => {
             'study-overview',
         )
     })
-    it('CHANGE-REQUESTED proposal-feedback is read-only (no forward; back to dashboard)', () => {
-        const d = resolveScreen('researcher', state({ status: 'CHANGE-REQUESTED', isDraft: false }), undefined, ctx)
-        expect(d.screen).toBe('proposal-feedback')
-        expect(d.forward).toBeUndefined()
-        expect(d.back?.title).toBe('Go to dashboard')
-    })
-    it('study-results is terminal: no back link (avoids /view self-loop)', () => {
-        const d = resolveScreen('researcher', state({ hasResults: true }), undefined, { ...ctx, returnTo: 'org' })
-        expect(d.screen).toBe('study-results')
-        expect(d.back).toBeUndefined()
-    })
-    it('code-approved back link targets /agreements with NO from=', () => {
-        const d = resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), undefined, ctx)
-        expect(d.back?.target.kind).toBe('route')
-        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
-        expect(href).toContain('/agreements')
-        expect(href).not.toContain('from=')
-    })
-    it('code-under-review back link targets /agreements with NO from=', () => {
-        const d = resolveScreen(
-            'researcher',
-            state({ codeAwaitingDecision: true, hasSubmittedCode: true }),
-            undefined,
-            ctx,
-        )
-        expect(d.back?.target.kind).toBe('route')
-        const href = d.back?.target.kind === 'route' ? d.back.target.href : ''
-        expect(href).toContain('/agreements')
-        expect(href).not.toContain('from=')
-    })
-    it('dashboard forward honors returnTo (org dashboard)', () => {
-        // PENDING-REVIEW now resolves to study-overview (no forward). Use code-under-review,
-        // which produces a dashboard forward, to verify returnTo=org routing.
-        const d = resolveScreen(
-            'researcher',
-            state({ codeAwaitingDecision: true, hasSubmittedCode: true }),
-            undefined,
-            { ...ctx, returnTo: 'org' },
-        )
-        expect(d.forward?.title).toBe('Go to dashboard')
-        const href = d.forward?.target.kind === 'route' ? d.forward.target.href : ''
-        expect(href).toContain('/lab/dashboard') // orgDashboard for returnTo=org
+    it('CHANGE-REQUESTED → proposal-feedback', () => {
+        expect(
+            resolveScreen('researcher', state({ status: 'CHANGE-REQUESTED', isDraft: false }), undefined, ctx).screen,
+        ).toBe('proposal-feedback')
     })
 })
 

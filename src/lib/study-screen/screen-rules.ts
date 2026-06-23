@@ -1,4 +1,3 @@
-import { Routes } from '@/lib/routes'
 import type { StudyState } from './state.types'
 import type { ScreenDescriptor } from './screens'
 
@@ -8,88 +7,26 @@ export type ScreenRule = {
     screen: (s: StudyState, ctx: ScreenRuleCtx) => ScreenDescriptor
 }
 
-const dashboard = (ctx: ScreenRuleCtx): ScreenDescriptor['forward'] => ({
-    title: 'Go to dashboard',
-    target: {
-        kind: 'route',
-        href: ctx.returnTo === 'org' ? Routes.orgDashboard({ orgSlug: ctx.orgSlug }) : Routes.dashboard,
-    },
-})
-
-// Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins.
+// Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each rule
+// resolves only WHICH screen renders; the leaf view owns its own back/forward buttons.
 export const SCREEN_RULES: ScreenRule[] = [
     { when: (s) => s.hasResults, screen: () => ({ screen: 'study-results' }) },
 
-    {
-        when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting,
-        screen: (_s, ctx) => ({
-            screen: 'code-approved',
-            back: {
-                title: 'Previous Step',
-                target: {
-                    kind: 'route',
-                    href: Routes.studyAgreements({
-                        orgSlug: ctx.orgSlug,
-                        studyId: ctx.studyId,
-                        returnTo: ctx.returnTo,
-                    }),
-                },
-            },
-            forward: dashboard(ctx),
-        }),
-    },
-    {
-        when: (s) => s.codeDecision === 'CODE-CHANGES-REQUESTED',
-        screen: (_s, ctx) => ({
-            screen: 'code-feedback',
-            forward: {
-                title: 'Edit and resubmit',
-                target: { kind: 'route', href: Routes.studyResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }) },
-            },
-        }),
-    },
-    {
-        when: (s) => s.codeDecision === 'CODE-REJECTED',
-        screen: (_s, ctx) => ({ screen: 'code-feedback', forward: dashboard(ctx) }),
-    },
+    { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting, screen: () => ({ screen: 'code-approved' }) },
+    { when: (s) => s.codeDecision === 'CODE-CHANGES-REQUESTED', screen: () => ({ screen: 'code-feedback' }) },
+    { when: (s) => s.codeDecision === 'CODE-REJECTED', screen: () => ({ screen: 'code-feedback' }) },
 
-    {
-        when: (s) => s.codeAwaitingDecision,
-        screen: (_s, ctx) => ({
-            screen: 'code-under-review',
-            back: {
-                title: 'Previous Step',
-                target: {
-                    kind: 'route',
-                    href: Routes.studyAgreements({
-                        orgSlug: ctx.orgSlug,
-                        studyId: ctx.studyId,
-                        returnTo: ctx.returnTo,
-                    }),
-                },
-            },
-            forward: dashboard(ctx),
-        }),
-    },
+    { when: (s) => s.codeAwaitingDecision, screen: () => ({ screen: 'code-under-review' }) },
 
-    {
-        when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode,
-        screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
-    },
+    { when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode, screen: () => ({ screen: 'proposal-feedback' }) },
 
-    {
-        when: (s) => s.status === 'PENDING-REVIEW',
-        screen: () => ({ screen: 'study-overview' }),
-    },
-    {
-        when: (s) => s.status === 'CHANGE-REQUESTED',
-        screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
-    },
+    { when: (s) => s.status === 'PENDING-REVIEW', screen: () => ({ screen: 'study-overview' }) },
+    { when: (s) => s.status === 'CHANGE-REQUESTED', screen: () => ({ screen: 'proposal-feedback' }) },
     // Decided proposal (read-only): REJECTED, or APPROVED that already has code (the no-code
-    // APPROVED case is handled by the agreements/upload rule above).
+    // APPROVED case is handled by the proposal-feedback rule above).
     {
         when: (s) => s.status === 'REJECTED' || s.status === 'APPROVED',
-        screen: (_s, ctx) => ({ screen: 'proposal-feedback', back: dashboard(ctx) }),
+        screen: () => ({ screen: 'proposal-feedback' }),
     },
 
     { when: (s) => s.isDraft, screen: () => ({ screen: 'study-overview' }) },
