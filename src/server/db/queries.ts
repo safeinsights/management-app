@@ -144,8 +144,9 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
 
 // Submission version of the latest round = (number of CODE-CHANGES-REQUESTED review rounds on the
 // latest job) + 1. First submission = v1; each same-job change-request + resubmit bumps the version.
-// markCodeSubmitted is idempotent so we cannot count CODE-SUBMITTED; the reviewer's CODE-CHANGES-
-// REQUESTED is the reliable per-round counter. FILES-REJECTED (post-run, opens a new job) does not count.
+// CODE-SUBMITTED is append-only per round (markCodeSubmitted is round-aware), so count(CODE-SUBMITTED)
+// would also work — counting the reviewer's CODE-CHANGES-REQUESTED is equivalent and reads as
+// "rounds reviewed". FILES-REJECTED (post-run, opens a new job) does not count.
 export const codeSubmissionVersion = async (studyId: string): Promise<number> => {
     const row = await Action.db
         .selectFrom('jobStatusChange')

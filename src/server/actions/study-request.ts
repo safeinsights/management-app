@@ -119,18 +119,30 @@ async function attachCodeToRoundJob(
 }
 
 /**
- * Record CODE-SUBMITTED for a submission round exactly once. A re-submit within the same un-reviewed
- * round overwrites the files but stays one submission/version, so we skip if the round's job already
- * carries a CODE-SUBMITTED status (it may since have advanced to CODE-SCANNED, etc.).
+ * Record CODE-SUBMITTED once per submission *round*. CODE-SUBMITTED is an append-only submission
+ * event: each round (initial, and each resubmit after a CODE-CHANGES-REQUESTED) appends one, so the
+ * status history is an honest log of how many times the code was submitted. The round-boundary fix
+ * keeps a change-requested resubmit on the SAME job, so we can't dedup on "job already has a
+ * CODE-SUBMITTED" — that would swallow the new round's submission and leave the researcher's /view
+ * stuck on the feedback screen and the reviewer never re-notified.
+ *
+ * Round-aware idempotency (order-independent — same counting the liveness/version logic uses): the
+ * current round is already submitted iff submitted-count > change-requested-count on this job. A
+ * re-submit within the same un-reviewed round (submitted > requested) is a no-op; the first submit
+ * of a round (submitted == requested) appends.
  */
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
-    const alreadySubmitted = await db
+    const counts = await db
         .selectFrom('jobStatusChange')
-        .select('id')
+        .select((eb) => [
+            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-SUBMITTED').as('submitted'),
+            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-CHANGES-REQUESTED').as('requested'),
+        ])
         .where('studyJobId', '=', studyJobId)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .executeTakeFirst()
-    if (alreadySubmitted) return
+        .executeTakeFirstOrThrow()
+
+    const currentRoundAlreadySubmitted = Number(counts.submitted) > Number(counts.requested)
+    if (currentRoundAlreadySubmitted) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
@@ -402,18 +414,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // when two jobs share a createdAt). Adding CODE-SUBMITTED here targets that same job.
         const latestJob = await db
             .selectFrom('studyJob')
-            .select((eb) => [
-                'studyJob.id as id',
-                eb
-                    .exists(
-                        eb
-                            .selectFrom('jobStatusChange')
-                            .select('jobStatusChange.id')
-                            .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                            .where('jobStatusChange.status', '=', 'CODE-SUBMITTED'),
-                    )
-                    .as('alreadySubmitted'),
-            ])
+            .select('studyJob.id as id')
             .where('studyJob.studyId', '=', studyId)
             .orderBy('studyJob.createdAt', 'desc')
             .orderBy('studyJob.id', 'desc')
@@ -421,12 +422,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .executeTakeFirst()
 
         if (latestJob) {
-            if (!latestJob.alreadySubmitted) {
-                await db
-                    .insertInto('jobStatusChange')
-                    .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
-                    .execute()
-            }
+            // Round-aware: appends a CODE-SUBMITTED for a new round, no-ops within an un-reviewed round.
+            await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
             triggerCodeScan(latestJob.id, orgSlug, studyId)
             onStudyReviewRequested({ studyJobId: latestJob.id })
         }

@@ -437,8 +437,9 @@ describe('StudyViewPage', () => {
                 studyStatus: 'PENDING-REVIEW',
                 jobStatus: 'CODE-SUBMITTED',
             })
-            // Historical same-job resubmission shape: a new CODE-SUBMITTED after the decision
-            // reopens review, so the decision is no longer live and the under-review page is correct.
+            // Same-job resubmit shape produced by the round-boundary fix + round-aware markCodeSubmitted:
+            // the CR opens a new round and the resubmit appends a second CODE-SUBMITTED on the same job,
+            // so the prior decision is no longer live and the under-review page is correct.
             await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
             await addJobStatus(study.id, 'CODE-SUBMITTED')
 

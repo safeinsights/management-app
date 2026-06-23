@@ -56,6 +56,17 @@ describe('projectStudyState', () => {
         expect(s.submissionRound).toBe(2)
     })
 
+    // Same-job resubmit after CODE-CHANGES-REQUESTED: the round-boundary fix reuses the job, and a
+    // resubmit now appends a SECOND CODE-SUBMITTED (CODE-SUBMITTED is an append-only submission
+    // event). submittedCount(2) > decisionCount(1), so the prior decision is no longer live — the
+    // researcher is back under review, not stuck on the edit/feedback screen.
+    it('same-job resubmit after changes-requested → awaiting decision, decision no longer live', () => {
+        const resubmitted = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [resubmitted] }))
+        expect(s.codeDecision).toBeNull()
+        expect(s.codeAwaitingDecision).toBe(true)
+    })
+
     it('agreements acked booleans map from the two columns', () => {
         const s = projectStudyState(raw({ researcherAgreementsAckedAt: new Date(), reviewerAgreementsAckedAt: null }))
         expect(s.researcherAgreementsAcked).toBe(true)

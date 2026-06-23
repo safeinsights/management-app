@@ -899,10 +899,11 @@ describe('Request Study Actions', () => {
             )
 
             // CR resubmit reuses the existing job — no new job is opened until FILES-APPROVED/REJECTED.
-            // markCodeSubmitted is idempotent: if the reused job already has CODE-SUBMITTED it is not
-            // duplicated, so the count stays at 1 across the initial submit and the CR resubmit.
+            // markCodeSubmitted is round-aware: the CODE-CHANGES-REQUESTED opened a new round, so the
+            // resubmit appends a SECOND CODE-SUBMITTED on the same job (count = 2). This is what flips
+            // count-based liveness back to "under review" so the researcher leaves the feedback screen.
             expect(await jobCount(study.id)).toBe(1)
-            expect(await submittedStatusCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(2)
         })
 
         // Regression: in the real flow the researcher uploads files on the resubmit page *before*
@@ -944,10 +945,40 @@ describe('Request Study Actions', () => {
             })
 
             expect(result).not.toHaveProperty('error')
-            // Still one job — reused throughout. markCodeSubmitted is idempotent: the job already
-            // has CODE-SUBMITTED from round 1 so it is not duplicated on resubmit (count stays 1).
+            // Still one job — reused throughout. markCodeSubmitted is round-aware: round 1's
+            // CODE-SUBMITTED + the reviewer's CODE-CHANGES-REQUESTED opened round 2, so the resubmit
+            // appends a second CODE-SUBMITTED on the same job (count = 2).
             expect(await jobCount(study.id)).toBe(1)
-            expect(await submittedStatusCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+
+        it('re-submitting again within the SAME change-requested round does not append a third CODE-SUBMITTED', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-twice')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            // First resubmit of round 2 → appends the second CODE-SUBMITTED.
+            await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
+            expect(await submittedStatusCount(study.id)).toBe(2)
+
+            // Resubmit AGAIN before the reviewer decides round 2 → same round, idempotent, still 2.
+            await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(2)
         })
     })
 

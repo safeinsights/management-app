@@ -57,10 +57,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const job = latestJob(raw.jobs)
     const jobStatuses = new Set<StudyJobStatus>(job?.statusChanges.map((c) => c.status) ?? [])
 
-    // Count-based liveness: a decision is live only when decisions >= submissions. This correctly
-    // handles same-job resubmissions (historical shape: CODE-SUBMITTED → decision → CODE-SUBMITTED)
-    // where a new CODE-SUBMITTED tips the count back so the decision is no longer live.
-    // Mirrors latestSubmittedJobHasLiveCodeDecision from study-job-status.ts.
+    // Count-based liveness: a decision is live only when decisions >= submissions. CODE-SUBMITTED is
+    // append-only per round (markCodeSubmitted), so a same-job resubmit after CODE-CHANGES-REQUESTED
+    // appends a fresh CODE-SUBMITTED (shape: CODE-SUBMITTED → CODE-CHANGES-REQUESTED → CODE-SUBMITTED),
+    // tipping submitted-count past decision-count so the prior decision is no longer live and the
+    // researcher is back under review. Mirrors latestSubmittedJobHasLiveCodeDecision in study-job-status.ts.
     const submittedCount = job?.statusChanges.filter((c) => c.status === 'CODE-SUBMITTED').length ?? 0
     const decisionCount = job?.statusChanges.filter((c) => isCodeDecisionStatus(c.status)).length ?? 0
     const hasLiveDecision = decisionCount > 0 && decisionCount >= submittedCount

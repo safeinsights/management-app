@@ -54,21 +54,13 @@ export const POST = createWebhookHandler({
             )
         }
 
-        // A job has exactly one real CODE-SUBMITTED, recorded at upload time before the scan is
-        // triggered. The scanner may still echo a CODE-SUBMITTED on start; if that echo lands after
-        // a reviewer has already decided the round it would tip latestSubmittedJobHasLiveCodeDecision
-        // back to "no live decision" and reopen active review. Drop any duplicate CODE-SUBMITTED so
-        // the invariant holds regardless of webhook timing or scanner version.
-        if (body.status === 'CODE-SUBMITTED') {
-            const existing = await db
-                .selectFrom('jobStatusChange')
-                .select('id')
-                .where('studyJobId', '=', job.jobId)
-                .where('status', '=', 'CODE-SUBMITTED')
-                .limit(1)
-                .executeTakeFirst()
-            if (existing) return
-        }
+        // CODE-SUBMITTED is recorded by the submission action (markCodeSubmitted), not by the scanner:
+        // the scan trigger sends no ON_START_PAYLOAD (see buildTriggerScanForStudyJobCommandInput), so
+        // this webhook only ever reports CODE-SCANNED / JOB-ERRORED in practice. A stray CODE-SUBMITTED
+        // echo from an older scanner would corrupt the append-only submission log (each row is a real
+        // round), so reject it rather than dropping-as-duplicate (the old dedup is wrong now that a
+        // change-requested resubmit legitimately appends a second CODE-SUBMITTED).
+        if (body.status === 'CODE-SUBMITTED') return
 
         const last = await db
             .selectFrom('jobStatusChange')
