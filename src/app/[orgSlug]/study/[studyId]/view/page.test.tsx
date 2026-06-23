@@ -572,9 +572,10 @@ describe('StudyViewPage', () => {
                 })
                 .execute()
 
+            // Arbitrary leftover query param proves /view ignores the URL and resolves on state.
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'code-decision' }),
+                searchParams: Promise.resolve({ from: 'anything' }),
             })
 
             expect(page?.type).toBe(CodePostDecisionView)

@@ -88,28 +88,3 @@ export const latestSubmittedJobHasLiveCodeDecision = (
 // undecided-submission count back so this returns true while study.status stays APPROVED.
 export const latestCodeChangeIsSubmission = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
     hasJobStatus(statusChanges, CODE_UNDER_REVIEW_JOB_STATUSES) && !latestSubmittedJobHasLiveCodeDecision(statusChanges)
-
-// OTTER-556 follow-up: the live code-review decision on the latest submitted job
-// (CODE-APPROVED / CODE-CHANGES-REQUESTED / CODE-REJECTED), or null when none is live.
-// The researcher's /view routing needs the actual decision (not just the boolean from
-// latestSubmittedJobHasLiveCodeDecision) and must not treat CODE-SCANNED as a new
-// submission. A late CODE-SCANNED webhook can append after the decision and become the
-// job's latest status (job-scan-results/route.ts), which would otherwise mask the decision
-// and dead-end the researcher on the under-review page when they reopen the study.
-//
-// Whether a decision is live is order-independent (the count gate above); which decision to
-// return uses .find() (first decision in array order). That is safe: two decisions only tie on
-// createdAt when written in one transaction, and a single review round writes exactly one
-// decision, so a tie never spans two different decisions. A history with two *different*
-// decisions comes from separate rounds (separate transactions), so callers passing statusChanges
-// in newest-first DB order get the current round's decision first.
-export const latestSubmittedJobLiveCodeDecisionStatus = (
-    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
-): CodeDecisionStatus | null => {
-    if (!latestSubmittedJobHasLiveCodeDecision(statusChanges)) {
-        return null
-    }
-
-    const decision = statusChanges.find((s): s is { status: CodeDecisionStatus } => isCodeDecisionStatus(s.status))
-    return decision?.status ?? null
-}
