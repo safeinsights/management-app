@@ -547,10 +547,10 @@ describe('StudyViewPage', () => {
             expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
 
-        // The from=code-decision branch is gated on isStudyResultsStatus, so a stray ?from=code-decision
-        // at a code-decision status (no results yet) falls through to the normal decision routing rather
-        // than short-circuiting. The normal routing also lands on CodePostDecisionView here.
-        it('falls through to CodePostDecisionView when from=code-decision arrives at CODE-APPROVED', async () => {
+        // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no
+        // results yet) resolves to the code-approved screen → CodePostDecisionView, even if a stray
+        // legacy ?from= rides along.
+        it('routes a CODE-APPROVED study to CodePostDecisionView regardless of query params', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,

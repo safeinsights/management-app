@@ -31,10 +31,10 @@ export default async function StudyAgreementsRoute(props: {
 
     const isReviewer = currentOrg.type === 'enclave'
 
-    // Allow direct access when navigating back via Previous button
-    const isDirectAccess = searchParams.from === 'previous'
-
     if (isReviewer) {
+        // Reviewer branch only: allow direct access when navigating back via the Previous button.
+        const isDirectAccess = searchParams.from === 'previous'
+
         // Once the reviewer has acknowledged agreements, skip straight to review
         // (unless they navigated back here intentionally)
         if (study.reviewerAgreementsAckedAt && !isDirectAccess) {
@@ -62,31 +62,18 @@ export default async function StudyAgreementsRoute(props: {
         )
     }
 
-    // Researcher flow — skip if already acknowledged (unless navigating back)
-    if (study.researcherAgreementsAckedAt && !isDirectAccess) {
-        // Baseline jobs (IDE launch / file upload) don't count, only actual submissions
-        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-        const dest = codeSubmitted
-            ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
-            : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
-        redirect(dest)
-    }
-
-    if (study.status !== 'APPROVED' && !isDirectAccess) {
-        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
-    }
-
+    // Researcher flow: /agreements is a revisitable step. An authorized researcher can view it
+    // directly — forward or back — even after acknowledging, so it no longer self-redirects. The
+    // screen authority (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    // Preserve org-scoped breadcrumb context through the Previous → proposal → agreements roundtrip
-    const returnToSuffix = returnTo ? '&returnTo=org' : ''
-    const previousHref = `${Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}?from=agreements${returnToSuffix}`
+    const previousHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
 
-    // OTTER-612: once code is submitted, Proceed targets the code-status view (via from=code-decision)
-    // instead of the upload page.
+    // OTTER-612: once code is submitted, Proceed lands on /view, which re-resolves to the code-status
+    // screen; before submission it targets the upload page.
     const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
     const proceedHref = codeSubmitted
-        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, from: 'code-decision', returnTo })
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
