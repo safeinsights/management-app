@@ -1,6 +1,7 @@
 import type { StudyRole, StudyState, DashboardState } from './state.types'
 import type { ScreenDescriptor, DashboardAction } from './screens'
-import { SCREEN_RULES, type ScreenRuleCtx } from './screen-rules'
+import type { ScreenRuleCtx } from './screen-rules'
+import { RESEARCHER_SCREEN_RULES } from './researcher-screen-rules'
 import { REVIEWER_SCREEN_RULES } from './reviewer-screen-rules'
 import { DASHBOARD_RULES, type DashboardRuleCtx } from './dashboard-rules'
 
@@ -10,7 +11,7 @@ export function resolveScreen(
     step: string | undefined,
     _ctx: ScreenRuleCtx,
 ): ScreenDescriptor {
-    const rules = role === 'reviewer' ? REVIEWER_SCREEN_RULES : SCREEN_RULES
+    const rules = role === 'reviewer' ? REVIEWER_SCREEN_RULES : RESEARCHER_SCREEN_RULES
     const [screen] = rules.find(([, rule]) => rule.when(state))! // total: last entry is `when: () => true`
     return step ? { screen, step } : { screen }
 }

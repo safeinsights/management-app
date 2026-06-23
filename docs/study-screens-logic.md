@@ -63,7 +63,7 @@ rounds are history. The lone cross-job fact is `submissionRound` (a count of rou
         ┌───────────────────┼────────────────────┬──────────────────────┐
         ▼                   ▼                    ▼                      ▼
   resolveScreen()   resolveDashboardAction()  resolvePillStatus()  resolveRowHighlight()
-   (SCREEN_RULES)     (DASHBOARD_RULES)       (priority walk)       (role rule)
+  (role screen rules)  (DASHBOARD_RULES)       (priority walk)       (role rule)
         │                   │                    │                      │
         ▼                   ▼                    ▼                      ▼
   ScreenDescriptor    DashboardAction         StatusLabel             boolean
@@ -119,28 +119,27 @@ correctly reads "under review again." Counting handles both shapes and is permut
 
 ---
 
-## Stage 2 — Screen resolution (`screen-rules.ts` + `resolve.ts`)
+## Stage 2 — Screen resolution (`researcher-screen-rules.ts` / `reviewer-screen-rules.ts` + `resolve.ts`)
 
 `resolveScreen(role, state, step, ctx)` walks an **ordered, first-match-wins** rule table,
-**selected by `role`** (`role === 'reviewer' ? REVIEWER_SCREEN_RULES : SCREEN_RULES`). Order is
-display precedence; each table ends with `when: () => true`, so the function is **total** for both
-roles. Both tables read the **same** `StudyState` — only the projection feeds them, never raw jobs.
+**selected by `role`** (`role === 'reviewer' ? REVIEWER_SCREEN_RULES : RESEARCHER_SCREEN_RULES`).
+Order is display precedence; each table ends with `when: () => true`, so the function is **total**
+for both roles. Both tables read the **same** `StudyState` — only the projection feeds them, never
+raw jobs.
 
-**Researcher table (`screen-rules.ts`):**
+**Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                   | Screen              |
-| --- | ---------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults`                                                           | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED'` or `isExecuting`                    | `code-approved`     |
-| 3   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                            | `code-feedback`     |
-| 4   | `codeDecision === 'CODE-REJECTED'`                                     | `code-feedback`     |
-| 5   | `codeAwaitingDecision`                                                 | `code-under-review` |
-| 6   | `status === 'APPROVED' && !hasSubmittedCode`                           | `proposal-feedback` |
-| 7   | `status === 'PENDING-REVIEW'`                                          | `study-overview`    |
-| 8   | `status === 'CHANGE-REQUESTED'`                                        | `proposal-feedback` |
-| 9   | `status === 'REJECTED'` or `status === 'APPROVED'` (decided, has code) | `proposal-feedback` |
-| 10  | `isDraft`                                                              | `study-overview`    |
-| 11  | fallback                                                               | `study-overview`    |
+| #   | When                                                                             | Screen              |
+| --- | -------------------------------------------------------------------------------- | ------------------- |
+| 1   | `hasResults`                                                                     | `study-results`     |
+| 2   | `codeDecision === 'CODE-APPROVED'` or `isExecuting`                              | `code-approved`     |
+| 3   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
+| 4   | `codeAwaitingDecision`                                                           | `code-under-review` |
+| 5   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
+| 6   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
+| 7   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
+| 8   | `isDraft`                                                                        | `study-overview`    |
+| 9   | fallback                                                                         | `study-overview`    |
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
@@ -272,7 +271,8 @@ re-architecting — exactly as the design intended.
 | `state.types.ts`                 | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                  |
 | `state.ts`                       | `projectStudyState` + priority constants                                      |
 | `screens.ts`                     | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction` |
-| `screen-rules.ts`                | `SCREEN_RULES` (researcher table)                                             |
+| `screen-rules.ts`                | `ScreenRule`, `ScreenRuleEntry`, `ScreenRuleCtx` (shared rule types)          |
+| `researcher-screen-rules.ts`     | `RESEARCHER_SCREEN_RULES` (researcher table)                                  |
 | `reviewer-screen-rules.ts`       | `REVIEWER_SCREEN_RULES` (reviewer table)                                      |
 | `dashboard-rules.ts`             | `DASHBOARD_RULES` table                                                       |
 | `resolve.ts`                     | `resolveScreen` (role-keyed), `resolveDashboardAction`                        |
