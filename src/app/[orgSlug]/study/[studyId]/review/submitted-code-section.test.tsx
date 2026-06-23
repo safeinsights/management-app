@@ -2,6 +2,7 @@ import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actio
 import {
     actionResult,
     db,
+    fireEvent,
     insertTestDataSource,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -10,6 +11,7 @@ import {
     userEvent,
     type Mock,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -450,23 +452,33 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
         await user.click(screen.getByTestId('study-code-files-overflow'))
 
-        const hiddenDownload = await screen.findByRole('link', { name: 'Download hidden-target.R' })
+        // The dropdown is portalled and renders display:none in the test DOM, so the link
+        // isn't in the accessibility tree — query it by test id rather than by link role.
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
+        const hiddenDownload = within(hiddenItem).getByTestId('study-code-download')
         expect(hiddenDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/hidden-target.R`)
         expect(hiddenDownload).toHaveAttribute('download', 'hidden-target.R')
+        expect(hiddenDownload).toHaveAttribute('aria-label', 'Download hidden-target.R')
     })
 
-    it('keeps the overflow menu open when a hidden file is downloaded (OTTER-608)', async () => {
+    it('downloading from the overflow menu does not switch the active file (OTTER-608)', async () => {
         const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
         await renderSection(fixture)
         const user = userEvent.setup()
 
         await user.click(screen.getByTestId('study-code-files-overflow'))
-        await user.click(await screen.findByRole('link', { name: 'Download hidden-target.R' }))
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
+        fireEvent.click(within(hiddenItem).getByTestId('study-code-download'))
 
-        // stopPropagation on the download icon must prevent Mantine's closeOnItemClick,
-        // so the dropdown stays mounted and the hidden file is not made active.
-        expect(screen.getByTestId('study-code-files-overflow-menu')).toBeInTheDocument()
-        expect(screen.getByTitle('hidden-target.R')).toHaveAttribute('data-selected', 'false')
+        // The same Menu.Item onClick drives both the file-select and Mantine's
+        // closeOnItemClick, and the icon's stopPropagation gates both — so the file
+        // staying unselected also proves the dropdown was not closed.
+        const after = screen
+            .getAllByTestId('study-code-files-overflow-item')
+            .find((item) => item.getAttribute('title') === 'hidden-target.R')
+        expect(after).toHaveAttribute('data-selected', 'false')
     })
 })
 
