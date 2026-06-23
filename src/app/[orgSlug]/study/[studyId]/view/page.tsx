@@ -37,5 +37,6 @@ export default async function StudyReviewPage(props: {
         raw: rawStudyState,
         orgSlug,
         dashboardHref: dashboardHref as string,
+        returnTo,
     })) as React.JSX.Element
 }

@@ -61,6 +61,7 @@ function renderView(
     overrides: {
         dashboardHref?: Route
         reviewingOrgName?: string
+        returnTo?: 'org'
         submissionVersion?: number
         feedbackEntries?: CodeReviewFeedbackEntry[]
         isUnderReview?: boolean
@@ -73,6 +74,7 @@ function renderView(
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref}
+            returnTo={overrides.returnTo}
             submissionVersion={overrides.submissionVersion ?? 1}
             feedbackEntries={overrides.feedbackEntries ?? []}
             isUnderReview={overrides.isUnderReview}
@@ -308,6 +310,15 @@ describe('CodePostSubmissionView', () => {
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
             expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
+        })
+
+        it('threads returnTo=org onto the Back → agreements link so org scope survives the hop', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { returnTo: 'org' })
+
+            const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements`)
+            expect(backHref).toContain('returnTo=org')
         })
 
         it('falls back to Routes.dashboard when no dashboardHref is provided', async () => {

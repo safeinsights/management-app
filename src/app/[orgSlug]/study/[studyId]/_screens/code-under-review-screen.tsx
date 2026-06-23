@@ -8,7 +8,7 @@ import type { Route } from 'next'
 
 // code-under-review: code submitted, no decision yet. The submitted job must exist at this point;
 // guard with notFound() so the render below never receives null.
-export async function CodeUnderReviewScreen({ study, orgSlug, dashboardHref }: ScreenComponentProps) {
+export async function CodeUnderReviewScreen({ study, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
 
@@ -25,6 +25,7 @@ export async function CodeUnderReviewScreen({ study, orgSlug, dashboardHref }: S
             job={job}
             reviewingOrgName={reviewingOrgName}
             dashboardHref={dashboardHref as Route}
+            returnTo={returnTo}
             submissionVersion={submissionVersion}
             feedbackEntries={feedbackEntries}
         />

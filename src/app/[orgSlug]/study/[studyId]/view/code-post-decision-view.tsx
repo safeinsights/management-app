@@ -28,6 +28,8 @@ interface CodePostDecisionViewProps {
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
     dashboardHref: Route
+    /** Org-scoped entry: threaded onto the "Previous step" → /agreements link so org scope survives. */
+    returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
@@ -198,6 +200,7 @@ export function CodePostDecisionView({
     entries,
     reviewingOrgName,
     dashboardHref,
+    returnTo,
     latestJobStatus,
     feedbackLoadError = false,
     showStudyCode = true,
@@ -205,7 +208,7 @@ export function CodePostDecisionView({
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id })
+    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, returnTo })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const breadcrumbs: Array<[string, string?]> = [

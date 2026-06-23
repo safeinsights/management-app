@@ -10,7 +10,7 @@ import type { ScreenComponentProps } from './types'
 // code-approved AND code-feedback both render the post-decision view. The effective decision is
 // APPROVED while the code is approved or executing (OTTER-598: hide the code listing while
 // executing); otherwise it's the live CHANGES-REQUESTED/REJECTED decision.
-export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref }: ScreenComponentProps) {
+export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const decisionStatus =
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
@@ -30,6 +30,7 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref }:
             entries={entries}
             reviewingOrgName={reviewingOrgName}
             dashboardHref={dashboardHref as Route}
+            returnTo={returnTo}
             latestJobStatus={decisionStatus}
             feedbackLoadError={feedbackLoadError}
             showStudyCode={!state.isExecuting}

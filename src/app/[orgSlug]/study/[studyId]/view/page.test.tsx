@@ -32,10 +32,10 @@ describe('StudyViewPage', () => {
 
     // ?from=agreements no longer shows the proposal on /view — a code-submitted study resolves to
     // code-under-review. Viewing a submitted proposal lives at /submitted.
-    // APPROVED-no-code resolves to proposal-feedback via the registry (ProposalFeedbackScreen),
-    // which never passes agreementsHref — the ?from=agreements Proceed button is removed.
-
-    it('renders ResearcherProposalView for APPROVED study without job', async () => {
+    // APPROVED-no-code resolves to proposal-feedback (ProposalFeedbackScreen). That screen passes an
+    // agreementsHref so the "Proceed to Step 3" forward renders — the researcher's path to sign
+    // agreements. (REJECTED / CHANGE-REQUESTED get no agreementsHref; see the tests below.)
+    it('renders ResearcherProposalView with a Proceed-to-Step-3 button for APPROVED study without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -48,8 +48,7 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('STEP 2')).toBeInTheDocument()
         expect(screen.getByText('Study proposal')).toBeInTheDocument()
         expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
-        // No Proceed button: proposal-feedback is read-only (no agreementsHref).
-        expect(screen.queryByRole('button', { name: 'Proceed to Step 3' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
     })
 
     it('renders ResearcherProposalView for REJECTED study', async () => {
