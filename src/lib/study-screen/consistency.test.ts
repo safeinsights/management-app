@@ -51,3 +51,30 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
         })
     }
 })
+
+describe('reviewer rule table reaches no accidental fallback', () => {
+    const reviewerStates: StudyState[] = [
+        full({ status: 'PENDING-REVIEW', isDraft: false }),
+        full({ status: 'APPROVED', isDraft: false }),
+        full({ status: 'REJECTED', isDraft: false }),
+        full({ status: 'CHANGE-REQUESTED', isDraft: false }),
+        full({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeAwaitingDecision: true }),
+        full({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeAwaitingDecision: true,
+            reviewerAgreementsAcked: true,
+        }),
+        full({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }),
+        full({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeDecision: 'CODE-CHANGES-REQUESTED' }),
+        full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true }),
+    ]
+
+    for (const s of reviewerStates) {
+        it(`reviewer status=${s.status} code=${s.codeDecision} → reviewer screen`, () => {
+            const id = resolveScreen('reviewer', s, undefined, ctx).screen
+            expect(id.startsWith('reviewer-')).toBe(true)
+        })
+    }
+})

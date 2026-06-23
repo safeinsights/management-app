@@ -1,6 +1,7 @@
 import type { StudyRole, StudyState, DashboardState } from './state.types'
 import type { ScreenDescriptor, DashboardAction } from './screens'
 import { SCREEN_RULES, type ScreenRuleCtx } from './screen-rules'
+import { REVIEWER_SCREEN_RULES } from './reviewer-screen-rules'
 import { DASHBOARD_RULES, type DashboardRuleCtx } from './dashboard-rules'
 
 export function resolveScreen(
@@ -9,10 +10,7 @@ export function resolveScreen(
     step: string | undefined,
     ctx: ScreenRuleCtx,
 ): ScreenDescriptor {
-    // Reviewer rules are not yet implemented (spec §13). Until then, reviewer falls through to
-    // the researcher table's fallback so callers never crash; the reviewer page is NOT migrated
-    // in this plan and does not call resolveScreen.
-    const rules = SCREEN_RULES
+    const rules = role === 'reviewer' ? REVIEWER_SCREEN_RULES : SCREEN_RULES
     const rule = rules.find((r) => r.when(state))! // total: the last rule is `when: () => true`
     const descriptor = rule.screen(state, ctx)
     // Per spec §9, an explicit URL `step` overrides the descriptor's default step. Validating a
