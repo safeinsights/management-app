@@ -1,24 +1,19 @@
 'use server'
 
-import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { isActionError } from '@/lib/errors'
+import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
-import { isSubmittedStudy } from '@/schema/study'
-import { getStudyAction } from '@/server/actions/study.actions'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { sessionFromClerk } from '@/server/clerk'
 import { ReviewerProposalFeedbackScreen } from '../../_screens/reviewer-proposal-feedback-screen'
+import { reviewerPageGuard } from '../reviewer-page-guard'
 
 export default async function ReviewProposalPage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
     const { orgSlug, studyId } = await props.params
-    const session = await sessionFromClerk()
-    const currentOrg = session?.orgs[orgSlug]
-    if (!session || !currentOrg) return <AccessDeniedAlert />
 
-    const study = await getStudyAction({ studyId })
-    if (isActionError(study) || !study || !isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
+    const guard = await reviewerPageGuard(orgSlug, studyId)
+    if (!guard.ok) return guard.render
+    const { study } = guard
+
+    // The screen ignores `raw`, but `ScreenComponentProps` requires it; fetch it only here to satisfy the type.
     const raw = await rawStudyStateForStudy(studyId)
     if (!raw) return <AlertNotFound title="Study was not found" message="No such study exists" />
 
