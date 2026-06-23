@@ -107,7 +107,10 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    it('Previous button targets plain /view (no ?from=)', async () => {
+    // Previous → /submitted (the approved-proposal page with a working "Proceed to step 3"), NOT
+    // /view — /view resolves to proposal-feedback, which has no forward path and would dead-end an
+    // approved-no-code researcher.
+    it('Previous button targets /submitted (not /view), no ?from=', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -119,26 +122,7 @@ describe('StudyAgreementsRoute', () => {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toBe(`/${org.slug}/study/${study.id}/view`)
-        expect(asPath).not.toContain('from=')
-    })
-
-    it('Previous button preserves returnTo=org without a ?from=', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ returnTo: 'org' }),
-        })
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Previous/ }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toContain('returnTo=org')
+        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted`)
         expect(asPath).not.toContain('from=')
     })
 

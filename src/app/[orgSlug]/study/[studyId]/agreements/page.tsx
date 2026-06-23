@@ -67,7 +67,10 @@ export default async function StudyAgreementsRoute(props: {
     // screen authority (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    const previousHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
+    // Previous → /submitted (the approved-proposal page with its own "Proceed to step 3" button),
+    // NOT /view. /view re-resolves to proposal-feedback, which has no forward path here, so it would
+    // dead-end an approved-no-code researcher (recoverable only via browser back).
+    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId })
 
     // OTTER-612: once code is submitted, Proceed lands on /view, which re-resolves to the code-status
     // screen; before submission it targets the upload page.
