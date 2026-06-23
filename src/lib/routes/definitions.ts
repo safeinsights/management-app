@@ -112,15 +112,11 @@ export const Routes = {
 
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
 
-    studyReview: makeRoute(
-        ({ orgSlug, studyId, from }) => {
-            const base = `/${orgSlug}/study/${studyId}/review`
-            const params = new URLSearchParams()
-            if (from) params.set('from', from)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
-        StudyParams.extend({ from: z.string().optional() }),
+    studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
+
+    studyReviewProposal: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/proposal`,
+        StudyParams,
     ),
 
     studyCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/code`, StudyParams),
