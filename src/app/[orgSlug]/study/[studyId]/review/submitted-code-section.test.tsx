@@ -63,6 +63,16 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
         .executeTakeFirstOrThrow()
 }
 
+// A failed generation persists a row with no report and summaryFailedAt set —
+// the signal the reviewer-side panel turns into the error + retry state.
+async function insertFailedStudyReview(studyJobId: string) {
+    return db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: new Date() })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
 type Fixture = {
     orgId: string
     study: SelectedStudy
@@ -234,31 +244,99 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
-    it('flips the spinner to an error message once the timeout elapses with no review row', async () => {
+    it('surfaces the error + retry state immediately when a failed review row exists', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={failedFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={failedFixture.job.createdAt}
+            />,
+        )
+
+        const error = await screen.findByTestId('ai-summary-error')
+        expect(error).toHaveTextContent('The AI summary failed to generate.')
+        expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
+        // A persisted failure is terminal — no spinner, even though it landed fast.
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('retrying a failed summary clears the failure row and drops back to pending', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={failedFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={failedFixture.job.createdAt}
+            />,
+        )
+
+        const user = userEvent.setup()
+        await user.click(await screen.findByTestId('ai-summary-retry'))
+
+        // The action deletes the failed row and re-fires generation; the panel
+        // resets to the pending spinner while it polls for the new result.
+        await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
+        const remaining = await getStudyReviewForJob(failedFixture.job.id)
+        expect(remaining?.summaryFailedAt ?? null).toBeNull()
+    })
+
+    it('flips the spinner to an error once the backstop elapses past submission with no row', async () => {
         const noReviewFixture = await setupBaseFixture()
         const initialReview = await getStudyReviewForJob(noReviewFixture.job.id)
-        // A failed generation never writes a studyReview row, so this seeds the
-        // never-resolving pending state. A short timeout exercises the escalation
-        // without faking timers (which break the shared DB pool mid-file).
+        // No row ever lands (a hung generation). A short backstop measured from
+        // submission exercises the escalation without faking timers (which break
+        // the shared DB pool mid-file).
         renderWithProviders(
-            <AiSummaryCollapsible studyJobId={noReviewFixture.job.id} initialReview={initialReview} timeoutMs={50} />,
+            <AiSummaryCollapsible
+                studyJobId={noReviewFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={noReviewFixture.job.createdAt}
+                timeoutMs={50}
+            />,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
         const error = await screen.findByTestId('ai-summary-error')
-        expect(error).toHaveTextContent('The AI summary failed to generate. Please reload the page.')
+        expect(error).toHaveTextContent('The AI summary failed to generate.')
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
     })
 
-    it('keeps the blank-summary empty-state and never errors once a row exists, even past the timeout', async () => {
+    it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
+        const staleFixture = await setupBaseFixture()
+        const initialReview = await getStudyReviewForJob(staleFixture.job.id)
+        // Submitted well beyond the backstop: the spinner must not even flash.
+        const longAgo = new Date(Date.now() - 10 * 60_000)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={staleFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={longAgo}
+                timeoutMs={180_000}
+            />,
+        )
+        expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('keeps the blank-summary empty-state and never errors once a row exists, even past the backstop', async () => {
         const blankFixture = await setupBaseFixture()
         await insertStudyReview(blankFixture.job.id, '')
         const initialReview = await getStudyReviewForJob(blankFixture.job.id)
         renderWithProviders(
-            <AiSummaryCollapsible studyJobId={blankFixture.job.id} initialReview={initialReview} timeoutMs={50} />,
+            <AiSummaryCollapsible
+                studyJobId={blankFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={blankFixture.job.createdAt}
+                timeoutMs={50}
+            />,
         )
 
-        // Wait past the timeout window; a landed (blank) row must stay terminal.
+        // Wait past the backstop window; a landed (blank) row must stay terminal.
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
         await new Promise((resolve) => setTimeout(resolve, 60))
         expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
