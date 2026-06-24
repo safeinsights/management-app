@@ -130,8 +130,8 @@ describe('SubmittedCodeSection — Section header', () => {
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
         // OTTER-540: must point at the approved *initial request* (proposal feedback),
-        // not the code-review page that from=code-review resolves to.
-        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review?from=initial-request`)
+        // served by the dedicated /review/proposal route.
+        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review/proposal`)
     })
 
     it('renders the section content beneath the header', async () => {

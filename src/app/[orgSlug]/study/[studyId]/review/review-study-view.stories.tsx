@@ -257,7 +257,7 @@ function ResultsBodyFixture() {
 export const ReviewResults: Story = () => (
     <StudyDetailsReviewerView
         orgSlug={ORG_SLUG}
-        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID, from: 'code-review' })}
+        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}
     >
         <ResultsBodyFixture />
     </StudyDetailsReviewerView>
@@ -266,7 +266,7 @@ export const ReviewResults: Story = () => (
 export const PreviousLinkChrome: Story = () => (
     <StudyDetailsReviewerView
         orgSlug={ORG_SLUG}
-        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID, from: 'code-review' })}
+        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}
     >
         <Paper bg="white" p="xxl">
             <Stack>

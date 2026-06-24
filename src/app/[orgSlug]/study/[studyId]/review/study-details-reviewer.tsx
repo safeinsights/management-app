@@ -5,9 +5,10 @@ import { StudyResultsRedesignWithReview } from './study-results-redesign-with-re
 import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
-// OTTER-538: Study Details page (DO) — results-only layout.
-// Removes the "Study Code" section. The "Previous" button takes the DO back to
-// the post-code-feedback page from OTTER-552.
+// OTTER-538: Study Details page (DO) — results-only layout, removes the "Study Code" section.
+// Previous returns to the dashboard: results out-rank every other reviewer screen in
+// REVIEWER_SCREEN_RULES, so a bare /review href would re-resolve straight back to this same screen
+// (a self-link). The dashboard is the only non-looping target while results are present.
 
 type StudyDetailsReviewerProps = {
     orgSlug: string
@@ -20,7 +21,7 @@ export async function StudyDetailsReviewer({ orgSlug, study }: StudyDetailsRevie
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const previousHref = Routes.studyReview({ orgSlug, studyId: study.id, from: 'code-review' })
+    const previousHref = Routes.orgDashboard({ orgSlug })
 
     return (
         <StudyDetailsReviewerView orgSlug={orgSlug} previousHref={previousHref}>

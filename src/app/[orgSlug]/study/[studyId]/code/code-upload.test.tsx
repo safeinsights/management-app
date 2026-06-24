@@ -32,6 +32,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
     }
 })
