@@ -78,7 +78,10 @@ test('returns 404 for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-test('inserts CODE-SUBMITTED status', async () => {
+// CODE-SUBMITTED is owned by the submission action (markCodeSubmitted), not the scanner — the scan
+// trigger sends no ON_START_PAYLOAD. The webhook ignores any CODE-SUBMITTED so a stray scanner echo
+// can't corrupt the append-only submission log (each CODE-SUBMITTED is a real round).
+test('ignores CODE-SUBMITTED (the scanner does not own that status)', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -87,7 +90,7 @@ test('inserts CODE-SUBMITTED status', async () => {
     expect(resp.ok).toBe(true)
 
     const rows = await getJobStatusRows(jobId)
-    expect(rows.some((r) => r.status === 'CODE-SUBMITTED')).toBe(true)
+    expect(rows.some((r) => r.status === 'CODE-SUBMITTED')).toBe(false)
 })
 
 test('inserts CODE-SCANNED status', async () => {
@@ -146,9 +149,9 @@ test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED',
     expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
 })
 
-// The scanner's start webhook can echo CODE-SUBMITTED after a reviewer has already decided the
-// round. That late echo must not append a second CODE-SUBMITTED, which would reopen active review.
-test('drops a late CODE-SUBMITTED once the round has been decided', async () => {
+// A stray CODE-SUBMITTED echo from an older scanner must never reach the status log — it would
+// corrupt the append-only submission count (here: turn a decided round back into "under review").
+test('ignores a CODE-SUBMITTED echo even after the round has been decided', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -173,17 +176,18 @@ test('idempotency: duplicate same-status calls do not create duplicate rows', as
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
     expect(resp1.ok).toBe(true)
 
     const rowsAfterFirst = await getJobStatusRows(jobId)
-    const countFirst = rowsAfterFirst.filter((r) => r.status === 'CODE-SUBMITTED').length
+    const countFirst = rowsAfterFirst.filter((r) => r.status === 'CODE-SCANNED').length
+    expect(countFirst).toBe(1)
 
-    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
     expect(resp2.ok).toBe(true)
 
     const rowsAfterSecond = await getJobStatusRows(jobId)
-    const countSecond = rowsAfterSecond.filter((r) => r.status === 'CODE-SUBMITTED').length
+    const countSecond = rowsAfterSecond.filter((r) => r.status === 'CODE-SCANNED').length
 
     expect(countSecond).toBe(countFirst)
 })

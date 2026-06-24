@@ -3,7 +3,6 @@
 import { FC } from 'react'
 import { useParams } from 'next/navigation'
 import { Stack, Title } from '@mantine/core'
-import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -34,8 +33,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { studyId, form, noteForm, saveDraft, isSaving, isSavingNote, noteLastSavedAt, yjsForm, tabSessionId } =
-        useEditResubmit()
+    const { studyId, noteForm, isSavingNote, noteLastSavedAt, yjsForm, tabSessionId } = useEditResubmit()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     useSubmissionRedirectListener({
@@ -52,32 +50,30 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
-                <Stack gap="xxl">
-                    <Title order={1}>Edit Initial Request</Title>
+            <Stack gap="xxl">
+                <Title order={1}>Edit Initial Request</Title>
 
-                    <EditInitialRequestSection
-                        orgName={orgName}
-                        members={members}
-                        researcherName={researcherName}
-                        enclaveOrgSlug={enclaveOrgSlug}
-                    />
+                <EditInitialRequestSection
+                    orgName={orgName}
+                    members={members}
+                    researcherName={researcherName}
+                    enclaveOrgSlug={enclaveOrgSlug}
+                />
 
-                    <FeedbackAndNotesSection entries={feedbackEntries} />
+                <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                    <ResubmissionNoteSection
-                        noteForm={noteForm}
-                        orgName={orgName}
-                        autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
-                    />
+                <ResubmissionNoteSection
+                    noteForm={noteForm}
+                    orgName={orgName}
+                    autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
+                />
 
-                    <EditResubmitFooter
-                        researcherName={researcherName}
-                        researcherId={researcherId}
-                        enclaveOrgSlug={enclaveOrgSlug}
-                    />
-                </Stack>
-            </ProxyProvider>
+                <EditResubmitFooter
+                    researcherName={researcherName}
+                    researcherId={researcherId}
+                    enclaveOrgSlug={enclaveOrgSlug}
+                />
+            </Stack>
         </StudyKickOutProvider>
     )
 }

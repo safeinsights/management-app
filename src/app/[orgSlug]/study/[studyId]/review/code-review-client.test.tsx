@@ -47,7 +47,7 @@ async function setupValidReviewableJob(
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     const studyWithLab: SelectedStudy = { ...study, submittingLabName: labName }
-    const previousHref = Routes.studyAgreements({ orgSlug: org.slug, studyId: study.id, from: 'previous' })
+    const previousHref = Routes.studyAgreements({ orgSlug: org.slug, studyId: study.id })
     return { study: studyWithLab, job, orgSlug: org.slug, previousHref }
 }
 

@@ -201,6 +201,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         },
     })
 
+    const formErrors = Object.values(form.errors)
+        .filter((message): message is string => typeof message === 'string' && message.length > 0)
+        // de-dupe: several nested env var paths can share the same message
+        .filter((message, index, all) => all.indexOf(message) === index)
+
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
             if (newEnvKey && newEnvValue) {
@@ -218,6 +223,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     return {
         form,
+        formErrors,
         isEditMode,
         isPending,
         onSubmit,

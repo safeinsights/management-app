@@ -211,10 +211,10 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
     })
 
     // Open two reviewer contexts. The first goes through the per-study agreements
-    // flow (clicks "Proceed to Step 3", landing on /review?from=agreements-proceed);
-    // the second navigates directly to /review with the same query param, which
-    // bypasses the agreements gate in page.tsx (the route only redirects when
-    // both `from !== 'agreements-proceed'` AND the study has no recorded ack).
+    // flow (clicks "Proceed to Step 3", landing on bare /review — ?from= routing
+    // has been removed). The second navigates directly to /review; the reviewer
+    // state machine resolves the code-review screen from the projected study state,
+    // so no query param or agreements gate is involved.
     let ctxA: Awaited<ReturnType<typeof openContextAsRole>> | undefined
     let ctxB: Awaited<ReturnType<typeof openContextAsRole>> | undefined
 
@@ -227,14 +227,14 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             await ctxA.page.waitForURL(/\/agreements(\?.*)?$/)
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
             await ctxA.page.getByRole('button', { name: /Proceed to Step 3/i }).click()
-            await ctxA.page.waitForURL(/\/review\?from=agreements-proceed$/)
+            await ctxA.page.waitForURL(/\/review(\?.*)?$/)
             await expect(ctxA.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('reviewer ctxB opens the code-review page directly', async () => {
             ctxB = await openContextAsRole(browser, {
                 role: 'reviewer',
-                url: `/openstax/study/${studyId}/review?from=agreements-proceed`,
+                url: `/openstax/study/${studyId}/review`,
             })
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
             await expect(ctxB.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
@@ -272,14 +272,14 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             await ctxA!.page.getByTestId('code-review-decision-approve').click()
             await ctxA!.page.getByTestId('code-review-submit').click()
             await ctxA!.page.getByRole('button', { name: /Yes, submit review/i }).click()
-            await ctxA!.page.waitForURL(/\?from=code-review/)
 
-            // The toast title is unit-tested in use-submission-redirect-listener.test.ts;
-            // here we just assert ctxB redirected, which is the functional kick-out
-            // behaviour the AC actually requires. The toast renders briefly and then
-            // `router.push` navigates away, so racing the DOM read against the
-            // navigation would be flaky.
-            await ctxB!.page.waitForURL(/\?from=code-review/)
+            // ?from= routing was removed; after a decision both contexts land on bare /review,
+            // which the reviewer state machine resolves to the code post-feedback screen. Assert
+            // the rendered view below rather than racing a URL change (ctxA was already on /review).
+            //
+            // The toast title is unit-tested in use-submission-redirect-listener.test.ts; here we
+            // just assert ctxB was kicked out of the editor and re-rendered the post-feedback view,
+            // which is the functional behaviour the AC actually requires.
 
             // Both contexts should land on the OTTER-501 post-feedback view rendered
             // for kind=CODE (not the proposal-review fallback or a blank page).

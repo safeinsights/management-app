@@ -1,8 +1,8 @@
 import { useStudyStatus } from '@/hooks/use-study-status'
+import { projectStudyState, resolveRowHighlight } from '@/lib/study-screen'
 import { StudyActionLink } from './study-action-link'
-import { studyHasJobStatus } from '@/lib/studies'
-import { latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
+import { dashboardRawStateFromRow } from './dashboard-raw-state'
 import { StudyRowView } from './study-row-view'
 
 type StudyRowProps = {
@@ -12,16 +12,8 @@ type StudyRowProps = {
     orgSlug: string
 }
 
-// A reviewer's row is highlighted when something needs their attention: the proposal awaiting
-// review (study.status PENDING-REVIEW) OR code awaiting review on the latest job. The code case
-// can't key on study.status — after a code change-request the study stays APPROVED (proposal-
-// stage) while the resubmitted code sits at CODE-SUBMITTED/CODE-SCANNED, exactly the state that
-// must still flag the reviewer (OTTER-552).
 function shouldHighlight(study: StudyRowType, audience: Audience): boolean {
-    if (audience === 'researcher') {
-        return studyHasJobStatus(study, 'FILES-APPROVED')
-    }
-    return study.status === 'PENDING-REVIEW' || latestCodeChangeIsSubmission(study.jobStatusChanges)
+    return resolveRowHighlight(audience, projectStudyState(dashboardRawStateFromRow(study)))
 }
 
 export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {

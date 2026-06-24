@@ -245,15 +245,15 @@ describe('useStudyStatus', () => {
         })
     })
 
-    // OTTER-552: a code resubmission appends a fresh CODE-SUBMITTED/CODE-SCANNED after the
-    // prior round's CODE-CHANGES-REQUESTED. jobStatusChanges is newest-first. The pill must
-    // reflect the fresh submission ("Needs Review" / "Under Review"), not the stale decision.
+    // OTTER-552: a code resubmission opens a NEW job, and the dashboard query returns only the
+    // latest job's statuses — so a resubmitted study's latest job carries a fresh CODE-SUBMITTED
+    // (then CODE-SCANNED), NOT the prior round's decision. The pill must read the fresh submission
+    // ("Needs Review" / "Under Review"). (A single job never holds a decision followed by a new
+    // submission — see getOrCreateCurrentRoundJob.)
     describe('code resubmission recency', () => {
         it('reviewer: resubmitted code after a change request reads "Needs Review", not "Change requested"', () => {
             const params = createTestParams('APPROVED', 'reviewer', [
                 { status: 'CODE-SCANNED' },
-                { status: 'CODE-SUBMITTED' },
-                { status: 'CODE-CHANGES-REQUESTED' },
                 { status: 'CODE-SUBMITTED' },
             ])
             const result = useStudyStatus(params)
@@ -265,8 +265,6 @@ describe('useStudyStatus', () => {
         it('researcher: resubmitted code after a change request reads "Under Review"', () => {
             const params = createTestParams('APPROVED', 'researcher', [
                 { status: 'CODE-SCANNED' },
-                { status: 'CODE-SUBMITTED' },
-                { status: 'CODE-CHANGES-REQUESTED' },
                 { status: 'CODE-SUBMITTED' },
             ])
             const result = useStudyStatus(params)
