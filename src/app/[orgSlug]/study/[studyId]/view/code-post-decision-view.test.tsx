@@ -215,8 +215,8 @@ describe('CodePostDecisionView', () => {
         })
     })
 
-    describe('submitted code table', () => {
-        it('starts collapsed and toggles to "Hide submitted study code", rendering the file table', async () => {
+    describe('submitted code', () => {
+        it('breaks the submitted code out into its own "Submitted code" card, toggled from the step card', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
@@ -227,9 +227,23 @@ describe('CodePostDecisionView', () => {
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            await waitFor(() => expect(toggle).toHaveTextContent('Hide submitted study code'))
-            expect(toggle).toHaveAttribute('aria-expanded', 'true')
+            // Expanding removes the in-step opener (returns null) and reveals the breakout card's "Hide" toggle.
+            await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
+            const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
+            expect(collapseToggle).toHaveTextContent('Hide submitted study code')
+            // The file table lives in its own "Submitted code" card, not inside the step header.
+            expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
+        })
+
+        it('shows the "View approved initial request" link to studySubmitted in the broken-out card', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
+
+            const link = screen.getByTestId('view-approved-initial-request')
+            expect(link).toHaveTextContent('View approved initial request')
+            expect(link).toHaveAttribute('href', Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id }))
+            expect(link).toHaveAttribute('target', '_blank')
         })
     })
 
