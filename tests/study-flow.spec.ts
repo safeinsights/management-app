@@ -252,16 +252,17 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     await viewStudyDetails(page, studyTitle)
 
-    // With code submitted, the reviewer is redirected to the agreements page
-    await page.waitForURL(/\/agreements(\?.*)?$/)
+    // The reviewer "View" link now lands on /review. With code submitted but agreements not yet
+    // acked, the state machine renders the agreements gate at that URL (no /agreements redirect).
+    await page.waitForURL(/\/review(\?.*)?$/)
     await expect(page.getByText('STEP 2A')).toBeVisible()
     await expect(page.getByText('STEP 2B')).toBeVisible()
     await expect(page.getByText('STEP 2C')).toBeVisible()
 
-    // Proceed to code review. ?from= routing has been removed; bare /review resolves to the
-    // code-review screen via the reviewer state machine.
+    // Acking the agreements re-resolves bare /review to the code-review screen (the URL stays
+    // /review, so wait on the editor appearing rather than a URL change).
     await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
-    await page.waitForURL(/\/review(\?.*)?$/)
+    await expect(page.getByTestId('code-review-section')).toBeVisible()
 
     // Answer all four review criteria with "yes" so the submit button enables.
     const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
@@ -717,13 +718,12 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
 
         await viewStudyDetails(page, studyTitle)
 
-        // Reviewer is auto-redirected to agreements when code has been submitted
-        await page.waitForURL(/\/agreements(\?.*)?$/, { timeout: 10000 })
-        const studyBaseUrl = page.url().replace(/\/agreements(\?.*)?$/, '')
-
-        // Navigate straight to /review; with code submitted the reviewer state machine resolves
-        // the code-review screen directly (no agreements redirect, no ?from= needed).
-        await goto(page, `${studyBaseUrl}/review`)
+        // "View" lands on /review; with code submitted but agreements not yet acked, the state
+        // machine renders the agreements gate there. Ack via "Proceed to Step 3" to re-resolve
+        // bare /review to the code-review editor.
+        await page.waitForURL(/\/review(\?.*)?$/, { timeout: 10000 })
+        await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+        await expect(page.getByTestId('code-review-section')).toBeVisible()
 
         // Redesigned CodeReviewClient: fill criteria, pick "Request revision"
         // (decision: needs-clarification, → CODE-CHANGES-REQUESTED so the
