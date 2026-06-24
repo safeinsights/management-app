@@ -87,7 +87,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const displayStatus: AllStatus = visible[0] ?? raw.status
 
     // Count of jobs that ever carried a submission = which submission round this is across ALL jobs.
-    // Distinct from the displayed version (CODE-CHANGES-REQUESTED count + 1 on the latest job, see
+    // Distinct from the user-facing displayed version (round-opening events across the study + 1, see
     // codeSubmissionVersion): do NOT use this as the user-facing version. Currently has no consumer
     // outside this module/tests — kept as the one deliberate cross-job fact (see state.types.ts).
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length

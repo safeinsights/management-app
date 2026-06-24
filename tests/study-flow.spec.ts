@@ -1,4 +1,12 @@
-import { expect, test, visitClerkProtectedPage, readTestSupportFile, fillLexicalField, goto } from './e2e.helpers'
+import {
+    expect,
+    test,
+    visitClerkProtectedPage,
+    readTestSupportFile,
+    fillLexicalField,
+    goto,
+    E2E_TIMEOUT,
+} from './e2e.helpers'
 import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
@@ -877,7 +885,7 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         // "View" lands on /review; with code submitted but agreements not yet acked, the state
         // machine renders the agreements gate there. Ack via "Proceed to Step 3" to re-resolve
         // bare /review to the code-review editor.
-        await page.waitForURL(/\/review(\?.*)?$/, { timeout: 10000 })
+        await page.waitForURL(/\/review(\?.*)?$/, { timeout: E2E_TIMEOUT })
         await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
         await expect(page.getByTestId('code-review-section')).toBeVisible()
 
@@ -973,7 +981,7 @@ test('Code rejection ends the study', async ({ page, studyFeatures }) => {
         await viewStudyDetails(page, studyTitle)
 
         // "View" lands on /review showing the agreements gate; ack to reach the code-review editor.
-        await page.waitForURL(/\/review(\?.*)?$/, { timeout: 10000 })
+        await page.waitForURL(/\/review(\?.*)?$/, { timeout: E2E_TIMEOUT })
         await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
         await expect(page.getByTestId('code-review-section')).toBeVisible()
 

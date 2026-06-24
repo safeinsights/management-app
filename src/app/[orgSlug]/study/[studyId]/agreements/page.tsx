@@ -38,6 +38,9 @@ export default async function StudyAgreementsRoute(props: {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
+        // Mirror ReviewerAgreementsScreen: Proceed acks and re-resolves bare /review to the code-review
+        // editor; Previous returns to the dashboard. Pointing Previous at /review would re-resolve to
+        // reviewer-code-review, whose own Previous comes back here — an agreements ⇄ code-review loop.
         return (
             <Stack p="xl" gap="xl">
                 <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
@@ -46,7 +49,7 @@ export default async function StudyAgreementsRoute(props: {
                     isReviewer
                     studyId={studyId}
                     proceedHref={Routes.studyReview({ orgSlug, studyId })}
-                    previousHref={Routes.studyReview({ orgSlug, studyId })}
+                    previousHref={Routes.orgDashboard({ orgSlug })}
                     previousLabel="Previous"
                 />
             </Stack>

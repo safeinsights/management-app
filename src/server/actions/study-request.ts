@@ -827,16 +827,26 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // Mirrors saveProposalResubmissionNoteDraftAction (OTTER-607): the
-        // status + lab guard stops a cross-lab member from writing a draft onto
-        // another lab's study, and the 0-row check turns a wrong-status / wrong-lab
-        // attempt into a hard ActionFailure instead of letting the client's
-        // autosave indicator report "saved" when nothing persisted.
+        // Code resubmission runs while study.status stays APPROVED (the reviewer's
+        // CODE-CHANGES-REQUESTED / results decision lives on the job, not the study),
+        // so eligibility is gated on the latest *submitted* job — exactly as the
+        // resubmit page and resubmitStudyCodeAction do — not on study.status. Guarding
+        // on study.status = 'CHANGE-REQUESTED' here (a proposal-clarification status)
+        // would make this autosave throw on every keystroke during a code resubmit.
+        const latestJob = await latestSubmittedJobForStudy(studyId)
+        const latestStatus = latestJob?.statusChanges.at(0)?.status
+        if (!canResubmitStudyCode(latestStatus)) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
+        // The lab guard stops a cross-lab member from writing a draft onto another
+        // lab's study, and the 0-row check turns a wrong-lab attempt into a hard
+        // ActionFailure instead of letting the client's autosave indicator report
+        // "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
             .set({ codeResubmissionNoteDraft: note })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
             .executeTakeFirst()

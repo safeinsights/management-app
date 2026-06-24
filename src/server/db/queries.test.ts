@@ -383,9 +383,10 @@ describe('codeSubmissionVersion', () => {
         expect(await codeSubmissionVersion(study.id)).toBe(3)
     })
 
-    // The version counts CODE-CHANGES-REQUESTED, not CODE-SUBMITTED, so it's unaffected by how many
-    // CODE-SUBMITTED rows a round accumulates (an idempotent-submit safety property).
-    it('is unaffected by extra CODE-SUBMITTED rows with no new change request', async () => {
+    // The version counts round-opening events (CODE-CHANGES-REQUESTED / FILES-*), not CODE-SUBMITTED,
+    // so it's unaffected by how many CODE-SUBMITTED rows a round accumulates — a duplicate from a
+    // concurrent submit can't inflate the version.
+    it('is unaffected by extra CODE-SUBMITTED rows with no new round', async () => {
         const { study, job } = await insertTestStudyJobData({
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
@@ -394,19 +395,19 @@ describe('codeSubmissionVersion', () => {
         expect(await codeSubmissionVersion(study.id)).toBe(1)
     })
 
-    // Scoped to the LATEST job: a change request on a prior (post-run, closed) round's job must not
-    // inflate the new round's version.
-    it('ignores CODE-CHANGES-REQUESTED on an older job (latest-job only)', async () => {
-        const { study, job: oldJob } = await insertTestStudyJobData({
+    // Monotonic across jobs (OTTER-556/558): a results decision opens a fresh job, and the next
+    // submission must keep climbing (v2), NOT reset to v1 — otherwise the resubmission is mislabelled
+    // and prior feedback is hidden on the read-only screens.
+    it('keeps climbing across a results-decision round boundary', async () => {
+        const { study, job: firstJob } = await insertTestStudyJobData({
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: oldJob.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
+        // First round runs and is rejected at the results stage (closes the round, opens a new job).
+        await db.insertInto('jobStatusChange').values({ studyJobId: firstJob.id, status: 'FILES-REJECTED' }).execute()
+        expect(await codeSubmissionVersion(study.id)).toBe(2)
 
-        // A newer round opens a fresh job with its own first submission → back to v1.
+        // The researcher resubmits → a brand-new job with its own first CODE-SUBMITTED.
         const newJob = await db
             .insertInto('studyJob')
             .values({ studyId: study.id })
@@ -414,6 +415,12 @@ describe('codeSubmissionVersion', () => {
             .executeTakeFirstOrThrow()
         await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
 
-        expect(await codeSubmissionVersion(study.id)).toBe(1)
+        // Still v2 (one round boundary so far), and rises to v3 on the next change request.
+        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
+            .execute()
+        expect(await codeSubmissionVersion(study.id)).toBe(3)
     })
 })

@@ -62,11 +62,11 @@ export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status
 //
 // Each review round is CODE-SUBMITTED → (decision). Counting is order-independent: when at
 // least as many decisions as submissions exist, the latest submission has been decided and the
-// DO belongs on the post-feedback page. Current resubmissions open a brand-new job, but the
-// count also handles historical/defensive same-job histories where a new CODE-SUBMITTED with
-// no following decision tips the count back so the DO returns to active review. CODE-SCANNED is
-// an automated step between submit and decision, not a fresh submission, so it is excluded from
-// the submitted count.
+// DO belongs on the post-feedback page. A CODE-CHANGES-REQUESTED resubmit reuses the SAME job
+// (the round-boundary fix), appending a new CODE-SUBMITTED with no following decision that tips
+// the count back so the DO returns to active review; only a post-run results decision opens a
+// brand-new job. CODE-SCANNED is an automated step between submit and decision, not a fresh
+// submission, so it is excluded from the submitted count.
 export const latestSubmittedJobHasLiveCodeDecision = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): boolean => {

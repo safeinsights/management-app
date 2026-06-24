@@ -983,12 +983,15 @@ describe('Request Study Actions', () => {
     })
 
     describe('saveCodeResubmissionNoteDraftAction', () => {
-        it('persists the draft note on a CHANGE-REQUESTED study for a same-lab user', async () => {
+        // Code resubmission keeps study.status APPROVED; eligibility is the latest submitted
+        // job being in a resubmittable status (here CODE-CHANGES-REQUESTED), not study.status.
+        it('persists the draft note while the study stays APPROVED for a same-lab user', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             const result = actionResult(
@@ -1009,7 +1012,8 @@ describe('Request Study Actions', () => {
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             const tooLong = 'x'.repeat(10_001)
@@ -1025,7 +1029,8 @@ describe('Request Study Actions', () => {
             const { study } = await insertTestStudyJobData({
                 org: labA,
                 researcherId: ownerA.id,
-                studyStatus: 'CHANGE-REQUESTED',
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
             // Switch session to a user in a different lab and try to save the draft.
@@ -1046,12 +1051,13 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBeNull()
         })
 
-        it('rejects a save attempt when the study is not CHANGE-REQUESTED (OTTER-607)', async () => {
+        it('rejects a save attempt when the latest job is not resubmittable', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
+                studyStatus: 'APPROVED',
+                jobStatus: 'JOB-READY',
             })
 
             const result = await saveCodeResubmissionNoteDraftAction({
