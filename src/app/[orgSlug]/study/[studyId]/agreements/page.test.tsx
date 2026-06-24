@@ -50,7 +50,9 @@ describe('StudyAgreementsRoute', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
     })
 
-    it('redirects reviewer to review when agreements already acknowledged', async () => {
+    // /agreements is now revisitable for reviewers too: once code is submitted it renders the
+    // agreements page regardless of ack state. The /review state machine is the screen authority.
+    it('renders reviewer agreements even after acknowledging (revisitable, no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         await db
@@ -59,8 +61,11 @@ describe('StudyAgreementsRoute', () => {
             .where('id', '=', study.id)
             .execute()
 
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText('STEP 2A')).toBeInTheDocument()
     })
 
     it('renders researcher agreements for APPROVED study not yet acknowledged', async () => {
@@ -76,7 +81,10 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
     })
 
-    it('redirects researcher when agreements already acknowledged', async () => {
+    // /agreements is a revisitable researcher step: it renders for an authorized researcher
+    // regardless of ack state or study status, and no longer self-redirects. resolveScreen (on
+    // /view) is the screen authority.
+    it('renders researcher agreements even after acknowledging (revisitable, no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await db
@@ -85,38 +93,29 @@ describe('StudyAgreementsRoute', () => {
             .where('id', '=', study.id)
             .execute()
 
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/code'))
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    it('redirects acked researcher with baseline job (no CODE-SUBMITTED) to /code, not /view', async () => {
+    it('renders researcher agreements even when study is not APPROVED (revisitable, no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'JOB-READY' })
-        await db
-            .updateTable('study')
-            .set({ researcherAgreementsAckedAt: new Date() })
-            .where('id', '=', study.id)
-            .execute()
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        await setTestStudyStatus(study.id, 'DRAFT')
 
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/code'))
-        expect(mockRedirect).not.toHaveBeenCalledWith(expect.stringContaining('/view'))
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    it('redirects acked researcher with CODE-SUBMITTED job to /view', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-        await db
-            .updateTable('study')
-            .set({ researcherAgreementsAckedAt: new Date() })
-            .where('id', '=', study.id)
-            .execute()
-
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
-    })
-
-    it('Previous button targets the proposal view for researcher with job activity', async () => {
+    // Previous → /submitted (the approved-proposal page with a working "Proceed to step 3"), NOT
+    // /view — /view resolves to proposal-feedback, which has no forward path and would dead-end an
+    // approved-no-code researcher.
+    it('Previous button targets /submitted (not /view), no ?from=', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -128,37 +127,15 @@ describe('StudyAgreementsRoute', () => {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toContain(`/${org.slug}/study/${study.id}/view`)
-        expect(asPath).toContain('from=agreements')
+        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted`)
+        expect(asPath).not.toContain('from=')
     })
 
-    it('Previous button preserves returnTo=org through the agreements flow', async () => {
+    it('Proceed targets plain /view (which re-resolves to code-status) when code is already submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ returnTo: 'org' }),
-        })
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Previous/ }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toContain('from=agreements')
-        expect(asPath).toContain('returnTo=org')
-    })
-
-    it('Proceed targets the code-status view via from=code-decision (not code upload) when code is already submitted', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'previous' }),
-        })
+        const page = await renderRoute(org.slug, study.id)
         renderWithProviders(page!)
 
         const interact = userEvent.setup()
@@ -167,7 +144,7 @@ describe('StudyAgreementsRoute', () => {
         await waitFor(() => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { asPath } = (RouterMock as any).memoryRouter
-            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view?from=code-decision`)
+            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view`)
         })
     })
 
@@ -175,10 +152,7 @@ describe('StudyAgreementsRoute', () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'previous' }),
-        })
+        const page = await renderRoute(org.slug, study.id)
         renderWithProviders(page!)
 
         const interact = userEvent.setup()
@@ -199,46 +173,5 @@ describe('StudyAgreementsRoute', () => {
         renderWithProviders(page!)
 
         expect(screen.getByRole('button', { name: 'Previous' })).toBeInTheDocument()
-    })
-
-    it('redirects researcher when study is not APPROVED', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await setTestStudyStatus(study.id, 'DRAFT')
-
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
-    })
-
-    it('allows direct access via Previous button when study is not APPROVED', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await setTestStudyStatus(study.id, 'REJECTED')
-
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'previous' }),
-        })
-        renderWithProviders(page!)
-
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
-    })
-
-    it('allows direct access via Previous button even after acknowledging', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db
-            .updateTable('study')
-            .set({ researcherAgreementsAckedAt: new Date() })
-            .where('id', '=', study.id)
-            .execute()
-
-        const page = await StudyAgreementsRoute({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'previous' }),
-        })
-        renderWithProviders(page!)
-
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 })
