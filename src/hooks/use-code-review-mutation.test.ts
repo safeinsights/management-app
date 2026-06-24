@@ -61,7 +61,7 @@ describe('useCodeReviewMutation', () => {
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve broadcasts code-review-submitted and redirects with ?from=code-review', async () => {
+    it('approve broadcasts code-review-submitted and redirects to bare /review', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const { result } = renderHook(
@@ -95,9 +95,7 @@ describe('useCodeReviewMutation', () => {
         expect(typeof payload.submittedByName).toBe('string')
 
         await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                `${Routes.studyReview({ orgSlug: org.slug, studyId: study.id })}?from=code-review`,
-            ),
+            expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
         )
     })
 

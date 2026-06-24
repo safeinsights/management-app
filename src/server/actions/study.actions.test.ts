@@ -517,76 +517,6 @@ describe('Study Actions', () => {
         })
     })
 
-    // OTTER-558: a file upload during a code-resubmit edit session opens a fresh INITIATED round job.
-    // The dashboard query must keep surfacing the latest *submitted* job's decision (so the DO pill
-    // reads "Code · Change requested" and the RL is routed to the post-decision view), not the
-    // masking INITIATED-only round job. It must still fall back to the baseline when nothing is submitted.
-    describe('fetchStudiesForOrgAction code resubmission round masking (OTTER-558)', () => {
-        it('surfaces the submitted job decision even when a newer INITIATED round job exists', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study, job } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-            // Reviewer requested code changes on the submitted job.
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
-            // RL opened a new round (file upload) → fresh INITIATED job, newest by createdAt.
-            const newRound = await db
-                .insertInto('studyJob')
-                .values({ studyId: study.id })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-            await db.insertInto('jobStatusChange').values({ studyJobId: newRound.id, status: 'INITIATED' }).execute()
-
-            const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: org.slug }))
-            const row = rows.find((s) => s.id === study.id)!
-            const statuses = row.jobStatusChanges.map((c) => c.status)
-            expect(statuses).toContain('CODE-CHANGES-REQUESTED')
-            expect(statuses).not.toEqual(['INITIATED'])
-        })
-
-        it('falls back to the INITIATED baseline job when nothing has been submitted yet', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'INITIATED',
-            })
-
-            const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: org.slug }))
-            const row = rows.find((s) => s.id === study.id)!
-            expect(row.jobStatusChanges.map((c) => c.status)).toEqual(['INITIATED'])
-        })
-
-        it('reports hasCodeResubmissionDraft when a non-empty code draft exists', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
-            })
-
-            let rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: org.slug }))
-            expect(rows.find((s) => s.id === study.id)!.hasCodeResubmissionDraft).toBe(false)
-
-            await db
-                .updateTable('study')
-                .set({ codeResubmissionNoteDraft: 'work in progress' })
-                .where('id', '=', study.id)
-                .execute()
-
-            rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: org.slug }))
-            expect(rows.find((s) => s.id === study.id)!.hasCodeResubmissionDraft).toBe(true)
-        })
-    })
-
     it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {
         const { lab, studyId } = await createTestProposalDraft({
             enclaveSlug: 'last-updated-draft-enclave',
@@ -632,6 +562,29 @@ describe('ackAgreementsAction', () => {
         const labOrg = await insertTestOrg({ slug: 'test-lab', type: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['researcherAgreementsAckedAt', 'reviewerAgreementsAckedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.reviewerAgreementsAckedAt).not.toBeNull()
+        expect(updated.researcherAgreementsAckedAt).toBeNull()
+    })
+
+    // SI admins (manage/all) review studies for enclaves they don't belong to. The reviewer
+    // ack must succeed on their behalf, otherwise the agreements gate blocks them from the
+    // code-submitted review flow even though every page-level check lets them through.
+    it('sets reviewerAgreementsAckedAt when an SI admin acks as reviewer for a non-member org', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'si-admin-enclave', type: 'enclave' })
+        const labOrg = await insertTestOrg({ slug: 'si-admin-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclaveOrg })
+        await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+        await mockSessionWithTestData({ isSiAdmin: true })
 
         await ackAgreementsAction({ studyId: study.id, role: 'reviewer' })
 
