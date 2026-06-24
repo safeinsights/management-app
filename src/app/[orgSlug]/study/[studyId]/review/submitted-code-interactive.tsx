@@ -2,7 +2,7 @@
 
 import { ActionIcon, Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
 import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
@@ -69,6 +69,22 @@ function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
 
 const REVIEW_POLL_INTERVAL_MS = 5_000
 
+// A failed generation never writes a studyReview row — the deferred background
+// task swallows the error — so polling would otherwise spin forever. After this
+// long with no row, surface the error state instead.
+const AI_SUMMARY_TIMEOUT_MS = 30_000
+
+// Returns true once `ms` has elapsed since mount. Used to time out the AI
+// summary spinner so a never-arriving review surfaces as an error.
+function useElapsedTimeout(ms: number): boolean {
+    const [elapsed, setElapsed] = useState(false)
+    useEffect(() => {
+        const id = setTimeout(() => setElapsed(true), ms)
+        return () => clearTimeout(id)
+    }, [ms])
+    return elapsed
+}
+
 // The review row is written by a deferred background task triggered at code
 // submission (onStudyReviewRequested). Seed with the server-fetched value and
 // poll until a row lands so a reviewer who opens the page mid-generation sees
@@ -113,9 +129,17 @@ function AiSummaryPending() {
         <Group gap="xs" data-testid="ai-summary-pending">
             <Loader size="sm" />
             <Text c="dimmed" size="sm">
-                Review in progress…
+                AI Summary is loading
             </Text>
         </Group>
+    )
+}
+
+function AiSummaryError() {
+    return (
+        <Alert color="red" data-testid="ai-summary-error">
+            The AI summary failed to generate. Please reload the page.
+        </Alert>
     )
 }
 
@@ -138,22 +162,31 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-type AiSummaryProps = { studyJobId: string; initialReview: StudyReviewWithMeta | null }
+type AiSummaryProps = {
+    studyJobId: string
+    initialReview: StudyReviewWithMeta | null
+    // Overridable so tests can exercise the timeout without faking timers.
+    timeoutMs?: number
+}
 
-export function AiSummaryCollapsible({ studyJobId, initialReview }: AiSummaryProps) {
+export function AiSummaryCollapsible({ studyJobId, initialReview, timeoutMs = AI_SUMMARY_TIMEOUT_MS }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
+    const timedOut = useElapsedTimeout(timeoutMs)
     const summary = review?.report.codeExplanation ?? null
 
-    // A resolved poll (row landed, or errored out) is terminal — show the
-    // summary if present, otherwise the empty state. Until then we're still
-    // generating, so show the spinner.
-    const isResolved = error != null || review != null
-
+    // A landed row is terminal — show the summary if present, otherwise the
+    // empty state (the no-API-key / disabled-review placeholder path). While
+    // still pending we show the spinner, escalating to an error when the poll
+    // rejects or 30s pass with no row.
     const renderBody = () => {
-        if (!isResolved) return <AiSummaryPending />
-        if (!summary) return <AiSummaryEmpty />
-        return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        if (error != null) return <AiSummaryError />
+        if (review != null) {
+            if (!summary) return <AiSummaryEmpty />
+            return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        }
+        if (timedOut) return <AiSummaryError />
+        return <AiSummaryPending />
     }
 
     return (

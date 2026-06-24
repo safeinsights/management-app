@@ -11,9 +11,17 @@ export type ConnectionPhase = 'initial' | 'connected' | 'reconnecting' | 'failed
 type ConnectionState = {
     socket: HocuspocusProviderWebsocket | null
     phase: ConnectionPhase
+    // When true, editors render the standalone single-user surface and no
+    // collaboration websocket is opened. Sourced from a server-read env var (the
+    // app build is shared across environments, so it can't be a build-time flag).
+    singleUserEditing: boolean
 }
 
-const YjsWebsocketContext = createContext<ConnectionState>({ socket: null, phase: 'initial' })
+const YjsWebsocketContext = createContext<ConnectionState>({
+    socket: null,
+    phase: 'initial',
+    singleUserEditing: false,
+})
 
 // Module-scoped so the websocket is reused across React Strict Mode double-mounts
 // in dev and across any client-side navigation that re-renders the provider tree.
@@ -63,6 +71,12 @@ export function __resetSharedYjsWebsocketForTests(): void {
 type Props = {
     children: ReactNode
     /**
+     * When true, no collaboration websocket is opened and editors render the
+     * standalone single-user surface. Read server-side and passed in from the
+     * root layout so it can vary per deploy environment.
+     */
+    singleUserEditing?: boolean
+    /**
      * How long the websocket can stay disconnected before we surface a "Reconnecting…"
      * banner to users. Anything shorter false-fires on routine browser tab-switches
      * and Hocuspocus' own messageReconnectTimeout heartbeat. 30s matches the default
@@ -83,18 +97,21 @@ const DEFAULT_FAILURE_THRESHOLD_MS = 5 * 60_000
 
 export const YjsWebsocketProvider: FC<Props> = ({
     children,
+    singleUserEditing = false,
     reconnectingThresholdMs = DEFAULT_RECONNECTING_THRESHOLD_MS,
     failureThresholdMs = DEFAULT_FAILURE_THRESHOLD_MS,
 }) => {
+    // In single-user mode no collaboration websocket is ever opened — the editor
+    // surface is standalone — so the socket stays null and the phase stays inert.
     const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(() =>
-        typeof window === 'undefined' ? null : getOrCreateSharedSocket(),
+        typeof window === 'undefined' || singleUserEditing ? null : getOrCreateSharedSocket(),
     )
     const [phase, setPhase] = useState<ConnectionPhase>('initial')
 
     // Subscribe to bfcache-restore re-creations of the singleton so consumers
     // re-render against the live socket instead of the destroyed one.
     useEffect(() => {
-        if (typeof window === 'undefined') return undefined
+        if (typeof window === 'undefined' || singleUserEditing) return undefined
         const onSocketReplaced = (next: HocuspocusProviderWebsocket) => {
             setSocket(next)
             setPhase('initial')
@@ -103,7 +120,7 @@ export const YjsWebsocketProvider: FC<Props> = ({
         return () => {
             socketSubscribers.delete(onSocketReplaced)
         }
-    }, [])
+    }, [singleUserEditing])
 
     useEffect(() => {
         if (!socket) return undefined
@@ -169,7 +186,11 @@ export const YjsWebsocketProvider: FC<Props> = ({
         }
     }, [socket, reconnectingThresholdMs, failureThresholdMs])
 
-    return <YjsWebsocketContext.Provider value={{ socket, phase }}>{children}</YjsWebsocketContext.Provider>
+    return (
+        <YjsWebsocketContext.Provider value={{ socket, phase, singleUserEditing }}>
+            {children}
+        </YjsWebsocketContext.Provider>
+    )
 }
 
 /**
@@ -193,4 +214,13 @@ export function useYjsWebsocket(): HocuspocusProviderWebsocket | null {
  */
 export function useConnectionPhase(): ConnectionPhase {
     return useContext(YjsWebsocketContext).phase
+}
+
+/**
+ * True when the app is running in single-user mode: editors render the standalone
+ * (non-collaborative) surface and no websocket is opened. Sourced from a server-read
+ * env var passed into YjsWebsocketProvider.
+ */
+export function useSingleUserEditing(): boolean {
+    return useContext(YjsWebsocketContext).singleUserEditing
 }
