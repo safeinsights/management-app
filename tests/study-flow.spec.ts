@@ -394,6 +394,45 @@ function uploadErrorLogs(jobId: string): void {
     execSync(cmd, { stdio: 'inherit' })
 }
 
+function uploadResults(jobId: string): void {
+    // Same debug script, but uploads an encrypted *result* file (not an error log), which moves the
+    // job into the results-review state (RUN-COMPLETE) — the success counterpart to uploadErrorLogs.
+    const cmd = `pnpm exec tsx bin/debug/upload-results.ts -j ${jobId} -r tests/assets/results-with-pii.csv`
+    execSync(cmd, { stdio: 'inherit' })
+}
+
+// Drives the reviewer-study-results screen (StudyDetailsReviewer) for a *successful* run: decrypt,
+// then approve. Result files are auto-selected on decrypt (use-encrypted-files-panel), so unlike the
+// error-log flow there's no checkbox to tick before the job-level Approve (JobReviewButtons →
+// approveStudyJobFilesAction, which sets FILES-APPROVED) enables.
+async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<void> {
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+    await expect(page.getByText('Review Studies')).toBeVisible()
+
+    // Code already reviewed → "View" lands directly on the results-review page (no agreements gate).
+    await viewStudyDetails(page, studyTitle)
+    await page.waitForURL(/\/review$/)
+
+    // Decrypt the encrypted result with the reviewer test key.
+    const privateKey = await readTestSupportFile('private_key.pem')
+    const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
+    await expect(privateKeyTextarea).toBeVisible()
+    await privateKeyTextarea.fill(privateKey)
+
+    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
+    await expect(decryptButton).toBeEnabled()
+    await decryptButton.click()
+
+    // After decryption the result row appears and is pre-selected to share with the researcher.
+    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
+
+    // Approve the results (proposal-level Approve → FILES-APPROVED), then land on the dashboard.
+    const approveButton = page.getByRole('button', { name: /^Approve$/i }).last()
+    await expect(approveButton).toBeEnabled()
+    await approveButton.click()
+    await page.waitForURL('**/dashboard')
+}
+
 async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
@@ -624,6 +663,39 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     })
 })
 
+test('Successful results review', async ({ page, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('results')
+    let studyId: string
+
+    await test.step('seed: propose, approve proposal, upload + approve code', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+        await reviewerApprovesProposal(page, studyTitle)
+        await researcherNavigatesToCodeUpload(page, studyTitle)
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+        studyId = extractStudyIdFromUrl(page)
+        await reviewerApprovesCode(page, studyTitle)
+    })
+
+    await test.step('simulate a successful run with results', async () => {
+        const authToken = await createOrgAuthToken('openstax')
+        const jobId = await waitForJobReady(page, studyId, authToken)
+        uploadResults(jobId)
+    })
+
+    await test.step('reviewer reviews and approves results', async () => {
+        await reviewerApprovesResults(page, studyTitle)
+    })
+
+    await test.step('researcher sees approved results are available', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        await viewStudyDetails(page, studyTitle)
+
+        // FILES-APPROVED → researcher study-results screen with the approval message.
+        await expect(page.getByText(/results of your study have been approved/i)).toBeVisible()
+    })
+})
+
 test('Proposal rejection', async ({ page, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('prop-rej')
 
@@ -693,6 +765,90 @@ test('Proposal rejection', async ({ page, studyFeatures }) => {
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
         await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
         await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
+    })
+})
+
+test('Proposal clarification and resubmission', async ({ page, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('prop-clarify')
+    let studyId: string
+
+    await test.step('researcher creates study', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+    })
+
+    await test.step('reviewer requests clarification on the proposal', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await clickViewLink(page, studyRow)
+
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
+
+        // ProposalReviewView: feedback + the "Needs clarification" decision. Unlike Reject, this uses
+        // the standard (non-destructive) confirm modal and sets status to CHANGE-REQUESTED.
+        const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
+        await expect(feedbackEditor).toBeVisible()
+        await feedbackEditor.click()
+        await page.keyboard.type('Please clarify the dataset scope and the analysis plan before we can approve.')
+
+        await page
+            .getByTestId('review-decision-section')
+            .getByRole('radio', { name: /Needs clarification/i })
+            .check()
+
+        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toBeVisible()
+        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await expect(dialog).toBeHidden()
+
+        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
+        await expect(page.getByTestId('decision-banner-clarification')).toBeVisible()
+        await page.getByTestId('go-to-dashboard').click()
+        await page.waitForURL('**/dashboard')
+    })
+
+    await test.step('researcher sees clarification-requested and the resubmit CTA', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible()
+        await studyRow.getByRole('link', { name: 'View' }).first().click()
+
+        // A decided no-code proposal routes to /submitted; CHANGE-REQUESTED shows the clarification
+        // banner and an "Edit and resubmit" CTA → /edit-and-resubmit.
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByTestId('status-banner-CHANGE-REQUESTED')).toBeVisible()
+        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
+        studyId = extractStudyIdFromUrl(page)
+
+        await page.getByRole('link', { name: /Edit and resubmit/i }).click()
+        await page.waitForURL(/\/edit-and-resubmit$/)
+    })
+
+    await test.step('researcher resubmits the clarified proposal', async () => {
+        await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()
+
+        // The form is pre-filled from the existing proposal; only the resubmission note gates submit.
+        await page.getByLabel(/Resubmission Note/i).fill('Clarified the dataset scope and analysis plan per feedback.')
+
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit initial request$/i })
+        await expect(resubmitButton).toBeEnabled()
+        await resubmitButton.click()
+        await page.getByRole('button', { name: /^Yes, resubmit initial request$/i }).click()
+
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+    })
+
+    await test.step('reviewer sees the resubmitted proposal back under review', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+
+        // Resubmission returns the proposal to PENDING-REVIEW, so "View" re-opens the editable
+        // ProposalReviewView with a fresh decision section.
+        await goto(page, `/openstax/study/${studyId}/review`)
+        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
     })
 })
 
@@ -793,6 +949,79 @@ test('Code rejection and resubmission', async ({ page, studyFeatures }) => {
         await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
 
         await page.waitForURL('**/view')
+    })
+})
+
+test('Code rejection ends the study', async ({ page, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('code-hard-rej')
+
+    await test.step('researcher creates study and proposal is approved', async () => {
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle)
+        await reviewerApprovesProposal(page, studyTitle)
+    })
+
+    await test.step('researcher uploads code and submits', async () => {
+        await researcherNavigatesToCodeUpload(page, studyTitle)
+        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+    })
+
+    await test.step('reviewer rejects the code (hard reject)', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+        await expect(page.getByText('Review Studies')).toBeVisible()
+
+        await viewStudyDetails(page, studyTitle)
+
+        // "View" lands on /review showing the agreements gate; ack to reach the code-review editor.
+        await page.waitForURL(/\/review(\?.*)?$/, { timeout: 10000 })
+        await page.getByRole('button', { name: /Proceed to Step 3/i }).click()
+        await expect(page.getByTestId('code-review-section')).toBeVisible()
+
+        // Answer the criteria, then pick the Reject decision (→ CODE-REJECTED, study ends). Unlike
+        // "Request revision", Reject opens a destructive confirm modal ("Reject study code?").
+        const criteriaKeys = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
+        for (const key of criteriaKeys) {
+            await page.locator(`input[name="criteria-${key}"][value="no"]`).check()
+        }
+
+        await page.getByTestId('code-review-decision-reject').click()
+        const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+        await expect(feedbackEditor).toBeVisible()
+        await feedbackEditor.click()
+        await page.keyboard.type('Rejecting submitted code — it cannot run against this dataset.')
+
+        await page.getByTestId('code-review-submit').click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toBeVisible()
+        await dialog.getByRole('button', { name: /^Reject study code$/i }).click()
+        await expect(dialog).toBeHidden()
+
+        // Reviewer lands on the read-only code post-feedback view in the rejected state.
+        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
+        await page.getByTestId('go-to-dashboard').click()
+        await page.waitForURL('**/dashboard')
+        await goto(page, '/openstax/dashboard')
+    })
+
+    await test.step('reviewer sees rejected status on dashboard', async () => {
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible()
+        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+    })
+
+    await test.step('researcher sees the rejected, terminal code view', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toBeVisible()
+        await studyRow.getByRole('link', { name: 'View' }).first().click()
+
+        // CODE-REJECTED is terminal: the rejected banner shows and only a "Go to dashboard" CTA is
+        // offered — no "Edit and resubmit" (that CTA is gated to the change-requested decision).
+        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
+        await expect(page.getByTestId('cta-go-to-dashboard')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-and-resubmit')).not.toBeVisible()
     })
 })
 
