@@ -122,9 +122,9 @@ describe('useSubmissionRedirectListener', () => {
         expect(arg.message).toBe(
             'Carol has proceeded to submit a decision on this study code. No further edits are allowed at this point.',
         )
-        // ?from=code-review is required so the kicked-out user lands on the post-feedback
-        // view, not back on the code-review page (codeSubmitted history check would re-enter).
-        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review?from=code-review`)
+        // Bare /review: the reviewer state machine resolves it to the code post-feedback screen
+        // once a decision exists (codeDecision !== null), so the kicked-out user lands there.
+        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 
     it('is idempotent: two stateless events trigger one navigation', () => {

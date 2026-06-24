@@ -212,6 +212,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
 
         const existing = await db
             .selectFrom('orgUser')
+            .select('id')
             .where('userId', '=', userId)
             .where('orgId', '=', orgId)
             .executeTakeFirst()

@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import * as RouterMock from 'next-router-mock'
 import {
     insertTestBaselineJob,
     insertTestStudyJobData,
@@ -8,7 +7,6 @@ import {
     renderWithProviders,
     screen,
     setTestStudyStatus,
-    userEvent,
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -16,8 +14,6 @@ import type { StudyJobStatus } from '@/database/types'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
-import { ResearcherProposalView } from './researcher-proposal-view'
-import { StudyDetailsResearcher } from './study-details-researcher'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -34,23 +30,12 @@ describe('StudyViewPage', () => {
         expect(page?.type).toBe(CodePostSubmissionView)
     })
 
-    it('renders ResearcherProposalView when code is submitted but from=agreements is set', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements' }),
-        })
-        renderWithProviders(page!)
-
-        // Proposal view shows STEP 2 / "Study proposal" and the Proceed button back to agreements.
-        expect(screen.getByText('STEP 2')).toBeInTheDocument()
-        expect(screen.getByText('Study proposal')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
-    })
-
-    it('renders ResearcherProposalView for APPROVED study without job', async () => {
+    // ?from=agreements no longer shows the proposal on /view — a code-submitted study resolves to
+    // code-under-review. Viewing a submitted proposal lives at /submitted.
+    // APPROVED-no-code resolves to proposal-feedback (ProposalFeedbackScreen). That screen passes an
+    // agreementsHref so the "Proceed to Step 3" forward renders — the researcher's path to sign
+    // agreements. (REJECTED / CHANGE-REQUESTED get no agreementsHref; see the tests below.)
+    it('renders ResearcherProposalView with a Proceed-to-Step-3 button for APPROVED study without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -63,51 +48,7 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('STEP 2')).toBeInTheDocument()
         expect(screen.getByText('Study proposal')).toBeInTheDocument()
         expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
-    })
-
-    it('renders ResearcherProposalView with agreementsHref when from=agreements', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements' }),
-        })
-        renderWithProviders(page!)
-
         expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
-    })
-
-    it('agreementsHref preserves returnTo=org through the proposal view', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ from: 'agreements', returnTo: 'org' }),
-        })
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: 'Proceed to Step 3' }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toContain(`/${org.slug}/study/${study.id}/agreements`)
-        expect(asPath).toContain('returnTo=org')
-    })
-
-    it('renders ResearcherProposalView without agreementsHref when from is absent', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await StudyReviewPage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
-        })
-        renderWithProviders(page!)
-
-        expect(screen.queryByRole('button', { name: 'Proceed to Step 3' })).not.toBeInTheDocument()
     })
 
     it('renders ResearcherProposalView for REJECTED study', async () => {
@@ -222,23 +163,6 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-        })
-
-        it('renders ResearcherProposalView when ?from=agreements regardless of latest job status', async () => {
-            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-                jobStatus: 'CODE-SUBMITTED',
-            })
-
-            const page = await StudyReviewPage({
-                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'agreements' }),
-            })
-
-            expect(page?.type).toBe(ResearcherProposalView)
         })
 
         it('preserves dashboardHref when ?returnTo=org', async () => {
@@ -512,8 +436,9 @@ describe('StudyViewPage', () => {
                 studyStatus: 'PENDING-REVIEW',
                 jobStatus: 'CODE-SUBMITTED',
             })
-            // Historical same-job resubmission shape: a new CODE-SUBMITTED after the decision
-            // reopens review, so the decision is no longer live and the under-review page is correct.
+            // Same-job resubmit shape produced by the round-boundary fix + round-aware markCodeSubmitted:
+            // the CR opens a new round and the resubmit appends a second CODE-SUBMITTED on the same job,
+            // so the prior decision is no longer live and the under-review page is correct.
             await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
             await addJobStatus(study.id, 'CODE-SUBMITTED')
 
@@ -588,34 +513,19 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(StudyDetailsResearcher)
+                renderWithProviders(page!)
+                expect(screen.getByText('Study Status')).toBeInTheDocument()
+                expect(screen.getByText('Study Details')).toBeInTheDocument()
+                // Results screen is terminal — no "Previous" link
+                expect(screen.queryByRole('link', { name: /previous/i })).not.toBeInTheDocument()
             },
         )
 
-        // OTTER-612: "Previous" from the results page returns to the Code-approved decision page.
-        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
-            'renders CodePostDecisionView (CODE-APPROVED) when from=code-decision at %s',
-            async (jobStatus) => {
-                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-                const { study } = await insertTestStudyJobData({
-                    org,
-                    researcherId: user.id,
-                    studyStatus: 'APPROVED',
-                    jobStatus: 'CODE-SUBMITTED',
-                })
-                await addJobStatus(study.id, jobStatus)
+        // ?from=code-decision back-nav to the Code-approved page was removed when results became
+        // terminal (OTTER-612 back removed). The state machine now handles results states directly
+        // and does not branch on from=code-decision.
 
-                const page = await StudyReviewPage({
-                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: Promise.resolve({ from: 'code-decision' }),
-                })
-
-                expect(page?.type).toBe(CodePostDecisionView)
-                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            },
-        )
-
-        it('threads returnTo=org to StudyDetailsResearcher at a results status', async () => {
+        it('threads returnTo=org to the results screen via dashboardHref', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -630,14 +540,17 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            expect(page?.type).toBe(StudyDetailsResearcher)
-            expect(page?.props.returnTo).toBe('org')
+            // returnTo=org is baked into dashboardHref by the page dispatch before the screen
+            // is called (ResearcherBreadcrumbs is mocked to null in tests, so we verify via props).
+            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            renderWithProviders(page!)
+            expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
 
-        // The from=code-decision branch is gated on isStudyResultsStatus, so a stray ?from=code-decision
-        // at a code-decision status (no results yet) falls through to the normal decision routing rather
-        // than short-circuiting. The normal routing also lands on CodePostDecisionView here.
-        it('falls through to CodePostDecisionView when from=code-decision arrives at CODE-APPROVED', async () => {
+        // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no
+        // results yet) resolves to the code-approved screen → CodePostDecisionView, even if a stray
+        // legacy ?from= rides along.
+        it('routes a CODE-APPROVED study to CodePostDecisionView regardless of query params', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -659,9 +572,10 @@ describe('StudyViewPage', () => {
                 })
                 .execute()
 
+            // Arbitrary leftover query param proves /view ignores the URL and resolves on state.
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'code-decision' }),
+                searchParams: Promise.resolve({ from: 'anything' }),
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
