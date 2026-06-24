@@ -1,11 +1,12 @@
 'use client'
 
-import { Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
-import { CaretRight } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
+import { studyCodeURL } from '@/lib/paths'
 import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
@@ -211,26 +212,46 @@ function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     }
 }
 
-function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolean; onClick: () => void }) {
+function FileTab({
+    file,
+    isActive,
+    onClick,
+    studyJobId,
+}: {
+    file: CodeFile
+    isActive: boolean
+    onClick: () => void
+    studyJobId: string
+}) {
     const display = truncateFileName(file.name)
     return (
-        <UnstyledButton
-            onClick={onClick}
-            data-testid="study-code-file-tab"
-            data-active={isActive ? 'true' : 'false'}
-            title={file.name}
-            px="md"
-            py="xs"
+        <Group
+            gap={0}
+            wrap="nowrap"
+            align="center"
             style={{
                 backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
                 borderRadius: 0,
                 whiteSpace: 'nowrap',
+                paddingRight: 6,
             }}
         >
-            <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
-                {display}
-            </Text>
-        </UnstyledButton>
+            <UnstyledButton
+                onClick={onClick}
+                data-testid="study-code-file-tab"
+                data-active={isActive ? 'true' : 'false'}
+                title={file.name}
+                pl="md"
+                pr="xs"
+                py="xs"
+                style={{ whiteSpace: 'nowrap' }}
+            >
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
+                    {display}
+                </Text>
+            </UnstyledButton>
+            <CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} isActive={isActive} />
+        </Group>
     )
 }
 
@@ -238,10 +259,12 @@ function OverflowFilesMenu({
     hidden,
     activeFileName,
     onSelect,
+    studyJobId,
 }: {
     hidden: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
+    studyJobId: string
 }) {
     if (hidden.length === 0) return null
     const items = hidden.map((file) => (
@@ -251,6 +274,7 @@ function OverflowFilesMenu({
             data-testid="study-code-files-overflow-item"
             data-selected={file.name === activeFileName ? 'true' : 'false'}
             title={file.name}
+            rightSection={<CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} />}
         >
             <Text size="sm" component="span">
                 {truncateFileName(file.name)}
@@ -285,12 +309,14 @@ function FileTabsRow({
     activeFileName,
     onSelect,
     hidden,
+    studyJobId,
 }: {
     isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
     hidden: CodeFile[]
+    studyJobId: string
 }) {
     if (!isVisible) return null
     const tabs = visible.map((file) => (
@@ -299,13 +325,19 @@ function FileTabsRow({
             file={file}
             isActive={file.name === activeFileName}
             onClick={() => onSelect(file.name)}
+            studyJobId={studyJobId}
         />
     ))
 
     return (
         <Group gap="sm" wrap="nowrap" style={{ overflow: 'hidden' }} data-testid="study-code-file-tabs">
             {tabs}
-            <OverflowFilesMenu hidden={hidden} activeFileName={activeFileName} onSelect={onSelect} />
+            <OverflowFilesMenu
+                hidden={hidden}
+                activeFileName={activeFileName}
+                onSelect={onSelect}
+                studyJobId={studyJobId}
+            />
         </Group>
     )
 }
@@ -317,6 +349,33 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
         enabled: !!fileName,
         staleTime: Infinity,
     })
+}
+
+// stopPropagation: in the overflow menu this icon sits inside a selectable row,
+// so a download click shouldn't also switch the active file.
+function CodeFileDownloadButton({
+    studyJobId,
+    fileName,
+    isActive = false,
+}: {
+    studyJobId: string
+    fileName: string
+    isActive?: boolean
+}) {
+    return (
+        <ActionIcon
+            component="a"
+            href={studyCodeURL(studyJobId, fileName)}
+            download={fileName}
+            onClick={(e) => e.stopPropagation()}
+            variant="transparent"
+            size="sm"
+            aria-label={`Download ${fileName}`}
+            data-testid="study-code-download"
+        >
+            <DownloadSimpleIcon weight="fill" color={isActive ? 'white' : 'var(--mantine-color-charcoal-7)'} />
+        </ActionIcon>
+    )
 }
 
 function StudyCodeBody({
@@ -419,6 +478,7 @@ export function StudyCodeViewer({
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}
                 hidden={hidden}
+                studyJobId={studyJobId}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
             <StudyCodeToggle

@@ -16,9 +16,17 @@ interface StudyCodeToggleProps {
     onClick: () => void
     isVisible?: boolean
     mt?: MantineSpacing
+    /** Override the test id so multiple toggles on one page (e.g. an in-card opener and an in-panel closer) stay distinct. */
+    testId?: string
 }
 
-export const StudyCodeToggle: FC<StudyCodeToggleProps> = ({ expanded, onClick, isVisible = true, mt }) => {
+export const StudyCodeToggle: FC<StudyCodeToggleProps> = ({
+    expanded,
+    onClick,
+    isVisible = true,
+    mt,
+    testId = 'study-code-toggle',
+}) => {
     if (!isVisible) return null
     return (
         <Anchor
@@ -32,7 +40,7 @@ export const StudyCodeToggle: FC<StudyCodeToggleProps> = ({ expanded, onClick, i
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
             aria-expanded={expanded}
-            data-testid="study-code-toggle"
+            data-testid={testId}
         >
             {expanded ? 'Hide submitted study code' : 'View submitted study code'}
             <CaretRightIcon size={12} weight="bold" style={{ transform: expanded ? 'rotate(-90deg)' : undefined }} />
