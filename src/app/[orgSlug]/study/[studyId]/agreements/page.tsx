@@ -3,6 +3,7 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
+import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -19,8 +20,7 @@ export default async function StudyAgreementsRoute(props: {
     const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
-    const currentOrg = session?.orgs[orgSlug]
-    if (!session || !currentOrg) {
+    if (!session) {
         return <AccessDeniedAlert />
     }
 
@@ -29,7 +29,13 @@ export default async function StudyAgreementsRoute(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    const isReviewer = currentOrg.type === 'enclave'
+    // Reviewer vs researcher is decided by the review ability, not org membership, so an SI admin
+    // (who can review any org's studies) follows the reviewer flow. A user with neither the review
+    // ability nor view access to the submitting org's study has no business here.
+    const isReviewer = session.can('review', toRecord('Study', { orgId: study.orgId }))
+    if (!isReviewer && !session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))) {
+        return <AccessDeniedAlert />
+    }
 
     if (isReviewer) {
         // No code submitted yet — nothing to review, show proposal instead

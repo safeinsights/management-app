@@ -2,8 +2,8 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Box, Collapse, Group, Stack, Text, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { ArrowSquareOut, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -151,34 +151,17 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedb
     return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
-const StudyCodeSection: FC<{ isVisible: boolean; jobId: string; codeFiles: CodeFileList }> = ({
-    isVisible,
-    jobId,
-    codeFiles,
-}) => {
-    const { expanded, toggle } = useExpandable()
-    if (!isVisible) return null
-    return (
-        <Stack gap="sm">
-            <StudyCodeToggle expanded={expanded} onClick={toggle} />
-            <Collapse in={expanded}>
-                <SubmittedCodeTable jobId={jobId} files={codeFiles} />
-            </Collapse>
-        </Stack>
-    )
-}
-
 type StepCardProps = {
     study: Submitted<SelectedStudy>
-    job: LatestJobForStudy
     copy: DecisionCopy
     timestampDate: Date | string | null
-    codeFiles: CodeFileList
     banner: ReactNode
-    showStudyCode: boolean
+    showToggle: boolean
+    expanded: boolean
+    onToggle: () => void
 }
 
-function StepCard({ study, job, copy, timestampDate, codeFiles, banner, showStudyCode }: StepCardProps) {
+function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, onToggle }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -188,8 +171,58 @@ function StepCard({ study, job, copy, timestampDate, codeFiles, banner, showStud
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeSection isVisible={showStudyCode} jobId={job.id} codeFiles={codeFiles} />
+            <StudyCodeToggle isVisible={showToggle} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
+    )
+}
+
+// Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
+// this card reveals the proposal link, file table, and the matching "Hide" toggle.
+type SubmittedCodePanelProps = {
+    isVisible: boolean
+    expanded: boolean
+    jobId: string
+    codeFiles: CodeFileList
+    proposalHref: Route
+    onCollapse: () => void
+}
+
+const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
+    isVisible,
+    expanded,
+    jobId,
+    codeFiles,
+    proposalHref,
+    onCollapse,
+}) => {
+    if (!isVisible) return null
+    return (
+        <Collapse in={expanded}>
+            <Paper p="xxl">
+                <Stack gap="md">
+                    <Group justify="space-between" align="center" wrap="nowrap">
+                        <Title order={5}>Submitted code</Title>
+                        <Anchor
+                            href={proposalHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="sm"
+                            fw={700}
+                            display="inline-flex"
+                            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            data-testid="view-approved-initial-request"
+                        >
+                            View approved initial request
+                            <ArrowSquareOut size={14} />
+                        </Anchor>
+                    </Group>
+                    <Divider />
+                    <Text>View the code files that you uploaded to run against the dataset.</Text>
+                    <SubmittedCodeTable jobId={jobId} files={codeFiles} />
+                    <StudyCodeToggle expanded onClick={onCollapse} testId="study-code-toggle-collapse" />
+                </Stack>
+            </Paper>
+        </Collapse>
     )
 }
 
@@ -206,6 +239,7 @@ export function CodePostDecisionView({
     showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
+    const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, returnTo })
@@ -227,12 +261,20 @@ export function CodePostDecisionView({
             <Stack gap="xxl">
                 <StepCard
                     study={study}
-                    job={job}
                     copy={copy}
                     timestampDate={timestampDate}
-                    codeFiles={codeFiles}
                     banner={banner}
-                    showStudyCode={showStudyCode}
+                    showToggle={showStudyCode && !expanded}
+                    expanded={expanded}
+                    onToggle={toggle}
+                />
+                <SubmittedCodePanel
+                    isVisible={showStudyCode}
+                    expanded={expanded}
+                    jobId={job.id}
+                    codeFiles={codeFiles}
+                    proposalHref={proposalHref}
+                    onCollapse={collapse}
                 />
                 <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
                 <DecisionActions
