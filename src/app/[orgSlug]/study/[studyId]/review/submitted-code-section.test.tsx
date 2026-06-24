@@ -290,12 +290,17 @@ describe('SubmittedCodeSection — AI summary', () => {
         const initialReview = await getStudyReviewForJob(noReviewFixture.job.id)
         // No row ever lands (a hung generation). A short backstop measured from
         // submission exercises the escalation without faking timers (which break
-        // the shared DB pool mid-file).
+        // the shared DB pool mid-file). Anchor submittedAt to *now* rather than the
+        // fixture's createdAt: createdAt is already some ms in the past by the time
+        // we render, and under a slow/parallel run that gap can exceed timeoutMs, so
+        // the backstop would fire before the first assertion and the spinner would
+        // never show (a flake seen in CI). Using `now` guarantees a fresh 50ms window
+        // in which the spinner is visible before it flips to error.
         renderWithProviders(
             <AiSummaryCollapsible
                 studyJobId={noReviewFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={noReviewFixture.job.createdAt}
+                submittedAt={new Date()}
                 timeoutMs={50}
             />,
         )
