@@ -1,11 +1,12 @@
 'use client'
 
-import { Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
-import { CaretRight } from '@phosphor-icons/react/dist/ssr'
-import { useState } from 'react'
+import { ActionIcon, Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
+import { studyCodeURL } from '@/lib/paths'
 import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
@@ -68,6 +69,22 @@ function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
 
 const REVIEW_POLL_INTERVAL_MS = 5_000
 
+// A failed generation never writes a studyReview row — the deferred background
+// task swallows the error — so polling would otherwise spin forever. After this
+// long with no row, surface the error state instead.
+const AI_SUMMARY_TIMEOUT_MS = 30_000
+
+// Returns true once `ms` has elapsed since mount. Used to time out the AI
+// summary spinner so a never-arriving review surfaces as an error.
+function useElapsedTimeout(ms: number): boolean {
+    const [elapsed, setElapsed] = useState(false)
+    useEffect(() => {
+        const id = setTimeout(() => setElapsed(true), ms)
+        return () => clearTimeout(id)
+    }, [ms])
+    return elapsed
+}
+
 // The review row is written by a deferred background task triggered at code
 // submission (onStudyReviewRequested). Seed with the server-fetched value and
 // poll until a row lands so a reviewer who opens the page mid-generation sees
@@ -112,9 +129,17 @@ function AiSummaryPending() {
         <Group gap="xs" data-testid="ai-summary-pending">
             <Loader size="sm" />
             <Text c="dimmed" size="sm">
-                Review in progress…
+                AI Summary is loading
             </Text>
         </Group>
+    )
+}
+
+function AiSummaryError() {
+    return (
+        <Alert color="red" data-testid="ai-summary-error">
+            The AI summary failed to generate. Please reload the page.
+        </Alert>
     )
 }
 
@@ -137,22 +162,31 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-type AiSummaryProps = { studyJobId: string; initialReview: StudyReviewWithMeta | null }
+type AiSummaryProps = {
+    studyJobId: string
+    initialReview: StudyReviewWithMeta | null
+    // Overridable so tests can exercise the timeout without faking timers.
+    timeoutMs?: number
+}
 
-export function AiSummaryCollapsible({ studyJobId, initialReview }: AiSummaryProps) {
+export function AiSummaryCollapsible({ studyJobId, initialReview, timeoutMs = AI_SUMMARY_TIMEOUT_MS }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
+    const timedOut = useElapsedTimeout(timeoutMs)
     const summary = review?.report.codeExplanation ?? null
 
-    // A resolved poll (row landed, or errored out) is terminal — show the
-    // summary if present, otherwise the empty state. Until then we're still
-    // generating, so show the spinner.
-    const isResolved = error != null || review != null
-
+    // A landed row is terminal — show the summary if present, otherwise the
+    // empty state (the no-API-key / disabled-review placeholder path). While
+    // still pending we show the spinner, escalating to an error when the poll
+    // rejects or 30s pass with no row.
     const renderBody = () => {
-        if (!isResolved) return <AiSummaryPending />
-        if (!summary) return <AiSummaryEmpty />
-        return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        if (error != null) return <AiSummaryError />
+        if (review != null) {
+            if (!summary) return <AiSummaryEmpty />
+            return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        }
+        if (timedOut) return <AiSummaryError />
+        return <AiSummaryPending />
     }
 
     return (
@@ -178,26 +212,46 @@ function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     }
 }
 
-function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolean; onClick: () => void }) {
+function FileTab({
+    file,
+    isActive,
+    onClick,
+    studyJobId,
+}: {
+    file: CodeFile
+    isActive: boolean
+    onClick: () => void
+    studyJobId: string
+}) {
     const display = truncateFileName(file.name)
     return (
-        <UnstyledButton
-            onClick={onClick}
-            data-testid="study-code-file-tab"
-            data-active={isActive ? 'true' : 'false'}
-            title={file.name}
-            px="md"
-            py="xs"
+        <Group
+            gap={0}
+            wrap="nowrap"
+            align="center"
             style={{
                 backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
                 borderRadius: 0,
                 whiteSpace: 'nowrap',
+                paddingRight: 6,
             }}
         >
-            <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
-                {display}
-            </Text>
-        </UnstyledButton>
+            <UnstyledButton
+                onClick={onClick}
+                data-testid="study-code-file-tab"
+                data-active={isActive ? 'true' : 'false'}
+                title={file.name}
+                pl="md"
+                pr="xs"
+                py="xs"
+                style={{ whiteSpace: 'nowrap' }}
+            >
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
+                    {display}
+                </Text>
+            </UnstyledButton>
+            <CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} isActive={isActive} />
+        </Group>
     )
 }
 
@@ -205,10 +259,12 @@ function OverflowFilesMenu({
     hidden,
     activeFileName,
     onSelect,
+    studyJobId,
 }: {
     hidden: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
+    studyJobId: string
 }) {
     if (hidden.length === 0) return null
     const items = hidden.map((file) => (
@@ -218,6 +274,7 @@ function OverflowFilesMenu({
             data-testid="study-code-files-overflow-item"
             data-selected={file.name === activeFileName ? 'true' : 'false'}
             title={file.name}
+            rightSection={<CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} />}
         >
             <Text size="sm" component="span">
                 {truncateFileName(file.name)}
@@ -252,12 +309,14 @@ function FileTabsRow({
     activeFileName,
     onSelect,
     hidden,
+    studyJobId,
 }: {
     isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
     hidden: CodeFile[]
+    studyJobId: string
 }) {
     if (!isVisible) return null
     const tabs = visible.map((file) => (
@@ -266,13 +325,19 @@ function FileTabsRow({
             file={file}
             isActive={file.name === activeFileName}
             onClick={() => onSelect(file.name)}
+            studyJobId={studyJobId}
         />
     ))
 
     return (
         <Group gap="sm" wrap="nowrap" style={{ overflow: 'hidden' }} data-testid="study-code-file-tabs">
             {tabs}
-            <OverflowFilesMenu hidden={hidden} activeFileName={activeFileName} onSelect={onSelect} />
+            <OverflowFilesMenu
+                hidden={hidden}
+                activeFileName={activeFileName}
+                onSelect={onSelect}
+                studyJobId={studyJobId}
+            />
         </Group>
     )
 }
@@ -284,6 +349,33 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
         enabled: !!fileName,
         staleTime: Infinity,
     })
+}
+
+// stopPropagation: in the overflow menu this icon sits inside a selectable row,
+// so a download click shouldn't also switch the active file.
+function CodeFileDownloadButton({
+    studyJobId,
+    fileName,
+    isActive = false,
+}: {
+    studyJobId: string
+    fileName: string
+    isActive?: boolean
+}) {
+    return (
+        <ActionIcon
+            component="a"
+            href={studyCodeURL(studyJobId, fileName)}
+            download={fileName}
+            onClick={(e) => e.stopPropagation()}
+            variant="transparent"
+            size="sm"
+            aria-label={`Download ${fileName}`}
+            data-testid="study-code-download"
+        >
+            <DownloadSimpleIcon weight="fill" color={isActive ? 'white' : 'var(--mantine-color-charcoal-7)'} />
+        </ActionIcon>
+    )
 }
 
 function StudyCodeBody({
@@ -386,6 +478,7 @@ export function StudyCodeViewer({
                 activeFileName={activeFile?.name ?? null}
                 onSelect={selectFile}
                 hidden={hidden}
+                studyJobId={studyJobId}
             />
             <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
             <StudyCodeToggle

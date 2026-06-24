@@ -398,6 +398,62 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
+    it('opens image preview modal when clicking View on a PNG result', async () => {
+        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+        const fingerprint = await fingerprintKeyData(publicKey)
+        const writer = new ResultsWriter([{ publicKey, fingerprint }])
+
+        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+        const pngBuf = pngBytes.buffer.slice(pngBytes.byteOffset, pngBytes.byteOffset + pngBytes.length)
+
+        await writer.addFile('plot.png', pngBuf)
+        const zip = await writer.generate()
+
+        const file = {
+            blob: new Blob([zip as BlobPart]),
+            sourceId: '123',
+            fileType: 'ENCRYPTED-RESULT' as FileType,
+            metadata: [{ path: 'plot.png', bytes: 4 }],
+        }
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
+
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+        })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${job.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+
+        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
+        const privateKey = await readTestSupportFile('private_key.pem')
+
+        fireEvent.change(input, { target: { value: privateKey } })
+        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
+        })
+
+        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog')).toBeDefined()
+            expect(screen.getByAltText('plot.png')).toBeDefined()
+        })
+    })
+
     it('shows a green check for shared files and a red "not shared" X for withheld files after approval', async () => {
         const { study, job } = await insertTestStudyJobData({
             org,

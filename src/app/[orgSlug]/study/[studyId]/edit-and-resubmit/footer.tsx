@@ -41,9 +41,9 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             if (!saved) return
         }
         // The only legitimate entry to this page today is the "Edit & resubmit"
-        // button on /submitted. If we ever add deep links or a dashboard CTA,
-        // disambiguate the Back target with a ?from= query param (see
-        // review/page.tsx for prior art).
+        // button on /submitted, so Back always returns there. If we ever add deep
+        // links or a dashboard CTA, resolve the Back target from the study state
+        // machine rather than a ?from= param (the old query-param routing is gone).
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
     }
 
