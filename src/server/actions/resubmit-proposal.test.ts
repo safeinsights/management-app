@@ -122,6 +122,68 @@ describe('resubmitProposalAction', () => {
         expect(remaining).toHaveLength(0)
     })
 
+    it('deletes stale proposal-* yjs_document rows when resubmitting', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-proposal-yjs', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: `proposal-${study.id}-fields`, studyId: study.id, data: Buffer.from([0]) })
+            .execute()
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: `proposal-${study.id}-research-questions`, studyId: study.id, data: Buffer.from([0]) })
+            .execute()
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const remaining = await db
+            .selectFrom('yjsDocument')
+            .select('name')
+            .where('studyId', '=', study.id)
+            .where('name', 'like', `proposal-${study.id}-%`)
+            .execute()
+        expect(remaining).toHaveLength(0)
+    })
+
+    it('returns the submitter full name and reviewing org name for the stateless broadcast', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-meta', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        const result = actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const reviewerOrg = await db
+            .selectFrom('study')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select('org.name as orgName')
+            .where('study.id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(result.submitterFullName).toBe(user.fullName)
+        expect(result.submitterClerkId).toBe(user.clerkId)
+        expect(result.orgName).toBe(reviewerOrg.orgName)
+    })
+
     it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-2', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({

@@ -119,6 +119,53 @@ describe('generateAndStoreStudyReview', () => {
         expect(generateAnalysisMock).not.toHaveBeenCalled()
     })
 
+    it('persists a failure row and re-throws when generation throws', async () => {
+        const boom = new Error('model exploded')
+        generateAnalysisMock.mockRejectedValue(boom)
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+
+        // Re-throws so the deferred wrapper still captures + flushes to Sentry.
+        await expect(generateAndStoreStudyReview(job.id)).rejects.toThrow('model exploded')
+
+        const stored = await db
+            .selectFrom('studyReview')
+            .select(['report', 'summaryFailedAt'])
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored?.report).toBeNull()
+        expect(stored?.summaryFailedAt).toBeInstanceOf(Date)
+    })
+
+    it('re-runs generation when only a failed row exists (retry path)', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
+            .execute()
+
+        await generateAndStoreStudyReview(job.id)
+
+        // A failed row is not terminal — generation runs and overwrites it.
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const stored = await db
+            .selectFrom('studyReview')
+            .select(['report', 'summaryFailedAt'])
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored?.report).not.toBeNull()
+        expect(stored?.summaryFailedAt).toBeNull()
+    })
+
     it('writes the disabled-review placeholder and skips the agent when CLAUDE_API_KEY is unset', async () => {
         getConfigValueMock.mockResolvedValue(undefined)
         const org = await insertTestOrg()
