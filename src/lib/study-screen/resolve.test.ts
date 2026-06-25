@@ -89,6 +89,59 @@ describe('resolveScreen (researcher)', () => {
     })
 })
 
+// OTTER-614: the read-only researcher wizard can revisit an EARLIER step of an advanced study via
+// ?step=. The resolver caps the rule table at the step's rank, so a step the study has reached
+// surfaces that step's screen, while an unreached/unknown step has no effect (no forward jumps).
+describe('resolveScreen (researcher, step-aware wizard)', () => {
+    const resultsStudy = state({
+        status: 'APPROVED',
+        isDraft: false,
+        hasSubmittedCode: true,
+        codeDecision: 'CODE-APPROVED',
+        hasResults: true,
+        resultsApproved: true,
+    })
+
+    it('results study, step=code → walks back to the approved-code screen', () => {
+        expect(resolveScreen('researcher', resultsStudy, 'code', ctx).screen).toBe('code-approved')
+    })
+    it('results study, step=proposal → walks back to proposal-feedback', () => {
+        expect(resolveScreen('researcher', resultsStudy, 'proposal', ctx).screen).toBe('proposal-feedback')
+    })
+    it('results study, step=results → stays on study-results', () => {
+        expect(resolveScreen('researcher', resultsStudy, 'results', ctx).screen).toBe('study-results')
+    })
+    it('results study, no step → study-results (default precedence unchanged)', () => {
+        expect(resolveScreen('researcher', resultsStudy, undefined, ctx).screen).toBe('study-results')
+    })
+
+    it('step picks the correct code screen by state: changes-requested → code-feedback', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-CHANGES-REQUESTED',
+        })
+        expect(resolveScreen('researcher', s, 'code', ctx).screen).toBe('code-feedback')
+    })
+
+    it('cannot jump forward: code-approved study (no results) with step=results clamps to code-approved', () => {
+        const s = state({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' })
+        expect(resolveScreen('researcher', s, 'results', ctx).screen).toBe('code-approved')
+    })
+    it('cannot jump forward: pending-review study with step=code stays on study-overview', () => {
+        const s = state({ status: 'PENDING-REVIEW', isDraft: false })
+        expect(resolveScreen('researcher', s, 'code', ctx).screen).toBe('study-overview')
+    })
+
+    it('unknown step value is ignored (falls back to default screen)', () => {
+        expect(resolveScreen('researcher', resultsStudy, 'bogus', ctx).screen).toBe('study-results')
+    })
+    it('descriptor carries the requested step as metadata', () => {
+        expect(resolveScreen('researcher', resultsStudy, 'code', ctx).step).toBe('code')
+    })
+})
+
 // Reviewer rules are deferred (spec §13): resolveScreen('reviewer', …) currently falls through to
 // the researcher table rather than erroring. This pins that contract — when reviewer rules land,
 // this test should be updated, not silently start passing for the wrong reason.

@@ -18,7 +18,9 @@ export type ScreenId =
 
 // The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
 // buttons (nav is simple and stable, and the screen-selection logic is the part that needed
-// centralizing). `step` is harmless breadcrumb metadata.
+// centralizing). For researchers, `step` caps the rule table by rank so the read-only wizard can
+// revisit an earlier screen without jumping ahead of the study's true state (see
+// researcher-screen-rules.ts).
 export type ScreenDescriptor = {
     screen: ScreenId
     step?: string

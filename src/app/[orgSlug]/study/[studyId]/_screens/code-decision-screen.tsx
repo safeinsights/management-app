@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
@@ -22,6 +23,12 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
+    // OTTER-614: once results have landed, the code page is a read-only wizard step whose forward
+    // action advances to Step 5 (results) rather than ending at the dashboard.
+    const resultsHref = state.hasResults
+        ? (Routes.studyView({ orgSlug, studyId: study.id, returnTo, step: 'results' }) as Route)
+        : undefined
+
     return (
         <CodePostDecisionView
             orgSlug={orgSlug}
@@ -32,6 +39,7 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             dashboardHref={dashboardHref as Route}
             returnTo={returnTo}
             latestJobStatus={decisionStatus}
+            resultsHref={resultsHref}
             feedbackLoadError={feedbackLoadError}
             showStudyCode={!state.isExecuting}
         />

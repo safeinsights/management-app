@@ -162,8 +162,14 @@ the screen once code exists.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. The `?from=` query param is gone on **both** sides — revisitable pages no longer redirect,
-because the state machine derives the screen directly. A URL `step` is passed through as breadcrumb
-metadata.
+because the state machine derives the screen directly.
+
+**The `step` parameter (researcher read-only wizard).** For the researcher role, `step` caps the
+rule table by rank so an advanced study can revisit an earlier read-only screen (e.g.
+`/view?step=proposal`) without jumping ahead of its true state: `resolveScreen` takes the
+highest-precedence rule whose rank is `<= cap` and whose `when` holds, else falls back to the
+natural screen (so an unreached or unknown `step` is a no-op). Steps and ranks live in
+`researcher-screen-rules.ts`; the reviewer role ignores `step`.
 
 ### Screen registry (`_screens/registry.ts`)
 

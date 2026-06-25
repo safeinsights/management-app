@@ -5,6 +5,11 @@
 **Status:** Draft for review — derived from the AUTHORITATIVE legacy cascade in
 `src/app/[orgSlug]/study/[studyId]/view/page.tsx`, not the product-spec sketch.
 
+> **⚠️ Corrections #1 and #4 below were reversed by OTTER-614 (2026-06-25):** `/view` is now a
+> step-aware read-only wizard the researcher walks back and forth through (`?step=`), so
+> `proposal-feedback` has a forward again and `study-results` is no longer terminal. Current
+> behavior: `docs/study-screens-logic.md`, Stage 2. The rest of this sub-spec still stands.
+
 ## Why this exists
 
 Mid-execution we found the researcher-view migration is larger than the plan assumed: the `/view`
@@ -43,7 +48,9 @@ Notes on fidelity to the cascade:
 
 ## Corrections to `SCREEN_RULES` (Task 4 output) required
 
-1. **`proposal-feedback` must have NO `forward`.** Task 4 gave the CHANGE-REQUESTED
+1. **`proposal-feedback` must have NO `forward`.** _(Reversed by OTTER-614: an APPROVED study now
+   shows "Proceed to Step 3"; CHANGE-REQUESTED/REJECTED still have no forward.)_ Task 4 gave the
+   CHANGE-REQUESTED
    `proposal-feedback` rule a `forward: "Edit and resubmit" → studyEditAndResubmit`. That is WRONG:
    the legacy `/view` proposal view is **read-only with no button**. The "Edit and resubmit" CTA for
    a change-requested _proposal_ lives on the **`/submitted` page** (`proposal-submitted.tsx`),
@@ -59,7 +66,9 @@ Notes on fidelity to the cascade:
    agreements-proceed variant. (This is the crux of why `?from=agreements` is deletable.)
 3. **`code-approved` back → `/agreements`** (already set in Task 15a, correct: `/agreements` is
    revisitable and renders without bouncing).
-4. **`study-results` has no back** (already fixed: terminal; `/view` self-loop avoided).
+4. **`study-results` has no back** (already fixed: terminal; `/view` self-loop avoided). _(Reversed
+   by OTTER-614: results now has a "Previous" → `/view?step=code`; the `?step=` cap avoids the
+   self-loop.)_
 5. **`code-under-review` back → `/agreements`** (already set, correct).
 
 ## `ScreenComponentProps` is insufficient — screens load their own extras

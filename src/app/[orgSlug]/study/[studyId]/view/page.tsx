@@ -27,5 +27,6 @@ export default async function StudyView(props: {
         studyId,
         dashboardHref: dashboardHref as string,
         returnTo,
+        step: searchParams.step,
     })
 }

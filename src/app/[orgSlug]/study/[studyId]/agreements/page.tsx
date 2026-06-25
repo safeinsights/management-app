@@ -29,13 +29,22 @@ export default async function StudyAgreementsRoute(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Reviewer vs researcher is decided by the review ability, not org membership, so an SI admin
-    // (who can review any org's studies) follows the reviewer flow. A user with neither the review
-    // ability nor view access to the submitting org's study has no business here.
-    const isReviewer = session.can('review', toRecord('Study', { orgId: study.orgId }))
-    if (!isReviewer && !session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))) {
+    // Access: the user must be able to review (as the enclave) or view (as the submitting lab).
+    const canReview = session.can('review', toRecord('Study', { orgId: study.orgId }))
+    const canView = session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))
+    if (!canReview && !canView) {
         return <AccessDeniedAlert />
     }
+
+    // A single account can hold BOTH roles — researcher (lab) and reviewer (enclave) — e.g.
+    // single-user testing or SI admins. Review ability alone then can't say which flow the user is
+    // in, and treating them as a reviewer bounced a dual-role researcher — browsing under their own
+    // lab slug — into the DO /review view (OTTER-614). When the lab and enclave are genuinely
+    // distinct orgs, the URL scope decides: the submitting-lab slug is the researcher flow. When
+    // they collapse to one org (e.g. single-org fixtures), fall back to review ability. Mirrors the
+    // lab-vs-enclave check in researcher-profile/page.tsx.
+    const inResearcherScope = study.orgId !== study.submittedByOrgId && orgSlug === study.submittedByOrgSlug
+    const isReviewer = canReview && !inResearcherScope
 
     if (isReviewer) {
         // No code submitted yet — nothing to review, show proposal instead
@@ -67,16 +76,18 @@ export default async function StudyAgreementsRoute(props: {
     // screen authority (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    // Previous → /submitted (the approved-proposal page with its own "Proceed to step 3" button),
-    // NOT /view. /view re-resolves to proposal-feedback, which has no forward path here, so it would
-    // dead-end an approved-no-code researcher (recoverable only via browser back).
-    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId })
+    // OTTER-614: Previous → the read-only initial-request screen (/view?step=proposal), the current
+    // Cruising Fin proposal page with its own "Proceed to Step 3" forward path back here — not the
+    // legacy /submitted page. ?step=proposal pins the wizard's first step so an advanced study does
+    // not re-resolve forward to code/results.
+    const previousHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo, step: 'proposal' })
 
-    // OTTER-612: once code is submitted, Proceed lands on /view, which re-resolves to the code-status
-    // screen; before submission it targets the upload page.
+    // OTTER-614: once code is submitted, Proceed lands on the read-only code screen
+    // (/view?step=code), NOT the editable upload page — the researcher must not edit code at this
+    // stage. Before submission it still targets the upload page for the first-time code upload.
     const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
     const proceedHref = codeSubmitted
-        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
+        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo, step: 'code' })
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (

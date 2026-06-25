@@ -14,8 +14,11 @@ export async function renderStudyScreen(args: {
     studyId: string
     dashboardHref: string
     returnTo?: 'org'
+    // Read-only wizard step from ?step= (researcher /view): lets the resolver surface an earlier
+    // screen of an advanced study. Ignored when the study has not reached that step.
+    step?: string
 }): Promise<React.JSX.Element> {
-    const descriptor = resolveScreen(args.role, projectStudyState(args.raw), undefined, {
+    const descriptor = resolveScreen(args.role, projectStudyState(args.raw), args.step, {
         orgSlug: args.orgSlug,
         studyId: args.studyId,
         returnTo: args.returnTo,

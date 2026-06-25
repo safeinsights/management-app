@@ -516,8 +516,12 @@ describe('StudyViewPage', () => {
                 renderWithProviders(page!)
                 expect(screen.getByText('Study Status')).toBeInTheDocument()
                 expect(screen.getByText('Study Details')).toBeInTheDocument()
-                // Results screen is terminal — no "Previous" link
-                expect(screen.queryByRole('link', { name: /previous/i })).not.toBeInTheDocument()
+                // OTTER-614: results is no longer terminal — "Previous" walks back to the
+                // approved-code step (/view?step=code).
+                expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
+                    'href',
+                    `/${org.slug}/study/${study.id}/view?step=code`,
+                )
             },
         )
 
@@ -547,10 +551,10 @@ describe('StudyViewPage', () => {
             expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
 
-        // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no
-        // results yet) resolves to the code-approved screen → CodePostDecisionView, even if a stray
-        // legacy ?from= rides along.
-        it('routes a CODE-APPROVED study to CodePostDecisionView regardless of query params', async () => {
+        // /view honors only the ?step= wizard param (OTTER-614); any other query param is ignored. A
+        // CODE-APPROVED study (no results yet) resolves to the code-approved screen →
+        // CodePostDecisionView, even if a stray legacy ?from= rides along.
+        it('routes a CODE-APPROVED study to CodePostDecisionView regardless of unrelated query params', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -579,6 +583,65 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
+        })
+    })
+
+    // OTTER-614: an advanced study can revisit earlier read-only wizard steps via ?step=, and the
+    // code step gains a forward "Proceed to step 5" once results exist.
+    describe('step-aware read-only wizard (OTTER-614)', () => {
+        const seedResultsStudy = async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
+            await addJobStatus(study.id, 'FILES-APPROVED')
+            return { org, study }
+        }
+
+        it('?step=code on a results study shows the approved-code page with a "Proceed to step 5" forward', async () => {
+            const { org, study } = await seedResultsStudy()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ step: 'code' }),
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
+            expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?step=results`)
+
+            renderWithProviders(page!)
+            expect(screen.getByTestId('cta-proceed-to-results')).toHaveTextContent('Proceed to step 5')
+            expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        })
+
+        it('?step=proposal on a results study walks back to the proposal with a "Proceed to Step 3" forward', async () => {
+            const { org, study } = await seedResultsStudy()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: Promise.resolve({ step: 'proposal' }),
+            })
+            renderWithProviders(page!)
+
+            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+        })
+
+        it('without ?step= a results study still resolves to the terminal results screen', async () => {
+            const { org, study } = await seedResultsStudy()
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+            renderWithProviders(page!)
+
+            expect(screen.getByText('Study Details')).toBeInTheDocument()
+            expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
     })
 })
