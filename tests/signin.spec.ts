@@ -1,10 +1,10 @@
-import { clerk, CLERK_MFA_CODE, E2E_TIMEOUT, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
+import { CLERK_MFA_CODE, E2E_TIMEOUT, e2eSignOut, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
         test(`login as ${role}`, async ({ page }) => {
             await page.goto('/account/signin')
-            await clerk.signOut({ page }) // probably not needed
+            await e2eSignOut(page) // probably not needed
 
             const fillForm = async () => {
                 await page.getByLabel('email').fill(props.identifier)

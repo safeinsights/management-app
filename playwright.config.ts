@@ -3,9 +3,10 @@ import dotenv from 'dotenv'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
 import { IS_CI, E2E_TIMEOUT, E2E_TIMEOUT_LONG, E2E_EXPECT_TIMEOUT } from './tests/e2e.helpers'
 
-// Load the isolated test env (test port + separate DB + clerk-stub). Keeps the suite
-// independent of local dev (.env / port 4000 / real Clerk). On CI the equivalent
-// values are provided as job env, so a missing file here is fine.
+// Load the isolated test env (test port + separate DB). Keeps the suite independent of
+// local dev (.env / port 4000 / real Clerk). On CI the equivalent values are provided as
+// job env, so a missing file here is fine. Auth is faked in-app via E2E_FAKE_CLERK
+// (src/lib/clerk-fake) — no external Clerk server is involved.
 dotenv.config({ path: '.env.test' })
 
 // The Playwright-owned app instance runs on this port (dev stays on 4000).
@@ -52,9 +53,13 @@ export default defineConfig({
     /* Fail the build on CI if you accidentally left test.only in the source code. */
     forbidOnly: IS_CI,
 
-    retries: IS_CI ? 2 : 1,
-    /* Opt out of parallel tests on CI. */
-    workers: IS_CI ? 1 : undefined,
+    // No retries: a test that only passes on retry is a flaky test, and flaky tests are
+    // bugs to fix at the source — not to paper over. The suite must pass at retries=0.
+    retries: 0,
+    // Faked auth (src/lib/clerk-fake) + per-test uniquely-titled studies mean specs are
+    // data-isolated, so CI can run fully parallel too. Let Playwright pick the worker
+    // count from the runner's CPUs (override with the PLAYWRIGHT_WORKERS env if needed).
+    workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
     reporter: reporters,
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -71,33 +76,22 @@ export default defineConfig({
         timeout: E2E_EXPECT_TIMEOUT,
     },
 
-    // Playwright owns the testing-only stack: clerk-stub (4040) + the app (4100).
-    // Locally these are started on demand and reused if already up; the shared infra
-    // (Postgres + SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`.
-    // On CI the app is built+started by bin/ci-server, so only the stub is managed here.
+    // Playwright owns the testing-only app instance (4100): bin/app-test builds the app
+    // (with E2E_FAKE_CLERK so Clerk is faked in-process — no external auth server) and
+    // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
+    // compilation is slow and unstable under the suite. The shared infra (Postgres +
+    // SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`. On CI the app is
+    // built+started by bin/ci-server, so no webServer is managed here. The timeout covers a
+    // full `next build`; `reuseExistingServer` lets you keep a manually-started server
+    // (./bin/app-test, or ./bin/app-test --no-build) running across iterations.
     webServer: IS_CI
-        ? [
-              {
-                  command: 'pnpm run clerk-stub:test',
-                  url: process.env.E2E_STUB_HEALTH_URL ?? 'https://clerk.lvh.me:4040/health',
-                  reuseExistingServer: false,
-                  timeout: 120_000,
-                  ignoreHTTPSErrors: true,
-              },
-          ]
+        ? []
         : [
-              {
-                  command: 'pnpm run clerk-stub:test',
-                  url: process.env.E2E_STUB_HEALTH_URL ?? 'https://clerk.lvh.me:4040/health',
-                  reuseExistingServer: true,
-                  timeout: 120_000,
-                  ignoreHTTPSErrors: true,
-              },
               {
                   command: 'pnpm run app:test',
                   url: E2E_BASE_URL,
                   reuseExistingServer: true,
-                  timeout: 180_000,
+                  timeout: 300_000,
               },
           ],
 
@@ -106,26 +100,18 @@ export default defineConfig({
     /* Configure projects for major browsers */
     projects: [
         {
-            name: 'global setup',
-            testMatch: /playwright\.setup\.ts/,
-            teardown: 'global teardown',
-        },
-        {
-            // Signs in each role once and writes tests/.auth/<role>.json. Specs opt in
-            // with `test.use({ storageState: authFileFor(role) })` to start authenticated.
+            // Mints the __e2e_role cookie per role and writes tests/.auth/<role>.json.
+            // Specs opt in with `test.use({ storageState: authFileFor(role) })` to start
+            // authenticated. No global setup needed — DB users/orgs are seeded by
+            // `pnpm test:e2e:up` (db:migrate against si_mgmnt_test) and auth is faked.
             name: 'auth setup',
             testMatch: /auth\.setup\.ts/,
             use: { ...devices['Desktop Chrome'] },
-            dependencies: ['global setup'],
         },
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['auth setup'],
-        },
-        {
-            name: 'global teardown',
-            testMatch: /playwright\.teardown\.ts/,
         },
         // {
         //     name: 'firefox',

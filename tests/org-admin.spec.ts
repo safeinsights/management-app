@@ -101,10 +101,15 @@ test.describe('Organization Admin', () => {
         const codeEnvName = `E2E Code Env ${faker.string.alpha(6)}`
         const codeEnvIdentifier = `e2e_${faker.string.alpha(6).toLowerCase()}`
 
-        // Open the "Add Code Environment" modal
+        // Open the "Add Code Environment" modal. A React Query refetch of the org's
+        // code-env list (the settings page re-renders as its data lands) can detach the
+        // button mid-click, so retry the click until the modal actually opens.
         const addButton = page.getByRole('button', { name: /add code environment/i })
-        await addButton.click()
-        await expect(page.getByRole('heading', { name: /add code environment/i })).toBeVisible()
+        const addHeading = page.getByRole('heading', { name: /add code environment/i })
+        await expect(async () => {
+            await addButton.click()
+            await expect(addHeading).toBeVisible()
+        }).toPass()
 
         // Fill in code environment details
         await page.getByLabel(/identifier/i).fill(codeEnvIdentifier)

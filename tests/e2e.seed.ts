@@ -159,10 +159,15 @@ async function insertStudy(overrides: StudyOverrides) {
             containerLocation: 'test-container',
             title: overrides.title,
             piName: 'E2E Test PI',
+            // The proposal form requires a valid piUserId (uuid); without it the
+            // edit-and-resubmit form is invalid and its submit button stays disabled.
+            piUserId: researcherId,
             status,
             language: overrides.language ?? 'R',
             dataSources: ['all'],
-            datasets: overrides.datasets ?? null,
+            // The proposal form requires at least one dataset, so the edit-and-resubmit
+            // form stays valid when pre-filled. Seed a concrete value, not null.
+            datasets: overrides.datasets ?? ['Student Activity Logs'],
             outputMimeType: 'application/zip',
             submittedAt: overrides.submittedAt === undefined ? new Date() : overrides.submittedAt,
             approvedAt: overrides.approvedAt ?? null,
@@ -183,10 +188,24 @@ async function insertStudy(overrides: StudyOverrides) {
 
 // A submitted job with a MAIN-CODE file and the given status history. `statuses`
 // are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
+// A landed AI-summary report. In prod this is written by a deferred background task
+// (onStudyReviewRequested) at code submission; the reviewer code-review screen polls
+// study_review until a row lands and gates the feedback editor on it. Without this the
+// UI is stuck on "AI Summary is loading", so seeded code-submitted jobs insert one.
+function buildReviewReport() {
+    return {
+        proposalSummary: 'Seeded proposal summary for e2e.',
+        codeExplanation: 'Seeded AI summary: the code reads the dataset and aggregates results.',
+        resultsSummary: 'Seeded results summary.',
+        alignmentCheck: { isAligned: true, findings: [] },
+        complianceCheck: { isCompliant: true, findings: [] },
+    }
+}
+
 async function insertSubmittedJob(
     studyId: string,
     statuses: StudyJobStatus[],
-    { withMainCode = true }: { withMainCode?: boolean } = {},
+    { withMainCode = true, withReview = true }: { withMainCode?: boolean; withReview?: boolean } = {},
 ) {
     const userId = await resolveUserId('researcher')
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
@@ -200,6 +219,15 @@ async function insertSubmittedJob(
                 path: `studies/${studyId}/${job.id}/main.r`,
                 fileType: 'MAIN-CODE',
             })
+            .execute()
+    }
+
+    // Land a terminal study_review row so the reviewer code-review screen's AI-summary
+    // poll resolves and the feedback editor renders (mirrors the deferred prod task).
+    if (withReview) {
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: sql`${JSON.stringify(buildReviewReport())}::jsonb` })
             .execute()
     }
 
