@@ -180,6 +180,7 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
 
         expect(result.submitterFullName).toBe(user.fullName)
+        expect(result.submitterClerkId).toBe(user.clerkId)
         expect(result.orgName).toBe(reviewerOrg.orgName)
     })
 

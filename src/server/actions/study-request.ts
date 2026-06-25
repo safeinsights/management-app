@@ -737,11 +737,15 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // It earns its place by splitting the diagnostics, distinguishing "not your
         // lab / doesn't exist" from "already submitted (race)" so each case gets a
         // distinct user-facing message. Don't delete it to "simplify".
+        // org.name is fetched here (joined on the reviewing org, study.orgId) so the
+        // `proposal-submitted` broadcast below can name the reviewing org in peers'
+        // toast without a second round-trip.
         const study = await db
             .selectFrom('study')
-            .select(['id', 'status'])
-            .where('id', '=', studyId)
-            .where('submittedByOrgId', 'in', labScope)
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
+            .where('study.id', '=', studyId)
+            .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
@@ -820,19 +824,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .execute()
 
         // Metadata for the `proposal-submitted` stateless broadcast: peers still
-        // editing get a toast naming the submitter and the reviewing org. Mirrors
-        // finalizeStudySubmissionAction's return.
+        // editing get a toast naming the submitter, and the client uses clerkId to
+        // identify the submitter's own session. Mirrors finalizeStudySubmissionAction.
         const submitter = await db
             .selectFrom('user')
-            .select(['fullName'])
+            .select(['fullName', 'clerkId'])
             .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
-
-        const reviewerOrg = await db
-            .selectFrom('study')
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName'])
-            .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow()
 
         revalidatePath('/dashboard')
@@ -844,7 +841,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         return {
             studyId,
             submitterFullName: submitter.fullName,
-            orgName: reviewerOrg.orgName,
+            submitterClerkId: submitter.clerkId,
+            orgName: study.orgName,
         }
     })
 

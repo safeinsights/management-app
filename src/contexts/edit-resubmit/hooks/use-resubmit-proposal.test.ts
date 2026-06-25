@@ -110,6 +110,8 @@ describe('useResubmitProposal', () => {
         expect(payload.submittedByTabId).toBe(tabSessionId)
         expect(typeof payload.submittedByName).toBe('string')
         expect(payload.submittedByName.length).toBeGreaterThan(0)
+        expect(typeof payload.submittedByClerkId).toBe('string')
+        expect(payload.submittedByClerkId.length).toBeGreaterThan(0)
         expect(payload.orgName).toBe(enclave.name)
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })), {

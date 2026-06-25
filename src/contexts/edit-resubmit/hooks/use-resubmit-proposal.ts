@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
@@ -24,7 +23,6 @@ interface UseResubmitProposalOptions {
 export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId }: UseResubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { user } = useUser()
 
     const mutation = useMutation({
         mutationFn: async () =>
@@ -38,16 +36,11 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
         onSuccess: (result) => {
             form.resetDirty()
             noteForm.resetDirty()
-            const submittedByClerkId = user?.id
-            if (!submittedByClerkId) {
-                router.push(Routes.studySubmitted({ orgSlug, studyId }))
-                return
-            }
             const event: SubmissionEvent = {
                 type: 'proposal-submitted',
                 studyId,
                 submittedByTabId: tabSessionId,
-                submittedByClerkId,
+                submittedByClerkId: result.submitterClerkId,
                 submittedByName: result.submitterFullName,
                 orgName: result.orgName,
             }
