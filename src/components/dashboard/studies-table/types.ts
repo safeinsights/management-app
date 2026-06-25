@@ -42,6 +42,9 @@ export type StudiesTableProps = {
 // Status changes that indicate job is in a final state (no refresh needed)
 export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
+// Proposal statuses where the researcher is awaiting a DO decision — keep auto-refresh polling.
+export const ACTIVE_PROPOSAL_STATUS: StudyStatus[] = ['PENDING-REVIEW']
+
 // Status changes that represent reviewer approval/rejection actions (for filtering user's reviewed studies)
 export const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [
     'CODE-APPROVED',

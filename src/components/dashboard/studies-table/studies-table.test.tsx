@@ -93,6 +93,10 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
 }))
 
+// The action's real return type carries many more fields than these fixtures need; the default
+// factory mock above sidesteps that, but mockResolvedValueOnce is strict, so cast through it.
+type OrgStudies = Awaited<ReturnType<typeof fetchStudiesForOrgAction>>
+
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
         isLoaded: true,
@@ -226,5 +230,46 @@ describe('Studies Table', () => {
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()
         })
+    })
+
+    it('keeps auto-refresh active for a PENDING-REVIEW proposal with no jobs', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([
+            { ...mockStudies[2], status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] },
+        ] as unknown as OrgStudies)
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/seconds until refresh/i)).toBeDefined()
+        expect(screen.queryByText(/Reload inactive/i)).toBeNull()
+    })
+
+    it('stops auto-refresh once every study is in a final state', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([
+            {
+                ...mockStudies[1],
+                status: 'APPROVED' as StudyStatus,
+                jobStatusChanges: [{ status: 'FILES-APPROVED' as StudyJobStatus, userId: null }],
+            },
+        ] as unknown as OrgStudies)
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
     })
 })

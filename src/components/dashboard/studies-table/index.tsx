@@ -15,6 +15,7 @@ import {
 import { StudyRow } from './study-row'
 import { StudiesTableView } from './studies-table-view'
 import {
+    ACTIVE_PROPOSAL_STATUS,
     Audience,
     FINAL_STATUS,
     REVIEWER_ACTION_STATUSES,
@@ -46,7 +47,11 @@ function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userI
 }
 
 function needsRefresh(studies: StudyRowType[]): boolean {
-    return studies.some((study) => study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)))
+    return studies.some(
+        (study) =>
+            ACTIVE_PROPOSAL_STATUS.includes(study.status) ||
+            study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+    )
 }
 
 export function StudiesTable({
