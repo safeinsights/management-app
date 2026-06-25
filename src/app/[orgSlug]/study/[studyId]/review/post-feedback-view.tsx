@@ -141,7 +141,6 @@ function GoToDashboardButton() {
 }
 
 type SubmittedCodePanelProps = {
-    isVisible: boolean
     orgSlug: string
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy | null
@@ -152,8 +151,12 @@ type SubmittedCodePanelProps = {
 // The full "Submitted code" section (datasets, AI summary, security scan log, code viewer)
 // is the same one shown during active review. The raw code stays collapsed behind its toggle
 // (codeInitiallyExpanded={false}); the summary and scan results render up front.
-function SubmittedCodePanel({ isVisible, orgSlug, study, job, review, scan }: SubmittedCodePanelProps) {
-    if (!isVisible || !job || !scan) return null
+function SubmittedCodePanel({ orgSlug, study, job, review, scan }: SubmittedCodePanelProps) {
+    // scan-presence is coupled to job-presence: the caller fetches both together and
+    // jobScanResultForJob never returns null (it falls back to {status:'IN-PROGRESS', logFile:null}),
+    // so scan is null exactly when job is null. The !scan check is the type-narrowing that lets us
+    // pass a non-null scan to SubmittedCodeSection; in practice it only fires on the null-job branch.
+    if (!job || !scan) return null
     return (
         <SubmittedCodeSection
             orgSlug={orgSlug}
@@ -202,7 +205,7 @@ function CodeSection({
                 timestampLabel={timestampLabel}
                 banner={banner}
             />
-            <SubmittedCodePanel isVisible orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
+            <SubmittedCodePanel orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
         </>
     )
 }

@@ -1,14 +1,14 @@
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { isCodeDecisionStatus } from '@/lib/study-job-status'
+import { projectStudyState } from '@/lib/study-screen'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import { getStudyReviewForJob, jobScanResultForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
-export async function ReviewerCodeFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
+export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
@@ -34,13 +34,17 @@ export async function ReviewerCodeFeedbackScreen({ study, orgSlug }: ScreenCompo
             />
         )
     }
-    const fallbackStatus = job?.statusChanges.find((s) => isCodeDecisionStatus(s.status))
+    // Source the live decision from the state machine (the same projection that routed us here:
+    // reviewer-screen-rules' `codeDecision !== null`), not a hand-rolled status walk. This tracks
+    // count-based liveness and decision priority, and looking the timestamp up by the resolved
+    // decision keeps us on the current decision rather than the first one recorded on the job.
+    const { codeDecision } = projectStudyState(raw)
+    const decisionTimestamp = codeDecision
+        ? job?.statusChanges.find((s) => s.status === codeDecision)?.createdAt
+        : undefined
     const fallback =
-        fallbackStatus && isCodeDecisionStatus(fallbackStatus.status)
-            ? {
-                  decision: CODE_DECISION_TO_REVIEW_DECISION[fallbackStatus.status],
-                  timestamp: fallbackStatus.createdAt,
-              }
+        codeDecision && decisionTimestamp
+            ? { decision: CODE_DECISION_TO_REVIEW_DECISION[codeDecision], timestamp: decisionTimestamp }
             : undefined
     return (
         <PostFeedbackView
