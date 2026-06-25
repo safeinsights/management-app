@@ -464,8 +464,10 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
 }
 
 export type StudyReviewWithMeta = {
-    report: AnalysisReport
+    // null on a failure row (summaryFailedAt set) — generation produced no report.
+    report: AnalysisReport | null
     createdAt: Date
+    summaryFailedAt: Date | null
     files: { name: string; fileType: FileType }[]
 }
 
@@ -504,8 +506,9 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
-            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
             'createdAt',
+            'summaryFailedAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')

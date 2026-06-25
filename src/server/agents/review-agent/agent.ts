@@ -3,7 +3,7 @@ import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
 import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
 // Realistic worst case is ~1.5K tokens (2 narrative fields × ~150 words ≈
 // 400 tokens, plus ~10 findings per check × 2 checks × ~50 tokens). 16K
 // gives ~10× headroom — schema property `description` strings carry the

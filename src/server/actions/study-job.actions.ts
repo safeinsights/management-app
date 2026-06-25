@@ -4,7 +4,7 @@ import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
-import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
+import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { Action, z } from './action'
@@ -112,6 +112,26 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId } }) => {
         return await getStudyReviewForJob(studyJobId)
+    })
+
+// Reviewer-triggered retry after a failed summary generation. Clears the
+// failure row so the generator re-enters cleanly, then re-fires the same
+// deferred task code submission uses. Only a failed row is cleared — a
+// successful review is left untouched so a stray retry can't wipe it.
+export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId }, db }) => {
+        await db
+            .deleteFrom('studyReview')
+            .where('studyJobId', '=', studyJobId)
+            .where('summaryFailedAt', 'is not', null)
+            .execute()
+        onStudyReviewRequested({ studyJobId })
     })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')

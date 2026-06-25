@@ -279,8 +279,9 @@ export interface StudyProposalComment {
 export interface StudyReview {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    report: Json
+    report: Json | null
     studyJobId: string
+    summaryFailedAt: Timestamp | null
 }
 
 export interface StudyReviewComment {

@@ -118,14 +118,28 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
 
     const existing = await db
         .selectFrom('studyReview')
-        .select('id')
+        .select(['id', 'summaryFailedAt'])
         .where('studyJobId', '=', studyJobId)
         .executeTakeFirst()
-    if (existing) {
+    // A prior failure row is not terminal: a retry clears it and re-enters here.
+    // Only a successful (or placeholder) row short-circuits.
+    if (existing && existing.summaryFailedAt == null) {
         logger.info(`Study review already exists, skipping`, { studyJobId })
         return
     }
 
+    try {
+        await runStudyReview(studyJobId)
+    } catch (error) {
+        // Record the failure so the reviewer-side poll can tell "failed" from
+        // "still generating" and surface a retry. Re-throw so the deferred
+        // wrapper still captures + flushes to Sentry.
+        await persistFailure(studyJobId)
+        throw error
+    }
+}
+
+async function runStudyReview(studyJobId: string): Promise<void> {
     const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
     if (!apiKey) {
         logger.warn('CLAUDE_API_KEY not configured — writing disabled-review placeholder', { studyJobId })
@@ -150,9 +164,20 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
 }
 
 async function persistReport(studyJobId: string, report: AnalysisReport): Promise<void> {
+    // A retry may have left a cleared failure row; overwrite it with the result.
     await db
         .insertInto('studyReview')
-        .values({ studyJobId, report: JSON.stringify(report) })
-        .onConflict((oc) => oc.column('studyJobId').doNothing())
+        .values({ studyJobId, report: JSON.stringify(report), summaryFailedAt: null })
+        .onConflict((oc) =>
+            oc.column('studyJobId').doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
+        )
+        .execute()
+}
+
+async function persistFailure(studyJobId: string): Promise<void> {
+    await db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: new Date() })
+        .onConflict((oc) => oc.column('studyJobId').doUpdateSet({ report: null, summaryFailedAt: new Date() }))
         .execute()
 }
