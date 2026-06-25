@@ -35,7 +35,11 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
-    const hasChanges = noteForm.values.resubmissionNote.length > 0 || filesEdited
+    // OTTER-558: gate on edits made THIS session, not on content present on load. The note form is
+    // seeded from a persisted draft, so `resubmissionNote.length > 0` is already true on reopen and
+    // would show "Save and exit" before any real edit (the same defect `filesEdited` fixes for files).
+    // `isDirty` compares against the seeded initial value, so it flips only on a real session edit.
+    const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
 
     const handleCancel = () => {
         if (isBusy) return
