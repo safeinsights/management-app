@@ -78,7 +78,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 mainFileName={ide.mainFile}
                 fileNames={ide.files}
                 hasFiles={ide.files.length > 0}
-                filesChanged={ide.filesChanged}
+                filesEdited={ide.userEditedFiles}
             />
         </Stack>
     )
