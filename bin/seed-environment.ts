@@ -493,7 +493,12 @@ async function seedEnvironment() {
         process.exit(1)
     }
 
-    const clerk = createClerkClient({ secretKey })
+    // Honor CLERK_API_URL so the seeder can target a non-default Clerk endpoint
+    // (e.g. the local clerk-stub used by the e2e stack). @clerk/backend does NOT
+    // read this from env on its own — it must be passed explicitly, otherwise the
+    // client falls back to api.clerk.com and a stub secret key is rejected (401).
+    const apiUrl = process.env.CLERK_API_URL
+    const clerk = createClerkClient(apiUrl ? { secretKey, apiUrl } : { secretKey })
 
     await setupOrganizations()
 

@@ -8,7 +8,13 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
     if (PROD_BUILD) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
 
     const protectedEmails = getProtectedTestEmails()
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+    // Honor CLERK_API_URL so e2e (clerk-stub) teardown targets the stub, not real Clerk.
+    // @clerk/backend doesn't read it from env — pass it explicitly (falls back to the
+    // default api.clerk.com when unset, i.e. the real-Clerk CI cleanup path).
+    const apiUrl = process.env.CLERK_API_URL
+    const clerk = createClerkClient(
+        apiUrl ? { secretKey: process.env.CLERK_SECRET_KEY, apiUrl } : { secretKey: process.env.CLERK_SECRET_KEY },
+    )
 
     const pageSize = 100
     let offset = 0

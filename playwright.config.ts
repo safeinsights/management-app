@@ -79,7 +79,7 @@ export default defineConfig({
         ? [
               {
                   command: 'pnpm run clerk-stub:test',
-                  url: 'https://localhost:4040/health',
+                  url: process.env.E2E_STUB_HEALTH_URL ?? 'https://clerk.lvh.me:4040/health',
                   reuseExistingServer: false,
                   timeout: 120_000,
                   ignoreHTTPSErrors: true,
@@ -88,7 +88,7 @@ export default defineConfig({
         : [
               {
                   command: 'pnpm run clerk-stub:test',
-                  url: 'https://localhost:4040/health',
+                  url: process.env.E2E_STUB_HEALTH_URL ?? 'https://clerk.lvh.me:4040/health',
                   reuseExistingServer: true,
                   timeout: 120_000,
                   ignoreHTTPSErrors: true,

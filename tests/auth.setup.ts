@@ -8,16 +8,7 @@
 // from the saved state here.
 
 import { test as setup } from '@playwright/test'
-import {
-    authFileFor,
-    clerk,
-    fs,
-    goto,
-    path,
-    setupClerkTestingToken,
-    signInAsRole,
-    type TestingRole,
-} from './e2e.helpers'
+import { authFileFor, clerk, fs, goto, path, signInAsRole, type TestingRole } from './e2e.helpers'
 
 const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin']
 
@@ -26,7 +17,6 @@ for (const role of ROLES) {
         const authFile = authFileFor(role)
         await fs.promises.mkdir(path.dirname(authFile), { recursive: true })
 
-        await setupClerkTestingToken({ page })
         // Start from a known signed-out state so a stale session from a prior run
         // can't make us save the wrong user's storageState.
         await goto(page, '/account/signin')

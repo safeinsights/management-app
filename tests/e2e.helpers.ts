@@ -1,4 +1,3 @@
-import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import { E2E_TIMEOUT_LONG } from './common.helpers'
 import { faker } from '@faker-js/faker'
 import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
@@ -7,7 +6,7 @@ import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-export { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
+export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
 export { fs, path }
 
@@ -120,25 +119,11 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 
 // --- Clerk testing helpers ---
 //
-// Clerk's testing infrastructure (setupClerkTestingToken) intercepts all Clerk
-// FAPI requests via a Playwright route handler that proxies them with a testing
-// token. This proxy has no fetch timeout — if any single Clerk API request
-// hangs (intermittent on their end), the route handler blocks forever and
-// window.Clerk.loaded never becomes true.
-//
-// This causes two categories of flakiness in tests that sign in/out:
-//
-// 1. visitClerkProtectedPage hangs: clerkLoaded() waits for window.Clerk.loaded
-//    which depends on the Clerk SDK completing its initialization requests. When
-//    one of those requests hangs in the proxy, the whole sign-in flow stalls.
-//
-// 2. Stale SDK state after sign-out: Clerk's signOut() can also hang (same root
-//    cause). When it does, the SDK is left in a broken state that blocks any
-//    subsequent sign-in on the same page/context. Tests that sign out then sign
-//    in as a different user must use a fresh browser context to avoid this.
-//
-// The production code (use-sign-out.ts) mitigates issue #2 with a Promise.race
-// timeout on signOut() so the redirect always fires regardless.
+// The e2e stack runs against clerk-stub (a local Clerk impostor), not real Clerk, so
+// the suite does NOT use setupClerkTestingToken — that exists to bypass real Clerk's
+// bot protection, which the stub has none of. Removing it also removes the route-handler
+// proxy that, against real Clerk, could hang a sign-in when a FAPI request stalled.
+// Sessions are established once per role in auth.setup.ts and restored via storageState.
 
 const clerkLoaded = async (page: Page) => {
     await page.waitForFunction(() => window.Clerk !== undefined)
@@ -259,7 +244,6 @@ type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Pa
 export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
     const creds = TestingUsers[role]
 
-    await setupClerkTestingToken({ page })
     // load a page to initialize Clerk
     await page.goto('/')
     const currentEmail = await clerkLoaded(page)
@@ -282,11 +266,10 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
 }
 
 // Navigate to a protected URL assuming the session is already restored from
-// storageState. Re-applies the Clerk testing token (a per-page route handler, not
-// stored state) and waits for hydration. This is the fast path that replaces
+// storageState, then wait for hydration. The fast path that replaces
 // visitClerkProtectedPage once a spec declares `test.use({ storageState })`.
+// No testing token needed — clerk-stub has no bot protection to bypass.
 export const visitAsRole = async (page: Page, url: string) => {
-    await setupClerkTestingToken({ page })
     await goto(page, url)
 }
 
@@ -312,17 +295,16 @@ export const openContextAsRole = async (
 }
 
 // Opens a context that restores `role`'s saved session from storageState (no
-// sign-in), applies the Clerk testing token, and returns the context + page. The
-// storageState file must exist (written by the `auth setup` project). Caller closes
-// the context. This is the fast multi-role primitive: a single seeded test acts as
-// researcher and reviewer by opening one of these per role instead of re-signing-in.
+// sign-in) and returns the context + page. The storageState file must exist (written
+// by the `auth setup` project). Caller closes the context. This is the fast
+// multi-role primitive: a single seeded test acts as researcher and reviewer by
+// opening one of these per role instead of re-signing-in.
 export const openContextWithSavedRole = async (
     browser: Browser,
     role: TestingRole,
 ): Promise<{ context: BrowserContext; page: Page }> => {
     const context = await browser.newContext({ storageState: authFileFor(role) })
     const page = await context.newPage()
-    await setupClerkTestingToken({ page })
     return { context, page }
 }
 

@@ -17,6 +17,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Load the test env so db:migrate's Clerk-side seeding (bin/seed-environment.ts) targets
+# clerk-stub, not real Clerk. Without this it would read .env and seed the real instance.
+if [ -f .env.test ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env.test
+    set +a
+fi
+export NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$(mkcert -CAROOT 2>/dev/null)/rootCA.pem}"
+
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5432}"
@@ -75,7 +85,26 @@ if ! psql "$PSQL_BASE" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}
     createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER_DEFAULT:+-U "$PGUSER_DEFAULT"} "$TEST_DB"
 fi
 
-note "Migrating + seeding ${TEST_DB}…"
+# clerk-stub must be up before db:migrate so seed-environment can create the Clerk-side
+# test users against it. Start it in the background if it isn't already; Playwright will
+# reuse the same running stub (reuseExistingServer).
+STUB_HEALTH="${E2E_STUB_HEALTH_URL:-https://clerk.lvh.me:4040/health}"
+if ! curl -sf --cacert "${NODE_EXTRA_CA_CERTS}" "$STUB_HEALTH" 2>/dev/null | grep -q '"ok":true'; then
+    note "Starting clerk-stub…"
+    pnpm run clerk-stub:test >/tmp/clerk-stub.log 2>&1 &
+    for i in $(seq 1 60); do
+        curl -sf --cacert "${NODE_EXTRA_CA_CERTS}" "$STUB_HEALTH" 2>/dev/null | grep -q '"ok":true' && break
+        [ "$i" = "60" ] && {
+            note "ERROR: clerk-stub did not become healthy. Log:"
+            tail -30 /tmp/clerk-stub.log
+            exit 1
+        }
+        sleep 1
+    done
+fi
+note "clerk-stub healthy"
+
+note "Migrating + seeding ${TEST_DB} (Clerk side -> stub)…"
 DATABASE_URL="$TEST_DATABASE_URL" pnpm run db:migrate
 
 note "Infra ready. Running e2e against ${TEST_DATABASE_URL}"
