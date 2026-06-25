@@ -2,33 +2,25 @@ import {
     E2E_TIMEOUT,
     E2E_TIMEOUT_LONG,
     expect,
-    fillLexicalField,
-    openContextAsRole,
+    openContextWithSavedRole,
     test,
-    visitClerkProtectedPage,
+    waitForOpenstaxOrgInClerkMetadata,
     type Page,
 } from './e2e.helpers'
+import { seedCodeSubmitted } from './e2e.seed'
 
-// OTTER-544: two reviewers in the same DO editing live, one submits, the other
-// is kicked out. The only behaviour that requires real WebSocket + Hocuspocus +
-// Yjs + Lexical + action + redirect, across two browser contexts. Unit tests
-// already cover auth, action enforcement, payload shape, Y.Map peer sync via
-// mocked Hocuspocus, post-feedback rendering, and the reconnect-poll predicate;
-// this spec deliberately does not duplicate any of that.
+// OTTER-544: two reviewers in the same DO editing live, one submits, the other is
+// kicked out. The only behaviour that requires real WebSocket + Hocuspocus + Yjs +
+// Lexical + action + redirect, across two browser contexts. Unit tests already cover
+// auth, action enforcement, payload shape, Y.Map peer sync via mocked Hocuspocus,
+// post-feedback rendering, and the reconnect-poll predicate; this spec deliberately
+// does not duplicate any of that.
 //
-// Single reviewer credential constraint: the same Clerk reviewer signs in to
-// two separate browser contexts. Each provider generates its own tabSessionId
-// (random UUID), so the submission-listener's own-tab-skip still fires correctly
-// across the two contexts. The "toast names a different user" cosmetic detail
-// is unit-tested via the broadcast payload assertion in use-code-review-mutation.
-
-// Seeding through the UI (researcher proposes, reviewer approves, researcher
-// uploads code) plus the two-context collaboration steps put the test around
-// 1-2 min; give it a generous budget on top of Playwright's default.
-// eslint-disable-next-line no-empty-pattern
-test.beforeEach(async ({}, testInfo) => {
-    testInfo.setTimeout(testInfo.timeout + 120_000)
-})
+// The CODE-SUBMITTED precondition is seeded directly (no UI propose/approve/upload),
+// so the test opens straight into the two-context collaboration. Both contexts
+// restore the same reviewer session from storageState; each provider still generates
+// its own tabSessionId (random UUID), so the submission-listener's own-tab-skip fires
+// correctly across the two contexts.
 
 // Realistic narrative feedback used to exercise the editor end-to-end.
 const FEEDBACK_TEXT =
@@ -36,149 +28,11 @@ const FEEDBACK_TEXT =
 
 const CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection'] as const
 
-// ---------------------------------------------------------------------------
-// Seed helpers (slimmed-down adaptation of helpers in tests/study-flow.spec.ts;
-// kept inline to keep this spec self-contained and avoid refactor churn).
-// ---------------------------------------------------------------------------
-
-async function createProposalAsResearcher(page: Page, studyTitle: string): Promise<void> {
-    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-
-    await page.getByTestId('new-study').first().click()
-
-    await expect(page.getByText(/^STEP 1A$/i)).toBeVisible()
-    const orgSelect = page.getByTestId('org-select')
-    await orgSelect.waitFor({ state: 'visible' })
-    await page.waitForTimeout(1000)
-    await expect(orgSelect).toBeEnabled()
-    await orgSelect.click()
-    await page.getByRole('option', { name: /openstax/i }).click()
-    const langR = page.getByRole('radio', { name: 'R', exact: true })
-    await langR.waitFor({ state: 'visible' })
-    await langR.click()
-
-    await page.getByRole('button', { name: /Proceed to Step 2/i }).click()
-    await page.waitForURL(/\/proposal$/)
-
-    await page.getByLabel('Study Title').fill(studyTitle)
-    await page.getByPlaceholder('Select dataset(s) of interest').click()
-    await page.getByRole('option').first().click()
-    await fillLexicalField(page, 'Research question(s)', 'What is the effect of code-review collaboration?')
-    await fillLexicalField(page, 'Project summary', 'Analyze how teammates review submitted code together.')
-    await fillLexicalField(page, 'Impact', 'Improve reviewer throughput and reduce errors.')
-    const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
-    await piSelect.click()
-    await page.getByRole('option').first().click()
-
-    await page.getByRole('button', { name: /Submit initial request/i }).click()
-    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
-    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
-    await page.getByRole('link', { name: /Go to dashboard/i }).click()
-    await page.waitForURL('**/dashboard')
-}
-
-// Drives the redesigned ProposalReviewView: required feedback + decision +
-// modal confirm, then the post-feedback "Go to dashboard" CTA. The old
-// single-button "Approve request" flow is gone with the flag removal.
-async function approveProposalAsReviewer(page: Page, studyTitle: string): Promise<void> {
-    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(async () => {
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
-    }).toPass()
-    await page.waitForURL(/\/study\//)
-
-    const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
-    await expect(feedbackEditor).toBeVisible()
-    await feedbackEditor.click()
-    await page.keyboard.type('Approving this initial request — feasibility and impact look reasonable.')
-
-    await page
-        .getByTestId('review-decision-section')
-        .getByRole('radio', { name: /^Approve$/i })
-        .check()
-
-    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
-    await expect(submitReview).toBeEnabled()
-    await submitReview.click()
-
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
-    await expect(dialog).toBeHidden()
-
-    await expect(page.getByText(/Approved on/)).toBeVisible()
-    await page.getByTestId('go-to-dashboard').click()
-    await page.waitForURL('**/dashboard')
-}
-
-async function uploadCodeAsResearcher(page: Page, studyTitle: string): Promise<string> {
-    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
-    await expect(async () => {
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
-    }).toPass()
-    // APPROVED without job activity routes through /submitted (useStudyHref
-    // change in the flag-removal cleanup); click through to /agreements.
-    await page.waitForURL(/\/submitted(\?.*)?$/)
-    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
-    await page.waitForURL(/\/agreements(\?.*)?$/)
-    await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
-    await page.waitForURL(/\/code$/)
-
-    const studyId = page.url().match(/\/study\/([^/]+)/)![1]
-
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
-    await expect(page.getByRole('button', { name: /Submit code/i })).toBeEnabled()
-    await page.getByRole('button', { name: /Submit code/i }).click()
-
-    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
-    await expect(confirmButton).toBeVisible()
-    await confirmButton.click()
-
-    // Post-flag-removal: code-upload always redirects to /view after submit
-    // (usePostCodeSubmissionFeatureFlag was removed).
-    await page.waitForURL(/\/view(\?.*)?$/)
-
-    return studyId
-}
-
-// ---------------------------------------------------------------------------
-// Code-review page helpers shared by both reviewer contexts.
-// ---------------------------------------------------------------------------
-
-// After a Clerk testing-token sign-in, `user.publicMetadata.orgs` is
-// populated either directly (if Clerk already has it) or via a
-// `syncUserMetadataAction` fallback that round-trips to the server.
-// Wait for the metadata to actually contain `openstax` so downstream
-// reviewer interactions have a properly seeded session. If this times
-// out, the failure message points squarely at the seed-side issue
-// rather than at downstream editor mounting.
-async function waitForOpenstaxOrgInClerkMetadata(page: Page): Promise<void> {
-    await page.waitForFunction(
-        () => {
-            const w = window as unknown as {
-                Clerk?: {
-                    user?: { publicMetadata?: { orgs?: Record<string, unknown>; teams?: Record<string, unknown> } }
-                }
-            }
-            const orgs = w.Clerk?.user?.publicMetadata?.orgs ?? w.Clerk?.user?.publicMetadata?.teams ?? {}
-            const keys = Object.keys(orgs)
-            return keys.includes('openstax') || keys.includes('openstax-lab')
-        },
-        undefined,
-        { timeout: E2E_TIMEOUT_LONG },
-    )
-}
-
 const feedbackEditorIn = (page: Page) =>
     page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
 
-// Hocuspocus auth + Y.Doc sync can take 10-20s in dev with two concurrent
-// contexts; the inner contenteditable only appears after the editor's phase
-// reaches 'connected'. Wait explicitly so subsequent click/type operations
-// have something to target.
+// Hocuspocus auth + Y.Doc sync can take 10-20s in dev with two concurrent contexts;
+// the inner contenteditable only appears once the editor reaches 'connected'.
 async function waitForFeedbackEditorReady(page: Page): Promise<void> {
     await expect(feedbackEditorIn(page)).toBeVisible({ timeout: E2E_TIMEOUT_LONG })
 }
@@ -192,38 +46,23 @@ async function fillAllCriteriaYes(page: Page): Promise<void> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Test
-// ---------------------------------------------------------------------------
-
 test('a reviewer in two tabs collaborates live; one tab submits, the other is redirected with the submission toast', async ({
     browser,
-    page,
     studyFeatures,
 }) => {
     const studyTitle = studyFeatures.uniqueTitle('two-tabs-collab')
-    let studyId = ''
+    const { studyId } = await seedCodeSubmitted(studyTitle)
 
-    await test.step('seed: researcher proposes, reviewer approves, researcher uploads code', async () => {
-        await createProposalAsResearcher(page, studyTitle)
-        await approveProposalAsReviewer(page, studyTitle)
-        studyId = await uploadCodeAsResearcher(page, studyTitle)
-    })
-
-    // Open two reviewer contexts. The first goes through the per-study agreements
-    // flow (clicks "Proceed to Step 3", landing on bare /review — ?from= routing
-    // has been removed). The second navigates directly to /review; the reviewer
-    // state machine resolves the code-review screen from the projected study state,
-    // so no query param or agreements gate is involved.
-    let ctxA: Awaited<ReturnType<typeof openContextAsRole>> | undefined
-    let ctxB: Awaited<ReturnType<typeof openContextAsRole>> | undefined
+    // ctxA enters via the per-study agreements flow ("Proceed to Step 3" -> bare
+    // /review). ctxB navigates directly to /review; the reviewer state machine
+    // resolves the code-review screen from the projected study state.
+    let ctxA: Awaited<ReturnType<typeof openContextWithSavedRole>> | undefined
+    let ctxB: Awaited<ReturnType<typeof openContextWithSavedRole>> | undefined
 
     try {
         await test.step('reviewer ctxA opens the code-review page via agreements', async () => {
-            ctxA = await openContextAsRole(browser, {
-                role: 'reviewer',
-                url: `/openstax/study/${studyId}/agreements`,
-            })
+            ctxA = await openContextWithSavedRole(browser, 'reviewer')
+            await ctxA.page.goto(`/openstax/study/${studyId}/agreements`)
             await ctxA.page.waitForURL(/\/agreements(\?.*)?$/)
             await waitForOpenstaxOrgInClerkMetadata(ctxA.page)
             await ctxA.page.getByRole('button', { name: /Proceed to Step 3/i }).click()
@@ -232,17 +71,13 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
         })
 
         await test.step('reviewer ctxB opens the code-review page directly', async () => {
-            ctxB = await openContextAsRole(browser, {
-                role: 'reviewer',
-                url: `/openstax/study/${studyId}/review`,
-            })
+            ctxB = await openContextWithSavedRole(browser, 'reviewer')
+            await ctxB.page.goto(`/openstax/study/${studyId}/review`)
             await waitForOpenstaxOrgInClerkMetadata(ctxB.page)
             await expect(ctxB.page.getByTestId('code-review-section')).toBeVisible({ timeout: E2E_TIMEOUT })
         })
 
         await test.step('feedback typed in ctxA syncs to ctxB in real time', async () => {
-            // Both contexts must complete Hocuspocus auth + Y.Doc sync before
-            // the Lexical contenteditable appears.
             await waitForFeedbackEditorReady(ctxA!.page)
             await waitForFeedbackEditorReady(ctxB!.page)
 
@@ -273,20 +108,11 @@ test('a reviewer in two tabs collaborates live; one tab submits, the other is re
             await ctxA!.page.getByTestId('code-review-submit').click()
             await ctxA!.page.getByRole('button', { name: /Yes, submit review/i }).click()
 
-            // ?from= routing was removed; after a decision both contexts land on bare /review,
-            // which the reviewer state machine resolves to the code post-feedback screen. Assert
-            // the rendered view below rather than racing a URL change (ctxA was already on /review).
-            //
-            // The toast title is unit-tested in use-submission-redirect-listener.test.ts; here we
-            // just assert ctxB was kicked out of the editor and re-rendered the post-feedback view,
-            // which is the functional behaviour the AC actually requires.
-
-            // Both contexts should land on the OTTER-501 post-feedback view rendered
-            // for kind=CODE (not the proposal-review fallback or a blank page).
-            // post-feedback-view.test.tsx covers the rendering against mocked entries;
-            // this asserts the real action → DB → page-render integration so a
-            // broken transition surfaces as a clear assertion failure rather than
-            // as a silent stuck-on-blank-page experience.
+            // After a decision both contexts land on bare /review, which the reviewer
+            // state machine resolves to the code post-feedback screen. The toast title is
+            // unit-tested (use-submission-redirect-listener.test.ts); here we assert ctxB
+            // was kicked out of the editor and re-rendered the post-feedback view, the
+            // functional behaviour the AC requires.
             for (const ctx of [ctxA!, ctxB!]) {
                 await expect(ctx.page.getByRole('heading', { name: /Review study code/i })).toBeVisible()
                 await expect(ctx.page.getByText(/Approved on/i)).toBeVisible()

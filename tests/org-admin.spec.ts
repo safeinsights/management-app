@@ -1,6 +1,11 @@
 import { faker } from '@faker-js/faker'
-import { expect, goto, test, TestingUsers, visitClerkProtectedPage, path } from './e2e.helpers'
+import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
 import { fileURLToPath } from 'url'
+
+// Reviewer is the org admin for `reviewer-is-org-admin`; restore its saved session
+// so the admin screens load without an inline sign-in. The invite-accept test signs
+// out partway through (that sign-out + signup is the surface it covers).
+test.use({ storageState: authFileFor('reviewer') })
 
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
@@ -14,7 +19,7 @@ test.describe('Organization Admin', () => {
         const uniqueSuffix = Date.now().toString(36)
         const email = `test-invite-${uniqueSuffix}@test.com`
 
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer-is-org-admin/admin/team' })
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/team')
 
         // the admin user should also appear in the list, wait for it to load
         await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
@@ -51,12 +56,12 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
+        // The signed-out gate copy is the deterministic signal the page resolved.
         await expect(page.getByText('You must be signed out to accept invitations', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: /sign out/i }).click()
-        await page.waitForTimeout(1000)
 
-        // Ensure the Create Account link is initially visible
+        // After sign-out the page re-renders the accept-invitation entry with the
+        // Create Account link; waiting on it replaces a fixed sleep.
         const createAccountBtn = page.getByRole('link', { name: /create new account/i })
         await expect(createAccountBtn).toBeVisible()
         await createAccountBtn.click()
@@ -86,11 +91,7 @@ test.describe('Organization Admin', () => {
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
-        await visitClerkProtectedPage({
-            page,
-            role: 'reviewer',
-            url: '/reviewer-is-org-admin/admin/settings',
-        })
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/settings')
 
         await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
 

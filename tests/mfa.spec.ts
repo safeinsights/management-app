@@ -1,19 +1,21 @@
-import { expect, test, visitClerkProtectedPage, Page } from './e2e.helpers'
+import { authFileFor, expect, test, visitAsRole, Page } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
     // Use the same worker
     test.describe.configure({ mode: 'serial' })
+    // MFA settings pages require an authenticated session; restore the reviewer's.
+    test.use({ storageState: authFileFor('reviewer') })
 
     test('renders the sms and authenticator buttons', async ({ page }) => {
         // Visit the main MFA page first
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
+        await visitAsRole(page, '/account/mfa?TESTING_FORCE_NO_MFA=1')
         await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Authenticator app verification' })).toBeVisible()
     })
 
     test('checks Authenticator App page elements', async ({ page }) => {
         // Go DIRECTLY to the authenticator app page
-        await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
+        await visitAsRole(page, '/account/mfa/app?TESTING_FORCE_NO_MFA=1')
 
         // Verify button should be visible and initially disabled (no code entered yet)
         const verifyButton = page.getByRole('button', { name: 'Verify Code' })
@@ -40,7 +42,7 @@ test.describe('MFA Setup Visibility', () => {
             }
         }
         // Navigate to the SMS setup page
-        await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
+        await visitAsRole(page, '/account/mfa/sms?TESTING_FORCE_NO_MFA=1')
 
         // Check if the Phone Number input is visible
         await page.getByPlaceholder('Enter phone number').fill('+15555550101')

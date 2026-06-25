@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# Boot the clerk-stub (testing-only Clerk impostor) for the Playwright e2e stack.
+# Driven by playwright.config.ts `webServer` (health-checked at https://localhost:4040/health).
+#
+# clerk-stub is NOT part of local dev (`dev:local` / docker-compose stay on real Clerk).
+# It lives in a sibling checkout so we can patch wire-shape gaps directly:
+#   git clone https://github.com/safeinsights/clerk-stub ../clerk-stub
+#
+# Prerequisites handled here: sibling checkout present, deps installed, mkcert TLS
+# cert generated. The host must have run `mkcert -install` once (CA trust).
+
+set -euo pipefail
+
+STUB_DIR="${CLERK_STUB_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/clerk-stub}"
+# The test app runs on 4100 (dev stays on 4000), so the stub must accept 4100 as an
+# authorized party and redirect sign-ins back to it.
+APP_PORT="${E2E_APP_PORT:-4100}"
+
+if [ ! -d "$STUB_DIR" ]; then
+    echo "ERROR: clerk-stub not found at $STUB_DIR" >&2
+    echo "Clone it as a sibling of management-app:" >&2
+    echo "  git clone https://github.com/safeinsights/clerk-stub $STUB_DIR" >&2
+    exit 1
+fi
+
+if ! command -v mkcert >/dev/null 2>&1; then
+    echo "ERROR: mkcert is required for clerk-stub TLS. Install it and trust the CA:" >&2
+    echo "  brew install mkcert nss && mkcert -install" >&2
+    exit 1
+fi
+
+cd "$STUB_DIR"
+
+if [ ! -d node_modules ]; then
+    echo "clerk-stub: installing deps (first run)…"
+    npm install
+fi
+
+# The stub refuses to start without a TLS cert. Issue a localhost leaf from the host
+# CAROOT if it's not already there.
+CERT="data/tls/localhost.pem"
+KEY="data/tls/localhost-key.pem"
+if [ ! -f "$CERT" ] || [ ! -f "$KEY" ]; then
+    echo "clerk-stub: generating mkcert TLS cert…"
+    mkdir -p data/tls
+    mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1
+fi
+
+export PORT=4040
+export HOST=127.0.0.1
+export MGMNT_APP_URL="http://localhost:${APP_PORT}"
+export AUTHORIZED_PARTIES="http://localhost:${APP_PORT},http://localhost:4040"
+# Long session so a storageState captured in auth.setup survives the whole run.
+export SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-604800}"
+
+echo "clerk-stub: starting on https://localhost:4040 (app=${MGMNT_APP_URL})"
+exec npm start

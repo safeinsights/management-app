@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Start the management-app for the Playwright e2e stack: next dev on the test port
+# (4100), loaded from .env.test, with CLERK_JWT_KEY sourced from the running
+# clerk-stub's generated public key so the two always agree.
+#
+# Driven by playwright.config.ts `webServer`. Kept separate from `dev` so local dev
+# (port 4000, real Clerk) is untouched.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# next dev only auto-loads .env/.env.local/.env.development, not .env.test — load it
+# explicitly. Lines are KEY=VALUE (no spaces/quotes needed for our values).
+if [ -f .env.test ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env.test
+    set +a
+fi
+
+STUB_DIR="${CLERK_STUB_DIR:-$(cd .. && pwd)/clerk-stub}"
+STUB_PUBKEY="$STUB_DIR/data/keys/public.pem"
+
+# clerk-stub generates its RSA keypair on first boot and persists it. Wait for the
+# public key to exist (the stub webServer starts in parallel with this one) so
+# CLERK_JWT_KEY matches what the stub signs sessions with.
+for i in $(seq 1 60); do
+    [ -f "$STUB_PUBKEY" ] && break
+    [ "$i" = "60" ] && {
+        echo "ERROR: clerk-stub public key not found at $STUB_PUBKEY after 60s." >&2
+        echo "Is clerk-stub running? (Playwright starts it via bin/clerk-stub-test.)" >&2
+        exit 1
+    }
+    sleep 1
+done
+
+export CLERK_JWT_KEY="$(cat "$STUB_PUBKEY")"
+export NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$(mkcert -CAROOT 2>/dev/null)/rootCA.pem}"
+
+echo "app-test: starting next dev on :4100 (clerk-stub JWT key loaded)"
+exec env -u AWS_PROFILE pnpm exec next dev -p 4100

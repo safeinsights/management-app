@@ -1,4 +1,5 @@
 import { setupClerkTestingToken } from '@clerk/testing/playwright'
+import { E2E_TIMEOUT_LONG } from './common.helpers'
 import { faker } from '@faker-js/faker'
 import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
@@ -6,7 +7,7 @@ import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-export { clerk } from '@clerk/testing/playwright'
+export { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 export * from './common.helpers'
 export { fs, path }
 
@@ -214,25 +215,14 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     },
 }
 
-type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
-
-export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
+// Drives the sign-in form for `role`: email + password + SMS MFA, then waits for
+// the post-sign-in redirect and confirms the session belongs to the expected user.
+// Assumes the page is already on (or being navigated to) the sign-in screen with a
+// Clerk testing token applied. Single seam for auth: the storageState setup project
+// and the auth-UI specs both go through here, and swapping real Clerk for the
+// clerk-stub later means changing only this body.
+export const signInAsRole = async (page: Page, role: TestingRole) => {
     const creds = TestingUsers[role]
-
-    await setupClerkTestingToken({ page })
-    // load a page to initialize Clerk
-    await page.goto('/')
-    const currentEmail = await clerkLoaded(page)
-    if (currentEmail == creds.identifier) {
-        await goto(page, url)
-        return
-    }
-
-    await page.evaluate(() => {
-        return window.Clerk.session?.end()
-    })
-
-    await goto(page, '/account/signin')
 
     await page.getByLabel('email').fill(creds.identifier)
     await page.getByLabel('password').fill(creds.password)
@@ -253,10 +243,51 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     if (updatedEmail != creds.identifier) {
         throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
     }
+}
+
+// Per-role storageState file written by tests/auth.setup.ts and consumed by specs
+// via `test.use({ storageState: authFileFor('reviewer') })`.
+export const authFileFor = (role: TestingRole) =>
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '.auth', `${role}.json`)
+
+type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
+
+// Full sign-in-then-navigate. Retained for the auth-UI specs and any test not yet
+// migrated to storageState. Tests that start from a saved session (the common case)
+// should instead `test.use({ storageState: authFileFor(role) })` and call
+// `visitAsRole(page, url)`, which skips the sign-in entirely.
+export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
+    const creds = TestingUsers[role]
+
+    await setupClerkTestingToken({ page })
+    // load a page to initialize Clerk
+    await page.goto('/')
+    const currentEmail = await clerkLoaded(page)
+    if (currentEmail == creds.identifier) {
+        await goto(page, url)
+        return
+    }
+
+    await page.evaluate(() => {
+        return window.Clerk.session?.end()
+    })
+
+    await goto(page, '/account/signin')
+    await signInAsRole(page, role)
+
     if (page.url() != url) {
         await goto(page, url)
         await clerkLoaded(page)
     }
+}
+
+// Navigate to a protected URL assuming the session is already restored from
+// storageState. Re-applies the Clerk testing token (a per-page route handler, not
+// stored state) and waits for hydration. This is the fast path that replaces
+// visitClerkProtectedPage once a spec declares `test.use({ storageState })`.
+export const visitAsRole = async (page: Page, url: string) => {
+    await setupClerkTestingToken({ page })
+    await goto(page, url)
 }
 
 export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
@@ -278,6 +309,60 @@ export const openContextAsRole = async (
     const page = await context.newPage()
     await visitClerkProtectedPage({ page, role, url })
     return { context, page }
+}
+
+// Opens a context that restores `role`'s saved session from storageState (no
+// sign-in), applies the Clerk testing token, and returns the context + page. The
+// storageState file must exist (written by the `auth setup` project). Caller closes
+// the context. This is the fast multi-role primitive: a single seeded test acts as
+// researcher and reviewer by opening one of these per role instead of re-signing-in.
+export const openContextWithSavedRole = async (
+    browser: Browser,
+    role: TestingRole,
+): Promise<{ context: BrowserContext; page: Page }> => {
+    const context = await browser.newContext({ storageState: authFileFor(role) })
+    const page = await context.newPage()
+    await setupClerkTestingToken({ page })
+    return { context, page }
+}
+
+// Runs `fn` against a page authenticated as `role` (session restored from
+// storageState), then tears the context down. Keeps role-switching explicit and
+// cheap inside a seeded test: `await withRole(browser, 'reviewer', async (page) =>
+// { ... })`.
+export const withRole = async (
+    browser: Browser,
+    role: TestingRole,
+    fn: (page: Page) => Promise<void>,
+): Promise<void> => {
+    const { context, page } = await openContextWithSavedRole(browser, role)
+    try {
+        await fn(page)
+    } finally {
+        await context.close()
+    }
+}
+
+// After a Clerk sign-in, `user.publicMetadata.orgs` is populated either directly or
+// via a `syncUserMetadataAction` fallback that round-trips to the server. Wait until
+// it actually contains openstax so downstream reviewer interactions have a properly
+// seeded session — a timeout here points at the seed/session, not at editor mounting.
+// Shared by the collaboration specs (proposal- and code-review).
+export const waitForOpenstaxOrgInClerkMetadata = async (page: Page): Promise<void> => {
+    await page.waitForFunction(
+        () => {
+            const w = window as unknown as {
+                Clerk?: {
+                    user?: { publicMetadata?: { orgs?: Record<string, unknown>; teams?: Record<string, unknown> } }
+                }
+            }
+            const orgs = w.Clerk?.user?.publicMetadata?.orgs ?? w.Clerk?.user?.publicMetadata?.teams ?? {}
+            const keys = Object.keys(orgs)
+            return keys.includes('openstax') || keys.includes('openstax-lab')
+        },
+        undefined,
+        { timeout: E2E_TIMEOUT_LONG },
+    )
 }
 
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {

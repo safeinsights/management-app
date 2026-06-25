@@ -1,6 +1,15 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test'
+import dotenv from 'dotenv'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
 import { IS_CI, E2E_TIMEOUT, E2E_TIMEOUT_LONG, E2E_EXPECT_TIMEOUT } from './tests/e2e.helpers'
+
+// Load the isolated test env (test port + separate DB + clerk-stub). Keeps the suite
+// independent of local dev (.env / port 4000 / real Clerk). On CI the equivalent
+// values are provided as job env, so a missing file here is fine.
+dotenv.config({ path: '.env.test' })
+
+// The Playwright-owned app instance runs on this port (dev stays on 4000).
+const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4100'
 
 const reporters: ReporterDescription[] = []
 if (process.argv.includes('--ui')) {
@@ -50,7 +59,7 @@ export default defineConfig({
     reporter: reporters,
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
     use: {
-        baseURL: 'http://localhost:4000',
+        baseURL: E2E_BASE_URL,
         actionTimeout: E2E_TIMEOUT,
         navigationTimeout: E2E_TIMEOUT,
         trace: 'retain-on-failure',
@@ -62,6 +71,36 @@ export default defineConfig({
         timeout: E2E_EXPECT_TIMEOUT,
     },
 
+    // Playwright owns the testing-only stack: clerk-stub (4040) + the app (4100).
+    // Locally these are started on demand and reused if already up; the shared infra
+    // (Postgres + SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`.
+    // On CI the app is built+started by bin/ci-server, so only the stub is managed here.
+    webServer: IS_CI
+        ? [
+              {
+                  command: 'pnpm run clerk-stub:test',
+                  url: 'https://localhost:4040/health',
+                  reuseExistingServer: false,
+                  timeout: 120_000,
+                  ignoreHTTPSErrors: true,
+              },
+          ]
+        : [
+              {
+                  command: 'pnpm run clerk-stub:test',
+                  url: 'https://localhost:4040/health',
+                  reuseExistingServer: true,
+                  timeout: 120_000,
+                  ignoreHTTPSErrors: true,
+              },
+              {
+                  command: 'pnpm run app:test',
+                  url: E2E_BASE_URL,
+                  reuseExistingServer: true,
+                  timeout: 180_000,
+              },
+          ],
+
     outputDir: 'test-results/e2e',
 
     /* Configure projects for major browsers */
@@ -72,9 +111,17 @@ export default defineConfig({
             teardown: 'global teardown',
         },
         {
-            name: 'chromium',
+            // Signs in each role once and writes tests/.auth/<role>.json. Specs opt in
+            // with `test.use({ storageState: authFileFor(role) })` to start authenticated.
+            name: 'auth setup',
+            testMatch: /auth\.setup\.ts/,
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['global setup'],
+        },
+        {
+            name: 'chromium',
+            use: { ...devices['Desktop Chrome'] },
+            dependencies: ['auth setup'],
         },
         {
             name: 'global teardown',

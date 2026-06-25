@@ -1,4 +1,4 @@
-import { clerk, CLERK_MFA_CODE, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
+import { clerk, CLERK_MFA_CODE, E2E_TIMEOUT, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
@@ -27,7 +27,7 @@ test.describe('user sign in', async () => {
 
             // Wait for successful login to load dashboard. Note that for some roles
             // the reviewer key page is actually what loads but that also works since it contains the word 'dashboard'
-            await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: 15000 })
+            await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: E2E_TIMEOUT })
         })
     }
 })

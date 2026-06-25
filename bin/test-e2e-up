@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# Bring up everything the Playwright e2e stack needs that it does NOT own, then run
+# the suite. Works for both dev modes:
+#   - docker devs:    Postgres + SeaweedFS come from `docker compose up`
+#   - local-only devs: Postgres + SeaweedFS come from local installs / `dev:local`
+#
+# This script only guarantees the shared infra (Postgres + SeaweedFS) is reachable
+# and the test database `si_mgmnt_test` is migrated + seeded. Playwright itself owns
+# the app (port 4100) and clerk-stub (port 4040) via its `webServer` config, so they
+# are NOT started here.
+#
+# Isolation: a SEPARATE database (si_mgmnt_test) on the SAME local Postgres, so e2e
+# seeding never touches the dev DB.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
+PGHOST="${PGHOST:-localhost}"
+PGPORT="${PGPORT:-5432}"
+PGUSER_DEFAULT="${PGUSER:-}"
+TEST_DATABASE_URL="postgres://${PGHOST}:${PGPORT}/${TEST_DB}"
+S3_PORT="${S3_PORT:-8333}"
+
+note() { echo "[test-e2e-up] $*"; }
+
+# --- Postgres ---------------------------------------------------------------
+if ! pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; then
+    note "Postgres not reachable on ${PGHOST}:${PGPORT} — trying to start the compose service…"
+    if command -v docker >/dev/null 2>&1 && [ -f docker-compose.yml ]; then
+        docker compose up -d postgres
+        for i in $(seq 1 30); do
+            pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1 && break
+            [ "$i" = "30" ] && {
+                note "ERROR: Postgres still not reachable after starting compose."
+                exit 1
+            }
+            sleep 1
+        done
+    else
+        note "ERROR: Postgres not reachable and no docker compose available."
+        note "Start it however your dev setup does (docker compose up postgres, or a local server)."
+        exit 1
+    fi
+fi
+note "Postgres reachable on ${PGHOST}:${PGPORT}"
+
+# --- SeaweedFS (S3) ---------------------------------------------------------
+if ! nc -z -w 1 "$PGHOST" "$S3_PORT" >/dev/null 2>&1; then
+    note "SeaweedFS not reachable on :${S3_PORT} — trying to start the compose service…"
+    if command -v docker >/dev/null 2>&1 && [ -f docker-compose.yml ]; then
+        docker compose up -d seaweedfs create-buckets
+        for i in $(seq 1 30); do
+            nc -z -w 1 "$PGHOST" "$S3_PORT" >/dev/null 2>&1 && break
+            [ "$i" = "30" ] && {
+                note "ERROR: SeaweedFS still not reachable after starting compose."
+                exit 1
+            }
+            sleep 1
+        done
+    else
+        note "ERROR: SeaweedFS not reachable on :${S3_PORT}."
+        note "Start it (docker compose up seaweedfs) or run 'pnpm s3:local'."
+        exit 1
+    fi
+fi
+note "SeaweedFS reachable on :${S3_PORT}"
+
+# --- Test database ----------------------------------------------------------
+PSQL_BASE="postgres://${PGHOST}:${PGPORT}/postgres"
+if ! psql "$PSQL_BASE" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
+    note "Creating database ${TEST_DB}…"
+    createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER_DEFAULT:+-U "$PGUSER_DEFAULT"} "$TEST_DB"
+fi
+
+note "Migrating + seeding ${TEST_DB}…"
+DATABASE_URL="$TEST_DATABASE_URL" pnpm run db:migrate
+
+note "Infra ready. Running e2e against ${TEST_DATABASE_URL}"
+exec pnpm run test:e2e "$@"
