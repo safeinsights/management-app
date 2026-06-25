@@ -1,8 +1,8 @@
 'use server'
 
 import { ActionFailure } from '@/lib/errors'
-import { isEncryptedLogType } from '@/lib/file-type-helpers'
-import { minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
+import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
+import { JobFile, minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
 import {
     getLabPublicKeysForStudy,
     getUserPublicKey,
@@ -11,7 +11,7 @@ import {
     getStudyReviewForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
-import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
+import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
@@ -148,6 +148,53 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId } }) => {
         return await getStudyReviewForJob(studyJobId)
+    })
+
+// Reviewer-triggered retry after a failed summary generation. Clears the
+// failure row so the generator re-enters cleanly, then re-fires the same
+// deferred task code submission uses. Only a failed row is cleared — a
+// successful review is left untouched so a stray retry can't wipe it.
+export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId }, db }) => {
+        await db
+            .deleteFrom('studyReview')
+            .where('studyJobId', '=', studyJobId)
+            .where('summaryFailedAt', 'is not', null)
+            .execute()
+        onStudyReviewRequested({ studyJobId })
+    })
+
+export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+    })
+    .requireAbilityTo('view', 'StudyJob')
+
+    .handler(async ({ studyJob }) => {
+        const approvedJobFiles = studyJob.files.filter(
+            (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
+        )
+
+        const jobFiles: JobFile[] = []
+        for (const jobFile of approvedJobFiles) {
+            const blob = await fetchFileContents(jobFile.path)
+            const contents = await blob.arrayBuffer()
+            jobFiles.push({
+                contents,
+                path: jobFile.name,
+                fileType: jobFile.fileType,
+            })
+        }
+
+        return jobFiles
     })
 
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')

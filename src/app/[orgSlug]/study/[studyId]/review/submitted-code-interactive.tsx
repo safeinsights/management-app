@@ -1,13 +1,29 @@
 'use client'
 
-import { ActionIcon, Alert, Anchor, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
+import {
+    ActionIcon,
+    Alert,
+    Anchor,
+    Button,
+    Group,
+    Loader,
+    Menu,
+    Skeleton,
+    Stack,
+    Text,
+    UnstyledButton,
+} from '@mantine/core'
 import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useEffect, useState } from 'react'
-import { useQuery } from '@/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { studyCodeURL } from '@/lib/paths'
-import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
+import {
+    fetchStudyJobCodeFileAction,
+    getStudyReviewAction,
+    regenerateStudyReviewAction,
+} from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 
@@ -69,19 +85,28 @@ function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
 
 const REVIEW_POLL_INTERVAL_MS = 5_000
 
-// A failed generation never writes a studyReview row — the deferred background
-// task swallows the error — so polling would otherwise spin forever. After this
-// long with no row, surface the error state instead.
-const AI_SUMMARY_TIMEOUT_MS = 30_000
+// A genuine failure now persists a row (summaryFailedAt) and is surfaced
+// immediately. This backstop only catches the rarer case where generation
+// hangs without ever throwing — measured from submission, not page open, so a
+// reviewer opening the page late doesn't reset the clock. 3 minutes is well
+// above a normal generation; past it with no row we assume it's stuck.
+const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Returns true once `ms` has elapsed since mount. Used to time out the AI
-// summary spinner so a never-arriving review surfaces as an error.
-function useElapsedTimeout(ms: number): boolean {
-    const [elapsed, setElapsed] = useState(false)
+// Returns true once `ms` have elapsed since `since`. Used as a backstop so a
+// generation that hangs without writing a (success or failure) row eventually
+// surfaces as an error instead of spinning forever. `since` may be a string —
+// timestamps serialize to ISO strings across the server/client boundary.
+function useElapsedSince(since: Date | string, ms: number): boolean {
+    const sinceMs = new Date(since).getTime()
+    const [elapsed, setElapsed] = useState(() => Date.now() - sinceMs >= ms)
     useEffect(() => {
-        const id = setTimeout(() => setElapsed(true), ms)
+        if (elapsed) return
+        // Clamp to 0 rather than setting state synchronously here; the timer
+        // fires the update on the next tick, out of the effect body.
+        const remaining = Math.max(0, ms - (Date.now() - sinceMs))
+        const id = setTimeout(() => setElapsed(true), remaining)
         return () => clearTimeout(id)
-    }, [ms])
+    }, [sinceMs, ms, elapsed])
     return elapsed
 }
 
@@ -135,10 +160,22 @@ function AiSummaryPending() {
     )
 }
 
-function AiSummaryError() {
+function AiSummaryError({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) {
     return (
         <Alert color="red" data-testid="ai-summary-error">
-            The AI summary failed to generate. Please reload the page.
+            <Group justify="space-between" gap="sm" wrap="nowrap">
+                <Text size="sm">The AI summary failed to generate.</Text>
+                <Button
+                    size="compact-sm"
+                    variant="white"
+                    color="red"
+                    onClick={onRetry}
+                    loading={isRetrying}
+                    data-testid="ai-summary-retry"
+                >
+                    Retry
+                </Button>
+            </Group>
         </Alert>
     )
 }
@@ -162,30 +199,57 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
+// Clears the failed row server-side, re-fires generation, then resets the
+// cached review to null so the poll resumes and the UI drops back to pending.
+function useRetryStudyReview(studyJobId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
+        onSuccess: () => {
+            queryClient.setQueryData(['study-review', studyJobId], null)
+        },
+    })
+}
+
 type AiSummaryProps = {
     studyJobId: string
     initialReview: StudyReviewWithMeta | null
-    // Overridable so tests can exercise the timeout without faking timers.
+    // When generation was requested — anchors the stuck-generation backstop so
+    // opening the page late doesn't restart the clock. May arrive as an ISO
+    // string once serialized across the server/client boundary.
+    submittedAt: Date | string
+    // Overridable so tests can exercise the backstop without faking timers.
     timeoutMs?: number
 }
 
-export function AiSummaryCollapsible({ studyJobId, initialReview, timeoutMs = AI_SUMMARY_TIMEOUT_MS }: AiSummaryProps) {
+export function AiSummaryCollapsible({
+    studyJobId,
+    initialReview,
+    submittedAt,
+    timeoutMs = AI_SUMMARY_TIMEOUT_MS,
+}: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    const timedOut = useElapsedTimeout(timeoutMs)
-    const summary = review?.report.codeExplanation ?? null
+    const retry = useRetryStudyReview(studyJobId)
+    const timedOut = useElapsedSince(submittedAt, timeoutMs)
+    const summary = review?.report?.codeExplanation ?? null
 
-    // A landed row is terminal — show the summary if present, otherwise the
-    // empty state (the no-API-key / disabled-review placeholder path). While
-    // still pending we show the spinner, escalating to an error when the poll
-    // rejects or 30s pass with no row.
+    const onRetry = () => retry.mutate()
+    const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
+
+    // Failure is terminal and explicit: a poll rejection, or a persisted
+    // failure row (summaryFailedAt) — surfaced with a Retry. A landed success
+    // row shows the summary, or the empty state for the no-API-key /
+    // disabled-review placeholder path. Otherwise we're genuinely still
+    // generating (spinner), with the backstop catching a silent hang.
     const renderBody = () => {
-        if (error != null) return <AiSummaryError />
+        if (error != null) return errorState
         if (review != null) {
+            if (review.summaryFailedAt != null) return errorState
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }
-        if (timedOut) return <AiSummaryError />
+        if (timedOut) return errorState
         return <AiSummaryPending />
     }
 

@@ -363,7 +363,21 @@ describe('getStudyReviewForJob', () => {
         if (!result) throw new Error('expected review')
         expect(result.report).toEqual(report)
         expect(result.createdAt).toBeInstanceOf(Date)
+        expect(result.summaryFailedAt).toBeNull()
         expect(result.files).toEqual([])
+    })
+
+    it('returns a failure row with summaryFailedAt set and a null report', async () => {
+        const { job } = await insertTestStudyJobData()
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
+            .execute()
+
+        const result = await getStudyReviewForJob(job.id)
+        if (!result) throw new Error('expected review')
+        expect(result.report).toBeNull()
+        expect(result.summaryFailedAt).toBeInstanceOf(Date)
     })
 })
 

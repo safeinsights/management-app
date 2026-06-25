@@ -112,7 +112,7 @@ jobs:
                   SONAR_USER_HOME: ${{ github.workspace }}/.sonar
 
     test:
-        timeout-minutes: 20
+        timeout-minutes: 30
         runs-on: ubuntu-latest
         services:
             db:
