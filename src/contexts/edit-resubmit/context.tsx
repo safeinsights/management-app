@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
+import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, useMutation, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import {
@@ -9,6 +10,8 @@ import {
     initialProposalValues,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useResubmitSaveDraft } from './hooks/use-resubmit-save-draft'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
 import {
@@ -30,6 +33,10 @@ interface EditResubmitContextValue {
     isSubmitting: boolean
     isSavingNote: boolean
     noteLastSavedAt: Date | null
+    websocketProvider: HocuspocusProviderWebsocket | null
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
+    tabSessionId: string
 }
 
 const EditResubmitContext = createContext<EditResubmitContextValue | null>(null)
@@ -64,6 +71,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
         validateInputOnChange: true,
     })
+
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
 
     const { saveDraft: saveProposalDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
 
@@ -134,7 +143,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         return proposalOk && noteOk
     }, [saveProposalDraft, flushNoteSave])
 
-    const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm })
+    const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
 
     const value = useMemo(
         () => ({
@@ -147,6 +156,9 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             isSubmitting,
             isSavingNote: noteSaveMutation.isPending,
             noteLastSavedAt,
+            websocketProvider,
+            yjsForm,
+            tabSessionId,
         }),
         [
             studyId,
@@ -158,6 +170,9 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             isSubmitting,
             noteSaveMutation.isPending,
             noteLastSavedAt,
+            websocketProvider,
+            yjsForm,
+            tabSessionId,
         ],
     )
 
