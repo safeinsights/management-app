@@ -7,8 +7,8 @@
 #
 # This script only guarantees the shared infra (Postgres + SeaweedFS) is reachable
 # and the test database `si_mgmnt_test` is migrated + seeded. Playwright itself owns
-# the app (port 4100) and clerk-stub (port 4040) via its `webServer` config, so they
-# are NOT started here.
+# the app (port 4100, faked Clerk) via its `webServer` config, so it is NOT started here.
+# There is no external Clerk server — auth is faked in-app (src/lib/clerk-fake).
 #
 # Isolation: a SEPARATE database (si_mgmnt_test) on the SAME local Postgres, so e2e
 # seeding never touches the dev DB.
@@ -17,15 +17,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Load the test env so db:migrate's Clerk-side seeding (bin/seed-environment.ts) targets
-# clerk-stub, not real Clerk. Without this it would read .env and seed the real instance.
+# Load the test env (test DB url, ports). Auth is faked, so set E2E_FAKE_CLERK to make
+# the migrate seed (bin/seed-environment.ts) seed orgs only and skip Clerk provisioning.
 if [ -f .env.test ]; then
     set -a
     # shellcheck disable=SC1091
     . ./.env.test
     set +a
 fi
-export NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$(mkcert -CAROOT 2>/dev/null)/rootCA.pem}"
+export E2E_FAKE_CLERK=1
 
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
@@ -85,26 +85,7 @@ if ! psql "$PSQL_BASE" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}
     createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER_DEFAULT:+-U "$PGUSER_DEFAULT"} "$TEST_DB"
 fi
 
-# clerk-stub must be up before db:migrate so seed-environment can create the Clerk-side
-# test users against it. Start it in the background if it isn't already; Playwright will
-# reuse the same running stub (reuseExistingServer).
-STUB_HEALTH="${E2E_STUB_HEALTH_URL:-https://clerk.lvh.me:4040/health}"
-if ! curl -sf --cacert "${NODE_EXTRA_CA_CERTS}" "$STUB_HEALTH" 2>/dev/null | grep -q '"ok":true'; then
-    note "Starting clerk-stub…"
-    pnpm run clerk-stub:test >/tmp/clerk-stub.log 2>&1 &
-    for i in $(seq 1 60); do
-        curl -sf --cacert "${NODE_EXTRA_CA_CERTS}" "$STUB_HEALTH" 2>/dev/null | grep -q '"ok":true' && break
-        [ "$i" = "60" ] && {
-            note "ERROR: clerk-stub did not become healthy. Log:"
-            tail -30 /tmp/clerk-stub.log
-            exit 1
-        }
-        sleep 1
-    done
-fi
-note "clerk-stub healthy"
-
-note "Migrating + seeding ${TEST_DB} (Clerk side -> stub)…"
+note "Migrating + seeding ${TEST_DB} (faked Clerk — DB users/orgs only)…"
 DATABASE_URL="$TEST_DATABASE_URL" pnpm run db:migrate
 
 note "Infra ready. Running e2e against ${TEST_DATABASE_URL}"

@@ -487,6 +487,17 @@ async function setupOrganizations() {
 async function seedEnvironment() {
     console.log('🌱 Seeding test environment...\n')
 
+    // In faked-Clerk mode (e2e) there is no Clerk server to provision against. The DB
+    // test users/orgs/memberships are created by the migration seed
+    // (1743608138837_test_users.ts) and the in-app fake reads them by user.id, so here we
+    // only ensure the org-side setup and skip all Clerk user provisioning.
+    if (process.env.E2E_FAKE_CLERK) {
+        console.log('🤖 E2E_FAKE_CLERK set — seeding orgs only, skipping Clerk provisioning.')
+        await setupOrganizations()
+        console.log('\n✨ Environment seeding complete (faked Clerk)!')
+        return
+    }
+
     const secretKey = process.env.CLERK_SECRET_KEY
     if (!secretKey) {
         console.error('❌ CLERK_SECRET_KEY is not set')

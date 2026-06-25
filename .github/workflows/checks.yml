@@ -136,30 +136,15 @@ jobs:
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
-            # SECURITY (OTTER-545): the CLERK_* secrets below belong to a Clerk
-            # instance dedicated to GitHub CI. That instance contains ONLY the
-            # three Playwright test accounts (researcher, reviewer, admin), is
-            # not connected to any production data, and the credentials are not
-            # shared with any other environment, repo, or developer machine.
-            #
-            # The load-bearing mitigation here is the CI-only Clerk instance,
-            # NOT step- or job-level scoping. Every step that needs Clerk creds
-            # (pnpm install, unit tests, e2e tests, coverage) also runs PR-controlled
-            # code, so moving these to step-level env would not reduce exposure
-            # — a malicious PR can put exfil code in any of those steps.
-            #
-            # If the CI Clerk instance ever stops being throwaway-isolated
-            # (real users added, instance reused elsewhere), the exposure model
-            # in OTTER-545 needs to be re-evaluated.
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-            CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
-            CLERK_RESEARCHER_PASSWORD: ${{ secrets.CLERK_RESEARCHER_PASSWORD }}
-            CLERK_REVIEWER_EMAIL: ${{ secrets.CLERK_REVIEWER_EMAIL }}
-            CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
-            CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
-            CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
-            CLERK_JWT_KEY: ${{ secrets.CLERK_JWT_KEY }}
+            # E2E runs against the in-app Clerk fake (src/lib/clerk-fake), so NO real Clerk
+            # secrets are needed — the whole class of exposure in OTTER-545 around the
+            # CI Clerk instance is gone. E2E_FAKE_CLERK aliases @clerk/nextjs[/server] to
+            # the fake at build time; SINGLE_USER_EDITING renders the standalone editor
+            # (no hocuspocus/editor-service). A dummy publishable key satisfies the
+            # ClerkProvider guard.
+            E2E_FAKE_CLERK: '1'
+            SINGLE_USER_EDITING: 't'
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
             NEXT_PUBLIC_CI: 'true'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
@@ -167,8 +152,7 @@ jobs:
             AWS_SECRET_ACCESS_KEY: 'si-local-s3'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
-            PORT: '4000'
-            NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
+            PORT: '4100'
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
               with:
@@ -219,29 +203,8 @@ jobs:
               run: pnpm run db:migrate
             - name: pnpm run test:unit
               run: pnpm run test:unit -- --reporter=verbose
-            - name: Start editor-service
-              run: |
-                  docker build -f Dockerfile.editor-service -t mgmt-editor-service .
-                  docker run -d \
-                    --name editor-service \
-                    --network=host \
-                    -e DATABASE_URL='postgres://si:si@localhost:5432/si_test' \
-                    -e CLERK_JWT_KEY="$CLERK_JWT_KEY" \
-                    -e CLERK_SECRET_KEY="$CLERK_SECRET_KEY" \
-                    mgmt-editor-service
-
-                  for i in $(seq 1 30); do
-                    if curl -sf http://127.0.0.1:4001/health > /dev/null; then
-                      echo "editor-service ready after ${i}s"
-                      break
-                    fi
-                    if [ "$i" = "30" ]; then
-                      echo "editor-service failed to start within 30s"
-                      docker logs editor-service
-                      exit 1
-                    fi
-                    sleep 1
-                  done
+            # No editor-service: e2e runs with SINGLE_USER_EDITING (standalone editor, no
+            # hocuspocus websocket). The multi-tab collaboration specs are excluded.
             - name: build and run server
               run: pnpm run ci:server -- server_output.log
             - name: install playwright dependencies
@@ -276,12 +239,6 @@ jobs:
               if: always()
             - name: Display SeaweedFS log
               run: docker logs seaweedfs 2>&1 || true
-              if: always()
-            - name: Display editor-service log
-              run: docker logs editor-service 2>&1 || true
-              if: always()
-            - name: Delete any test users created
-              run: pnpm exec tsx ./bin/delete-clerk-test-users.ts
               if: always()
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: failure()

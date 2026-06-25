@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
 #
-# Start the management-app for the Playwright e2e stack: next dev on the test port
-# (4100), loaded from .env.test, with CLERK_JWT_KEY sourced from the running
-# clerk-stub's generated public key so the two always agree.
+# Build the management-app once and serve the prebuilt standalone server on the test
+# port (4100) for the Playwright e2e stack. We do NOT use `next dev`: its lazy per-route
+# compilation makes navigations take seconds and is unstable under the suite (tests
+# exceed their timeout whether run in parallel or serially). A prebuilt server has no
+# compilation cost — it's both fast and deterministic, and mirrors how CI runs
+# (bin/ci-server).
+#
+# E2E_FAKE_CLERK aliases @clerk/nextjs[/server] to the in-app fake (src/lib/clerk-fake)
+# at BUILD time — it must be set for `next build`, not just at server start. CI=true makes
+# the server behave like CI (skips the prod-only Mailgun guard, disables Coder).
+# SINGLE_USER_EDITING renders the standalone editor (no hocuspocus websocket).
+#
+# Usage: ./bin/app-test [--no-build]   (--no-build reuses an existing .next build)
 #
 # Driven by playwright.config.ts `webServer`. Kept separate from `dev` so local dev
-# (port 4000, real Clerk) is untouched.
+# (port 4000, real Clerk, next dev) is untouched.
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# next dev only auto-loads .env/.env.local/.env.development, not .env.test — load it
-# explicitly. Lines are KEY=VALUE (no spaces/quotes needed for our values).
+# next build/start don't auto-load .env.test — load it explicitly.
 if [ -f .env.test ]; then
     set -a
     # shellcheck disable=SC1091
@@ -20,24 +29,30 @@ if [ -f .env.test ]; then
     set +a
 fi
 
-STUB_DIR="${CLERK_STUB_DIR:-$(cd .. && pwd)/clerk-stub}"
-STUB_PUBKEY="$STUB_DIR/data/keys/public.pem"
+export CI=true
+export E2E_FAKE_CLERK=1
+export SINGLE_USER_EDITING=t
+export PORT=4100
+export ASSETS_PREFIX=/
+export CODER_FILES=./coder-files
+# .env.test sets AWS_PROFILE, which makes the AWS SDK prefer (expired) SSO over the static
+# local-S3 creds — S3 calls then hang ~30s and time out the upload-heavy specs. Drop it so
+# the static AWS_ACCESS_KEY_ID/SECRET (SeaweedFS) are used, matching CI.
+unset AWS_PROFILE
+# ClerkProvider guards on a publishable key being present; the fake ignores its value, so
+# a dummy pk_test key satisfies the guard if .env.test doesn't provide one.
+export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk}"
 
-# clerk-stub generates its RSA keypair on first boot and persists it. Wait for the
-# public key to exist (the stub webServer starts in parallel with this one) so
-# CLERK_JWT_KEY matches what the stub signs sessions with.
-for i in $(seq 1 60); do
-    [ -f "$STUB_PUBKEY" ] && break
-    [ "$i" = "60" ] && {
-        echo "ERROR: clerk-stub public key not found at $STUB_PUBKEY after 60s." >&2
-        echo "Is clerk-stub running? (Playwright starts it via bin/clerk-stub-test.)" >&2
-        exit 1
-    }
-    sleep 1
-done
+if [ "${1:-}" != "--no-build" ]; then
+    echo "app-test: building (E2E_FAKE_CLERK=1)…"
+    env -u AWS_PROFILE pnpm exec next build
+fi
 
-export CLERK_JWT_KEY="$(cat "$STUB_PUBKEY")"
-export NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$(mkcert -CAROOT 2>/dev/null)/rootCA.pem}"
+# output: 'standalone' means the runnable server is .next/standalone/server.js; copy the
+# static assets next to it the way bin/ci-server does.
+cp -r public .next/standalone/ 2>/dev/null || true
+mkdir -p .next/standalone/coder-files
+cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
 
-echo "app-test: starting next dev on :4100 (clerk-stub JWT key loaded)"
-exec env -u AWS_PROFILE pnpm exec next dev -p 4100
+echo "app-test: starting standalone server on :4100 (CI=true, E2E_FAKE_CLERK=1, SINGLE_USER_EDITING=t)"
+exec node .next/standalone/server.js
