@@ -1,22 +1,14 @@
 'use client'
 
-import dynamic from 'next/dynamic'
-import { Divider, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Divider, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { WordCounter } from '@/components/word-counter'
+import { Editor } from '@/components/editable-text/editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 
-const EDITOR_SKELETON = <Skeleton h={600} radius={4} />
-
-const CollaborativeEditor = dynamic(
-    () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),
-    {
-        ssr: false,
-        loading: () => EDITOR_SKELETON,
-    },
-)
+const EDITOR_SKELETON_HEIGHT = 600
 
 const contentStyle = {
     minHeight: 600,
@@ -50,9 +42,8 @@ function FeedbackEditor({
 }) {
     const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishReviewFeedbackProvider()
-    if (!websocketProvider) return EDITOR_SKELETON
     return (
-        <CollaborativeEditor
+        <Editor
             id={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
             studyId={studyId}
             websocketProvider={websocketProvider}
@@ -61,6 +52,7 @@ function FeedbackEditor({
             placeholder={PLACEHOLDER_TEXT}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
+            skeletonHeight={EDITOR_SKELETON_HEIGHT}
         />
     )
 }

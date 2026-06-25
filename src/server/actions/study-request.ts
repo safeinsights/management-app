@@ -62,8 +62,9 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
 
 /**
  * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only when the
- * latest round has closed (resubmittable/terminal) — that's a genuine new submission round.
+ * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
+ * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
+ * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in code-resubmission.ts).
  *
  * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
  * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
@@ -119,18 +120,30 @@ async function attachCodeToRoundJob(
 }
 
 /**
- * Record CODE-SUBMITTED for a submission round exactly once. A re-submit within the same un-reviewed
- * round overwrites the files but stays one submission/version, so we skip if the round's job already
- * carries a CODE-SUBMITTED status (it may since have advanced to CODE-SCANNED, etc.).
+ * Record CODE-SUBMITTED once per submission *round*. CODE-SUBMITTED is an append-only submission
+ * event: each round (initial, and each resubmit after a CODE-CHANGES-REQUESTED) appends one, so the
+ * status history is an honest log of how many times the code was submitted. The round-boundary fix
+ * keeps a change-requested resubmit on the SAME job, so we can't dedup on "job already has a
+ * CODE-SUBMITTED" — that would swallow the new round's submission and leave the researcher's /view
+ * stuck on the feedback screen and the reviewer never re-notified.
+ *
+ * Round-aware idempotency (order-independent — same counting the liveness/version logic uses): the
+ * current round is already submitted iff submitted-count > change-requested-count on this job. A
+ * re-submit within the same un-reviewed round (submitted > requested) is a no-op; the first submit
+ * of a round (submitted == requested) appends.
  */
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
-    const alreadySubmitted = await db
+    const counts = await db
         .selectFrom('jobStatusChange')
-        .select('id')
+        .select((eb) => [
+            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-SUBMITTED').as('submitted'),
+            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-CHANGES-REQUESTED').as('requested'),
+        ])
         .where('studyJobId', '=', studyJobId)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .executeTakeFirst()
-    if (alreadySubmitted) return
+        .executeTakeFirstOrThrow()
+
+    const currentRoundAlreadySubmitted = Number(counts.submitted) > Number(counts.requested)
+    if (currentRoundAlreadySubmitted) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
@@ -402,18 +415,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // when two jobs share a createdAt). Adding CODE-SUBMITTED here targets that same job.
         const latestJob = await db
             .selectFrom('studyJob')
-            .select((eb) => [
-                'studyJob.id as id',
-                eb
-                    .exists(
-                        eb
-                            .selectFrom('jobStatusChange')
-                            .select('jobStatusChange.id')
-                            .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                            .where('jobStatusChange.status', '=', 'CODE-SUBMITTED'),
-                    )
-                    .as('alreadySubmitted'),
-            ])
+            .select('studyJob.id as id')
             .where('studyJob.studyId', '=', studyId)
             .orderBy('studyJob.createdAt', 'desc')
             .orderBy('studyJob.id', 'desc')
@@ -421,12 +423,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .executeTakeFirst()
 
         if (latestJob) {
-            if (!latestJob.alreadySubmitted) {
-                await db
-                    .insertInto('jobStatusChange')
-                    .values({ studyJobId: latestJob.id, userId, status: 'CODE-SUBMITTED' })
-                    .execute()
-            }
+            // Round-aware: appends a CODE-SUBMITTED for a new round, no-ops within an un-reviewed round.
+            await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
             triggerCodeScan(latestJob.id, orgSlug, studyId)
             onStudyReviewRequested({ studyJobId: latestJob.id })
         }
@@ -829,16 +827,26 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // Mirrors saveProposalResubmissionNoteDraftAction (OTTER-607): the
-        // status + lab guard stops a cross-lab member from writing a draft onto
-        // another lab's study, and the 0-row check turns a wrong-status / wrong-lab
-        // attempt into a hard ActionFailure instead of letting the client's
-        // autosave indicator report "saved" when nothing persisted.
+        // Code resubmission runs while study.status stays APPROVED (the reviewer's
+        // CODE-CHANGES-REQUESTED / results decision lives on the job, not the study),
+        // so eligibility is gated on the latest *submitted* job — exactly as the
+        // resubmit page and resubmitStudyCodeAction do — not on study.status. Guarding
+        // on study.status = 'CHANGE-REQUESTED' here (a proposal-clarification status)
+        // would make this autosave throw on every keystroke during a code resubmit.
+        const latestJob = await latestSubmittedJobForStudy(studyId)
+        const latestStatus = latestJob?.statusChanges.at(0)?.status
+        if (!canResubmitStudyCode(latestStatus)) {
+            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
+        // The lab guard stops a cross-lab member from writing a draft onto another
+        // lab's study, and the 0-row check turns a wrong-lab attempt into a hard
+        // ActionFailure instead of letting the client's autosave indicator report
+        // "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
             .set({ codeResubmissionNoteDraft: note })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
             .executeTakeFirst()
@@ -920,8 +928,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        // The canResubmitStudyCode guard above means the latest round has closed, so this opens a
-        // genuinely new round job (a new submission/version) rather than reusing the prior one.
+        // attachCodeToRoundJob → getOrCreateCurrentRoundJob decides reuse-vs-new-round by whether the
+        // round has CLOSED (FILES-APPROVED/FILES-REJECTED only). A CODE-CHANGES-REQUESTED resubmit
+        // revises IN PLACE (same job, overwritten files, a new CODE-SUBMITTED); a resubmit after a
+        // post-run results decision opens a genuinely new round job.
         const { studyJobId } = await attachCodeToRoundJob(
             db,
             studyId,

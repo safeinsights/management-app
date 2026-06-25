@@ -42,16 +42,15 @@ describe('StudyRow reviewer highlight', () => {
         expect(isHighlighted(rowEl())).toBe(true)
     })
 
-    // OTTER-552: study stays APPROVED after a code change-request; the resubmitted code sits at
-    // CODE-SUBMITTED/CODE-SCANNED and must still flag the reviewer.
+    // OTTER-552: a code resubmission opens a NEW job; the dashboard query returns only the latest
+    // job's statuses, so a resubmitted study's latest job carries CODE-SUBMITTED (then CODE-SCANNED),
+    // NOT the prior round's decision. That still flags the reviewer (code awaiting review).
     it('highlights when code is awaiting review even though study is APPROVED', () => {
         renderRow({
             ...baseStudy,
             status: 'APPROVED',
             jobStatusChanges: [
                 { status: 'CODE-SCANNED' as StudyJobStatus },
-                { status: 'CODE-SUBMITTED' as StudyJobStatus },
-                { status: 'CODE-CHANGES-REQUESTED' as StudyJobStatus },
                 { status: 'CODE-SUBMITTED' as StudyJobStatus },
             ],
         })

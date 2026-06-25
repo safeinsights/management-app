@@ -4,7 +4,11 @@ import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
 import { defineAbilityFor, toRecord } from './permissions'
 
-const createAbilty = (roles: Partial<UserOrgRoles> = {}, orgType: 'enclave' | 'lab' = 'enclave') => {
+const createAbilty = (
+    roles: Partial<UserOrgRoles> = {},
+    orgType: 'enclave' | 'lab' = 'enclave',
+    { isSiAdmin = false }: { isSiAdmin?: boolean } = {},
+) => {
     const org = {
         id: faker.string.uuid(),
         type: orgType,
@@ -16,7 +20,7 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}, orgType: 'enclave' | 'l
         user: {
             id: faker.string.uuid(),
             clerkUserId: faker.string.alpha(),
-            isSiAdmin: false,
+            isSiAdmin,
         },
         orgs: {
             test: org,
@@ -80,4 +84,39 @@ test('admin role', () => {
     expect(ability.can('invite', toRecord('User', { orgId: session.orgs.test.id }))).toBe(true)
     expect(ability.can('update', toRecord('User', { orgId: session.orgs.test.id }))).toBe(true)
     expect(ability.can('update', toRecord('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
+})
+
+test('SI admin can review studies for orgs they do not belong to', () => {
+    // The SI admin's only membership is the 'test' enclave org, but they must be able to review
+    // a study reviewed by a DIFFERENT org (the original bug: enumerated grants omitted review).
+    const { ability } = createAbilty({}, 'enclave', { isSiAdmin: true })
+    const otherOrgId = faker.string.uuid()
+
+    expect(ability.can('review', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
+    expect(ability.can('approve', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
+    expect(ability.can('reject', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
+})
+
+test('SI admin (manage/all) grants every action across subjects', () => {
+    const { ability } = createAbilty({}, 'enclave', { isSiAdmin: true })
+    const someOrg = faker.string.uuid()
+
+    expect(ability.can('update', toRecord('Study', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('delete', toRecord('Study', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('create', 'StudyJob')).toBe(true)
+    expect(ability.can('view', toRecord('StudyJob', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('create', 'Org')).toBe(true)
+    expect(ability.can('delete', toRecord('Org', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('invite', toRecord('User', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('view', 'OrgStudies')).toBe(true)
+})
+
+test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {
+    // Guards the wildcard: a plain enclave reviewer must NOT gain blanket permission.
+    const { ability } = createAbilty({}, 'enclave', { isSiAdmin: false })
+    const otherOrgId = faker.string.uuid()
+
+    expect(ability.can('review', toRecord('Study', { orgId: otherOrgId }))).toBe(false)
+    expect(ability.can('delete', toRecord('Org', { orgId: otherOrgId }))).toBe(false)
+    expect(ability.can('create', 'Org')).toBe(false)
 })

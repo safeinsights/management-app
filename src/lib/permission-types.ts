@@ -34,6 +34,10 @@ export function toRecord<T extends string, Properties extends Record<string, any
 // it also controls the types allowed by the Action#requireAbilityTo  method
 // it does NOT control access itself, those rules are defined in the defineAbilityFor in permissions.ts
 type Abilities =
+    // CASL wildcard: ('manage','all') matches every action on every subject at runtime.
+    // Reserved for SI admins (see defineAbilityFor). 'manage' and 'all' are CASL's built-in
+    // wildcard tokens, not real domain actions/subjects.
+    | Ability<'all', 'manage', object>
     | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
     | Ability<'PendingUser', 'claim', object>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>

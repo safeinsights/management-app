@@ -86,21 +86,12 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
 
-    // SI admins can do anything
+    // SI admins can do anything. ('manage','all') is CASL's wildcard — it matches every action
+    // on every subject at runtime, including review/approve/reject for studies of orgs the SI
+    // admin is not a member of. Replaces the previous enumerated list, which omitted the review
+    // actions and left SI admins unable to review studies.
     if (isSiAdmin) {
-        permit('create', 'Org')
-        permit('update', 'User')
-        permit('view', 'User')
-        permit('invite', 'User')
-        permit('view', 'Study')
-        permit('view', 'StudyJob')
-        permit('update', 'Org')
-        permit('delete', 'Org')
-        permit('view', 'OrgStudies')
-        permit('view', 'OrgMembers')
-        permit('view', 'AgentContext')
-        permit('create', 'AgentContext')
-        permit('update', 'AgentContext')
+        permit('manage', 'all')
     }
 
     return build({

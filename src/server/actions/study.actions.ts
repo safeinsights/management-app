@@ -35,6 +35,7 @@ import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
+import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file.
@@ -221,7 +222,11 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         // the researcher view, silently consuming the reviewer's gate and skipping the
         // Agreements page on their next visit.
         const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
-        if (!userOrgIds.has(requiredOrgId)) {
+        // SI admins (manage/all) can review studies for orgs they don't belong to, so allow the
+        // reviewer ack on their behalf — mirroring the ability check the review/agreements pages use.
+        // The researcher path stays membership-only, preserving the OTTER-546 dual-member scoping.
+        const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId: study.orgId }))
+        if (!userOrgIds.has(requiredOrgId) && !canReviewStudy) {
             throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
 
