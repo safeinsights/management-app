@@ -48,7 +48,8 @@ test.describe('MFA Setup Visibility', () => {
         await page.getByPlaceholder('Enter phone number').fill('+15555550101')
         await page.getByRole('button', { name: /send verification code/i }).click()
 
+        // The pin input accepting and echoing the code is what this page-elements test
+        // verifies; clicking "Verify code" afterwards asserts nothing, so it's omitted.
         await testPinInput(page, 'sms-pin-input', '424242', ['4', '2', '4', '2', '4', '2'])
-        await page.getByRole('button', { name: /verify code/i }).click()
     })
 })

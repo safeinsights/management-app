@@ -98,7 +98,10 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
                 browserType: browser.browserType(),
                 page: page,
                 use: use,
-                enableJsCoverage: true,
+                // V8 coverage start/stop runs on every test. It's only needed for the
+                // coverage report (the test:coverage step / CI), so allow opting out
+                // (E2E_COVERAGE=0) to speed up local iteration runs.
+                enableJsCoverage: process.env.E2E_COVERAGE !== '0',
                 enableCssCoverage: false,
             }
             await collectV8CodeCoverageAsync(options)

@@ -6,7 +6,7 @@
 // signin/recovery specs still drive the real form (which the fake honors) for coverage.
 
 import { test as setup } from '@playwright/test'
-import { authFileFor, fs, goto, path, type TestingRole } from './e2e.helpers'
+import { authFileFor, E2E_TIMEOUT_LONG, fs, goto, path, type TestingRole } from './e2e.helpers'
 
 const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin']
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4100'
@@ -38,7 +38,9 @@ const WARMUP_ROUTES = [
 ]
 
 setup('warm up routes', async ({ browser }) => {
-    setup.setTimeout(180_000)
+    // Warming hits several routes on a cold server; give it room (each route gets the
+    // standard per-action navigation timeout, this is the overall ceiling for all of them).
+    setup.setTimeout(E2E_TIMEOUT_LONG * WARMUP_ROUTES.length)
     const context = await browser.newContext({ storageState: authFileFor('admin') })
     const page = await context.newPage()
     try {

@@ -674,14 +674,12 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
 // Owns the read-only ProposalReviewView surface. Seeds PENDING-REVIEW.
 test('ProposalReviewView for study without code', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('proposal-only')
-    await seedProposalPendingReview(studyTitle)
+    const { studyId } = await seedProposalPendingReview(studyTitle)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await visitAsRole(page, REVIEWER_DASHBOARD)
-
-        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        // This test asserts the review view's content, not the dashboard row — navigate
+        // straight to the study (the seed gives us its id) instead of dashboard → View.
+        await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         // "Review initial request" is both the h1 and a section h4 — pin to h1.

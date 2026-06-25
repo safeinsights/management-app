@@ -7,13 +7,6 @@ import { fileURLToPath } from 'url'
 // out partway through (that sign-out + signup is the surface it covers).
 test.use({ storageState: authFileFor('reviewer') })
 
-// must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
-// eslint-disable-next-line no-empty-pattern
-test.beforeEach(async ({}, testInfo) => {
-    // Extend timeout for all tests running this hook by 30 seconds.
-    testInfo.setTimeout(testInfo.timeout + 30_000)
-})
-
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const uniqueSuffix = Date.now().toString(36)
