@@ -264,6 +264,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyJobFileRecipientKey {
+    createdAt: Generated<Timestamp>
+    crypt: string
+    filePath: string
+    fingerprint: string
+    id: Generated<string>
+    studyJobFileId: string
+}
+
 export interface StudyProposalComment {
     authorId: string
     authorRole: StudyProposalCommentAuthorRole
@@ -341,6 +350,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment

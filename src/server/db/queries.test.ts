@@ -15,11 +15,12 @@ import {
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
-    getReviewerPublicKey,
+    getUserPublicKey,
     getUsersForOrgId,
     jobInfoForJobId,
     studyInfoForStudyId,
     getDataSourcesForOrg,
+    getSharedFileIdsForJob,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -55,15 +56,15 @@ async function insertRecords() {
     }
 }
 
-describe('getReviewerPublicKey', () => {
+describe('getUserPublicKey', () => {
     it('returns public key when userId is valid', async () => {
         const { org1User1 } = await insertRecords()
-        const publicKey = await getReviewerPublicKey(org1User1.id)
+        const publicKey = await getUserPublicKey(org1User1.id)
         expect(publicKey).not.toBeNull()
     })
 
     it('returns null when userId is invalid', async () => {
-        const publicKey = await getReviewerPublicKey(BLANK_UUID)
+        const publicKey = await getUserPublicKey(BLANK_UUID)
         expect(publicKey).toBeUndefined()
     })
 })
@@ -262,6 +263,79 @@ describe('currentReviewVersion', () => {
             })
             .execute()
         await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
+    })
+})
+
+describe('getSharedFileIdsForJob', () => {
+    const insertFile = (jobId: string, fileType: 'ENCRYPTED-RESULT' | 'ENCRYPTED-CODE-RUN-LOG') =>
+        db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: jobId,
+                name: 'encrypted-results.zip',
+                path: `results/${fileType}.zip`,
+                fileType,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+    // Sharing = a re-wrapped key row for the artifact. This is what getSharedFileIdsForJob reads,
+    // so tests grant access by inserting these rows rather than flipping a status.
+    const shareFile = (studyJobFileId: string, filePath: string, fingerprint: string) =>
+        db
+            .insertInto('studyJobFileRecipientKey')
+            .values({ studyJobFileId, filePath, fingerprint, crypt: 'wrapped-key' })
+            .execute()
+
+    it('returns [] when nothing has been shared', async () => {
+        const { job } = await insertTestStudyJobData()
+        await insertFile(job.id, 'ENCRYPTED-RESULT')
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([])
+    })
+
+    it('returns each artifact that has a re-wrapped key, results and logs alike', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        const log = await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
+        await shareFile(log.id, 'run.log', 'fp-researcher')
+
+        const ids = await getSharedFileIdsForJob(job.id)
+        expect(ids.sort()).toEqual([result.id, log.id].sort())
+    })
+
+    // The query reports exactly the artifacts with key rows, so a file that exists but was never
+    // re-wrapped is not "shared". (All-or-nothing approval shares results + logs together, but the
+    // query stays correct for any subset — keeping the door open to splitting them later.)
+    it('excludes artifacts that have no re-wrapped key', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG') // present but not re-wrapped
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
+    })
+
+    it('returns an artifact once even when shared with multiple researchers', async () => {
+        const { job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await shareFile(result.id, 'results.csv', 'fp-a')
+        await shareFile(result.id, 'results.csv', 'fp-b')
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
+    })
+
+    // Sharing is recorded by the key rows, independent of current org membership. Removing a
+    // researcher from the lab must NOT delete their key rows / retroactively un-share. This guards
+    // against anyone reintroducing a membership join here.
+    it('stays shared after the lab researchers are removed from the org', async () => {
+        const { org, job } = await insertTestStudyJobData()
+        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
+        await shareFile(result.id, 'results.csv', 'fp-researcher')
+
+        await db.deleteFrom('orgUser').where('orgId', '=', org.id).execute()
+
+        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
     })
 })
 

@@ -127,7 +127,10 @@ services:
         volumes:
             - ./:/app/
             - node_modules:/app/node_modules
-        restart: unless-stopped
+            # Mask the host's .next so the container owns its own Turbopack cache.
+            # Sharing it over the ./ bind mount poisons the cache across host/container.
+            - /app/.next
+        restart: 'no'
         networks:
             - mgmnt-app
         ports:

@@ -60,7 +60,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             // short delay to ensure the token is propagated before navigation
             await new Promise((resolve) => setTimeout(resolve, 500))
 
-            if (result?.needsReviewerKey) {
+            if (result?.needsUserKey) {
                 router.push(Routes.accountKeys)
             } else {
                 router.push(Routes.orgDashboard({ orgSlug: org!.slug }))

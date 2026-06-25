@@ -4,6 +4,7 @@ import { UseFormReturnType } from '@mantine/form'
 const OtpInput = ({ form }: { form: UseFormReturnType<{ code: string }> }) => {
     return (
         <PinInput
+            autoFocus
             length={6}
             size="lg"
             type="number"
