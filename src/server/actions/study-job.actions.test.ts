@@ -17,6 +17,7 @@ vi.mock('@/server/storage', () => ({
 
 vi.mock('@/server/mailer', () => ({
     sendStudyResultsRejectedEmail: vi.fn(),
+    sendStudyResultsApprovedEmail: vi.fn(),
 }))
 
 // Spy on the generation trigger so the retry test asserts re-fire without
