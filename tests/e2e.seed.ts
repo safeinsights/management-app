@@ -231,13 +231,21 @@ async function insertSubmittedJob(
             .execute()
     }
 
-    // Space the status rows so createdAt ordering is deterministic (the latest-job
-    // query orders by createdAt then id; identical timestamps would rely on id only).
-    const base = Date.now()
+    // Space the status rows so createdAt ordering is deterministic (the latest-job query
+    // orders by createdAt then id). Stamp them in the PAST (oldest furthest back, newest
+    // ~1s ago) so any status a later step appends via the real API (e.g. the results
+    // upload's RUN-COMPLETE at server-now) reliably sorts AFTER the seeded ones — seeding
+    // future timestamps would let CODE-APPROVED outrank a freshly-uploaded RUN-COMPLETE.
+    const now = Date.now()
     await db
         .insertInto('jobStatusChange')
         .values(
-            statuses.map((status, i) => ({ studyJobId: job.id, status, userId, createdAt: new Date(base + i * 1000) })),
+            statuses.map((status, i) => ({
+                studyJobId: job.id,
+                status,
+                userId,
+                createdAt: new Date(now - (statuses.length - i) * 1000),
+            })),
         )
         .execute()
 
@@ -277,15 +285,17 @@ export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
-// Code already approved and the job has reached JOB-READY. `/api/studies/ready` is a
-// pure DB query (APPROVED + a JOB-READY/JOB-RUNNING row + no terminal status), so the
-// seeded job is immediately "ready" — no runner involved. Returns the jobId so the
-// caller can upload an encrypted result/error log via the debug script and then drive
-// the reviewer decrypt+approve UI. Precondition for "successful results review" and
-// the error-log review flow.
+// Code already approved; the job is ready to receive results. The caller then uploads an
+// encrypted result/error log via the debug script, which POSTs /api/job/[jobId]/results
+// and appends the definitive latest status (RUN-COMPLETE for results, JOB-ERRORED for
+// logs). We intentionally do NOT seed JOB-READY here: that status carries a later
+// timestamp than the upload's server-side insert in some runs, which would make
+// latestJobForStudy resolve to JOB-READY instead of RUN-COMPLETE and strand the reviewer
+// off the results-review screen. Latest seeded status is CODE-APPROVED; the upload owns
+// the terminal one. Returns the jobId for the upload step.
 export async function seedCodeApprovedJobReady(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
-    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-READY'])
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'])
     return { studyId: study.id, jobId: job.id }
 }
 
