@@ -8,6 +8,7 @@ overrides:
   '@types/react': 19.2.14
   esbuild: ^0.28.1
   form-data: ^4.0.6
+  hono: ^4.12.25
   minimatch: ^10.2.1
   picomatch: ^4.0.4
   postcss: ^8.5.10
@@ -223,8 +224,8 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1
       si-encryption:
-        specifier: github:safeinsights/encryption#2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20
-        version: https://codeload.github.com/safeinsights/encryption/tar.gz/2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20
+        specifier: github:safeinsights/encryption#3cb802df301d02813f8f67261c34144686b8540a
+        version: https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
@@ -6105,8 +6106,8 @@ packages:
     resolution: {integrity: sha512-VsC6n6vz1ihYYyZZwX7YZSF5l5x36ca17OC+a69h94YqB7X6XLwf+5MOgynYir2SLFUbl8gIYvBo8K8RoNQ6bQ==}
     engines: {node: '>= 0.4'}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20:
-    resolution: {gitHosted: true, integrity: sha512-P0G+iFlGfqxr8HaPNmYixChwfV99gEqDfuDN2Ft1AQ0DYABaBy32fncswHa0mxgQQRVpFwQzth7j0o8yWGgcCA==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20}
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a:
+    resolution: {gitHosted: true, integrity: sha512-0X/z+VaQP+vehyGBrrHUJHVFyjJO2687t3gKHnMZUqzLMBfUykpSRjVZ7CGoFGwtKcm270hhQ8gQyW6ABtMOsw==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a}
     version: 0.0.1
 
   side-channel-list@1.0.1:
@@ -12385,8 +12386,8 @@ snapshots:
 
   magicast@0.5.3:
     dependencies:
-      '@babel/parser': 7.29.3
-      '@babel/types': 7.29.0
+      '@babel/parser': 7.29.7
+      '@babel/types': 7.29.7
       source-map-js: 1.2.1
 
   mailgun.js@12.9.0(debug@4.4.3):
@@ -13916,7 +13917,7 @@ snapshots:
 
   shell-quote@1.8.4: {}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20:
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a:
     dependencies:
       '@zip.js/zip.js': 2.8.26
       debug: 4.4.3

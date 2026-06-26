@@ -176,7 +176,7 @@ export const Routes = {
 
     researcherProfile: '/researcher/profile' as Route,
 
-    reviewerKey: '/reviewer-key' as Route,
+    userKey: '/user-key' as Route,
 
     // -------------------------------------------------------------------------
     // Admin Routes

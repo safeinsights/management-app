@@ -38,13 +38,21 @@ describe('User Actions', () => {
 
         const dbUser = await db.selectFrom('user').where('id', '=', user.id).selectAll('user').executeTakeFirstOrThrow()
         expect(dbUser.clerkId).toBe(user.clerkId)
-        expect(result).toEqual({ redirectToReviewerKey: true })
+        expect(result).toEqual({ redirectToKeyGeneration: true })
     })
 
     test('onUserSignInAction should not redirect if user has a public key', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
         const result = await onUserSignInAction()
         expect(result).toEqual({})
+    })
+
+    test('onUserSignInAction should redirect lab researchers without a key to the key page', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({ redirectToKeyGeneration: true })
     })
 
     test('syncUserMetadataAction should sync metadata', async () => {

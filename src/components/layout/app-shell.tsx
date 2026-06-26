@@ -22,7 +22,7 @@ import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 
 import { ActivityContext } from '../activity-context'
-import { RequireReviewerKey } from '../require-reviewer-key'
+import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { Routes } from '@/lib/routes'
 
@@ -52,7 +52,7 @@ export function AppShell({ children }: Props) {
         >
             <RequireUser />
             <RequireMFA />
-            <RequireReviewerKey />
+            <RequireUserKey />
             <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 

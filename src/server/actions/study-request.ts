@@ -737,11 +737,15 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // It earns its place by splitting the diagnostics, distinguishing "not your
         // lab / doesn't exist" from "already submitted (race)" so each case gets a
         // distinct user-facing message. Don't delete it to "simplify".
+        // org.name is fetched here (joined on the reviewing org, study.orgId) so the
+        // `proposal-submitted` broadcast below can name the reviewing org in peers'
+        // toast without a second round-trip.
         const study = await db
             .selectFrom('study')
-            .select(['id', 'status'])
-            .where('id', '=', studyId)
-            .where('submittedByOrgId', 'in', labScope)
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
+            .where('study.id', '=', studyId)
+            .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
@@ -764,13 +768,14 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // insert below runs. submittedAt is intentionally NOT bumped — the
         // original first-submission timestamp is preserved; the
         // studyProposalComment row carries the resubmission timestamp.
+        const resubmittedAt = new Date()
         const claimed = await db
             .updateTable('study')
             .set({
                 ...updateValues,
                 status: 'PENDING-REVIEW',
                 proposalResubmissionNoteDraft: null,
-                lastUpdatedAt: new Date(),
+                lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
@@ -806,11 +811,39 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('name', 'like', `review-feedback-${studyId}%`)
             .execute()
 
+        // OTTER-497: change-requested editing is collaborative, so drop the
+        // proposal-* yjs_document rows on resubmit for the same reason
+        // finalizeStudySubmissionAction does — a future CHANGE-REQUESTED reopen
+        // should fall through to onLoadDocument's seeder (study columns) instead
+        // of re-loading stale CRDT from before this resubmit. The deferred purge
+        // catches any Hocuspocus debounce landing after commit.
+        await db
+            .deleteFrom('yjsDocument')
+            .where('studyId', '=', studyId)
+            .where('name', 'like', `proposal-${studyId}-%`)
+            .execute()
+
+        // Metadata for the `proposal-submitted` stateless broadcast: peers still
+        // editing get a toast naming the submitter, and the client uses clerkId to
+        // identify the submitter's own session. Mirrors finalizeStudySubmissionAction.
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName', 'clerkId'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/dashboard`)
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        return { studyId }
+        purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
+
+        return {
+            studyId,
+            submitterFullName: submitter.fullName,
+            submitterClerkId: submitter.clerkId,
+            orgName: study.orgName,
+        }
     })
 
 // OTTER-558: Save the in-progress resubmission note as a lab-shared draft. Any

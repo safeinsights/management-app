@@ -1,28 +1,28 @@
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal'
-import { InfoTooltip } from '@/components/tooltip'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
-import { CheckCircleIcon, InfoIcon, LockIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { PrivateKeyForm } from '@/components/private-key-form'
+import { Button, Stack, Table } from '@mantine/core'
+import { CheckCircleIcon, LockIcon, LockOpenIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 
 type EncryptedFilesPanelProps = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
-    hideKeyLabel?: boolean
     hideTableUntilDecrypted?: boolean
+    isReviewer: boolean
 }
 
 export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
     job,
     onFilesApproved,
-    hideKeyLabel = false,
     hideTableUntilDecrypted = false,
+    isReviewer,
 }) => {
     const {
         fileRows,
@@ -35,11 +35,11 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
         viewingFile,
         openFileViewer,
         closeFileViewer,
-        encryptedFileTypesLabel,
-        selectedPaths,
-        toggleFile,
-    } = useEncryptedFilesPanel({ job, onFilesApproved })
+    } = useEncryptedFilesPanel({ job, onFilesApproved, isReviewer })
 
+    // No decryptable rows for this user (a researcher with no wrapped keys yet — late joiner, or
+    // pre-renewal). Render nothing rather than a form to nowhere. Future: an honest "no results
+    // shared with you yet" empty state + the renewal re-wrap request affordance lives here.
     if (!hasFileRows) {
         return null
     }
@@ -48,36 +48,15 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
 
     return (
         <Stack>
-            {showTable && (
-                <UnifiedFileTable
-                    rows={fileRows}
-                    onView={openFileViewer}
-                    selectedPaths={selectedPaths}
-                    onToggle={toggleFile}
-                />
-            )}
-            {shouldShowForm && (
-                <form onSubmit={handleSubmit}>
-                    <Stack>
-                        <Textarea
-                            label={
-                                hideKeyLabel ? undefined : (
-                                    <Text mb="sm">{`Enter Reviewer key to view ${encryptedFileTypesLabel}`}</Text>
-                                )
-                            }
-                            resize="vertical"
-                            {...form.getInputProps('privateKey')}
-                            placeholder="Enter your Reviewer key to access encrypted content."
-                            key={form.key('privateKey')}
-                        />
-                        <Group>
-                            <Button type="submit" disabled={!form.isValid() || isLoadingBlob} loading={isDecrypting}>
-                                Decrypt Files
-                            </Button>
-                        </Group>
-                    </Stack>
-                </form>
-            )}
+            {showTable && <UnifiedFileTable rows={fileRows} onView={openFileViewer} />}
+            <PrivateKeyForm
+                isVisible={shouldShowForm}
+                form={form}
+                onSubmit={handleSubmit}
+                isDecrypting={isDecrypting}
+                isDisabled={isLoadingBlob}
+                submitLabel="Decrypt Files"
+            />
             <DecryptedFilePreview file={viewingFile} onClose={closeFileViewer} />
         </Stack>
     )
@@ -86,19 +65,13 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
 type UnifiedFileTableProps = {
     rows: UnifiedFileRow[]
     onView: (file: JobFile) => void
-    selectedPaths: Set<string>
-    onToggle: (path: string) => void
 }
 
-const UnifiedFileTable: FC<UnifiedFileTableProps> = ({ rows, onView, selectedPaths, onToggle }) => (
+const UnifiedFileTable: FC<UnifiedFileTableProps> = ({ rows, onView }) => (
     <Table>
         <Table.Thead>
             <Table.Tr>
-                <Table.Th w={40}>
-                    <InfoTooltip label="Selected files will be shared with the researcher" withArrow multiline w={200}>
-                        <InfoIcon size={16} color="var(--mantine-color-blue-6)" />
-                    </InfoTooltip>
-                </Table.Th>
+                <Table.Th w={40} />
                 <Table.Th>File Type</Table.Th>
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Size</Table.Th>
@@ -108,13 +81,7 @@ const UnifiedFileTable: FC<UnifiedFileTableProps> = ({ rows, onView, selectedPat
         </Table.Thead>
         <Table.Tbody>
             {rows.map((row) => (
-                <UnifiedFileRow
-                    key={row.key}
-                    row={row}
-                    onView={onView}
-                    isSelected={selectedPaths.has(row.name)}
-                    onToggle={onToggle}
-                />
+                <UnifiedFileRow key={row.key} row={row} onView={onView} />
             ))}
         </Table.Tbody>
     </Table>
@@ -123,26 +90,19 @@ const UnifiedFileTable: FC<UnifiedFileTableProps> = ({ rows, onView, selectedPat
 type UnifiedFileRowProps = {
     row: UnifiedFileRow
     onView: (file: JobFile) => void
-    isSelected: boolean
-    onToggle: (path: string) => void
 }
 
-const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView, isSelected, onToggle }) => {
+const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView }) => {
     const statusCell = {
-        locked: <LockIcon size={18} color="var(--mantine-color-gray-5)" />,
-        approved: <CheckCircleIcon size={18} weight="fill" color="var(--mantine-color-green-6)" />,
-        decrypted: (
-            <Checkbox checked={isSelected} onChange={() => onToggle(row.name)} aria-label={`Select ${row.label}`} />
-        ),
-        'not-shared': (
-            <InfoTooltip label="Not shared with researcher" withArrow>
-                <XCircleIcon
-                    size={18}
-                    weight="fill"
-                    color="var(--mantine-color-red-6)"
-                    aria-label={`${row.name} not shared with researcher`}
-                />
-            </InfoTooltip>
+        locked: <LockIcon size={18} color="var(--mantine-color-gray-5)" aria-label="Encrypted" />,
+        decrypted: <LockOpenIcon size={18} color="var(--mantine-color-blue-6)" aria-label="Decrypted" />,
+        approved: (
+            <CheckCircleIcon
+                size={18}
+                weight="fill"
+                color="var(--mantine-color-green-6)"
+                aria-label="Shared with researcher"
+            />
         ),
     }[row.state]
 

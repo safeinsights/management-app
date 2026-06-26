@@ -7,7 +7,7 @@
     "author": "Nathan Stitt",
     "main": "index.js",
     "type": "module",
-    "packageManager": "pnpm@11.3.0",
+    "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620",
     "engines": {
         "node": ">=22",
         "pnpm": ">=11"
@@ -115,7 +115,7 @@
         "react-phone-number-input": "^3.4.16",
         "remeda": "^2.33.6",
         "server-only": "^0.0.1",
-        "si-encryption": "github:safeinsights/encryption#2e35d3bb56f02bfc0e6d5cd9d83c54637ed0ac20",
+        "si-encryption": "github:safeinsights/encryption#3cb802df301d02813f8f67261c34144686b8540a",
         "uuid": "^14.0.0",
         "validator": "^13.15.26",
         "yjs": "^13.6.30",

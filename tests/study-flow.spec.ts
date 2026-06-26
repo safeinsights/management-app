@@ -281,7 +281,7 @@ async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<
     await page.waitForURL(/\/review$/)
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
+    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -304,7 +304,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     await page.waitForURL(/\/review$/)
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
+    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -314,10 +314,8 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
 
-    const checkbox = page.getByRole('checkbox', { name: /Select Code Run Log/i })
-    await expect(checkbox).toBeVisible()
-    await checkbox.check()
-
+    // All-or-nothing: approving shares every decrypted artifact (results + logs) with the
+    // researcher — no per-file selection. Approve directly once decrypted.
     const approveButton = page.getByRole('button', { name: /approve/i }).last()
     await expect(approveButton).toBeEnabled()
     await approveButton.click()
@@ -340,7 +338,10 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
 
     await expect(page.getByText(/The code errored/i)).toBeVisible()
     await expect(page.getByText(/Job ID/i)).toBeVisible()
-    await expect(page.getByText(/Code Run Log:/i)).toBeVisible()
+
+    // Verify logs row exists in the results table (JobResults now renders EncryptedFilesPanel,
+    // which lists the log artifact by its file-type label before decryption).
+    await expect(page.getByText('Code Run Log')).toBeVisible()
 }
 
 // ============================================================================
