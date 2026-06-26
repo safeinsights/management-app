@@ -31,11 +31,10 @@ describe('StudyViewPage', () => {
     })
 
     // ?from=agreements no longer shows the proposal on /view — a code-submitted study resolves to
-    // code-under-review. Viewing a submitted proposal lives at /submitted.
-    // APPROVED-no-code resolves to proposal-feedback (ProposalFeedbackScreen). That screen passes an
-    // agreementsHref so the "Proceed to Step 3" forward renders — the researcher's path to sign
-    // agreements. (REJECTED / CHANGE-REQUESTED get no agreementsHref; see the tests below.)
-    it('renders ResearcherProposalView with a Proceed-to-Step-3 button for APPROVED study without code', async () => {
+    // code-under-review. APPROVED-no-code resolves to proposal-feedback, which renders the same
+    // ProposalSubmitted page as /submitted: the "View full initial request" toggle, feedback/notes,
+    // and a status-driven "Proceed to step 3" forward for APPROVED studies.
+    it('renders the ProposalSubmitted page with a Proceed-to-step-3 link for APPROVED study without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -45,13 +44,12 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('STEP 2')).toBeInTheDocument()
-        expect(screen.getByText('Study proposal')).toBeInTheDocument()
-        expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+        expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
     })
 
-    it('renders ResearcherProposalView for REJECTED study', async () => {
+    it('renders the ProposalSubmitted page for a REJECTED study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'REJECTED')
@@ -62,11 +60,11 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('STEP 2')).toBeInTheDocument()
-        expect(screen.getByText('Study proposal')).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('status-banner-REJECTED')).toBeInTheDocument()
     })
 
-    it('renders ResearcherProposalView for CHANGE-REQUESTED study without code placeholder content', async () => {
+    it('renders the ProposalSubmitted page with an Edit-and-resubmit link for a CHANGE-REQUESTED study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
@@ -77,10 +75,8 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('STEP 2')).toBeInTheDocument()
-        expect(screen.getByText('Study proposal')).toBeInTheDocument()
-        expect(screen.queryByText('No code has been uploaded yet.')).not.toBeInTheDocument()
-        expect(screen.queryByText('Status will be available after code is uploaded.')).not.toBeInTheDocument()
+        expect(screen.getByTestId('status-banner-CHANGE-REQUESTED')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
     })
 
     it('renders generic layout for DRAFT study without job', async () => {
@@ -618,7 +614,7 @@ describe('StudyViewPage', () => {
             expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
         })
 
-        it('?step=proposal on a results study walks back to the proposal with a "Proceed to Step 3" forward', async () => {
+        it('?step=proposal on a results study walks back to the proposal with a "Proceed to step 3" forward', async () => {
             const { org, study } = await seedResultsStudy()
 
             const page = await StudyReviewPage({
@@ -627,8 +623,8 @@ describe('StudyViewPage', () => {
             })
             renderWithProviders(page!)
 
-            expect(screen.getByText('STEP 2')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Proceed to Step 3' })).toBeInTheDocument()
+            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
         })
 
         it('without ?step= a results study still resolves to the terminal results screen', async () => {

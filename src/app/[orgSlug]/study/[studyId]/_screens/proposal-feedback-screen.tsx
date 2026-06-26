@@ -1,23 +1,41 @@
-import { Routes } from '@/lib/routes'
-import { projectStudyState } from '@/lib/study-screen'
-import { ResearcherProposalView } from '../view/researcher-proposal-view'
+import { captureException } from '@sentry/nextjs'
+import { notFound } from 'next/navigation'
+import { getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
+import { getOrgNameFromId } from '@/server/db/queries'
+import { deriveStudyVersion } from '@/lib/studies'
+import { isActionError } from '@/lib/errors'
+import { isSubmittedStudy } from '@/schema/study'
+import { ProposalSubmitted } from '../submitted/proposal-submitted'
 import type { ScreenComponentProps } from './types'
 
-// proposal-feedback: read-only proposal (REJECTED / APPROVED / CHANGE-REQUESTED). Any APPROVED study
-// gets the forward "Proceed to Step 3" → agreements — including an advanced study revisiting this as
-// the wizard's first step (?step=proposal, OTTER-614), so the read-only flow can walk forward again.
-// CHANGE-REQUESTED's "Edit and resubmit" CTA lives on /submitted, and REJECTED is terminal.
-export function ProposalFeedbackScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
-    const state = projectStudyState(raw)
-    const showProceed = state.status === 'APPROVED'
-    const agreementsHref = showProceed ? Routes.studyAgreements({ orgSlug, studyId: study.id, returnTo }) : undefined
+// proposal-feedback: read-only initial request (REJECTED / APPROVED / CHANGE-REQUESTED). Renders the
+// same ProposalSubmitted page served at /submitted — the "View full initial request" toggle, the
+// feedback-and-notes section, and the status-driven nav (APPROVED → "Proceed to step 3" → agreements),
+// so the read-only wizard can revisit this step and walk forward again.
+export async function ProposalFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
+    if (!isSubmittedStudy(study)) notFound()
+
+    const [orgName, feedbackResult] = await Promise.all([
+        getOrgNameFromId(study.orgId),
+        getProposalFeedbackForStudyAction({ studyId: study.id }),
+    ])
+
+    const feedbackError = isActionError(feedbackResult)
+    if (feedbackError) {
+        captureException(new Error(`Failed to fetch proposal feedback for study ${study.id}: ${feedbackResult.error}`))
+    }
+
+    const entries = feedbackError ? [] : feedbackResult
+    const studyVersion = deriveStudyVersion(entries)
 
     return (
-        <ResearcherProposalView
+        <ProposalSubmitted
             orgSlug={orgSlug}
             study={study}
-            dashboardHref={dashboardHref}
-            agreementsHref={agreementsHref}
+            orgName={orgName}
+            entries={entries}
+            studyVersion={studyVersion}
+            feedbackError={feedbackError}
         />
     )
 }

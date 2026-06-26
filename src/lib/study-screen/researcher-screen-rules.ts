@@ -19,13 +19,13 @@ export const RESEARCHER_SCREEN_RULES = [
     // Code submitted, awaiting a reviewer decision.
     ['code-under-review', { when: (s) => s.codeAwaitingDecision }],
 
-    // Proposal approved but no code submitted yet: read-only proposal feedback (next step is code).
+    // Proposal approved but no code submitted yet: read-only proposal feedback.
     ['proposal-feedback', { when: (s) => s.status === 'APPROVED' && !s.hasSubmittedCode }],
 
     // Proposal under review: generic overview.
     ['study-overview', { when: (s) => s.status === 'PENDING-REVIEW' }],
-    // Decided proposal (read-only): CHANGE-REQUESTED, REJECTED, or APPROVED that already has code
-    // (the no-code APPROVED case is handled by the proposal-feedback rule above).
+    // Decided proposal (read-only): CHANGE-REQUESTED, REJECTED, or APPROVED-with-code (the latter
+    // only reachable via ?step=proposal; the no-code APPROVED case is handled by the rule above).
     [
         'proposal-feedback',
         { when: (s) => s.status === 'CHANGE-REQUESTED' || s.status === 'REJECTED' || s.status === 'APPROVED' },
