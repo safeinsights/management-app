@@ -3,13 +3,13 @@
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
-import { ActionSuccessType, jobFileSchema } from '@/lib/types'
+import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
@@ -31,10 +31,11 @@ import {
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
-import { storeApprovedJobFile } from '@/server/storage'
+import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
+import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file.
@@ -221,7 +222,11 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         // the researcher view, silently consuming the reviewer's gate and skipping the
         // Agreements page on their next visit.
         const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
-        if (!userOrgIds.has(requiredOrgId)) {
+        // SI admins (manage/all) can review studies for orgs they don't belong to, so allow the
+        // reviewer ack on their behalf — mirroring the ability check the review/agreements pages use.
+        // The researcher path stays membership-only, preserving the OTTER-546 dual-member scoping.
+        const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId: study.orgId }))
+        if (!userOrgIds.has(requiredOrgId) && !canReviewStudy) {
             throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
 
@@ -265,7 +270,7 @@ async function approveJobCode({
     studyId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     job: LatestJobForStudy
@@ -274,7 +279,7 @@ async function approveJobCode({
     studyId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     await db
         .insertInto('jobStatusChange')
@@ -316,12 +321,10 @@ async function approveJobCode({
         })
     }
 
-    if (jobFiles?.length) {
-        const info = { studyId, studyJobId: job.id, orgSlug }
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+    if (sharedFiles?.length) {
+        // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's browser
+        // produced. Ciphertext is untouched; no plaintext is stored.
+        await insertSharedFileKeys(db, job.id, sharedFiles)
     }
 }
 
@@ -334,7 +337,7 @@ async function performStudyProposalApproval({
     userId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     study: StudyForApproval
@@ -342,7 +345,7 @@ async function performStudyProposalApproval({
     userId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
     const isCodeReapproval = !isFirstApproval
@@ -379,7 +382,7 @@ async function performStudyProposalApproval({
         if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
     }
 
-    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
 
     // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
@@ -447,7 +450,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             studyId: z.string(),
             orgSlug: z.string(),
             useTestImage: z.boolean().optional(),
-            jobFiles: z.array(jobFileSchema).optional(),
+            sharedFiles: z.array(sharedFileSchema).optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -459,7 +462,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, useTestImage, sharedFiles }, study, session, db }) => {
         await performStudyProposalApproval({
             db,
             study,
@@ -467,7 +470,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             userId: session.user.id,
             orgSlug,
             useTestImage,
-            jobFiles,
+            sharedFiles,
         })
     })
 
@@ -701,31 +704,24 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: 
     await purgeCodeReviewFeedbackYjsDoc(database, args)
 })
 
-async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
-    // Mirror the editor auth gate: code review requires both PENDING-REVIEW
-    // study status and a job whose latest status is CODE-SUBMITTED/CODE-SCANNED.
-    // Without the study-status check, a stale APPROVED study with a fresh
-    // CODE-SUBMITTED job would slip through (the job-status check alone would pass).
-    const study = await db
-        .selectFrom('study')
-        .select('status')
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow(throwNotFound('study'))
-    if (study.status !== 'PENDING-REVIEW') {
-        // OTTER-471: race-loser when a peer already submitted a code decision
-        // (post-submit the study flips out of PENDING-REVIEW).
+async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
+    // Code-review eligibility is driven by the JOB status alone, not study.status.
+    // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
+    // approved stays APPROVED while its code is (re)submitted for review, so a latest
+    // job whose newest code change is a fresh submission is the only correct gate. A
+    // peer submitting a decision advances the round past that (and the unique
+    // (studyJobId, reviewKind) index blocks a true insert race), so this check is also
+    // the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
+    // vs decisions rather than reading statusChanges[0], so it is immune to the
+    // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
+    const job = await latestJobForStudyOrNull(studyId)
+    if (!job || !job.statusChanges.some((c) => isCodeUnderReviewStatus(c.status))) {
+        throw new ActionFailure({ study: 'has no code submission to review.' })
+    }
+    if (!latestCodeChangeIsSubmission(job.statusChanges)) {
         throw new ActionFailure({
             study: 'has already been decided. Refresh to see the updated status.',
         })
-    }
-
-    const job = await latestJobForStudyOrNull(studyId)
-    const latestStatus = job?.statusChanges.at(0)?.status
-    if (!job || !latestStatus) {
-        throw new ActionFailure({ study: 'has no code submission to review.' })
-    }
-    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
-        throw new ActionFailure({ study: 'code is no longer in a reviewable state.' })
     }
     return job
 }
@@ -769,7 +765,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             })
         }
 
-        const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
+        const claimedJob = await claimInitialCodeReviewJob({ studyId })
 
         try {
             await db

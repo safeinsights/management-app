@@ -24,6 +24,7 @@ import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { Route } from 'next'
 import { vi } from 'vitest'
+import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -31,6 +32,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
     }
 })
@@ -99,7 +101,9 @@ describe('CodeUploadPage', () => {
         })
     })
 
-    it('shows workspace files and allows submission', async () => {
+    // Submitting reuses the open round job, whose cleanup hits real S3
+    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    it.skipIf(!s3Available)('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
@@ -148,7 +152,7 @@ describe('CodeUploadPage', () => {
         ])
     })
 
-    it('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
+    it.skipIf(!s3Available)('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
         const orgSlug = 'openstax'
         const { study } = await setupStudy(orgSlug)
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })

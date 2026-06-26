@@ -9,11 +9,16 @@ describe('canResubmitStudyCode', () => {
         expect(canResubmitStudyCode('CODE-APPROVED')).toBe(false)
     })
 
-    it('allows resubmission for results-stage statuses', () => {
+    it('allows resubmission for a decided results round (round-closing statuses)', () => {
         expect(canResubmitStudyCode('FILES-APPROVED')).toBe(true)
         expect(canResubmitStudyCode('FILES-REJECTED')).toBe(true)
-        expect(canResubmitStudyCode('JOB-ERRORED')).toBe(true)
-        expect(canResubmitStudyCode('RUN-COMPLETE')).toBe(true)
+    })
+
+    it('disallows resubmission from a results round still awaiting the files decision', () => {
+        // Bare RUN-COMPLETE / JOB-ERRORED live on the same job a FILES-* decision later closes;
+        // resubmitting from them would reuse the job and silently no-op (see CODE_RESUBMITTABLE_JOB_STATUSES).
+        expect(canResubmitStudyCode('RUN-COMPLETE')).toBe(false)
+        expect(canResubmitStudyCode('JOB-ERRORED')).toBe(false)
     })
 
     it('returns false for in-review and empty statuses', () => {

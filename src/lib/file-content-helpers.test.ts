@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFileContents, parseCsv, parseLogMessages } from './file-content-helpers'
+import { decodeFileContents, imageMimeType, parseCsv, parseLogMessages } from './file-content-helpers'
 
 describe('file-content-helpers', () => {
     describe('decodeFileContents', () => {
@@ -71,6 +71,30 @@ describe('file-content-helpers', () => {
         it('returns null when entries are missing required fields', () => {
             expect(parseLogMessages('[{"timestamp":1000}]')).toBeNull()
             expect(parseLogMessages('[{"message":"hello"}]')).toBeNull()
+        })
+    })
+
+    describe('imageMimeType', () => {
+        it('returns the correct MIME type for known image extensions', () => {
+            expect(imageMimeType('plot.png')).toBe('image/png')
+            expect(imageMimeType('photo.jpg')).toBe('image/jpeg')
+            expect(imageMimeType('photo.jpeg')).toBe('image/jpeg')
+            expect(imageMimeType('anim.gif')).toBe('image/gif')
+            expect(imageMimeType('icon.svg')).toBe('image/svg+xml')
+            expect(imageMimeType('hero.webp')).toBe('image/webp')
+            expect(imageMimeType('old.bmp')).toBe('image/bmp')
+        })
+
+        it('is case-insensitive for extensions', () => {
+            expect(imageMimeType('PLOT.PNG')).toBe('image/png')
+            expect(imageMimeType('Photo.JPG')).toBe('image/jpeg')
+        })
+
+        it('returns null for non-image files', () => {
+            expect(imageMimeType('data.csv')).toBeNull()
+            expect(imageMimeType('script.py')).toBeNull()
+            expect(imageMimeType('results.txt')).toBeNull()
+            expect(imageMimeType('noext')).toBeNull()
         })
     })
 })

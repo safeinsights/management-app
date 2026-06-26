@@ -1,13 +1,10 @@
 import { PostgresDialect } from 'kysely'
-import PG from 'pg'
-import { databaseURL, DEPLOYED_ENV } from '../server/config'
+import { databaseURL } from '../server/config'
+import { ResilientPool } from './resilient-pool'
 
 export const dialect = new PostgresDialect({
-    pool: async () => {
-        const config = await databaseURL()
-        return new PG.Pool({
-            connectionString: config,
-            ...(DEPLOYED_ENV && { ssl: { rejectUnauthorized: false } }),
-        })
-    },
+    // ResilientPool re-reads the DB secret and rebuilds itself if a deploy
+    // rotates the password, so a warm process recovers without a restart
+    // (OTTER-626).
+    pool: async () => new ResilientPool(await databaseURL()),
 })

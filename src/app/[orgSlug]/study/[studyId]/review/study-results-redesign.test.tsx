@@ -14,7 +14,6 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType } from '@/database/types'
-import { type JobFile } from '@/lib/types'
 
 // OTTER-538: focused tests for the redesigned StudyResults panel.
 // The redesign (1) shows the RUN-COMPLETE secondary text on RUN-COMPLETE, (2) hides
@@ -23,12 +22,15 @@ import { type JobFile } from '@/lib/types'
 // JobStatusHelpText for terminal non-COMPLETE statuses so an errored or rejected
 // job doesn't claim it was "successfully processed".
 
-const mockedApprovedJobFiles: JobFile[] = []
-
 vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
     fetchEncryptedJobFilesAction: vi.fn(() => []),
+    fetchSharedFileIdsAction: vi.fn(() => []),
 }))
+
+const toArrayBuffer = (str: string): ArrayBuffer => {
+    const buf = Buffer.from(str, 'utf-8')
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+}
 
 const RUN_COMPLETE_SECONDARY_TEXT =
     'The code was successfully processed! Review results and security logs (if available) to decide if these can be released to the researcher.'
@@ -66,7 +68,7 @@ describe('StudyResultsRedesign', () => {
         renderWithProviders(<StudyResultsRedesign job={job!} />)
 
         expect(screen.getByText(RUN_COMPLETE_SECONDARY_TEXT)).toBeInTheDocument()
-        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeInTheDocument()
+        expect(screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')).toBeInTheDocument()
         expect(screen.queryByText(/Enter Reviewer Key to view/i)).not.toBeInTheDocument()
     })
 
@@ -99,32 +101,34 @@ describe('StudyResultsRedesign', () => {
         const writer = new ResultsWriter([{ publicKey, fingerprint }])
 
         const csv = `title\nhello world`
-        const csvBlob = Buffer.from(csv, 'utf-8')
-        const arrayBuf = csvBlob.buffer.slice(csvBlob.byteOffset, csvBlob.byteOffset + csvBlob.length)
-        await writer.addFile('test.data', arrayBuf)
+        await writer.addFile('test.data', toArrayBuffer(csv))
         const zip = await writer.generate()
-
-        const encryptedFile = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [{ path: 'test.data', bytes: 4 }],
-        }
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([encryptedFile])
 
         const { study, job: rawJob } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })
-        await db
+        const path = `test-org/${study.id}/${rawJob.id}/results/encrypted-results.zip`
+        const row = await db
             .insertInto('studyJobFile')
             .values({
                 studyJobId: rawJob.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${rawJob.id}/results/results.zip`,
+                name: 'test.data',
+                path,
                 fileType: 'ENCRYPTED-RESULT',
             })
-            .execute()
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            {
+                studyJobFileId: row.id,
+                fileType: 'ENCRYPTED-RESULT' as FileType,
+                name: 'test.data',
+                encryptedBody: await zip.arrayBuffer(),
+                recipientKeys: {} as Record<string, string>,
+            },
+        ])
 
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResultsRedesign job={job!} />)
@@ -136,7 +140,7 @@ describe('StudyResultsRedesign', () => {
         expect(screen.queryByRole('button', { name: /^Reject$/ })).not.toBeInTheDocument()
 
         const privateKey = await readTestSupportFile('private_key.pem')
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
+        const input = screen.getByPlaceholderText('Enter your Results Key to access encrypted content.')
         fireEvent.change(input, { target: { value: privateKey } })
         fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
 

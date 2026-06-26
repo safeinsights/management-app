@@ -54,6 +54,37 @@ test.skipIf(!s3Available)('uploading results', async () => {
     expect(contents).toBeInstanceOf(Blob)
 })
 
+// Guards the stale-shared-key case: once a job is RUN-COMPLETE its encrypted results (and the
+// AES keys the manifest/researcher rows are wrapped against) are frozen. A re-post must be
+// rejected rather than overwrite the blob under already-shared keys. Re-runs use a NEW job.
+test('rejects a second results upload once the job is already complete', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const post = () => {
+        const formData = new FormData()
+        formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+        return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+            params: Promise.resolve({ jobId }),
+        })
+    }
+
+    expect((await post()).ok).toBe(true)
+
+    const second = await post()
+    expect(second.status).toBe(422)
+
+    // The rejected re-post must not have created a duplicate ENCRYPTED-RESULT row.
+    const rows = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-RESULT')
+        .execute()
+    expect(rows).toHaveLength(1)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'

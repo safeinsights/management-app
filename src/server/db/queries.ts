@@ -63,7 +63,9 @@ export async function getStudyJobInfo(studyJobId: string) {
         .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 }
 
-export const getReviewerPublicKey = async (userId: string) => {
+export const getUserPublicKey = async (userId: string) => {
+    // executeTakeFirst is deterministic here: user_public_key has a unique constraint on user_id
+    // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
@@ -71,16 +73,6 @@ export const getReviewerPublicKey = async (userId: string) => {
         .executeTakeFirst()
 
     return result
-}
-
-export const getReviewerPublicKeyByUserId = async (userId: string) => {
-    const result = await Action.db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.publicKey'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.publicKey
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
@@ -103,7 +95,7 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
+                    .select(['id', 'name', 'path', 'fileType', 'createdAt'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -142,23 +134,27 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
-// 1 = first submission, >=2 = resubmission round.
-export const countSubmittedJobsForStudy = async (studyId: string): Promise<number> => {
+// Submission version = 1 + the number of times a NEW submission round was opened across the whole
+// study. A new round opens for one of two reasons, each recorded once in the status history:
+//   - CODE-CHANGES-REQUESTED — the reviewer asked for changes (same-job resubmit, OTTER-316).
+//   - FILES-APPROVED / FILES-REJECTED — a results decision that closes the round and opens a new job.
+// So: first submission = v1; each change-request + resubmit and each post-results resubmit bumps it.
+//
+// Counted across ALL jobs, NOT just the latest. A results decision opens a fresh job, so a per-job
+// count would reset the version to v1 on the next round — relabelling the resubmission as a first
+// submission and hiding prior rounds' feedback on the read-only screens (the feedback panel is gated
+// on version > 1). OTTER-556/558 require an ever-increasing version with prior feedback/notes kept
+// visible across rounds. Counting these round-opening events (not CODE-SUBMITTED) also keeps the
+// version immune to a duplicate CODE-SUBMITTED from a concurrent submit.
+export const codeSubmissionVersion = async (studyId: string): Promise<number> => {
     const row = await Action.db
-        .selectFrom('studyJob')
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
-        .where((eb) =>
-            eb.exists(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
-                    .select('jobStatusChange.id'),
-            ),
-        )
+        .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
-    return Number(row?.count ?? 0)
+    return Number(row?.count ?? 0) + 1
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -459,9 +455,50 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
     })
 }
 
+const labOrgIdForJob = async (jobId: string) =>
+    await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select('study.submittedByOrgId')
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
+
+// Public keys of the lab org that submitted the study — the researchers a reviewer re-wraps for.
+export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await labOrgIdForJob(jobId)
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// Same lab keys, resolved from the study id — used by the client approve flow.
+export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await Action.db
+        .selectFrom('study')
+        .select('submittedByOrgId')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound(`study ${studyId}`))
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
+// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
+// their key rows, so this never retroactively un-shares.
+export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
+    const rows = await Action.db
+        .selectFrom('studyJobFileRecipientKey')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select('studyJobFileRecipientKey.studyJobFileId')
+        .distinct()
+        .execute()
+
+    return rows.map((r) => r.studyJobFileId)
+}
+
 export type StudyReviewWithMeta = {
-    report: AnalysisReport
+    // null on a failure row (summaryFailedAt set) — generation produced no report.
+    report: AnalysisReport | null
     createdAt: Date
+    summaryFailedAt: Date | null
     files: { name: string; fileType: FileType }[]
 }
 
@@ -500,8 +537,9 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
-            eb.ref('report').$castTo<AnalysisReport>().as('report'),
+            eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
             'createdAt',
+            'summaryFailedAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')

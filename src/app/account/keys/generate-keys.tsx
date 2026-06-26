@@ -3,7 +3,7 @@
 import { useMutation } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
-import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import {
     Button,
     Code,
@@ -63,19 +63,19 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
     if (keys) {
         return (
             <Paper p="xl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
-                <Title mb="xxl">Reviewer key</Title>
+                <Title mb="xxl">Results Key</Title>
                 <Paper shadow="xs" p="xl">
                     <Stack>
-                        <Title size="xl">Store reviewer key</Title>
+                        <Title size="xl">Store Results Key</Title>
                         <Divider c="charcoal.1" />
                         <Stack>
                             <Text size="md" mb="xs">
-                                For security reasons, this role requires you to create a reviewer key that is unique to
-                                you. You will use this reviewer key to access encrypted results. Please copy and store
+                                For security reasons, this role requires you to create a Results Key that is unique to
+                                you. You will use this Results Key to access encrypted results. Please copy and store
                                 this key in a safe location.
                             </Text>
                             <Text size="sm" fw={600}>
-                                Copy and store your reviewer key
+                                Copy and store your Results Key
                             </Text>
                             <Code
                                 block
@@ -89,7 +89,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                                 {keys.privateKey}
                             </Code>
                             <Text size="sm" mb="xs">
-                                Note: Please store your reviewer key securely, such as in your password manager.
+                                Note: Please store your Results Key securely, such as in your password manager.
                             </Text>
                         </Stack>
                         <Group>
@@ -145,32 +145,30 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
     const router = useRouter()
     const searchParams = useSearchParams()
 
-    const { mutate: saveReviewerKey, isPending: isSavingKey } = useMutation({
+    const { mutate: saveUserKey, isPending: isSavingKey } = useMutation({
         mutationFn: () => {
             if (isRegenerating) {
-                return updateReviewerPublicKeyAction({
+                return updateUserPublicKeyAction({
                     publicKey: keys.binaryPublicKey,
-                    fingerprint: keys.fingerprint,
                 })
             } else {
-                return setReviewerPublicKeyAction({
+                return setUserPublicKeyAction({
                     publicKey: keys.binaryPublicKey,
-                    fingerprint: keys.fingerprint,
                 })
             }
         },
-        onError: reportMutationError('Failed to save reviewer key'),
+        onError: reportMutationError('Failed to save Results Key'),
         onSuccess() {
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
         },
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your reviewer key?">
+        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your Results Key?">
             <Stack>
-                <Text size="md">Make sure you have securely saved your reviewer key. </Text>
+                <Text size="md">Make sure you have securely saved your Results Key. </Text>
                 <Text size="sm" c="red.9">
-                    <b>Note:</b> SafeInsights does not store your reviewer key. If you lose your key, you won’t be able
+                    <b>Note:</b> SafeInsights does not store your Results Key. If you lose your key, you won’t be able
                     to access study results and will need to generate a new key.
                 </Text>
                 <Text size="md" mb="md">
@@ -180,7 +178,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
                     <Button variant="outline" onClick={onClose}>
                         Take me back
                     </Button>
-                    <Button onClick={() => saveReviewerKey()} loading={isSavingKey}>
+                    <Button onClick={() => saveUserKey()} loading={isSavingKey}>
                         Yes, go to dashboard
                     </Button>
                 </Group>

@@ -5,7 +5,7 @@ import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core
 import { AppModal } from '@/components/modals/app-modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 
-// Presentational reviewer-key screen. It owns the breadcrumbs + "Reviewer key details" card
+// Presentational user-key screen. It owns the breadcrumbs + "Results Key details" card
 // (lost-key copy, destructive note, regenerate button) and the confirm modal. Kept in its OWN
 // file — free of useSession (Clerk), useRouter and Routes navigation — so it renders in
 // isolation (e.g. Ladle). The RegenerateKey container (./regenerate-key) derives the dashboard
@@ -29,28 +29,28 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
 }) => {
     return (
         <Stack p="xl" mx="sm">
-            <PageBreadcrumbs crumbs={[['Dashboard', dashboardHref], ['Reviewer Key']]} />
-            <Title my="xxl">Reviewer key</Title>
+            <PageBreadcrumbs crumbs={[['Dashboard', dashboardHref], ['Results Key']]} />
+            <Title my="xxl">Results Key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>
-                    <Title size="xl">Reviewer key details</Title>
+                    <Title size="xl">Results Key details</Title>
                     <Divider c="charcoal.1" />
                     <Stack gap={8}>
                         <Text size="sm" fw={600}>
-                            Reviewer key already exists
+                            Results Key already exists
                         </Text>
                         <Text size="md" mb={16}>
-                            You have already generated a reviewer key. For security reasons, SafeInsights does not store
+                            You have already generated a Results Key. For security reasons, SafeInsights does not store
                             or display it again.
                         </Text>
                         <Text size="sm" fw={600}>
                             Lost key?
                         </Text>
 
-                        <Text size="md">If you have lost your reviewer key, you will need to generate a new one.</Text>
+                        <Text size="md">If you have lost your Results Key, you will need to generate a new one.</Text>
                         <Text size="md" c="red.9" mb={8}>
-                            Note: If you generate a new reviewer key, you will no longer have access to any study
-                            results associated with your previous key. This action cannot be undone.
+                            Note: If you generate a new Results Key, you will no longer have access to any study results
+                            associated with your previous key. This action cannot be undone.
                         </Text>
                     </Stack>
                     <Group>
@@ -78,7 +78,7 @@ const GenerateNewKeyModal: FC<{
         <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
             <Stack>
                 <Text size="md">
-                    Generating a new reviewer key will permanently remove access to study results tied to your old key.
+                    Generating a new Results Key will permanently remove access to study results tied to your old key.
                 </Text>
                 <Text size="md" mb="md">
                     This action cannot be undone.

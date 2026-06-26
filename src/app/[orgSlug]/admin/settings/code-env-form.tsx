@@ -16,11 +16,13 @@ import {
     Group,
     ActionIcon,
     Box,
+    Alert,
+    List,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
 import { EnvVar } from '@/database/types'
-import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
@@ -206,6 +208,20 @@ function CommandLinesSection({
     )
 }
 
+function FormErrorSummary({ isVisible, errors }: { isVisible: boolean; errors: string[] }) {
+    if (!isVisible) return null
+
+    return (
+        <Alert color="red" icon={<WarningIcon size={16} />} title="Please fix the following before saving">
+            <List size="sm">
+                {errors.map((error) => (
+                    <List.Item key={error}>{error}</List.Item>
+                ))}
+            </List>
+        </Alert>
+    )
+}
+
 interface CodeEnvFormProps {
     image?: CodeEnv
     onCompleteAction: () => void
@@ -214,6 +230,7 @@ interface CodeEnvFormProps {
 export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const {
         form,
+        formErrors,
         isEditMode,
         isPending,
         onSubmit,
@@ -322,7 +339,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                                 style={{ flex: 1 }}
                             />
                             <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
-                            <ActionIcon color="blue" variant="subtle" onClick={addEnvVar} mt={4}>
+                            <ActionIcon
+                                color="blue"
+                                variant="subtle"
+                                onClick={addEnvVar}
+                                mt={4}
+                                aria-label="Add environment variable"
+                            >
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>
@@ -364,6 +387,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         </Radio.Group>
                     </Stack>
                 </Box>
+                <FormErrorSummary isVisible={formErrors.length > 0} errors={formErrors} />
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
                 </Button>

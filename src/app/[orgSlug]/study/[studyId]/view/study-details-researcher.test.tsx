@@ -16,26 +16,11 @@ describe('StudyDetailsResearcher', () => {
         expect(screen.getByText('Study Status')).toBeInTheDocument()
     })
 
-    it('renders a Previous link back to the OTTER-612 code-decision page', async () => {
+    it('does not render a Previous link (results is terminal)', async () => {
         const { org, study, latestJob } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'lab' })
 
         renderWithProviders(<StudyDetailsResearcher orgSlug={org.slug} study={study} job={latestJob!} />)
 
-        const previous = screen.getByRole('link', { name: /previous/i })
-        expect(previous).toHaveAttribute(
-            'href',
-            expect.stringContaining(`/${org.slug}/study/${study.id}/view?from=code-decision`),
-        )
-    })
-
-    it('preserves org-dashboard context on the Previous link when returnTo=org', async () => {
-        const { org, study, latestJob } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'lab' })
-
-        renderWithProviders(<StudyDetailsResearcher orgSlug={org.slug} study={study} job={latestJob!} returnTo="org" />)
-
-        const previous = screen.getByRole('link', { name: /previous/i })
-        const href = previous.getAttribute('href') ?? ''
-        expect(href).toContain('from=code-decision')
-        expect(href).toContain('returnTo=org')
+        expect(screen.queryByRole('link', { name: /previous/i })).not.toBeInTheDocument()
     })
 })

@@ -42,10 +42,9 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
 
     const handlePrevious = async () => {
         const saved = await saveDraft()
-        // Tell the Edit page this nav is the explicit Step 2 → Step 1 back-step
-        // so it skips the OTTER-572 "resume on Step 2" redirect, which would
-        // otherwise bounce the user straight back to the page they just left.
-        if (saved) router.push(Routes.studyEdit({ orgSlug, studyId, from: 'step2' }))
+        // /edit is revisitable — it renders Step 1 directly and no longer resume-redirects, so the
+        // back-step needs no signal.
+        if (saved) router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     return (

@@ -5,7 +5,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { usePathname } from 'next/navigation'
 import { useEffect, useCallback } from 'react'
 
-const PINNED_ROUTES: string[] = [Routes.researcherProfile, Routes.reviewerKey, Routes.adminSafeinsights]
+const PINNED_ROUTES: string[] = [Routes.researcherProfile, Routes.userKey, Routes.adminSafeinsights]
 
 /**
  * Manages profile menu disclosure state with special behavior:

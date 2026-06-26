@@ -39,5 +39,6 @@ tests/coder-files/
 
 # Claude Code local settings (user-specific, not shared)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 CLAUDE.local.md
 .mcp.json

@@ -1,4 +1,4 @@
-import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin, orgNeedsKey } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -66,10 +66,10 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    // user who belongs to any enclave orgs can view/create/update their keys
-    if (usersReviewerOrgIds.length) {
-        permit('view', 'ReviewerKey')
-        permit('update', 'ReviewerKey')
+    // users who belong to any key-holding org (enclave or lab) can view/create/update their keys
+    if (orgs.some(orgNeedsKey)) {
+        permit('view', 'UserKey')
+        permit('update', 'UserKey')
     }
 
     // allow review of studies for enclave orgs that the user belongs to
@@ -86,21 +86,12 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
 
-    // SI admins can do anything
+    // SI admins can do anything. ('manage','all') is CASL's wildcard — it matches every action
+    // on every subject at runtime, including review/approve/reject for studies of orgs the SI
+    // admin is not a member of. Replaces the previous enumerated list, which omitted the review
+    // actions and left SI admins unable to review studies.
     if (isSiAdmin) {
-        permit('create', 'Org')
-        permit('update', 'User')
-        permit('view', 'User')
-        permit('invite', 'User')
-        permit('view', 'Study')
-        permit('view', 'StudyJob')
-        permit('update', 'Org')
-        permit('delete', 'Org')
-        permit('view', 'OrgStudies')
-        permit('view', 'OrgMembers')
-        permit('view', 'AgentContext')
-        permit('create', 'AgentContext')
-        permit('update', 'AgentContext')
+        permit('manage', 'all')
     }
 
     return build({

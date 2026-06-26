@@ -1,29 +1,29 @@
 'use client'
 
-import { isEnclaveOrg } from '@/lib/types'
+import { orgNeedsKey } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
-import { reviewerKeyExistsAction } from '@/server/actions/user-keys.actions'
+import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
 import { useLayoutEffect } from 'react'
 import { useSession } from '../hooks/session'
 import { Routes } from '@/lib/routes'
 
-export const RequireReviewerKey = () => {
+export const RequireUserKey = () => {
     const { session } = useSession()
     const router = useRouter()
 
     useLayoutEffect(() => {
-        const checkForReviewerKey = async () => {
-            const enclaveOrgs = Object.values(session?.orgs || {}).some(isEnclaveOrg)
-            if (!session || !enclaveOrgs) return
+        const checkForUserKey = async () => {
+            const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
+            if (!session || !needsKey) return
 
-            const hasKey = actionResult(await reviewerKeyExistsAction())
+            const hasKey = actionResult(await userKeyExistsAction())
 
             if (!hasKey) {
                 router.push(Routes.accountKeys)
             }
         }
-        checkForReviewerKey()
+        checkForUserKey()
     }, [session, router])
 
     return null

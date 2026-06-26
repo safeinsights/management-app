@@ -1,7 +1,8 @@
 import { useStudyStatus } from '@/hooks/use-study-status'
+import { projectStudyState, resolveRowHighlight } from '@/lib/study-screen'
 import { StudyActionLink } from './study-action-link'
-import { studyHasJobStatus } from '@/lib/studies'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
+import { dashboardRawStateFromRow } from './dashboard-raw-state'
 import { StudyRowView } from './study-row-view'
 
 type StudyRowProps = {
@@ -12,10 +13,7 @@ type StudyRowProps = {
 }
 
 function shouldHighlight(study: StudyRowType, audience: Audience): boolean {
-    if (audience === 'researcher') {
-        return studyHasJobStatus(study, 'FILES-APPROVED')
-    }
-    return study.status === 'PENDING-REVIEW'
+    return resolveRowHighlight(audience, projectStudyState(dashboardRawStateFromRow(study)))
 }
 
 export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {

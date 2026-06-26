@@ -100,37 +100,23 @@ export const Routes = {
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
     studyView: makeRoute(
-        ({ orgSlug, studyId, from, returnTo }) => {
+        ({ orgSlug, studyId, returnTo }) => {
             const base = `/${orgSlug}/study/${studyId}/view`
             const params = new URLSearchParams()
-            if (from) params.set('from', from)
             if (returnTo) params.set('returnTo', returnTo)
             const qs = params.toString()
             return qs ? `${base}?${qs}` : base
         },
-        StudyParams.extend({ from: z.string().optional(), returnTo: z.string().optional() }),
+        StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
-    studyEdit: makeRoute(
-        ({ orgSlug, studyId, from }) => {
-            const base = `/${orgSlug}/study/${studyId}/edit`
-            const params = new URLSearchParams()
-            if (from) params.set('from', from)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
-        StudyParams.extend({ from: z.string().optional() }),
-    ),
+    studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
 
-    studyReview: makeRoute(
-        ({ orgSlug, studyId, from }) => {
-            const base = `/${orgSlug}/study/${studyId}/review`
-            const params = new URLSearchParams()
-            if (from) params.set('from', from)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
-        StudyParams.extend({ from: z.string().optional() }),
+    studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
+
+    studyReviewProposal: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/proposal`,
+        StudyParams,
     ),
 
     studyCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/code`, StudyParams),
@@ -143,15 +129,14 @@ export const Routes = {
     ),
 
     studyAgreements: makeRoute(
-        ({ orgSlug, studyId, from, returnTo }) => {
+        ({ orgSlug, studyId, returnTo }) => {
             const base = `/${orgSlug}/study/${studyId}/agreements`
             const params = new URLSearchParams()
-            if (from) params.set('from', from)
             if (returnTo) params.set('returnTo', returnTo)
             const qs = params.toString()
             return qs ? `${base}?${qs}` : base
         },
-        StudyParams.extend({ from: z.string().optional(), returnTo: z.string().optional() }),
+        StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
@@ -191,7 +176,7 @@ export const Routes = {
 
     researcherProfile: '/researcher/profile' as Route,
 
-    reviewerKey: '/reviewer-key' as Route,
+    userKey: '/user-key' as Route,
 
     // -------------------------------------------------------------------------
     // Admin Routes

@@ -95,6 +95,28 @@ describe('CodeEnvs', async () => {
         })
     })
 
+    it('surfaces malformed env var errors in the summary above submit', { timeout: 15000 }, async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        // Add an env var whose name is invalid (starts with a digit) into the list
+        await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
+        await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
+        await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
+
+        await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/Please fix the following before saving/i)).toBeInTheDocument()
+            expect(screen.getByText(/Invalid variable name/i)).toBeInTheDocument()
+        })
+    })
+
     it('hides delete when there is only one code environment', async () => {
         await insertTestCodeEnv({
             orgId: org.id,
