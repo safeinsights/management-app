@@ -5,6 +5,7 @@ import {
     db,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -12,7 +13,7 @@ import {
     userEvent,
     waitFor,
 } from '@/tests/unit.helpers'
-import StudyAgreementsRoute from './page'
+import ResearcherAgreementsRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -22,52 +23,13 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string) =>
-    StudyAgreementsRoute({
+const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) =>
+    ResearcherAgreementsRoute({
         params: Promise.resolve({ orgSlug, studyId }),
-        searchParams: Promise.resolve({}),
+        searchParams: Promise.resolve(searchParams),
     })
 
-describe('StudyAgreementsRoute', () => {
-    it('renders reviewer agreements when code is submitted and not yet acknowledged', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        expect(screen.getByText('STEP 2A')).toBeInTheDocument()
-        expect(screen.getByText('STEP 2B')).toBeInTheDocument()
-        expect(screen.getByText('STEP 2C')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /Proceed to Step 3/ })).toBeInTheDocument()
-    })
-
-    it('redirects reviewer to review when no code has been submitted', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'JOB-READY' })
-
-        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/review'))
-    })
-
-    // /agreements is now revisitable for reviewers too: once code is submitted it renders the
-    // agreements page regardless of ack state. The /review state machine is the screen authority.
-    it('renders reviewer agreements even after acknowledging (revisitable, no redirect)', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-        await db
-            .updateTable('study')
-            .set({ reviewerAgreementsAckedAt: new Date() })
-            .where('id', '=', study.id)
-            .execute()
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByText('STEP 2A')).toBeInTheDocument()
-    })
-
+describe('ResearcherAgreementsRoute', () => {
     it('renders researcher agreements for APPROVED study not yet acknowledged', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -81,9 +43,8 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
     })
 
-    // /agreements is a revisitable researcher step: it renders for an authorized researcher
-    // regardless of ack state or study status, and no longer self-redirects. resolveScreen (on
-    // /view) is the screen authority.
+    // Revisitable researcher step: renders for an authorized researcher regardless of ack state or
+    // study status, and does not self-redirect. resolveScreen (on /view) is the screen authority.
     it('renders researcher agreements even after acknowledging (revisitable, no redirect)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -173,5 +134,37 @@ describe('StudyAgreementsRoute', () => {
         renderWithProviders(page!)
 
         expect(screen.getByRole('button', { name: 'Previous' })).toBeInTheDocument()
+    })
+
+    // Dual-role regression: a user who is both reviewer (enclave) and researcher (their own lab)
+    // reaches this researcher route via their lab's slug after clicking "Proceed to step 3" on the
+    // approved proposal. Even though they CAN review, this route keeps them in the researcher flow —
+    // it must NOT bounce them into the reviewer agreement → /review loop.
+    it('keeps a dual-role user in the researcher flow (does not treat them as a reviewer)', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const study = await db
+            .insertInto('study')
+            .values({
+                orgId: enclaveOrg.id,
+                submittedByOrgId: labOrg.id,
+                containerLocation: 'test-container',
+                title: 'dual-role study',
+                researcherId: user.id,
+                piName: 'test',
+                status: 'APPROVED',
+                submittedAt: new Date(),
+                dataSources: ['all'],
+                outputMimeType: 'application/zip',
+                language: 'R',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const page = await renderRoute(labOrg.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
     })
 })

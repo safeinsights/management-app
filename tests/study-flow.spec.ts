@@ -89,11 +89,25 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard')
 }
 
+// On Step 2 (/proposal): set a title + one dataset (enough to mark Step 2 progress), then
+// "Save as draft" so the draft persists with Step 2 data and the row is findable by title.
+async function fillStep2AndSaveDraft(page: Page, studyTitle: string) {
+    await page.getByLabel('Study Title').fill(studyTitle)
+
+    await page.getByPlaceholder('Select dataset(s) of interest').click()
+    await page.getByRole('option').first().click()
+    // Close the dropdown so it doesn't overlay the footer's Save button.
+    await page.getByLabel('Study Title').click()
+
+    await page.getByRole('button', { name: /Save as draft/i }).click()
+    await expect(page.getByText(/Draft Saved/i)).toBeVisible()
+}
+
 // ============================================================================
 // Researcher: code upload — file path and IDE path each driven live once
 // ============================================================================
 
-// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements
+// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements/researcher
 // -> /code so the upload surface is reached the way the app routes a real user.
 async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
@@ -102,7 +116,7 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /Proceed to step 3/i }).click()
-    await page.waitForURL(/\/agreements(\?.*)?$/)
+    await page.waitForURL(/\/agreements\/researcher(\?.*)?$/)
     await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
 }
@@ -363,6 +377,29 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
     })
 })
 
+// OTTER-572: a draft left on Step 2 must reopen on Step 2 from the dashboard, not the Step 1
+// data-org picker. Owns the draft-resume surface: creates a draft, reaches Step 2, saves, leaves,
+// then reopens via the dashboard "Edit" link and asserts it lands back on Step 2.
+test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('resume-step2')
+
+    await withRole(browser, 'researcher', async (page) => {
+        await navigateToProposeStudy(page)
+        await fillStep2AndSaveDraft(page, studyTitle)
+
+        // Leave the editor entirely, then reopen the draft the way a real user does.
+        await goto(page, RESEARCHER_DASHBOARD)
+        const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(draftRow).toBeVisible()
+        await draftRow.getByRole('link', { name: /Edit draft study/i }).click()
+
+        // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
+        await page.waitForURL(/\/proposal$/)
+        await expect(page.getByText('STEP 2')).toBeVisible()
+        await expect(page).toHaveURL(/\/proposal$/)
+    })
+})
+
 // Owns the reviewer proposal-approval surface. Seeds a PENDING-REVIEW proposal.
 test('Reviewer approves a proposal', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('prop-approve')
@@ -547,6 +584,20 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.waitForURL(/\/edit-and-resubmit$/)
 
         await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()
+
+        // The form must load the previously-saved proposal values for editing, not
+        // empty placeholders. These mirror the content seeded by seedProposalPendingReview.
+        await expect(page.getByLabel('Study Title')).toHaveValue(studyTitle)
+        await expect(page.getByLabel('Research question(s)')).toContainText(
+            'What is the impact of highlighting on student outcomes?',
+        )
+        await expect(page.getByLabel('Project summary')).toContainText(
+            'We analyze archival data to study highlighting behavior.',
+        )
+        await expect(page.getByLabel('Impact')).toContainText(
+            'This research will improve understanding of study habits.',
+        )
+
         // Form is pre-filled; only the resubmission note gates submit.
         await page.getByLabel(/Resubmission Note/i).fill('Clarified the dataset scope and analysis plan per feedback.')
 

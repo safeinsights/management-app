@@ -103,15 +103,25 @@ export const YjsWebsocketProvider: FC<Props> = ({
 }) => {
     // In single-user mode no collaboration websocket is ever opened — the editor
     // surface is standalone — so the socket stays null and the phase stays inert.
-    const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(() =>
-        typeof window === 'undefined' || singleUserEditing ? null : getOrCreateSharedSocket(),
-    )
+    //
+    // The socket starts null on BOTH server and the client's first render even in
+    // collaborative mode: creating it from `getOrCreateSharedSocket()` in the
+    // initializer would make the first client render (editor) diverge from the
+    // server-rendered skeleton and break hydration. The effect below attaches the
+    // real socket after hydration, so the skeleton→editor swap is a normal update.
+    const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(null)
     const [phase, setPhase] = useState<ConnectionPhase>('initial')
 
-    // Subscribe to bfcache-restore re-creations of the singleton so consumers
-    // re-render against the live socket instead of the destroyed one.
+    // Attach the tab-singleton socket post-hydration, and subscribe to
+    // bfcache-restore re-creations so consumers re-render against the live socket
+    // instead of the destroyed one.
     useEffect(() => {
-        if (typeof window === 'undefined' || singleUserEditing) return undefined
+        if (singleUserEditing) return undefined
+        // Intentional: deferring socket creation to this effect (rather than the
+        // useState initializer) is what keeps the first client render matching the
+        // server-rendered skeleton. The one-time cascading render is the fix.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSocket(getOrCreateSharedSocket())
         const onSocketReplaced = (next: HocuspocusProviderWebsocket) => {
             setSocket(next)
             setPhase('initial')

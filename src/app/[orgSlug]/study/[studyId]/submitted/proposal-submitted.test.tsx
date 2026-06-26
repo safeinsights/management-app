@@ -393,7 +393,7 @@ describe('ProposalSubmitted', () => {
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
             expect(proceedLink).toHaveAttribute(
                 'href',
-                Routes.studyAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
+                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
             )
         })
 

@@ -68,6 +68,16 @@ describe('seedYDocFromLexical', () => {
         const yDoc = new Y.Doc()
         expect(() => seedYDocFromLexical(yDoc, '{ not json')).toThrow()
     })
+
+    // Regression: pg returns a bare jsonb column as a parsed object, not a string.
+    // The seeder requires the serialized string (it calls .trim()), so onLoadDocument
+    // must cast the column to ::text. Passing the raw object throws — which the
+    // call site previously swallowed, leaving collaborative editors blank.
+    it('throws when handed a parsed object instead of a JSON string', () => {
+        const yDoc = new Y.Doc()
+        const parsedObject = JSON.parse(SAMPLE_LEXICAL_JSON) as unknown
+        expect(() => seedYDocFromLexical(yDoc, parsedObject as string)).toThrow()
+    })
 })
 
 describe('SLUG_TO_STUDY_COLUMN', () => {

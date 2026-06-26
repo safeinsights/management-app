@@ -117,7 +117,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
                     >
                         Back
                     </Button>
-                    <Button component={Link} href={Routes.studyAgreements(studyParams)} size="md">
+                    <Button component={Link} href={Routes.studyResearcherAgreements(studyParams)} size="md">
                         Proceed to step 3
                     </Button>
                 </Group>

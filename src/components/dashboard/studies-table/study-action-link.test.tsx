@@ -52,6 +52,24 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/edit`)
         })
 
+        // OTTER-572: a DRAFT that already reached Step 2 (any Step 2 field set) reopens on the
+        // proposal editor (Step 2), not the Step 1 /edit picker.
+        it('links a Step 2 DRAFT to the proposal editor, not /edit', () => {
+            const study = mockStudyRow({ status: 'DRAFT' as StudyStatus, piUserId: 'pi-1' })
+            renderWithProviders(
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: /edit draft study/i })
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/proposal`)
+        })
+
         it('links to submitted page for PENDING-REVIEW studies without job activity', () => {
             const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
