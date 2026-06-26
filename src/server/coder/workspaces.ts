@@ -16,7 +16,7 @@ import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
     AgentId,
-    BuildStatus,
+    WorkspaceStatus,
     CoderLog,
     CoderUsername,
     CoderWorkspace,
@@ -25,6 +25,7 @@ import type {
     WorkspaceId,
     WorkspaceLaunchPhase,
     WorkspaceLaunchStatus,
+    JobStatus,
 } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
@@ -66,12 +67,12 @@ function describeReadiness(event: CoderWorkspaceEvent): { ready: boolean; reason
     const agentStates: string[] = []
     for (const resource of resources) {
         for (const agent of resource.agents ?? []) {
-            const lifecycle = (agent.lifecycle_state ?? '').toLowerCase()
-            const status = (agent.status ?? '').toLowerCase()
+            const lifecycle = agent.lifecycle_state
+            const status = agent.status
 
-            const agentReady = lifecycle === 'ready' || status === 'ready' || status === 'connected'
+            const agentReady = lifecycle === 'ready' || status === 'connected'
             const codeServer = (agent.apps ?? []).find((app) => app.slug === 'code-server')
-            const codeServerHealth = (codeServer?.health ?? 'absent').toLowerCase()
+            const codeServerHealth = codeServer?.health
             const codeServerHealthy = codeServerHealth === 'healthy'
 
             if (agentReady && codeServerHealthy) {
@@ -161,17 +162,19 @@ export async function getCoderWorkspaceLaunchStatus(
     }
 
     const readiness = describeReadiness(workspace)
-    const buildStatus: BuildStatus = build?.status ?? workspace.latest_build?.status ?? 'unknown'
-    const jobStatus = build?.job?.status
-    const failedStatuses: BuildStatus[] = ['failed', 'canceled']
-    const failed = failedStatuses.includes(buildStatus) || (jobStatus != null && failedStatuses.includes(jobStatus))
+    const buildStatus: WorkspaceStatus = build?.status ?? workspace.latest_build?.status ?? 'unknown'
+    const jobStatus: JobStatus = build?.job?.status ?? 'unknown'
+    const failedWorkspaceStatuses: WorkspaceStatus[] = ['failed', 'canceled']
+    const failedJobStatuses: JobStatus[] = ['failed']
+    const failed =
+        failedWorkspaceStatuses.includes(buildStatus) || (jobStatus != null && failedJobStatuses.includes(jobStatus))
     const stopped = buildStatus === 'stopped' || workspace.latest_build?.status === 'stopped'
 
     let phase: WorkspaceLaunchPhase = 'unknown'
     if (failed) phase = 'failed'
     else if (readiness.ready) phase = 'ready'
     else if (stopped) phase = 'stopped'
-    else if (buildStatus === 'succeeded') phase = 'starting'
+    else if (buildStatus === 'starting') phase = 'starting'
     else if (buildStatus === 'running' || buildStatus === 'pending') phase = 'provisioning'
 
     const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason

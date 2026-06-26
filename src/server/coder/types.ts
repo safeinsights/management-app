@@ -16,17 +16,20 @@ export type AgentId = Brand<string, 'AgentId'>
 export type CoderUsername = Brand<string, 'CoderUsername'>
 
 // Coder workspace build status (the computed workspace state) and provisioner job status.
-export type BuildStatus =
-    | 'pending'
-    | 'starting'
-    | 'running'
-    | 'stopping'
-    | 'stopped'
-    | 'succeeded'
-    | 'canceling'
+export type WorkspaceStatus =
     | 'canceled'
+    | 'canceling'
+    | 'deleted'
+    | 'deleting'
     | 'failed'
-    | 'unknown'
+    | 'pending'
+    | 'running'
+    | 'starting'
+    | 'stopped'
+    | 'stopping'
+    | 'unknown' // Not defined as part of Coder API, but used internally
+
+export type JobStatus = 'canceled' | 'canceling' | 'failed' | 'pending' | 'running' | 'succeeded' | 'unknown'
 
 export type BuildTransition = 'start' | 'stop' | 'delete'
 
@@ -52,7 +55,7 @@ export interface CoderWorkspaceEvent {
     latest_build?: {
         id?: BuildId
         resources?: CoderResource[]
-        status?: BuildStatus
+        status?: WorkspaceStatus
         // workspace_owner_name?: string // unused
         // workspace_name?: string // unused
     }
@@ -73,9 +76,9 @@ export interface CoderAgent {
 }
 
 export interface CoderWorkspaceBuild {
-    status: BuildStatus
+    status: WorkspaceStatus
     job?: {
-        status: BuildStatus
+        status: JobStatus
         error?: string
     }
     // id: BuildId // unused
@@ -97,7 +100,7 @@ export type WorkspaceLaunchPhase = 'provisioning' | 'starting' | 'ready' | 'fail
 
 export interface WorkspaceLaunchStatus {
     phase: WorkspaceLaunchPhase
-    buildStatus: BuildStatus
+    buildStatus: WorkspaceStatus
     ready: boolean
     failed: boolean
     reason: string
@@ -126,7 +129,7 @@ export interface CoderUser {
 export interface CoderWorkspace {
     id: WorkspaceId
     latest_build?: {
-        status: BuildStatus
+        status: WorkspaceStatus
         // resources?: CoderResource[] // unused
     }
     // name: string // unused

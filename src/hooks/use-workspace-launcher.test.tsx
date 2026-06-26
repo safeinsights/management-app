@@ -41,7 +41,7 @@ const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
 
 const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStatus => ({
     phase: 'ready',
-    buildStatus: 'succeeded',
+    buildStatus: 'running',
     ready: true,
     failed: false,
     reason: 'workspace ready',

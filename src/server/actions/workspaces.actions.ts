@@ -117,7 +117,7 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
             await initializeDevWorkspaceFiles(studyId)
             return {
                 phase: 'ready',
-                buildStatus: 'succeeded',
+                buildStatus: 'running',
                 ready: true,
                 failed: false,
                 reason: 'dev workspace ready',
