@@ -3,7 +3,10 @@ import { testsCoverageSourceFilter } from './coverage.mjs'
 
 const coverageOptions: CoverageReportOptions = {
     name: 'Coverage Report',
-    inputDir: ['./test-results/unit/raw', './test-results/e2e/coverage/raw'],
+    // vitest-monocart writes its raw V8 coverage to `.cache` (it doesn't emit a `raw/`
+    // dir the way the Playwright monocart reporter does), so read that for unit; e2e uses
+    // `raw/`. Both hold the same { id, type:'v8', data } shape monocart merges.
+    inputDir: ['./test-results/unit/.cache', './test-results/e2e/coverage/raw'],
     outputDir: './test-results/coverage',
     sourceFilter: testsCoverageSourceFilter,
     clean: true,
