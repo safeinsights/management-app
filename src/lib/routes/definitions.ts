@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { Route } from 'next'
 import { makeRoute } from './builder'
 import { safeRedirectUrl } from '@/lib/utils'
+import { WIZARD_STEPS } from '@/lib/study-screen/wizard-steps'
 
 // ============================================================================
 // Parameter Schemas
@@ -108,7 +109,7 @@ export const Routes = {
             const qs = params.toString()
             return qs ? `${base}?${qs}` : base
         },
-        StudyParams.extend({ returnTo: z.string().optional(), step: z.string().optional() }),
+        StudyParams.extend({ returnTo: z.string().optional(), step: z.enum(WIZARD_STEPS).optional() }),
     ),
 
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),

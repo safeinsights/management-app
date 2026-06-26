@@ -1,5 +1,6 @@
 import type { ScreenRuleEntry } from './screen-rules'
 import type { ScreenId } from './screens'
+import type { WizardStep } from './wizard-steps'
 
 // Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each entry
 // pairs the screen it routes to with the condition that selects it; the leaf view owns its own
@@ -38,13 +39,6 @@ export const RESEARCHER_SCREEN_RULES = [
     ['study-overview', { when: () => true }],
 ] as const satisfies ReadonlyArray<ScreenRuleEntry>
 
-// Read-only wizard steps that live on /view. Agreements (Step 3) is its own route, so it is NOT a
-// /view step. `step` lets a researcher walk BACKWARD through earlier read-only steps of an advanced
-// study (OTTER-614): resolveScreen caps the rule table at the requested step's rank and takes the
-// first matching rule at or below it. A step the study has not reached (its rule's `when` is false)
-// simply yields the natural top-precedence screen, so forward over-reach is impossible.
-export type WizardStep = 'proposal' | 'code' | 'results'
-
 // Where each researcher screen sits in the read-only wizard. Reviewer screens never appear in this
 // table, so they are intentionally absent (treated as rank 0 by the resolver).
 const RESEARCHER_SCREEN_STEP_RANK: Partial<Record<ScreenId, number>> = {
@@ -56,11 +50,7 @@ const RESEARCHER_SCREEN_STEP_RANK: Partial<Record<ScreenId, number>> = {
     'study-results': 3,
 }
 
-const WIZARD_STEP_CAP: Record<WizardStep, number> = { proposal: 1, code: 2, results: 3 }
+// The rank ceiling each wizard step caps the rule table at (see resolveScreen).
+export const WIZARD_STEP_CAP: Record<WizardStep, number> = { proposal: 1, code: 2, results: 3 }
 
 export const researcherScreenRank = (screen: ScreenId): number => RESEARCHER_SCREEN_STEP_RANK[screen] ?? 0
-
-// The rank ceiling for a requested step, or undefined when `step` is absent or not a wizard step
-// (an unknown value falls through to the default state-driven screen rather than erroring).
-export const wizardStepCap = (step: string | undefined): number | undefined =>
-    step && step in WIZARD_STEP_CAP ? WIZARD_STEP_CAP[step as WizardStep] : undefined

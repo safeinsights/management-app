@@ -1,4 +1,5 @@
 import type { Route } from 'next'
+import type { WizardStep } from './wizard-steps'
 
 export type ScreenId =
     // researcher
@@ -23,7 +24,7 @@ export type ScreenId =
 // researcher-screen-rules.ts).
 export type ScreenDescriptor = {
     screen: ScreenId
-    step?: string
+    step?: WizardStep
 }
 
 export type DashboardAction = {
