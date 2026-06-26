@@ -93,7 +93,7 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
 // Researcher: code upload — file path and IDE path each driven live once
 // ============================================================================
 
-// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements
+// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements/researcher
 // -> /code so the upload surface is reached the way the app routes a real user.
 async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
@@ -102,7 +102,7 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /Proceed to step 3/i }).click()
-    await page.waitForURL(/\/agreements(\?.*)?$/)
+    await page.waitForURL(/\/agreements\/researcher(\?.*)?$/)
     await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
 }

@@ -9,7 +9,9 @@ import type { ScreenComponentProps } from './types'
 export function ProposalFeedbackScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const showProceed = state.status === 'APPROVED' && !state.hasSubmittedCode
-    const agreementsHref = showProceed ? Routes.studyAgreements({ orgSlug, studyId: study.id, returnTo }) : undefined
+    const agreementsHref = showProceed
+        ? Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+        : undefined
 
     return (
         <ResearcherProposalView

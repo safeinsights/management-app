@@ -270,7 +270,7 @@ export async function seedProposalPendingReview(title: string): Promise<SeedResu
 }
 
 // APPROVED proposal with no job yet. For the researcher code-upload entry flow
-// (the /submitted -> /agreements -> /code path).
+// (the /submitted -> /agreements/researcher -> /code path).
 export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
     return { studyId: study.id }

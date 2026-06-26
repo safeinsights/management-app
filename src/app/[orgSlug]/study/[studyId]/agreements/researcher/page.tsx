@@ -1,7 +1,7 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
@@ -9,10 +9,12 @@ import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
-import { redirect } from 'next/navigation'
-import { AgreementsPage } from './agreements-page'
+import { AgreementsPage } from '../agreements-page'
 
-export default async function StudyAgreementsRoute(props: {
+// Researcher agreements step. A dual-role user (reviewer via the enclave, researcher via their own
+// lab) reaches this route — not the reviewer one — so they stay in the researcher flow even though
+// they also hold the review ability. Access requires view of the submitting org's study.
+export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
     searchParams: Promise<Record<string, string | undefined>>
 }) {
@@ -29,42 +31,13 @@ export default async function StudyAgreementsRoute(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Reviewer vs researcher is decided by the review ability, not org membership, so an SI admin
-    // (who can review any org's studies) follows the reviewer flow. A user with neither the review
-    // ability nor view access to the submitting org's study has no business here.
-    const isReviewer = session.can('review', toRecord('Study', { orgId: study.orgId }))
-    if (!isReviewer && !session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))) {
+    if (!session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))) {
         return <AccessDeniedAlert />
     }
 
-    if (isReviewer) {
-        // No code submitted yet — nothing to review, show proposal instead
-        const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-        if (!codeSubmitted) {
-            redirect(Routes.studyReview({ orgSlug, studyId }))
-        }
-
-        // Mirror ReviewerAgreementsScreen: Proceed acks and re-resolves bare /review to the code-review
-        // editor; Previous returns to the dashboard. Pointing Previous at /review would re-resolve to
-        // reviewer-code-review, whose own Previous comes back here — an agreements ⇄ code-review loop.
-        return (
-            <Stack p="xl" gap="xl">
-                <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
-                <Title order={1}>Study request</Title>
-                <AgreementsPage
-                    isReviewer
-                    studyId={studyId}
-                    proceedHref={Routes.studyReview({ orgSlug, studyId })}
-                    previousHref={Routes.orgDashboard({ orgSlug })}
-                    previousLabel="Previous"
-                />
-            </Stack>
-        )
-    }
-
-    // Researcher flow: /agreements is a revisitable step. An authorized researcher can view it
-    // directly — forward or back — even after acknowledging, so it no longer self-redirects. The
-    // screen authority (resolveScreen on /view) decides the canonical screen.
+    // /agreements/researcher is a revisitable step. An authorized researcher can view it directly —
+    // forward or back — even after acknowledging, so it does not self-redirect. The screen authority
+    // (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     // Previous → /submitted (the approved-proposal page with its own "Proceed to step 3" button),

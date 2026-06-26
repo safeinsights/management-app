@@ -128,15 +128,23 @@ export const Routes = {
         StudyParams,
     ),
 
-    studyAgreements: makeRoute(
+    // Agreements is split into role-specific sibling routes so the page never has to guess which
+    // flow a dual-role user (reviewer via the enclave, researcher via their own lab) is in: the URL
+    // is the role. Researcher carries returnTo (org-scoped entry); reviewer does not.
+    studyResearcherAgreements: makeRoute(
         ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/agreements`
+            const base = `/${orgSlug}/study/${studyId}/agreements/researcher`
             const params = new URLSearchParams()
             if (returnTo) params.set('returnTo', returnTo)
             const qs = params.toString()
             return qs ? `${base}?${qs}` : base
         },
         StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
+
+    studyReviewerAgreements: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/agreements/reviewer`,
+        StudyParams,
     ),
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
