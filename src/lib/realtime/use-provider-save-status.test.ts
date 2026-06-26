@@ -79,4 +79,41 @@ describe('useProviderSaveStatus', () => {
         })
         expect(result.current).toBe('saving')
     })
+
+    it('resets to idle and re-arms the latch when the provider changes (reconnect)', () => {
+        const providerA = createFakeProvider()
+        const { result, rerender } = renderHook(
+            ({ provider }) => useProviderSaveStatus(provider as unknown as HocuspocusProvider),
+            { initialProps: { provider: providerA } },
+        )
+
+        act(() => {
+            providerA.unsyncedChanges = 1
+            providerA.emit('unsyncedChanges')
+        })
+        act(() => {
+            providerA.unsyncedChanges = 0
+            providerA.emit('unsyncedChanges')
+        })
+        expect(result.current).toBe('saved')
+
+        // A websocket reconnect swaps in a fresh provider instance.
+        const providerB = createFakeProvider()
+        rerender({ provider: providerB })
+        expect(result.current).toBe('idle')
+
+        // The new provider settling with no local edit must not re-show "saved".
+        act(() => {
+            providerB.unsyncedChanges = 0
+            providerB.emit('unsyncedChanges')
+        })
+        expect(result.current).toBe('idle')
+
+        // A genuine edit on the new provider is still reported.
+        act(() => {
+            providerB.unsyncedChanges = 1
+            providerB.emit('unsyncedChanges')
+        })
+        expect(result.current).toBe('saving')
+    })
 })

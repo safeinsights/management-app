@@ -9,7 +9,15 @@ import type { SaveStatusValue } from '@/components/save-status'
 // user's first local edit so initial loads and remote-only changes from other
 // collaborators don't surface an indicator to passive readers.
 export function useProviderSaveStatus(provider: HocuspocusProvider | null): SaveStatusValue {
-    const [status, setStatus] = useState<SaveStatusValue>('idle')
+    // Status is keyed to the provider it was derived from. The effect re-subscribes
+    // whenever the provider identity changes (e.g. a websocket reconnect swaps in a
+    // fresh HocuspocusProvider); keying the status to the provider lets the indicator
+    // fall back to idle on reconnect instead of showing a stale "All changes saved"
+    // until the user edits again.
+    const [tracked, setTracked] = useState<{ provider: HocuspocusProvider | null; status: SaveStatusValue }>({
+        provider: null,
+        status: 'idle',
+    })
     const hasLocalEditRef = useRef(false)
 
     useEffect(() => {
@@ -18,9 +26,9 @@ export function useProviderSaveStatus(provider: HocuspocusProvider | null): Save
         const onUnsyncedChanges = () => {
             if (provider.unsyncedChanges > 0) {
                 hasLocalEditRef.current = true
-                setStatus('saving')
+                setTracked({ provider, status: 'saving' })
             } else if (hasLocalEditRef.current) {
-                setStatus('saved')
+                setTracked({ provider, status: 'saved' })
             }
         }
 
@@ -42,8 +50,11 @@ export function useProviderSaveStatus(provider: HocuspocusProvider | null): Save
         return () => {
             provider.off('synced', onSynced)
             provider.off('unsyncedChanges', onUnsyncedChanges)
+            // Re-arm the latch for the next provider so a reconnect's first settle to
+            // unsyncedChanges === 0 isn't mistaken for a local save.
+            hasLocalEditRef.current = false
         }
     }, [provider])
 
-    return status
+    return tracked.provider === provider ? tracked.status : 'idle'
 }
