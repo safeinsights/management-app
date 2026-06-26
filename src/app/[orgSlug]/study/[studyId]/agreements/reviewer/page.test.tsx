@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
+import * as RouterMock from 'next-router-mock'
 import {
     db,
     insertTestStudyJobData,
@@ -7,6 +8,8 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
+    waitFor,
 } from '@/tests/unit.helpers'
 import ReviewerAgreementsRoute from './page'
 
@@ -35,6 +38,23 @@ describe('ReviewerAgreementsRoute', () => {
         expect(screen.getByText('STEP 2B')).toBeInTheDocument()
         expect(screen.getByText('STEP 2C')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /Proceed to Step 3/ })).toBeInTheDocument()
+    })
+
+    it('Proceed acks and navigates to /review (which re-resolves to the code-review editor)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await renderRoute(org.slug, study.id)
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Proceed to Step 3/ }))
+
+        await waitFor(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { asPath } = (RouterMock as any).memoryRouter
+            expect(asPath).toBe(`/${org.slug}/study/${study.id}/review`)
+        })
     })
 
     it('redirects reviewer to review when no code has been submitted', async () => {
