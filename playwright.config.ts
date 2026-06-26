@@ -48,6 +48,9 @@ if (IS_CI) reporters.push(['github'])
 
 export default defineConfig({
     testDir: './tests',
+    // Write per-role storageState + warm routes once before any spec, in-process (no
+    // separate worker pool / browser-launch barrier — see tests/global.setup.ts).
+    globalSetup: './tests/global.setup.ts',
     /* Run tests in files in parallel */
     fullyParallel: true,
     /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -100,18 +103,12 @@ export default defineConfig({
     /* Configure projects for major browsers */
     projects: [
         {
-            // Mints the __e2e_role cookie per role and writes tests/.auth/<role>.json.
             // Specs opt in with `test.use({ storageState: authFileFor(role) })` to start
-            // authenticated. No global setup needed — DB users/orgs are seeded by
-            // `pnpm test:e2e:up` (db:migrate against si_mgmnt_test) and auth is faked.
-            name: 'auth setup',
-            testMatch: /auth\.setup\.ts/,
-            use: { ...devices['Desktop Chrome'] },
-        },
-        {
+            // authenticated. The storageState files + route warmup are produced by
+            // globalSetup (tests/global.setup.ts); DB users/orgs are seeded by
+            // `pnpm test:e2e:up` (db:migrate). No separate auth-setup project/barrier.
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
-            dependencies: ['auth setup'],
         },
         // {
         //     name: 'firefox',

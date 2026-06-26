@@ -1,8 +1,8 @@
 import { authFileFor, expect, test, visitAsRole, Page } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
-    // Use the same worker
-    test.describe.configure({ mode: 'serial' })
+    // These three tests each visit a distinct /account/mfa/* page and assert read-only —
+    // no shared state — so they run in parallel (not serial) across workers.
     // MFA settings pages require an authenticated session; restore the reviewer's.
     test.use({ storageState: authFileFor('reviewer') })
 

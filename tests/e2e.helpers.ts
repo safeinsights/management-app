@@ -123,7 +123,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 //
 // Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. The fake exposes
 // a compatible window.Clerk (loaded/user/session/setActive/signOut) and drives the real
-// sign-in form via a faked useSignIn. Sessions are minted once per role in auth.setup.ts
+// sign-in form via a faked useSignIn. Sessions are seeded per role in global.setup.ts
 // (a __e2e_role cookie) and restored via storageState.
 
 // Signs out via the faked window.Clerk (clears the __e2e_role cookie).
@@ -157,7 +157,7 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     reviewer: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.reviewer.email, password: FAKE_PASSWORD },
 }
 
-// Per-role storageState file written by tests/auth.setup.ts and consumed by specs
+// Per-role storageState file written by tests/global.setup.ts and consumed by specs
 // via `test.use({ storageState: authFileFor('reviewer') })`.
 export const authFileFor = (role: TestingRole) =>
     path.join(path.dirname(fileURLToPath(import.meta.url)), '.auth', `${role}.json`)
@@ -176,7 +176,7 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
 
 // Opens a context that restores `role`'s saved session from storageState (no
 // sign-in) and returns the context + page. The storageState file must exist (written
-// by the `auth setup` project). Caller closes the context. This is the fast
+// by globalSetup). Caller closes the context. This is the fast
 // multi-role primitive: a single seeded test acts as researcher and reviewer by
 // opening one of these per role instead of re-signing-in.
 export const openContextWithSavedRole = async (

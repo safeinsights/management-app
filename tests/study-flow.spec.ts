@@ -14,7 +14,7 @@ import { execSync } from 'child_process'
 // E2e study-lifecycle coverage. Governing rule: every distinct UI surface is
 // exercised live by at least ONE test; every other test seeds that state (via
 // tests/e2e.seed.ts) and drives only the surface it owns. Auth is per-role
-// storageState (tests/auth.setup.ts) — tests never sign in; they open a context
+// storageState (tests/global.setup.ts) — tests never sign in; they open a context
 // per role with `withRole`, which restores the saved session.
 //
 // There is no external job runner on CI: result/error flows seed a JOB-READY job
