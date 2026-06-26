@@ -60,9 +60,11 @@ export default defineConfig({
     // bugs to fix at the source — not to paper over. The suite must pass at retries=0.
     retries: 0,
     // Faked auth (src/lib/clerk-fake) + per-test uniquely-titled studies mean specs are
-    // data-isolated, so CI can run fully parallel too. Let Playwright pick the worker
-    // count from the runner's CPUs (override with the PLAYWRIGHT_WORKERS env if needed).
-    workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : undefined,
+    // data-isolated, so run fully parallel. Playwright defaults to ~half the cores; our
+    // tests are mostly I/O-wait (server / browser / DB), so use ALL cores instead — on a
+    // 4-vCPU CI runner that's 4 workers vs the default 2, roughly halving wall-clock.
+    // Override with PLAYWRIGHT_WORKERS when needed.
+    workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : '100%',
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
     reporter: reporters,
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
