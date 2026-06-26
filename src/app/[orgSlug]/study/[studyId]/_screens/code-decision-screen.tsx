@@ -23,7 +23,7 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // OTTER-614: once results have landed, the code page is a read-only wizard step whose forward
+    // OTTER-614: once results have landed, the code page is a read-only view step whose forward
     // action advances to Step 5 (results) rather than ending at the dashboard.
     const resultsHref = state.hasResults
         ? (Routes.studyView({ orgSlug, studyId: study.id, returnTo, step: 'results' }) as Route)

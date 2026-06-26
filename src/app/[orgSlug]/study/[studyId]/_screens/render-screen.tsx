@@ -14,7 +14,7 @@ export async function renderStudyScreen(args: {
     studyId: string
     dashboardHref: string
     returnTo?: 'org'
-    // Read-only wizard step from ?step= (researcher /view): lets the resolver surface an earlier
+    // Read-only view step from ?step= (researcher /view): lets the resolver surface an earlier
     // screen of an advanced study. Ignored when the study has not reached that step.
     step?: string
 }): Promise<React.JSX.Element> {

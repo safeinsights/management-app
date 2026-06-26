@@ -547,7 +547,7 @@ describe('StudyViewPage', () => {
             expect(screen.getByText('Study Status')).toBeInTheDocument()
         })
 
-        // /view honors only the ?step= wizard param (OTTER-614); any other query param is ignored. A
+        // /view honors only the ?step= view step param (OTTER-614); any other query param is ignored. A
         // CODE-APPROVED study (no results yet) resolves to the code-approved screen →
         // CodePostDecisionView, even if a stray legacy ?from= rides along.
         it('routes a CODE-APPROVED study to CodePostDecisionView regardless of unrelated query params', async () => {
@@ -582,9 +582,9 @@ describe('StudyViewPage', () => {
         })
     })
 
-    // OTTER-614: an advanced study can revisit earlier read-only wizard steps via ?step=, and the
+    // OTTER-614: an advanced study can revisit earlier read-only view steps via ?step=, and the
     // code step gains a forward "Proceed to step 5" once results exist.
-    describe('step-aware read-only wizard (OTTER-614)', () => {
+    describe('step-aware read-only view (OTTER-614)', () => {
         const seedResultsStudy = async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({

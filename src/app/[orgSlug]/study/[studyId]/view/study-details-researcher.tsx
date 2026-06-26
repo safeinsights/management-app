@@ -6,7 +6,7 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 // OTTER-538: Study Details page (RL) — removes the "Study Code" section.
-// OTTER-614: results is no longer terminal — "Previous" walks the read-only wizard back to the
+// OTTER-614: results is no longer terminal — "Previous" walks the read-only view back to the
 // approved-code screen (/view?step=code). dashboardHref already reflects returnTo (baked in by the
 // page/screen wrapper before rendering); returnTo is threaded onto the back link to keep org scope.
 

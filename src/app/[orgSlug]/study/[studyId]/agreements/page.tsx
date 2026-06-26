@@ -78,7 +78,7 @@ export default async function StudyAgreementsRoute(props: {
 
     // OTTER-614: Previous → the read-only initial-request screen (/view?step=proposal), the current
     // Cruising Fin proposal page with its own "Proceed to Step 3" forward path back here — not the
-    // legacy /submitted page. ?step=proposal pins the wizard's first step so an advanced study does
+    // legacy /submitted page. ?step=proposal pins the view's first step so an advanced study does
     // not re-resolve forward to code/results.
     const previousHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo, step: 'proposal' })
 

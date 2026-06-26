@@ -1,6 +1,6 @@
 import type { ScreenRuleEntry } from './screen-rules'
 import type { ScreenId } from './screens'
-import type { WizardStep } from './wizard-steps'
+import type { ViewStep } from './view-steps'
 
 // Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each entry
 // pairs the screen it routes to with the condition that selects it; the leaf view owns its own
@@ -39,8 +39,8 @@ export const RESEARCHER_SCREEN_RULES = [
     ['study-overview', { when: () => true }],
 ] as const satisfies ReadonlyArray<ScreenRuleEntry>
 
-// Where each researcher screen sits in the read-only wizard. Reviewer screens never appear in this
-// table, so they are intentionally absent (treated as rank 0 by the resolver).
+// Where each researcher screen sits in the read-only view step sequence. Reviewer screens never
+// appear in this table, so they are intentionally absent (treated as rank 0 by the resolver).
 const RESEARCHER_SCREEN_STEP_RANK: Partial<Record<ScreenId, number>> = {
     'study-overview': 0,
     'proposal-feedback': 1,
@@ -50,7 +50,7 @@ const RESEARCHER_SCREEN_STEP_RANK: Partial<Record<ScreenId, number>> = {
     'study-results': 3,
 }
 
-// The rank ceiling each wizard step caps the rule table at (see resolveScreen).
-export const WIZARD_STEP_CAP: Record<WizardStep, number> = { proposal: 1, code: 2, results: 3 }
+// The rank ceiling each view step caps the rule table at (see resolveScreen).
+export const VIEW_STEP_CAP: Record<ViewStep, number> = { proposal: 1, code: 2, results: 3 }
 
 export const researcherScreenRank = (screen: ScreenId): number => RESEARCHER_SCREEN_STEP_RANK[screen] ?? 0

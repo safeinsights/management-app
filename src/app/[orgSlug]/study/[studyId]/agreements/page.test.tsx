@@ -114,7 +114,7 @@ describe('StudyAgreementsRoute', () => {
     })
 
     // OTTER-614: Previous → the read-only initial-request screen (/view?step=proposal), the current
-    // Cruising Fin proposal page, NOT the legacy /submitted page. ?step=proposal pins the wizard's
+    // Cruising Fin proposal page, NOT the legacy /submitted page. ?step=proposal pins the view's
     // first step so an advanced study does not re-resolve forward.
     it('Previous button targets /view?step=proposal', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })

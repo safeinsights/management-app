@@ -89,10 +89,10 @@ describe('resolveScreen (researcher)', () => {
     })
 })
 
-// OTTER-614: the read-only researcher wizard can revisit an EARLIER step of an advanced study via
+// OTTER-614: the read-only researcher view can revisit an EARLIER step of an advanced study via
 // ?step=. The resolver caps the rule table at the step's rank, so a step the study has reached
 // surfaces that step's screen, while an unreached/unknown step has no effect (no forward jumps).
-describe('resolveScreen (researcher, step-aware wizard)', () => {
+describe('resolveScreen (researcher, step-aware view)', () => {
     const resultsStudy = state({
         status: 'APPROVED',
         isDraft: false,

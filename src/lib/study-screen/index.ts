@@ -1,6 +1,6 @@
 export * from './state.types'
 export * from './screens'
-export { WIZARD_STEPS, type WizardStep } from './wizard-steps'
+export { VIEW_STEPS, type ViewStep } from './view-steps'
 export { projectStudyState } from './state'
 export { resolveScreen, resolveDashboardAction } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'

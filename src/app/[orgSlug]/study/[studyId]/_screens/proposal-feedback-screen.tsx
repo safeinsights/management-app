@@ -11,7 +11,7 @@ import type { ScreenComponentProps } from './types'
 // proposal-feedback: read-only initial request (REJECTED / APPROVED / CHANGE-REQUESTED). Renders the
 // same ProposalSubmitted page served at /submitted — the "View full initial request" toggle, the
 // feedback-and-notes section, and the status-driven nav (APPROVED → "Proceed to step 3" → agreements),
-// so the read-only wizard can revisit this step and walk forward again.
+// so the read-only view can revisit this step and walk forward again.
 export async function ProposalFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) notFound()
 

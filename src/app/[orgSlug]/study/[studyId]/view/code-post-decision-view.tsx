@@ -33,7 +33,7 @@ interface CodePostDecisionViewProps {
     latestJobStatus: CodeDecisionStatus
     /**
      * Forward link to the results screen (Step 5). Present only once results exist; when set, the
-     * primary action reads "Proceed to step 5" instead of "Go to dashboard" so the read-only wizard
+     * primary action reads "Proceed to step 5" instead of "Go to dashboard" so the read-only view
      * can walk forward to results (OTTER-614).
      */
     resultsHref?: Route
@@ -146,7 +146,7 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
 
 function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, resultsHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // Results exist (only possible after approval): the wizard continues forward to Step 5 instead
+    // Results exist (only possible after approval): the view continues forward to Step 5 instead
     // of ending at the dashboard.
     const showProceedToResults = !showResubmit && !!resultsHref
     return (
