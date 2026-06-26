@@ -121,14 +121,17 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 
 // --- Clerk testing helpers ---
 //
-// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. The fake exposes
-// a compatible window.Clerk (loaded/user/session/setActive/signOut) and drives the real
-// sign-in form via a faked useSignIn. Sessions are seeded per role in global.setup.ts
-// (a __e2e_role cookie) and restored via storageState.
+// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. Sessions are just
+// the __e2e_role cookie: seeded per role in global.setup.ts and restored via storageState;
+// the sign-in form drives a faked useSignIn that writes the cookie on completion.
 
-// Signs out via the faked window.Clerk (clears the __e2e_role cookie).
+// Ensures a signed-out state by clearing the __e2e_role cookie (the fake's session is
+// just that cookie). Used by the auth-UI specs before driving the sign-in form.
 export const e2eSignOut = async (page: Page) => {
-    await page.evaluate(() => window.Clerk?.signOut?.()).catch(() => {})
+    await page
+        .context()
+        .clearCookies({ name: '__e2e_role' })
+        .catch(() => {})
 }
 
 type ClerkSignInParams = {

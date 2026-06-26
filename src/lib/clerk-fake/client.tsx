@@ -17,7 +17,6 @@ import { defaultOrgSlug, type FakeRole } from './fixtures'
 import { buildFakeUser } from './user-resource'
 import { createFakeSignIn } from './sign-in-resource'
 import { getFixture, getServerFixture, LOADING, notifyAuthChanged, subscribe, type FixtureState } from './store'
-import { installClerkWindowBridge } from './window-bridge'
 
 function useFixtureState(): FixtureState {
     return useSyncExternalStore(subscribe, getFixture, getServerFixture)
@@ -34,7 +33,6 @@ function doSignOut() {
 
 export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string }) {
     useEffect(() => {
-        installClerkWindowBridge()
         // After hydration, re-sync the store from the cookie so consumers that rendered
         // signed-out during SSR flip to the real role.
         notifyAuthChanged()
