@@ -40,7 +40,7 @@ export function LaunchIdeButton({
     }
 
     if (isLaunching) {
-        const activity = lastLogAt ? formatTimeAgo(new Date(lastLogAt)) : null
+        const activity = lastLogAt ? `Last activity: ${formatTimeAgo(new Date(lastLogAt))}` : null
         const secondaryText = activity ?? reason ?? messageWithEllipsis
         return <CompactStatusButton primaryText="Launching IDE" secondaryText={secondaryText} loading />
     }
