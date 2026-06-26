@@ -5,6 +5,7 @@ import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
     insertTestStudyJobData,
+    mockClerkSession,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -12,7 +13,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
@@ -33,9 +34,23 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
 
 describe('ProposalSubmitted', () => {
     let study: Submitted<SelectedStudy>
+    // These tests use `study` as a read-only base (each spreads it into a render); they
+    // never mutate the DB row. So seed the org/user/study ONCE in beforeAll (it lives in
+    // the outer transaction and survives per-test rollback) instead of paying the seed +
+    // insert per test. Only the Clerk mocks — cleared by mockReset between tests — are
+    // re-applied per test.
+    let mockArgs: Parameters<typeof mockClerkSession>[0]
 
-    beforeEach(async () => {
+    beforeAll(async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
+        mockArgs = {
+            userId: user.id,
+            clerkUserId: user.clerkId,
+            email: user.email ?? undefined,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'enclave',
+        }
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -45,6 +60,10 @@ describe('ProposalSubmitted', () => {
         const loaded = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         if (!isSubmittedStudy(loaded)) throw new Error('test fixture must be a submitted study')
         study = loaded
+    })
+
+    beforeEach(() => {
+        mockClerkSession(mockArgs)
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     })
 
