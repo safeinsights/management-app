@@ -1,7 +1,13 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
+import path from 'node:path'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
+
+// When E2E_FAKE_CLERK is set, swap the real Clerk SDK for the in-app fake under
+// src/lib/clerk-fake so e2e tests run with zero Clerk network. Production builds
+// (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
+const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
@@ -39,6 +45,29 @@ const nextConfig: NextConfig = {
     },
     async headers() {
         return [{ source: '/:path*', headers: securityHeaders }]
+    },
+    // Next 16 dev/build uses Turbopack by default, so the Clerk fake must be aliased
+    // via turbopack.resolveAlias (the webpack() hook below is a fallback for any
+    // webpack-based build). Both are gated on E2E_FAKE_CLERK so production is untouched.
+    ...(fakeClerk
+        ? {
+              turbopack: {
+                  resolveAlias: {
+                      '@clerk/nextjs/server': './src/lib/clerk-fake/server.ts',
+                      '@clerk/nextjs': './src/lib/clerk-fake/client.tsx',
+                  },
+              },
+          }
+        : {}),
+    webpack(config) {
+        if (fakeClerk) {
+            config.resolve.alias = {
+                ...config.resolve.alias,
+                '@clerk/nextjs/server': path.resolve(__dirname, 'src/lib/clerk-fake/server.ts'),
+                '@clerk/nextjs': path.resolve(__dirname, 'src/lib/clerk-fake/client.tsx'),
+            }
+        }
+        return config
     },
     experimental: {
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations

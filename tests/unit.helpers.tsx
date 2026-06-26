@@ -987,13 +987,16 @@ export const expectStudyJobRecords = async (
         .execute()
     expect(jobFiles).toEqual(expectedFiles)
 
+    // Assert the SET of statuses, not their order: CODE-SUBMITTED (submit action) and
+    // CODE-SCANNED (scan webhook) are written within the same operation and can share a
+    // created_at to the millisecond, so ORDER BY created_at returns them in arbitrary order.
+    // What matters is that all three transitions were recorded, not their micro-ordering.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status'])
         .where('studyJobId', '=', latestJob.id)
-        .orderBy('createdAt', 'asc')
         .execute()
-    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
+    expect(statuses.map((row) => row.status).sort()).toEqual(['CODE-SCANNED', 'CODE-SUBMITTED', 'INITIATED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
