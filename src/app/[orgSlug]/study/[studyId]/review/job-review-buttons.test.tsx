@@ -1,5 +1,5 @@
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { db, insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from './job-review-buttons'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -10,7 +10,7 @@ vi.spyOn(actions, 'approveStudyJobFilesAction')
 vi.spyOn(actions, 'rejectStudyJobFilesAction')
 
 vi.mock('@/server/storage', () => ({
-    storeApprovedJobFile: vi.fn(),
+    fetchFileContents: vi.fn(),
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {
@@ -73,7 +73,58 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can approve results', async () => {
-        await clickNTest('Approve', actions.approveStudyJobFilesAction as Mock, 'FILES-APPROVED')
+        // Approve re-wraps each file's AES key for the lab researchers. Use real keys (so
+        // wrapAesKey accepts the SPKI) and reuse the keyed session user as researcher so no
+        // fake-key user pollutes the recipient set. The selected file must be a real row.
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'PENDING-REVIEW',
+            researcherId: user.id,
+        })
+
+        const row = await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'test.csv',
+                path: `results/encrypted/test.csv`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const decryptedResults = [
+            {
+                path: 'test.csv',
+                contents: new TextEncoder().encode('test123').buffer,
+                sourceId: row.id,
+                fileType: 'APPROVED-RESULT' as FileType,
+                rawAesKey: new ArrayBuffer(32),
+            },
+        ]
+
+        await act(async () => {
+            renderWithProviders(<JobReviewButtons job={job} decryptedResults={decryptedResults} />)
+        })
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+        })
+
+        await waitFor(async () => {
+            expect(actions.approveStudyJobFilesAction).toHaveBeenCalled()
+            const latestJob = await latestJobForStudy(job.studyId)
+            expect(latestJob.statusChanges.find((sc) => sc.status === 'FILES-APPROVED')).not.toBeUndefined()
+        })
+
+        // The re-wrapped researcher key was persisted against the real file row.
+        const wrappedKeys = await db
+            .selectFrom('studyJobFileRecipientKey')
+            .select('fingerprint')
+            .where('studyJobFileId', '=', row.id)
+            .execute()
+        expect(wrappedKeys.length).toBeGreaterThan(0)
     })
 
     it('can reject results', async () => {

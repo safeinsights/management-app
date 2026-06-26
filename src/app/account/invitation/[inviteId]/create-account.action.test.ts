@@ -187,7 +187,7 @@ describe('Create Account Actions', () => {
         )
     })
 
-    it('onJoinTeamAccountAction returns needsReviewerKey true for enclave org without existing key', async () => {
+    it('onJoinTeamAccountAction returns needsUserKey true for enclave org without existing key', async () => {
         const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: labOrg })
 
@@ -205,10 +205,10 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.needsReviewerKey).toBe(true)
+        expect(result.needsUserKey).toBe(true)
     })
 
-    it('onJoinTeamAccountAction returns needsReviewerKey false for enclave org with existing key', async () => {
+    it('onJoinTeamAccountAction returns needsUserKey false for enclave org with existing key', async () => {
         const { user } = await insertTestUser({ org })
 
         const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
@@ -225,11 +225,14 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.needsReviewerKey).toBe(false)
+        expect(result.needsUserKey).toBe(false)
     })
 
-    it('onJoinTeamAccountAction returns needsReviewerKey false for lab org', async () => {
-        const { user } = await insertTestUser({ org })
+    it('onJoinTeamAccountAction returns needsUserKey true for lab org without existing key', async () => {
+        // insertTestUser only auto-creates a key for enclave-org users, so seed this user in a
+        // lab org to keep them key-less and exercise the lab researcher gate.
+        const existingLabOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: existingLabOrg })
 
         const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
 
@@ -245,7 +248,7 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.needsReviewerKey).toBe(false)
+        expect(result.needsUserKey).toBe(true)
     })
 
     it('onRevokeInviteAction removes invite', async () => {

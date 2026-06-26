@@ -9,16 +9,75 @@ import {
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { EncryptedFilesPanel } from './encrypted-files-panel'
-import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchApprovedJobFilesAction: vi.fn(() => []),
     fetchEncryptedJobFilesAction: vi.fn(() => []),
+    fetchSharedFileIdsAction: vi.fn(() => []),
 }))
+
+const toArrayBuffer = (str: string): ArrayBuffer => {
+    const buf = Buffer.from(str, 'utf-8')
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+}
+
+type MinimalJob = { id: string }
+
+// Encrypt one results artifact the way TOA would (prod whole-zip + embedded manifest), persist the
+// study_job_file row, and return the entry the fetchEncryptedJobFilesAction mock serves. The
+// reviewer is a manifest recipient, so recipientKeys is empty — they decrypt with their own key.
+async function seedArtifact(
+    job: MinimalJob,
+    { fileType, subdir, files }: { fileType: FileType; subdir: string; files: { name: string; content: string }[] },
+) {
+    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+    const fingerprint = await fingerprintKeyData(publicKey)
+    const writer = new ResultsWriter([{ publicKey, fingerprint }])
+    for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
+    const zip = await writer.generate()
+
+    const path = `test-org/${job.id}/results/${subdir}/encrypted-results.zip`
+    const row = await db
+        .insertInto('studyJobFile')
+        .values({ studyJobId: job.id, name: 'encrypted-results.zip', path, fileType })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return {
+        studyJobFileId: row.id,
+        fileType,
+        name: 'encrypted-results.zip',
+        encryptedBody: await zip.arrayBuffer(),
+        recipientKeys: {} as Record<string, string>,
+    }
+}
+
+// A display-only encrypted-artifact row (no real ciphertext) for lock/shared states.
+async function insertEncryptedRow(job: MinimalJob, { fileType, subdir }: { fileType: FileType; subdir: string }) {
+    return db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: job.id,
+            name: 'encrypted-results.zip',
+            path: `test-org/${job.id}/results/${subdir}/encrypted-results.zip`,
+            fileType,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+}
+
+const READER_KEY_PLACEHOLDER = 'Enter your Results Key to access encrypted content.'
+
+async function enterKeyAndDecrypt() {
+    fireEvent.change(screen.getByPlaceholderText(READER_KEY_PLACEHOLDER), {
+        target: { value: await readTestSupportFile('private_key.pem') },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+}
 
 describe('EncryptedFilesPanel', () => {
     let org: Org
@@ -29,241 +88,93 @@ describe('EncryptedFilesPanel', () => {
     })
 
     it('returns null when no encrypted files exist', async () => {
-        const { latestJobWithStatus: job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
-        })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
-        const { container } = renderWithProviders(<EncryptedFilesPanel job={job} onFilesApproved={vi.fn()} />)
+        const { container } = renderWithProviders(
+            <EncryptedFilesPanel isReviewer job={job} onFilesApproved={vi.fn()} />,
+        )
         expect(container.querySelector('form')).toBeNull()
         expect(screen.queryByText('Decrypt Files')).toBeNull()
     })
 
-    it('shows file rows with lock icon and decrypt form when encrypted files exist', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
+    it('shows a locked artifact row and the decrypt form when an encrypted artifact exists', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
-        // File row is visible in the table
         expect(screen.getByText('Results')).toBeDefined()
-        expect(screen.getByText('results.zip')).toBeDefined()
+        expect(screen.getByLabelText('Encrypted')).toBeDefined()
 
-        // No View or Download actions for locked files
+        // Locked → no View/Download
         expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
         expect(screen.queryByTestId('download-link')).toBeNull()
 
-        // Decrypt form is present
-        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
+        expect(screen.getByPlaceholderText(READER_KEY_PLACEHOLDER)).toBeDefined()
         expect(screen.getByRole('button', { name: 'Decrypt Files' })).toBeDefined()
     })
 
-    it('shows file names and sizes from metadata before decryption', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                blob: new Blob(),
-                sourceId: '123',
-                fileType: 'ENCRYPTED-RESULT',
-                metadata: [{ path: 'results.csv', bytes: 2048 }],
-            },
-        ])
+    it('shows one locked row per encrypted artifact (results + logs)', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
+        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', subdir: 'encrypted-logs' })
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => {
-            expect(screen.getByText('results.csv')).toBeDefined()
-            expect(screen.getByText('2.0 KB')).toBeDefined()
-        })
-
-        // Still locked — no View or Download
-        expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-        expect(screen.queryByTestId('download-link')).toBeNull()
-    })
-
-    it('shows one row per file when an encrypted archive contains multiple files', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                blob: new Blob(),
-                sourceId: '123',
-                fileType: 'ENCRYPTED-RESULT',
-                metadata: [
-                    { path: 'first.csv', bytes: 1024 },
-                    { path: 'second.csv', bytes: 2048 },
-                ],
-            },
-        ])
-
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => {
-            expect(screen.getByText('first.csv')).toBeDefined()
-            expect(screen.getByText('second.csv')).toBeDefined()
-            expect(screen.getByText('1.0 KB')).toBeDefined()
-            expect(screen.getByText('2.0 KB')).toBeDefined()
-        })
-
-        // Aggregated "N files" placeholder should not appear
-        expect(screen.queryByText('2 files')).toBeNull()
-    })
-
-    it('decrypts and shows file table with View and Download', async () => {
-        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-        const fingerprint = await fingerprintKeyData(publicKey)
-        const writer = new ResultsWriter([{ publicKey, fingerprint }])
-
-        const csv = 'name,age\nAlice,30'
-        const csvBuf = Buffer.from(csv, 'utf-8')
-        const arrayBuf = csvBuf.buffer.slice(csvBuf.byteOffset, csvBuf.byteOffset + csvBuf.length)
-
-        await writer.addFile('results.csv', arrayBuf)
-        const zip = await writer.generate()
-
-        const file = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [{ path: 'results.csv', bytes: 15 }],
-        }
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
-
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
-        const onFilesApproved = vi.fn()
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
-
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
-        const privateKey = await readTestSupportFile('private_key.pem')
-
-        fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => {
             expect(screen.getByText('Results')).toBeDefined()
+            expect(screen.getByText('Security Scan Log')).toBeDefined()
+        })
+    })
+
+    it('decrypts the artifact and shows its inner files with View and Download', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
+        const onFilesApproved = vi.fn()
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
+
+        await enterKeyAndDecrypt()
+
+        await waitFor(() => {
+            expect(screen.getByText('results.csv')).toBeDefined()
             expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
             expect(screen.getByTestId('download-link')).toBeDefined()
             expect(onFilesApproved).toHaveBeenLastCalledWith([
                 expect.objectContaining({
                     path: 'results.csv',
                     fileType: 'APPROVED-RESULT',
-                    sourceId: '123',
+                    sourceId: artifact.studyJobFileId,
                 }),
             ])
         })
     })
 
-    it('decrypts an archive with multiple files and shows one row per file', async () => {
-        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-        const fingerprint = await fingerprintKeyData(publicKey)
-        const writer = new ResultsWriter([{ publicKey, fingerprint }])
-
-        const csvA = 'name,age\nAlice,30'
-        const csvABuf = Buffer.from(csvA, 'utf-8')
-        const arrayBufA = csvABuf.buffer.slice(csvABuf.byteOffset, csvABuf.byteOffset + csvABuf.length)
-
-        const csvB = 'city,state\nDenver,CO'
-        const csvBBuf = Buffer.from(csvB, 'utf-8')
-        const arrayBufB = csvBBuf.buffer.slice(csvBBuf.byteOffset, csvBBuf.byteOffset + csvBBuf.length)
-
-        await writer.addFile('first.csv', arrayBufA)
-        await writer.addFile('second.csv', arrayBufB)
-        const zip = await writer.generate()
-
-        const file = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [
-                { path: 'first.csv', bytes: arrayBufA.byteLength },
-                { path: 'second.csv', bytes: arrayBufB.byteLength },
+    it('decrypts an artifact with multiple inner files and shows one row each', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [
+                { name: 'first.csv', content: 'name,age\nAlice,30' },
+                { name: 'second.csv', content: 'city,state\nDenver,CO' },
             ],
-        }
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
-
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
         })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
         const onFilesApproved = vi.fn()
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={onFilesApproved} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
 
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
-        const privateKey = await readTestSupportFile('private_key.pem')
-
-        fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+        await enterKeyAndDecrypt()
 
         await waitFor(() => {
             expect(screen.getByText('first.csv')).toBeDefined()
@@ -282,55 +193,59 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
-    it('opens modal with CSV content rendered as table', async () => {
-        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-        const fingerprint = await fingerprintKeyData(publicKey)
-        const writer = new ResultsWriter([{ publicKey, fingerprint }])
-
-        const csv = 'name,age\nAlice,30'
-        const csvBuf = Buffer.from(csv, 'utf-8')
-        const arrayBuf = csvBuf.buffer.slice(csvBuf.byteOffset, csvBuf.byteOffset + csvBuf.length)
-
-        await writer.addFile('results.csv', arrayBuf)
-        const zip = await writer.generate()
-
-        const file = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [{ path: 'results.csv', bytes: 15 }],
-        }
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
-
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
+    it('shares decrypted logs alongside results (all-or-nothing)', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const resultArtifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
         })
+        const logArtifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            subdir: 'encrypted-logs',
+            files: [{ name: 'run.log', content: 'job started\njob finished ok' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([resultArtifact, logArtifact])
 
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
+        const onFilesApproved = vi.fn()
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={onFilesApproved} />)
 
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
-        const privateKey = await readTestSupportFile('private_key.pem')
-
-        fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
+        await enterKeyAndDecrypt()
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
+            expect(onFilesApproved).toHaveBeenLastCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        path: 'results.csv',
+                        fileType: 'APPROVED-RESULT',
+                        sourceId: resultArtifact.studyJobFileId,
+                    }),
+                    expect.objectContaining({
+                        path: 'run.log',
+                        fileType: 'APPROVED-CODE-RUN-LOG',
+                        sourceId: logArtifact.studyJobFileId,
+                    }),
+                ]),
+            )
         })
+    })
 
+    it('opens a modal with CSV content rendered as a table', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
+
+        await enterKeyAndDecrypt()
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeDefined())
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
 
         await waitFor(() => {
@@ -341,55 +256,22 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
-    it('opens modal with text content rendered as code block for log files', async () => {
-        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-        const fingerprint = await fingerprintKeyData(publicKey)
-        const writer = new ResultsWriter([{ publicKey, fingerprint }])
-
+    it('opens a modal with text content rendered as a code block for log files', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         const logContent = 'Security scan complete: no issues found.'
-        const contentBuf = Buffer.from(logContent, 'utf-8')
-        const arrayBuf = contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length)
-
-        await writer.addFile('scan-log.txt', arrayBuf)
-        const zip = await writer.generate()
-
-        const file = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' as FileType,
-            metadata: [{ path: 'scan-log.txt', bytes: 40 }],
-        }
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
-
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+            subdir: 'encrypted-logs',
+            files: [{ name: 'scan-log.txt', content: logContent }],
         })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'scan-log.zip',
-                path: `test-org/${study.id}/${job.id}/results/scan-log.zip`,
-                fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
-            })
-            .execute()
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
-        const privateKey = await readTestSupportFile('private_key.pem')
+        await enterKeyAndDecrypt()
 
-        fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
-        })
-
+        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeDefined())
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
 
         await waitFor(() => {
@@ -399,53 +281,20 @@ describe('EncryptedFilesPanel', () => {
     })
 
     it('opens image preview modal when clicking View on a PNG result', async () => {
-        const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-        const fingerprint = await fingerprintKeyData(publicKey)
-        const writer = new ResultsWriter([{ publicKey, fingerprint }])
-
-        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
-        const pngBuf = pngBytes.buffer.slice(pngBytes.byteOffset, pngBytes.byteOffset + pngBytes.length)
-
-        await writer.addFile('plot.png', pngBuf)
-        const zip = await writer.generate()
-
-        const file = {
-            blob: new Blob([zip as BlobPart]),
-            sourceId: '123',
-            fileType: 'ENCRYPTED-RESULT' as FileType,
-            metadata: [{ path: 'plot.png', bytes: 4 }],
-        }
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
-
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'plot.png', content: 'fake-png-bytes' }],
         })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
-        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
-        const privateKey = await readTestSupportFile('private_key.pem')
+        await enterKeyAndDecrypt()
 
-        fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
-        })
-
+        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeDefined())
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
 
         await waitFor(() => {
@@ -454,175 +303,71 @@ describe('EncryptedFilesPanel', () => {
         })
     })
 
-    it('shows a green check for shared files and a red "not shared" X for withheld files after approval', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'FILES-APPROVED',
-        })
+    it('shows a green "shared with researcher" check on an approved artifact', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
-        await db
-            .insertInto('studyJobFile')
-            .values([
-                {
-                    studyJobId: job.id,
-                    name: 'results.zip',
-                    path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                    fileType: 'ENCRYPTED-RESULT',
-                },
-                {
-                    studyJobId: job.id,
-                    name: 'first.csv',
-                    path: `test-org/${study.id}/${job.id}/results/approved/first.csv`,
-                    fileType: 'APPROVED-RESULT',
-                },
-            ])
-            .execute()
-
-        // The original archive contained two files; only first.csv was shared.
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                blob: new Blob(),
-                sourceId: '123',
-                fileType: 'ENCRYPTED-RESULT',
-                metadata: [
-                    { path: 'first.csv', bytes: 1024 },
-                    { path: 'second.csv', bytes: 2048 },
-                ],
-            },
-        ])
-
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
-            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
-        ])
+        // All-or-nothing: once approved every artifact is shared (getSharedFileIdsForJob returns all).
+        vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => {
-            expect(screen.getByText('first.csv')).toBeDefined()
-            expect(screen.getByLabelText('second.csv not shared with researcher')).toBeDefined()
-        })
-
-        // Withheld file has no View/Download — only the shared file does
-        expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(1)
-        expect(screen.getAllByTestId('download-link')).toHaveLength(1)
-    })
-
-    it('shows a red "not shared" X (not a lock icon) for an entire log type withheld after approval', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'FILES-APPROVED',
-        })
-
-        await db
-            .insertInto('studyJobFile')
-            .values([
-                {
-                    studyJobId: job.id,
-                    name: 'first.csv',
-                    path: `test-org/${study.id}/${job.id}/results/approved/first.csv`,
-                    fileType: 'APPROVED-RESULT',
-                },
-                {
-                    studyJobId: job.id,
-                    name: 'scan-log.zip',
-                    path: `test-org/${study.id}/${job.id}/results/scan-log.zip`,
-                    fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
-                },
-            ])
-            .execute()
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                blob: new Blob(),
-                sourceId: '123',
-                fileType: 'ENCRYPTED-RESULT',
-                metadata: [{ path: 'first.csv', bytes: 1024 }],
-            },
-            {
-                blob: new Blob(),
-                sourceId: '456',
-                fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
-                metadata: [{ path: 'scan-log.txt', bytes: 40 }],
-            },
-        ])
-
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([
-            { contents: new ArrayBuffer(10), path: 'first.csv', fileType: 'APPROVED-RESULT' },
-        ])
-
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => {
-            expect(screen.getByLabelText('scan-log.txt not shared with researcher')).toBeDefined()
+            expect(screen.getByText('Results')).toBeDefined()
+            expect(screen.getByLabelText('Shared with researcher')).toBeDefined()
         })
     })
 
-    it('renders a placeholder row rather than silently dropping files when metadata is unavailable for an approved job', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'FILES-APPROVED',
-        })
+    it('shows a lock (no shared check) while a job is still under review', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
 
-        // Encrypted-file metadata never arrives (fetch in flight or failed and swallowed by Sentry),
-        // and there are no approved files yet — metaList and approvedFilesForType are both empty.
+        await waitFor(() => expect(screen.getByText('Results')).toBeDefined())
+        expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
+        expect(screen.getByLabelText('Encrypted')).toBeDefined()
+    })
+
+    // Researcher path: visibility and the decrypt form are gated on the user's own wrapped-key set
+    // (what fetchEncryptedJobFilesAction returns), not the job-wide artifact list.
+    it('renders nothing for a researcher with no wrapped keys, even when the job has artifacts', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
+        // Job is approved/shared at the job level, but this researcher holds no key for it.
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([])
+        vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        const { container } = renderWithProviders(
+            <EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />,
+        )
 
-        // The group still renders a placeholder row instead of an empty table; without metadata we
-        // can't enumerate withheld files, so no "not shared" indicator is shown yet.
-        await waitFor(() => {
-            expect(screen.getByText('results.zip')).toBeDefined()
-        })
-        expect(screen.queryByLabelText(/not shared with researcher/)).toBeNull()
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        // No form to nowhere, and no false green "shared" check on an artifact they can't decrypt.
+        expect(container.querySelector('form')).toBeNull()
+        expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
+        expect(screen.queryByText('Results')).toBeNull()
     })
 
-    it('does not show any "not shared" indicator while a job is still under review', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            jobStatus: 'RUN-COMPLETE',
+    it('shows the decrypt form (no shared check) for a researcher who holds a wrapped key', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const artifact = await seedArtifact(job, {
+            fileType: 'ENCRYPTED-RESULT',
+            subdir: 'encrypted',
+            files: [{ name: 'results.csv', content: 'name,age\nAlice,30' }],
         })
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'results.zip',
-                path: `test-org/${study.id}/${job.id}/results/results.zip`,
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                blob: new Blob(),
-                sourceId: '123',
-                fileType: 'ENCRYPTED-RESULT',
-                metadata: [{ path: 'results.csv', bytes: 2048 }],
-            },
-        ])
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+        vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([artifact.studyJobFileId])
 
         const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel job={latestJob} onFilesApproved={vi.fn()} />)
+        renderWithProviders(<EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />)
 
-        await waitFor(() => {
-            expect(screen.getByText('results.csv')).toBeDefined()
-        })
-
-        expect(screen.queryByLabelText(/not shared with researcher/)).toBeNull()
+        await waitFor(() => expect(screen.getByText('Results')).toBeDefined())
+        // Green "shared with researcher" is a reviewer-facing signal — researchers never see it.
+        expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
+        expect(screen.getByPlaceholderText(READER_KEY_PLACEHOLDER)).toBeDefined()
     })
 })

@@ -88,17 +88,21 @@ export function NavbarProfileMenu() {
                 component="button"
             />
 
+            {/* Reviewer-only on purpose: this is the self-rotate entry, and rotating orphans a
+                researcher's access to already-approved results with no recovery until the renewal
+                re-wrap flow ships. Researchers still reach first-time key generation via the
+                RequireUserKey redirect. Widen to researchers once renewal exists. */}
             <Protect role={AuthRole.Reviewer}>
                 <NavLink
-                    label="Reviewer Key"
+                    label="Results Key"
                     leftSection={<LockIcon aria-hidden="true" />}
-                    onClick={navigateTo(Routes.reviewerKey)}
+                    onClick={navigateTo(Routes.userKey)}
                     c="white"
-                    active={pathname === Routes.reviewerKey}
+                    active={pathname === Routes.userKey}
                     color="blue.7"
                     variant="filled"
                     className={styles.navLinkProfileHover}
-                    aria-label="Reviewer Key"
+                    aria-label="Results Key"
                     role="menuitem"
                     component="button"
                 />

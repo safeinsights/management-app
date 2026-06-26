@@ -1,18 +1,22 @@
 import { reportMutationError } from '@/components/errors'
-import { approvedTypeForFile } from '@/lib/file-type-helpers'
+import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useMutation } from '@/common'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
-import type { FileInfo } from 'si-encryption/job-results/types'
 
+// One encrypted artifact from fetchEncryptedJobFilesAction: whole-zip ciphertext (embedded
+// manifest). `recipientKeys` (inner path -> wrapped AES key) is set only for lab researchers, who
+// aren't manifest recipients; ResultsReader merges them into the manifest under their fingerprint.
+// Empty for enclave reviewers, who decrypt with their own key.
 export type EncryptedJobFile = {
-    blob: Blob
-    sourceId: string
+    studyJobFileId: string
     fileType: FileType
-    metadata: FileInfo[]
+    name: string
+    encryptedBody: ArrayBuffer
+    recipientKeys: Record<string, string>
 }
 
 class KeyParseError extends Error {}
@@ -20,7 +24,7 @@ class DecryptionError extends Error {}
 
 async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: string): Promise<JobFileInfo[]> {
     let fingerprint = ''
-    let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
+    let privateKeyBuffer: ArrayBuffer
     try {
         privateKeyBuffer = pemToArrayBuffer(privateKey)
         const key = await privateKeyFromBuffer(privateKeyBuffer)
@@ -29,19 +33,28 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
         throw new KeyParseError('Invalid key data, check that key was copied successfully', { cause: err })
     }
     try {
-        const decryptedFiles: JobFileInfo[] = []
-        for (const encryptedBlob of encryptedFiles) {
-            const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
-            const extractedFiles = await reader.extractFiles()
-            for (const extractedFile of extractedFiles) {
-                decryptedFiles.push({
-                    ...extractedFile,
-                    sourceId: encryptedBlob.sourceId,
-                    fileType: approvedTypeForFile(encryptedBlob.fileType),
+        const files: JobFileInfo[] = []
+        for (const artifact of encryptedFiles) {
+            const reader = new ResultsReader(
+                new Blob([artifact.encryptedBody]),
+                privateKeyBuffer,
+                fingerprint,
+                artifact.recipientKeys,
+            )
+            // Capture each inner file's raw AES key so approval can re-wrap it per researcher.
+            const entries = await reader.extractFilesWithKeys()
+            for (const entry of entries) {
+                files.push({
+                    path: entry.path,
+                    contents: entry.contents,
+                    rawAesKey: entry.rawAesKey,
+                    sourceId: artifact.studyJobFileId,
+                    // Encrypted type -> approved form; an already-approved input keeps its type.
+                    fileType: ENCRYPTED_TO_APPROVED[artifact.fileType] ?? artifact.fileType,
                 })
             }
         }
-        return decryptedFiles
+        return files
     } catch (err) {
         throw new DecryptionError('Private key is not valid for these results, check with your administrator', {
             cause: err,

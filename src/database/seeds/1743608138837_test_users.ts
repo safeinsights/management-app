@@ -1,5 +1,23 @@
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
+import { createHash } from 'node:crypto'
+
+// Copy of tests/support/public_key.pem, embedded because the migrator Lambda runs this seed
+// without a repo checkout to read the file from. A unit test asserts it stays in sync.
+export const TEST_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAhwpt565psROI0lzRT1i6
+AzuENGyqK9MPnEJ4SZ+nZZeXYYm/PzxV/sovltwyOxgD4A/fAvi5hftcscuWpsYR
+yox0wx0wKECZ+4DHy8X4iLGdRh9KCM8pddgKHKXnb8/cLEKmzCR/gXSeMG8TkLIo
+LV3IjtkoPRj8GZIJxVqqQ/UVtiqcOj4FXbqBiQdydLER8jPhzQLdmXHoHkerxCRy
+8HfzjU1M289bGoqW6IAQ1+AIYCemdsrfWqQZEGOrOTJcaWIcdDnwCatr+TC6blCg
+WhhfiNGWRLf2Vhuu6uYRhIilo16wGb6woCCm+VsgL6xa5HLvcF5l6cdyerUmKzrB
+LMXXpPaO0sTsAR9/QTL8bjXK2DByKqeVQ53cK+FcKCrC+al3pl7Jj8VuFxcCjs3x
+7DKreBR8w6BunILrD/dVEYLslKHNTOVtHvFBjJDdX956OKyo7ZQchnbfWQrZyeor
+5c9ERtxPqp9Aq++k9aE5pqQ0u4BjgwsLhL9lzsEcBDBF4D3DEJapTKO0LsZLmn36
+Ssf4Huw9x9pCzj5jl8VFRfwY42BH/TYwTd6QtDO7cfelOLG/roX6vLP8+lZB8OUF
+Viiiv7pMXLecfrwuZZrfg+08UsF8H1vY9P4bw3dmzhHxwF3inIvYpHDAp7tnSFGp
+8lwX7mjUqudVA93y6z1U6hsCAwEAAQ==
+-----END PUBLIC KEY-----`
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
@@ -227,5 +245,37 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         } else {
             await db.insertInto('orgUser').values({ userId, orgId, isAdmin: membership.isAdmin }).execute()
         }
+    }
+
+    // Every test user belongs to an org that requires an encryption key (enclave or lab), so the
+    // RequireUserKey gate redirects them to key generation until one exists. Seed the shared
+    // test public key (tests/support/public_key.pem) — NOT a placeholder — so results encrypted
+    // for it by the e2e (bin/debug/upload-results.ts) produce a wrapped key whose fingerprint matches
+    // the seeded user, and decrypt with tests/support/private_key.pem.
+    // Inlined from si-encryption's pemToArrayBuffer/fingerprintKeyData: importing that package
+    // pulls in `debug`, whose CJS require('tty') crashes the esbuild ESM bundle the migrator
+    // Lambda runs seeds from. The fingerprint format (hex of SHA-256 over SPKI DER) must stay
+    // in sync with si-encryption, verified identical for this key.
+    const publicKeyDer = Buffer.from(TEST_PUBLIC_KEY_PEM.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''), 'base64')
+    const fingerprint = createHash('sha256').update(publicKeyDer).digest('hex')
+
+    for (const user of TEST_USERS) {
+        const userId = userIdByRole.get(user.role)!
+
+        const existing = await db
+            .selectFrom('userPublicKey')
+            .select('id')
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+        if (existing) continue
+
+        await db
+            .insertInto('userPublicKey')
+            .values({
+                userId,
+                publicKey: publicKeyDer,
+                fingerprint,
+            })
+            .execute()
     }
 }

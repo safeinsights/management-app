@@ -12,7 +12,6 @@ import OrgDashboardPage from './page'
 vi.mock('@/server/actions/org.actions', async () => {
     return {
         getOrgFromSlugAction: vi.fn(),
-        getReviewerPublicKeyAction: vi.fn(),
     }
 })
 
