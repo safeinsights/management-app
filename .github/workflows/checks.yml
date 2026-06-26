@@ -166,10 +166,12 @@ jobs:
             - name: provision db
               run: pnpm run db:migrate
             - name: pnpm run test:unit
+              # Call vitest directly: `pnpm run test:unit -- --shard=…` forwards a leading
+              # `--` that vitest treats as the end-of-flags marker, so --shard/--maxWorkers
+              # would be parsed as positional filters (silently running the whole suite).
               # Reporter is chosen by vitest.config (github-actions on CI). --shard splits
-              # the test FILES across the matrix runners; --maxWorkers uses all vCPUs within
-              # each shard.
-              run: pnpm run test:unit -- --shard="${{ matrix.shard }}/3" --maxWorkers="$VITEST_MAX_WORKERS"
+              # the test FILES across the matrix runners; --maxWorkers uses all vCPUs.
+              run: pnpm exec vitest run --shard="${{ matrix.shard }}/3" --maxWorkers="$VITEST_MAX_WORKERS"
             - name: stage unit coverage
               # vitest-monocart leaves raw V8 coverage in .cache (coverage-*.json); copy this
               # shard's slice into a stable raw/ dir for the coverage job to merge. Never fail
