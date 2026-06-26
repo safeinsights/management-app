@@ -166,13 +166,21 @@ jobs:
               # Reporter is chosen by vitest.config (github-actions on CI); just raise the
               # worker count to use all runner vCPUs.
               run: pnpm run test:unit -- --maxWorkers="$VITEST_MAX_WORKERS"
+            - name: stage unit coverage
+              # vitest-monocart leaves raw V8 coverage in .cache (coverage-*.json); copy the
+              # coverage files into a stable raw/ dir for the coverage job to merge. Never
+              # fail the unit job over coverage staging.
+              if: always()
+              run: |
+                  mkdir -p test-results/unit/raw
+                  cp test-results/unit/.cache/coverage-*.json test-results/unit/raw/ 2>/dev/null || true
+                  echo "staged $(ls test-results/unit/raw 2>/dev/null | wc -l) unit coverage files"
             - name: upload unit coverage
-              # vitest-monocart writes raw V8 coverage to .cache (not raw/); the coverage
-              # job merges it (see tests/merged-coverage.ts).
+              if: always()
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
                   name: coverage-unit
-                  path: test-results/unit/.cache
+                  path: test-results/unit/raw
                   retention-days: 1
                   if-no-files-found: ignore
 
@@ -293,12 +301,16 @@ jobs:
                   cache: 'pnpm'
             - name: pnpm install
               run: pnpm install --frozen-lockfile
+            # Tolerate a missing artifact (a job may not have emitted coverage) — the merge
+            # uses whatever is present rather than failing the report.
             - name: download unit coverage
+              continue-on-error: true
               uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
               with:
                   name: coverage-unit
-                  path: test-results/unit/.cache
+                  path: test-results/unit/raw
             - name: download e2e coverage
+              continue-on-error: true
               uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
               with:
                   name: coverage-e2e
