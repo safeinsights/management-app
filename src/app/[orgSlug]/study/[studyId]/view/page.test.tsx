@@ -519,10 +519,6 @@ describe('StudyViewPage', () => {
             },
         )
 
-        // ?from=code-decision back-nav to the Code-approved page was removed when results became
-        // terminal (OTTER-612 back removed). The state machine now handles results states directly
-        // and does not branch on from=code-decision.
-
         it('threads returnTo=org to the results screen via dashboardHref', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
