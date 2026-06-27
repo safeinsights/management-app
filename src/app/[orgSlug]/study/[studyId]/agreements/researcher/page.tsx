@@ -45,11 +45,12 @@ export default async function ResearcherAgreementsRoute(props: {
     // dead-end an approved-no-code researcher (recoverable only via browser back).
     const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId })
 
-    // OTTER-612: once code is submitted, Proceed lands on /view, which re-resolves to the code-status
-    // screen; before submission it targets the upload page.
+    // Once code is submitted, "Proceed to Step 4" lands on the read-only code step (/view/code) —
+    // NOT plain /view, which would jump an advanced study straight to results (Step 5). Before
+    // submission it targets the upload page for the first-time code upload.
     const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
     const proceedHref = codeSubmitted
-        ? Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
+        ? Routes.studyViewCode({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (

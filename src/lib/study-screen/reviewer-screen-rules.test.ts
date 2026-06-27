@@ -28,7 +28,7 @@ const st = (overrides: Partial<StudyState>): StudyState => ({
     ...overrides,
 })
 
-const screen = (s: StudyState) => resolveScreen('reviewer', s, undefined, ctx).screen
+const screen = (s: StudyState) => resolveScreen('reviewer', s, ctx).screen
 
 describe('resolveScreen(reviewer)', () => {
     it('PENDING-REVIEW → reviewer-proposal-review', () => {
