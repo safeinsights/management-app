@@ -184,7 +184,8 @@ function CommandLinesSection({
                 Command Lines
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
-                Map file extensions to the command used to execute them. Use %f for the main code file name.
+                Map file extensions to the command used to execute them. Use %f for the main code file name; it’s quoted
+                automatically, so you don’t need to wrap it in quotes.
             </Text>
             <Stack gap="xs">
                 {Object.entries(commandLines).map(([ext, cmd]) => (

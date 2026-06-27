@@ -5,6 +5,7 @@ import { resolveDashboardAction } from './resolve'
 const dstate = (overrides: Partial<DashboardState>): DashboardState => ({
     status: 'DRAFT',
     isDraft: true,
+    hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
     hasAnyJob: false,
@@ -30,6 +31,15 @@ describe('resolveDashboardAction (researcher)', () => {
         expect(a.label).toBe('Edit')
         expect(a.secondaryAction).toBe('delete-draft')
         expect(a.href).toContain('/edit')
+    })
+    // OTTER-572: a draft that has reached Step 2 resumes on the proposal editor (Step 2), not the
+    // Step 1 data-org picker. Step 1 destination is /edit, Step 2 is /proposal.
+    it('draft with Step 2 progress → Edit + delete-draft + /proposal (resume on Step 2)', () => {
+        const a = resolveDashboardAction('researcher', dstate({ isDraft: true, hasStep2Progress: true }), ctx)
+        expect(a.label).toBe('Edit')
+        expect(a.secondaryAction).toBe('delete-draft')
+        expect(a.href).toContain('/proposal')
+        expect(a.href).not.toContain('/edit')
     })
     it('APPROVED with a baseline job, no code submitted → View → /code', () => {
         const a = resolveDashboardAction(

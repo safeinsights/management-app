@@ -287,13 +287,13 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyAgreements (no ?from=) in all decisions', async () => {
+        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             const href = previous.getAttribute('href') ?? ''
-            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements`)
+            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
             expect(href).not.toContain('from=')
         })
 

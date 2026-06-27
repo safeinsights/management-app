@@ -7,6 +7,7 @@ const ctx = { orgSlug: 'org', studyId: '01900000-0000-7000-8000-000000000001' }
 const st = (overrides: Partial<StudyState>): StudyState => ({
     status: 'PENDING-REVIEW',
     isDraft: false,
+    hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
     hasAnyJob: false,

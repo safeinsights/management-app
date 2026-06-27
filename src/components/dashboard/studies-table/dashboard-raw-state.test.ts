@@ -16,6 +16,12 @@ const row = (overrides: Partial<StudyRow>): StudyRow => ({
     createdBy: null,
     jobStatusChanges: [{ status: 'CODE-SUBMITTED' }, { status: 'CODE-APPROVED' }],
     researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     ...overrides,
 })
 

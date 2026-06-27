@@ -19,6 +19,12 @@ const baseStudy: StudyRowType = {
     createdBy: 'Person A',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     orgName: 'Test Org',
     orgSlug: 'test-org',
 }

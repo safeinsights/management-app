@@ -10,6 +10,8 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
+import { SaveStatusIndicator } from '@/components/save-status'
+import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS, type ProposalFormValues } from './schema'
@@ -69,6 +71,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
+    const fieldsSaveStatus = useProviderSaveStatus(yjsForm.provider)
 
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
@@ -123,6 +126,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 {form.errors.title && <InputError error={form.errors.title} />}
                                 <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
                             </Group>
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
 
                         <Box>
@@ -158,6 +162,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 </Anchor>
                             </Group>
                             <InputError error={form.errors.datasets} />
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
                     </Stack>
                 </Paper>
@@ -197,6 +202,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     error={!!form.errors.piName}
                                 />
                             </Box>
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
 
                         <Box>

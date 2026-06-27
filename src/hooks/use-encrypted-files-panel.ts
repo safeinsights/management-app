@@ -1,6 +1,6 @@
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
-import { isEncryptedLogType, logLabel } from '@/lib/file-type-helpers'
+import { isEncryptedArtifact, logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -28,10 +28,6 @@ export type UnifiedFileRow = {
     fileType: FileType
     state: FileRowState
     file: JobFile | null
-}
-
-function isEncryptedFile(fileType: FileType): boolean {
-    return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
 }
 
 export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Options) {
@@ -75,7 +71,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         onFilesApproved(decryptedFiles)
     }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedFile(f.fileType)), [job.files])
+    const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedArtifact(f.fileType)), [job.files])
 
     // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
     // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.

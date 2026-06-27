@@ -36,6 +36,8 @@ next-env.d.ts
 
 volume/
 tests/coder-files/
+# Per-role Clerk sessions saved by tests/auth.setup.ts (contain real tokens)
+tests/.auth/
 
 # Claude Code local settings (user-specific, not shared)
 .claude/settings.local.json

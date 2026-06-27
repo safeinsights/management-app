@@ -18,7 +18,13 @@ const POST_SUBMISSION_STATUSES: ReadonlyArray<DashboardState['status']> = [
 ]
 
 export const DASHBOARD_RULES: DashboardRule[] = [
-    // DRAFT: edit, with a delete affordance (component still gates on author).
+    // DRAFT that already reached Step 2 → resume on Step 2 (the proposal editor) instead of the
+    // Step 1 data-org picker (OTTER-572). Must precede the plain-DRAFT rule below.
+    {
+        when: (s) => s.isDraft && s.hasStep2Progress,
+        action: (ctx) => ({ label: 'Edit', href: Routes.studyProposal(ctx), secondaryAction: 'delete-draft' }),
+    },
+    // DRAFT still on Step 1: edit, with a delete affordance (component still gates on author).
     {
         when: (s) => s.isDraft,
         action: (ctx) => ({ label: 'Edit', href: Routes.studyEdit(ctx), secondaryAction: 'delete-draft' }),
