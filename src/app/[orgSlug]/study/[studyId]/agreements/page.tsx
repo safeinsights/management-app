@@ -76,11 +76,7 @@ export default async function StudyAgreementsRoute(props: {
     // screen authority (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    // OTTER-614: Previous → the read-only initial-request screen (/view?step=proposal), the current
-    // Cruising Fin proposal page with its own "Proceed to Step 3" forward path back here — not the
-    // legacy /submitted page. ?step=proposal pins the view's first step so an advanced study does
-    // not re-resolve forward to code/results.
-    const previousHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId, returnTo, step: 'proposal' })
+    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId })
 
     // OTTER-614: once code is submitted, Proceed lands on the read-only code screen
     // (/view?step=code), NOT the editable upload page — the researcher must not edit code at this

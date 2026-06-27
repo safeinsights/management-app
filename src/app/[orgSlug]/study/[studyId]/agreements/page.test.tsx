@@ -113,10 +113,9 @@ describe('StudyAgreementsRoute', () => {
         expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    // OTTER-614: Previous → the read-only initial-request screen (/view?step=proposal), the current
-    // Cruising Fin proposal page, NOT the legacy /submitted page. ?step=proposal pins the view's
-    // first step so an advanced study does not re-resolve forward.
-    it('Previous button targets /view?step=proposal', async () => {
+    // OTTER-614: Previous → /submitted (the approved-proposal page with its own "Proceed to
+    // step 3" forward path back to agreements).
+    it('Previous button targets /submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -128,8 +127,7 @@ describe('StudyAgreementsRoute', () => {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toBe(`/${org.slug}/study/${study.id}/view?step=proposal`)
-        expect(asPath).not.toContain('from=')
+        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted`)
     })
 
     // OTTER-614: once code is submitted, Proceed lands on the read-only code screen

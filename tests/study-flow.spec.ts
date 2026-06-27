@@ -321,8 +321,8 @@ async function researcherNavigatesToCodeUpload(page: Page, studyTitle: string) {
     await expect(previousButton).toBeVisible()
     await previousButton.click()
 
-    // Previous now lands on /submitted (the approved-proposal page), which shows the proposal
-    // and its own "Proceed to step 3" forward path — ?from= routing has been removed.
+    // Previous lands on /submitted (the approved-proposal page), which shows the proposal
+    // and its own "Proceed to step 3" forward path.
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
