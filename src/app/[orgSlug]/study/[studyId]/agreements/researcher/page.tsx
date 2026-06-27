@@ -43,7 +43,7 @@ export default async function ResearcherAgreementsRoute(props: {
     // Previous → /submitted (the approved-proposal page with its own "Proceed to step 3" button),
     // NOT /view. /view re-resolves to proposal-feedback, which has no forward path here, so it would
     // dead-end an approved-no-code researcher (recoverable only via browser back).
-    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId })
+    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
 
     // Once code is submitted, "Proceed to Step 4" lands on the read-only code step (/view/code) —
     // NOT plain /view, which would jump an advanced study straight to results (Step 5). Before

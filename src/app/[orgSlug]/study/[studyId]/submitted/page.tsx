@@ -5,8 +5,13 @@ import { isSubmittedStudy } from '@/schema/study'
 import { ProposalSubmitted } from './proposal-submitted'
 import { loadProposalSubmittedData } from './load-proposal-submitted'
 
-export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
+export default async function StudySubmittedRoute(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const { studyId, orgSlug } = await props.params
+    const searchParams = await props.searchParams
+    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     const result = await getStudyAction({ studyId })
 
@@ -28,6 +33,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
             entries={entries}
             studyVersion={studyVersion}
             feedbackError={feedbackError}
+            returnTo={returnTo}
         />
     )
 }
