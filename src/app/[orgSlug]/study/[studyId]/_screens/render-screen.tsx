@@ -1,5 +1,6 @@
 import type React from 'react'
 import { notFound } from 'next/navigation'
+import type { Route } from 'next'
 import {
     projectStudyState,
     resolveScreen,
@@ -15,7 +16,7 @@ type RenderArgs = {
     raw: RawStudyState
     study: SelectedStudy
     orgSlug: string
-    dashboardHref: string
+    dashboardHref: Route
     returnTo?: 'org'
 }
 
