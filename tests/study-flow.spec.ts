@@ -259,7 +259,6 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard')
 }
 
-
 // ============================================================================
 // Job result / error helpers (no runner: upload via the debug script)
 // ============================================================================
