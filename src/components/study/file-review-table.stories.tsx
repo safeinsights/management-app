@@ -104,8 +104,8 @@ export const NoJobYet: Story = () => (
     </div>
 )
 
-// Many rows, none selected as main, with a custom main-file column header.
-export const ManyFilesCustomHeader: Story = () => (
+// Many rows, none selected as main.
+export const ManyFiles: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable
             files={Array.from({ length: 12 }, (_, i) => ({
@@ -118,7 +118,6 @@ export const ManyFilesCustomHeader: Story = () => (
             onRemoveFile={noop}
             onViewFile={noop}
             jobCreatedAt={JOB_CREATED_AT}
-            mainFileColumnHeader="Entry point"
         />
     </div>
 )

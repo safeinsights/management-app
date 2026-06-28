@@ -12,7 +12,6 @@ interface StudyCodePanelProps {
     stepLabel?: string
     studyTitle: string | null
     footer: ReactNode
-    mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
     ideButtonTooltip?: string
 }
@@ -22,7 +21,6 @@ export const StudyCodePanel = ({
     stepLabel,
     studyTitle,
     footer,
-    mainFileColumnHeader,
     showLaunchIde,
     ideButtonTooltip,
 }: StudyCodePanelProps) => {
@@ -55,7 +53,6 @@ export const StudyCodePanel = ({
                 removeFile={ide.removeFile}
                 viewFile={ide.viewFile}
                 jobCreatedAt={ide.jobCreatedAt}
-                mainFileColumnHeader={mainFileColumnHeader}
                 showLaunchIde={showLaunchIde}
                 ideButtonTooltip={ideButtonTooltip}
             />
