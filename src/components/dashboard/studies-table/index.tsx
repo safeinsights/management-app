@@ -15,7 +15,7 @@ import {
 import { StudyRow } from './study-row'
 import { StudiesTableView } from './studies-table-view'
 import {
-    ACTIVE_PROPOSAL_STATUS,
+    ACTIVE_PROPOSAL_STATUSES,
     Audience,
     FINAL_STATUS,
     REVIEWER_ACTION_STATUSES,
@@ -46,10 +46,15 @@ function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userI
     )
 }
 
-function needsRefresh(studies: StudyRowType[]): boolean {
+function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
+    // Two independent reasons to keep polling:
+    //  - study-level: a researcher is awaiting a DO decision (PENDING-REVIEW typically has no job
+    //    yet, so the job-level check below can't catch it). Reviewers are excluded because
+    //    PENDING-REVIEW is their own next action — re-fetching won't change until they act.
+    //  - job-level: an in-flight (non-final) job, regardless of audience or study status.
     return studies.some(
         (study) =>
-            ACTIVE_PROPOSAL_STATUS.includes(study.status) ||
+            (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
             study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
 }
@@ -116,7 +121,7 @@ export function StudiesTable({
             ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
             : (studies as StudyRowType[])
 
-    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies)
+    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies, audience)
 
     return (
         <StudiesTableView
