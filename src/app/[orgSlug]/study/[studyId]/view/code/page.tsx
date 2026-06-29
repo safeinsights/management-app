@@ -3,9 +3,11 @@ import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { renderStudyScreen } from '../_screens/render-screen'
+import { renderResearcherCodeStep } from '../../_screens/render-screen'
 
-export default async function StudyView(props: {
+// Read-only post-decision code step, reached by walking back from the results screen.
+// renderResearcherCodeStep 404s if the study hasn't reached the code stage.
+export default async function StudyViewCode(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
     searchParams: Promise<Record<string, string | undefined>>
 }) {
@@ -19,12 +21,10 @@ export default async function StudyView(props: {
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
-    return renderStudyScreen({
-        role: 'researcher',
+    return renderResearcherCodeStep({
         raw: rawStudyState,
         study,
         orgSlug,
-        studyId,
         dashboardHref,
         returnTo,
     })

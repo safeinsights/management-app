@@ -13,6 +13,13 @@ export async function rawStudyStateForStudy(studyId: string): Promise<RawStudySt
             'study.reviewerAgreementsAckedAt',
             'study.proposalResubmissionNoteDraft',
             'study.codeResubmissionNoteDraft',
+            // Step 2 fields → hasStep2Progress (OTTER-572 draft resume).
+            'study.piUserId',
+            'study.datasets',
+            'study.researchQuestions',
+            'study.projectSummary',
+            'study.impact',
+            'study.additionalNotes',
         ])
         .select((eb) => [
             jsonArrayFrom(

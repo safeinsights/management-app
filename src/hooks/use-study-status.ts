@@ -19,13 +19,19 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
     const state = projectStudyState({
         status: studyStatus,
         // The pill only needs status + jobs; fields this hook doesn't receive (agreements,
-        // draft notes, dates) are null and don't affect any pill fact.
+        // draft notes, dates, step-2 progress) are null and don't affect any pill fact.
         approvedAt: null,
         rejectedAt: null,
         researcherAgreementsAckedAt: null,
         reviewerAgreementsAckedAt: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
+        piUserId: null,
+        datasets: null,
+        researchQuestions: null,
+        projectSummary: null,
+        impact: null,
+        additionalNotes: null,
         jobs: jobStatusChanges.length ? [{ id: '0', statusChanges: jobStatusChanges }] : [],
     })
     return resolvePillStatus(audience, state)

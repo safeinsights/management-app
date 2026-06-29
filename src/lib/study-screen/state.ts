@@ -7,6 +7,7 @@ import {
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
+import { draftHasStep2Progress } from '@/lib/studies'
 import type { RawJob, RawStudyState, StudyState } from './state.types'
 
 const has = (job: RawJob | undefined, statuses: readonly StudyJobStatus[]): boolean =>
@@ -95,6 +96,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     return {
         status: raw.status,
         isDraft: raw.status === 'DRAFT',
+        hasStep2Progress: draftHasStep2Progress(raw),
         researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
         reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,
         hasAnyJob: raw.jobs.length > 0,

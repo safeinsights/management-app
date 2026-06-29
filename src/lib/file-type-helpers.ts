@@ -55,3 +55,25 @@ export function isLogType(fileType: FileType): boolean {
 export function logLabel(fileType: FileType): string {
     return LOG_LABELS[fileType] ?? 'Results'
 }
+
+// Pre-PR #764 jobs stored results/logs as plaintext APPROVED-* / SECURITY-SCAN-LOG rows; newer jobs
+// encrypt them for the researcher (ENCRYPTED-*). These two predicates classify a job's files so the
+// results view can show legacy results directly while routing encrypted ones through the key flow.
+export function isEncryptedArtifact(fileType: FileType): boolean {
+    return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
+}
+
+export function isLegacyResultArtifact(fileType: FileType): boolean {
+    return isApprovedLogType(fileType) || isPlaintextLogType(fileType) || fileType === 'APPROVED-RESULT'
+}
+
+export function jobHasEncryptedArtifacts(files: { fileType: FileType }[]): boolean {
+    return files.some((f) => isEncryptedArtifact(f.fileType))
+}
+
+// A job is "legacy" for results purposes when it carries plaintext result artifacts and no encrypted
+// ones. The no-encrypted guard keeps a job that has both (shouldn't happen, but defensively) on the
+// encrypted path so nothing decryptable is silently skipped.
+export function jobHasLegacyResults(files: { fileType: FileType }[]): boolean {
+    return !jobHasEncryptedArtifacts(files) && files.some((f) => isLegacyResultArtifact(f.fileType))
+}

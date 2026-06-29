@@ -1,14 +1,17 @@
-import { captureException } from '@sentry/nextjs'
-import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
-import { getOrgNameFromId } from '@/server/db/queries'
-import { deriveStudyVersion } from '@/lib/studies'
+import { getStudyAction } from '@/server/actions/study.actions'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
 import { ProposalSubmitted } from './proposal-submitted'
+import { loadProposalSubmittedData } from './load-proposal-submitted'
 
-export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
+export default async function StudySubmittedRoute(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const { studyId, orgSlug } = await props.params
+    const searchParams = await props.searchParams
+    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     const result = await getStudyAction({ studyId })
 
@@ -20,19 +23,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
         return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />
     }
 
-    const [orgName, feedbackResult] = await Promise.all([
-        getOrgNameFromId(result.orgId),
-        getProposalFeedbackForStudyAction({ studyId }),
-    ])
-
-    const feedbackError = isActionError(feedbackResult)
-
-    if (feedbackError) {
-        captureException(new Error(`Failed to fetch proposal feedback for study ${studyId}: ${feedbackResult.error}`))
-    }
-
-    const entries = feedbackError ? [] : feedbackResult
-    const studyVersion = deriveStudyVersion(entries)
+    const { orgName, entries, studyVersion, feedbackError } = await loadProposalSubmittedData(result)
 
     return (
         <ProposalSubmitted
@@ -42,6 +33,7 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
             entries={entries}
             studyVersion={studyVersion}
             feedbackError={feedbackError}
+            returnTo={returnTo}
         />
     )
 }

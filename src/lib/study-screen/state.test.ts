@@ -15,6 +15,12 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     reviewerAgreementsAckedAt: null,
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     jobs: [],
     ...overrides,
 })
@@ -85,5 +91,15 @@ describe('projectStudyState', () => {
         expect(s.resultsApproved).toBe(true)
         expect(s.resultsDisplayStatus).toBe('FILES-APPROVED')
         expect(s.latestJobStatuses).toContain('FILES-APPROVED')
+    })
+
+    // OTTER-572: hasStep2Progress is true when any Step 2 field is written, false otherwise.
+    it('hasStep2Progress: false for a fresh draft, true once any Step 2 field is set', () => {
+        expect(projectStudyState(raw({ status: 'DRAFT' })).hasStep2Progress).toBe(false)
+        expect(projectStudyState(raw({ status: 'DRAFT', piUserId: 'pi-1' })).hasStep2Progress).toBe(true)
+        expect(projectStudyState(raw({ status: 'DRAFT', datasets: ['ds-1'] })).hasStep2Progress).toBe(true)
+        expect(projectStudyState(raw({ status: 'DRAFT', researchQuestions: { q: 1 } })).hasStep2Progress).toBe(true)
+        // empty datasets array is not progress
+        expect(projectStudyState(raw({ status: 'DRAFT', datasets: [] })).hasStep2Progress).toBe(false)
     })
 })

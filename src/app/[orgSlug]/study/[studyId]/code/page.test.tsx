@@ -55,7 +55,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
-        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements'))
+        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements/researcher'))
     })
 
     it('redirects to view for non-DRAFT/APPROVED study', async () => {

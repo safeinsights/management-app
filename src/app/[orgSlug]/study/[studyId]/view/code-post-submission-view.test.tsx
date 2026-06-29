@@ -299,13 +299,13 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
+        it('renders Back as a link to studyResearcherAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const backLink = screen.getByRole('link', { name: /back/i })
             const backHref = backLink.getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
             expect(backHref).not.toContain('from=')
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
@@ -317,7 +317,7 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job, { returnTo: 'org' })
 
             const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
             expect(backHref).toContain('returnTo=org')
         })
 

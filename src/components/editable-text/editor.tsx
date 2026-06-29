@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
@@ -40,14 +41,23 @@ export type EditorProps = {
 
 export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: EditorProps) {
     const singleUserEditing = useSingleUserEditing()
+    // The collaborative editor is a `ssr: false` dynamic import, so the server
+    // never renders it. Gate the whole collaborative branch behind a post-mount
+    // flag so the server render and the client's FIRST render are byte-identical
+    // (both the skeleton); the editor then mounts as a normal client-only update.
+    // Without this, the server skeleton vs. the client's dynamic <Suspense>
+    // produces a hydration mismatch (the websocket singleton is client-only).
+    const [mounted, setMounted] = useState(false)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration flip
+    useEffect(() => setMounted(true), [])
 
     if (singleUserEditing) {
         return <SingleUserEditor {...props} />
     }
 
-    // Collaborative mode needs the tab-singleton websocket; callers pass null
-    // until it exists (SSR / pre-hydration), so hold the skeleton until then.
-    if (!websocketProvider) return <Skeleton h={skeletonHeight} radius={4} />
+    // Hold the skeleton until we're mounted on the client AND the tab-singleton
+    // websocket exists (callers pass null during SSR / pre-hydration).
+    if (!mounted || !websocketProvider) return <Skeleton h={skeletonHeight} radius={4} />
 
     return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
 }

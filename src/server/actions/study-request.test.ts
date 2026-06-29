@@ -904,6 +904,16 @@ describe('Request Study Actions', () => {
             // count-based liveness back to "under review" so the researcher leaves the feedback screen.
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
+
+            // The note records the round it opened (study-wide submission version) so the reviewer's
+            // feedback panel labels it v2, matching the round-2 decision (OTTER-638).
+            const jobAfter = await db
+                .selectFrom('studyJob')
+                .select(['resubmissionNote', 'resubmissionRound'])
+                .where('id', '=', round1Job.id)
+                .executeTakeFirstOrThrow()
+            expect(jobAfter.resubmissionNote).not.toBeNull()
+            expect(jobAfter.resubmissionRound).toBe(2)
         })
 
         // Regression: in the real flow the researcher uploads files on the resubmit page *before*

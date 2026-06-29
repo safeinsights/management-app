@@ -9,6 +9,7 @@ const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
 const full = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
     isDraft: true,
+    hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
     hasAnyJob: false,
@@ -58,7 +59,7 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
             // These fixtures are all non-draft studies the dashboard sends to /view; assert that
             // explicitly so a future Tier-1 rule change can't silently make this invariant vacuous.
             expect(action.label).toBe('View')
-            expect(resolveScreen('researcher', s, undefined, ctx).screen).not.toBe('study-overview')
+            expect(resolveScreen('researcher', s, ctx).screen).not.toBe('study-overview')
         })
     }
 })
@@ -84,7 +85,7 @@ describe('reviewer rule table reaches no accidental fallback', () => {
 
     for (const s of reviewerStates) {
         it(`reviewer status=${s.status} code=${s.codeDecision} → reviewer screen`, () => {
-            const id = resolveScreen('reviewer', s, undefined, ctx).screen
+            const id = resolveScreen('reviewer', s, ctx).screen
             expect(id.startsWith('reviewer-')).toBe(true)
         })
     }

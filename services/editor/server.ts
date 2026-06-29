@@ -175,9 +175,14 @@ const server = new Server({
         if (document.share.size > 0) return
 
         const column = SLUG_TO_STUDY_COLUMN[parsed.slug]
-        const row = await pool.query<{ value: string | null }>(`SELECT ${column} AS value FROM study WHERE id = $1`, [
-            parsed.studyId,
-        ])
+        // Cast the jsonb column to text: pg parses a bare jsonb column into a JS
+        // object, but seedYDocFromLexical expects the serialized JSON string (it
+        // calls .trim()). Without the cast the seeder throws and is swallowed
+        // below, leaving the editor blank.
+        const row = await pool.query<{ value: string | null }>(
+            `SELECT ${column}::text AS value FROM study WHERE id = $1`,
+            [parsed.studyId],
+        )
         const lexicalJson = row.rows[0]?.value
         if (!lexicalJson) return
 

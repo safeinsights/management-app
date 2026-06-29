@@ -391,6 +391,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status: 'APPROVED',
+            submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
@@ -1012,6 +1013,12 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     createdBy: 'Researcher Name',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     ...overrides,
 })
 

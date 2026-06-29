@@ -5,6 +5,7 @@ import { resolvePillStatus, resolveRowHighlight } from './pill'
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'APPROVED',
     isDraft: false,
+    hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
     hasAnyJob: true,

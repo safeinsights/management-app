@@ -146,8 +146,8 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
 // on version > 1). OTTER-556/558 require an ever-increasing version with prior feedback/notes kept
 // visible across rounds. Counting these round-opening events (not CODE-SUBMITTED) also keeps the
 // version immune to a duplicate CODE-SUBMITTED from a concurrent submit.
-export const codeSubmissionVersion = async (studyId: string): Promise<number> => {
-    const row = await Action.db
+export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
