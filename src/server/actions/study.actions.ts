@@ -711,8 +711,8 @@ async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
     // approved stays APPROVED while its code is (re)submitted for review, so a latest
     // job whose newest code change is a fresh submission is the only correct gate. A
     // peer submitting a decision advances the round past that (and the unique
-    // (studyJobId, reviewKind) index blocks a true insert race), so this check is also
-    // the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
+    // (studyJobId, reviewKind, round) index blocks a true same-round insert race), so this
+    // check is also the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
     // vs decisions rather than reading statusChanges[0], so it is immune to the
     // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
     const job = await latestJobForStudyOrNull(studyId)
@@ -871,11 +871,13 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
-        // Resubmission-note versions come from job creation order (v1, v2, ...). Reviewer-decision
-        // versions come from the stored `round` (the study-wide submission version at decision
-        // time) so multiple decisions on the same job — a same-job resubmit revises in place
-        // (OTTER-316/638) — get distinct, increasing labels. studyJob has no userId column; the
-        // author of the resubmission note is the user recorded on the CODE-SUBMITTED status change.
+        // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
+        // round (see codeSubmissionVersion): the decision stores it in studyReviewComment.round, the
+        // note in studyJob.resubmissionRound. This keeps a round's note and decision on the same
+        // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
+        // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
+        // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
+        // resubmission note is the user recorded on the CODE-SUBMITTED status change.
         const codeJobs = await db
             .selectFrom('studyJob')
             .leftJoin('jobStatusChange as submission', (join) =>
@@ -885,6 +887,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             .select([
                 'studyJob.id as studyJobId',
                 'studyJob.resubmissionNote',
+                'studyJob.resubmissionRound',
                 'studyJob.createdAt',
                 'submission.userId as authorId',
                 'author.fullName as authorName',
@@ -901,7 +904,6 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
-                'studyReviewComment.studyJobId',
                 'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
@@ -938,7 +940,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 criteria: null,
                 createdAt: j.createdAt,
                 authorName: j.authorName ?? '',
-                version: jobVersion.get(j.studyJobId) ?? null,
+                version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
             }))
 
         return [...reviewerEntries, ...noteEntries].sort((a, b) => {

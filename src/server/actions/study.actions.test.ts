@@ -1742,6 +1742,46 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(reviewerEntries.map((e) => e.version).sort()).toEqual([1, 2])
     })
 
+    it('OTTER-638: a same-job resubmission note shares its round version with that round decision', async () => {
+        // Regression for the label divergence: the resubmission note that opened round 2 must read as
+        // v2, matching the round-2 decision — not v1 from the job-creation-order fallback.
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        // The researcher's resubmit revises the same job: append the submission and record the note's
+        // round (study-wide submission version), exactly as resubmitStudyCodeAction does.
+        await simulateResubmitOnSameJob(job.id, user.id)
+        await db
+            .updateTable('studyJob')
+            .set({
+                resubmissionNote: { root: { type: 'root', children: [{ text: 'addressed feedback' }] } },
+                resubmissionRound: 2,
+            })
+            .where('id', '=', job.id)
+            .execute()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        const entries = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        const note = entries.find((e) => e.entryType === 'RESUBMISSION-NOTE')
+        const round2Decision = entries.find((e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'APPROVE')
+        expect(note?.version).toBe(2)
+        expect(round2Decision?.version).toBe(2)
+    })
+
     it('OTTER-638: rejects a second decision when code was not resubmitted (still already decided)', async () => {
         // Guard the eligibility gate: after a change request with no resubmit, the latest code change
         // is a decision, so claimInitialCodeReviewJob blocks before reaching the insert — the fix must

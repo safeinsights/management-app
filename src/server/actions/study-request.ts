@@ -17,7 +17,12 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { getInfoForStudyId, getOrgIdFromSlug, latestSubmittedJobForStudy } from '@/server/db/queries'
+import {
+    codeSubmissionVersion,
+    getInfoForStudyId,
+    getOrgIdFromSlug,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -988,9 +993,13 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         await markCodeSubmitted(db, { studyJobId, userId })
 
+        // Record the round this note opened (the study-wide submission version) so the reviewer's
+        // feedback panel labels the note and that round's decision with the same version (OTTER-638).
+        const resubmissionRound = await codeSubmissionVersion(studyId, db)
+
         await db
             .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson(resubmissionNote)) })
+            .set({ resubmissionNote: JSON.parse(lexicalJson(resubmissionNote)), resubmissionRound })
             .where('id', '=', studyJobId)
             .execute()
 
