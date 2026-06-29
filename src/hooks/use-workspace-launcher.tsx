@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@/common'
 import { reportError } from '@/components/errors'
 import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
-import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useRef } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
@@ -49,8 +48,6 @@ interface UseWorkspaceLauncherReturn {
     isCreatingWorkspace: boolean
     error: Error | null
     clearError: () => void
-    /** Current launch phase from the build-status poll (provisioning/starting/ready/failed/…) */
-    phase: WorkspaceLaunchStatus['phase']
     /** Human-readable readiness reason for the current poll */
     reason: string | null
     /** ISO timestamp of the most recent Coder log line — proves the build is actively progressing */
@@ -124,7 +121,6 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         isCreatingWorkspace: ensure.isPending,
         error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),
         clearError,
-        phase: buildStatus.phase,
         reason: buildStatus.reason,
         lastLogAt: buildStatus.lastLogAt,
     }

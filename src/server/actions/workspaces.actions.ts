@@ -116,7 +116,6 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
             // these envs do not have a 'real' coder setup
             await initializeDevWorkspaceFiles(studyId)
             return {
-                phase: 'ready',
                 buildStatus: 'running',
                 ready: true,
                 failed: false,

@@ -774,7 +774,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         const status = await getCoderWorkspaceLaunchStatus('study-1')
 
-        expect(status.phase).toBe('provisioning')
+        expect(status.buildStatus).toBe('running')
         expect(status.ready).toBe(false)
         expect(status.url).toBeNull()
         expect(status.lastLogAt).toBe('2020-01-01T00:00:03Z')
@@ -801,7 +801,6 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         const status = await getCoderWorkspaceLaunchStatus('study-1')
 
-        expect(status.phase).toBe('failed')
         expect(status.failed).toBe(true)
         expect(status.reason).toBe('terraform exploded')
         expect(status.url).toBeNull()
@@ -817,7 +816,6 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         const status = await getCoderWorkspaceLaunchStatus('study-1')
 
-        expect(status.phase).toBe('provisioning')
         expect(status.lastLogAt).toBe('2020-01-01T00:00:09Z')
         expect(status.cursors.agents[agentId]).toBe(9)
     })

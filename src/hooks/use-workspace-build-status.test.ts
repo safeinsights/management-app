@@ -22,7 +22,6 @@ const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
 const studyId = 'study-1'
 
 const status = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunchStatus => ({
-    phase: 'provisioning',
     buildStatus: 'running',
     ready: false,
     failed: false,
@@ -51,7 +50,7 @@ describe('useWorkspaceBuildStatus', () => {
             wrapper: createTestQueryWrapper(),
         })
 
-        await waitFor(() => expect(result.current.phase).toBe('provisioning'))
+        await waitFor(() => expect(result.current.reason).toBe('building'))
         expect(result.current.ready).toBe(false)
         expect(result.current.failed).toBe(false)
         expect(result.current.lastLogAt).toBe('2020-01-01T00:00:01Z')
@@ -60,7 +59,7 @@ describe('useWorkspaceBuildStatus', () => {
     })
 
     it('surfaces the url and stops polling once ready', async () => {
-        statusMock.mockResolvedValue(status({ phase: 'ready', ready: true, url: 'https://ws.example.com' }))
+        statusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
 
         const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), {
             wrapper: createTestQueryWrapper(),
@@ -72,7 +71,7 @@ describe('useWorkspaceBuildStatus', () => {
     })
 
     it('stops polling on a failed build', async () => {
-        statusMock.mockResolvedValue(status({ phase: 'failed', failed: true, reason: 'boom' }))
+        statusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
 
         const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), {
             wrapper: createTestQueryWrapper(),

@@ -96,10 +96,7 @@ export interface CoderLog {
     // level?: LogLevel // unused
 }
 
-export type WorkspaceLaunchPhase = 'provisioning' | 'starting' | 'ready' | 'failed' | 'stopped' | 'unknown'
-
 export interface WorkspaceLaunchStatus {
-    phase: WorkspaceLaunchPhase
     buildStatus: WorkspaceStatus
     ready: boolean
     failed: boolean

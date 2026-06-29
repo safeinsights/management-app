@@ -23,7 +23,6 @@ import type {
     CoderWorkspaceBuild,
     CoderWorkspaceEvent,
     WorkspaceId,
-    WorkspaceLaunchPhase,
     WorkspaceLaunchStatus,
     JobStatus,
 } from './types'
@@ -168,21 +167,13 @@ export async function getCoderWorkspaceLaunchStatus(
     const failedJobStatuses: JobStatus[] = ['failed']
     const failed =
         failedWorkspaceStatuses.includes(buildStatus) || (jobStatus != null && failedJobStatuses.includes(jobStatus))
-    const stopped = buildStatus === 'stopped' || workspace.latest_build?.status === 'stopped'
-
-    let phase: WorkspaceLaunchPhase = 'unknown'
-    if (failed) phase = 'failed'
-    else if (readiness.ready) phase = 'ready'
-    else if (stopped) phase = 'stopped'
-    else if (buildStatus === 'starting') phase = 'starting'
-    else if (buildStatus === 'running' || buildStatus === 'pending') phase = 'provisioning'
 
     const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason
-    logger.info(`${logCtx} phase=${phase} buildStatus=${buildStatus}: ${reason}`)
+    logger.info(`${logCtx} buildStatus=${buildStatus}: ${reason}`)
 
     const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId) : null
 
-    return { phase, buildStatus, ready: readiness.ready, failed, reason, lastLogAt, cursors: newCursors, url }
+    return { buildStatus, ready: readiness.ready, failed, reason, lastLogAt, cursors: newCursors, url }
 }
 
 async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {

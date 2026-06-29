@@ -13,7 +13,6 @@ interface UseWorkspaceBuildStatusOptions {
 
 export interface UseWorkspaceBuildStatusReturn {
     status: WorkspaceLaunchStatus | undefined
-    phase: WorkspaceLaunchStatus['phase']
     reason: string | null
     lastLogAt: string | null
     ready: boolean
@@ -55,7 +54,6 @@ export function useWorkspaceBuildStatus({
     const status = query.data
     return {
         status,
-        phase: status?.phase ?? 'unknown',
         reason: status?.reason ?? null,
         lastLogAt: status?.lastLogAt ?? null,
         ready: status?.ready ?? false,

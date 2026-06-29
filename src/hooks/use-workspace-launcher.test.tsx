@@ -40,7 +40,6 @@ const ensureMock = ensureWorkspaceAction as unknown as Mock
 const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
 
 const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStatus => ({
-    phase: 'ready',
     buildStatus: 'running',
     ready: true,
     failed: false,
@@ -51,7 +50,6 @@ const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStat
 })
 
 const provisioningStatus = (): WorkspaceLaunchStatus => ({
-    phase: 'provisioning',
     buildStatus: 'running',
     ready: false,
     failed: false,
@@ -62,7 +60,6 @@ const provisioningStatus = (): WorkspaceLaunchStatus => ({
 })
 
 const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => ({
-    phase: 'failed',
     buildStatus: 'failed',
     ready: false,
     failed: true,
@@ -116,8 +113,8 @@ describe('useWorkspaceLauncher', () => {
             act(() => result.current.launchWorkspace())
 
             await waitFor(() => expect(statusMock).toHaveBeenCalled())
-            await waitFor(() => expect(result.current.phase).toBe('provisioning'))
-            expect(result.current.isLaunching).toBe(true)
+            await waitFor(() => expect(result.current.isLaunching).toBe(true))
+            expect(result.current.reason).toBe('build status=running, no resources yet')
             expect(result.current.lastLogAt).toBe('2020-01-01T00:00:01Z')
         })
 
@@ -239,7 +236,6 @@ describe('useWorkspaceLauncher', () => {
             act(() => result.current.launchWorkspace())
 
             await waitFor(() => {
-                expect(result.current.phase).toBe('failed')
                 expect(result.current.error?.message).toBe('terraform exploded')
                 expect(result.current.isLaunching).toBe(false)
             })
