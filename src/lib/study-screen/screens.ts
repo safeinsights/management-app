@@ -18,10 +18,9 @@ export type ScreenId =
 
 // The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
 // buttons (nav is simple and stable, and the screen-selection logic is the part that needed
-// centralizing). `step` is harmless breadcrumb metadata.
+// centralizing). The screen is derived purely from state — no URL params feed into it.
 export type ScreenDescriptor = {
     screen: ScreenId
-    step?: string
 }
 
 export type DashboardAction = {
