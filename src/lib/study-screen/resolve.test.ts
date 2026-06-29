@@ -137,7 +137,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasResults: true,
             resultsApproved: true,
         })
-        expect(resolveResearcherCodeScreen(resultsStudy)).toBe('code-approved')
+        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
     })
 
     it('picks the code screen by state: changes-requested → code-feedback', () => {
@@ -147,12 +147,25 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasSubmittedCode: true,
             codeDecision: 'CODE-CHANGES-REQUESTED',
         })
-        expect(resolveResearcherCodeScreen(s)).toBe('code-feedback')
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback', readOnlyCodeStep: true })
     })
 
     it('awaiting decision → code-under-review', () => {
         const s = state({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeAwaitingDecision: true })
-        expect(resolveResearcherCodeScreen(s)).toBe('code-under-review')
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review', readOnlyCodeStep: true })
+    })
+
+    // OTTER-640: the read-only step marks readOnlyCodeStep so the code screen keeps the submitted code
+    // visible while the job runs in the enclave — unlike the live /view flow, which hides it.
+    it('marks readOnlyCodeStep for an executing study (code stays visible)', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            isExecuting: true,
+        })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {

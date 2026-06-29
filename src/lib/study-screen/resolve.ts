@@ -17,9 +17,14 @@ const RESEARCHER_CODE_SCREENS: ReadonlyArray<ScreenId> = ['code-approved', 'code
 
 // The code screen for the read-only /view/code route, reusing the table's own predicates. undefined
 // when the study hasn't reached the code stage (route 404s), so a researcher can walk back to the
-// code step but never jump ahead.
-export function resolveResearcherCodeScreen(state: StudyState): ScreenId | undefined {
-    return RESEARCHER_SCREEN_RULES.find(([id, rule]) => RESEARCHER_CODE_SCREENS.includes(id) && rule.when(state))?.[0]
+// code step but never jump ahead. Marks the descriptor readOnlyCodeStep so the code screen keeps the
+// submitted code visible during enclave execution (OTTER-640) — a distinction this route owns, not the
+// live /view resolver.
+export function resolveResearcherCodeScreen(state: StudyState): ScreenDescriptor | undefined {
+    const screen = RESEARCHER_SCREEN_RULES.find(
+        ([id, rule]) => RESEARCHER_CODE_SCREENS.includes(id) && rule.when(state),
+    )?.[0]
+    return screen ? { screen, readOnlyCodeStep: true } : undefined
 }
 
 export function resolveDashboardAction(role: StudyRole, state: DashboardState, ctx: DashboardRuleCtx): DashboardAction {
