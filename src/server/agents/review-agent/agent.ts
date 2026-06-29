@@ -134,6 +134,13 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
     return analysisReportSchema.parse(toolUse.input)
 }
 
+// Append additionalContext to the system prompt rather than replacing it.
+function buildSystemPrompt(config: ReviewAgentConfig): string {
+    const base = config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION
+    const extra = config.additionalContext?.trim()
+    return extra ? `${base}\n\n${extra}` : base
+}
+
 export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
@@ -141,7 +148,7 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
     const response = await client.messages.create({
         model: config.model ?? DEFAULT_MODEL,
         max_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system: config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION,
+        system: buildSystemPrompt(config),
         tools: [ANALYSIS_TOOL],
         tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
         messages: [{ role: 'user', content: prompt }],

@@ -35,6 +35,8 @@ export interface ReviewContent {
  *
  * `systemPrompt` is intended to be sourced from the SI Admin page (org-level config).
  * Falls back to the bundled default if omitted.
+ *
+ * `additionalContext` is appended to the active system prompt rather than replacing it.
  */
 export interface ReviewAgentConfig {
     apiKey?: string
@@ -42,6 +44,7 @@ export interface ReviewAgentConfig {
     model?: string
     maxTokens?: number
     systemPrompt?: string
+    additionalContext?: string
     analysisPromptTemplate?: string
     maxRetries?: number
 }
