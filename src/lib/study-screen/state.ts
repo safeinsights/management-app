@@ -116,3 +116,12 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         latestJobStatuses: [...jobStatuses].sort(), // stable order for deterministic output/tests
     }
 }
+
+// OTTER-598 follow-up: a JOB-ERRORED result stays hidden from the RESEARCHER until a reviewer records
+// a FILES-* decision (errored-result triage is the reviewer's). While hidden, the researcher's pill
+// reads "Code approved" (resolvePillStatus's hideErrored) and the /view screen must hold on the
+// code-approved page — NOT jump to the results/Study Details screen. Single source of truth shared by
+// the pill and RESEARCHER_SCREEN_RULES so the two can't drift (the mismatch QA re-reported in 43898).
+export const isErroredResultHiddenFromResearcher = (
+    s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
+): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { projectStudyState } from '@/lib/study-screen'
+import { projectStudyState, isErroredResultHiddenFromResearcher } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
@@ -17,6 +17,14 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
     if (decisionStatus === null) notFound()
 
+    // A hidden JOB-ERRORED (e.g. a packaging failure before any JOB-RUNNING substatus) is presented to
+    // the researcher as "approved / results pending"; keep the code listing hidden as during execution,
+    // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
+    // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
+    // is researcher-only and calling the role-named helper with no role guard is safe.
+    const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
+    const hideStudyCode = state.isExecuting || hiddenErroredResult
+
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
     if (!isSubmittedStudy(study)) notFound()
@@ -25,7 +33,10 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
 
     // OTTER-614: once results exist, the code page forwards to Step 5 (plain /view resolves to the
     // results screen) instead of ending at the dashboard.
-    const resultsHref = state.hasResults ? Routes.studyView({ orgSlug, studyId: study.id, returnTo }) : undefined
+    const resultsHref =
+        state.hasResults && !hiddenErroredResult
+            ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
+            : undefined
 
     return (
         <CodePostDecisionView
@@ -39,7 +50,7 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             latestJobStatus={decisionStatus}
             resultsHref={resultsHref}
             feedbackLoadError={feedbackLoadError}
-            showStudyCode={!state.isExecuting}
+            showStudyCode={!hideStudyCode}
         />
     )
 }

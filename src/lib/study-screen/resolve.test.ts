@@ -34,6 +34,46 @@ describe('resolveScreen (researcher)', () => {
             resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen,
         ).toBe('study-results')
     })
+    it('errored job, no reviewer files decision → code-approved, NOT study-results (OTTER-598, 43898)', () => {
+        // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
+        // from the researcher, so routing must hold on the code-approved page (matching the pill).
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+                ctx,
+            ).screen,
+        ).toBe('code-approved')
+    })
+    it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
+                ctx,
+            ).screen,
+        ).toBe('study-results')
+    })
+    it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
+        // Edge case raised in PR #837: resultsErrored excludes from study-results, the prior
+        // CODE-APPROVED was dropped by dropStale (so codeDecision is null and codeAwaitingDecision
+        // is true), and isExecuting is false. It must NOT fall through to study-results; it lands on
+        // code-under-review, which is the right next-step screen for a re-reviewed resubmission.
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsErrored: true,
+                    codeDecision: null,
+                    codeAwaitingDecision: true,
+                    hasSubmittedCode: true,
+                    isExecuting: false,
+                }),
+                ctx,
+            ).screen,
+        ).toBe('code-under-review')
+    })
     it('approved decision → code-approved', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe('code-approved')
     })
