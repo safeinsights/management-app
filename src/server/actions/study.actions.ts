@@ -709,10 +709,11 @@ async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
     // Code-review eligibility is driven by the JOB status alone, not study.status.
     // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
     // approved stays APPROVED while its code is (re)submitted for review, so a latest
-    // job whose newest code change is a fresh submission is the only correct gate. A
-    // peer submitting a decision advances the round past that (and the unique
-    // (studyJobId, reviewKind, round) index blocks a true same-round insert race), so this
-    // check is also the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
+    // job whose newest code change is a fresh submission is the only correct gate. Once a
+    // peer decides the current submission this gate fails (the newest code change is a
+    // decision, not a submission), and within the same round the unique
+    // (studyJobId, reviewKind, round) index blocks a true insert race — so this check is
+    // also the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
     // vs decisions rather than reading statusChanges[0], so it is immune to the
     // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
     const job = await latestJobForStudyOrNull(studyId)
