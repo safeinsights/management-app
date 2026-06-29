@@ -26,7 +26,7 @@ const baseOrgSchema = z.object({
     email: z.email({ message: 'Invalid email address' }),
     description: z
         .string()
-        .max(250, 'Word limit is 250 characters')
+        .max(250, 'Description cannot exceed 250 characters')
         .transform((val) => (val === '' ? null : val)) // Convert empty string to null
         .nullable()
         .optional(),

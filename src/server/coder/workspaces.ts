@@ -15,42 +15,59 @@ import { CoderSessionUser, CoderUser, CoderWorkspace, CoderWorkspaceEvent } from
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 import { fetchLatestCodeEnvForStudyId } from '../db/queries'
+import { latestStudyJobCreatedAt } from '../db/mutations'
+import { db } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import { errorToString, isActionError } from '@/lib/errors'
+import { ContextName, getAgentContext } from '@/lib/agent-context'
+import * as database from '@/database'
+import { generateDataSourcesContextString } from '@/server/utils'
 
 async function generateWorkspaceUrl(studyId: string, sessionUser: CoderSessionUser): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const user = await getCoderUser(sessionUser)
     if (!user) {
+        logger.error(`[coder-launch study=${studyId}] Coder user not found`)
         throw new Error('Coder user not found')
     }
     const workspaceName = generateWorkspaceName(studyId, user)
     return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
-function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
-    if (!event) return false
-    const resources = event.latest_build?.resources
-    if (!resources || resources.length === 0) return false
+// Returns readiness plus a short human-readable reason. The reason is logged
+// while polling so a workspace that never becomes ready leaves a trail of
+// exactly which gate (build status, agent lifecycle, code-server health) is
+// holding it up, instead of an opaque stream of nulls.
+function describeReadiness(event: CoderWorkspaceEvent): { ready: boolean; reason: string } {
+    if (!event) return { ready: false, reason: 'no workspace event' }
 
+    const buildStatus = event.latest_build?.status ?? 'unknown'
+    const resources = event.latest_build?.resources
+    if (!resources || resources.length === 0) {
+        return { ready: false, reason: `build status=${buildStatus}, no resources yet` }
+    }
+
+    const agentStates: string[] = []
     for (const resource of resources) {
         for (const agent of resource.agents ?? []) {
             const lifecycle = (agent.lifecycle_state ?? '').toLowerCase()
             const status = (agent.status ?? '').toLowerCase()
 
             const agentReady = lifecycle === 'ready' || status === 'ready' || status === 'connected'
-            const codeServerHealthy = (agent.apps ?? []).some(
-                (app) => app.slug === 'code-server' && (app.health ?? '').toLowerCase() === 'healthy',
-            )
+            const codeServer = (agent.apps ?? []).find((app) => app.slug === 'code-server')
+            const codeServerHealth = (codeServer?.health ?? 'absent').toLowerCase()
+            const codeServerHealthy = codeServerHealth === 'healthy'
 
             if (agentReady && codeServerHealthy) {
-                return true
+                return { ready: true, reason: `agent lifecycle=${lifecycle} status=${status}, code-server=healthy` }
             }
+            agentStates.push(`{lifecycle=${lifecycle || '∅'} status=${status || '∅'} code-server=${codeServerHealth}}`)
         }
     }
 
-    return false
+    return { ready: false, reason: `build status=${buildStatus}, agents not ready: ${agentStates.join(', ')}` }
 }
 
 export async function getCoderWorkspaceUrl(
@@ -58,15 +75,36 @@ export async function getCoderWorkspaceUrl(
     workspaceId: string,
     sessionUser: CoderSessionUser,
 ): Promise<string | null> {
-    const workspace = await coderFetch<CoderWorkspaceEvent>(`/api/v2/workspaces/${workspaceId}`, {
-        errorMessage: 'Failed to get workspace status',
-    })
+    const logCtx = `[coder-launch study=${studyId} workspace=${workspaceId}]`
 
-    if (isWorkspaceReady(workspace)) {
-        return await generateWorkspaceUrl(studyId, sessionUser)
+    let step = 'fetch-workspace-status'
+    try {
+        const workspace = await coderFetch<CoderWorkspaceEvent>(`/api/v2/workspaces/${workspaceId}`, {
+            errorMessage: 'Failed to get workspace status',
+        })
+
+        const readiness = describeReadiness(workspace)
+        if (!readiness.ready) {
+            logger.info(`${logCtx} not ready yet, polling again: ${readiness.reason}`)
+            return null
+        }
+        logger.info(`${logCtx} workspace ready (${readiness.reason}), initializing code files`)
+
+        step = 'initialize-code-files'
+        await initializeWorkspaceCodeFiles(studyId)
+        logger.info(`${logCtx} code files initialized, generating workspace url`)
+
+        step = 'generate-workspace-url'
+        const url = await generateWorkspaceUrl(studyId, sessionUser)
+        logger.info(`${logCtx} launch complete, returning workspace url`)
+        return url
+    } catch (error) {
+        // A throw here leaves the client polling forever (the UI spinner), so
+        // make the failing step a loud, Sentry-reported signal rather than a
+        // bare rejection the client can only render as a generic error.
+        logger.error(`${logCtx} FAILED at step "${step}":`, error)
+        throw error
     }
-
-    return null
 }
 
 async function startWorkspace(workspaceId: string): Promise<void> {
@@ -168,9 +206,6 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
     const { studyId, user, environment = [] } = options
     const workspaceName = generateWorkspaceName(studyId, user)
 
-    // Populate code files prior to launching workspace
-    await initializeWorkspaceCodeFiles(studyId)
-
     const richParameterValues: Array<{ name: string; value: string }> = [
         {
             name: 'study_id',
@@ -218,24 +253,99 @@ export async function createUserAndWorkspace(
     }
 }
 
-const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
-
-    logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
-
-    // Backdate mtime so starter files appear as "unchanged" relative to the baseline job
-    const pastDate = new Date(Date.now() - 60_000)
-
-    for (const fileName of codeEnv.starterCodeFileNames) {
-        const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
-        const fileData = await fetchFileContents(filePath)
-        const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
-
-        logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
-
-        await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-        await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-        await fs.utimes(targetFilePath, pastDate, pastDate)
+async function studyDirHasFiles(dir: string): Promise<boolean> {
+    try {
+        const entries = await fs.readdir(dir)
+        return entries.some((e) => !e.startsWith('.'))
+    } catch (e) {
+        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
+        throw e
     }
+}
+
+const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
+    const logCtx = `[coder-init study=${studyId}]`
+    const coderBaseFilePath = await getConfigValue('CODER_FILES')
+    const studyDir = path.join(coderBaseFilePath, studyId)
+
+    // Idempotent: only copy starter files when the directory is empty.
+    // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
+    if (await studyDirHasFiles(studyDir)) {
+        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
+        return
+    }
+
+    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    const starterFiles = codeEnv.starterCodeFileNames ?? []
+    logger.info(
+        `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
+            `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
+    )
+
+    // Backdate starter-file mtime relative to the baseline studyJob rather than wall-clock.
+    // Wall-clock backdating breaks when Coder provisioning takes longer than the backdate window:
+    // files end up newer than the baseline and the "files changed" gate flips Submit on without
+    // any user edits. Falling back to wall-clock is only for the (currently impossible) case of
+    // no baseline existing.
+    const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
+    const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
+
+    for (const fileName of starterFiles) {
+        const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
+        const targetFilePath = path.join(studyDir, fileName)
+
+        let fileData
+        try {
+            fileData = await fetchFileContents(filePath)
+        } catch (error) {
+            logger.error(`${logCtx} failed fetching starter file from s3://${filePath}:`, error)
+            throw error
+        }
+
+        try {
+            await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+            await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+            await fs.utimes(targetFilePath, pastDate, pastDate)
+        } catch (error) {
+            logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
+            throw error
+        }
+        logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
+    }
+
+    // Initialize claude.md
+    // FYI: claude.md is only populated on workspace init. New updates to context after
+    // a workspace has been launched will not propagate.
+    const workspaceContexts: ContextName[] = ['SYSTEM', codeEnv.language]
+
+    let combinedContextString = ''
+    for (const contextName of workspaceContexts) {
+        let response
+        try {
+            response = await getAgentContext(database.db, { name: contextName, orgId: null })
+        } catch (error) {
+            logger.error(`${logCtx} failed fetching agent context "${contextName}":`, error)
+            throw error
+        }
+        if (isActionError(response)) {
+            logger.error(`${logCtx} agent context "${contextName}" returned error: ${errorToString(response)}`)
+            throw new Error(errorToString(response))
+        }
+        if (response.content) combinedContextString += response.content + '\n'
+    }
+
+    combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
+
+    const targetContextFileName = 'CLAUDE.md'
+    const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
+
+    try {
+        await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
+        await fs.writeFile(targetContextPath, combinedContextString, 'utf-8')
+        await fs.utimes(targetContextPath, pastDate, pastDate)
+    } catch (error) {
+        logger.error(`${logCtx} failed writing ${targetContextFileName} to ${targetContextPath}:`, error)
+        throw error
+    }
+    logger.info(`${logCtx} wrote ${targetContextFileName} (${combinedContextString.length} bytes), init complete`)
 }

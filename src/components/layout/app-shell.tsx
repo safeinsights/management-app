@@ -1,29 +1,28 @@
 'use client'
 
 import {
-    AppShellFooter,
     AppShellHeader,
     AppShellMain,
     Burger,
     Group,
     AppShell as MantineAppShell,
-    Text,
     useMantineTheme,
 } from '@mantine/core'
 
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { APP_MAIN_BG, APP_SHELL, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
+import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
 
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 
 import { ActivityContext } from '../activity-context'
-import { RequireReviewerKey } from '../require-reviewer-key'
+import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { Routes } from '@/lib/routes'
 
@@ -41,23 +40,23 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
-            bg="grey.10"
-            header={{ height: 60, collapsed: isDesktop }}
-            footer={{ height: 60 }}
+            bg={APP_MAIN_BG}
+            header={{ height: APP_SHELL.headerHeight, collapsed: isDesktop }}
+            footer={{ height: APP_SHELL.footerHeight }}
             navbar={{
-                width: 260,
-                breakpoint: 'sm',
+                width: APP_SHELL.navbarWidth,
+                breakpoint: APP_SHELL.navbarBreakpoint,
                 collapsed: { mobile: !opened, desktop: false },
             }}
-            padding="md"
+            padding={APP_SHELL.padding}
         >
             <RequireUser />
             <RequireMFA />
-            <RequireReviewerKey />
+            <RequireUserKey />
             <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
-            <AppShellHeader bg="purple.8" w="100%">
+            <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
                     <Link href={Routes.home}>
@@ -68,15 +67,14 @@ export function AppShell({ children }: Props) {
 
             <AppNav isDesktop={isDesktop} />
 
-            <AppShellMain bg="grey.10" style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
+            <AppShellMain
+                bg={APP_MAIN_BG}
+                style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
+            >
                 {children}
             </AppShellMain>
 
-            <AppShellFooter p="md" bg="purple.9" bd="none">
-                <Text ta="left" c="white" fz="sm">
-                    © 2025 - SafeInsights, Rice University
-                </Text>
-            </AppShellFooter>
+            <AppFooter />
         </MantineAppShell>
     )
 }

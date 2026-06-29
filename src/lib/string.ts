@@ -4,6 +4,32 @@ export function strToAscii(str: string) {
     return str.replace(/[^a-zA-Z0-9]/g, '')
 }
 
+/**
+ * Quote a value for safe use as a single token in a POSIX `/bin/sh` command line.
+ *
+ * Wraps the value in single quotes and escapes any embedded single quotes, so shell
+ * metacharacters (parentheses, spaces, `$`, `;`, etc.) are treated as literal text
+ * instead of being interpreted by the shell. Used when interpolating a user-supplied
+ * filename into a command the containerizer runs via `/bin/sh`.
+ */
+export function shellQuote(value: string): string {
+    // Close the quote, emit an escaped single quote, reopen: ' -> '\''
+    const escaped = value.split("'").join("'\\''")
+    return `'${escaped}'`
+}
+
+/**
+ * Replace each `%f` token in a command template with a shell-quoted `fileName`.
+ *
+ * A quote pair hugging the token (`"%f"`, `'%f'`) is absorbed so an admin-quoted
+ * template doesn't double-quote on top of our own quoting (OTTER-477).
+ */
+export function substituteEntryPointFile(template: string, fileName: string): string {
+    // \1 matches only quotes hugging the token; the function form keeps `$` in the
+    // filename from being read as a replacement pattern.
+    return template.replace(/(['"]?)%f\1/g, () => shellQuote(fileName))
+}
+
 // https://dense13.com/blog/2009/05/03/converting-string-to-slug-javascript/
 export function slugify(str: string) {
     str = str.replace(/^\s+|\s+$/g, '') // trim
@@ -91,6 +117,14 @@ export function orgInitialsTitle(orgName: string, type: string) {
 
     const firstThree = orgFirstThree(orgName)
     return firstThree + ORG_SUFFIX_LONG[type]
+}
+
+// Initials for a person's full name (first + last initial), e.g. for avatars.
+export function getInitials(fullName: string): string {
+    const words = fullName.trim().split(/\s+/)
+    if (words.length === 0 || words[0] === '') return ''
+    if (words.length === 1) return words[0][0].toUpperCase()
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase()
 }
 
 // Removes 'Lab' from an organization name

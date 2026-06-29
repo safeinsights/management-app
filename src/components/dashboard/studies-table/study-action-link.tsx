@@ -1,7 +1,11 @@
+import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
+import { useSession } from '@/hooks/session'
 import { Audience, Scope, StudyRow } from './types'
-import { useStudyHref } from '@/hooks/use-study-href'
+import { DeleteDraftButton } from './delete-draft-button'
+import { projectStudyState, resolveDashboardAction } from '@/lib/study-screen'
+import { dashboardRawStateFromRow } from './dashboard-raw-state'
 
 type StudyActionLinkProps = {
     study: StudyRow
@@ -22,27 +26,29 @@ function ResearcherLink({
     scope: Scope
     isHighlighted: boolean
 }) {
+    const { session } = useSession()
     const labSlug = study.submittedByOrgSlug || orgSlug
-    const hasJobActivity = study.jobStatusChanges.length > 0
-    const studyParams = { orgSlug: labSlug, studyId: study.id }
-    const jobStatuses = study.jobStatusChanges.map((c) => c.status)
-    const baseHref = useStudyHref(study.status, hasJobActivity, studyParams, jobStatuses)
-    const href = scope === 'org' ? (`${baseHref}?returnTo=org` as typeof baseHref) : baseHref
+    const action = resolveDashboardAction('researcher', projectStudyState(dashboardRawStateFromRow(study)), {
+        orgSlug: labSlug,
+        studyId: study.id,
+    })
+    const href = scope === 'org' ? (`${action.href}?returnTo=org` as typeof action.href) : action.href
 
-    if (study.status === 'DRAFT') {
+    if (action.secondaryAction === 'delete-draft') {
+        const isAuthor = session?.user.id === study.researcherId
         return (
-            <Link
-                href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
-                aria-label={`Edit draft study ${study.title}`}
-            >
-                Edit
-            </Link>
+            <Group gap="xs" justify="center" wrap="nowrap">
+                <Link href={action.href} aria-label={`Edit draft study ${study.title}`}>
+                    {action.label}
+                </Link>
+                {isAuthor && <DeleteDraftButton study={study} />}
+            </Group>
         )
     }
 
     return (
         <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
-            View
+            {action.label}
         </Link>
     )
 }

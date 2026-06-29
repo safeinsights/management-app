@@ -4,6 +4,23 @@ export function decodeFileContents(contents: ArrayBuffer): string {
     return new TextDecoder('utf-8').decode(contents)
 }
 
+const IMAGE_MIME_TYPES: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+}
+
+export function imageMimeType(path: string): string | null {
+    const dotIndex = path.lastIndexOf('.')
+    if (dotIndex < 0) return null
+    const ext = path.slice(dotIndex).toLowerCase()
+    return IMAGE_MIME_TYPES[ext] ?? null
+}
+
 export type LogEntry = { timestamp: number; message: string }
 
 export function parseLogMessages(text: string): LogEntry[] | null {

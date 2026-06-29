@@ -1,20 +1,18 @@
 import { faker } from '@faker-js/faker'
-import { expect, goto, test, TestingUsers, visitClerkProtectedPage, path } from './e2e.helpers'
+import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
 import { fileURLToPath } from 'url'
 
-// must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
-// eslint-disable-next-line no-empty-pattern
-test.beforeEach(async ({}, testInfo) => {
-    // Extend timeout for all tests running this hook by 30 seconds.
-    testInfo.setTimeout(testInfo.timeout + 30_000)
-})
+// Reviewer is the org admin for `reviewer-is-org-admin`; restore its saved session
+// so the admin screens load without an inline sign-in. The invite-accept test signs
+// out partway through (that sign-out + signup is the surface it covers).
+test.use({ storageState: authFileFor('reviewer') })
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const uniqueSuffix = Date.now().toString(36)
         const email = `test-invite-${uniqueSuffix}@test.com`
 
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer-is-org-admin/admin/team' })
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/team')
 
         // the admin user should also appear in the list, wait for it to load
         await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
@@ -51,12 +49,12 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
+        // The signed-out gate copy is the deterministic signal the page resolved.
         await expect(page.getByText('You must be signed out to accept invitations', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: /sign out/i }).click()
-        await page.waitForTimeout(1000)
 
-        // Ensure the Create Account link is initially visible
+        // After sign-out the page re-renders the accept-invitation entry with the
+        // Create Account link; waiting on it replaces a fixed sleep.
         const createAccountBtn = page.getByRole('link', { name: /create new account/i })
         await expect(createAccountBtn).toBeVisible()
         await createAccountBtn.click()
@@ -79,15 +77,14 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await submitBtn.click()
 
-        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
+        // The CI Clerk instance enforces a second factor at first sign-in, so the freshly-created
+        // account's sign-in returns `needs_second_factor` rather than completing. The signup page
+        // surfaces an actionable error for that case instead of stranding the user (see PR #742).
+        await expect(page.getByText(/multi-factor authentication is required before you can sign in/i)).toBeVisible()
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
-        await visitClerkProtectedPage({
-            page,
-            role: 'reviewer',
-            url: '/reviewer-is-org-admin/admin/settings',
-        })
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/settings')
 
         await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
 
@@ -97,10 +94,15 @@ test.describe('Organization Admin', () => {
         const codeEnvName = `E2E Code Env ${faker.string.alpha(6)}`
         const codeEnvIdentifier = `e2e_${faker.string.alpha(6).toLowerCase()}`
 
-        // Open the "Add Code Environment" modal
+        // Open the "Add Code Environment" modal. A React Query refetch of the org's
+        // code-env list (the settings page re-renders as its data lands) can detach the
+        // button mid-click, so retry the click until the modal actually opens.
         const addButton = page.getByRole('button', { name: /add code environment/i })
-        await addButton.click()
-        await expect(page.getByRole('heading', { name: /add code environment/i })).toBeVisible()
+        const addHeading = page.getByRole('heading', { name: /add code environment/i })
+        await expect(async () => {
+            await addButton.click()
+            await expect(addHeading).toBeVisible()
+        }).toPass()
 
         // Fill in code environment details
         await page.getByLabel(/identifier/i).fill(codeEnvIdentifier)

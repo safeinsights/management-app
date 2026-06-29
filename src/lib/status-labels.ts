@@ -56,7 +56,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     },
     'CHANGE-REQUESTED': {
         stage: 'Proposal',
-        label: 'Proposal change requested',
+        label: 'Change requested',
         tooltip: "You've asked the Researcher to clarify or revise this proposal.",
         colors: COLORS.clarification,
     },
@@ -87,6 +87,12 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         tooltip:
             "This study code has been rejected. It's now on the Researcher to revise and submit an updated version of their code. You'll receive an email once it's ready.",
         colors: COLORS.rejected,
+    },
+    'CODE-CHANGES-REQUESTED': {
+        stage: 'Code',
+        label: 'Change requested',
+        tooltip: "You've asked the Researcher to clarify or revise this code.",
+        colors: COLORS.clarification,
     },
     'JOB-PACKAGING': {
         stage: 'Code',
@@ -164,7 +170,7 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
     },
     'CHANGE-REQUESTED': {
         stage: 'Proposal',
-        label: 'Proposal change requested',
+        label: 'Change requested',
         tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',
         colors: COLORS.underReview,
     },
@@ -199,6 +205,12 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         label: 'Rejected',
         tooltip: 'Your study code needs revision. Open your study for more details.',
         colors: COLORS.rejected,
+    },
+    'CODE-CHANGES-REQUESTED': {
+        stage: 'Code',
+        label: 'Change requested',
+        tooltip: 'The reviewer has requested changes to your code. Open your study for more details.',
+        colors: COLORS.underReview,
     },
     'JOB-ERRORED': {
         stage: 'Code',

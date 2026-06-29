@@ -1,6 +1,7 @@
 import { Action } from '../actions/action'
 import type { DB } from '@/database/types'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/code-resubmission'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -27,7 +28,16 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     return user.id
 }
 
-async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Date) {
+export type RoundJob = {
+    id: string
+    createdAt: Date
+    /** True once the round's job carries a real submission (any status beyond the initial INITIATED). */
+    hasSubmission: boolean
+    /** True when this call inserted a brand-new round job (vs. reusing the current one). */
+    created: boolean
+}
+
+async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date): Promise<RoundJob> {
     const studyJob = await db
         .insertInto('studyJob')
         .values({ studyId, createdAt })
@@ -39,19 +49,141 @@ async function createBaselineJob(db: Kysely<DB>, studyId: string, createdAt: Dat
         .values({ studyJobId: studyJob.id, status: 'INITIATED' })
         .executeTakeFirstOrThrow()
 
-    return studyJob
+    return { id: studyJob.id, createdAt: studyJob.createdAt, hasSubmission: false, created: true }
 }
 
-// Submit is enabled when any file's mtime > latest job's createdAt.
+/**
+ * A study accumulates one studyJob per submission *round*: a round opens when work begins (IDE launch
+ * or file upload) and closes only when its job reaches a post-run results decision (FILES-APPROVED /
+ * FILES-REJECTED — see ROUND_CLOSING_JOB_STATUSES). Change-requested/errored rounds stay on the same
+ * job. The latest job is the "current round" unless it has closed, in which case the next
+ * launch/submit starts a new round.
+ *
+ * This is the single source of truth for "which job does this study's in-progress work belong to" —
+ * shared by IDE launch, file upload, and code submission so they all converge on the same job instead
+ * of each minting its own (which is what let an empty IDE-init job mask a real submission, OTTER-601).
+ *
+ * `created` distinguishes a freshly-opened round from a reused one so callers can decide whether to
+ * re-anchor the submit-enable timestamp or overwrite a prior submission's files.
+ */
+export async function getOrCreateCurrentRoundJob(
+    db: Kysely<DB>,
+    studyId: string,
+    { backdateMs = 0 }: { backdateMs?: number } = {},
+): Promise<RoundJob> {
+    const latest = await db
+        .selectFrom('studyJob')
+        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
+        // Both flags are EXISTENCE checks, not "latest status" lookups, so they're independent of
+        // jobStatusChange ordering. jobStatusChange.createdAt defaults to now() (constant within a
+        // transaction), so two statuses written together tie on createdAt and v7 ids aren't reliably
+        // monotonic within a millisecond — ordering by them to pick "the latest status" is
+        // non-deterministic and could flip the reuse-vs-new-round decision. A round-closing status
+        // (FILES-APPROVED/FILES-REJECTED) is never followed by another status on the same job (the
+        // next round opens a NEW job), so "has any round-closing status" is an order-independent test
+        // for a closed round.
+        .select((eb) =>
+            eb
+                .exists(
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select('jobStatusChange.id')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
+                )
+                .as('roundClosed'),
+        )
+        .select((eb) =>
+            eb
+                .exists(
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select('jobStatusChange.id')
+                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                        .where('jobStatusChange.status', '!=', 'INITIATED'),
+                )
+                .as('hasSubmission'),
+        )
+        .where('studyJob.studyId', '=', studyId)
+        // Order by id (v7 = insertion order), NOT createdAt: ensureRoundJobForUpload deliberately
+        // backdates a new round job's createdAt (so uploaded files read as newer for submit-enable),
+        // which would otherwise rank it *behind* the prior submission and make us open yet another
+        // round. id is monotonic with insertion, so the most-recently-created job always wins.
+        .orderBy('studyJob.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 
-/** Creates a backdated job if none exists so uploaded files (written after) have newer mtime. */
-export async function ensureBaselineJob(db: Kysely<DB>, studyId: string) {
-    const existingJob = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirst()
-    if (existingJob) return
-    return createBaselineJob(db, studyId, new Date(Date.now() - 1000))
+    if (!latest || latest.roundClosed) {
+        return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
+    }
+    return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }
 }
 
-/** Always creates a fresh job for IDE launch. Starter files should have their mtime backdated. */
-export async function resetBaselineJob(db: Kysely<DB>, studyId: string) {
-    return createBaselineJob(db, studyId, new Date())
+// Submit is enabled when any workspace file's mtime > the current round job's createdAt.
+
+interface EnsureRoundJobForLaunchOptions {
+    /**
+     * Whether the workspace already holds researcher-visible files. When true, the re-anchor below is
+     * skipped: those files (e.g. a manual upload made before opening the IDE) already define
+     * submit-enable, and pushing createdAt past their mtimes would mark them all stale — flipping
+     * "Last updated" to Never and disabling Submit (OTTER-602).
+     */
+    hasWorkspaceFiles?: boolean
+}
+
+/**
+ * IDE launch: ensure the current round has a job. When the round is still open work (no submission
+ * yet — only INITIATED) and has no files yet, re-anchor its createdAt to now so edits made after this
+ * launch enable Submit. A round whose job already carries a submission — or that already has uploaded
+ * files — is left untouched. Reuses the round's job rather than stacking a new one (OTTER-601, OTTER-602).
+ */
+export async function ensureRoundJobForLaunch(
+    db: Kysely<DB>,
+    studyId: string,
+    { hasWorkspaceFiles = false }: EnsureRoundJobForLaunchOptions = {},
+): Promise<RoundJob> {
+    const job = await getOrCreateCurrentRoundJob(db, studyId)
+    if (job.created || job.hasSubmission || hasWorkspaceFiles) return job
+    const reanchored = await db
+        .updateTable('studyJob')
+        .set({ createdAt: new Date() })
+        .where('id', '=', job.id)
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    return { ...job, createdAt: reanchored.createdAt }
+}
+
+/**
+ * File upload: ensure the current round has a job, backdated so files written immediately after still
+ * register as newer than its createdAt. Reuses the round's job rather than creating a new one.
+ */
+export async function ensureRoundJobForUpload(db: Kysely<DB>, studyId: string): Promise<RoundJob> {
+    return getOrCreateCurrentRoundJob(db, studyId, { backdateMs: 1000 })
+}
+
+/**
+ * Returns the createdAt of the most recent studyJob for this study, or null if none exists.
+ * Used by starter-file copy paths to backdate file mtimes relative to the baseline, regardless of
+ * how long the workspace took to become ready (a wall-clock backdate is unsafe when provisioning
+ * exceeds the backdate window — see OTTER-547).
+ */
+export async function latestStudyJobCreatedAt(db: Kysely<DB>, studyId: string): Promise<Date | null> {
+    const row = await db
+        .selectFrom('studyJob')
+        .select('createdAt')
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt ?? null
+}
+
+// Reviewer feedback shares the version of the proposal it reviews (increment=false)
+// Researcher resubmission opens a new version (increment=true)
+export function nextVersionForStudyComment({ studyId, increment }: { studyId: string; increment: boolean }) {
+    const current = sql<number>`coalesce((
+        select max(version) from study_proposal_comment
+        where study_id = ${studyId}
+    ), 1)`
+    return increment ? sql<number>`${current} + 1` : current
 }

@@ -1,20 +1,29 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
+import { useParams } from 'next/navigation'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
-import { EditableText } from '@/components/editable-text'
-import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords } from '@/lib/word-count'
+import { SaveStatusIndicator } from '@/components/save-status'
+import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
+import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { DEFAULT_DRAFT_TITLE, WORD_LIMITS } from './schema'
+import { WORD_LIMITS, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
+import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
+import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
+import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+
+const PROPOSAL_EDITABLE_STATUSES = ['DRAFT', 'CHANGE-REQUESTED'] as const
 
 export interface MemberOption {
     value: string
@@ -29,40 +38,25 @@ interface ProposalFormProps {
     enclaveOrgSlug?: string
 }
 
-const ProposalTextField: FC<{
+const EditableTextFieldEntry: FC<{
     field: EditableTextField
-    value: string
-    error: string | undefined
-    onChange: (val: string) => void
-    onBlur: () => void
-}> = ({ field, value, error, onChange, onBlur }) => {
-    const [wordCount, setWordCount] = useState(0)
+    form: UseFormReturnType<ProposalFormValues>
+    studyId: string
+    websocketProvider: HocuspocusProviderWebsocket | null
+}> = ({ field, form, studyId, websocketProvider }) => {
+    const value = form.values[field.id] as string
+    const error = form.errors[field.id] as string | undefined
+    const onChange = (val: string) => form.setFieldValue(field.id, val)
 
     return (
-        <Paper p="xxl">
-            <Stack gap="xxl">
-                <Box>
-                    <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
-                    <Text size="xs" c="charcoal.7" mb="xs">
-                        {field.description}
-                    </Text>
-                    <EditableText
-                        id={field.id}
-                        aria-label={field.label}
-                        placeholder={field.placeholder}
-                        value={value}
-                        onChange={onChange}
-                        onBlur={onBlur}
-                        onWordCount={setWordCount}
-                        error={!!error}
-                    />
-                    <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>
-                        {error && <InputError error={error} />}
-                        <WordCounter wordCount={wordCount} maxWords={field.maxWords} />
-                    </Group>
-                </Box>
-            </Stack>
-        </Paper>
+        <CollaborativeProposalTextField
+            studyId={studyId}
+            field={field as typeof field & { id: ProposalTextFieldKey }}
+            initialValue={value}
+            error={error}
+            onChange={onChange}
+            websocketProvider={websocketProvider}
+        />
     )
 }
 
@@ -73,11 +67,26 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherId = '',
     enclaveOrgSlug,
 }) => {
-    const { form, saveDraft, isSaving } = useProposal()
+    const { studyId, form, websocketProvider, yjsForm, tabSessionId } = useProposal()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const titleWordCount = countWords(form.values.title)
+    const titleInputProps = form.getInputProps('title')
+    const fieldsSaveStatus = useProviderSaveStatus(yjsForm.provider)
+
+    useSubmissionRedirectListener({
+        provider: yjsForm.provider,
+        orgSlug,
+        studyId,
+        currentTabId: tabSessionId,
+    })
 
     return (
-        <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
+        <StudyKickOutProvider
+            studyId={studyId}
+            orgSlug={orgSlug}
+            editableStatuses={PROPOSAL_EDITABLE_STATUSES}
+            redirectTarget="studySubmitted"
+        >
             <Stack gap="xxl">
                 <Paper p="xxl">
                     <Text fz={10} fw={700} c="charcoal.7" pb={4}>
@@ -105,28 +114,36 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 id="title"
                                 aria-label="Study Title"
                                 placeholder="Ex. Impact of highlighting on student learning outcomes."
-                                {...form.getInputProps('title')}
-                                value={form.values.title === DEFAULT_DRAFT_TITLE ? '' : form.values.title}
+                                {...titleInputProps}
+                                onChange={(event) => {
+                                    titleInputProps.onChange?.(event)
+                                    yjsForm.pushField('title', event.currentTarget.value)
+                                }}
+                                value={form.values.title ?? ''}
                                 error={!!form.errors.title}
                             />
                             <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>
                                 {form.errors.title && <InputError error={form.errors.title} />}
                                 <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
                             </Group>
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
 
                         <Box>
                             <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                             <Text size="xs" mb="xs" c="charcoal.7">
-                                Select the dataset(s) you&apos;d like to use for your research. You&apos;ll find options
-                                based on the selected Data Organization in Step 1 and its data availability.
+                                Select the dataset(s) you’d like to use for your research. You’ll find options based on
+                                the selected Data Organization in Step 1 and its data availability.
                             </Text>
                             <Group align="center" gap="xxl">
                                 <Box w="50%">
                                     <DatasetMultiSelect
                                         id="datasets"
                                         value={form.values.datasets}
-                                        onChange={(val) => form.setFieldValue('datasets', val)}
+                                        onChange={(val) => {
+                                            form.setFieldValue('datasets', val)
+                                            yjsForm.pushField('datasets', val)
+                                        }}
                                         orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
@@ -145,18 +162,18 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 </Anchor>
                             </Group>
                             <InputError error={form.errors.datasets} />
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
                     </Stack>
                 </Paper>
 
                 {editableTextFields.map((field) => (
-                    <ProposalTextField
+                    <EditableTextFieldEntry
                         key={field.id}
                         field={field}
-                        value={form.values[field.id] as string}
-                        error={form.errors[field.id] as string | undefined}
-                        onChange={(val) => form.setFieldValue(field.id, val)}
-                        onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
+                        form={form}
+                        studyId={studyId}
+                        websocketProvider={websocketProvider}
                     />
                 ))}
 
@@ -176,12 +193,16 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     data={members}
                                     value={form.values.piUserId || null}
                                     onChange={(id) => {
-                                        form.setFieldValue('piUserId', id ?? '')
-                                        form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
+                                        const piUserId = id ?? ''
+                                        const piName = members.find((m) => m.value === id)?.label ?? ''
+                                        form.setFieldValue('piUserId', piUserId)
+                                        form.setFieldValue('piName', piName)
+                                        yjsForm.pushPI(piUserId, piName)
                                     }}
                                     error={!!form.errors.piName}
                                 />
                             </Box>
+                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
 
                         <Box>
@@ -219,10 +240,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                 <ProposalFooter
                     researcherName={researcherName}
                     researcherId={researcherId}
-                    piUserId={form.values.piUserId}
                     enclaveOrgSlug={enclaveOrgSlug}
                 />
             </Stack>
-        </ProxyProvider>
+        </StudyKickOutProvider>
     )
 }

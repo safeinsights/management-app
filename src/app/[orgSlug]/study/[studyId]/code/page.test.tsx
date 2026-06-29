@@ -5,9 +5,9 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
-import { db } from '@/database'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 
@@ -55,7 +55,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
-        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements'))
+        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements/researcher'))
     })
 
     it('redirects to view for non-DRAFT/APPROVED study', async () => {
@@ -65,7 +65,7 @@ describe('StudyCodeUploadRoute', () => {
             researcherId: user.id,
             studyStatus: 'APPROVED',
         })
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', study.id).execute()
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         await expect(
             StudyCodeUploadRoute({

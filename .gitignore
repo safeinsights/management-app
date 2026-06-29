@@ -7,15 +7,23 @@
 *.log
 tmp/
 .next/
+# Ladle build output (normal + standalone single-file) and the shareable zip — all under .ladle/
+.ladle/dist/
+.ladle/dist-standalone/
+.ladle/*.zip
 test-results/
 *.tern-port
 node_modules/
+package-lock.json
+services/editor/package-lock.json
+yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
+.pnpm-store/
 tests/coverage/
 playwright-report/
 src/styles/generated
@@ -28,8 +36,11 @@ next-env.d.ts
 
 volume/
 tests/coder-files/
+# Per-role Clerk sessions saved by tests/auth.setup.ts (contain real tokens)
+tests/.auth/
 
 # Claude Code local settings (user-specific, not shared)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 CLAUDE.local.md
 .mcp.json

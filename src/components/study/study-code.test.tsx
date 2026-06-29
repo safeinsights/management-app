@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestBaselineJob,
     insertTestCodeEnv,
     it,
     insertTestStudyOnly,
@@ -15,6 +16,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { StudyCode } from './study-code'
@@ -22,6 +24,7 @@ import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile } from '@/server/aws'
+import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -29,6 +32,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
         signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
     }
@@ -42,21 +46,10 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
     return { org, user, study }
 }
 
-const createBaselineJob = async (studyId: string, { backdate = true }: { backdate?: boolean } = {}) => {
-    const createdAt = backdate ? new Date(Date.now() - 1000) : new Date(Date.now() + 1000)
-    const job = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
-    return job
-}
-
 const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, string>) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, files)
@@ -145,10 +138,14 @@ describe('StudyCode component', () => {
 
         const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
-        expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
-            'aria-pressed',
-            'true',
-        )
+        // The override is synchronous useState, but the re-render can lag the click under parallel
+        // load — wait for the aria-pressed flip rather than asserting it synchronously.
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
+        })
         expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
             'aria-pressed',
             'false',
@@ -164,7 +161,28 @@ describe('StudyCode component', () => {
         })
     })
 
-    it('submits IDE files and persists study job records', async () => {
+    it('shows the confirmation modal when Submit study code is clicked', async () => {
+        const user = userEvent.setup()
+        await renderIDE('openstax-lab', { 'main.r': 'print("main")' })
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+
+        const dialog = screen.getByRole('dialog')
+        expect(dialog).toHaveTextContent('Confirm study code submission?')
+        expect(dialog).toHaveTextContent(
+            /Please confirm you are ready to submit your study code\. Further edits are not permitted once submitted\./,
+        )
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Yes, submit study code' })).toBeInTheDocument()
+    })
+
+    // Submitting reuses the open round job, whose cleanup hits real S3
+    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    it.skipIf(!s3Available)('submits IDE files and persists study job records', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'main.R': 'print("main")',
@@ -182,6 +200,8 @@ describe('StudyCode component', () => {
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
             const updated = await db
@@ -202,7 +222,7 @@ describe('StudyCode component', () => {
         )
     })
 
-    it('auto-selects the only file as main and submits', async () => {
+    it.skipIf(!s3Available)('auto-selects the only file as main and submits', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'analysis.r': 'print("only")',
@@ -218,6 +238,8 @@ describe('StudyCode component', () => {
         })
 
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        const dialog2 = screen.getByRole('dialog')
+        await user.click(within(dialog2).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
             const updated = await db
@@ -252,7 +274,7 @@ describe('StudyCode component', () => {
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['test/path/to/main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             if (files) {
-                await createBaselineJob(study.id, { backdate })
+                await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() + (backdate ? -1000 : 1000)) })
                 const root = await createWorkspaceDir('study-code')
                 workspaceRoots.push(root)
                 await writeWorkspaceFiles(root, study.id, files)
@@ -296,10 +318,10 @@ describe('StudyCode component', () => {
     })
 
     describe('session timeout regression', () => {
-        it('submits successfully after unmount and fresh remount with same studyId', async () => {
+        it.skipIf(!s3Available)('submits successfully after unmount and fresh remount with same studyId', async () => {
             const orgSlug = 'openstax-lab'
             const { study } = await setupStudy(orgSlug)
-            await createBaselineJob(study.id)
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -327,6 +349,8 @@ describe('StudyCode component', () => {
 
             const user = userEvent.setup()
             await user.click(screen.getByRole('button', { name: /submit code/i }))
+            const dialog = screen.getByRole('dialog')
+            await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
             await waitFor(async () => {
                 const updated = await db

@@ -1,14 +1,10 @@
 import { TestingProviders } from '@/tests/providers'
 import { render, act, waitFor } from '@testing-library/react'
 import router from 'next-router-mock'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { RequireMFA } from './require-mfa'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
-
-vi.mock('@/server/actions/org.actions', () => ({
-    getReviewerPublicKeyAction: vi.fn(() => Promise.resolve(null)),
-}))
 
 const mockSessionValues = {
     clerkUserId: faker.string.uuid(),

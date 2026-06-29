@@ -1,6 +1,7 @@
-import { Paper, Stack, Title, Flex } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { UsersTable } from './users-table'
 import { InviteButton } from './invitation'
+import { ManageTeamView } from './manage-team-view'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
@@ -12,17 +13,10 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
         <Stack p="md">
             <PageBreadcrumbs crumbs={[['Dashboard', Routes.home], ['Admin'], ['Manage team']]} />
             <RequireOrgAdmin />
-            <Title my="lg">Manage team</Title>
-            <Paper shadow="xs" p="xl">
-                <Flex direction="row" justify={'space-between'} align="center">
-                    <Title order={3} mb="lg">
-                        People
-                    </Title>
-                    <InviteButton orgSlug={orgSlug} />
-                </Flex>
-
-                <UsersTable orgSlug={orgSlug} />
-            </Paper>
+            <ManageTeamView
+                inviteAction={<InviteButton orgSlug={orgSlug} />}
+                table={<UsersTable orgSlug={orgSlug} />}
+            />
         </Stack>
     )
 }

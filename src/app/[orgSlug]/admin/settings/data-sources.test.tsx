@@ -1,0 +1,297 @@
+import {
+    describe,
+    it,
+    expect,
+    beforeEach,
+    screen,
+    waitFor,
+    mockSessionWithTestData,
+    faker,
+    renderWithProviders,
+    insertTestDataSource,
+    userEvent,
+    db,
+} from '@/tests/unit.helpers'
+import { Selectable } from 'kysely'
+import { DataSources } from './data-sources'
+import { Org } from '@/database/types'
+import { within } from '@testing-library/react'
+import { notifications } from '@mantine/notifications'
+
+describe('DataSources', async () => {
+    let org: Selectable<Org>
+
+    beforeEach(async () => {
+        const { org: createdOrg } = await mockSessionWithTestData({ isAdmin: true, orgSlug: faker.string.alpha(10) })
+        org = createdOrg
+    })
+
+    it('renders with title, button, and appropriate message when there is no data', async () => {
+        renderWithProviders(<DataSources />)
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Data Sources/i })).toBeInTheDocument()
+            expect(screen.getByText(/No data sources available/i)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /Add Data Source/i })).toBeInTheDocument()
+        })
+    })
+
+    it('renders data sources when available', async () => {
+        await insertTestDataSource({
+            orgId: org.id,
+            name: 'Name: Data source 1',
+            description: 'Desc: Data source 1',
+            urls: [
+                {
+                    url: 'https://example.com/url1',
+                    description: 'Source 1 url1 desc',
+                },
+                {
+                    url: 'https://example.com/url2',
+                    description: 'Source 1 url2 desc',
+                },
+            ],
+        })
+        renderWithProviders(<DataSources />)
+
+        await waitFor(() => {
+            expect(screen.getByText(/Name: Data source 1/i)).toBeInTheDocument()
+            expect(screen.getByText(/Desc: Data source 1/i)).toBeInTheDocument()
+            expect(screen.getByText(/Source 1 url1 desc/i)).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'https://example.com/url1' })).toBeInTheDocument()
+            expect(screen.getByText(/Source 1 url2 desc/i)).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: 'https://example.com/url2' })).toBeInTheDocument()
+        })
+    })
+
+    it('renders modal form to add a data source when button is clicked', async () => {
+        const user = userEvent.setup()
+
+        renderWithProviders(<DataSources />)
+
+        await user.click(screen.getByRole('button', { name: /add data source/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Data Source/i })).toBeInTheDocument()
+        })
+
+        const modal = screen.getByRole('dialog')
+        const modalQueries = within(modal)
+
+        expect(modal).toHaveAttribute('aria-modal', 'true')
+
+        expect(modalQueries.getByLabelText(/name/i)).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/description/i)).toBeInTheDocument()
+        expect(modalQueries.getByRole('heading', { name: /data source URLs/i })).toBeInTheDocument()
+        expect(modalQueries.getByPlaceholderText(/^URL$/i)).toBeInTheDocument()
+        expect(modalQueries.getByPlaceholderText(/url description/i)).toBeInTheDocument()
+        expect(modalQueries.getByRole('button', { name: /save data source/i })).toBeInTheDocument()
+    })
+
+    it('creates expected database rows on create form submission', async () => {
+        const user = userEvent.setup()
+
+        renderWithProviders(<DataSources />)
+
+        await user.click(screen.getByRole('button', { name: /add data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        await user.type(modalQueries.getByLabelText(/name/i), 'My data source')
+        await user.type(modalQueries.getByLabelText(/description/i), 'Description of my data source')
+
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/url')
+
+        await user.type(modalQueries.getByPlaceholderText(/url description/i), 'URL description text')
+
+        await user.click(modalQueries.getByRole('button', { name: /add URL/i }))
+
+        await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        const sources = await db
+            .selectFrom('orgDataSource')
+            .select(['name', 'description'])
+            .where('orgId', '=', org.id)
+            .execute()
+        expect(sources).toEqual([{ name: 'My data source', description: 'Description of my data source' }])
+
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
+            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceUrl.orgDataSourceId')
+            .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+            .where('orgDataSource.orgId', '=', org.id)
+            .execute()
+        expect(urls).toEqual([{ url: 'https://example.com/url', description: 'URL description text' }])
+    })
+
+    it('renders modal form to edit a data source when edit button is clicked', async () => {
+        const user = userEvent.setup()
+
+        await insertTestDataSource({
+            orgId: org.id,
+            name: 'Existing source',
+            description: 'Existing desc',
+            urls: [{ url: 'https://example.com/existing-url', description: 'Existing url desc' }],
+        })
+
+        renderWithProviders(<DataSources />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Existing source')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /edit data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        expect(modalQueries.getByRole('heading', { name: /edit data source/i })).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/name/i)).toHaveValue('Existing source')
+        expect(modalQueries.getByLabelText(/description/i)).toHaveValue('Existing desc')
+        expect(modalQueries.getByDisplayValue('https://example.com/existing-url')).toBeInTheDocument()
+        expect(modalQueries.getByDisplayValue('Existing url desc')).toBeInTheDocument()
+        expect(modalQueries.getByRole('button', { name: /update data source/i })).toBeInTheDocument()
+    })
+
+    it('updates expected database rows on edit form submission', async () => {
+        const user = userEvent.setup()
+
+        const ds = await insertTestDataSource({
+            orgId: org.id,
+            name: 'Original name',
+            description: 'Original desc',
+            urls: [{ url: 'https://example.com/orig', description: 'Original url desc' }],
+        })
+
+        renderWithProviders(<DataSources />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Original name')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /edit data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        const nameInput = modalQueries.getByLabelText(/name/i)
+        await user.clear(nameInput)
+        await user.type(nameInput, 'Updated name')
+
+        const descInput = modalQueries.getByLabelText(/description/i)
+        await user.clear(descInput)
+        await user.type(descInput, 'Updated desc')
+
+        await user.click(modalQueries.getByRole('button', { name: /update data source/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        const sources = await db
+            .selectFrom('orgDataSource')
+            .select(['name', 'description'])
+            .where('id', '=', ds.id)
+            .execute()
+        expect(sources).toEqual([{ name: 'Updated name', description: 'Updated desc' }])
+
+        // Existing URL is preserved unchanged through the update path
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
+            .select(['url', 'description'])
+            .where('orgDataSourceId', '=', ds.id)
+            .execute()
+        expect(urls).toEqual([{ url: 'https://example.com/orig', description: 'Original url desc' }])
+    })
+
+    it('deletes expected database rows when delete button is clicked', async () => {
+        const user = userEvent.setup()
+
+        const ds = await insertTestDataSource({
+            orgId: org.id,
+            name: 'To delete',
+            urls: [{ url: 'https://example.com/dd', description: 'Doomed url' }],
+        })
+
+        renderWithProviders(<DataSources />)
+
+        await waitFor(() => {
+            expect(screen.getByText('To delete')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /delete data source/i }))
+
+        const confirmButton = await screen.findByRole('button', { name: /yes/i, hidden: true })
+        await user.click(confirmButton)
+
+        await waitFor(() => {
+            expect(screen.queryByText('To delete')).not.toBeInTheDocument()
+        })
+
+        const sources = await db.selectFrom('orgDataSource').where('id', '=', ds.id).execute()
+        expect(sources).toEqual([])
+
+        const urls = await db.selectFrom('orgDataSourceUrl').where('orgDataSourceId', '=', ds.id).execute()
+        expect(urls).toEqual([])
+    })
+
+    it('includes URL information if user does not click add URL on save', async () => {
+        const user = userEvent.setup()
+
+        renderWithProviders(<DataSources />)
+
+        await user.click(screen.getByRole('button', { name: /add data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        await user.type(modalQueries.getByLabelText(/name/i), 'Implicit url source')
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/implicit')
+        await user.type(modalQueries.getByPlaceholderText(/url description/i), 'Implicit url desc')
+
+        await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        const urls = await db
+            .selectFrom('orgDataSourceUrl')
+            .innerJoin('orgDataSource', 'orgDataSource.id', 'orgDataSourceUrl.orgDataSourceId')
+            .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+            .where('orgDataSource.orgId', '=', org.id)
+            .execute()
+        expect(urls).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit url desc' }])
+    })
+
+    it('includes URL information if user does not click add URL on save but triggers notification and does not save when invalid', async () => {
+        const user = userEvent.setup()
+
+        renderWithProviders(<DataSources />)
+
+        await user.click(screen.getByRole('button', { name: /add data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        await user.type(modalQueries.getByLabelText(/name/i), 'Invalid url source')
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'not-a-url')
+
+        await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
+
+        await waitFor(() => {
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Failed to add data source', color: 'red' }),
+            )
+        })
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+        const sources = await db.selectFrom('orgDataSource').where('orgId', '=', org.id).execute()
+        expect(sources).toEqual([])
+    })
+})

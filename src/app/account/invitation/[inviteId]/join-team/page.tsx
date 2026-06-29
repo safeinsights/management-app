@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { useAuth, useUser } from '@clerk/nextjs'
@@ -60,7 +60,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             // short delay to ensure the token is propagated before navigation
             await new Promise((resolve) => setTimeout(resolve, 500))
 
-            if (result?.needsReviewerKey) {
+            if (result?.needsUserKey) {
                 router.push(Routes.accountKeys)
             } else {
                 router.push(Routes.orgDashboard({ orgSlug: org!.slug }))

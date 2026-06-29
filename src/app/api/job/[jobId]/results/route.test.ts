@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
+import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
@@ -17,7 +18,9 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-test('uploading results', async () => {
+// These exercise the real S3 round-trip (storeStudyEncrypted*/fetchFileContents),
+// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+test.skipIf(!s3Available)('uploading results', async () => {
     const org = await insertTestOrg()
 
     const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
@@ -51,7 +54,38 @@ test('uploading results', async () => {
     expect(contents).toBeInstanceOf(Blob)
 })
 
-test('uploading logs', async () => {
+// Guards the stale-shared-key case: once a job is RUN-COMPLETE its encrypted results (and the
+// AES keys the manifest/researcher rows are wrapped against) are frozen. A re-post must be
+// rejected rather than overwrite the blob under already-shared keys. Re-runs use a NEW job.
+test('rejects a second results upload once the job is already complete', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const post = () => {
+        const formData = new FormData()
+        formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+        return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+            params: Promise.resolve({ jobId }),
+        })
+    }
+
+    expect((await post()).ok).toBe(true)
+
+    const second = await post()
+    expect(second.status).toBe(422)
+
+    // The rejected re-post must not have created a duplicate ENCRYPTED-RESULT row.
+    const rows = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-RESULT')
+        .execute()
+    expect(rows).toHaveLength(1)
+})
+
+test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'
     const encoder = new TextEncoder()

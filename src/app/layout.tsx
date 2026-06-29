@@ -11,6 +11,7 @@ import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
+import { SINGLE_USER_EDITING } from '@/server/config'
 import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
@@ -36,7 +37,7 @@ export default async function RootLayout({
     return (
         <html lang="en" translate="no" className={globalFont.className}>
             <body>
-                <Providers>
+                <Providers singleUserEditing={SINGLE_USER_EDITING}>
                     <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
                     <PiSymbol />
                 </Providers>

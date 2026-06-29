@@ -146,7 +146,7 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
         return String(error)
     }
 
-    return 'Unknown error occured'
+    return 'Unknown error occurred'
 }
 
 class RecordError extends ActionFailure {
@@ -167,3 +167,12 @@ export const throwAccessDenied = (part: string) => () =>
     new AccessDeniedError({ user: `not allowed access to ${part}` })
 
 export const throwNotFound = (part: string) => () => new NotFoundError({ user: `${part} was not found` })
+
+// Postgres unique_violation SQLSTATE. The node-postgres driver attaches `.code`
+// to thrown errors and Kysely passes them through, so checking the code is the
+// portable way to distinguish a unique-index conflict from any other DB error.
+export function isPgUniqueViolation(error: unknown): boolean {
+    return (
+        error != null && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === '23505'
+    )
+}

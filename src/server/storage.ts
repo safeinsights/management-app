@@ -26,6 +26,8 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
 }
 
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
+    // If the insert below fails (or the process dies between these two writes), the S3 object is
+    // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
     await storeS3File(info, file.stream(), path)
 
     return await db
@@ -39,10 +41,14 @@ export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: Fil
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.zip`, file, fileType)
 }
 
-export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
+export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
+    const filename = fileType.toLowerCase()
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/${filename}.txt`, file, fileType)
 }
 
-export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType, sourceId: string) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType, sourceId)
+// Stored as one whole-zip archive (manifest + all per-file ciphertexts) per `study_job_file` row,
+// but crypto is per inner file (own AES key + IV in the embedded manifest). So sharing re-wraps
+// each inner file's key separately. Format unchanged from prod — no re-encrypt or repackage.
+export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }

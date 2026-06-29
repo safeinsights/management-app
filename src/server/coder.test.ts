@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import {
+    coderFetch,
+    CoderApiError,
     createUserAndWorkspace,
     generateWorkspaceName,
     getCoderOrganizationId,
@@ -8,9 +10,11 @@ import {
     generateCoderUsername,
     shaHash,
 } from './coder'
+import logger from '@/lib/logger'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, fetchLatestCodeEnvForStudyId } from './db/queries'
+import { getStudyAndOrgDisplayInfo, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
+import { getAgentContextAction } from './actions/agent-context.actions'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -20,6 +24,7 @@ vi.mock('./config', () => ({
 vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
+    getDataSourcesForOrg: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
@@ -43,6 +48,10 @@ vi.mock('node:fs/promises', () => ({
     utimes: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/server/actions/agent-context.actions', () => ({
+    getAgentContextAction: vi.fn(),
+}))
+
 // Mock fetch globally
 global.fetch = vi.fn()
 
@@ -50,6 +59,7 @@ const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
+const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -83,6 +93,7 @@ describe('getOrCreateCoderUser', () => {
                 Accept: 'application/json',
                 'Coder-Session-Token': 'https://api.coder.com',
             },
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -133,6 +144,7 @@ describe('getOrCreateCoderUser', () => {
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -159,6 +171,8 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
+        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
+        getDataSourcesForOrgMock.mockResolvedValue([])
     })
 
     afterEach(() => {
@@ -225,6 +239,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -327,6 +342,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -419,6 +435,7 @@ describe('createUserAndWorkspace', () => {
             url: 'test-image:latest',
             settings: { environment: [] },
             starterCodeFileNames: ['main.R'],
+            language: 'R',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
@@ -559,6 +576,7 @@ describe('getCoderTemplateId', () => {
                 Accept: 'application/json',
                 'Coder-Session-Token': 'token',
             },
+            signal: expect.any(AbortSignal),
         })
     })
 
@@ -574,6 +592,40 @@ describe('getCoderTemplateId', () => {
         getConfigValueMock.mockResolvedValueOnce('my-template')
 
         await expect(getCoderTemplateId()).rejects.toThrow('Failed to fetch templates data from Coder API')
+    })
+})
+
+describe('coderFetch instrumentation', () => {
+    const loggerErrorMock = logger.error as unknown as Mock
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        getConfigValueMock.mockResolvedValue('token')
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+    })
+
+    it('logs and throws CoderApiError on a non-ok response', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 503,
+            text: vi.fn().mockResolvedValue('service unavailable'),
+        })
+
+        await expect(coderFetch('/api/v2/workspaces/abc')).rejects.toBeInstanceOf(CoderApiError)
+        expect(loggerErrorMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v2/workspaces/abc -> 503: service unavailable'),
+        )
+    })
+
+    it('logs and rethrows when the request times out', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        const timeoutError = new Error('The operation timed out')
+        timeoutError.name = 'TimeoutError'
+        mockFetch.mockRejectedValue(timeoutError)
+
+        await expect(coderFetch('/api/v2/workspaces/abc')).rejects.toBe(timeoutError)
+        expect(loggerErrorMock).toHaveBeenCalledWith(expect.stringContaining('timed out'), timeoutError)
     })
 })
 

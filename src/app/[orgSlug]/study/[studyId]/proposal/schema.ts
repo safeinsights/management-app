@@ -1,10 +1,13 @@
 import { z } from 'zod'
-import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
+import { type UseFormReturnType } from '@mantine/form'
+import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
-export const DEFAULT_DRAFT_TITLE = 'Untitled Draft'
+export function hasUserProvidedTitle(title: string | undefined | null): boolean {
+    return !!title?.trim()
+}
 
 export const WORD_LIMITS = {
     title: 20,
@@ -70,6 +73,17 @@ export const proposalFormSchema = z.object({
 })
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
+
+// The non-lexical proposal fields. These are synced individually through the Yjs
+// fields map (see useYjsFormMap), and are the only fields tracked for the "Save as
+// draft" dirty state: the lexical editor fields auto-save to Yjs continuously
+export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piName', 'piUserId'] as const
+
+export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
+
+export function isProposalDraftDirty(form: UseFormReturnType<ProposalFormValues>): boolean {
+    return COLLAB_FIELD_KEYS.some((field) => form.isDirty(field))
+}
 
 export const initialProposalValues: ProposalFormValues = {
     title: '',

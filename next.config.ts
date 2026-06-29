@@ -1,10 +1,39 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
+import path from 'node:path'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
+// When E2E_FAKE_CLERK is set, swap the real Clerk SDK for the in-app fake under
+// src/lib/clerk-fake so e2e tests run with zero Clerk network. Production builds
+// (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
+const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
+
+const securityHeaders = [
+    // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
+    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN
+    // and we have no in-app frame usage.
+    { key: 'X-Frame-Options', value: 'DENY' },
+    // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
+    // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
+    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). We intentionally do not
+    // set script-src/default-src here: Clerk and Sentry inject scripts/connect to
+    // their own origins at runtime, and a restrictive policy would break auth and
+    // error reporting without a nonce-based setup.
+    {
+        key: 'Content-Security-Policy',
+        value: ["frame-ancestors 'none'", "form-action 'self'", "base-uri 'self'"].join('; '),
+    },
+    // Prevent MIME-sniffing-based content-type confusion.
+    { key: 'X-Content-Type-Options', value: 'nosniff' },
+    // Limit referrer leakage to cross-origin destinations.
+    { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+]
+
 const nextConfig: NextConfig = {
     cacheComponents: false,
+    // Don't advertise the framework in responses (SIINFOSEC-771, ZAP-40025).
+    poweredByHeader: false,
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',
@@ -14,11 +43,42 @@ const nextConfig: NextConfig = {
         // sets the DSN for Sentry in the client bundle at build time
         NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
     },
+    async headers() {
+        return [{ source: '/:path*', headers: securityHeaders }]
+    },
+    // Next 16 dev/build uses Turbopack by default, so the Clerk fake must be aliased
+    // via turbopack.resolveAlias (the webpack() hook below is a fallback for any
+    // webpack-based build). Both are gated on E2E_FAKE_CLERK so production is untouched.
+    ...(fakeClerk
+        ? {
+              turbopack: {
+                  resolveAlias: {
+                      '@clerk/nextjs/server': './src/lib/clerk-fake/server.ts',
+                      '@clerk/nextjs': './src/lib/clerk-fake/client.tsx',
+                  },
+              },
+          }
+        : {}),
+    webpack(config) {
+        if (fakeClerk) {
+            config.resolve.alias = {
+                ...config.resolve.alias,
+                '@clerk/nextjs/server': path.resolve(__dirname, 'src/lib/clerk-fake/server.ts'),
+                '@clerk/nextjs': path.resolve(__dirname, 'src/lib/clerk-fake/client.tsx'),
+            }
+        }
+        return config
+    },
     experimental: {
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {
             bodySizeLimit: '6mb',
+        },
+        // Emit Subresource Integrity (integrity=) hashes on Next's own script tags
+        // (SIINFOSEC-772, ZAP-90003).
+        sri: {
+            algorithm: 'sha256',
         },
     },
 }

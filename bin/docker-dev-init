@@ -5,10 +5,10 @@
 
 set -e
 
-npm install
+pnpm install --config.confirm-modules-purge=false --frozen-lockfile
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 $SCRIPT_DIR/migrate-dev-db
 
-npm run dev
+pnpm run dev

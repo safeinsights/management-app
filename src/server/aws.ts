@@ -31,7 +31,7 @@ import {
     pathForStudyJobCode,
 } from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
-import { strToAscii } from '@/lib/string'
+import { substituteEntryPointFile, strToAscii } from '@/lib/string'
 import { parseCsv } from '@/lib/file-content-helpers'
 import logger from '@/lib/logger'
 import { Readable } from 'stream'
@@ -349,14 +349,13 @@ export const storeS3File = async (
     body: ReadableStream,
     Key: string,
 ) => {
-    const [_, upStream] = body.tee()
     const uploader = new Upload({
         client: getS3Client(),
         tags: objectToAWSTags(info),
         params: {
             Bucket: s3BucketName(),
             Key,
-            Body: upStream,
+            Body: body,
         },
     })
     await uploader.done()
@@ -453,6 +452,40 @@ async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<strin
     }).map(([name, value]) => ({ name, value: typeof value === 'object' ? JSON.stringify(value) : value }))
 }
 
+/**
+ * Pure command-input builder for the build-image CodeBuild trigger. Exported so
+ * unit tests can verify the inputs without intercepting the AWS SDK — mocking
+ * `@aws-sdk/client-codebuild` doesn't work across vitest's externalised CJS
+ * resolution boundary, and a function-seam approach has the same issue.
+ */
+export async function buildTriggerBuildImageCommandInput(
+    info: MinimalJobInfo & {
+        codeEnvURL: string
+        codeEntryPointFileName: string
+        cmdLine: string
+        containerLocation: string
+    },
+) {
+    // Substitute the %f entry-point token, shell-quoting the filename so names with
+    // parentheses or other shell metacharacters don't break the `/bin/sh` command the
+    // containerizer runs (OTTER-477). The helper also absorbs quotes an admin may have
+    // wrapped around %f in the env's command template, so the two don't double-quote.
+    const cmd = substituteEntryPointFile(info.cmdLine, info.codeEntryPointFileName)
+    return {
+        projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
+        environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
+            ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-PACKAGING' },
+            ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
+            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
+            STUDY_JOB_ID: info.studyJobId,
+            S3_PATH: pathForStudyJobCode(info),
+            DOCKER_CMD_LINE: cmd,
+            DOCKER_BASE_IMAGE_LOCATION: info.codeEnvURL,
+            DOCKER_CODE_LOCATION: `${info.containerLocation}:${info.studyJobId}`,
+        }),
+    }
+}
+
 export async function triggerBuildImageForJob(
     info: MinimalJobInfo & {
         codeEnvURL: string
@@ -461,42 +494,39 @@ export async function triggerBuildImageForJob(
         containerLocation: string
     },
 ) {
-    const cmd = info.cmdLine.replace('%f', info.codeEntryPointFileName)
     const codebuild = new CodeBuildClient({})
-    const result = await codebuild.send(
-        new StartBuildCommand({
-            projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
-                ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-PACKAGING' },
-                ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
-                ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
-                STUDY_JOB_ID: info.studyJobId,
-                S3_PATH: pathForStudyJobCode(info),
-                DOCKER_CMD_LINE: cmd,
-                DOCKER_BASE_IMAGE_LOCATION: info.codeEnvURL,
-                DOCKER_CODE_LOCATION: `${info.containerLocation}:${info.studyJobId}`,
-            }),
-        }),
-    )
+    const result = await codebuild.send(new StartBuildCommand(await buildTriggerBuildImageCommandInput(info)))
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
+}
+
+/** Pure command-input builder for the source-scan CodeBuild trigger. See buildTriggerBuildImageCommandInput. */
+export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobInfo) {
+    return {
+        projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+        environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
+            // No ON_START_PAYLOAD: a scan-start webhook would re-post CODE-SUBMITTED onto the job,
+            // and if the scan's start hook lands after a reviewer has already decided the round
+            // (e.g. requested changes) the spurious CODE-SUBMITTED reopens active review. The real
+            // submission is recorded at upload time; the scanner only needs to report completion.
+            //
+            // A failed scan posts CODE-SCANNED too, not JOB-ERRORED. The source scan is advisory:
+            // finding issues means the code reaches the reviewer with the scan log attached so a
+            // human makes the call. JOB-ERRORED is a terminal results-stage status (it routes the
+            // job to the post-run results UI), so erroring the job on a scan finding both ends the
+            // review round prematurely and lands it on a page that assumes a run already happened.
+            ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
+            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
+            SCAN_MODE: 'source',
+            STUDY_JOB_ID: info.studyJobId,
+            S3_PATH: pathForStudyJobCode(info),
+            ARTIFACTS_PATH: pathForJobScanArtifacts(info),
+        }),
+    }
 }
 
 export async function triggerScanForStudyJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
-    const result = await codebuild.send(
-        new StartBuildCommand({
-            projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
-                ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SUBMITTED' },
-                ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
-                ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
-                SCAN_MODE: 'source',
-                STUDY_JOB_ID: info.studyJobId,
-                S3_PATH: pathForStudyJobCode(info),
-                ARTIFACTS_PATH: pathForJobScanArtifacts(info),
-            }),
-        }),
-    )
+    const result = await codebuild.send(new StartBuildCommand(await buildTriggerScanForStudyJobCommandInput(info)))
     if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)
 }
 

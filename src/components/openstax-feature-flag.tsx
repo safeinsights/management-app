@@ -47,15 +47,10 @@ const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = (
 }
 
 // Note: DO NOT EXPORT the above items, instead reaname them like the below example
-// with a name that matches the feature you are developing.
+// with a name that matches the overarching feature we are developing. (ask team for the name)
 // Doing so lets us search for that name when removing the flag
 export {
     useOpenStaxFeatureFlag as useUnusedOpenStaxFeatureFlag,
     OpenStaxFeatureFlag as UnusedOpenStaxFeatureFlag,
     FeatureFlagRequiredAlert as UnusedFeatureFlagRequiredAlert,
-    // Card 64: DO Proposal Review redesign
-    useOpenStaxFeatureFlag as useProposalReviewFeatureFlag,
-    OpenStaxFeatureFlag as ProposalReviewFeatureFlag,
-    // OTTER-495: Post-submission page
-    OpenStaxFeatureFlag as PostSubmissionFeatureFlag,
 }

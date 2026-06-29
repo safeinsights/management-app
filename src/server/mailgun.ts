@@ -2,7 +2,7 @@ import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
 import { getConfigValue, CI_ENV, APP_BASE_URL, PROD_BUILD } from './config'
 
-const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
+const SI_EMAIL = 'SafeInsights <no-reply@safeinsights.org>'
 
 let _mg: null | ReturnType<Mailgun['client']> = null
 let _domain = ''

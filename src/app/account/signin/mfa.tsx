@@ -68,7 +68,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 try {
                     const result = actionResult(await onUserSignInAction())
                     await auth.getToken({ skipCache: true })
-                    if (result?.redirectToReviewerKey) {
+                    if (result?.redirectToKeyGeneration) {
                         router.push(Routes.accountKeys)
                     } else {
                         let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
@@ -82,7 +82,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     }),
                                 )
 
-                                if (joinResult?.needsReviewerKey) {
+                                if (joinResult?.needsUserKey) {
                                     redirectUrl = Routes.accountKeys as Route
                                 } else {
                                     const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
@@ -204,7 +204,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                             </Stack>
                             <Divider my="xs" c="charcoal.1" />
                             <Text size="md" c="grey.7">
-                                Can&apos;t access your MFA device?
+                                Can’t access your MFA device?
                             </Text>
                             <Button
                                 w="100%"

@@ -13,12 +13,10 @@ import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
 import { useState } from 'react'
-import PhoneInput from 'react-phone-number-input'
-import 'react-phone-number-input/style.css'
 import BackupCodes from '../app/backup-codes'
-import styles from './panel.module.css'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
+import { AddSmsMfaView } from './add-sms-mfa-view'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -108,7 +106,7 @@ export function AddSMSMFA() {
     const resendCode = async () => {
         await sendVerificationCode(phoneForm.values)
         if (!(lastSentTime && Date.now() - lastSentTime < 30000)) {
-            notifications.show({ message: 'A new code has been forwarded!', color: 'green' })
+            notifications.show({ message: 'A new code has been sent!', color: 'green' })
         }
     }
 
@@ -178,58 +176,11 @@ export function AddSMSMFA() {
                     >
                         <Stepper.Step label="Send verification code" description="Enter your phone number">
                             {!isVerifying && (
-                                <form onSubmit={phoneForm.onSubmit((values) => sendVerificationCode(values))}>
-                                    <Stack justify="center">
-                                        <Title order={3} ta="center">
-                                            SMS verification
-                                        </Title>
-                                        <Text>
-                                            Enter your phone number to receive a verification code via SMS to complete
-                                            the setup.
-                                        </Text>
-                                        <Text fz="sm" fw={500}>
-                                            Enter phone number
-                                        </Text>
-                                        <PhoneInput
-                                            international
-                                            countryCallingCodeEditable={false}
-                                            defaultCountry="US"
-                                            value={phoneForm.values.phoneNumber}
-                                            onChange={(value) => phoneForm.setFieldValue('phoneNumber', value ?? '')}
-                                            placeholder="Enter phone number"
-                                            countries={['US']} // limited to US code
-                                            className={styles.phoneInput}
-                                            label="Phone Number"
-                                        />
-                                        {phoneForm.errors.phoneNumber && (
-                                            <InputError error={phoneForm.errors.phoneNumber} />
-                                        )}
-                                        <Button
-                                            type="submit"
-                                            loading={isSendingSms}
-                                            w="100%"
-                                            size="md"
-                                            variant="primary"
-                                            radius="sm"
-                                            disabled={!/\d{6,}/.test(phoneForm.values.phoneNumber)}
-                                        >
-                                            Send verification code
-                                        </Button>
-                                        <Group gap="xs" justify="center">
-                                            <Link
-                                                href={Routes.accountMfa}
-                                                mt="md"
-                                                c="purple.5"
-                                                fw={600}
-                                                fz="md"
-                                                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                                            >
-                                                <CaretLeftIcon size={20} />
-                                                Back to options
-                                            </Link>
-                                        </Group>
-                                    </Stack>
-                                </form>
+                                <AddSmsMfaView
+                                    form={phoneForm}
+                                    onSubmit={(values) => sendVerificationCode(values)}
+                                    isSendingSms={isSendingSms}
+                                />
                             )}
                         </Stepper.Step>
                         <Stepper.Step label="Verify code" description="Enter the code sent to your phone number">
@@ -259,7 +210,7 @@ export function AddSMSMFA() {
                                         </Button>
                                         <Group>
                                             <Text fz="md" c="grey.7">
-                                                Didn&apos;t receive a code?{' '}
+                                                Didn’t receive a code?{' '}
                                                 <Anchor component="button" onClick={resendCode}>
                                                     Resend code
                                                 </Anchor>

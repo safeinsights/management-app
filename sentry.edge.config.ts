@@ -4,9 +4,12 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { scrubSentryEvent } from '@/lib/sentry'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+
+    beforeSend: scrubSentryEvent,
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,

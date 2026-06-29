@@ -6,6 +6,7 @@ import {
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
 import { useMutation, useQuery, z, zodResolver } from '@/common'
+import { CLERK_ERROR_TITLES } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
@@ -16,8 +17,6 @@ import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
-import { RequestMFA } from '@/app/account/signin/mfa'
-import { type MFAState } from '@/app/account/signin/logic'
 
 const formSchema = z
     .object({
@@ -50,14 +49,10 @@ type InviteData = {
     orgName: string
 }
 
-type SignupStep = 'form' | 'mfa'
-
 const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
     const theme = useMantineTheme()
     const router = useRouter()
-    const [step, setStep] = useState<SignupStep>('form')
-    const [mfaState, setMfaState] = useState<MFAState>(false)
     const [termsAccepted, setTermsAccepted] = useState(false)
 
     const form = useForm({
@@ -94,8 +89,14 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     await onPendingUserLoginAction({ inviteId })
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
-                    setMfaState({ signIn: attempt, usingSMS: false })
-                    setStep('mfa')
+                    // A freshly-created account has no MFA factors enrolled, so a second-factor
+                    // challenge here is unsatisfiable — handing this state to <RequestMFA> would
+                    // strand the user on the "No MFA factors are configured" dead-end screen.
+                    // The instance-level Clerk MFA policy must allow first sign-in to complete
+                    // so the user can reach /account/mfa to enroll.
+                    reportError(
+                        'Your account was created, but multi-factor authentication is required before you can sign in. Please contact your administrator.',
+                    )
                 } else {
                     console.error(
                         'Sign-in status:',
@@ -112,20 +113,15 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
         },
     })
 
-    if (step === 'mfa' && mfaState) {
-        return <RequestMFA mfa={mfaState} />
-    }
-
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
                 <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                     <Title mb="lg" order={3} ta="center">
-                        Welcome To SafeInsights!
+                        Welcome to SafeInsights!
                     </Title>
                     <Text size="md">
-                        You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
-                        account.
+                        You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
                     <TextInput
                         label="Email"
@@ -186,7 +182,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     {form.errors.form && (
                         <Alert
                             color="red"
-                            title="Compromised Password"
+                            title={CLERK_ERROR_TITLES[String(form.errors.code)]?.title || 'Could not create account'}
                             withCloseButton
                             onClose={() => form.clearFieldError('form')}
                         >

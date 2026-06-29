@@ -2,19 +2,26 @@
 
 import { ActionFailure } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { JobFile, jobFileSchema, minimalJobInfoSchema } from '@/lib/types'
-import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
-import { onStudyResultsApproved, onStudyResultsRejected } from '@/server/events'
-import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
-import { ResultsReader } from 'si-encryption/job-results/reader'
+import { JobFile, minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
+import {
+    getLabPublicKeysForStudy,
+    getUserPublicKey,
+    getSharedFileIdsForJob,
+    getStudyJobInfo,
+    getStudyReviewForJob,
+    latestJobForStudy,
+} from '@/server/db/queries'
+import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
+import { insertSharedFileKeys } from '@/server/results-sharing'
+import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 
-export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
+export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
             jobInfo: minimalJobInfoSchema,
-            jobFiles: z.array(jobFileSchema),
+            sharedFiles: z.array(sharedFileSchema),
         }),
     )
     .middleware(async ({ params: { jobInfo }, db }) => {
@@ -26,11 +33,15 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         return { orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { jobInfo: info, jobFiles }, session, db }) => {
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+    .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
+        // Re-wrap, not re-encrypt: persist only the wrapped-key rows the reviewer's browser
+        // produced. Ciphertext untouched; server never sees plaintext. The FILES-APPROVED status
+        // below is the all-or-nothing approval fact.
+        //
+        // No backfill for late joiners: keys are wrapped only for lab members with a registered key
+        // at approval time. Registering a key later can't unlock already-approved results —
+        // re-wrapping needs the raw AES key, which the browser no longer holds.
+        await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
 
         await db
             .insertInto('jobStatusChange')
@@ -41,10 +52,41 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             })
             .executeTakeFirstOrThrow()
 
+        await db
+            .updateTable('study')
+            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
+            .where('id', '=', info.studyId)
+            .execute()
+
         onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
     })
 
-export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
+// Lab (researcher) public keys the reviewer's browser re-wraps approved files for.
+export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
+        return { orgId: study.orgId }
+    })
+    .requireAbilityTo('approve', 'Study')
+    .handler(async ({ params: { studyId } }) => {
+        return await getLabPublicKeysForStudy(studyId)
+    })
+
+// IDs of the job's artifacts shared with researchers, derived from the re-wrapped key rows. Empty
+// before approval.
+export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
+    .params(z.object({ jobId: z.string() }))
+    .middleware(async ({ params: { jobId } }) => {
+        const studyJob = await getStudyJobInfo(jobId)
+        return { studyJob, orgId: studyJob.orgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { jobId } }) => {
+        return await getSharedFileIdsForJob(jobId)
+    })
+
+export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
         minimalJobInfoSchema.extend({
             orgSlug: z.string(),
@@ -65,6 +107,12 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             })
             .executeTakeFirstOrThrow()
 
+        await db
+            .updateTable('study')
+            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
+            .where('id', '=', info.studyId)
+            .execute()
+
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
         onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })
     })
@@ -73,7 +121,7 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // orgId is validated in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => {
@@ -90,6 +138,37 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
+
+export const getStudyReviewAction = new Action('getStudyReviewAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId } }) => {
+        return await getStudyReviewForJob(studyJobId)
+    })
+
+// Reviewer-triggered retry after a failed summary generation. Clears the
+// failure row so the generator re-enters cleanly, then re-fires the same
+// deferred task code submission uses. Only a failed row is cleared — a
+// successful review is left untouched so a stray retry can't wipe it.
+export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId }, db }) => {
+        await db
+            .deleteFrom('studyReview')
+            .where('studyJobId', '=', studyJobId)
+            .where('summaryFailedAt', 'is not', null)
+            .execute()
+        onStudyReviewRequested({ studyJobId })
+    })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.object({ studyJobId: z.string() }))
@@ -118,6 +197,24 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
         return jobFiles
     })
 
+export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
+    .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ studyJob, params: { fileName } }) => {
+        const file = studyJob.files.find(
+            (f) => f.name === fileName && (f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE'),
+        )
+        if (!file) throw new ActionFailure({ file: `Code file "${fileName}" not found` })
+
+        const blob = await fetchFileContents(file.path)
+        const contents = await blob.text()
+        return { fileName: file.name, contents }
+    })
+
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(
         z.object({
@@ -126,27 +223,73 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     )
     .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        // Include submittedByOrgId so 'view StudyJob' matches lab researchers, not just enclave
+        // reviewers — researchers fetch their own re-wrapped result files here.
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
     })
     .requireAbilityTo('view', 'StudyJob')
 
-    .handler(async ({ studyJob }) => {
+    .handler(async ({ studyJob, session, db }) => {
+        const userKey = await getUserPublicKey(session.user.id)
+        if (!userKey) return []
+
         const encryptedFiles = studyJob.files.filter(
             (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
         )
+        if (!encryptedFiles.length) return []
 
-        const encryptedJobFiles = []
-        for (const encryptedFile of encryptedFiles) {
-            const blob = await fetchFileContents(encryptedFile.path)
-            const reader = new ResultsReader(blob, new ArrayBuffer(0), '')
-            const fileMetadata = await reader.listFiles()
-            encryptedJobFiles.push({
-                fileType: encryptedFile.fileType,
-                sourceId: encryptedFile.id,
-                blob,
-                metadata: fileMetadata,
-            })
+        // Enclave reviewers are manifest recipients and decrypt with their own key; lab researchers
+        // aren't, so they get per-file re-wrapped keys (study_job_file_recipient_key) as `recipientKeys`. A
+        // reviewer is a member of the study's enclave org; everyone else takes the researcher path.
+        const isEnclaveReviewer = Object.values(session.orgs).some(
+            (org) => org.id === studyJob.orgId && org.type === 'enclave',
+        )
+
+        // TODO(perf): ciphertext bodies are buffered into server memory and serialized through the
+        // action layer. Fine at current sizes; if it grows, hand the client a signed S3 URL to
+        // fetch + decrypt directly instead.
+        if (isEnclaveReviewer) {
+            return Promise.all(
+                encryptedFiles.map(async (file) => ({
+                    studyJobFileId: file.id,
+                    fileType: file.fileType,
+                    name: file.name,
+                    encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
+                    recipientKeys: {} as Record<string, string>,
+                })),
+            )
         }
 
-        return encryptedJobFiles
+        // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
+        // naturally gated). Build the {file_path -> crypt} map per artifact.
+        const wrappedKeys = await db
+            .selectFrom('studyJobFileRecipientKey')
+            .select(['studyJobFileId', 'filePath', 'crypt'])
+            .where(
+                'studyJobFileId',
+                'in',
+                encryptedFiles.map((f) => f.id),
+            )
+            .where('fingerprint', '=', userKey.fingerprint)
+            .execute()
+        if (!wrappedKeys.length) return []
+
+        const keysByFileId = new Map<string, Record<string, string>>()
+        for (const key of wrappedKeys) {
+            const map = keysByFileId.get(key.studyJobFileId) ?? {}
+            map[key.filePath] = key.crypt
+            keysByFileId.set(key.studyJobFileId, map)
+        }
+
+        return Promise.all(
+            encryptedFiles
+                .filter((file) => keysByFileId.has(file.id))
+                .map(async (file) => ({
+                    studyJobFileId: file.id,
+                    fileType: file.fileType,
+                    name: file.name,
+                    encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
+                    recipientKeys: keysByFileId.get(file.id)!,
+                })),
+        )
     })

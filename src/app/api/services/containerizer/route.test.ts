@@ -2,6 +2,7 @@ import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
+import { s3Available } from '@/tests/s3.helpers'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -137,7 +138,9 @@ test('returns 404 job-not-found for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
+// so this skips when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+test.skipIf(!s3Available)('containerizer stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -153,6 +156,7 @@ test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () =
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'PACKAGING-ERROR-LOG')).toBe(true)
 })
 
 test('returns 401 when Authorization header is missing', async () => {

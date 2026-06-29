@@ -15,6 +15,8 @@ describe('ApprovalStatus', () => {
         createdAt: new Date('2024-03-03T00:00:00Z'),
         statusChanges: [],
         files: [],
+        resubmissionNote: null,
+        resubmissionRound: null,
     }
 
     it('shows approved status for CODE-APPROVED', () => {

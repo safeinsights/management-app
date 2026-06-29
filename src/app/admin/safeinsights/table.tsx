@@ -45,7 +45,7 @@ export function OrgsAdminTable() {
                 withTableBorder
                 withColumnBorders
                 idAccessor="slug"
-                noRecordsText="No organisations yet, add some using button below"
+                noRecordsText="No organizations yet, add some using the button below"
                 noRecordsIcon={<UsersIcon />}
                 records={sortedMembers}
                 sortStatus={sortStatus}
@@ -56,6 +56,13 @@ export function OrgsAdminTable() {
                     { accessor: 'email', sortable: true },
                     { accessor: 'totalUsers', title: '# Users', textAlign: 'center', sortable: true },
                     { accessor: 'totalStudies', title: '# Studies', textAlign: 'center', sortable: true },
+                    { accessor: 'totalCodeEnvs', title: '# Code Envs', textAlign: 'center', sortable: true },
+                    {
+                        accessor: 'totalDataSources',
+                        title: '# Data Sources',
+                        textAlign: 'center',
+                        sortable: true,
+                    },
                     {
                         accessor: 'actions',
                         width: 110,
@@ -74,7 +81,7 @@ const AddMember: FC = () => {
 
     return (
         <Flex justify={'space-between'} my="lg" align={'center'}>
-            <Title>Organizations</Title>
+            <Title order={1}>Organizations</Title>
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
                 <EditOrgForm onCompleteAction={close} />
             </Modal>

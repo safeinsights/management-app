@@ -1,0 +1,118 @@
+import type { StudyJobStatus } from '@/database/types'
+import type { AllStatus } from '@/lib/types'
+import type { CodeDecisionStatus } from '@/lib/study-job-status'
+import {
+    CODE_DECISION_JOB_STATUSES,
+    isCodeDecisionStatus,
+    STUDY_CODE_RUNNING_JOB_STATUSES,
+    STUDY_RESULTS_JOB_STATUSES,
+} from '@/lib/study-job-status'
+import { draftHasStep2Progress } from '@/lib/studies'
+import type { RawJob, RawStudyState, StudyState } from './state.types'
+
+const has = (job: RawJob | undefined, statuses: readonly StudyJobStatus[]): boolean =>
+    !!job && job.statusChanges.some((c) => statuses.includes(c.status))
+
+// Fixed priority for the single results value (display only). NOT array order.
+const RESULTS_PRIORITY: StudyState['resultsDisplayStatus'][] = [
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+    'JOB-ERRORED',
+    'RUN-COMPLETE',
+]
+
+// Code decision priority: APPROVED is permanent and wins if several ever coexist on the job.
+const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED']
+
+// Pill display-status priority (highest-priority PRESENT status on the latest job wins).
+// Mirrors useStudyStatus's intent; finer-grained than the screen booleans (keeps exec sub-statuses).
+// Deliberate divergence from legacy: CODE-REJECTED outranks CODE-CHANGES-REQUESTED here (legacy's
+// reversed-label-order ranked them the other way). When a single job carries both (round-1 changes
+// requested, then a terminal round-2 rejection), the truthful terminal state is "rejected" — and it
+// agrees with the code-rejected screen routing — so Rejected wins, not the stale earlier round.
+export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
+    'JOB-ERRORED',
+    'FILES-REJECTED',
+    'FILES-APPROVED',
+    'RUN-COMPLETE',
+    'JOB-RUNNING',
+    'JOB-READY',
+    'JOB-PACKAGING',
+    'JOB-PROVISIONING',
+    'CODE-REJECTED',
+    'CODE-CHANGES-REQUESTED',
+    'CODE-APPROVED',
+    'CODE-SCANNED',
+    'CODE-SUBMITTED',
+    'INITIATED',
+]
+
+function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
+    if (jobs.length === 0) return undefined
+    // max(id): v7 ids are insertion-ordered, so lexical max === most recently created round.
+    // Prefer the latest job that has been submitted (has a non-INITIATED status), matching the
+    // legacy latestSubmittedJobForStudy anchor. A baseline-only INITIATED job (IDE launch / file
+    // upload) that lands after a reviewed submission must not mask the code decision.
+    const submitted = jobs.filter((j) => j.statusChanges.some((c) => c.status !== 'INITIATED'))
+    const pool = submitted.length > 0 ? submitted : jobs
+    return pool.reduce((a, b) => (b.id > a.id ? b : a))
+}
+
+export function projectStudyState(raw: RawStudyState): StudyState {
+    const job = latestJob(raw.jobs)
+    const jobStatuses = new Set<StudyJobStatus>(job?.statusChanges.map((c) => c.status) ?? [])
+
+    // Count-based liveness: a decision is live only when decisions >= submissions. CODE-SUBMITTED is
+    // append-only per round (markCodeSubmitted), so a same-job resubmit after CODE-CHANGES-REQUESTED
+    // appends a fresh CODE-SUBMITTED (shape: CODE-SUBMITTED → CODE-CHANGES-REQUESTED → CODE-SUBMITTED),
+    // tipping submitted-count past decision-count so the prior decision is no longer live and the
+    // researcher is back under review. Mirrors latestSubmittedJobHasLiveCodeDecision in study-job-status.ts.
+    const submittedCount = job?.statusChanges.filter((c) => c.status === 'CODE-SUBMITTED').length ?? 0
+    const decisionCount = job?.statusChanges.filter((c) => isCodeDecisionStatus(c.status)).length ?? 0
+    const hasLiveDecision = decisionCount > 0 && decisionCount >= submittedCount
+    const codeDecision = hasLiveDecision ? (CODE_DECISION_PRIORITY.find((d) => jobStatuses.has(d)) ?? null) : null
+    // Intentionally CODE-SUBMITTED only (legacy gated on ['CODE-SUBMITTED','CODE-SCANNED']): the scan
+    // is an automated step, never present without a preceding CODE-SUBMITTED on the same job, so
+    // adding it would not change the result — keep this anchored on the actual submission event.
+    const hasSubmittedCode = jobStatuses.has('CODE-SUBMITTED')
+    const codeAwaitingDecision = hasSubmittedCode && codeDecision === null
+    const hasResults = has(job, STUDY_RESULTS_JOB_STATUSES)
+    const resultsDisplayStatus = RESULTS_PRIORITY.find((r) => r && jobStatuses.has(r)) ?? null
+
+    // displayStatus: drop stale code decisions on a resubmission (latest job submitted, no live decision),
+    // then pick the highest-priority present status; fall back to study status when the job has none.
+    const dropStale = hasSubmittedCode && codeDecision === null
+    const visible = DISPLAY_STATUS_PRIORITY.filter(
+        (st) => jobStatuses.has(st) && !(dropStale && CODE_DECISION_JOB_STATUSES.includes(st as CodeDecisionStatus)),
+    )
+    const displayStatus: AllStatus = visible[0] ?? raw.status
+
+    // Count of jobs that ever carried a submission = which submission round this is across ALL jobs.
+    // Distinct from the user-facing displayed version (round-opening events across the study + 1, see
+    // codeSubmissionVersion): do NOT use this as the user-facing version. Currently has no consumer
+    // outside this module/tests — kept as the one deliberate cross-job fact (see state.types.ts).
+    const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
+
+    return {
+        status: raw.status,
+        isDraft: raw.status === 'DRAFT',
+        hasStep2Progress: draftHasStep2Progress(raw),
+        researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
+        reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,
+        hasAnyJob: raw.jobs.length > 0,
+        hasSubmittedCode,
+        codeDecision,
+        codeAwaitingDecision,
+        isExecuting: has(job, STUDY_CODE_RUNNING_JOB_STATUSES),
+        hasResults,
+        resultsApproved: jobStatuses.has('FILES-APPROVED'),
+        resultsRejected: jobStatuses.has('FILES-REJECTED'),
+        resultsErrored: jobStatuses.has('JOB-ERRORED'),
+        resultsDisplayStatus,
+        submissionRound,
+        hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
+        hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
+        displayStatus,
+        latestJobStatuses: [...jobStatuses].sort(), // stable order for deterministic output/tests
+    }
+}

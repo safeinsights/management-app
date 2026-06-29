@@ -8,13 +8,13 @@ import { Routes } from '@/lib/routes'
 import { AuthRole } from '@/lib/types'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
-import { AppShellSection, Collapse, NavLink } from '@mantine/core'
+import { NavLink } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
-import { CaretRightIcon, GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
+import { GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
 import { Protect } from '../auth'
-import { RefWrapper } from './nav-ref-wrapper'
+import { NavbarProfileMenuView } from './navbar-profile-menu-view'
 import styles from './navbar-items.module.css'
 
 export function NavbarProfileMenu() {
@@ -59,99 +59,96 @@ export function NavbarProfileMenu() {
         }
     }, [opened, toggle, menuRef])
 
+    const menuItems = (
+        <>
+            <Protect role={AuthRole.Researcher}>
+                <NavLink
+                    label="Profile"
+                    leftSection={<UserIcon aria-hidden="true" />}
+                    c="white"
+                    active={pathname === Routes.researcherProfile}
+                    color="blue.7"
+                    variant="filled"
+                    className={styles.navLinkProfileHover}
+                    onClick={navigateTo(Routes.researcherProfile)}
+                    aria-label="Profile"
+                    role="menuitem"
+                    component="button"
+                />
+            </Protect>
+
+            <NavLink
+                label="Settings"
+                leftSection={<GearIcon aria-hidden="true" />}
+                c="white"
+                className={styles.navLinkProfileHover}
+                onClick={handleSettingsClick}
+                aria-label="Settings"
+                role="menuitem"
+                component="button"
+            />
+
+            {/* Reviewer-only on purpose: this is the self-rotate entry, and rotating orphans a
+                researcher's access to already-approved results with no recovery until the renewal
+                re-wrap flow ships. Researchers still reach first-time key generation via the
+                RequireUserKey redirect. Widen to researchers once renewal exists. */}
+            <Protect role={AuthRole.Reviewer}>
+                <NavLink
+                    label="Results Key"
+                    leftSection={<LockIcon aria-hidden="true" />}
+                    onClick={navigateTo(Routes.userKey)}
+                    c="white"
+                    active={pathname === Routes.userKey}
+                    color="blue.7"
+                    variant="filled"
+                    className={styles.navLinkProfileHover}
+                    aria-label="Results Key"
+                    role="menuitem"
+                    component="button"
+                />
+            </Protect>
+
+            {isSiAdmin && (
+                <NavLink
+                    label="SI Admin"
+                    leftSection={<GlobeIcon aria-hidden="true" />}
+                    onClick={navigateTo(Routes.adminSafeinsights)}
+                    c="white"
+                    active={pathname === Routes.adminSafeinsights}
+                    color="blue.7"
+                    variant="filled"
+                    className={styles.navLinkProfileHover}
+                    aria-label="SI Admin"
+                    role="menuitem"
+                    component="button"
+                />
+            )}
+
+            <NavLink
+                label="Sign Out"
+                leftSection={<SignOutIcon aria-hidden="true" />}
+                onClick={closeAndCall(signOut)}
+                c="white"
+                className={styles.navLinkProfileHover}
+                aria-label="Sign Out"
+                role="menuitem"
+                component="button"
+            />
+        </>
+    )
+
     return (
-        <AppShellSection ref={menuRef} className={styles.profileMenuSection}>
-            <Collapse in={opened} id="profile-menu" role="menu" className={styles.profileMenuCollapse}>
-                <Protect role={AuthRole.Researcher}>
-                    <NavLink
-                        label="Profile"
-                        leftSection={<UserIcon aria-hidden="true" />}
-                        c="white"
-                        active={pathname === Routes.researcherProfile}
-                        color="blue.7"
-                        variant="filled"
-                        className={styles.navLinkProfileHover}
-                        onClick={navigateTo(Routes.researcherProfile)}
-                        aria-label="Profile"
-                        role="menuitem"
-                        component="button"
-                    />
-                </Protect>
-
-                <NavLink
-                    label="Settings"
-                    leftSection={<GearIcon aria-hidden="true" />}
-                    c="white"
-                    className={styles.navLinkProfileHover}
-                    onClick={handleSettingsClick}
-                    aria-label="Settings"
-                    role="menuitem"
-                    component="button"
-                />
-
-                <Protect role={AuthRole.Reviewer}>
-                    <NavLink
-                        label="Reviewer Key"
-                        leftSection={<LockIcon aria-hidden="true" />}
-                        onClick={navigateTo(Routes.reviewerKey)}
-                        c="white"
-                        active={pathname === Routes.reviewerKey}
-                        color="blue.7"
-                        variant="filled"
-                        className={styles.navLinkProfileHover}
-                        aria-label="Reviewer Key"
-                        role="menuitem"
-                        component="button"
-                    />
-                </Protect>
-
-                {isSiAdmin && (
-                    <NavLink
-                        label="SI Admin"
-                        leftSection={<GlobeIcon aria-hidden="true" />}
-                        onClick={navigateTo(Routes.adminSafeinsights)}
-                        c="white"
-                        active={pathname === Routes.adminSafeinsights}
-                        color="blue.7"
-                        variant="filled"
-                        className={styles.navLinkProfileHover}
-                        aria-label="SI Admin"
-                        role="menuitem"
-                        component="button"
-                    />
-                )}
-
-                <NavLink
-                    label="Sign Out"
-                    leftSection={<SignOutIcon aria-hidden="true" />}
-                    onClick={closeAndCall(signOut)}
-                    c="white"
-                    className={styles.navLinkProfileHover}
-                    aria-label="Sign Out"
-                    role="menuitem"
-                    component="button"
-                />
-            </Collapse>
-
-            <RefWrapper>
-                <NavLink
-                    label={
-                        <>
-                            Hi, <UserName />
-                        </>
-                    }
-                    leftSection={<UserAvatar />}
-                    rightSection={<CaretRightIcon aria-hidden="true" />}
-                    c="white"
-                    className={styles.navLinkProfileHover}
-                    onClick={handleToggle}
-                    aria-haspopup="true"
-                    aria-expanded={opened}
-                    aria-controls="profile-menu"
-                    aria-label="Toggle profile menu"
-                    component="button"
-                />
-            </RefWrapper>
-        </AppShellSection>
+        <NavbarProfileMenuView
+            ref={menuRef}
+            opened={opened}
+            onToggle={handleToggle}
+            userName={
+                <>
+                    Hi, <UserName />
+                </>
+            }
+            avatar={<UserAvatar />}
+            menuItems={menuItems}
+        />
     )
 }

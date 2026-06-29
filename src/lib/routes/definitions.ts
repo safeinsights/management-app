@@ -99,31 +99,79 @@ export const Routes = {
 
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
-    studyView: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view`, StudyParams),
+    studyView: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/view`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
+
+    // Read-only post-decision code view: lets a researcher walk back to the code step from a results
+    // study (whose /view resolves to the results screen). The page 404s if code isn't reached yet.
+    studyViewCode: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/view/code`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
 
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
+    studyReviewProposal: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/proposal`,
+        StudyParams,
+    ),
+
     studyCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/code`, StudyParams),
 
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
-    studyAgreements: makeRoute(
-        ({ orgSlug, studyId, from, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/agreements`
+    studyEditAndResubmit: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit-and-resubmit`,
+        StudyParams,
+    ),
+
+    // Agreements is split into role-specific sibling routes so the page never has to guess which
+    // flow a dual-role user (reviewer via the enclave, researcher via their own lab) is in: the URL
+    // is the role. Researcher carries returnTo (org-scoped entry); reviewer does not.
+    studyResearcherAgreements: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/agreements/researcher`
             const params = new URLSearchParams()
-            if (from) params.set('from', from)
             if (returnTo) params.set('returnTo', returnTo)
             const qs = params.toString()
             return qs ? `${base}?${qs}` : base
         },
-        StudyParams.extend({ from: z.string().optional(), returnTo: z.string().optional() }),
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
+
+    studyReviewerAgreements: makeRoute(
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/agreements/reviewer`,
+        StudyParams,
     ),
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
-    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
+    studySubmitted: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/submitted`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
 
     researcherProfileView: makeRoute(
         ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/researcher-profile`,
@@ -158,7 +206,7 @@ export const Routes = {
 
     researcherProfile: '/researcher/profile' as Route,
 
-    reviewerKey: '/reviewer-key' as Route,
+    userKey: '/user-key' as Route,
 
     // -------------------------------------------------------------------------
     // Admin Routes
@@ -175,8 +223,8 @@ export const Routes = {
 // ============================================================================
 
 export const ExternalLinks = {
-    dataCatalog: 'https://kb.safeinsights.org/data-catalog',
-    resourceCenter: 'https://kb.safeinsights.org/resource-center',
+    dataCatalog: 'https://dev-docs.sandbox.safeinsights.org/data-catalog/',
+    resourceCenter: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
 } as const
 
 // ============================================================================

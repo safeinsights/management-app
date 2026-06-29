@@ -1,4 +1,4 @@
-import { clerk, expect, test, TestingUsers } from './e2e.helpers'
+import { E2E_TIMEOUT, e2eSignOut, expect, test, TestingUsers } from './e2e.helpers'
 
 test.describe('recovery code sign in UI', async () => {
     // We use a fixed role for this test
@@ -7,7 +7,7 @@ test.describe('recovery code sign in UI', async () => {
 
     test('can navigate to recovery code screen and back', async ({ page }) => {
         await page.goto('/account/signin')
-        await clerk.signOut({ page })
+        await e2eSignOut(page)
 
         // 1. Initial sign in
         await page.getByLabel('email').fill(props.identifier)
@@ -36,7 +36,7 @@ test.describe('recovery code sign in UI', async () => {
 
     test('shows error on incorrect recovery code', async ({ page }) => {
         await page.goto('/account/signin')
-        await clerk.signOut({ page })
+        await e2eSignOut(page)
 
         await page.getByLabel('email').fill(props.identifier)
         await page.getByLabel('password').fill(props.password)
@@ -59,6 +59,6 @@ test.describe('recovery code sign in UI', async () => {
             page.getByText(
                 /Code is incorrect or already in use|The verification strategy is not valid for this account/i,
             ),
-        ).toBeVisible({ timeout: 15000 })
+        ).toBeVisible({ timeout: E2E_TIMEOUT })
     })
 })

@@ -16,14 +16,17 @@ import {
     Group,
     ActionIcon,
     Box,
+    Alert,
+    List,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
 import { EnvVar } from '@/database/types'
-import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
+import { RequiredIndicator } from '@/components/required-indicator'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -81,12 +84,8 @@ function StarterCodeSection({
     return (
         <Box>
             <Title order={5} mb={4}>
-                Starter Code{' '}
-                {!isEditMode && (
-                    <Text component="span" c="red">
-                        *
-                    </Text>
-                )}
+                Starter Code
+                <RequiredIndicator isVisible={!isEditMode} />
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
                 {isEditMode
@@ -185,7 +184,8 @@ function CommandLinesSection({
                 Command Lines
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
-                Map file extensions to the command used to execute them. Use %f for the main code file name.
+                Map file extensions to the command used to execute them. Use %f for the main code file name; it’s quoted
+                automatically, so you don’t need to wrap it in quotes.
             </Text>
             <Stack gap="xs">
                 {Object.entries(commandLines).map(([ext, cmd]) => (
@@ -209,6 +209,20 @@ function CommandLinesSection({
     )
 }
 
+function FormErrorSummary({ isVisible, errors }: { isVisible: boolean; errors: string[] }) {
+    if (!isVisible) return null
+
+    return (
+        <Alert color="red" icon={<WarningIcon size={16} />} title="Please fix the following before saving">
+            <List size="sm">
+                {errors.map((error) => (
+                    <List.Item key={error}>{error}</List.Item>
+                ))}
+            </List>
+        </Alert>
+    )
+}
+
 interface CodeEnvFormProps {
     image?: CodeEnv
     onCompleteAction: () => void
@@ -217,6 +231,7 @@ interface CodeEnvFormProps {
 export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const {
         form,
+        formErrors,
         isEditMode,
         isPending,
         onSubmit,
@@ -325,7 +340,13 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                                 style={{ flex: 1 }}
                             />
                             <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
-                            <ActionIcon color="blue" variant="subtle" onClick={addEnvVar} mt={4}>
+                            <ActionIcon
+                                color="blue"
+                                variant="subtle"
+                                onClick={addEnvVar}
+                                mt={4}
+                                aria-label="Add environment variable"
+                            >
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>
@@ -334,7 +355,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 <Divider />
                 <Box>
                     <Title order={5} mb={4}>
-                        Sample Data
+                        Example Data
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
                         Files available to researchers when they develop in Coder
@@ -347,11 +368,11 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             {...form.getInputProps('sampleDataPath')}
                         />
                         <FileInput
-                            label="Sample Data Files"
+                            label="Example Data Files"
                             description={
                                 isEditMode
-                                    ? 'Upload new files to replace the existing sample data (optional)'
-                                    : 'Upload sample data files for researchers (optional)'
+                                    ? 'Upload new files to replace the existing example data (optional)'
+                                    : 'Upload example data files for researchers (optional)'
                             }
                             placeholder="Select files"
                             multiple
@@ -367,6 +388,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         </Radio.Group>
                     </Stack>
                 </Box>
+                <FormErrorSummary isVisible={formErrors.length > 0} errors={formErrors} />
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
                 </Button>

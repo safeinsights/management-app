@@ -1,3 +1,18 @@
+# SECURITY (OTTER-545): this workflow runs on `pull_request` and therefore
+# executes PR-controlled code (pnpm install scripts, build, tests). Two threat
+# model rules apply across every job here:
+#
+#   1. Every `actions/checkout` MUST set `persist-credentials: false` so the
+#      runner does not leave a usable GITHUB_TOKEN on disk that a malicious
+#      preinstall / postinstall / test fixture could read.
+#   2. Every job's `permissions:` block MUST be the minimum required for that
+#      job. The `GITHUB_TOKEN` is still passed via env to actions that ask for
+#      it (e.g. coverage-diff-action), but its blast radius is bounded by the
+#      job's permissions even if it leaks.
+#
+# Third-party actions are pinned to commit SHAs (with the version tag in a
+# trailing comment) so a compromised upstream tag cannot silently change what
+# runs here. Use Dependabot to update the SHAs.
 name: Checks
 on:
     push:
@@ -11,42 +26,104 @@ jobs:
         runs-on: ubuntu-latest
         permissions: {}
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 22
-                  cache: 'npm'
-            - name: npm install
-              run: npm ci
+                  cache: 'pnpm'
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: pnpm audit signatures
+              run: pnpm audit signatures
             - name: show versions
-              run: npm ls
-            - name: npm run checks
-              run: npm run checks
+              run: pnpm list
+            - name: pnpm run checks
+              run: pnpm run checks
             - name: validate actions
-              run: npm run validate-actions
+              run: pnpm run validate-actions
 
+    # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
+    # exposed to PR-controlled code. This job is safe ONLY because it does not run
+    # `pnpm install`, build scripts, or any other PR-supplied code before the Sonar step.
+    # Do NOT:
+    #   - add `pnpm install` / build / test steps to this job
+    #   - move SONAR_TOKEN to a job-level or workflow-level `env`
+    #   - reorder steps so PR code executes before the SonarQube scan
+    # If you need to run PR code alongside Sonar, split it into a separate job
+    # that does not have access to SONAR_TOKEN.
     infosec:
         timeout-minutes: 5
         runs-on: ubuntu-latest
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  persist-credentials: false
+            # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
+            # every run, so it flakes the same way the SonarQube scanner did when
+            # those fetches hit a transient upstream outage. trivy-action enables
+            # its built-in actions/cache by default; we make that cache effective by
+            # (1) pinning the binary `version` so the cache key is stable across runs
+            # instead of drifting, and (2) pointing both scan steps at one shared
+            # `cache-dir` so the DB is fetched at most once per run and reused on
+            # subsequent runs. A version bump naturally busts the cache.
             - name: Run Trivy vulnerability scanner in fs mode
-              uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+              uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
               with:
                   scan-type: 'fs'
                   scan-ref: '.'
                   trivy-config: trivy.yaml
+                  version: v0.70.0
+                  cache-dir: ${{ github.workspace }}/.cache/trivy
+            - name: Run Trivy license scanner
+              uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  scanners: 'license'
+                  severity: 'HIGH,CRITICAL'
+                  exit-code: '1'
+                  trivyignores: '.trivyignore.yaml'
+                  version: v0.70.0
+                  cache-dir: ${{ github.workspace }}/.cache/trivy
+            # Cache the SonarScanner CLI and analysis cache (downloaded into
+            # SONAR_USER_HOME by the scan step below). This makes the job resilient
+            # to intermittent failures fetching the scanner from
+            # binaries.sonarsource.com: on a cache hit the binary is reused instead
+            # of re-downloaded. Keyed on the scanner version pin so a bump busts it.
+            - name: Cache SonarQube scanner
+              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              with:
+                  path: ${{ github.workspace }}/.sonar
+                  key: ${{ runner.os }}-sonar-7006c4492b2e0ee0f816d36501671557c97f5995
+                  restore-keys: |
+                      ${{ runner.os }}-sonar-
             - name: Run SonarQube SAST Scan
-              uses: SonarSource/sonarqube-scan-action@v7
+              # SONAR_TOKEN is scoped to this single step (not the job env) so that
+              # any future steps added above cannot accidentally read it. Keep it here.
+              uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
               env:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+                  SONAR_USER_HOME: ${{ github.workspace }}/.sonar
 
-    test:
+    # Unit tests run in their own job (parallel with e2e) AND are sharded across runners
+    # via vitest --shard so the suite's wall-clock is ~total/N instead of total. Each shard
+    # job gets its own Postgres + S3 (services are per-job, so shards don't contend), and
+    # uploads its slice of raw coverage for the `coverage` job to merge.
+    unit:
         timeout-minutes: 20
         runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                shard: [1, 2, 3]
+        # SECURITY (OTTER-545): this job runs PR-controlled code; keep permissions minimal.
+        permissions: {}
         services:
             db:
                 image: postgres:15
@@ -57,110 +134,208 @@ jobs:
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        permissions:
-            pull-requests: write
-            contents: write
-            pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-            CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
-            CLERK_RESEARCHER_PASSWORD: ${{ secrets.CLERK_RESEARCHER_PASSWORD }}
-            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-            CLERK_REVIEWER_EMAIL: ${{ secrets.CLERK_REVIEWER_EMAIL }}
-            CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
-            CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
-            CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
+            # db:migrate runs seed-environment, which provisions Clerk users unless told not
+            # to; the unit suite has no Clerk server, so skip that (orgs-only seed).
+            E2E_FAKE_CLERK: '1'
+            NEXT_PUBLIC_CI: 'true'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
             AWS_ACCESS_KEY_ID: 'si-local-s3'
             AWS_SECRET_ACCESS_KEY: 'si-local-s3'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
-            PORT: '4000'
-            NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
+            # Use all 4 runner vCPUs: the unit suite is largely DB/IO-wait, so vitest's
+            # default (~half the cores) leaves the box idle. Override via vitest --maxWorkers.
+            VITEST_MAX_WORKERS: '4'
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 22
-                  cache: 'npm'
-            - uses: actions/cache@v4
-              id: cache-all-the-things
-              with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
-                  path: |
-                      ~/.npm
-                      ~/.cache
-                      ${{ github.workspace }}/.next/cache
-                      # Generate a new cache whenever packages or source files change.
-                  restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+                  cache: 'pnpm'
             - name: Start SeaweedFS
+              run: ./bin/ci-seaweedfs
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: provision db
+              run: pnpm run db:migrate
+            - name: pnpm run test:unit
+              # Call vitest directly: `pnpm run test:unit -- --shard=…` forwards a leading
+              # `--` that vitest treats as the end-of-flags marker, so --shard/--maxWorkers
+              # would be parsed as positional filters (silently running the whole suite).
+              # Reporter is chosen by vitest.config (github-actions on CI). --shard splits
+              # the test FILES across the matrix runners; --maxWorkers uses all vCPUs.
+              run: pnpm exec vitest run --shard="${{ matrix.shard }}/3" --maxWorkers="$VITEST_MAX_WORKERS"
+            - name: stage unit coverage
+              # vitest-monocart leaves raw V8 coverage in .cache (coverage-*.json); copy this
+              # shard's slice into a stable raw/ dir for the coverage job to merge. Never fail
+              # the unit job over coverage staging.
+              if: always()
               run: |
-                  docker run -d \
-                    --name seaweedfs \
-                    -p 8333:8333 \
-                    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-                    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-                    chrislusf/seaweedfs:latest \
-                    server -s3 -dir=/data
+                  mkdir -p test-results/unit/raw
+                  cp test-results/unit/.cache/coverage-*.json test-results/unit/raw/ 2>/dev/null || true
+                  echo "staged $(ls test-results/unit/raw 2>/dev/null | wc -l) unit coverage files"
+            - name: upload unit coverage
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: coverage-unit-${{ matrix.shard }}
+                  path: test-results/unit/raw
+                  retention-days: 1
+                  if-no-files-found: ignore
 
-                  for i in $(seq 1 30); do
-                    status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ 2>/dev/null || true)
-                    if [ "$status" = "200" ] || [ "$status" = "403" ]; then
-                      echo "SeaweedFS S3 ready (HTTP $status after ${i}s)"
-                      break
-                    fi
-                    if [ "$i" = "30" ]; then
-                      echo "SeaweedFS failed to start within 30s"
-                      docker logs seaweedfs
-                      exit 1
-                    fi
-                    sleep 1
-                  done
+    # E2E tests in their own job, parallel with `unit`. Needs Postgres + S3 + the prebuilt
+    # app server (faked Clerk) + Playwright chromium. Emits raw coverage for `coverage`.
+    e2e:
+        timeout-minutes: 20
+        runs-on: ubuntu-latest
+        # SECURITY (OTTER-545): runs PR-controlled code; keep permissions minimal.
+        permissions: {}
+        services:
+            db:
+                image: postgres:15
+                ports:
+                    - 5432:5432
+                env:
+                    POSTGRES_USER: si
+                    POSTGRES_DB: si_test
+                    POSTGRES_PASSWORD: si
+                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        env:
+            DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
+            SIMULATE_CODE_BUILD: 't'
+            # E2E runs against the in-app Clerk fake (src/lib/clerk-fake), so NO real Clerk
+            # secrets are needed. E2E_FAKE_CLERK aliases @clerk/nextjs[/server] to the fake
+            # at build time; SINGLE_USER_EDITING renders the standalone editor (no
+            # hocuspocus/editor-service). A dummy publishable key satisfies the guard.
+            E2E_FAKE_CLERK: '1'
+            SINGLE_USER_EDITING: 't'
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
+            NEXT_PUBLIC_CI: 'true'
+            S3_ENDPOINT: 'http://127.0.0.1:8333'
+            S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
+            AWS_ACCESS_KEY_ID: 'si-local-s3'
+            AWS_SECRET_ACCESS_KEY: 'si-local-s3'
+            BUCKET_NAME: 'mgmt-app-local'
+            AWS_REGION: 'us-east-1'
+            PORT: '4100'
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+            # Next build cache — keyed on lockfile + source so an unchanged tree restores
+            # the previous .next/cache and skips most of the build.
+            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              with: # https://nextjs.org/docs/pages/guides/ci-build-caching
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  path: ${{ github.workspace }}/.next/cache
+                  restore-keys: |
+                      ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            # Cache the Playwright browser binaries so they aren't re-downloaded every run.
+            # Keyed on the installed Playwright version (from the lockfile).
+            - name: Resolve Playwright version
+              id: pw
+              run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
+            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              id: pw-cache
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+            - name: Start SeaweedFS
+              run: ./bin/ci-seaweedfs
             - name: Create S3 bucket
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
-            - name: npm install
-              run: npm ci
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
             - name: provision db
-              run: npm run db:migrate
-            - name: npm run test:unit
-              run: npm run test:unit -- --reporter=verbose
+              run: pnpm run db:migrate
             - name: build and run server
-              run: npm run ci:server -- server_output.log
+              run: pnpm run ci:server -- server_output.log
             - name: install playwright dependencies
-              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
-              run: npx playwright install --with-deps --only-shell chromium
-            - name: npm run test:e2e
-              run: npm run test:e2e
-            - name: npm run test:coverage
-              run: npm run test:coverage
-            - name: Add code coverage to actions summary
-              run: |
-                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
-                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
-            - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@v5.0.1
+              if: steps.pw-cache.outputs.cache-hit != 'true'
+              run: pnpm exec playwright install --with-deps --only-shell chromium
+            - name: pnpm exec playwright install-deps (cached browser)
+              if: steps.pw-cache.outputs.cache-hit == 'true'
+              run: pnpm exec playwright install-deps chromium
+            - name: pnpm run test:e2e
+              run: pnpm run test:e2e
+            - name: upload e2e coverage
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
-                  github-token: ${{ secrets.GITHUB_TOKEN }}
-                  base-summary-filename: base-summary.json
-                  coverage-filename: test-results/coverage/coverage-summary.json
-                  allowed-to-fail: true
+                  name: coverage-e2e
+                  path: test-results/e2e/coverage/raw
+                  retention-days: 1
+                  if-no-files-found: ignore
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
-            - name: Display SeaweedFS log
-              run: docker logs seaweedfs 2>&1 || true
-              if: failure()
-            - name: Delete any test users created
-              run: npx tsx ./bin/delete-clerk-test-users.ts
-              if: always()
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: failure()
               with:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
+
+    # Merge unit + e2e coverage and post the PR delta. Fast: no app code runs, just the
+    # monocart merge over the two raw-coverage artifacts.
+    coverage:
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        needs: [unit, e2e]
+        # pull-requests: write — coverage-diff-action posts the delta comment.
+        permissions:
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            # Tolerate a missing artifact (a job may not have emitted coverage) — the merge
+            # uses whatever is present rather than failing the report.
+            - name: download unit coverage (all shards)
+              continue-on-error: true
+              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              with:
+                  pattern: coverage-unit-*
+                  merge-multiple: true
+                  path: test-results/unit/raw
+            - name: download e2e coverage
+              continue-on-error: true
+              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              with:
+                  name: coverage-e2e
+                  path: test-results/e2e/coverage/raw
+            - name: pnpm run test:coverage
+              run: pnpm run test:coverage
+            - name: Add code coverage to actions summary
+              run: |
+                  cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+                  cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            - name: Coverage Diff
+              # PR-only; on the default branch the action needs contents:write to push the
+              # baseline to the wiki, which we withhold (OTTER-545), so it 403s — skip it.
+              if: github.event_name == 'pull_request'
+              uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
+                  coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
+                  badge-enabled: false

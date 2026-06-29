@@ -3,6 +3,9 @@ import { urlForFile } from '@/server/storage'
 import { getStudyJobFileOfType, getInfoForStudyJobId } from '@/server/db/queries'
 import { canViewStudyJob } from '@/server/auth'
 
+// LEGACY ONLY: serves the plaintext APPROVED-RESULT copy from before results were encrypted for
+// researchers. New jobs don't create APPROVED-RESULT rows, so only pre-encryption studies reach
+// this. Delete with pathForStudyJobResults + leftover plaintext S3 objects once legacy ages out.
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
     const { jobId, fileName } = await params
 

@@ -3,7 +3,7 @@
 import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
-import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
+import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
@@ -48,6 +48,8 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .selectFrom('org')
             .leftJoin('study', 'study.orgId', 'org.id')
             .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
+            .leftJoin('orgCodeEnv', 'orgCodeEnv.orgId', 'org.id')
+            .leftJoin('orgDataSource', 'orgDataSource.orgId', 'org.id')
             .select([
                 'org.id',
                 'org.name',
@@ -57,6 +59,8 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
                 'org.settings',
                 (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
                 (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
+                (eb) => eb.fn.count('orgCodeEnv.id').distinct().as('totalCodeEnvs'),
+                (eb) => eb.fn.count('orgDataSource.id').distinct().as('totalDataSources'),
             ])
             .groupBy(['org.id'])
             .execute()
@@ -97,7 +101,7 @@ type LanguageOption = {
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
-    .params(z.object({ orgSlug: z.string() }))
+    .params(z.object({ orgSlug: z.string().min(1) }))
     .handler(async ({ db, params: { orgSlug } }) => {
         const { languageLabels } = await import('@/lib/languages')
         const { signedUrlForFile } = await import('@/server/aws')
@@ -188,12 +192,6 @@ export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .requireAbilityTo('view', 'Org')
     .handler(async ({ org }) => org)
 
-// TODO: move this to a more appropriate place, likely a reviewers.actions.ts file
-// also all we really need is if they have a public key, so we can just return a boolean
-export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
-    .requireAbilityTo('view', 'ReviewerKey')
-    .handler(async ({ session }) => getReviewerPublicKeyByUserId(session.user.id))
-
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
 export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
@@ -201,7 +199,7 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
         z.object({
             orgSlug: z.string(),
             name: z.string().trim().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-            description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
+            description: z.string().max(250, 'Description cannot exceed 250 characters').nullable().optional(),
         }),
     )
     .middleware(orgIdFromSlug)

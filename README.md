@@ -53,12 +53,13 @@ For developing locally without docker compose, you will need to:
 3. Install dependencies:
 
     ```bash
-    npm install
+    corepack enable
+    pnpm install
     ```
 
 4. Run the development server:
     ```bash
-    npm run dev
+    pnpm run dev
     ```
 
 ## Roles and screens
@@ -95,13 +96,13 @@ To develop locally, you'll need to create your own SI Staff admin account:
 2. Run the admin user creation script:
 
     ```bash
-    npm run create-admin-user
+    pnpm run create-admin-user
     ```
 
     Or if using Docker (with `docker compose up` running):
 
     ```bash
-    docker compose exec mgmnt-app npm run create-admin-user
+    docker compose exec mgmnt-app pnpm run create-admin-user
     ```
 
 3. Follow the interactive prompts to enter your email, password, and name
@@ -121,9 +122,9 @@ To develop locally, you'll need to create your own SI Staff admin account:
 
 ### Database Management 🗄️
 
-- `npx kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
-- `npm run db:migrate` - Run database migrations
-- `npx kysely migrate:down -1` - Rollback the last applied migration
+- `pnpm exec kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
+- `pnpm run db:migrate` - Run database migrations
+- `pnpm exec kysely migrate:down -1` - Rollback the last applied migration
 
 ### Database Visualization with DBGate 📊
 
@@ -144,26 +145,77 @@ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:409
 openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
 
+## Component Explorer (Ladle) 🧩
+
+We use [Ladle](https://ladle.dev) to develop and preview UI in isolation — design-system primitives, page
+layouts, modals, and auth/MFA flows — without running the full app, a session, or a database. Stories live
+next to their components as `*.stories.tsx`; the Ladle config and the Vite shims that let app components
+render outside Next.js live under [`.ladle/`](.ladle/).
+
+### Develop
+
+```bash
+pnpm ladle        # starts the explorer (default http://localhost:61000) with hot reload
+```
+
+### Build a shareable, offline copy
+
+To hand someone a self-contained copy they can open with no server and no install:
+
+```bash
+pnpm ladle:build:standalone   # → .ladle/dist-standalone/index.html
+```
+
+This produces a single (~2 MB) `index.html` with all JS/CSS inlined and no code-split chunks, so it opens
+from a plain `file://` double-click. A normal Ladle build can't do this — it emits ES-module scripts and
+lazy-loaded chunks that browsers block over `file://`. Zip it to share:
+
+```bash
+( cd .ladle/dist-standalone && zip -r ../dist-standalone.zip index.html favicon-*.svg touch-icon-*.png manifest-*.webmanifest )
+# → .ladle/dist-standalone.zip — recipient unzips and double-clicks index.html
+```
+
+The brand font (Open Sans) still loads from Google Fonts, so fully offline it falls back to a system
+sans-serif; everything else is embedded.
+
+### Build for static hosting
+
+```bash
+pnpm ladle:build   # → .ladle/dist/ (code-split; serve over HTTP, e.g. `pnpm dlx serve .ladle/dist`)
+```
+
+### Published to GitHub Pages
+
+Every push to `main` builds the explorer and publishes it via the
+[`Ladle Pages`](.github/workflows/ladle-pages.yml) workflow — browse it at
+`https://safeinsights.github.io/management-app/`. The build runs
+`ladle:build:pages`, which passes the Pages base path through `--base` so assets
+resolve under the project subpath. Publishing happens only from `main` so the
+Pages deploy credentials are never exposed to PR-controlled code (see OTTER-545).
+
+One-time setup (maintainer, in repo **Settings → Pages**): set **Source** to
+**GitHub Actions**. After that the workflow deploys on its own.
+
 ## Testing
 
 ### Unit Testing
 
 ```bash
-npm run test:unit
+pnpm run test:unit
 ```
 
 ### E2E Testing with Playwright 🎭
 
 To run playwright tests locally, you'll need to install playwright:
 
-- `npm install`
-- `npx playwright install`
+- `pnpm install`
+- `pnpm exec playwright install`
 
-And then run playwright: `npx playwright test --ui` to view status, or run `npx playwright test --headed` to interact with browser as it runs.
+And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
 
-If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `npx playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
+If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
-If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
+If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
 
 ### trivy vulnerability scanner
 
@@ -190,10 +242,10 @@ The new way to deploy is from the IaC repo, run:
 There are a few CLI applications to debug the API end endpoints:
 
 ```bash
-npx tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
-npx tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
-npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -r <path to file to upload as results> -l <path of file to upload as logs>
-npx tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
+pnpm exec tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
+pnpm exec tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
+pnpm exec tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -r <path to file to upload as results> -l <path of file to upload as logs>
+pnpm exec tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
 ```
 
 The scripts will use default values tailored for local development:
@@ -204,9 +256,9 @@ The scripts will use default values tailored for local development:
 
 Examples:
 
-- view runnable jobs details (useful for obtaining job uuids): `npx tsx bin/debug/fetch-runnable.ts`
-- set a job as running: `npx tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
-- upload results: `npx tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
+- view runnable jobs details (useful for obtaining job uuids): `pnpm exec tsx bin/debug/fetch-runnable.ts`
+- set a job as running: `pnpm exec tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
+- upload results: `pnpm exec tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
 
 **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
@@ -218,3 +270,7 @@ Examples:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 - [How to package and deploy a Lambda function as a container image](https://dev.to/aws-builders/how-to-package-and-deploy-a-lambda-function-as-a-container-image-3d1a)
 - [Tutorial: Create a serverless Hello World application](https://docs.aws.amazon.com/cdk/v2/guide/serverless_example.html)
+
+## License
+
+This application is released under the [GNU Affero General Public License v3.0](LICENSE). It bundles third-party components covered by separate licenses, including LGPL-3.0-or-later code (`libvips`, transitively via `sharp`). See [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) for the complete list, source-availability information, and notes on how to exercise LGPL rights against the distributed image.

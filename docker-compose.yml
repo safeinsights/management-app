@@ -74,10 +74,23 @@ services:
         build:
             context: .
             dockerfile: ./Dockerfile.editor-service
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
+            - CLERK_JWT_KEY=$CLERK_JWT_KEY
+            - CLERK_SECRET_KEY=$CLERK_SECRET_KEY
+            - CLERK_AUTHORIZED_PARTIES=$CLERK_AUTHORIZED_PARTIES
+        volumes:
+            - ./services/editor:/app/services/editor
+            - editor_node_modules:/app/services/editor/node_modules
+            - ./src/lib/collaboration-documents.ts:/app/src/lib/collaboration-documents.ts
+        command: ['node', '--watch', 'server.ts']
         networks:
             - mgmnt-app
         ports:
-            - 1234:1234
+            - 4001:4001
         restart: unless-stopped
     mgmnt-app:
         container_name: mgmnt-app
@@ -104,27 +117,29 @@ services:
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1
+            - CLAUDE_API_KEY=$CLAUDE_API_KEY
+            # Cap Turbopack's heap so next-server can't balloon past the Docker VM's
+            # memory and get OOM-killed mid-compile (kernel SIGKILL, not a container OOM).
+            - NODE_OPTIONS=--max-old-space-size=4096
         build:
             context: .
             dockerfile: ./Dockerfile.dev
         volumes:
             - ./:/app/
             - node_modules:/app/node_modules
-        restart: always
+            # Mask the host's .next so the container owns its own Turbopack cache.
+            # Sharing it over the ./ bind mount poisons the cache across host/container.
+            - /app/.next
+        restart: 'no'
         networks:
             - mgmnt-app
         ports:
             - 4000:4000
-        healthcheck:
-            test: ['CMD-SHELL', 'curl -sf http://localhost:4000/about']
-            interval: 30s
-            retries: 5
-            start_period: 45s
-            timeout: 30s
 networks:
     mgmnt-app:
 volumes:
     pgdata:
     node_modules:
+    editor_node_modules:
     dbgate-data:
     seaweedfs-data:

@@ -2,10 +2,10 @@
 
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
-import { AppModal } from '@/components/modal'
+import { AppModal } from '@/components/modals/app-modal'
 import { SuccessPanel } from '@/components/panel'
 import { useSession } from '@/hooks/session'
-import { Button, Flex, Radio, TextInput } from '@mantine/core'
+import { Button } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
@@ -13,6 +13,7 @@ import { type FC, useState } from 'react'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { PendingUsers } from './pending-invites'
+import { InviteFormView } from './invite-form-view'
 
 interface InviteFormProps {
     orgSlug: string
@@ -58,45 +59,19 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     })
 
     return (
-        <form
+        <InviteFormView
             onSubmit={studyProposalForm.onSubmit((values) =>
                 inviteUser({
                     ...values,
                     permission: values.permission as 'contributor' | 'admin',
                 }),
             )}
-        >
-            <TextInput
-                label="Invite by email"
-                placeholder="Enter email address"
-                type="email"
-                mb="md"
-                size="md"
-                {...studyProposalForm.getInputProps('email')}
-                error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
-            />
-
-            <Flex mb="sm" fw="semibold">
-                <Radio.Group
-                    label="Assign Permissions"
-                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
-                    name="permission"
-                    {...studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
-                >
-                    <Flex gap="md" mt="xs" direction="column">
-                        <Radio
-                            value="contributor"
-                            label="Contributor (full access within their role; no admin privileges)"
-                        />
-                        <Radio value="admin" label="Administrator (manages org-level settings and contributors)" />
-                    </Flex>
-                </Radio.Group>
-            </Flex>
-
-            <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid() || !isLoaded}>
-                Send invitation
-            </Button>
-        </form>
+            emailProps={studyProposalForm.getInputProps('email')}
+            emailError={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
+            permissionProps={studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
+            isSubmitting={isInviting}
+            isSubmitDisabled={!studyProposalForm.isValid() || !isLoaded}
+        />
     )
 }
 

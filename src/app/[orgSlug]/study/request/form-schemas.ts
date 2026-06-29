@@ -42,7 +42,7 @@ export const studyProposalFormSchema = z
             .string()
             .min(1, { message: 'Title is required' })
             .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-        piName: z.string().max(100, { message: 'Word limit is 100 characters' }).trim(),
+        piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
         description: z.string().optional(),
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
@@ -147,7 +147,12 @@ export const step2ProposalApiSchema = z.object({
     additionalNotes: z.string(),
 })
 
-export const draftStudyApiSchema = studyProposalApiSchema.extend(step2ProposalApiSchema.shape).partial()
+// Drafts allow `title: null` so a researcher can save without filling it in;
+// the DB enforces non-null only when status leaves DRAFT.
+export const draftStudyApiSchema = studyProposalApiSchema
+    .extend(step2ProposalApiSchema.shape)
+    .partial()
+    .extend({ title: z.string().nullable().optional() })
 
 export const step1ReadinessSchema = z.object({
     orgSlug: z.string().min(1),

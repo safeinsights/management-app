@@ -5,6 +5,8 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { onSaveDraftStudyAction } from '@/server/actions/study-request'
+import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -12,6 +14,7 @@ import { faker } from '@faker-js/faker'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
@@ -23,7 +26,7 @@ import os from 'os'
 import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 
-import { ReactElement } from 'react'
+import { ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -41,7 +44,7 @@ export const mockPathname = (path: string) => {
 export { db } from '@/database'
 export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
-export { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
@@ -56,14 +59,54 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-export const createTestQueryClient = () =>
-    new QueryClient({
+// Every QueryClient minted for a test is tracked here and torn down in the global afterEach
+// (see resetTestQueryClients). Without this, a still-live client's scheduled work — most importantly
+// useWorkspaceFiles' refetchInterval timer — outlives its test and fires during the next one, reading
+// the process-global CODER_FILES (reassigned/deleted per test) and flipping a component's state. That
+// surfaced as "intermittent" study-code submit-button failures only under full-suite timing.
+const liveTestQueryClients = new Set<QueryClient>()
+
+// Background refetches (window-focus, mount, reconnect) are also disabled so queries only run when a
+// test explicitly invalidates them — interval polling is stopped by the teardown above.
+export const createTestQueryClient = () => {
+    const client = new QueryClient({
         defaultOptions: {
             queries: {
+                retry: false,
+                refetchOnMount: false,
+                refetchOnWindowFocus: false,
+                refetchOnReconnect: false,
+            },
+            mutations: {
                 retry: false,
             },
         },
     })
+    liveTestQueryClients.add(client)
+    return client
+}
+
+// Called from the global afterEach (tests/vitest.setup.ts) after RTL cleanup() has unmounted the
+// React trees: clear every test client so no cached data or in-flight refetch crosses into the next
+// test. Observers (and their interval timers) are already gone via cleanup().
+export const resetTestQueryClients = () => {
+    for (const client of liveTestQueryClients) {
+        client.clear()
+    }
+    liveTestQueryClients.clear()
+}
+
+// `renderHook(..., { wrapper: createTestQueryWrapper() })` for hooks that depend on
+// useMutation / useQuery. Each call gets a fresh QueryClient so cached state cannot
+// leak between tests.
+export const createTestQueryWrapper = () => {
+    const client = createTestQueryClient()
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    Wrapper.displayName = 'QueryClientWrapper'
+    return Wrapper
+}
 
 export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
     const testQueryClient = createTestQueryClient()
@@ -72,7 +115,9 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
                 <SpyModeProvider>
-                    <ModalsProvider>{ui}</ModalsProvider>
+                    <YjsWebsocketProvider>
+                        <ModalsProvider>{ui}</ModalsProvider>
+                    </YjsWebsocketProvider>
                 </SpyModeProvider>
             </MantineProvider>
         </QueryClientProvider>,
@@ -266,6 +311,7 @@ export const insertTestStudyJobData = async ({
             researcherId: researcherId,
             piName: piName ?? 'test',
             status: studyStatus,
+            submittedAt: studyStatus === 'DRAFT' ? null : new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
@@ -308,6 +354,19 @@ export const insertTestStudyJobData = async ({
     }
 }
 
+// A baseline job is the file-less INITIATED row minted when a workspace is opened (IDE launch /
+// file upload) before any code is submitted. Pass `createdAt` to place it relative to an existing
+// submission when a test needs the baseline to be newer or older than the reviewed job.
+export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
+    const job = await db
+        .insertInto('studyJob')
+        .values(createdAt ? { studyId, createdAt } : { studyId })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
+    return job
+}
+
 export const insertTestStudyOnly = async ({
     org,
     researcherId,
@@ -332,6 +391,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status: 'APPROVED',
+            submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
@@ -354,12 +414,6 @@ export const insertTestStudyJobUsers = async ({
     const { study, job, ...rest } = await insertTestStudyJobData({ org, researcherId: user1.id })
 
     return { study, job, user1, user2, ...rest }
-}
-
-export async function createTempDir() {
-    const ostmpdir = os.tmpdir()
-    const tmpdir = path.join(ostmpdir, 'unit-test-')
-    return await fs.promises.mkdtemp(tmpdir)
 }
 
 export type InsertTestOrgOptions = {
@@ -420,6 +474,10 @@ type MockSession = {
     orgType?: 'enclave' | 'lab'
     isSiAdmin?: boolean
     twoFactorEnabled?: boolean
+    // Additional org memberships beyond the primary `orgSlug`, e.g. to mock a dual-role
+    // user who belongs to both a lab and an enclave. Ids must match real DB org ids when
+    // the mocked session drives server actions that query by org id.
+    extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -460,6 +518,15 @@ export const mockClerkSession = (values: MockSession | null) => {
             slug: CLERK_ADMIN_ORG_SLUG,
             type: 'enclave',
             isAdmin: true,
+        }
+    }
+
+    for (const extra of values.extraOrgs ?? []) {
+        orgs[extra.slug] = {
+            id: extra.id,
+            slug: extra.slug,
+            type: extra.type ?? 'enclave',
+            isAdmin: extra.isAdmin ?? false,
         }
     }
     // Flattened structure - no environment nesting
@@ -598,6 +665,76 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+type MockDualRoleSessionOptions = {
+    labSlug?: string
+    enclaveSlug?: string
+    twoFactorEnabled?: boolean
+}
+
+// Creates a real lab org + enclave org and a single user who is a member of BOTH (a
+// "dual-role" user: researcher via the lab, reviewer via the enclave). The Clerk mock's
+// publicMetadata carries both real org ids, so server actions resolve the same dual-role
+// session the real app would. Use for My dashboard Reviewer/Researcher toggle tests.
+export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessionOptions = {}) {
+    const labOrg = await insertTestOrg({ slug: options.labSlug ?? faker.string.alpha(10), type: 'lab' })
+    const enclaveOrg = await insertTestOrg({ slug: options.enclaveSlug ?? faker.string.alpha(10), type: 'enclave' })
+
+    const { user } = await insertTestUser({ org: { id: labOrg.id, slug: labOrg.slug, type: 'lab' } })
+    await findOrCreateOrgMembership({ userId: user.id, slug: enclaveOrg.slug, isAdmin: false })
+
+    const mocks = mockClerkSession({
+        userId: user.id,
+        clerkUserId: user.clerkId,
+        email: user.email ?? undefined,
+        orgSlug: labOrg.slug,
+        orgId: labOrg.id,
+        orgType: 'lab',
+        twoFactorEnabled: options.twoFactorEnabled,
+        extraOrgs: [{ slug: enclaveOrg.slug, id: enclaveOrg.id, type: 'enclave' }],
+    })
+
+    return { user, labOrg, enclaveOrg, ...mocks }
+}
+
+type CreateTestProposalDraftOptions = {
+    /** Unique enclave slug for this test. The lab counterpart is derived as `${enclaveSlug}-lab`. */
+    enclaveSlug: string
+    studyInfo?: {
+        title?: string
+        piName?: string
+        language?: Language
+    }
+}
+
+// Builds the canonical OTTER-497 fixture shape: enclave + lab + lab-member session +
+// DRAFT study where `submittedByOrgId` is the lab and `orgId` is the enclave. Use this
+// instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
+// the same org and do not match the production submitting-lab vs reviewing-enclave split.
+export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
+    const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
+    const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+    const session = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+    const draft = actionResult(
+        await onSaveDraftStudyAction({
+            orgSlug: enclave.slug,
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
+            submittingOrgSlug: lab.slug,
+        }),
+    )
+
+    return { enclave, lab, studyId: draft.studyId, user: session.user }
+}
+
+export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
+    db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
+
+// Generates a feedback string with `wordCount` whitespace-separated tokens. The
+// proposal-review action requires 1–500 words; default is 60, well above the
+// 1-word floor and far below the 500-word ceiling. Pass smaller / larger counts
+// to exercise the validation boundaries.
+export const buildFeedback = (wordCount = 60) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
+
 export const createWorkspaceDir = async (prefix: string) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
     process.env.CODER_FILES = root
@@ -657,12 +794,17 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
         .executeTakeFirstOrThrow()
 }
 
+type TestDataSourceUrl = {
+    url: string | null
+    description: string | null
+}
+
 export type InsertTestDataSourceOptions = {
     orgId: string
     codeEnvIds?: string[]
     name?: string
     description?: string | null
-    documentationUrl?: string | null
+    urls?: TestDataSourceUrl[]
 }
 
 export const insertTestDataSource = async (options: InsertTestDataSourceOptions) => {
@@ -672,7 +814,6 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             orgId: options.orgId,
             name: options.name || `Data Source ${faker.string.alphanumeric(6)}`,
             description: options.description ?? null,
-            documentationUrl: options.documentationUrl ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -685,7 +826,23 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
             .execute()
     }
 
-    return dataSource
+    const urls = options.urls
+    const createdUrls = []
+    if (urls?.length) {
+        const urlRows = urls.map((u) => ({
+            ...u,
+            orgDataSourceId: dataSource.id,
+        }))
+
+        const res = await db
+            .insertInto('orgDataSourceUrl')
+            .values(urlRows)
+            .returning(['id', 'url', 'description'])
+            .execute()
+        createdUrls.push(...res)
+    }
+
+    return { ...dataSource, urls: createdUrls }
 }
 
 // Re-export actionResult for backwards compatibility in tests
@@ -831,26 +988,16 @@ export const expectStudyJobRecords = async (
         .execute()
     expect(jobFiles).toEqual(expectedFiles)
 
+    // Assert the SET of statuses, not their order: CODE-SUBMITTED (submit action) and
+    // CODE-SCANNED (scan webhook) are written within the same operation and can share a
+    // created_at to the millisecond, so ORDER BY created_at returns them in arbitrary order.
+    // What matters is that all three transitions were recorded, not their micro-ordering.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status'])
         .where('studyJobId', '=', latestJob.id)
-        .orderBy('createdAt', 'asc')
         .execute()
-    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
-}
-
-// Pair this with a `vi.mock('@/components/spy-mode-context', ...)` in your test file
-// whose factory reads from `spyModeState`. Drive it from tests with setSpyMode()/resetSpyMode().
-// See legacy-proposal-review-view.test.tsx for an example of the vi.mock factory wiring.
-export const spyModeState = { isSpyMode: false }
-
-export const setSpyMode = (value: boolean) => {
-    spyModeState.isSpyMode = value
-}
-
-export const resetSpyMode = () => {
-    spyModeState.isSpyMode = false
+    expect(statuses.map((row) => row.status).sort()).toEqual(['CODE-SCANNED', 'CODE-SUBMITTED', 'INITIATED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
@@ -859,10 +1006,19 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     status: 'APPROVED',
     createdAt: new Date(),
     submittedAt: new Date(),
+    lastUpdatedAt: new Date(),
+    reviewerName: null,
     researcherId: 'researcher-1',
     reviewerId: null,
     createdBy: 'Researcher Name',
     jobStatusChanges: [],
+    researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     ...overrides,
 })
 

@@ -18,6 +18,10 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
+        // A stale session can leave orgSlug empty (new org missing from the
+        // user's JWT). Without this guard the query fires with '' and the org
+        // lookup throws "no result", 500-ing the whole request page.
+        enabled: !!selectedOrgSlug,
     })
 
     const orgName = data?.orgName ?? ''
@@ -29,7 +33,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     if (isSingleLanguage) {
         helperText = `At the present ${orgName} only supports ${languages[0].label}. Code files submitted in other languages will not be able to run.`
     } else {
-        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to setup the right environment for you.`
+        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to set up the right environment for you.`
     }
 
     useEffect(() => {

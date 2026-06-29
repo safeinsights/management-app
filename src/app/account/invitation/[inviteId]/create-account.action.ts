@@ -2,9 +2,11 @@
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
-import { getReviewerPublicKey } from '@/server/db/queries'
+import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
+import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { clerkClient } from '@clerk/nextjs/server'
+import { orgNeedsKey } from '@/lib/types'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
@@ -143,7 +145,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('claimedByUserId', 'is', null)
             .executeTakeFirst()
 
-        // The client-side RequireReviewerKey guard depends on Clerk's useUser() metadata,
+        // The client-side RequireUserKey guard depends on Clerk's useUser() metadata,
         // which may be stale right after this server-side update. We check here so callers
         // can redirect to the key generation page immediately.
         const org = await db
@@ -152,9 +154,9 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('org.id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
-        const needsReviewerKey = org.type === 'enclave' && !(await getReviewerPublicKey(siUser.id))
+        const needsUserKey = orgNeedsKey(org) && !(await getUserPublicKey(siUser.id))
 
-        return { ...siUser, needsReviewerKey }
+        return { ...siUser, needsUserKey }
     })
 
 export const onCreateAccountAction = new Action('onCreateAccountAction')
@@ -187,13 +189,26 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         } else {
             const createdByCIJobId = process.env.GITHUB_JOB
             const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
-            const clerkUser = await clerk.users.createUser({
-                firstName: form.firstName,
-                lastName: form.lastName,
-                emailAddress: [invite.email],
-                password: form.password,
-                privateMetadata,
-            })
+            let clerkUser
+            try {
+                clerkUser = await clerk.users.createUser({
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    emailAddress: [invite.email],
+                    password: form.password,
+                    privateMetadata,
+                })
+            } catch (error) {
+                // Clerk rejects weak/compromised passwords (and other invalid input) with a 422.
+                // Surface the human-readable reason inline instead of the opaque "Unprocessable
+                // Entity" toast. The signup form renders the `form` key as a dedicated alert and
+                // uses `code` to pick an appropriate title (e.g. "Compromised Password").
+                if (isClerkApiError(error)) {
+                    const { code, message } = extractClerkCodeAndMessage(error)
+                    throw new ActionFailure({ form: message, code })
+                }
+                throw error
+            }
             clerkId = clerkUser.id
 
             const primaryEmail = clerkUser.emailAddresses.find((e) => e.emailAddress === invite.email)

@@ -38,6 +38,12 @@ export function isLabOrg(org: { type: OrgType }): org is LabOrg {
     return org.type === 'lab'
 }
 
+// Members of these org types hold an encryption key: enclave reviewers decrypt to review, lab
+// researchers decrypt approved results. Members without a key are gated into key generation.
+export function orgNeedsKey(org: { type: OrgType }): boolean {
+    return isEnclaveOrg(org) || isLabOrg(org)
+}
+
 // Helper functions to get orgs from session
 export function getLabOrg(session: UserSession): Org | null {
     return Object.values(session.orgs).find(isLabOrg) || null
@@ -168,8 +174,8 @@ export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERROR
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 // inactivity timeout and warning threshold for user sessions
-export const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000 // 20 minutes
-export const WARNING_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
+export const INACTIVITY_TIMEOUT_MS = 8 * 60 * 60 * 1000 // 8 hours
+export const WARNING_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
 
 export enum AuthRole {
     Admin = 'admin',
@@ -195,21 +201,30 @@ const FILE_TYPES = [
     'ENCRYPTED-RESULT',
     'ENCRYPTED-SECURITY-SCAN-LOG',
     'MAIN-CODE',
+    'PACKAGING-ERROR-LOG',
+    'SECURITY-SCAN-LOG',
     'SUPPLEMENTAL-CODE',
 ] as const satisfies readonly FileType[]
 
 export const fileTypeSchema = z.enum(FILE_TYPES)
 
-export const jobFileSchema = z.object({
-    path: z.string(),
-    contents: z.instanceof(ArrayBuffer),
-    sourceId: z.string(),
-    fileType: fileTypeSchema,
+// A re-wrapped AES key for one researcher recipient of one approved file (a `study_job_file_recipient_key`
+// row; see src/server/results-sharing.ts for the model).
+export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
+export const sharedFileSchema = z.object({
+    studyJobFileId: z.string(), // the whole-zip study_job_file row
+    filePath: z.string(), // the inner file within the archive (one AES key per inner file)
+    keys: z.array(sharedFileKeySchema),
 })
+export type SharedFile = z.infer<typeof sharedFileSchema>
 
 export type JobFileInfo = FileEntry & {
-    sourceId: string
+    sourceId: string // the study_job_file row this decrypted file came from
     fileType: FileType
+    // Raw AES key recovered while decrypting, kept in-memory so the browser can re-wrap for
+    // researchers at approve time. SECURITY: unlocks the file body — must never be sent to the
+    // server or persisted. Only the client-side re-wrap flow (buildSharedFiles) reads it.
+    rawAesKey?: ArrayBuffer
 }
 
 export type JobFile = {

@@ -1,9 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { ErrorAlert } from '@/components/errors'
 import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
-import { ButtonLink } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
@@ -14,11 +12,8 @@ import {
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
 } from '@/server/actions/study.actions'
-import { Divider, Flex, Group, Paper, Stack, Table, TableTbody, Text, Title } from '@mantine/core'
-import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { TableHeader } from './columns'
-import { EmptyState } from './empty-state'
 import { StudyRow } from './study-row'
+import { StudiesTableView } from './studies-table-view'
 import {
     Audience,
     FINAL_STATUS,
@@ -89,6 +84,7 @@ export function StudiesTable({
         data: studies = [],
         refetch,
         isError,
+        error,
         isFetching,
         isRefetching,
         isLoading,
@@ -109,74 +105,38 @@ export function StudiesTable({
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    // Error state
-    if (isError) {
-        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
-    }
-
     // Apply client-side filtering for user scope
     const displayedStudies =
         scope === 'user' && userId
             ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
             : (studies as StudyRowType[])
 
-    // Empty state
-    if (!displayedStudies.length) {
-        return <EmptyState audience={audience} orgSlug={effectiveOrgSlug} showNewStudyButton={showNewStudyButton} />
-    }
-
     const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies)
 
-    const content = (
-        <Stack>
-            <Group justify="space-between" align="center">
-                {title && <Title order={3}>{title}</Title>}
-                <Flex justify="flex-end" align="center" gap="md">
-                    {headerActions}
-                    {showRefresher && (
-                        <Refresher
-                            isEnabled={shouldShowRefresher}
-                            refresh={refetch}
-                            isPending={isRefetching || isFetching}
-                        />
-                    )}
-                    {showNewStudyButton && (
-                        <ButtonLink
-                            leftSection={<PlusIcon />}
-                            data-testid="new-study"
-                            href={Routes.studyRequest({ orgSlug: effectiveOrgSlug })}
-                        >
-                            Propose New Study
-                        </ButtonLink>
-                    )}
-                </Flex>
-            </Group>
-            <Divider c="charcoal.1" />
-            {description && <Text mb="md">{description}</Text>}
-            <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
-                <TableHeader audience={audience} scope={scope} />
-                <TableTbody>
-                    {displayedStudies.map((study) => (
-                        <StudyRow
-                            key={study.id}
-                            study={study}
-                            audience={audience}
-                            scope={scope}
-                            orgSlug={effectiveOrgSlug}
-                        />
-                    ))}
-                </TableTbody>
-            </Table>
-        </Stack>
+    return (
+        <StudiesTableView
+            studies={displayedStudies}
+            audience={audience}
+            scope={scope}
+            title={title}
+            description={description}
+            newStudyHref={showNewStudyButton ? Routes.studyRequest({ orgSlug: effectiveOrgSlug }) : undefined}
+            headerActions={headerActions}
+            refresher={
+                showRefresher ? (
+                    <Refresher
+                        isEnabled={shouldShowRefresher}
+                        refresh={refetch}
+                        isPending={isRefetching || isFetching}
+                    />
+                ) : undefined
+            }
+            isError={isError}
+            errorMessage={errorToString(error)}
+            paperWrapper={paperWrapper}
+            renderRow={(study) => (
+                <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={effectiveOrgSlug} />
+            )}
+        />
     )
-
-    if (paperWrapper) {
-        return (
-            <Paper shadow="xs" p="xxl">
-                {content}
-            </Paper>
-        )
-    }
-
-    return content
 }

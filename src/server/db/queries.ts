@@ -7,7 +7,9 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -61,7 +63,9 @@ export async function getStudyJobInfo(studyJobId: string) {
         .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 }
 
-export const getReviewerPublicKey = async (userId: string) => {
+export const getUserPublicKey = async (userId: string) => {
+    // executeTakeFirst is deterministic here: user_public_key has a unique constraint on user_id
+    // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
@@ -69,16 +73,6 @@ export const getReviewerPublicKey = async (userId: string) => {
         .executeTakeFirst()
 
     return result
-}
-
-export const getReviewerPublicKeyByUserId = async (userId: string) => {
-    const result = await Action.db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.publicKey'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.publicKey
 }
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
@@ -101,13 +95,31 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'createdAt'])
+                    .select(['id', 'name', 'path', 'fileType', 'createdAt'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
         .limit(1)
+}
+
+// The latest job that has reached a real submission (any status beyond the initial INITIATED).
+// A study opens a fresh job when work on a new round begins (IDE launch / file upload after a
+// closed round); until that round is submitted its job is INITIATED-only. Reviewer/researcher
+// routing that must anchor on the *submitted* code uses this, not the raw latest job, so an
+// in-progress new round doesn't mask the submission still under review or showing results.
+function latestSubmittedJobForStudyQuery(studyId: string) {
+    return latestJobForStudyQuery(studyId).where((eb) =>
+        eb.exists(
+            eb
+                .selectFrom('jobStatusChange')
+                .select('jobStatusChange.id')
+                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .where('jobStatusChange.status', '!=', 'INITIATED'),
+        ),
+    )
 }
 
 export const latestJobForStudy = async (studyId: string) => {
@@ -116,6 +128,33 @@ export const latestJobForStudy = async (studyId: string) => {
 
 export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
     return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
+    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+// Submission version = 1 + the number of times a NEW submission round was opened across the whole
+// study. A new round opens for one of two reasons, each recorded once in the status history:
+//   - CODE-CHANGES-REQUESTED — the reviewer asked for changes (same-job resubmit, OTTER-316).
+//   - FILES-APPROVED / FILES-REJECTED — a results decision that closes the round and opens a new job.
+// So: first submission = v1; each change-request + resubmit and each post-results resubmit bumps it.
+//
+// Counted across ALL jobs, NOT just the latest. A results decision opens a fresh job, so a per-job
+// count would reset the version to v1 on the next round — relabelling the resubmission as a first
+// submission and hiding prior rounds' feedback on the read-only screens (the feedback panel is gated
+// on version > 1). OTTER-556/558 require an ever-increasing version with prior feedback/notes kept
+// visible across rounds. Counting these round-opening events (not CODE-SUBMITTED) also keeps the
+// version immune to a duplicate CODE-SUBMITTED from a concurrent submit.
+export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0) + 1
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
@@ -132,6 +171,57 @@ export const jobInfoForJobId = async (jobId: string) => {
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
+}
+
+/**
+ * Current editable review round for a study.
+ *
+ * Reads `max(studyProposalComment.version)` for the study, mirroring how
+ * `nextVersionForStudyComment` (mutations.ts) writes: reviewer feedback
+ * inherits the latest version, RESUBMISSION-NOTE increments it. Using
+ * `max(version)` rather than ordering by createdAt is tie-immune (multiple
+ * reviewers submitting at the same millisecond share a version, and a
+ * resubmit's version is always strictly greater than every preceding row).
+ *
+ * Returns 1 when no comments exist yet (cold round 1 before any reviewer
+ * feedback or resubmission note has been written).
+ */
+export const currentReviewVersion = async (studyId: string): Promise<number> => {
+    const row = await Action.db
+        .selectFrom('studyProposalComment')
+        .select((eb) => eb.fn.max('version').as('version'))
+        .where('studyId', '=', studyId)
+        .executeTakeFirst()
+    return row?.version ?? 1
+}
+
+export const getProposalFeedbackForStudy = async (studyId: string) => {
+    const [study, entries] = await Promise.all([
+        Action.db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study')),
+        Action.db
+            .selectFrom('studyProposalComment')
+            .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
+            .select([
+                'studyProposalComment.id',
+                'studyProposalComment.authorId',
+                'studyProposalComment.authorRole',
+                'studyProposalComment.entryType',
+                'studyProposalComment.decision',
+                'studyProposalComment.body',
+                'studyProposalComment.createdAt',
+                'studyProposalComment.version',
+                'author.fullName as authorName',
+            ])
+            .where('studyProposalComment.studyId', '=', studyId)
+            .orderBy('studyProposalComment.createdAt', 'desc')
+            .execute(),
+    ])
+
+    return { study, entries }
 }
 
 export const studyInfoForStudyId = async (studyId: string) => {
@@ -152,8 +242,20 @@ export const studyInfoForStudyId = async (studyId: string) => {
 export const getDataSourcesForOrg = async (orgId: string) => {
     return Action.db
         .selectFrom('orgDataSource')
-        .select(['orgDataSource.id', 'orgDataSource.name'])
+        .select((eb) => [
+            'orgDataSource.id',
+            'orgDataSource.name',
+            'orgDataSource.description',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('orgDataSourceUrl')
+                    .select(['orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+                    .whereRef('orgDataSourceUrl.orgDataSourceId', '=', 'orgDataSource.id')
+                    .orderBy('orgDataSourceUrl.createdAt', 'asc'),
+            ).as('urls'),
+        ])
         .where('orgDataSource.orgId', '=', orgId)
+        .orderBy('orgDataSource.createdAt', 'asc')
         .execute()
 }
 
@@ -232,7 +334,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status', 'study.submittedByOrgId'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
@@ -291,14 +393,24 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .select([
             'orgCodeEnv.id',
             'orgCodeEnv.identifier',
+            'orgCodeEnv.language',
             'orgCodeEnv.dataSourceType',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
             'orgCodeEnv.starterCodeFileNames',
             'orgCodeEnv.sampleDataPath',
             'org.slug',
+            'study.orgId',
         ])
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
+}
+
+export async function fetchLatestCodeEnvForStudyIdOrNull(studyId: string) {
+    try {
+        return await fetchLatestCodeEnvForStudyId(studyId)
+    } catch {
+        return null
+    }
 }
 
 /**
@@ -341,4 +453,107 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         new Uint8Array(arrayBuffer).set(publicKey)
         return { publicKey: arrayBuffer, fingerprint }
     })
+}
+
+const labOrgIdForJob = async (jobId: string) =>
+    await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select('study.submittedByOrgId')
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow(throwNotFound(`job ${jobId}`))
+
+// Public keys of the lab org that submitted the study — the researchers a reviewer re-wraps for.
+export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await labOrgIdForJob(jobId)
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// Same lab keys, resolved from the study id — used by the client approve flow.
+export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
+    const { submittedByOrgId } = await Action.db
+        .selectFrom('study')
+        .select('submittedByOrgId')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound(`study ${studyId}`))
+    return getOrgPublicKeys(submittedByOrgId)
+}
+
+// IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
+// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
+// their key rows, so this never retroactively un-shares.
+export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
+    const rows = await Action.db
+        .selectFrom('studyJobFileRecipientKey')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select('studyJobFileRecipientKey.studyJobFileId')
+        .distinct()
+        .execute()
+
+    return rows.map((r) => r.studyJobFileId)
+}
+
+export type StudyReviewWithMeta = {
+    // null on a failure row (summaryFailedAt set) — generation produced no report.
+    report: AnalysisReport | null
+    createdAt: Date
+    summaryFailedAt: Date | null
+    files: { name: string; fileType: FileType }[]
+}
+
+export type JobScanStatus = 'PASSED' | 'FAILED' | 'IN-PROGRESS'
+
+export type JobScanResult = {
+    status: JobScanStatus
+    logFile: { id: string; name: string; path: string } | null
+}
+
+// Per @nathanstitt: there's no clear-cut success/failure signal in the tools, so
+// the first-pass heuristic is to read the scan log and check for 'OK'. If the
+// log row doesn't exist yet (or the file can't be read), treat as in-progress.
+export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
+    const logFile = await Action.db
+        .selectFrom('studyJobFile')
+        .select(['id', 'name', 'path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    if (!logFile) return { status: 'IN-PROGRESS', logFile: null }
+
+    try {
+        const blob = await fetchFileContents(logFile.path)
+        const contents = await blob.text()
+        return { status: contents.includes('OK') ? 'PASSED' : 'FAILED', logFile }
+    } catch {
+        return { status: 'IN-PROGRESS', logFile }
+    }
+}
+
+export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+    const row = await Action.db
+        .selectFrom('studyReview')
+        .select((eb) => [
+            eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
+            'createdAt',
+            'summaryFailedAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyReview.studyJobId')
+                    .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    .orderBy('fileType', 'desc')
+                    .orderBy('name', 'asc'),
+            ).as('files'),
+        ])
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row ?? null
 }

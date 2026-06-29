@@ -1,0 +1,25 @@
+licenses:
+    # libvips ships via @img/sharp-libvips-* and @img/sharp-* packages
+    # (transitive of `sharp`, an optionalDependency of Next.js) and is
+    # dynamically linked at runtime. LGPL-3.0 obligations are documented in
+    # THIRD_PARTY_LICENSES.md and satisfied in the distributed image by
+    # including the license texts at licenses/LGPL-3.0.txt and
+    # licenses/GPL-3.0.txt, and by preserving the recipient's ability to
+    # replace the shared-library binary at
+    # node_modules/@img/sharp-libvips-<platform>/lib/libvips-cpp.<v>.<ext>.
+    #
+    # Trivy reports each package's license as a single SPDX-expression
+    # string, so each unique expression containing LGPL-3.0-or-later needs
+    # its own rule. The Apache-2.0/MIT components of the compound entries
+    # are permissive and do not introduce additional obligations.
+    #
+    # NOTE: these suppressions are keyed by exact license-expression match.
+    # A NEW LGPL-3.0-or-later dependency, or a change to one of these
+    # expressions, will surface in CI — that is the intended review trigger.
+    # Audit the production license inventory whenever a non-trivial
+    # dependency change lands:
+    #
+    #     pnpm exec license-checker --production --summary
+    - id: LGPL-3.0-or-later
+    - id: Apache-2.0 AND LGPL-3.0-or-later
+    - id: Apache-2.0 AND LGPL-3.0-or-later AND MIT

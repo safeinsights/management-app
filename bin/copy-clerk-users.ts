@@ -40,7 +40,7 @@ Clerk User Copy Script
 Copies users from a source Clerk application to a target application.
 
 Usage:
-  npx tsx bin/copy-clerk-users.ts [options]
+  pnpm exec tsx bin/copy-clerk-users.ts [options]
 
 Options:
   -s, --source-key <key>      Source Clerk secret key (required)
@@ -51,7 +51,7 @@ Options:
   -h, --help                  Show this help message
 
 Example:
-  npx tsx bin/copy-clerk-users.ts \\
+  pnpm exec tsx bin/copy-clerk-users.ts \\
     --source-key sk_live_xxx \\
     --target-key sk_test_yyy \\
     --dry-run
@@ -167,14 +167,14 @@ async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, con
             const displayName = user.fullName || primaryEmail || user.id
 
             if (primaryEmail && existingEmails.has(primaryEmail.toLowerCase())) {
-                console.log(`  ⏭️  Skipped: ${displayName} (already exists)`)
+                console.log(`  ⏭  Skipped: ${displayName} (already exists)`)
                 result.skipped++
                 continue
             }
 
             // Skip test users (but allow protected seeded test accounts)
             if (isTestUser(user, protectedTestEmails)) {
-                console.log(`  ⏭️  Skipped: ${displayName} (test user)`)
+                console.log(`  ⏭  Skipped: ${displayName} (test user)`)
                 result.skipped++
                 continue
             }
@@ -228,7 +228,7 @@ async function main() {
     console.log('========================================')
 
     if (config.dryRun) {
-        console.log('\n⚠️  DRY RUN MODE - No changes will be made')
+        console.log('\n⚠  DRY RUN MODE - No changes will be made')
     }
 
     const sourceClerk = createClerkClient({ secretKey: config.sourceKey })
@@ -279,7 +279,7 @@ async function main() {
         console.log('\n✅ Dry run complete. No changes were made.')
     } else {
         console.log('\n✅ User copy complete!')
-        console.log('\n⚠️  Important: Copied users will need to:')
+        console.log('\n⚠  Important: Copied users will need to:')
         console.log('   1. Reset their password, OR')
         console.log('   2. Use passwordless auth (magic link, OAuth, etc.)')
     }

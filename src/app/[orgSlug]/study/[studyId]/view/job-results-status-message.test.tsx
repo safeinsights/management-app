@@ -30,6 +30,8 @@ describe('JobResultsStatusMessage', () => {
         })),
         createdAt: new Date(),
         files: [],
+        resubmissionNote: null,
+        resubmissionRound: null,
     })
 
     const createMockFiles = (fileTypes: FileType[]) => fileTypes.map((fileType) => ({ fileType }))

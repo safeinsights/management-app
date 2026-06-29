@@ -7,6 +7,7 @@ import {
     describe,
     expect,
     expectStudyJobRecords,
+    insertTestBaselineJob,
     insertTestStudyOnly,
     it,
     mockSessionWithTestData,
@@ -14,13 +15,16 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
 import { storeS3File } from '@/server/aws'
+import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { Route } from 'next'
 import { vi } from 'vitest'
+import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -28,6 +32,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
     }
 })
@@ -40,26 +45,28 @@ const setupStudy = async (orgSlug = 'openstax') => {
     return { study }
 }
 
-const createBaselineJob = async (studyId: string) => {
-    const createdAt = new Date(Date.now() - 1000)
-    const job = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
-    return job
-}
-
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(<CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />)
+    renderWithProviders(
+        <CodeUploadPage
+            orgSlug={orgSlug}
+            studyId={study.id}
+            studyTitle={study.title}
+            previousHref={'/test' as Route}
+        />,
+    )
     return { study }
+}
+
+const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 }
 
 describe('CodeUploadPage', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
+        memoryRouter.setCurrentUrl('/')
     })
 
     afterEach(async () => {
@@ -94,9 +101,11 @@ describe('CodeUploadPage', () => {
         })
     })
 
-    it('shows workspace files and allows submission', async () => {
+    // Submitting reuses the open round job, whose cleanup hits real S3
+    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    it.skipIf(!s3Available)('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -105,7 +114,12 @@ describe('CodeUploadPage', () => {
         })
 
         renderWithProviders(
-            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
         )
 
         await waitFor(() => {
@@ -121,6 +135,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
             const updated = await db
@@ -137,11 +152,52 @@ describe('CodeUploadPage', () => {
         ])
     })
 
+    it.skipIf(!s3Available)('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
+        const orgSlug = 'openstax'
+        const { study } = await setupStudy(orgSlug)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+        const root = await createWorkspaceDir('code-upload-page')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, {
+            'main.r': 'print("main")',
+        })
+
+        renderWithProviders(
+            <CodeUploadPage
+                orgSlug={orgSlug}
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
+        )
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
+
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select(['status'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('PENDING-REVIEW')
+        })
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
+        })
+    })
+
     it('shows error notification when IDE file upload to S3 fails', async () => {
         vi.mocked(storeS3File).mockRejectedValueOnce(new Error('S3 upload failed'))
 
         const { study } = await setupStudy()
-        await createBaselineJob(study.id)
+        await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, {
@@ -149,7 +205,12 @@ describe('CodeUploadPage', () => {
         })
 
         renderWithProviders(
-            <CodeUploadPage studyId={study.id} studyTitle={study.title} previousHref={'/test' as Route} />,
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                studyTitle={study.title}
+                previousHref={'/test' as Route}
+            />,
         )
 
         await waitFor(() => {
@@ -159,6 +220,7 @@ describe('CodeUploadPage', () => {
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await confirmStudyCodeSubmission(user)
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(

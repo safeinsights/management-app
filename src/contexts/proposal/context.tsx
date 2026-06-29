@@ -2,12 +2,15 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
+import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
 import {
     proposalFormSchema,
     initialProposalValues,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
 
@@ -18,6 +21,10 @@ interface ProposalContextValue {
     submitProposal: () => void
     isSaving: boolean
     isSubmitting: boolean
+    websocketProvider: HocuspocusProviderWebsocket | null
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
+    tabSessionId: string
 }
 
 const ProposalContext = createContext<ProposalContextValue | null>(null)
@@ -45,8 +52,10 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         validateInputOnChange: true,
     })
 
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
+
     const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
-    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form })
+    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 
     const value = useMemo(
         () => ({
@@ -56,8 +65,11 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             submitProposal,
             isSaving,
             isSubmitting,
+            websocketProvider,
+            yjsForm,
+            tabSessionId,
         }),
-        [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting],
+        [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting, websocketProvider, yjsForm, tabSessionId],
     )
 
     return <ProposalContext.Provider value={value}>{children}</ProposalContext.Provider>

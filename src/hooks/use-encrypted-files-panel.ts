@@ -1,15 +1,8 @@
 import { useQuery } from '@/common'
-import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
-import {
-    ENCRYPTED_TO_APPROVED,
-    isApprovedLogType,
-    isEncryptedLogType,
-    isResultFile,
-    logLabel,
-} from '@/lib/file-type-helpers'
-import { toSentence } from '@/lib/string'
+import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { isEncryptedArtifact, logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
-import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
@@ -19,6 +12,10 @@ import type { FileType } from '@/database/types'
 type Options = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
+    // Reviewers are manifest recipients and see every artifact (and a job-wide "shared with lab"
+    // indicator). Researchers see only artifacts they hold a wrapped key for, so row visibility and
+    // state are driven off their own decryptable set, not the job-wide one.
+    isReviewer: boolean
 }
 
 export type FileRowState = 'locked' | 'decrypted' | 'approved'
@@ -33,32 +30,18 @@ export type UnifiedFileRow = {
     file: JobFile | null
 }
 
-export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
+export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Options) {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
-    const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const [viewingFile, setViewingFile] = useState<JobFile | null>(null)
 
-    const encryptedFileTypes = (job.files ?? [])
-        .filter((f) => isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT')
-        .map((f) => f.fileType)
+    const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    const approvedFileTypes = useMemo(() => new Set((job.files ?? []).map((f) => f.fileType)), [job.files])
-
-    const hasPreviouslyApprovedFiles = (job.files ?? []).some(
-        (f) => isApprovedLogType(f.fileType) || f.fileType === 'APPROVED-RESULT',
-    )
-
-    const { data: previouslyApprovedFiles = [] } = useQuery({
-        queryKey: ['approved-files', job.id],
-        queryFn: () => fetchApprovedJobFilesAction({ studyJobId: job.id }),
-        enabled: hasPreviouslyApprovedFiles,
+    // Which artifacts are shared with researchers, derived from the re-wrapped key rows.
+    const { data: sharedFileIds = [] } = useQuery({
+        queryKey: ['shared-file-ids', job.id],
+        queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
+        enabled: isJobApproved,
     })
-
-    const hasUndecryptedFiles = encryptedFileTypes.some((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
-
-    const undecryptedFileTypes = encryptedFileTypes.filter((ft) => !approvedFileTypes.has(ENCRYPTED_TO_APPROVED[ft]))
-    const uniqueLabels = [...new Set(undecryptedFileTypes.map((ft) => logLabel(ft).toLowerCase()))]
-    const encryptedFileTypesLabel = toSentence(uniqueLabels)
 
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
         queryKey: ['encrypted-files', job.id],
@@ -78,28 +61,64 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         isPending: isDecrypting,
         form,
     } = useDecryptFiles({
-        encryptedFiles: encryptedFiles as EncryptedJobFile[] | undefined,
-        onSuccess: (files) => {
-            setDecryptedFiles(files)
-            setSelectedPaths(new Set(files.filter(isResultFile).map((f) => f.path)))
-        },
+        encryptedFiles,
+        onSuccess: (files) => setDecryptedFiles(files),
     })
 
+    // All-or-nothing: approving shares the whole decrypted package (results AND logs). Each
+    // artifact carries its own rawAesKey, so buildSharedFiles re-wraps each for the lab keys.
     useEffect(() => {
-        const approved = decryptedFiles.filter((f) => selectedPaths.has(f.path))
-        onFilesApproved(approved)
-    }, [selectedPaths]) // eslint-disable-line react-hooks/exhaustive-deps
+        onFilesApproved(decryptedFiles)
+    }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    const toggleFile = (path: string) => {
-        setSelectedPaths((prev) => {
-            const next = new Set(prev)
-            if (next.has(path)) next.delete(path)
-            else next.add(path)
-            return next
-        })
-    }
+    const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedArtifact(f.fileType)), [job.files])
 
-    const shouldShowForm = hasUndecryptedFiles && decryptedFiles.length === 0
+    // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
+    // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.
+    const accessibleIdSet = useMemo(
+        () => new Set((encryptedFiles ?? []).map((f) => f.studyJobFileId)),
+        [encryptedFiles],
+    )
+    const visibleRows = useMemo(
+        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessibleIdSet.has(f.id))),
+        [isReviewer, encryptedRows, accessibleIdSet],
+    )
+
+    // Gate the decrypt form on what THIS user can actually decrypt: a researcher with no wrapped
+    // keys (e.g. late joiner, pre-renewal) has nothing to decrypt, so don't show a form to nowhere.
+    const accessibleCount = isReviewer ? encryptedRows.length : (encryptedFiles?.length ?? 0)
+    const shouldShowForm = accessibleCount > 0 && decryptedFiles.length === 0
+
+    const sharedIdSet = useMemo(() => new Set(sharedFileIds), [sharedFileIds])
+
+    // Before decryption: one locked row per encrypted artifact (size unknown until decrypted).
+    // After: one row per inner file, all sharing the artifact's row id (sourceId) that "shared" is
+    // keyed on. The green "shared" state is a reviewer-facing signal (job-wide sharedFileIds = "I've
+    // shared this with the lab"); a researcher only ever sees rows they can already decrypt.
+    const fileRows: UnifiedFileRow[] = useMemo(() => {
+        if (decryptedFiles.length > 0) {
+            return decryptedFiles.map((f) => ({
+                key: `${f.sourceId}-${f.path}`,
+                label: logLabel(f.fileType),
+                name: f.path,
+                bytes: f.contents.byteLength,
+                fileType: f.fileType,
+                state: isReviewer && sharedIdSet.has(f.sourceId) ? 'approved' : 'decrypted',
+                file: f,
+            }))
+        }
+        return visibleRows.map((f) => ({
+            key: `${f.fileType}-${f.id}`,
+            label: logLabel(f.fileType),
+            name: f.name,
+            bytes: null,
+            fileType: f.fileType,
+            state: isReviewer && sharedIdSet.has(f.id) ? 'approved' : 'locked',
+            file: null,
+        }))
+    }, [visibleRows, decryptedFiles, sharedIdSet, isReviewer])
+
+    const hasFileRows = fileRows.length > 0
 
     const handleSubmit = form.onSubmit(
         (values) => decrypt(values.privateKey),
@@ -110,88 +129,11 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         },
     )
 
-    const approvedFilesByType = useMemo(() => {
-        const map = new Map<FileType, JobFile>()
-        for (const f of previouslyApprovedFiles) {
-            map.set(f.fileType, f)
-        }
-        return map
-    }, [previouslyApprovedFiles])
-
-    const decryptedFilesByType = useMemo(() => {
-        const map = new Map<FileType, JobFileInfo>()
-        for (const f of decryptedFiles) {
-            map.set(f.fileType, f)
-        }
-        return map
-    }, [decryptedFiles])
-
-    const metadataByFileType = useMemo(() => {
-        const map = new Map<FileType, { name: string; totalBytes: number }>()
-        for (const file of encryptedFiles ?? []) {
-            if (file.metadata.length === 0) continue
-            const totalBytes = file.metadata.reduce((sum, f) => sum + f.bytes, 0)
-            const name = file.metadata.length === 1 ? file.metadata[0].path : `${file.metadata.length} files`
-            map.set(file.fileType, { name, totalBytes })
-        }
-        return map
-    }, [encryptedFiles])
-
-    const fileRows: UnifiedFileRow[] = useMemo(() => {
-        const rows: UnifiedFileRow[] = []
-
-        for (const f of job.files ?? []) {
-            const isEncrypted = isEncryptedLogType(f.fileType) || f.fileType === 'ENCRYPTED-RESULT'
-            const isApproved = isApprovedLogType(f.fileType) || f.fileType === 'APPROVED-RESULT'
-
-            if (!isEncrypted && !isApproved) continue
-
-            const approvedType = isEncrypted ? ENCRYPTED_TO_APPROVED[f.fileType] : f.fileType
-
-            // skip if both encrypted and approved entries exist — we'll use the approved one
-            if (isEncrypted && approvedFileTypes.has(approvedType)) continue
-
-            const approvedFile = approvedFilesByType.get(approvedType)
-            const decryptedFile = decryptedFilesByType.get(approvedType)
-            const meta = metadataByFileType.get(f.fileType)
-
-            let state: FileRowState
-            let file: JobFile | null = null
-
-            if (approvedFile) {
-                state = 'approved'
-                file = approvedFile
-            } else if (decryptedFile) {
-                state = 'decrypted'
-                file = decryptedFile
-            } else {
-                state = 'locked'
-            }
-
-            rows.push({
-                key: `${f.fileType}-${f.name}`,
-                label: logLabel(f.fileType),
-                name: decryptedFile?.path ?? approvedFile?.path ?? meta?.name ?? f.name,
-                bytes: meta?.totalBytes ?? null,
-                fileType: f.fileType,
-                state,
-                file,
-            })
-        }
-
-        return rows
-    }, [job.files, approvedFileTypes, approvedFilesByType, decryptedFilesByType, metadataByFileType])
-
-    const hasFileRows = fileRows.length > 0
-
     return {
         fileRows,
         hasFileRows,
         isLoadingBlob,
         shouldShowForm,
-        encryptedFileTypesLabel,
-        selectedPaths,
-        toggleFile,
         isDecrypting,
         form,
         handleSubmit,

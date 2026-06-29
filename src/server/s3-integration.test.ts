@@ -1,5 +1,10 @@
 // Exercises S3 operations (checksums, presigned URLs, batch deletes) against
 // the SeaweedFS S3-compatible API. MinIO was previously used but removed (unmaintained).
+//
+// Locally: tests skip cleanly when SeaweedFS isn't reachable so devs without
+// `docker compose up seaweedfs` aren't blocked. On CI (CI env var set), the
+// probe instead throws — a missing service is a CI setup bug, not a
+// "skip and move on" condition. See tests/s3.helpers.ts.
 
 import { describe, it, expect, afterAll } from 'vitest'
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
@@ -14,6 +19,7 @@ import {
     signedUrlForFile,
     createSignedUploadUrl,
 } from './aws'
+import { s3Available } from '@/tests/s3.helpers'
 import { Readable } from 'stream'
 
 const TEST_PREFIX = `s3-integration-test-${Date.now()}/`
@@ -47,7 +53,7 @@ async function cleanupTestObjects(client: S3Client, bucket: string) {
     )
 }
 
-describe('S3 integration', () => {
+describe.skipIf(!s3Available)('S3 integration', () => {
     const client = getS3Client()
     const bucket = s3BucketName()
 

@@ -1,13 +1,39 @@
+import { useUser } from '@clerk/nextjs'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { mockStudyRow, renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyActionLink } from './study-action-link'
 
 const ORG_SLUG = 'test-org'
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
+const RESEARCHER_ID = 'researcher-1' // matches mockStudyRow default
+
+function mockSignedInAs(userId: string) {
+    vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
+        user: {
+            id: 'clerk-id',
+            publicMetadata: {
+                format: 'v3',
+                user: { id: userId },
+                teams: null,
+                orgs: {
+                    [ORG_SLUG]: { id: 'org-id', slug: ORG_SLUG, type: 'lab', isAdmin: false },
+                },
+            },
+            unsafeMetadata: { currentOrgSlug: ORG_SLUG },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+}
 
 describe('StudyActionLink', () => {
+    afterEach(() => {
+        vi.mocked(useUser).mockReset()
+    })
+
     describe('researcher audience', () => {
         it('links to edit page for DRAFT studies', () => {
             const study = mockStudyRow({ status: 'DRAFT' as StudyStatus })
@@ -26,7 +52,25 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/edit`)
         })
 
-        it('links to view page for PENDING-REVIEW studies without job activity', () => {
+        // OTTER-572: a DRAFT that already reached Step 2 (any Step 2 field set) reopens on the
+        // proposal editor (Step 2), not the Step 1 /edit picker.
+        it('links a Step 2 DRAFT to the proposal editor, not /edit', () => {
+            const study = mockStudyRow({ status: 'DRAFT' as StudyStatus, piUserId: 'pi-1' })
+            renderWithProviders(
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: /edit draft study/i })
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/proposal`)
+        })
+
+        it('links to submitted page for PENDING-REVIEW studies without job activity', () => {
             const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink
@@ -39,10 +83,10 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/submitted`)
         })
 
-        it('links to view page for CHANGE-REQUESTED studies without job activity', () => {
+        it('links to submitted page for CHANGE-REQUESTED studies without job activity', () => {
             const study = mockStudyRow({ status: 'CHANGE-REQUESTED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink
@@ -55,7 +99,7 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/submitted`)
         })
 
         it('links to view page for PENDING-REVIEW studies with job activity', () => {
@@ -77,7 +121,7 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/view`)
         })
 
-        it('links to agreements page for APPROVED studies with no job activity', () => {
+        it('links to submitted page for APPROVED studies with no job activity', () => {
             const study = mockStudyRow({ status: 'APPROVED' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(
                 <StudyActionLink
@@ -90,7 +134,7 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/agreements`)
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/submitted`)
         })
 
         it('links to code page for APPROVED studies with only baseline job', () => {
@@ -150,7 +194,70 @@ describe('StudyActionLink', () => {
             )
 
             const link = screen.getByRole('link', { name: /view details/i })
-            expect(link.getAttribute('href')).toBe(`/lab-org/study/${STUDY_ID}/view`)
+            expect(link.getAttribute('href')).toBe(`/lab-org/study/${STUDY_ID}/submitted`)
+        })
+
+        describe('delete bin icon visibility', () => {
+            beforeEach(() => {
+                mockSignedInAs(RESEARCHER_ID)
+            })
+
+            it('renders the bin icon to the right of Edit for DRAFT studies authored by the current user', async () => {
+                const study = mockStudyRow({ status: 'DRAFT' as StudyStatus, researcherId: RESEARCHER_ID })
+                renderWithProviders(
+                    <StudyActionLink
+                        study={study}
+                        audience="researcher"
+                        scope="user"
+                        orgSlug={ORG_SLUG}
+                        isHighlighted={false}
+                    />,
+                )
+
+                const editLink = await screen.findByRole('link', { name: /edit draft study/i })
+                const binButton = await screen.findByLabelText(/delete draft study/i)
+
+                expect(editLink).toBeInTheDocument()
+                expect(binButton).toBeInTheDocument()
+
+                // Bin must come AFTER the edit link in document order (i.e. to the right)
+                expect(editLink.compareDocumentPosition(binButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            })
+
+            it('does NOT render the bin icon for DRAFT studies authored by a different user', async () => {
+                const study = mockStudyRow({ status: 'DRAFT' as StudyStatus, researcherId: 'someone-else' })
+                renderWithProviders(
+                    <StudyActionLink
+                        study={study}
+                        audience="researcher"
+                        scope="user"
+                        orgSlug={ORG_SLUG}
+                        isHighlighted={false}
+                    />,
+                )
+
+                await screen.findByRole('link', { name: /edit draft study/i })
+                expect(screen.queryByLabelText(/delete draft study/i)).not.toBeInTheDocument()
+            })
+
+            it.each<StudyStatus>(['PENDING-REVIEW', 'CHANGE-REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED'])(
+                'does NOT render the bin icon when status is %s (even when current user is the researcher)',
+                async (status) => {
+                    const study = mockStudyRow({ status, researcherId: RESEARCHER_ID, jobStatusChanges: [] })
+                    renderWithProviders(
+                        <StudyActionLink
+                            study={study}
+                            audience="researcher"
+                            scope="user"
+                            orgSlug={ORG_SLUG}
+                            isHighlighted={false}
+                        />,
+                    )
+
+                    await screen.findByRole('link', { name: /view details/i })
+                    expect(screen.queryByLabelText(/delete draft study/i)).not.toBeInTheDocument()
+                },
+            )
         })
     })
 

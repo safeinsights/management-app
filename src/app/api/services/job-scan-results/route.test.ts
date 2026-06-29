@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
+import { s3Available } from '@/tests/s3.helpers'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -77,7 +78,10 @@ test('returns 404 for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-test('inserts CODE-SUBMITTED status', async () => {
+// CODE-SUBMITTED is owned by the submission action (markCodeSubmitted), not the scanner — the scan
+// trigger sends no ON_START_PAYLOAD. The webhook ignores any CODE-SUBMITTED so a stray scanner echo
+// can't corrupt the append-only submission log (each CODE-SUBMITTED is a real round).
+test('ignores CODE-SUBMITTED (the scanner does not own that status)', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -86,7 +90,7 @@ test('inserts CODE-SUBMITTED status', async () => {
     expect(resp.ok).toBe(true)
 
     const rows = await getJobStatusRows(jobId)
-    expect(rows.some((r) => r.status === 'CODE-SUBMITTED')).toBe(true)
+    expect(rows.some((r) => r.status === 'CODE-SUBMITTED')).toBe(false)
 })
 
 test('inserts CODE-SCANNED status', async () => {
@@ -113,7 +117,9 @@ test('inserts JOB-ERRORED status', async () => {
     expect(rows.some((r) => r.status === 'JOB-ERRORED')).toBe(true)
 })
 
-test('encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
+// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+test.skipIf(!s3Available)('stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -125,9 +131,10 @@ test('encrypts and stores plaintextLog on JOB-ERRORED', async () => {
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'PACKAGING-ERROR-LOG')).toBe(true)
 })
 
-test('encrypts and stores plaintextLog on CODE-SCANNED', async () => {
+test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -139,6 +146,29 @@ test('encrypts and stores plaintextLog on CODE-SCANNED', async () => {
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
+})
+
+// A stray CODE-SUBMITTED echo from an older scanner must never reach the status log — it would
+// corrupt the append-only submission count (here: turn a decided round back into "under review").
+test('ignores a CODE-SUBMITTED echo even after the round has been decided', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
+            { studyJobId: jobId, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
+        ])
+        .execute()
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    expect(resp.ok).toBe(true)
+
+    const rows = await getJobStatusRows(jobId)
+    expect(rows.filter((r) => r.status === 'CODE-SUBMITTED').length).toBe(1)
 })
 
 test('idempotency: duplicate same-status calls do not create duplicate rows', async () => {
@@ -146,17 +176,18 @@ test('idempotency: duplicate same-status calls do not create duplicate rows', as
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
     expect(resp1.ok).toBe(true)
 
     const rowsAfterFirst = await getJobStatusRows(jobId)
-    const countFirst = rowsAfterFirst.filter((r) => r.status === 'CODE-SUBMITTED').length
+    const countFirst = rowsAfterFirst.filter((r) => r.status === 'CODE-SCANNED').length
+    expect(countFirst).toBe(1)
 
-    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
+    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
     expect(resp2.ok).toBe(true)
 
     const rowsAfterSecond = await getJobStatusRows(jobId)
-    const countSecond = rowsAfterSecond.filter((r) => r.status === 'CODE-SUBMITTED').length
+    const countSecond = rowsAfterSecond.filter((r) => r.status === 'CODE-SCANNED').length
 
     expect(countSecond).toBe(countFirst)
 })

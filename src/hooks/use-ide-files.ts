@@ -56,6 +56,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: string } | null>(null)
+    // OTTER-558: tracks whether the user actually edited files THIS session (uploaded, deleted, or
+    // picked a main file). The resubmit footer keys its Cancel-vs-Save-and-exit toggle on this, NOT
+    // on `filesChanged` — the latter compares workspace mtimes to the last submission and is already
+    // true on initial load, which made "Cancel" never appear. `filesChanged` still drives submit-enable
+    // on the initial /code page.
+    const [userEditedFiles, setUserEditedFiles] = useState(false)
 
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
@@ -103,6 +109,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)
+        setUserEditedFiles(true)
     }, [])
 
     const invalidateFiles = useCallback(() => {
@@ -123,6 +130,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const removeFile = useCallback(
         (fileName: string) => {
             setMainFileOverride((prev) => (prev === fileName ? null : prev))
+            setUserEditedFiles(true)
             deleteMutation.mutate(fileName)
         },
         [deleteMutation],
@@ -160,6 +168,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const uploadFiles = useCallback(
         (filesToUpload: File[]) => {
+            setUserEditedFiles(true)
             uploadMutation.mutate(filesToUpload)
         },
         [uploadMutation],
@@ -238,6 +247,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         submitDisabledReason,
         submitDirectly,
         isDirectSubmitting: submitMutation.isPending,
+
+        filesChanged,
+        userEditedFiles,
 
         starterFiles: starterCodeInfo?.starterFiles ?? [],
     }

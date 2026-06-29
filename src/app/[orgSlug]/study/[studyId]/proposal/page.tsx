@@ -17,7 +17,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         return notFound()
     }
 
-    if (result.status !== 'DRAFT') {
+    if (result.status !== 'DRAFT' && result.status !== 'CHANGE-REQUESTED') {
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
@@ -30,7 +30,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
             <ProposalProvider
                 studyId={studyId}
                 draftData={{
-                    title: result.title,
+                    title: result.title ?? '',
                     piName: result.piName,
                     piUserId: result.piUserId ?? undefined,
                     datasets: result.datasets ?? undefined,

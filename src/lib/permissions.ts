@@ -1,4 +1,4 @@
-import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin, orgNeedsKey } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -49,13 +49,16 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any research orgs can create studies for ANY org
+    // users who belong to any research orgs can create studies for ANY org.
+    // create is unconditioned: a new draft has no submittedByOrgId yet — the
+    // submitting lab is chosen in the handler from the user's own orgs. update,
+    // delete, and job mutations are scoped to studies the user's lab submitted,
+    // so a lab member can't mutate another lab's study by guessing its id.
     if (usersResearcherOrgIds.length) {
         permit('create', 'Study')
-        permit('update', 'Study')
-        permit('delete', 'Study')
-        permit('create', 'StudyJob')
-        permit('delete', 'StudyJob')
+        permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
+        permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
+        permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('load', 'IDE')
     }
 
@@ -63,10 +66,10 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    // user who belongs to any enclave orgs can view/create/update their keys
-    if (usersReviewerOrgIds.length) {
-        permit('view', 'ReviewerKey')
-        permit('update', 'ReviewerKey')
+    // users who belong to any key-holding org (enclave or lab) can view/create/update their keys
+    if (orgs.some(orgNeedsKey)) {
+        permit('view', 'UserKey')
+        permit('update', 'UserKey')
     }
 
     // allow review of studies for enclave orgs that the user belongs to
@@ -80,18 +83,15 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
 
-    // SI admins can do anything
+    permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
+    permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
+
+    // SI admins can do anything. ('manage','all') is CASL's wildcard — it matches every action
+    // on every subject at runtime, including review/approve/reject for studies of orgs the SI
+    // admin is not a member of. Replaces the previous enumerated list, which omitted the review
+    // actions and left SI admins unable to review studies.
     if (isSiAdmin) {
-        permit('create', 'Org')
-        permit('update', 'User')
-        permit('view', 'User')
-        permit('invite', 'User')
-        permit('view', 'Study')
-        permit('view', 'StudyJob')
-        permit('update', 'Org')
-        permit('delete', 'Org')
-        permit('view', 'OrgStudies')
-        permit('view', 'OrgMembers')
+        permit('manage', 'all')
     }
 
     return build({
