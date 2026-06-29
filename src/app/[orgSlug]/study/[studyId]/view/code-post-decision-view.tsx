@@ -260,7 +260,7 @@ export function CodePostDecisionView({
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
 
-    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
+    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
