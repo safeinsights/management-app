@@ -773,6 +773,11 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         // keeps the same job, so uniqueness is scoped to (studyJobId, reviewKind, round) and each
         // round gets its own decision row (OTTER-638). The round-1 decision is written before its
         // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
+        // Load-bearing: codeSubmissionVersion counts CODE-CHANGES-REQUESTED/FILES-APPROVED/FILES-REJECTED
+        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not in
+        // CODE_RESUBMITTABLE_JOB_STATUSES) so no second decision can follow it. If reject ever becomes
+        // resubmittable, codeSubmissionVersion must count it too, or the round won't advance and the
+        // next decision would collide on the round-scoped unique constraint.
         const round = await codeSubmissionVersion(studyId, db)
 
         try {
@@ -878,17 +883,18 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
         // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
         // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
         // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
-        // resubmission note is the user recorded on the job's latest CODE-SUBMITTED. A same-job
-        // resubmit appends more than one CODE-SUBMITTED, so joining the rows directly would multiply
-        // the job into duplicate codeJobs rows (and duplicate note entries) — a lateral join to the
-        // single latest submission keeps each job to one row.
+        // resubmission note is the user recorded on the job's latest CODE-SUBMITTED (left-joined so
+        // the timestamp and author are independent: a null/deleted user does not lose the submission
+        // row). A same-job resubmit appends more than one CODE-SUBMITTED, so joining the rows directly
+        // would multiply the job into duplicate codeJobs rows (and duplicate note entries); a lateral
+        // join to the single latest submission keeps each job to one row.
         const codeJobs = await db
             .selectFrom('studyJob')
             .leftJoinLateral(
                 (eb) =>
                     eb
                         .selectFrom('jobStatusChange as cs')
-                        .innerJoin('user as submitter', 'submitter.id', 'cs.userId')
+                        .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
                         .select([
                             'cs.userId as authorId',
                             'submitter.fullName as authorName',
