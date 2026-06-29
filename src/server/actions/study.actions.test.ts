@@ -2373,6 +2373,40 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows.map((row) => row.entryType)).toEqual(['RESUBMISSION-NOTE', 'REVIEWER-FEEDBACK'])
         expect(rows.map((row) => row.version)).toEqual([1, 1])
     })
+
+    it('positions a resubmission note by the latest CODE-SUBMITTED timestamp even with a null userId', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const jobCreatedAt = new Date('2026-01-01T00:00:00Z')
+        const submittedAt = new Date('2026-02-15T00:00:00Z')
+
+        await db.updateTable('studyJob').set({ createdAt: jobCreatedAt }).where('id', '=', job.id).execute()
+
+        await db
+            .deleteFrom('jobStatusChange')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-SUBMITTED')
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt, userId: null })
+            .execute()
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: { root: { type: 'root', children: [{ text: 'note text' }] } } })
+            .where('id', '=', job.id)
+            .execute()
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        const note = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
+        expect(note).toBeTruthy()
+        expect(new Date(note!.createdAt).toISOString()).toBe(submittedAt.toISOString())
+    })
 })
 
 function validCriteriaFixture() {
