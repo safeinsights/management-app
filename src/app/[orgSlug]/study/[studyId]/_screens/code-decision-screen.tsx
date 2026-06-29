@@ -22,7 +22,8 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
     // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
     // is researcher-only and calling the role-named helper with no role guard is safe.
-    const hideStudyCode = state.isExecuting || isErroredResultHiddenFromResearcher(state)
+    const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
+    const hideStudyCode = state.isExecuting || hiddenErroredResult
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
@@ -32,7 +33,10 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
 
     // OTTER-614: once results exist, the code page forwards to Step 5 (plain /view resolves to the
     // results screen) instead of ending at the dashboard.
-    const resultsHref = state.hasResults ? Routes.studyView({ orgSlug, studyId: study.id, returnTo }) : undefined
+    const resultsHref =
+        state.hasResults && !hiddenErroredResult
+            ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
+            : undefined
 
     return (
         <CodePostDecisionView

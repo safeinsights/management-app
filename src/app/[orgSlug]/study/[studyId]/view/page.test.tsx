@@ -337,6 +337,7 @@ describe('StudyViewPage', () => {
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             expect(page?.props.showStudyCode).toBe(false)
+            expect(page?.props.resultsHref).toBeUndefined()
         })
 
         it('hides the code listing when a packaging error (JOB-ERRORED, no JOB-RUNNING) is hidden from the researcher (OTTER-598)', async () => {
@@ -361,6 +362,7 @@ describe('StudyViewPage', () => {
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             expect(page?.props.showStudyCode).toBe(false)
+            expect(page?.props.resultsHref).toBeUndefined()
         })
 
         it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
