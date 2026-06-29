@@ -96,7 +96,7 @@ jobs:
             # binaries.sonarsource.com: on a cache hit the binary is reused instead
             # of re-downloaded. Keyed on the scanner version pin so a bump busts it.
             - name: Cache SonarQube scanner
-              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ${{ github.workspace }}/.sonar
                   key: ${{ runner.os }}-sonar-7006c4492b2e0ee0f816d36501671557c97f5995
@@ -236,7 +236,7 @@ jobs:
                   cache: 'pnpm'
             # Next build cache — keyed on lockfile + source so an unchanged tree restores
             # the previous .next/cache and skips most of the build.
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
                   key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
@@ -247,7 +247,7 @@ jobs:
             - name: Resolve Playwright version
               id: pw
               run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               id: pw-cache
               with:
                   path: ~/.cache/ms-playwright
