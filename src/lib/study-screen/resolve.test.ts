@@ -56,6 +56,27 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('study-results')
     })
+    it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
+        // Edge case raised in PR #837: resultsErrored excludes from study-results, the prior
+        // CODE-APPROVED was dropped by dropStale (so codeDecision is null and codeAwaitingDecision
+        // is true), and isExecuting is false. It must NOT fall through to study-results; it lands on
+        // code-under-review, which is the right next-step screen for a re-reviewed resubmission.
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsErrored: true,
+                    codeDecision: null,
+                    codeAwaitingDecision: true,
+                    hasSubmittedCode: true,
+                    isExecuting: false,
+                }),
+                undefined,
+                ctx,
+            ).screen,
+        ).toBe('code-under-review')
+    })
     it('approved decision → code-approved', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), undefined, ctx).screen).toBe(
             'code-approved',

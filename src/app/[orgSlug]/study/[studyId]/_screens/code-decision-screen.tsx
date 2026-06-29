@@ -19,6 +19,8 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     // A hidden JOB-ERRORED (e.g. a packaging failure before any JOB-RUNNING substatus) is presented to
     // the researcher as "approved / results pending"; keep the code listing hidden as during execution,
     // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
+    // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
+    // is researcher-only and calling the role-named helper with no role guard is safe.
     const hideStudyCode = state.isExecuting || isErroredResultHiddenFromResearcher(state)
 
     const job = await latestSubmittedJobForStudy(study.id)
