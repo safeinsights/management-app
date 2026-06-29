@@ -589,6 +589,7 @@ export const mockClerkSession = (values: MockSession | null) => {
                 }
             }),
             createUser: vi.fn(async () => ({ id: '1234' })),
+            deleteUser: vi.fn(async (clerkId: string) => ({ id: clerkId, deleted: true })),
             getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },
     }
