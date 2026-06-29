@@ -889,7 +889,11 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                     eb
                         .selectFrom('jobStatusChange as cs')
                         .innerJoin('user as submitter', 'submitter.id', 'cs.userId')
-                        .select(['cs.userId as authorId', 'submitter.fullName as authorName'])
+                        .select([
+                            'cs.userId as authorId',
+                            'submitter.fullName as authorName',
+                            'cs.createdAt as submittedAt',
+                        ])
                         .whereRef('cs.studyJobId', '=', 'studyJob.id')
                         .where('cs.status', '=', 'CODE-SUBMITTED')
                         .orderBy('cs.createdAt', 'desc')
@@ -905,6 +909,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 'studyJob.createdAt',
                 'latestSubmission.authorId',
                 'latestSubmission.authorName',
+                'latestSubmission.submittedAt',
             ])
             .where('studyJob.studyId', '=', studyId)
             .orderBy('studyJob.createdAt', 'asc')
@@ -952,7 +957,11 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 decision: null,
                 body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
                 criteria: null,
-                createdAt: j.createdAt,
+                // The note is written at resubmit time, not job creation: a same-job resubmit revises
+                // an old job in place, so use the latest CODE-SUBMITTED timestamp to position the note
+                // in the round it opened (newest-first sort below). Falls back to job creation only for
+                // a job with no submission (which never carries a note).
+                createdAt: j.submittedAt ?? j.createdAt,
                 authorName: j.authorName ?? '',
                 version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
             }))

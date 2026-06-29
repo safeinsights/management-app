@@ -1821,6 +1821,14 @@ describe('submitCodeReviewDecisionAction', () => {
         const round2Decision = entries.find((e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'APPROVE')
         expect(notes[0].version).toBe(2)
         expect(round2Decision?.version).toBe(2)
+
+        // The note opened round 2, so it must sit above round 1's decision in the newest-first
+        // timeline — positioned by its resubmit time, not the (older) job-creation time.
+        const noteIdx = entries.findIndex((e) => e.entryType === 'RESUBMISSION-NOTE')
+        const round1Idx = entries.findIndex(
+            (e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'NEEDS-CLARIFICATION',
+        )
+        expect(noteIdx).toBeLessThan(round1Idx)
     })
 
     it('OTTER-638: rejects a second decision when code was not resubmitted (still already decided)', async () => {
@@ -2333,6 +2341,14 @@ describe('getCodeReviewFeedbackAction', () => {
                 resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
             })
             .where('id', '=', job.id)
+            .execute()
+        // The note is positioned by its latest CODE-SUBMITTED timestamp; align it so it ties with the
+        // reviewer decision and the deterministic tie-break (not the timestamp) decides the order.
+        await db
+            .updateTable('jobStatusChange')
+            .set({ createdAt: sharedCreatedAt })
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-SUBMITTED')
             .execute()
 
         const review = await db
