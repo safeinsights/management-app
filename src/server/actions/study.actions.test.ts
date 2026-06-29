@@ -1776,9 +1776,12 @@ describe('submitCodeReviewDecisionAction', () => {
         })
 
         const entries = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
-        const note = entries.find((e) => e.entryType === 'RESUBMISSION-NOTE')
+        // The job now carries two CODE-SUBMITTED rows (round 1 + the resubmit); the note must still
+        // appear exactly once, not once per submission.
+        const notes = entries.filter((e) => e.entryType === 'RESUBMISSION-NOTE')
+        expect(notes).toHaveLength(1)
         const round2Decision = entries.find((e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'APPROVE')
-        expect(note?.version).toBe(2)
+        expect(notes[0].version).toBe(2)
         expect(round2Decision?.version).toBe(2)
     })
 
