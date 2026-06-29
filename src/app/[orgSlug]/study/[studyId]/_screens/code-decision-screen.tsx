@@ -11,7 +11,14 @@ import type { ScreenComponentProps } from './types'
 // code-approved AND code-feedback both render the post-decision view. The effective decision is
 // APPROVED while the code is approved or executing (OTTER-598: hide the code listing while
 // executing); otherwise it's the live CHANGES-REQUESTED/REJECTED decision.
-export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
+export async function CodeDecisionScreen({
+    study,
+    raw,
+    orgSlug,
+    dashboardHref,
+    returnTo,
+    descriptor,
+}: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const decisionStatus =
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
@@ -22,8 +29,10 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
     // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
     // is researcher-only and calling the role-named helper with no role guard is safe.
+    // The read-only /view/code route always shows the submitted code (OTTER-640): the execution-window /
+    // hidden-errored hide is for the live /view flow, where the page reads as "running / results pending".
     const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
-    const hideStudyCode = state.isExecuting || hiddenErroredResult
+    const hideStudyCode = !descriptor.readOnlyCodeStep && (state.isExecuting || hiddenErroredResult)
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()

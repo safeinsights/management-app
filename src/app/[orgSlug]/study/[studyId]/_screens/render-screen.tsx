@@ -6,7 +6,7 @@ import {
     resolveScreen,
     resolveResearcherCodeScreen,
     type RawStudyState,
-    type ScreenId,
+    type ScreenDescriptor,
     type StudyRole,
 } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -20,10 +20,10 @@ type RenderArgs = {
     returnTo?: 'org'
 }
 
-async function renderScreen(screen: ScreenId, args: RenderArgs): Promise<React.JSX.Element> {
-    const Screen = SCREEN_COMPONENTS[screen]
+async function renderScreen(descriptor: ScreenDescriptor, args: RenderArgs): Promise<React.JSX.Element> {
+    const Screen = SCREEN_COMPONENTS[descriptor.screen]
     return (await Screen({
-        descriptor: { screen },
+        descriptor,
         study: args.study,
         raw: args.raw,
         orgSlug: args.orgSlug,
@@ -38,18 +38,18 @@ async function renderScreen(screen: ScreenId, args: RenderArgs): Promise<React.J
 export async function renderStudyScreen(
     args: RenderArgs & { role: StudyRole; studyId: string },
 ): Promise<React.JSX.Element> {
-    const { screen } = resolveScreen(args.role, projectStudyState(args.raw), {
+    const descriptor = resolveScreen(args.role, projectStudyState(args.raw), {
         orgSlug: args.orgSlug,
         studyId: args.studyId,
         returnTo: args.returnTo,
     })
-    return renderScreen(screen, args)
+    return renderScreen(descriptor, args)
 }
 
 // /view/code dispatch: the read-only code screen, even after the study advanced to results. 404s
 // when the study hasn't reached the code stage (no forward jumps).
 export async function renderResearcherCodeStep(args: RenderArgs): Promise<React.JSX.Element> {
-    const screen = resolveResearcherCodeScreen(projectStudyState(args.raw))
-    if (!screen) notFound()
-    return renderScreen(screen, args)
+    const descriptor = resolveResearcherCodeScreen(projectStudyState(args.raw))
+    if (!descriptor) notFound()
+    return renderScreen(descriptor, args)
 }
