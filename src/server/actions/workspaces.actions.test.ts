@@ -233,4 +233,67 @@ describe('Workspace Actions', () => {
             expect(result?.fileNames).toEqual(['main.r'])
         })
     })
+
+    // OTTER-602: launching the IDE must not reset submit-enable when files were already uploaded
+    // manually. The re-anchor that fixed OTTER-601 (advance createdAt so post-launch edits enable
+    // Submit) is correct only on an empty round — with files present it marks them all stale.
+    describe('createUserAndWorkspaceAction submit-enable baseline (OTTER-602)', () => {
+        const mockCoder = () =>
+            vi.doMock('@/server/coder', () => ({
+                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
+                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
+            }))
+
+        const jobCreatedAt = async (jobId: string) =>
+            (await db.selectFrom('studyJob').select('createdAt').where('id', '=', jobId).executeTakeFirstOrThrow())
+                .createdAt
+
+        test('does not advance the round job createdAt when files were already uploaded', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'INITIATED',
+            })
+
+            // Backdate the round so a wrongful re-anchor would be unmistakable.
+            const backdated = new Date(Date.now() - 60_000)
+            await db.updateTable('studyJob').set({ createdAt: backdated }).where('id', '=', job.id).execute()
+
+            // Simulate a manual upload: a real file on disk in the study workspace.
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'main.py'), 'print("hi")')
+
+            const { createUserAndWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await createUserAndWorkspaceAction({ studyId: study.id }))
+
+            expect((await jobCreatedAt(job.id)).getTime()).toBe(backdated.getTime())
+        })
+
+        test('still re-anchors createdAt when the round has no files yet', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'INITIATED',
+            })
+
+            const backdated = new Date(Date.now() - 60_000)
+            await db.updateTable('studyJob').set({ createdAt: backdated }).where('id', '=', job.id).execute()
+
+            const { createUserAndWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await createUserAndWorkspaceAction({ studyId: study.id }))
+
+            expect((await jobCreatedAt(job.id)).getTime()).toBeGreaterThan(backdated.getTime())
+        })
+    })
 })

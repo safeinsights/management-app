@@ -121,15 +121,29 @@ export async function getOrCreateCurrentRoundJob(
 
 // Submit is enabled when any workspace file's mtime > the current round job's createdAt.
 
+interface EnsureRoundJobForLaunchOptions {
+    /**
+     * Whether the workspace already holds researcher-visible files. When true, the re-anchor below is
+     * skipped: those files (e.g. a manual upload made before opening the IDE) already define
+     * submit-enable, and pushing createdAt past their mtimes would mark them all stale — flipping
+     * "Last updated" to Never and disabling Submit (OTTER-602).
+     */
+    hasWorkspaceFiles?: boolean
+}
+
 /**
  * IDE launch: ensure the current round has a job. When the round is still open work (no submission
- * yet — only INITIATED), re-anchor its createdAt to now so edits made after this launch enable Submit.
- * A round whose job already carries a submission is left untouched. Reuses the round's job rather than
- * stacking a new one (OTTER-601).
+ * yet — only INITIATED) and has no files yet, re-anchor its createdAt to now so edits made after this
+ * launch enable Submit. A round whose job already carries a submission — or that already has uploaded
+ * files — is left untouched. Reuses the round's job rather than stacking a new one (OTTER-601, OTTER-602).
  */
-export async function ensureRoundJobForLaunch(db: Kysely<DB>, studyId: string): Promise<RoundJob> {
+export async function ensureRoundJobForLaunch(
+    db: Kysely<DB>,
+    studyId: string,
+    { hasWorkspaceFiles = false }: EnsureRoundJobForLaunchOptions = {},
+): Promise<RoundJob> {
     const job = await getOrCreateCurrentRoundJob(db, studyId)
-    if (job.created || job.hasSubmission) return job
+    if (job.created || job.hasSubmission || hasWorkspaceFiles) return job
     const reanchored = await db
         .updateTable('studyJob')
         .set({ createdAt: new Date() })
