@@ -93,6 +93,15 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
 }))
 
+// The action's real return type carries many more fields than these fixtures need; the default
+// factory mock above sidesteps that, but mockResolvedValueOnce is strict, so cast through it.
+type OrgStudies = Awaited<ReturnType<typeof fetchStudiesForOrgAction>>
+
+// Build org-study fixtures from the base mock with field overrides, then cast the array to the
+// action's (much wider) return type in one place — mockResolvedValueOnce is strict.
+const orgStudies = (...overrides: Array<Partial<(typeof mockStudies)[number]>>): OrgStudies =>
+    overrides.map((o) => ({ ...mockStudies[0], ...o })) as unknown as OrgStudies
+
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
         isLoaded: true,
@@ -226,5 +235,63 @@ describe('Studies Table', () => {
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()
         })
+    })
+
+    it('keeps auto-refresh active for a researcher PENDING-REVIEW proposal with no jobs', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] }),
+        )
+        renderWithProviders(
+            <StudiesTable
+                audience="researcher"
+                scope="org"
+                orgSlug="test-org"
+                title="Proposed Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/seconds until refresh/i)).toBeDefined()
+        expect(screen.queryByText(/Reload inactive/i)).toBeNull()
+    })
+
+    it('does not auto-refresh a reviewer PENDING-REVIEW proposal with no jobs', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] }),
+        )
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
+    })
+
+    it('stops auto-refresh once every study is in a final state', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({
+                status: 'APPROVED' as StudyStatus,
+                jobStatusChanges: [{ status: 'FILES-APPROVED' as StudyJobStatus, userId: null }],
+            }),
+        )
+        renderWithProviders(
+            <StudiesTable
+                audience="researcher"
+                scope="org"
+                orgSlug="test-org"
+                title="Proposed Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
     })
 })
