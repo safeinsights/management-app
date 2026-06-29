@@ -6,7 +6,12 @@ import {
     type ProposalFeedbackEntry,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import {
+    getStudyReviewForJob,
+    jobScanResultForJob,
+    latestJobForStudy,
+    type LatestJobForStudy,
+} from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -395,7 +400,10 @@ describe('PostFeedbackView', () => {
             expect(crumbs[2][0]).toBe('Review initial request')
         })
 
-        it('renders the StudyCodeViewer collapsed by default when a job is provided', async () => {
+        // OTTER-613: the post-decision DO code page must show the full "Submitted code" section
+        // (AI summary + security scan log + code viewer), not a stripped-down code dump. The raw
+        // code stays collapsed behind the "View full study code" toggle.
+        it('renders the full Submitted code section with the code collapsed when a job is provided', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -412,17 +420,46 @@ describe('PostFeedbackView', () => {
                     fileType: 'MAIN-CODE',
                 })
                 .execute()
+            await db
+                .insertInto('studyReview')
+                .values({
+                    studyJobId: job.id,
+                    report: {
+                        proposalSummary: 'Proposal summary text',
+                        codeExplanation: 'This code reads the dataset and fits a regression.',
+                        alignmentCheck: { isAligned: true, findings: [] },
+                        complianceCheck: { isCompliant: true, findings: [] },
+                    },
+                })
+                .execute()
             const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
             const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
+            const [review, scan] = await Promise.all([
+                getStudyReviewForJob(latestJob.id),
+                jobScanResultForJob(latestJob.id),
+            ])
             ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
 
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={codeStudy} entries={entries} kind="CODE" job={latestJob} />,
+                <PostFeedbackView
+                    orgSlug={ORG_SLUG}
+                    study={codeStudy}
+                    entries={entries}
+                    kind="CODE"
+                    job={latestJob}
+                    review={review}
+                    scan={scan}
+                />,
             )
 
-            // The viewer container is rendered, but the code body is hidden until the toggle is clicked.
+            // Full section: AI summary + security scan log are visible up front.
+            expect(screen.getByTestId('submitted-code-section')).toBeInTheDocument()
+            expect(screen.getByTestId('ai-summary')).toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-log')).toBeInTheDocument()
+
+            // The code viewer is present, but the code body stays hidden until the toggle is clicked.
             expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
             expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
             const toggle = screen.getByTestId('study-code-toggle')
