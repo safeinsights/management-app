@@ -1,6 +1,12 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { CODER_DISABLED, DEV_ENV, getConfigValue } from '@/server/config'
+import { fetchLatestCodeEnvForStudyId } from '@/server/db/queries'
+import { fetchFileContents } from '@/server/storage'
+import { latestStudyJobCreatedAt } from '@/server/db/mutations'
+import { writeAgentContext } from '@/server/context-writer'
+import { pathForStarterCode } from '@/lib/paths'
+import { db } from '@/database'
 
 export async function cleanupCoderDevFiles() {
     if (!DEV_ENV || !CODER_DISABLED) return
@@ -24,13 +30,6 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
     if (!CODER_DISABLED) return
 
     const coderFilesPath = await getConfigValue('CODER_FILES')
-
-    const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
-    const { fetchFileContents } = await import('@/server/storage')
-    const { pathForStarterCode } = await import('@/lib/paths')
-    const { latestStudyJobCreatedAt } = await import('@/server/db/mutations')
-    const { writeAgentContext } = await import('@/server/context-writer')
-    const { db } = await import('@/database')
 
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     await fs.mkdir(coderFilesPath, { recursive: true })
