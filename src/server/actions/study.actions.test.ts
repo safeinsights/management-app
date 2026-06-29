@@ -1676,6 +1676,44 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(updated.status).toBe('APPROVED')
     })
 
+    it('OTTER-638: numbers three rounds on the same job (changes → changes → approve)', async () => {
+        // Each same-job round bumps the study-wide submission version (count of CODE-CHANGES-REQUESTED
+        // before the decision), so three rounds on one job get rounds 1, 2, 3 with no collision.
+        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        await simulateResubmitOnSameJob(job.id, user.id)
+
+        await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        await simulateResubmitOnSameJob(job.id, user.id)
+
+        const third = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+        expect(third).not.toMatchObject({ error: expect.anything() })
+
+        const rows = await loadCodeReviewRows(study.id)
+        expect(rows.map((r) => r.round)).toEqual([1, 2, 3])
+        expect(rows.map((r) => r.decision)).toEqual(['NEEDS-CLARIFICATION', 'NEEDS-CLARIFICATION', 'APPROVE'])
+        expect(rows.every((r) => r.studyJobId === job.id)).toBe(true)
+    })
+
     it('OTTER-638: accepts a round-2 reject on resubmitted code', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
