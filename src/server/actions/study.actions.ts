@@ -879,34 +879,31 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
         // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
         // resubmission note is the user recorded on the job's latest CODE-SUBMITTED. A same-job
         // resubmit appends more than one CODE-SUBMITTED, so joining the rows directly would multiply
-        // the job into duplicate codeJobs rows (and duplicate note entries) — pick the latest
-        // submission with a scalar subquery so each job yields exactly one row.
+        // the job into duplicate codeJobs rows (and duplicate note entries) — a lateral join to the
+        // single latest submission keeps each job to one row.
         const codeJobs = await db
             .selectFrom('studyJob')
-            .select((eb) => [
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange as cs')
+                        .innerJoin('user as submitter', 'submitter.id', 'cs.userId')
+                        .select(['cs.userId as authorId', 'submitter.fullName as authorName'])
+                        .whereRef('cs.studyJobId', '=', 'studyJob.id')
+                        .where('cs.status', '=', 'CODE-SUBMITTED')
+                        .orderBy('cs.createdAt', 'desc')
+                        .orderBy('cs.id', 'desc')
+                        .limit(1)
+                        .as('latestSubmission'),
+                (join) => join.onTrue(),
+            )
+            .select([
                 'studyJob.id as studyJobId',
                 'studyJob.resubmissionNote',
                 'studyJob.resubmissionRound',
                 'studyJob.createdAt',
-                eb
-                    .selectFrom('jobStatusChange as cs')
-                    .select('cs.userId')
-                    .whereRef('cs.studyJobId', '=', 'studyJob.id')
-                    .where('cs.status', '=', 'CODE-SUBMITTED')
-                    .orderBy('cs.createdAt', 'desc')
-                    .orderBy('cs.id', 'desc')
-                    .limit(1)
-                    .as('authorId'),
-                eb
-                    .selectFrom('jobStatusChange as cs')
-                    .innerJoin('user as submitter', 'submitter.id', 'cs.userId')
-                    .select('submitter.fullName')
-                    .whereRef('cs.studyJobId', '=', 'studyJob.id')
-                    .where('cs.status', '=', 'CODE-SUBMITTED')
-                    .orderBy('cs.createdAt', 'desc')
-                    .orderBy('cs.id', 'desc')
-                    .limit(1)
-                    .as('authorName'),
+                'latestSubmission.authorId',
+                'latestSubmission.authorName',
             ])
             .where('studyJob.studyId', '=', studyId)
             .orderBy('studyJob.createdAt', 'asc')
