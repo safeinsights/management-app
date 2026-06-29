@@ -251,6 +251,7 @@ export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
     resubmissionNote: Json | null
+    resubmissionRound: number | null
     studyId: string
 }
 
@@ -302,6 +303,7 @@ export interface StudyReviewComment {
     entryType: StudyReviewCommentEntryType
     id: Generated<string>
     reviewKind: StudyReviewCommentKind
+    round: Generated<number>
     studyId: string
     studyJobId: string | null
 }

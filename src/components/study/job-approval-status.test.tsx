@@ -16,6 +16,7 @@ describe('ApprovalStatus', () => {
         statusChanges: [],
         files: [],
         resubmissionNote: null,
+        resubmissionRound: null,
     }
 
     it('shows approved status for CODE-APPROVED', () => {
