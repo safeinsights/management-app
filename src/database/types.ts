@@ -302,6 +302,7 @@ export interface StudyReviewComment {
     entryType: StudyReviewCommentEntryType
     id: Generated<string>
     reviewKind: StudyReviewCommentKind
+    round: Generated<number>
     studyId: string
     studyJobId: string | null
 }

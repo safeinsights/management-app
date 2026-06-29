@@ -13,6 +13,7 @@ import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/stu
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
+    codeSubmissionVersion,
     currentReviewVersion,
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
@@ -767,6 +768,12 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         const claimedJob = await claimInitialCodeReviewJob({ studyId })
 
+        // Round = study-wide submission version at decision time. A same-job resubmit (OTTER-316)
+        // keeps the same job, so uniqueness is scoped to (studyJobId, reviewKind, round) and each
+        // round gets its own decision row (OTTER-638). The round-1 decision is written before its
+        // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
+        const round = await codeSubmissionVersion(studyId, db)
+
         try {
             await db
                 .insertInto('studyReviewComment')
@@ -779,15 +786,16 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                     decision: toReviewDecision(decision),
                     body: JSON.parse(json),
                     criteria,
+                    round,
                 })
                 .executeTakeFirstOrThrow()
         } catch (err) {
             // Postgres unique_violation (SQLSTATE 23505). The composite unique
-            // index on (studyJobId, reviewKind) fires when two reviewers race
-            // through claimInitialCodeReviewJob and both reach this insert
-            // before either commits. The race-loser sees this; the data is
-            // already safe, so surface a clean message instead of the raw
-            // duplicate-key error.
+            // index on (studyJobId, reviewKind, round) fires when two reviewers
+            // race through claimInitialCodeReviewJob within the same round and
+            // both reach this insert before either commits. The race-loser sees
+            // this; the data is already safe, so surface a clean message instead
+            // of the raw duplicate-key error.
             if (isPgUniqueViolation(err)) {
                 throw new ActionFailure({
                     study: 'another reviewer has already submitted a decision for this study code',
@@ -863,11 +871,11 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
-        // Each code job, in creation order, is its own review round (v1, v2, ...).
-        // Reviewer decisions on a job and the researcher's resubmission note on
-        // that same job share the round number. studyJob has no userId column;
-        // the author of the resubmission note is the user recorded on the
-        // CODE-SUBMITTED status change for that job.
+        // Resubmission-note versions come from job creation order (v1, v2, ...). Reviewer-decision
+        // versions come from the stored `round` (the study-wide submission version at decision
+        // time) so multiple decisions on the same job — a same-job resubmit revises in place
+        // (OTTER-316/638) — get distinct, increasing labels. studyJob has no userId column; the
+        // author of the resubmission note is the user recorded on the CODE-SUBMITTED status change.
         const codeJobs = await db
             .selectFrom('studyJob')
             .leftJoin('jobStatusChange as submission', (join) =>
@@ -899,6 +907,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 'studyReviewComment.body',
                 'studyReviewComment.criteria',
                 'studyReviewComment.createdAt',
+                'studyReviewComment.round',
                 'author.fullName as authorName',
             ])
             .where('studyReviewComment.studyId', '=', studyId)
@@ -915,7 +924,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             criteria: row.criteria,
             createdAt: row.createdAt,
             authorName: row.authorName,
-            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+            version: row.round ?? null,
         }))
 
         const noteEntries = codeJobs
