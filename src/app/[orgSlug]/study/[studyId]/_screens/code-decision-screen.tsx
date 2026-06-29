@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
-import { projectStudyState } from '@/lib/study-screen'
+import { projectStudyState, isErroredResultHiddenFromResearcher } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
@@ -15,6 +15,11 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     const decisionStatus =
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
     if (decisionStatus === null) notFound()
+
+    // A hidden JOB-ERRORED (e.g. a packaging failure before any JOB-RUNNING substatus) is presented to
+    // the researcher as "approved / results pending"; keep the code listing hidden as during execution,
+    // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
+    const hideStudyCode = state.isExecuting || isErroredResultHiddenFromResearcher(state)
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
@@ -33,7 +38,7 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             returnTo={returnTo}
             latestJobStatus={decisionStatus}
             feedbackLoadError={feedbackLoadError}
-            showStudyCode={!state.isExecuting}
+            showStudyCode={!hideStudyCode}
         />
     )
 }

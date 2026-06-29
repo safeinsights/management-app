@@ -34,6 +34,28 @@ describe('resolveScreen (researcher)', () => {
                 .screen,
         ).toBe('study-results')
     })
+    it('errored job, no reviewer files decision → code-approved, NOT study-results (OTTER-598, 43898)', () => {
+        // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
+        // from the researcher, so routing must hold on the code-approved page (matching the pill).
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+                undefined,
+                ctx,
+            ).screen,
+        ).toBe('code-approved')
+    })
+    it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
+                undefined,
+                ctx,
+            ).screen,
+        ).toBe('study-results')
+    })
     it('approved decision → code-approved', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), undefined, ctx).screen).toBe(
             'code-approved',

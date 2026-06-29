@@ -1,5 +1,5 @@
 export * from './state.types'
 export * from './screens'
-export { projectStudyState } from './state'
+export { projectStudyState, isErroredResultHiddenFromResearcher } from './state'
 export { resolveScreen, resolveDashboardAction } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
