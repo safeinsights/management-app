@@ -13,17 +13,9 @@ interface StudyCodePanelProps {
     studyTitle: string | null
     footer: ReactNode
     showLaunchIde?: boolean
-    ideButtonTooltip?: string
 }
 
-export const StudyCodePanel = ({
-    ide,
-    stepLabel,
-    studyTitle,
-    footer,
-    showLaunchIde,
-    ideButtonTooltip,
-}: StudyCodePanelProps) => {
+export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchIde }: StudyCodePanelProps) => {
     let body: ReactNode
     if (ide.isLoadingFiles) {
         body = <Skeleton height={240} radius="md" />
@@ -54,7 +46,6 @@ export const StudyCodePanel = ({
                 viewFile={ide.viewFile}
                 jobCreatedAt={ide.jobCreatedAt}
                 showLaunchIde={showLaunchIde}
-                ideButtonTooltip={ideButtonTooltip}
             />
         )
     }
@@ -69,7 +60,7 @@ export const StudyCodePanel = ({
                         </Text>
                     )}
                     <Title order={4}>Study code</Title>
-                    <Text size="sm" c="dimmed">
+                    <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
                         Title: {studyTitle ?? 'Untitled draft'}
                     </Text>
                 </Stack>

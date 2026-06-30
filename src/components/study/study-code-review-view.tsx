@@ -21,7 +21,6 @@ interface StudyCodeReviewViewProps {
     viewFile: (fileName: string) => void
     jobCreatedAt: string | null
     showLaunchIde?: boolean
-    ideButtonTooltip?: string
 }
 
 export function StudyCodeReviewView({
@@ -37,7 +36,6 @@ export function StudyCodeReviewView({
     viewFile,
     jobCreatedAt,
     showLaunchIde = true,
-    ideButtonTooltip = 'After creating or editing files in the IDE, please return here to submit your code to the data partners.',
 }: StudyCodeReviewViewProps) {
     const openRef = useRef<() => void>(null)
 
@@ -51,12 +49,15 @@ export function StudyCodeReviewView({
                 variant="outline"
             />
         )
-        launchSection = ideButtonTooltip ? (
-            <InfoTooltip label={ideButtonTooltip} withArrow multiline w={320}>
+        launchSection = (
+            <InfoTooltip
+                label="After creating or editing files in the IDE, please return here to submit your code to the data partners."
+                withArrow
+                multiline
+                w={320}
+            >
                 {launchButton}
             </InfoTooltip>
-        ) : (
-            launchButton
         )
     }
 
