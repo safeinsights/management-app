@@ -14,8 +14,18 @@ overrides:
     '@types/react': 19.2.14
     esbuild: ^0.28.1
     form-data: ^4.0.6
+    # hono <4.12.25: GHSA-88fw-hqm2-52qc (CVE-2026-54290, HIGH) — CORS middleware reflects any
+    # Origin with credentials when origin defaults to wildcard. Dev-only transitive (@pandacss/dev
+    # → @pandacss/mcp → @modelcontextprotocol/sdk → @hono/node-server), but Trivy scans dev deps.
+    hono: ^4.12.25
     minimatch: ^10.2.1
     picomatch: ^4.0.4
     postcss: ^8.5.10
     vite: ^8.0.16
     ws: ^8.21.0
+    'hono@<4.12.25': '>=4.12.25'
+    'js-yaml@<=4.1.1': '>=4.1.2'
+    'nodemailer@<=8.0.8': '>=8.0.9'
+    'nodemailer@<9.0.1': '>=9.0.1'
+    '@opentelemetry/core@<2.8.0': '>=2.8.0'
+    '@babel/core@<=7.29.0': '>=7.29.1'

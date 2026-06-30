@@ -3,16 +3,17 @@
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
-import { ActionSuccessType, jobFileSchema } from '@/lib/types'
+import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import {
+    codeSubmissionVersion,
     currentReviewVersion,
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
@@ -31,10 +32,11 @@ import {
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
-import { storeApprovedJobFile } from '@/server/storage'
+import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
+import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file.
@@ -221,7 +223,11 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
         // the researcher view, silently consuming the reviewer's gate and skipping the
         // Agreements page on their next visit.
         const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
-        if (!userOrgIds.has(requiredOrgId)) {
+        // SI admins (manage/all) can review studies for orgs they don't belong to, so allow the
+        // reviewer ack on their behalf — mirroring the ability check the review/agreements pages use.
+        // The researcher path stays membership-only, preserving the OTTER-546 dual-member scoping.
+        const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId: study.orgId }))
+        if (!userOrgIds.has(requiredOrgId) && !canReviewStudy) {
             throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
 
@@ -265,7 +271,7 @@ async function approveJobCode({
     studyId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     job: LatestJobForStudy
@@ -274,7 +280,7 @@ async function approveJobCode({
     studyId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     await db
         .insertInto('jobStatusChange')
@@ -316,12 +322,10 @@ async function approveJobCode({
         })
     }
 
-    if (jobFiles?.length) {
-        const info = { studyId, studyJobId: job.id, orgSlug }
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+    if (sharedFiles?.length) {
+        // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's browser
+        // produced. Ciphertext is untouched; no plaintext is stored.
+        await insertSharedFileKeys(db, job.id, sharedFiles)
     }
 }
 
@@ -334,7 +338,7 @@ async function performStudyProposalApproval({
     userId,
     orgSlug,
     useTestImage,
-    jobFiles,
+    sharedFiles,
 }: {
     db: DBExecutor
     study: StudyForApproval
@@ -342,7 +346,7 @@ async function performStudyProposalApproval({
     userId: string
     orgSlug: string
     useTestImage?: boolean
-    jobFiles?: z.infer<typeof jobFileSchema>[]
+    sharedFiles?: SharedFile[]
 }) {
     const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
     const isCodeReapproval = !isFirstApproval
@@ -379,7 +383,7 @@ async function performStudyProposalApproval({
         if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
     }
 
-    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, jobFiles })
+    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
 
     // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
     if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
@@ -447,7 +451,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             studyId: z.string(),
             orgSlug: z.string(),
             useTestImage: z.boolean().optional(),
-            jobFiles: z.array(jobFileSchema).optional(),
+            sharedFiles: z.array(sharedFileSchema).optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -459,7 +463,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, useTestImage, sharedFiles }, study, session, db }) => {
         await performStudyProposalApproval({
             db,
             study,
@@ -467,7 +471,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             userId: session.user.id,
             orgSlug,
             useTestImage,
-            jobFiles,
+            sharedFiles,
         })
     })
 
@@ -701,31 +705,25 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: 
     await purgeCodeReviewFeedbackYjsDoc(database, args)
 })
 
-async function claimInitialCodeReviewJob({ db, studyId }: { db: DBExecutor; studyId: string }) {
-    // Mirror the editor auth gate: code review requires both PENDING-REVIEW
-    // study status and a job whose latest status is CODE-SUBMITTED/CODE-SCANNED.
-    // Without the study-status check, a stale APPROVED study with a fresh
-    // CODE-SUBMITTED job would slip through (the job-status check alone would pass).
-    const study = await db
-        .selectFrom('study')
-        .select('status')
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow(throwNotFound('study'))
-    if (study.status !== 'PENDING-REVIEW') {
-        // OTTER-471: race-loser when a peer already submitted a code decision
-        // (post-submit the study flips out of PENDING-REVIEW).
+async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
+    // Code-review eligibility is driven by the JOB status alone, not study.status.
+    // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
+    // approved stays APPROVED while its code is (re)submitted for review, so a latest
+    // job whose newest code change is a fresh submission is the only correct gate. Once a
+    // peer decides the current submission this gate fails (the newest code change is a
+    // decision, not a submission), and within the same round the unique
+    // (studyJobId, reviewKind, round) index blocks a true insert race — so this check is
+    // also the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
+    // vs decisions rather than reading statusChanges[0], so it is immune to the
+    // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
+    const job = await latestJobForStudyOrNull(studyId)
+    if (!job || !job.statusChanges.some((c) => isCodeUnderReviewStatus(c.status))) {
+        throw new ActionFailure({ study: 'has no code submission to review.' })
+    }
+    if (!latestCodeChangeIsSubmission(job.statusChanges)) {
         throw new ActionFailure({
             study: 'has already been decided. Refresh to see the updated status.',
         })
-    }
-
-    const job = await latestJobForStudyOrNull(studyId)
-    const latestStatus = job?.statusChanges.at(0)?.status
-    if (!job || !latestStatus) {
-        throw new ActionFailure({ study: 'has no code submission to review.' })
-    }
-    if (!REVIEWABLE_CODE_JOB_STATUSES.includes(latestStatus)) {
-        throw new ActionFailure({ study: 'code is no longer in a reviewable state.' })
     }
     return job
 }
@@ -769,7 +767,18 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             })
         }
 
-        const claimedJob = await claimInitialCodeReviewJob({ db, studyId })
+        const claimedJob = await claimInitialCodeReviewJob({ studyId })
+
+        // Round = study-wide submission version at decision time. A same-job resubmit (OTTER-316)
+        // keeps the same job, so uniqueness is scoped to (studyJobId, reviewKind, round) and each
+        // round gets its own decision row (OTTER-638). The round-1 decision is written before its
+        // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
+        // Load-bearing: codeSubmissionVersion counts CODE-CHANGES-REQUESTED/FILES-APPROVED/FILES-REJECTED
+        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not in
+        // CODE_RESUBMITTABLE_JOB_STATUSES) so no second decision can follow it. If reject ever becomes
+        // resubmittable, codeSubmissionVersion must count it too, or the round won't advance and the
+        // next decision would collide on the round-scoped unique constraint.
+        const round = await codeSubmissionVersion(studyId, db)
 
         try {
             await db
@@ -783,15 +792,16 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                     decision: toReviewDecision(decision),
                     body: JSON.parse(json),
                     criteria,
+                    round,
                 })
                 .executeTakeFirstOrThrow()
         } catch (err) {
             // Postgres unique_violation (SQLSTATE 23505). The composite unique
-            // index on (studyJobId, reviewKind) fires when two reviewers race
-            // through claimInitialCodeReviewJob and both reach this insert
-            // before either commits. The race-loser sees this; the data is
-            // already safe, so surface a clean message instead of the raw
-            // duplicate-key error.
+            // index on (studyJobId, reviewKind, round) fires when two reviewers
+            // race through claimInitialCodeReviewJob within the same round and
+            // both reach this insert before either commits. The race-loser sees
+            // this; the data is already safe, so surface a clean message instead
+            // of the raw duplicate-key error.
             if (isPgUniqueViolation(err)) {
                 throw new ActionFailure({
                     study: 'another reviewer has already submitted a decision for this study code',
@@ -867,23 +877,45 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
-        // Each code job, in creation order, is its own review round (v1, v2, ...).
-        // Reviewer decisions on a job and the researcher's resubmission note on
-        // that same job share the round number. studyJob has no userId column;
-        // the author of the resubmission note is the user recorded on the
-        // CODE-SUBMITTED status change for that job.
+        // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
+        // round (see codeSubmissionVersion): the decision stores it in studyReviewComment.round, the
+        // note in studyJob.resubmissionRound. This keeps a round's note and decision on the same
+        // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
+        // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
+        // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
+        // resubmission note is the user recorded on the job's latest CODE-SUBMITTED (left-joined so
+        // the timestamp and author are independent: a null/deleted user does not lose the submission
+        // row). A same-job resubmit appends more than one CODE-SUBMITTED, so joining the rows directly
+        // would multiply the job into duplicate codeJobs rows (and duplicate note entries); a lateral
+        // join to the single latest submission keeps each job to one row.
         const codeJobs = await db
             .selectFrom('studyJob')
-            .leftJoin('jobStatusChange as submission', (join) =>
-                join.onRef('submission.studyJobId', '=', 'studyJob.id').on('submission.status', '=', 'CODE-SUBMITTED'),
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange as cs')
+                        .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
+                        .select([
+                            'cs.userId as authorId',
+                            'submitter.fullName as authorName',
+                            'cs.createdAt as submittedAt',
+                        ])
+                        .whereRef('cs.studyJobId', '=', 'studyJob.id')
+                        .where('cs.status', '=', 'CODE-SUBMITTED')
+                        .orderBy('cs.createdAt', 'desc')
+                        .orderBy('cs.id', 'desc')
+                        .limit(1)
+                        .as('latestSubmission'),
+                (join) => join.onTrue(),
             )
-            .leftJoin('user as author', 'author.id', 'submission.userId')
             .select([
                 'studyJob.id as studyJobId',
                 'studyJob.resubmissionNote',
+                'studyJob.resubmissionRound',
                 'studyJob.createdAt',
-                'submission.userId as authorId',
-                'author.fullName as authorName',
+                'latestSubmission.authorId',
+                'latestSubmission.authorName',
+                'latestSubmission.submittedAt',
             ])
             .where('studyJob.studyId', '=', studyId)
             .orderBy('studyJob.createdAt', 'asc')
@@ -897,12 +929,12 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
-                'studyReviewComment.studyJobId',
                 'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
                 'studyReviewComment.criteria',
                 'studyReviewComment.createdAt',
+                'studyReviewComment.round',
                 'author.fullName as authorName',
             ])
             .where('studyReviewComment.studyId', '=', studyId)
@@ -919,7 +951,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
             criteria: row.criteria,
             createdAt: row.createdAt,
             authorName: row.authorName,
-            version: row.studyJobId ? (jobVersion.get(row.studyJobId) ?? null) : null,
+            version: row.round ?? null,
         }))
 
         const noteEntries = codeJobs
@@ -931,9 +963,13 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
                 decision: null,
                 body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
                 criteria: null,
-                createdAt: j.createdAt,
+                // The note is written at resubmit time, not job creation: a same-job resubmit revises
+                // an old job in place, so use the latest CODE-SUBMITTED timestamp to position the note
+                // in the round it opened (newest-first sort below). Falls back to job creation only for
+                // a job with no submission (which never carries a note).
+                createdAt: j.submittedAt ?? j.createdAt,
                 authorName: j.authorName ?? '',
-                version: jobVersion.get(j.studyJobId) ?? null,
+                version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
             }))
 
         return [...reviewerEntries, ...noteEntries].sort((a, b) => {

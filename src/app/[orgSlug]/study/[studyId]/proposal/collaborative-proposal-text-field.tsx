@@ -1,26 +1,16 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { useState } from 'react'
-import { Box, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Box, Group, Paper, Stack, Text } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
+import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
-
-const EDITOR_SKELETON = <Skeleton h={240} radius={4} />
-
-const CollaborativeEditor = dynamic(
-    () => import('@/components/editable-text/collaborative-editor').then((mod) => mod.CollaborativeEditor),
-    {
-        ssr: false,
-        loading: () => EDITOR_SKELETON,
-    },
-)
 
 const contentStyle = {
     minHeight: 200,
@@ -39,9 +29,10 @@ type Props = {
     websocketProvider: HocuspocusProviderWebsocket | null
 }
 
-type EditorProps = {
+type ProposalEditorProps = {
     docName: string
     studyId: string
+    initialValue: string
     placeholder: string | undefined
     ariaLabel: string
     onTextChange: (json: string) => void
@@ -51,16 +42,17 @@ type EditorProps = {
 function ProposalTextEditor({
     docName,
     studyId,
+    initialValue,
     placeholder,
     ariaLabel,
     onTextChange,
     websocketProvider,
-}: EditorProps) {
-    if (!websocketProvider) return EDITOR_SKELETON
+}: ProposalEditorProps) {
     return (
-        <CollaborativeEditor
+        <Editor
             id={docName}
             studyId={studyId}
+            initialValue={initialValue}
             websocketProvider={websocketProvider}
             contentStyle={contentStyle}
             placeholder={placeholder}
@@ -97,6 +89,7 @@ export function CollaborativeProposalTextField({
                     <ProposalTextEditor
                         docName={docName}
                         studyId={studyId}
+                        initialValue={initialValue}
                         placeholder={field.placeholder}
                         ariaLabel={field.label}
                         onTextChange={onTextChange}

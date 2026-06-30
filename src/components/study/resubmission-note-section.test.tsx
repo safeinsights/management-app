@@ -99,6 +99,8 @@ describe('ResubmissionNoteSection', () => {
 
     it('renders the "All changes saved" label once a draft has been saved', () => {
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
-        expect(screen.getByTestId('autosave-status')).toHaveTextContent(/All changes saved at \d{1,2}:\d{2} (AM|PM)/)
+        const status = screen.getByTestId('autosave-status')
+        expect(status).toHaveTextContent('All changes saved')
+        expect(status).not.toHaveTextContent(/\d/)
     })
 })

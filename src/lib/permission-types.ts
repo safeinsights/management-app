@@ -34,6 +34,10 @@ export function toRecord<T extends string, Properties extends Record<string, any
 // it also controls the types allowed by the Action#requireAbilityTo  method
 // it does NOT control access itself, those rules are defined in the defineAbilityFor in permissions.ts
 type Abilities =
+    // CASL wildcard: ('manage','all') matches every action on every subject at runtime.
+    // Reserved for SI admins (see defineAbilityFor). 'manage' and 'all' are CASL's built-in
+    // wildcard tokens, not real domain actions/subjects.
+    | Ability<'all', 'manage', object>
     | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
     | Ability<'PendingUser', 'claim', object>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
@@ -42,7 +46,10 @@ type Abilities =
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'ReviewerKey', 'view' | 'update', object>
+    // Renamed from 'ReviewerKey' — the same encryption key is now held by both enclave reviewers
+    // AND lab researchers (orgNeedsKey), so the old name was misleading. Route + UI copy match:
+    // /user-key (Routes.userKey), "Results Key" in copy.
+    | Ability<'UserKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>

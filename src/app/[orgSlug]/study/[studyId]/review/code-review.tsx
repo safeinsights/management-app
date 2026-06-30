@@ -102,8 +102,8 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     }
 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
-    const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
-    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
+    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
+    const previousHref = Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     const version = deriveCodeReviewVersion(entries)

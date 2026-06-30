@@ -3,10 +3,10 @@
 import { FC } from 'react'
 import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import dayjs from 'dayjs'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
+import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
 import { countWords } from '@/lib/lexical'
 import {
     RESUBMIT_NOTE_MAX_WORDS,
@@ -24,17 +24,17 @@ interface ResubmissionNoteSectionProps {
     autosaveStatus?: ResubmissionNoteAutosaveStatus
 }
 
-function autosaveLabel(status: ResubmissionNoteAutosaveStatus): string | null {
-    if (status.isSaving) return 'Saving…'
-    if (status.lastSavedAt) return `All changes saved at ${dayjs(status.lastSavedAt).format('h:mm A')}`
-    return null
+function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveStatusValue {
+    if (status?.isSaving) return 'saving'
+    if (status?.lastSavedAt) return 'saved'
+    return 'idle'
 }
 
 export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ noteForm, orgName, autosaveStatus }) => {
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
     const wordCount = countWords(value)
-    const statusLabel = autosaveStatus ? autosaveLabel(autosaveStatus) : null
+    const saveStatus = noteSaveStatus(autosaveStatus)
 
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
@@ -44,11 +44,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         <Title order={4} c="charcoal.9">
                             Resubmission Note
                         </Title>
-                        {statusLabel && (
-                            <Text size="sm" c="dimmed" data-testid="autosave-status">
-                                {statusLabel}
-                            </Text>
-                        )}
+                        <SaveStatusIndicator status={saveStatus} />
                     </Group>
                     <Divider my="md" />
                     <Text size="sm" c="charcoal.7" mb="md">

@@ -21,10 +21,6 @@ export const ENCRYPTED_TO_APPROVED: Record<string, FileType> = {
     'ENCRYPTED-PACKAGING-ERROR-LOG': 'APPROVED-PACKAGING-ERROR-LOG',
 }
 
-export const APPROVED_TO_ENCRYPTED: Record<string, FileType> = Object.fromEntries(
-    Object.entries(ENCRYPTED_TO_APPROVED).map(([encrypted, approved]) => [approved, encrypted as FileType]),
-)
-
 const LOG_LABELS: Partial<Record<FileType, string>> = {
     'APPROVED-CODE-RUN-LOG': 'Code Run Log',
     'APPROVED-SECURITY-SCAN-LOG': 'Security Scan Log',
@@ -34,18 +30,6 @@ const LOG_LABELS: Partial<Record<FileType, string>> = {
     'ENCRYPTED-PACKAGING-ERROR-LOG': 'Packaging Error Log',
     'SECURITY-SCAN-LOG': 'Security Scan Log',
     'PACKAGING-ERROR-LOG': 'Packaging Error Log',
-}
-
-export function approvedTypeForFile(fileType: FileType): FileType {
-    const approved = ENCRYPTED_TO_APPROVED[fileType]
-    if (!approved) throw new Error(`Unknown file type ${fileType}`)
-    return approved
-}
-
-export function encryptedTypeForApproved(fileType: FileType): FileType {
-    const encrypted = APPROVED_TO_ENCRYPTED[fileType]
-    if (!encrypted) throw new Error(`Unknown file type ${fileType}`)
-    return encrypted
 }
 
 export function isEncryptedLogType(fileType: FileType): boolean {
@@ -70,4 +54,26 @@ export function isLogType(fileType: FileType): boolean {
 
 export function logLabel(fileType: FileType): string {
     return LOG_LABELS[fileType] ?? 'Results'
+}
+
+// Pre-PR #764 jobs stored results/logs as plaintext APPROVED-* / SECURITY-SCAN-LOG rows; newer jobs
+// encrypt them for the researcher (ENCRYPTED-*). These two predicates classify a job's files so the
+// results view can show legacy results directly while routing encrypted ones through the key flow.
+export function isEncryptedArtifact(fileType: FileType): boolean {
+    return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
+}
+
+export function isLegacyResultArtifact(fileType: FileType): boolean {
+    return isApprovedLogType(fileType) || isPlaintextLogType(fileType) || fileType === 'APPROVED-RESULT'
+}
+
+export function jobHasEncryptedArtifacts(files: { fileType: FileType }[]): boolean {
+    return files.some((f) => isEncryptedArtifact(f.fileType))
+}
+
+// A job is "legacy" for results purposes when it carries plaintext result artifacts and no encrypted
+// ones. The no-encrypted guard keeps a job that has both (shouldn't happen, but defensively) on the
+// encrypted path so nothing decryptable is silently skipped.
+export function jobHasLegacyResults(files: { fileType: FileType }[]): boolean {
+    return !jobHasEncryptedArtifacts(files) && files.some((f) => isLegacyResultArtifact(f.fileType))
 }

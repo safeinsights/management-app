@@ -24,6 +24,8 @@ interface CodePostSubmissionViewProps {
     job: LatestJobForStudy
     reviewingOrgName: string
     dashboardHref?: Route
+    /** Org-scoped entry: threaded onto the "Previous" → researcher agreements link so org scope survives the hop. */
+    returnTo?: 'org'
     /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
     /** Reviewer feedback + resubmission notes for v2+. */
@@ -157,6 +159,7 @@ export function CodePostSubmissionView({
     job,
     reviewingOrgName,
     dashboardHref,
+    returnTo,
     submissionVersion = 1,
     feedbackEntries = [],
     isUnderReview = true,
@@ -170,7 +173,7 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyAgreements({ orgSlug, studyId: study.id, from: 'previous' })
+    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
 
     const breadcrumbs: Array<[string, string?]> = [
         ['Dashboard', dashboard],

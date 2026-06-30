@@ -104,7 +104,7 @@ function SecurityScanLog({ scan }: { scan: JobScanResult }) {
 type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
-    job: Pick<LatestJobForStudy, 'id' | 'files'>
+    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt'>
     review: StudyReviewWithMeta | null
     scan: JobScanResult
     codeInitiallyExpanded?: boolean
@@ -122,7 +122,7 @@ export function SubmittedCodeSection({
     codeInitiallyExpanded = true,
 }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
-    const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=initial-request`
+    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
@@ -134,7 +134,7 @@ export function SubmittedCodeSection({
                 <Divider />
                 <Group align="stretch" grow gap="xl" wrap="nowrap">
                     <Paper withBorder p="lg" radius={0}>
-                        <AiSummaryCollapsible studyJobId={job.id} initialReview={review} />
+                        <AiSummaryCollapsible studyJobId={job.id} initialReview={review} submittedAt={job.createdAt} />
                     </Paper>
                     <Paper withBorder p="lg" radius={0}>
                         <SecurityScanLog scan={scan} />

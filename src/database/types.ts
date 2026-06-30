@@ -251,6 +251,7 @@ export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
     resubmissionNote: Json | null
+    resubmissionRound: number | null
     studyId: string
 }
 
@@ -262,6 +263,15 @@ export interface StudyJobFile {
     path: string
     sourceId: string | null
     studyJobId: string
+}
+
+export interface StudyJobFileRecipientKey {
+    createdAt: Generated<Timestamp>
+    crypt: string
+    filePath: string
+    fingerprint: string
+    id: Generated<string>
+    studyJobFileId: string
 }
 
 export interface StudyProposalComment {
@@ -279,8 +289,9 @@ export interface StudyProposalComment {
 export interface StudyReview {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    report: Json
+    report: Json | null
     studyJobId: string
+    summaryFailedAt: Timestamp | null
 }
 
 export interface StudyReviewComment {
@@ -292,6 +303,7 @@ export interface StudyReviewComment {
     entryType: StudyReviewCommentEntryType
     id: Generated<string>
     reviewKind: StudyReviewCommentKind
+    round: Generated<number>
     studyId: string
     studyJobId: string | null
 }
@@ -340,6 +352,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment

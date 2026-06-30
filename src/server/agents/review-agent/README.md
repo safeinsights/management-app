@@ -24,7 +24,7 @@ Given a `ReviewContent` (proposal text + code files + reference docs), calls Cla
 
 - **System prompt** — pass `systemPrompt` in `ReviewAgentConfig` to override the bundled default. Intended sourcing: SI Admin org-level config field.
 - **Analysis prompt** — pass `analysisPromptTemplate` for the same pattern (placeholders preserved).
-- **Model** — defaults to `claude-sonnet-4-6`; override via `model` config or `ANTHROPIC_MODEL` env var.
+- **Model** — defaults to `claude-haiku-4-5`; override via `model` config or `ANTHROPIC_MODEL` env var.
 
 ## Structured output
 

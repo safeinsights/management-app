@@ -87,6 +87,19 @@ describe('YjsWebsocketProvider', () => {
         // open a second TCP connection within the same tab.
         expect(ctorSpy).toHaveBeenCalledTimes(1)
     })
+
+    it('opens no websocket in single-user mode', () => {
+        const sockets: Array<ReturnType<typeof useYjsWebsocket>> = []
+
+        render(
+            <YjsWebsocketProvider singleUserEditing>
+                <Probe onSocket={(s) => sockets.push(s)} />
+            </YjsWebsocketProvider>,
+        )
+
+        expect(ctorSpy).not.toHaveBeenCalled()
+        expect(sockets.every((s) => s === null)).toBe(true)
+    })
 })
 
 describe('useConnectionPhase', () => {

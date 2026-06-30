@@ -13,7 +13,7 @@ import { ButtonLink } from '@/components/links'
 export type StudyDetailsResearcherViewProps = {
     studyId: string
     orgSlug: string
-    previousHref: Route
+    previousHref?: Route
     dashboardHref?: Route
     statusMessage: ReactNode
 }
@@ -50,11 +50,13 @@ export function StudyDetailsResearcherView({
                     {statusMessage}
                 </Stack>
             </Paper>
-            <Group>
-                <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                    Previous
-                </ButtonLink>
-            </Group>
+            {previousHref && (
+                <Group>
+                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
+                        Previous
+                    </ButtonLink>
+                </Group>
+            )}
         </Stack>
     )
 }
