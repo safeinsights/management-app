@@ -5,9 +5,10 @@ import {
     insertTestUser,
     insertTestStudyData,
     mockSessionWithTestData,
-    mockClerkSession,
     faker,
 } from '@/tests/unit.helpers'
+import { verifyToken } from '@clerk/nextjs/server'
+import { headers } from 'next/headers'
 
 // PROD_ENV is a module-level const, so override it via a mutable holder we can flip per test.
 const configState = { PROD_ENV: false }
@@ -33,30 +34,53 @@ beforeEach(() => {
     configState.PROD_ENV = false
 })
 
+/**
+ * The QA routes verify the SI admin's Clerk session token straight from the
+ * Authorization header (clerkMiddleware doesn't run on /api/*), so authenticating
+ * a test means setting that header and making `verifyToken` resolve to the same
+ * claims `mockSessionWithTestData` wired into the session. Returns the mocked Clerk
+ * client so callers can assert on it (e.g. deleteUser).
+ */
+async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
+    const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
+    if (!mocks.auth) throw new Error('expected a mocked clerk auth')
+    const { userId, sessionClaims } = mocks.auth()
+    ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
+    ;(await headers()).set('Authorization', 'Bearer fake-clerk-session-token')
+    return mocks
+}
+
 describe('requireQaAdmin', () => {
     it('rejects in production', async () => {
         configState.PROD_ENV = true
-        await mockSessionWithTestData({ isSiAdmin: true })
+        await authenticateAsSiAdmin({ isSiAdmin: true })
         const result = await requireQaAdmin()
         expect(result).toEqual({ ok: false, status: 403, message: expect.stringContaining('production') })
     })
 
-    it('rejects when unauthenticated', async () => {
-        mockClerkSession(null)
+    it('rejects when the Authorization header is missing', async () => {
+        const result = await requireQaAdmin()
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(401)
+    })
+
+    it('rejects when the token fails verification', async () => {
+        ;(verifyToken as Mock).mockRejectedValue(new Error('invalid token'))
+        ;(await headers()).set('Authorization', 'Bearer bad-token')
         const result = await requireQaAdmin()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
     })
 
     it('rejects a non SI admin', async () => {
-        await mockSessionWithTestData({ isSiAdmin: false })
+        await authenticateAsSiAdmin({ isSiAdmin: false })
         const result = await requireQaAdmin()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(403)
     })
 
     it('allows an SI admin', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
+        await authenticateAsSiAdmin({ isSiAdmin: true })
         const result = await requireQaAdmin()
         expect(result).toEqual({ ok: true })
     })

@@ -8,7 +8,8 @@
  */
 import { type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
-import { clerkClient, auth } from '@clerk/nextjs/server'
+import { clerkClient, verifyToken } from '@clerk/nextjs/server'
+import { headers } from 'next/headers'
 import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
@@ -18,21 +19,34 @@ import logger from '@/lib/logger'
 export type QaAuthResult = { ok: true } | { ok: false; status: number; message: string }
 
 /**
- * Gate QA cleanup to non-prod + an authenticated SI admin. Clerk's `auth()` reads
- * a Bearer token from the Authorization header as well as cookies, so an SI admin
- * can call these endpoints with `Authorization: Bearer <clerk_session_token>`.
+ * Gate QA cleanup to non-prod + an authenticated SI admin.
+ *
+ * These live under /api/*, which clerkMiddleware() is configured to skip (see the
+ * matcher in proxy.ts), so the middleware-coupled `auth()` helper has no context to
+ * read and throws. Instead we verify the SI admin's Clerk session token directly from
+ * the `Authorization: Bearer <token>` header with `verifyToken` — the standalone
+ * primitive that does not require the middleware to have run.
  */
 export async function requireQaAdmin(): Promise<QaAuthResult> {
     if (PROD_ENV) {
         return { ok: false, status: 403, message: 'QA cleanup is not available in production' }
     }
 
-    const { userId, sessionClaims } = (await auth()) ?? {}
-    if (!userId || !sessionClaims) {
+    const authHeader = (await headers()).get('Authorization') || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
+    if (!token) {
         return { ok: false, status: 401, message: 'Authentication required' }
     }
 
-    const session = await marshalSession(userId, sessionClaims)
+    let claims
+    try {
+        claims = await verifyToken(token, {})
+    } catch (error) {
+        logger.warn('QA cleanup token verification failed', error)
+        return { ok: false, status: 401, message: 'Authentication required' }
+    }
+
+    const session = await marshalSession(claims.sub, claims)
     if (!session?.user.isSiAdmin) {
         return { ok: false, status: 403, message: 'SI admin access required' }
     }
