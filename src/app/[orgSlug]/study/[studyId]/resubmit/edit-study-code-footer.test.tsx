@@ -56,6 +56,11 @@ describe('EditStudyCodeFooter', () => {
         expect(screen.getByRole('button', { name: 'Resubmit study code' })).toBeDisabled()
     })
 
+    it('disables Resubmit when no main file is selected, even with files and a valid note', () => {
+        renderFooter({ initialNote: wordsString(10), mainFileName: '', fileNames: ['a.R', 'b.R'] })
+        expect(screen.getByRole('button', { name: 'Resubmit study code' })).toBeDisabled()
+    })
+
     it('opens the confirmation modal with the OTTER-563 copy when Resubmit is clicked', async () => {
         const user = userEvent.setup()
         renderFooter({
