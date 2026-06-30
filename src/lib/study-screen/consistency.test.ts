@@ -40,6 +40,17 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
         full({ status: 'REJECTED', isDraft: false }),
         full({ status: 'CHANGE-REQUESTED', isDraft: false }),
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true }),
+        // Errored job, no reviewer files decision: the pill reads "Code approved", so the 'View' link
+        // must resolve to a real screen (code-approved), never the study-overview fallback (OTTER-598).
+        full({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            isExecuting: true,
+            hasResults: true,
+            resultsErrored: true,
+        }),
     ]
 
     for (const s of viewStates) {
@@ -48,7 +59,7 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
             // These fixtures are all non-draft studies the dashboard sends to /view; assert that
             // explicitly so a future Tier-1 rule change can't silently make this invariant vacuous.
             expect(action.label).toBe('View')
-            expect(resolveScreen('researcher', s, undefined, ctx).screen).not.toBe('study-overview')
+            expect(resolveScreen('researcher', s, ctx).screen).not.toBe('study-overview')
         })
     }
 })
@@ -74,7 +85,7 @@ describe('reviewer rule table reaches no accidental fallback', () => {
 
     for (const s of reviewerStates) {
         it(`reviewer status=${s.status} code=${s.codeDecision} → reviewer screen`, () => {
-            const id = resolveScreen('reviewer', s, undefined, ctx).screen
+            const id = resolveScreen('reviewer', s, ctx).screen
             expect(id.startsWith('reviewer-')).toBe(true)
         })
     }

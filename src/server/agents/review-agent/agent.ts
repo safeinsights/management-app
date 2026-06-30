@@ -4,10 +4,11 @@ import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
-// Realistic worst case is ~1.5K tokens (2 narrative fields × ~150 words ≈
-// 400 tokens, plus ~10 findings per check × 2 checks × ~50 tokens). 16K
-// gives ~10× headroom — schema property `description` strings carry the
-// actual length guidance to the model; this cap is just a runaway bound.
+// Realistic worst case is ~2K tokens (codeExplanation ~300 words ≈ 400
+// tokens, plus other narrative fields and ~10 findings per check × 2 checks ×
+// ~50 tokens). 16K still gives ~8× headroom — schema property `description`
+// strings carry the actual length guidance to the model; this cap is just a
+// runaway bound.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
@@ -35,7 +36,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             codeExplanation: {
                 type: 'string',
                 description:
-                    'What the code does, referencing file paths. One paragraph, ~150 words max. Use numbered steps if helpful.',
+                    'What the code does in plain language, referencing file paths. Up to two paragraphs, ~300 words max. Use numbered steps if helpful.',
             },
             resultsSummary: {
                 type: 'string',

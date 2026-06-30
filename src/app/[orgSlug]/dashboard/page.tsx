@@ -47,7 +47,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                         : undefined
                 }
                 showNewStudyButton={!isEnclave}
-                showRefresher={isEnclave}
+                showRefresher
                 paperWrapper
             />
         </Stack>

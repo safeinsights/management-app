@@ -92,7 +92,24 @@ describe('ResearcherAgreementsRoute', () => {
         expect(asPath).not.toContain('from=')
     })
 
-    it('Proceed targets plain /view (which re-resolves to code-status) when code is already submitted', async () => {
+    it('Previous preserves returnTo=org on the /submitted link', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const page = await renderRoute(org.slug, study.id, { returnTo: 'org' })
+        renderWithProviders(page!)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: /Previous/ }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { asPath } = (RouterMock as any).memoryRouter
+        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted?returnTo=org`)
+    })
+
+    // "Proceed to Step 4" → the code step (/view/code), not plain /view (which would jump an advanced
+    // study straight to results).
+    it('Proceed targets /view/code when code is already submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
 
@@ -105,7 +122,7 @@ describe('ResearcherAgreementsRoute', () => {
         await waitFor(() => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { asPath } = (RouterMock as any).memoryRouter
-            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view`)
+            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view/code`)
         })
     })
 

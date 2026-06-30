@@ -77,7 +77,22 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const hasSubmittedCode = jobStatuses.has('CODE-SUBMITTED')
     const codeAwaitingDecision = hasSubmittedCode && codeDecision === null
     const hasResults = has(job, STUDY_RESULTS_JOB_STATUSES)
+    const resultsApproved = jobStatuses.has('FILES-APPROVED')
+    const resultsRejected = jobStatuses.has('FILES-REJECTED')
+    const resultsErrored = jobStatuses.has('JOB-ERRORED')
     const resultsDisplayStatus = RESULTS_PRIORITY.find((r) => r && jobStatuses.has(r)) ?? null
+
+    // The execution window is LIVE-only: status changes are append-only, so a job that ran then
+    // completed/errored keeps its JOB-RUNNING row forever — gating on results stops isExecuting from
+    // meaning "ever ran" (which kept showing the approved/will-run banner after the run). A bare
+    // JOB-ERRORED stays hidden from the researcher (the reviewer triages it), so it must NOT end the
+    // window: only a researcher-visible result (RUN-COMPLETE / FILES-APPROVED / FILES-REJECTED) does.
+    const erroredResultHidden = isErroredResultHiddenFromResearcher({
+        resultsErrored,
+        resultsApproved,
+        resultsRejected,
+    })
+    const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredResultHidden)
 
     // displayStatus: drop stale code decisions on a resubmission (latest job submitted, no live decision),
     // then pick the highest-priority present status; fall back to study status when the job has none.
@@ -103,11 +118,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         hasSubmittedCode,
         codeDecision,
         codeAwaitingDecision,
-        isExecuting: has(job, STUDY_CODE_RUNNING_JOB_STATUSES),
+        isExecuting,
         hasResults,
-        resultsApproved: jobStatuses.has('FILES-APPROVED'),
-        resultsRejected: jobStatuses.has('FILES-REJECTED'),
-        resultsErrored: jobStatuses.has('JOB-ERRORED'),
+        resultsApproved,
+        resultsRejected,
+        resultsErrored,
         resultsDisplayStatus,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
@@ -116,3 +131,12 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         latestJobStatuses: [...jobStatuses].sort(), // stable order for deterministic output/tests
     }
 }
+
+// OTTER-598 follow-up: a JOB-ERRORED result stays hidden from the RESEARCHER until a reviewer records
+// a FILES-* decision (errored-result triage is the reviewer's). While hidden, the researcher's pill
+// reads "Code approved" (resolvePillStatus's hideErrored) and the /view screen must hold on the
+// code-approved page — NOT jump to the results/Study Details screen. Single source of truth shared by
+// the pill and RESEARCHER_SCREEN_RULES so the two can't drift (the mismatch QA re-reported in 43898).
+export const isErroredResultHiddenFromResearcher = (
+    s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
+): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
