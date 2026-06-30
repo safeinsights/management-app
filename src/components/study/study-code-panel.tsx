@@ -85,6 +85,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                     )}
                     <Title order={4}>Study code</Title>
                     <Group justify="space-between" wrap="nowrap" align="baseline">
+                        {/* 65ch ≈ 75 rendered chars in Open Sans */}
                         <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
                             Title: {studyTitle ?? 'Untitled draft'}
                         </Text>
