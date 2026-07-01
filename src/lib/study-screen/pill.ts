@@ -1,8 +1,7 @@
 import type { StudyJobStatus } from '@/database/types'
 import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, type StatusLabel } from '@/lib/status-labels'
-import { CODE_DECISION_JOB_STATUSES, type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StudyRole, StudyState } from './state.types'
-import { DISPLAY_STATUS_PRIORITY, isErroredResultHiddenFromResearcher } from './state'
+import { DISPLAY_STATUS_PRIORITY, isErroredResultHiddenFromResearcher, isStaleCodeDecision } from './state'
 
 const LABELS: Record<StudyRole, Partial<Record<StudyJobStatus | string, StatusLabel>>> = {
     researcher: RESEARCHER_STATUS_LABELS,
@@ -16,25 +15,25 @@ const LABELS: Record<StudyRole, Partial<Record<StudyJobStatus | string, StatusLa
 const FALLBACK_LABEL: StatusLabel = { stage: 'Proposal', label: 'Draft', colors: { bg: 'grey.10', c: 'gray.9' } }
 
 // Port of useStudyStatus's pill selection. Walk the latest job's status SET by fixed priority,
-// returning the first status THE ROLE HAS A LABEL FOR — so researchers (who have no execution
-// sub-status labels) fall through JOB-PACKAGING/READY/RUNNING to CODE-APPROVED, exactly as today,
-// while reviewers show the granular execution label. One deliberate change from legacy: a job
-// carrying both CODE-CHANGES-REQUESTED and a terminal CODE-REJECTED now reads "Rejected" (see
-// DISPLAY_STATUS_PRIORITY). Role-specific rules layered on top:
+// returning the first status THE ROLE HAS A LABEL FOR, so researchers (who have no execution
+// sub-status labels) fall through JOB-PACKAGING/READY/RUNNING to CODE-APPROVED, while reviewers show
+// the granular execution label. Role-specific rules layered on top:
 //  - researcher hides JOB-ERRORED until a reviewer records a FILES-* decision;
-//  - on a resubmission (codeAwaitingDecision), stale code-decision statuses are dropped so the
-//    fresh CODE-SUBMITTED drives the pill, not the prior round's decision.
+//  - a code-decision status is eligible only when it is the live one (isStaleCodeDecision reuses
+//    state.codeDecision). This drops stale prior-round decisions AND, when no decision is live
+//    (mid-resubmission, codeDecision null), every decision, so the fresh CODE-SUBMITTED drives the pill.
+//    A job carrying an early CODE-CHANGES-REQUESTED plus a later CODE-APPROVED / CODE-REJECTED therefore
+//    reads Approved / Rejected, not the stale earlier round.
 export function resolvePillStatus(role: StudyRole, state: StudyState): StatusLabel {
     const labels = LABELS[role]
     const present = new Set<StudyJobStatus>(state.latestJobStatuses)
 
     const hideErrored = role === 'researcher' && isErroredResultHiddenFromResearcher(state)
-    const dropStaleDecisions = state.codeAwaitingDecision
 
     const candidate = DISPLAY_STATUS_PRIORITY.find((st) => {
         if (!present.has(st)) return false
         if (hideErrored && st === 'JOB-ERRORED') return false
-        if (dropStaleDecisions && CODE_DECISION_JOB_STATUSES.includes(st as CodeDecisionStatus)) return false
+        if (isStaleCodeDecision(st, state.codeDecision)) return false
         return labels[st] !== undefined // only statuses THIS ROLE can label
     })
 

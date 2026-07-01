@@ -77,6 +77,30 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Rejected')
     })
+    // OTTER-641: resubmit approved. The stale CODE-CHANGES-REQUESTED must not win over the live approval.
+    it('resubmit then approved reads Approved, not the stale Change requested', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({
+                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'],
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(label.label).toBe('Approved')
+    })
+    // Researcher has no execution-status labels, so the pill falls through JOB-READY to the live code
+    // decision; that must be the approval, not the superseded change-request from the earlier round.
+    it('approved then executing still reads Approved for the researcher (falls through to live decision)', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({
+                latestJobStatuses: ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-READY'],
+                codeDecision: 'CODE-APPROVED',
+                isExecuting: true,
+            }),
+        )
+        expect(label.label).toBe('Approved')
+    })
 })
 
 describe('resolveRowHighlight', () => {
