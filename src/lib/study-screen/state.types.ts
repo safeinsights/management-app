@@ -12,7 +12,7 @@ export type RawJob = {
 }
 
 // Step 2 of the proposal wizard is the first time any of these columns is written (Step 1 saves only
-// data org + language + title + piName + doc paths). Any one being non-empty means the draft reached
+// data partner + language + title + piName + doc paths). Any one being non-empty means the draft reached
 // Step 2 — see draftHasStep2Progress / projectStudyState's hasStep2Progress.
 export type DraftStep2Fields = {
     piUserId: string | null
