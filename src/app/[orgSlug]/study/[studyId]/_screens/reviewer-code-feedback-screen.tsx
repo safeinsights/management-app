@@ -2,16 +2,25 @@ import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { projectStudyState } from '@/lib/study-screen'
+import { Routes } from '@/lib/routes'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
 import { getStudyReviewForJob, jobScanResultForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
-export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug }: ScreenComponentProps) {
+export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descriptor }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
+
+    // Only the read-only /review/code walk-back (descriptor.readOnlyCodeStep) shows "Previous" → it
+    // continues back through agreements → proposal (OTTER-643). The live code-decision screen leaves it
+    // unset, matching the live DO design that hides Previous.
+    const previousHref = descriptor.readOnlyCodeStep
+        ? Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
+        : undefined
+
     const job = await latestSubmittedJobForStudy(study.id)
     // The post-decision code page shows the full "Submitted code" section (datasets, AI summary,
     // security scan log, code viewer), the same section as active review, so it needs the review +
@@ -31,6 +40,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug }: Screen
                 job={job}
                 review={review}
                 scan={scan}
+                previousHref={previousHref}
             />
         )
     }
@@ -56,6 +66,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug }: Screen
             review={review}
             scan={scan}
             fallback={fallback}
+            previousHref={previousHref}
         />
     )
 }
