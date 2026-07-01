@@ -3,7 +3,7 @@ import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
     CODE_DECISION_JOB_STATUSES,
-    isCodeDecisionStatus,
+    latestSubmittedJobHasLiveCodeDecision,
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
@@ -26,10 +26,12 @@ const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJ
 
 // Pill display-status priority (highest-priority PRESENT status on the latest job wins).
 // Mirrors useStudyStatus's intent; finer-grained than the screen booleans (keeps exec sub-statuses).
-// Deliberate divergence from legacy: CODE-REJECTED outranks CODE-CHANGES-REQUESTED here (legacy's
-// reversed-label-order ranked them the other way). When a single job carries both (round-1 changes
-// requested, then a terminal round-2 rejection), the truthful terminal state is "rejected" — and it
-// agrees with the code-rejected screen routing — so Rejected wins, not the stale earlier round.
+// Which of several coexisting code decisions wins is NOT decided by their order here: callers keep only
+// the live codeDecision (see projectStudyState / resolvePillStatus), resolved by CODE_DECISION_PRIORITY.
+// So a job carrying an early CODE-CHANGES-REQUESTED plus a later terminal CODE-APPROVED / CODE-REJECTED
+// reads Approved / Rejected (the truthful terminal state), not the stale earlier round. The relative
+// order of the three decision statuses below is therefore immaterial; only their position relative to
+// the JOB-*/CODE-SUBMITTED entries matters.
 export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'JOB-ERRORED',
     'FILES-REJECTED',
@@ -58,18 +60,23 @@ function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     return pool.reduce((a, b) => (b.id > a.id ? b : a))
 }
 
+// A code-decision status is "stale" once it is no longer the live decision: an earlier round's
+// CODE-CHANGES-REQUESTED superseded by a later approval/rejection on the same job, or any decision while
+// none is live (mid-resubmission, liveDecision null). Dropping stale decisions makes the pill and
+// displayStatus follow the live codeDecision, never a prior round's. Shared by projectStudyState and
+// resolvePillStatus so the two can't drift (OTTER-641).
+export const isStaleCodeDecision = (status: StudyJobStatus, liveDecision: CodeDecisionStatus | null): boolean =>
+    CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus) && status !== liveDecision
+
 export function projectStudyState(raw: RawStudyState): StudyState {
     const job = latestJob(raw.jobs)
     const jobStatuses = new Set<StudyJobStatus>(job?.statusChanges.map((c) => c.status) ?? [])
 
-    // Count-based liveness: a decision is live only when decisions >= submissions. CODE-SUBMITTED is
-    // append-only per round (markCodeSubmitted), so a same-job resubmit after CODE-CHANGES-REQUESTED
-    // appends a fresh CODE-SUBMITTED (shape: CODE-SUBMITTED → CODE-CHANGES-REQUESTED → CODE-SUBMITTED),
-    // tipping submitted-count past decision-count so the prior decision is no longer live and the
-    // researcher is back under review. Mirrors latestSubmittedJobHasLiveCodeDecision in study-job-status.ts.
-    const submittedCount = job?.statusChanges.filter((c) => c.status === 'CODE-SUBMITTED').length ?? 0
-    const decisionCount = job?.statusChanges.filter((c) => isCodeDecisionStatus(c.status)).length ?? 0
-    const hasLiveDecision = decisionCount > 0 && decisionCount >= submittedCount
+    // A decision is live only when decisions >= submissions on the latest job. Reuse the single
+    // source of truth (latestSubmittedJobHasLiveCodeDecision) shared with reviewer routing and dashboard
+    // highlighting so a same-job resubmit after CODE-CHANGES-REQUESTED (which appends a fresh
+    // CODE-SUBMITTED, tipping submitted-count past decision-count) can't drift between those surfaces.
+    const hasLiveDecision = latestSubmittedJobHasLiveCodeDecision(job?.statusChanges ?? [])
     const codeDecision = hasLiveDecision ? (CODE_DECISION_PRIORITY.find((d) => jobStatuses.has(d)) ?? null) : null
     // Intentionally CODE-SUBMITTED only (legacy gated on ['CODE-SUBMITTED','CODE-SCANNED']): the scan
     // is an automated step, never present without a preceding CODE-SUBMITTED on the same job, so
@@ -94,11 +101,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     })
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredResultHidden)
 
-    // displayStatus: drop stale code decisions on a resubmission (latest job submitted, no live decision),
-    // then pick the highest-priority present status; fall back to study status when the job has none.
-    const dropStale = hasSubmittedCode && codeDecision === null
+    // displayStatus: pick the highest-priority present status, but let a code decision through only when
+    // it is the live one (see isStaleCodeDecision), so DISPLAY_STATUS_PRIORITY's ordering never picks
+    // among coexisting decisions. Fall back to study status when the job carries none.
     const visible = DISPLAY_STATUS_PRIORITY.filter(
-        (st) => jobStatuses.has(st) && !(dropStale && CODE_DECISION_JOB_STATUSES.includes(st as CodeDecisionStatus)),
+        (st) => jobStatuses.has(st) && !isStaleCodeDecision(st, codeDecision),
     )
     const displayStatus: AllStatus = visible[0] ?? raw.status
 

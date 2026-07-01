@@ -71,6 +71,41 @@ describe('projectStudyState', () => {
         expect(s.codeAwaitingDecision).toBe(true)
     })
 
+    // OTTER-641: after the resubmit is approved the same job carries a stale CODE-CHANGES-REQUESTED
+    // alongside the live CODE-APPROVED. displayStatus must follow the live decision, not the stale
+    // earlier round (which used to win by DISPLAY_STATUS_PRIORITY order).
+    it('same-job resubmit then approved → displayStatus is CODE-APPROVED, not the stale changes-requested', () => {
+        const approved = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [approved] }))
+        expect(s.codeDecision).toBe('CODE-APPROVED')
+        expect(s.codeAwaitingDecision).toBe(false)
+        expect(s.displayStatus).toBe('CODE-APPROVED')
+    })
+
+    // OTTER-641 symmetry: the same stale-decision drop applies when the resubmit is rejected. The job
+    // carries a round-1 CODE-CHANGES-REQUESTED alongside the live terminal CODE-REJECTED, and
+    // displayStatus must follow the live rejection (codeDecision ranks CODE-REJECTED above the stale
+    // change request), matching the pill's "reads Rejected" case.
+    it('same-job resubmit then rejected → displayStatus is CODE-REJECTED, not the stale changes-requested', () => {
+        const rejected = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'])
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [rejected] }))
+        expect(s.codeDecision).toBe('CODE-REJECTED')
+        expect(s.codeAwaitingDecision).toBe(false)
+        expect(s.displayStatus).toBe('CODE-REJECTED')
+    })
+
+    it('approved job then execution starts → displayStatus follows execution, not the code decision', () => {
+        const running = job(ID1, [
+            'CODE-SUBMITTED',
+            'CODE-CHANGES-REQUESTED',
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'JOB-READY',
+        ])
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [running] }))
+        expect(s.displayStatus).toBe('JOB-READY')
+    })
+
     it('agreements acked booleans map from the two columns', () => {
         const s = projectStudyState(raw({ researcherAgreementsAckedAt: new Date(), reviewerAgreementsAckedAt: null }))
         expect(s.researcherAgreementsAcked).toBe(true)
