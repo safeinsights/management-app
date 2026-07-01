@@ -1,17 +1,19 @@
 // Human-friendly relative time that works for both past ("5 minutes ago") and future ("in 5
-// minutes") instants. Returns null only for a missing or invalid date.
+// minutes") instants, down to seconds ("in 5 seconds"). Returns null only for a missing or invalid
+// date.
 export function formatRelativeTime(date: Date | null, now: Date = new Date()): string | null {
     if (!date || Number.isNaN(date.getTime())) return null
 
     const deltaSeconds = Math.round((date.getTime() - now.getTime()) / 1000)
     const seconds = Math.abs(deltaSeconds)
-    if (seconds < 30) return 'just now'
+    if (seconds < 5) return 'just now'
 
     const inFuture = deltaSeconds > 0
     const phrase = (amount: string) => (inFuture ? `in ${amount}` : `${amount} ago`)
 
+    if (seconds < 60) return phrase(`${seconds} second${seconds === 1 ? '' : 's'}`)
+
     const minutes = Math.floor(seconds / 60)
-    if (minutes < 1) return inFuture ? 'in less than a minute' : 'less than a minute ago'
     if (minutes < 60) return phrase(`${minutes} minute${minutes === 1 ? '' : 's'}`)
 
     const hours = Math.floor(minutes / 60)

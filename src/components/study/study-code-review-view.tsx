@@ -7,7 +7,6 @@ import { InfoTooltip } from '@/components/tooltip'
 import { FileDropOverlay } from './file-drop-overlay'
 import { FileReviewTable } from './file-review-table'
 import { LaunchIdeButton } from './launch-ide-button'
-import { LaunchLogs } from './launch-logs'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
@@ -82,12 +81,6 @@ export function StudyCodeReviewView({
             </Group>
 
             <LaunchProgress
-                isVisible={isLaunching}
-                buildLog={launchBuildLog}
-                agentLog={launchAgentLog}
-                lastUpdatedAt={launchLastUpdatedAt}
-            />
-            <LaunchLogs
                 isVisible={isLaunching}
                 buildLog={launchBuildLog}
                 agentLog={launchAgentLog}

@@ -20,14 +20,15 @@ describe('formatTimeAgo', () => {
         expect(formatTimeAgo(new Date('2026-04-25T00:00:00Z'), now)).toBeNull()
     })
 
-    it('returns "just now" for < 30 seconds', () => {
+    it('returns "just now" under 5 seconds', () => {
         expect(formatTimeAgo(minus(0), now)).toBe('just now')
-        expect(formatTimeAgo(minus(29 * SECONDS), now)).toBe('just now')
+        expect(formatTimeAgo(minus(4 * SECONDS), now)).toBe('just now')
     })
 
-    it('returns "less than a minute ago" for 30-59 seconds', () => {
-        expect(formatTimeAgo(minus(30 * SECONDS), now)).toBe('less than a minute ago')
-        expect(formatTimeAgo(minus(59 * SECONDS), now)).toBe('less than a minute ago')
+    it('returns seconds from 5 to 59 seconds', () => {
+        expect(formatTimeAgo(minus(5 * SECONDS), now)).toBe('5 seconds ago')
+        expect(formatTimeAgo(minus(29 * SECONDS), now)).toBe('29 seconds ago')
+        expect(formatTimeAgo(minus(59 * SECONDS), now)).toBe('59 seconds ago')
     })
 
     it('returns minutes for 1-59 minutes', () => {
@@ -65,8 +66,8 @@ describe('formatRelativeTime', () => {
     })
 
     it('phrases future instants with "in …"', () => {
-        expect(formatRelativeTime(plus(10 * SECONDS), now)).toBe('just now')
-        expect(formatRelativeTime(plus(45 * SECONDS), now)).toBe('in less than a minute')
+        expect(formatRelativeTime(plus(10 * SECONDS), now)).toBe('in 10 seconds')
+        expect(formatRelativeTime(plus(45 * SECONDS), now)).toBe('in 45 seconds')
         expect(formatRelativeTime(plus(1 * MINUTES), now)).toBe('in 1 minute')
         expect(formatRelativeTime(plus(5 * MINUTES), now)).toBe('in 5 minutes')
         expect(formatRelativeTime(plus(3 * HOURS), now)).toBe('in 3 hours')

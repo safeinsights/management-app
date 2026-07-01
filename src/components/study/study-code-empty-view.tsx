@@ -6,7 +6,6 @@ import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
-import { LaunchLogs } from './launch-logs'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
@@ -72,12 +71,6 @@ export function StudyCodeEmptyView({
                             />
                         </Box>
                         <LaunchProgress
-                            isVisible={isLaunching}
-                            buildLog={launchBuildLog}
-                            agentLog={launchAgentLog}
-                            lastUpdatedAt={launchLastUpdatedAt}
-                        />
-                        <LaunchLogs
                             isVisible={isLaunching}
                             buildLog={launchBuildLog}
                             agentLog={launchAgentLog}

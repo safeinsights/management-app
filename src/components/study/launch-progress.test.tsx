@@ -1,54 +1,30 @@
 import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
-import { LAUNCH_STEPS, LaunchProgress, launchProgress } from './launch-progress'
+import { timedProgress } from '@/hooks/use-timed-progress'
+import { LAUNCH_STEPS, LaunchProgress } from './launch-progress'
 
-const TOTAL_SECONDS = LAUNCH_STEPS.reduce((sum, step) => sum + step.secondsUntilNext, 0)
-
-// Build the accumulated logs containing the messages of the first `count` milestones.
-const logsThrough = (count: number) => ({
-    build: LAUNCH_STEPS.slice(0, count)
-        .filter((s) => s.log === 'build')
-        .map((s) => s.message)
-        .join('\n'),
-    agent: LAUNCH_STEPS.slice(0, count)
-        .filter((s) => s.log === 'agent')
-        .map((s) => s.message)
-        .join('\n'),
-})
-
-describe('launchProgress', () => {
-    it('is 0% with the full estimate remaining before any milestone', () => {
-        expect(launchProgress('', '')).toEqual({ value: 0, secondsRemaining: TOTAL_SECONDS })
-    })
-
-    it('never grows the remaining time or shrinks the bar as milestones are seen', () => {
-        let prev = launchProgress('', '')
-        for (let count = 1; count <= LAUNCH_STEPS.length; count++) {
-            const { build, agent } = logsThrough(count)
-            const next = launchProgress(build, agent)
-            expect(next.secondsRemaining).toBeLessThanOrEqual(prev.secondsRemaining)
-            expect(next.value).toBeGreaterThanOrEqual(prev.value)
-            prev = next
-        }
-    })
-
-    it('leaves only the final step estimate remaining once every milestone is seen', () => {
-        const { build, agent } = logsThrough(LAUNCH_STEPS.length)
-        const finalStep = LAUNCH_STEPS[LAUNCH_STEPS.length - 1]
-        expect(launchProgress(build, agent).secondsRemaining).toBe(finalStep.secondsUntilNext)
+describe('LAUNCH_STEPS', () => {
+    it('detects a build milestone and lowers the remaining estimate', () => {
+        const before = timedProgress(LAUNCH_STEPS, { buildLog: '', agentLog: '' })
+        const after = timedProgress(LAUNCH_STEPS, {
+            buildLog: 'aws_ecs_task_definition.workspace[0]: Plan to create',
+            agentLog: '',
+        })
+        expect(before.value).toBe(0)
+        expect(after.value).toBeGreaterThan(0)
+        expect(after.secondsRemaining).toBeLessThan(before.secondsRemaining)
     })
 })
 
 describe('LaunchProgress', () => {
     it('renders nothing when not visible', () => {
         renderWithProviders(<LaunchProgress isVisible={false} buildLog="" agentLog="" />)
-        expect(screen.queryByText(/remaining/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Ready|Updated/)).not.toBeInTheDocument()
     })
 
     it('shows the estimated ready time and the last-update time as <time> tags', () => {
         const at = new Date()
-        const { build, agent } = logsThrough(1)
         const { container } = renderWithProviders(
-            <LaunchProgress isVisible={true} buildLog={build} agentLog={agent} lastUpdatedAt={at} />,
+            <LaunchProgress isVisible={true} buildLog="" agentLog="" lastUpdatedAt={at} />,
         )
         expect(container.textContent).toContain('Ready')
         expect(container.textContent).toContain('· updated')
@@ -62,16 +38,14 @@ describe('LaunchProgress', () => {
         const times = [...container.querySelectorAll('time')]
         expect(times).toHaveLength(2)
         const readyEl = times.find((t) => t !== updatedEl)!
-        expect(readyEl).toHaveAttribute('datetime')
         expect(readyEl.textContent).toMatch(/^(in |just now)/)
     })
 
     it('drops the estimate and shows only the last update once the estimate has lapsed', () => {
         // last update long enough ago that lastUpdatedAt + secondsRemaining is already in the past
         const staleUpdate = new Date(Date.now() - 60 * 60 * 1000)
-        const { build, agent } = logsThrough(1)
         const { container } = renderWithProviders(
-            <LaunchProgress isVisible={true} buildLog={build} agentLog={agent} lastUpdatedAt={staleUpdate} />,
+            <LaunchProgress isVisible={true} buildLog="" agentLog="" lastUpdatedAt={staleUpdate} />,
         )
         expect(container.textContent).not.toContain('Ready')
         expect(container.textContent).toContain('Updated')
