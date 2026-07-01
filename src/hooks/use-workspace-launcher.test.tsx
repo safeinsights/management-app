@@ -153,6 +153,29 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
+        // ctrl-click passes sameWindow so the IDE opens in the current tab, which keeps it in the
+        // same Playwright page context for e2e testing.
+        it('should open workspace in the same tab when launched with sameWindow', async () => {
+            const workspaceUrl = 'https://workspace.example.com'
+            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
+                workspace: { id: 'workspace-456' },
+            })
+            ;(getWorkspaceUrlAction as Mock).mockResolvedValue(workspaceUrl)
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => {
+                result.current.launchWorkspace({ sameWindow: true })
+            })
+
+            await waitFor(() => {
+                expect(mockWindowOpen).toHaveBeenCalledWith(workspaceUrl, '_self')
+                expect(result.current.isLaunching).toBe(false)
+            })
+        })
+
         // A blocked popup is not a launch failure: the workspace launched fine and the user gets a
         // clickable fallback notification, so the hook must NOT surface it as `error` (which would
         // render a misleading "Launch failed" state in the UI).
