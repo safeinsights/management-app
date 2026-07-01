@@ -39,7 +39,7 @@ export function StudyCodeEmptyView({
             <Text size="sm">
                 To prepare your code, upload existing files
                 {showLaunchIde ? ' or write new code in our Integrated Development Environment (IDE)' : ''}. Once ready,
-                submit your files to the Data Organization to run against their dataset.
+                submit your files to the Data Partner to run against their dataset.
             </Text>
 
             {showLaunchIde && (
@@ -64,7 +64,7 @@ export function StudyCodeEmptyView({
                                 Note:{' '}
                             </Text>
                             After creating or editing files in the IDE, please return here to submit your code to the
-                            Data Organization.
+                            Data Partner.
                         </Text>
                     </Stack>
                 </Paper>
@@ -78,8 +78,8 @@ export function StudyCodeEmptyView({
                         <Text fw={700}>Upload your files</Text>
                         <Text size="sm" c="dimmed">
                             Make sure that your main file contains the <StarterCodeLink file={starterLink} /> provided
-                            by the Data Organization for accessing their datasets. You may also continue to edit your
-                            uploaded files in the IDE before submitting them to the Data Organization.
+                            by the Data Partner for accessing their datasets. You may also continue to edit your
+                            uploaded files in the IDE before submitting them to the Data Partner.
                         </Text>
                         <Box mt="sm">
                             <Stack gap="xs" align="flex-start">

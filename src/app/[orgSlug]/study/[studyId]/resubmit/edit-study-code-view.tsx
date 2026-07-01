@@ -26,7 +26,7 @@ const MAIN_FILE_TOOLTIP =
     "If you're creating or uploading multiple files, please select your main file (i.e., the script that runs first)."
 
 const IDE_BUTTON_TOOLTIP =
-    'After creating or editing files in the IDE, please return here to submit your code to the data organization.'
+    'After creating or editing files in the IDE, please return here to submit your code to the Data Partner.'
 
 const MainFileColumnHeader: FC = () => (
     <Group gap={4} wrap="nowrap" align="center">

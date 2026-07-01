@@ -32,20 +32,20 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                 STEP 1A
             </Text>
             <Title fz={20} order={4} c="charcoal.9">
-                Data Organization
+                Data Partner
             </Title>
             <Divider my="md" />
             <Stack gap="xl">
                 <Text>
                     <Text span fw={600}>
-                        Select the Data Organization your study is intended for.
+                        Select the Data Partner your study is intended for.
                     </Text>{' '}
                     This crucial initial step ensures your proposal is routed correctly for review. You can save a draft
                     or cancel at any time during the process.
                 </Text>
                 <Grid align="center">
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Data Organization" inputId="studyOrg" />
+                        <FormFieldLabel label="Data Partner" inputId="studyOrg" />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <Select
@@ -54,7 +54,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             key={form.key('orgSlug')}
                             allowDeselect={false}
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
-                            placeholder="Select a Data Organization"
+                            placeholder="Select a Data Partner"
                             disabled={isExistingDraft || isLoading}
                             {...form.getInputProps('orgSlug')}
                         />
