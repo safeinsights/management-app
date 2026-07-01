@@ -15,6 +15,7 @@ import {
     setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     addJobToStudyAction,
@@ -45,6 +46,11 @@ vi.mock('@/server/aws', async () => {
 })
 
 const workspaceRoots: string[] = []
+
+// Append a status row to a job. Rows inserted later get higher v7 ids and sort ahead in statusChanges
+// (createdAt desc, id desc), so this reproduces a late webhook status landing on top of the decision.
+const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
+    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
 
 describe('Request Study Actions', () => {
     beforeEach(() => {
@@ -1083,6 +1089,82 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(row.codeResubmissionNoteDraft).toBeNull()
         })
+
+        // OTTER-558: the QA repro, a Result-ready study whose FILES-APPROVED decision is buried under a
+        // later CODE-SCANNED row. The old at(0) gate read the scan and threw on every keystroke.
+        it('persists the draft when FILES-APPROVED exists but a later CODE-SCANNED sorts first', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-APPROVED')
+            await insertStatus(job.id, 'RUN-COMPLETE')
+            await insertStatus(job.id, 'FILES-APPROVED')
+            await insertStatus(job.id, 'CODE-SCANNED')
+
+            const result = actionResult(
+                await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }),
+            )
+            expect(result.studyId).toBe(study.id)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBe('A draft note')
+        })
+
+        it('persists the draft for a results-rejected study (FILES-REJECTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-APPROVED')
+            await insertStatus(job.id, 'RUN-COMPLETE')
+            await insertStatus(job.id, 'FILES-REJECTED')
+
+            const result = actionResult(
+                await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'reworking after rejection' }),
+            )
+            expect(result.studyId).toBe(study.id)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBe('reworking after rejection')
+        })
+
+        it('rejects when a CODE-CHANGES-REQUESTED is stale (a fresh CODE-SUBMITTED was appended)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            // Already resubmitted once, awaiting a new decision, so not resubmittable again.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
+
+            const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'stale attempt' })
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
+        })
     })
 
     describe('resubmitStudyCodeAction', () => {
@@ -1169,6 +1251,85 @@ describe('Request Study Actions', () => {
             const root = await createWorkspaceDir('resubmit-wrong-status')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: wordsString(10),
+            })
+            expect(result).toHaveProperty('error')
+        })
+
+        // OTTER-558: the final submit must not read statusChanges.at(0) either; a resubmittable
+        // decision buried under a later CODE-SCANNED must still resubmit.
+        it('resubmits when CODE-CHANGES-REQUESTED exists but a later CODE-SCANNED sorts first', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            await insertStatus(job.id, 'CODE-SCANNED')
+
+            const root = await createWorkspaceDir('resubmit-late-scan')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: wordsString(10),
+                }),
+            )
+            expect(result.studyJobId).toBeDefined()
+        })
+
+        // Results-ready (FILES-APPROVED) resubmit with a later CODE-SCANNED sorting first — the QA
+        // scenario, at the final-submit gate (mirrors the save-draft coverage).
+        it('resubmits a results-ready study when FILES-APPROVED is buried under a later CODE-SCANNED', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-APPROVED')
+            await insertStatus(job.id, 'RUN-COMPLETE')
+            await insertStatus(job.id, 'FILES-APPROVED')
+            await insertStatus(job.id, 'CODE-SCANNED')
+
+            const root = await createWorkspaceDir('resubmit-results-ready')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: wordsString(10),
+                }),
+            )
+            expect(result.studyJobId).toBeDefined()
+        })
+
+        it('rejects the final submit when a CODE-CHANGES-REQUESTED is stale (fresh CODE-SUBMITTED appended)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            // Already resubmitted — awaiting a new decision, so the gate rejects before file checks.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
 
             const result = await resubmitStudyCodeAction({
                 studyId: study.id,
