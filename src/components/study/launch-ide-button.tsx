@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
@@ -6,7 +7,7 @@ import { CompactStatusButton } from './compact-status-button'
 export type LaunchIdeButtonVariant = 'cta' | 'outline'
 
 interface LaunchIdeButtonProps {
-    onClick: () => void
+    onClick: (event: MouseEvent) => void
     isLaunching: boolean
     launchError: Error | null
     variant: LaunchIdeButtonVariant

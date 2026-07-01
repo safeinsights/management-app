@@ -15,8 +15,11 @@ const toLaunchError = (err: Error | null): Error | null => {
     return err
 }
 
-const openWorkspaceInNewTab = (url: string, studyId: string): { blocked: boolean } => {
-    const newWindow = window.open(url, `ide-for-study-${studyId}`)
+const openWorkspace = (url: string, studyId: string, sameWindow: boolean): { blocked: boolean } => {
+    // sameWindow (ctrl-click) navigates the current tab, which keeps the workspace in the same
+    // Playwright page context and avoids the popup-blocker path — it makes e2e testing simpler.
+    const target = sameWindow ? '_self' : `ide-for-study-${studyId}`
+    const newWindow = window.open(url, target)
     const blocked = !newWindow || newWindow.closed || typeof newWindow.closed === 'undefined'
     return { blocked }
 }
@@ -39,8 +42,13 @@ interface UseWorkspaceLauncherOptions {
     onSuccess?: () => void
 }
 
+interface LaunchOptions {
+    /** When true (ctrl-click), open the IDE in the current tab instead of a new window. */
+    sameWindow?: boolean
+}
+
 interface UseWorkspaceLauncherReturn {
-    launchWorkspace: () => void
+    launchWorkspace: (options?: LaunchOptions) => void
     /** True while the entire launch flow is in progress (from mutation start until the workspace opens or fails) */
     isLaunching: boolean
     /** True only while the initial workspace creation mutation is in progress */
@@ -73,6 +81,10 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         refetchInterval: (query) => (query.state.data || query.state.error ? false : 5000),
     })
 
+    // The workspace opens asynchronously after polling resolves, so the sameWindow intent from the
+    // click has to be latched here (at click time) rather than read when the tab finally opens.
+    const sameWindowRef = useRef(false)
+
     // Opening the tab is a one-shot side effect fired when the poll resolves; the ref latches it to
     // the current workspace so a re-render (or StrictMode double-invoke) can't open it twice.
     const handledWorkspaceRef = useRef<string | null>(null)
@@ -81,7 +93,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         if (!url || !workspaceId || handledWorkspaceRef.current === workspaceId) return
 
         handledWorkspaceRef.current = workspaceId
-        const { blocked } = openWorkspaceInNewTab(url, studyId)
+        const { blocked } = openWorkspace(url, studyId, sameWindowRef.current)
         if (blocked) notifyPopupBlocked(url)
         onSuccess?.()
     }, [urlQuery.data, workspaceId, studyId, onSuccess])
@@ -103,10 +115,14 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         queryClient.removeQueries({ queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId] })
     }, [creation, queryClient, studyId])
 
-    const launchWorkspace = useCallback(() => {
-        clearError()
-        creation.mutate({ studyId })
-    }, [clearError, creation, studyId])
+    const launchWorkspace = useCallback(
+        (options?: LaunchOptions) => {
+            sameWindowRef.current = options?.sameWindow ?? false
+            clearError()
+            creation.mutate({ studyId })
+        },
+        [clearError, creation, studyId],
+    )
 
     const waitingForUrl = !!workspaceId && !urlQuery.data && !urlQuery.error
     const isLaunching = creation.isPending || waitingForUrl

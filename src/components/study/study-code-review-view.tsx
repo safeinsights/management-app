@@ -9,7 +9,7 @@ import { LaunchIdeButton } from './launch-ide-button'
 import { UploadFilesButton } from './upload-files-button'
 
 interface StudyCodeReviewViewProps {
-    launchWorkspace: () => void
+    launchWorkspace: (options?: { sameWindow?: boolean }) => void
     isLaunching: boolean
     launchError: Error | null
     uploadFiles: (files: FileWithPath[]) => void
@@ -47,7 +47,7 @@ export function StudyCodeReviewView({
     if (showLaunchIde) {
         const launchButton = (
             <LaunchIdeButton
-                onClick={launchWorkspace}
+                onClick={(event) => launchWorkspace({ sameWindow: event.ctrlKey })}
                 isLaunching={isLaunching}
                 launchError={launchError}
                 variant="outline"
