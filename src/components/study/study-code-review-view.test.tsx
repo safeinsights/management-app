@@ -1,3 +1,4 @@
+import { createRef } from 'react'
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { StudyCodeReviewView } from './study-code-review-view'
@@ -8,9 +9,6 @@ const sampleFiles: WorkspaceFileInfo[] = [
 ]
 
 const baseProps = {
-    launchWorkspace: vi.fn(),
-    isLaunching: false,
-    launchError: null,
     uploadFiles: vi.fn(),
     isUploading: false,
     files: sampleFiles,
@@ -19,13 +17,12 @@ const baseProps = {
     removeFile: vi.fn(),
     viewFile: vi.fn(),
     jobCreatedAt: null,
+    openRef: createRef<(() => void) | null>(),
 }
 
 describe('StudyCodeReviewView', () => {
-    it('renders the header buttons and review-files instructions', () => {
+    it('renders review-files instructions', () => {
         renderWithProviders(<StudyCodeReviewView {...baseProps} />)
-        expect(screen.getByRole('button', { name: /edit files in ide/i })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /upload files/i })).toBeInTheDocument()
         expect(screen.getByText(/review files/i)).toBeInTheDocument()
         expect(screen.getByText(/review and manage submitted code files/i)).toBeInTheDocument()
         expect(screen.queryByText(/select your main file/i)).not.toBeInTheDocument()
@@ -51,13 +48,5 @@ describe('StudyCodeReviewView', () => {
         renderWithProviders(<StudyCodeReviewView {...baseProps} removeFile={removeFile} />)
         await user.click(screen.getByRole('button', { name: /remove main\.R/i }))
         expect(removeFile).toHaveBeenCalledWith('main.R')
-    })
-
-    it('calls launchWorkspace when Edit files in IDE is clicked', async () => {
-        const user = userEvent.setup()
-        const launchWorkspace = vi.fn()
-        renderWithProviders(<StudyCodeReviewView {...baseProps} launchWorkspace={launchWorkspace} />)
-        await user.click(screen.getByRole('button', { name: /edit files in ide/i }))
-        expect(launchWorkspace).toHaveBeenCalledTimes(1)
     })
 })
