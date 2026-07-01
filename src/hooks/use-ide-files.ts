@@ -101,7 +101,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     )
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
-    const showEmptyState = fileNames.length === 0 && !workspace.isLoading
+    const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
     const submitDisabledReason =
