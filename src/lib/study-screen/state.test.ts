@@ -82,6 +82,18 @@ describe('projectStudyState', () => {
         expect(s.displayStatus).toBe('CODE-APPROVED')
     })
 
+    // OTTER-641 symmetry: the same stale-decision drop applies when the resubmit is rejected. The job
+    // carries a round-1 CODE-CHANGES-REQUESTED alongside the live terminal CODE-REJECTED, and
+    // displayStatus must follow the live rejection (codeDecision ranks CODE-REJECTED above the stale
+    // change request), matching the pill's "reads Rejected" case.
+    it('same-job resubmit then rejected → displayStatus is CODE-REJECTED, not the stale changes-requested', () => {
+        const rejected = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'])
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [rejected] }))
+        expect(s.codeDecision).toBe('CODE-REJECTED')
+        expect(s.codeAwaitingDecision).toBe(false)
+        expect(s.displayStatus).toBe('CODE-REJECTED')
+    })
+
     it('approved job then execution starts → displayStatus follows execution, not the code decision', () => {
         const running = job(ID1, [
             'CODE-SUBMITTED',
