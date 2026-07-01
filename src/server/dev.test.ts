@@ -74,4 +74,62 @@ describe('initializeDevWorkspaceFiles', () => {
 
         expect(writtenFileStat.mtime.getTime()).toBeLessThan(jobRow.createdAt.getTime())
     })
+
+    const seedContext = async (name: 'SYSTEM' | 'PYTHON' | 'R', content: string) => {
+        await db.deleteFrom('agentContext').where('name', '=', name).where('orgId', 'is', null).execute()
+        await db.insertInto('agentContext').values({ name, content, orgId: null }).execute()
+    }
+
+    test('writes CLAUDE.md from agent context on launch', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+        await seedContext('SYSTEM', 'system context')
+        await seedContext('R', 'r context')
+
+        const { initializeDevWorkspaceFiles } = await import('./dev')
+        await initializeDevWorkspaceFiles(study.id)
+
+        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe(
+            'system context\nr context\nNo data sources provided',
+        )
+    })
+
+    test('refreshes CLAUDE.md on relaunch without recopying starter code', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+        await seedContext('SYSTEM', 'system context')
+        await seedContext('R', 'r context')
+
+        const { initializeDevWorkspaceFiles } = await import('./dev')
+        await initializeDevWorkspaceFiles(study.id)
+
+        // User edits their starter code, then context is updated and the workspace is relaunched.
+        await fs.writeFile(`${TEST_CODER_FILES}/main.R`, 'user edits', 'utf-8')
+        await seedContext('SYSTEM', 'updated system context')
+        await initializeDevWorkspaceFiles(study.id)
+
+        expect(await fs.readFile(`${TEST_CODER_FILES}/main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe(
+            'updated system context\nr context\nNo data sources provided',
+        )
+    })
+
+    test('preserves a manually edited CLAUDE.md on relaunch', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+        await seedContext('SYSTEM', 'system context')
+        await seedContext('R', 'r context')
+
+        const { initializeDevWorkspaceFiles } = await import('./dev')
+        await initializeDevWorkspaceFiles(study.id)
+
+        await fs.writeFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'my own context notes', 'utf-8')
+        await seedContext('SYSTEM', 'updated system context')
+        await initializeDevWorkspaceFiles(study.id)
+
+        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe('my own context notes')
+    })
 })

@@ -20,10 +20,7 @@ import { db } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { errorToString, isActionError } from '@/lib/errors'
-import { ContextName, getAgentContext } from '@/lib/agent-context'
-import * as database from '@/database'
-import { generateDataSourcesContextString } from '@/server/utils'
+import { writeAgentContext } from '../context-writer'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -263,21 +260,10 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const coderBaseFilePath = await getConfigValue('CODER_FILES')
     const studyDir = path.join(coderBaseFilePath, studyId)
 
-    // Idempotent: only copy starter files when the directory is empty.
-    // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
-    if (await studyDirHasFiles(studyDir)) {
-        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
-        return
-    }
-
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     const starterFiles = codeEnv.starterCodeFileNames ?? []
-    logger.info(
-        `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
-            `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
-    )
 
-    // Backdate starter-file mtime relative to the baseline studyJob rather than wall-clock.
+    // Backdate file mtimes relative to the baseline studyJob rather than wall-clock.
     // Wall-clock backdating breaks when Coder provisioning takes longer than the backdate window:
     // files end up newer than the baseline and the "files changed" gate flips Submit on without
     // any user edits. Falling back to wall-clock is only for the (currently impossible) case of
@@ -285,62 +271,41 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
-    for (const fileName of starterFiles) {
-        const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
-        const targetFilePath = path.join(studyDir, fileName)
+    // Idempotent: only copy starter files when the directory is empty.
+    // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
+    if (await studyDirHasFiles(studyDir)) {
+        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
+    } else {
+        logger.info(
+            `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
+                `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
+        )
 
-        let fileData
-        try {
-            fileData = await fetchFileContents(filePath)
-        } catch (error) {
-            logger.error(`${logCtx} failed fetching starter file from s3://${filePath}:`, error)
-            throw error
-        }
+        for (const fileName of starterFiles) {
+            const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
+            const targetFilePath = path.join(studyDir, fileName)
 
-        try {
-            await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-            await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-            await fs.utimes(targetFilePath, pastDate, pastDate)
-        } catch (error) {
-            logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
-            throw error
+            let fileData
+            try {
+                fileData = await fetchFileContents(filePath)
+            } catch (error) {
+                logger.error(`${logCtx} failed fetching starter file from s3://${filePath}:`, error)
+                throw error
+            }
+
+            try {
+                await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+                await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+                await fs.utimes(targetFilePath, pastDate, pastDate)
+            } catch (error) {
+                logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
+                throw error
+            }
+            logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
         }
-        logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
     }
 
-    // Initialize claude.md
-    // FYI: claude.md is only populated on workspace init. New updates to context after
-    // a workspace has been launched will not propagate.
-    const workspaceContexts: ContextName[] = ['SYSTEM', codeEnv.language]
-
-    let combinedContextString = ''
-    for (const contextName of workspaceContexts) {
-        let response
-        try {
-            response = await getAgentContext(database.db, { name: contextName, orgId: null })
-        } catch (error) {
-            logger.error(`${logCtx} failed fetching agent context "${contextName}":`, error)
-            throw error
-        }
-        if (isActionError(response)) {
-            logger.error(`${logCtx} agent context "${contextName}" returned error: ${errorToString(response)}`)
-            throw new Error(errorToString(response))
-        }
-        if (response.content) combinedContextString += response.content + '\n'
-    }
-
-    combinedContextString += await generateDataSourcesContextString(codeEnv.orgId)
-
-    const targetContextFileName = 'CLAUDE.md'
-    const targetContextPath = path.join(coderBaseFilePath, studyId, targetContextFileName)
-
-    try {
-        await fs.mkdir(path.dirname(targetContextPath), { recursive: true })
-        await fs.writeFile(targetContextPath, combinedContextString, 'utf-8')
-        await fs.utimes(targetContextPath, pastDate, pastDate)
-    } catch (error) {
-        logger.error(`${logCtx} failed writing ${targetContextFileName} to ${targetContextPath}:`, error)
-        throw error
-    }
-    logger.info(`${logCtx} wrote ${targetContextFileName} (${combinedContextString.length} bytes), init complete`)
+    // Refresh CLAUDE.md from the latest context on every launch (preserving manual user edits), so
+    // an "Edit in IDE" relaunch picks up context changes even when starter code is left untouched.
+    await writeAgentContext({ targetDir: studyDir, language: codeEnv.language, orgId: codeEnv.orgId, pastDate, logCtx })
 }
