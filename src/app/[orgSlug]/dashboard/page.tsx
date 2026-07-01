@@ -23,7 +23,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     const orgName = displayOrgName(org.name)
 
     const description = isEnclave
-        ? `Welcome to the ${orgName} Data Organization dashboard. Here you can review submitted study proposals, check study statuses and know when tasks are due.`
+        ? `Welcome to the ${orgName} Data Partner dashboard. Here you can review submitted study proposals, check study statuses and know when tasks are due.`
         : `Welcome to the ${orgName} Research Lab dashboard. Here you can submit new proposals, view study statuses, and access the details of each study.`
 
     return (
@@ -31,10 +31,10 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
             <PageBreadcrumbs
                 crumbs={[
                     ['My Dashboard', isEnclave ? '/dashboard?audience=reviewer' : '/dashboard?audience=researcher'],
-                    [orgInitialsOnly + (isEnclave ? ' Data Organization' : ' Research Lab')],
+                    [orgInitialsOnly + (isEnclave ? ' Data Partner' : ' Research Lab')],
                 ]}
             />
-            <Title order={1}>{orgName + (isEnclave ? ' Data Organization' : ' Research Lab')} dashboard</Title>
+            <Title order={1}>{orgName + (isEnclave ? ' Data Partner' : ' Research Lab')} dashboard</Title>
             <Text mt="-md">{description}</Text>
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
@@ -47,7 +47,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                         : undefined
                 }
                 showNewStudyButton={!isEnclave}
-                showRefresher={isEnclave}
+                showRefresher
                 paperWrapper
             />
         </Stack>

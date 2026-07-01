@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { strToAscii, slugify, getInitials, shellQuote, substituteEntryPointFile } from './string'
+import { strToAscii, slugify, getInitials, shellQuote, substituteEntryPointFile, orgInitialsTitle } from './string'
+
+describe('orgInitialsTitle', () => {
+    it('uses a space separator for the Data Partner suffix', () => {
+        expect(orgInitialsTitle('OpenStax Education', 'enclave')).toBe('OPE Data Partner')
+    })
+
+    it('keeps the existing hyphen separator for the Research Lab suffix', () => {
+        expect(orgInitialsTitle('OpenStax Education', 'lab')).toBe('OPE-Research Lab')
+    })
+})
 
 describe('getInitials', () => {
     it('returns the uppercased first initial for a single name', () => {

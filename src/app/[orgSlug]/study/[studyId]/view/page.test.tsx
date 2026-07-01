@@ -314,6 +314,57 @@ describe('StudyViewPage', () => {
             },
         )
 
+        it('holds on CodePostDecisionView when the run errors before any reviewer files decision (OTTER-598, 43898)', async () => {
+            // Code approved, ran, then JOB-ERRORED — but the reviewer has not recorded FILES-APPROVED
+            // /FILES-REJECTED. The pill still reads "Code approved", so the page must NOT jump to the
+            // results/Study Details screen; it stays on the post-code-approval page.
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
+            await addJobStatus(study.id, 'JOB-RUNNING')
+            await addJobStatus(study.id, 'JOB-ERRORED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
+            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
+            expect(page?.props.showStudyCode).toBe(false)
+            expect(page?.props.resultsHref).toBeUndefined()
+        })
+
+        it('hides the code listing when a packaging error (JOB-ERRORED, no JOB-RUNNING) is hidden from the researcher (OTTER-598)', async () => {
+            // Packaging-stage failure: the containerizer posts JOB-ERRORED with no execution substatus,
+            // so isExecuting is false. The error is still hidden from the researcher, so the page must
+            // hold on the post-code-approval view AND keep the code listing hidden (not re-expose it).
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'CODE-APPROVED')
+            await addJobStatus(study.id, 'JOB-ERRORED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            expect(page?.type).toBe(CodePostDecisionView)
+            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
+            expect(page?.props.showStudyCode).toBe(false)
+            expect(page?.props.resultsHref).toBeUndefined()
+        })
+
         it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
@@ -490,7 +541,10 @@ describe('StudyViewPage', () => {
     })
 
     describe('study-details redesign (OTTER-538)', () => {
-        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'] as const)(
+        // JOB-ERRORED is intentionally excluded here: a bare error stays hidden from the researcher
+        // until a reviewer records a FILES-* decision, so it holds on the code-approved page instead
+        // (see the execution-window describe block / OTTER-598 comment 43898).
+        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'] as const)(
             'renders StudyDetailsResearcher when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })

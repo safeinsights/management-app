@@ -26,7 +26,7 @@ jobs:
         runs-on: ubuntu-latest
         permissions: {}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -60,7 +60,7 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
@@ -96,7 +96,7 @@ jobs:
             # binaries.sonarsource.com: on a cache hit the binary is reused instead
             # of re-downloaded. Keyed on the scanner version pin so a bump busts it.
             - name: Cache SonarQube scanner
-              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ${{ github.workspace }}/.sonar
                   key: ${{ runner.os }}-sonar-7006c4492b2e0ee0f816d36501671557c97f5995
@@ -151,7 +151,7 @@ jobs:
             # default (~half the cores) leaves the box idle. Override via vitest --maxWorkers.
             VITEST_MAX_WORKERS: '4'
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -226,7 +226,7 @@ jobs:
             AWS_REGION: 'us-east-1'
             PORT: '4100'
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -236,7 +236,7 @@ jobs:
                   cache: 'pnpm'
             # Next build cache — keyed on lockfile + source so an unchanged tree restores
             # the previous .next/cache and skips most of the build.
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
                   key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
@@ -247,7 +247,7 @@ jobs:
             - name: Resolve Playwright version
               id: pw
               run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               id: pw-cache
               with:
                   path: ~/.cache/ms-playwright
@@ -297,7 +297,7 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -311,14 +311,14 @@ jobs:
             # uses whatever is present rather than failing the report.
             - name: download unit coverage (all shards)
               continue-on-error: true
-              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   pattern: coverage-unit-*
                   merge-multiple: true
                   path: test-results/unit/raw
             - name: download e2e coverage
               continue-on-error: true
-              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   name: coverage-e2e
                   path: test-results/e2e/coverage/raw

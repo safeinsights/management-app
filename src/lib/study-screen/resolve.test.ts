@@ -34,6 +34,46 @@ describe('resolveScreen (researcher)', () => {
             resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen,
         ).toBe('study-results')
     })
+    it('errored job, no reviewer files decision → code-approved, NOT study-results (OTTER-598, 43898)', () => {
+        // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
+        // from the researcher, so routing must hold on the code-approved page (matching the pill).
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+                ctx,
+            ).screen,
+        ).toBe('code-approved')
+    })
+    it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
+                ctx,
+            ).screen,
+        ).toBe('study-results')
+    })
+    it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
+        // Edge case raised in PR #837: resultsErrored excludes from study-results, the prior
+        // CODE-APPROVED was dropped by dropStale (so codeDecision is null and codeAwaitingDecision
+        // is true), and isExecuting is false. It must NOT fall through to study-results; it lands on
+        // code-under-review, which is the right next-step screen for a re-reviewed resubmission.
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsErrored: true,
+                    codeDecision: null,
+                    codeAwaitingDecision: true,
+                    hasSubmittedCode: true,
+                    isExecuting: false,
+                }),
+                ctx,
+            ).screen,
+        ).toBe('code-under-review')
+    })
     it('approved decision → code-approved', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe('code-approved')
     })
@@ -97,7 +137,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasResults: true,
             resultsApproved: true,
         })
-        expect(resolveResearcherCodeScreen(resultsStudy)).toBe('code-approved')
+        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
     })
 
     it('picks the code screen by state: changes-requested → code-feedback', () => {
@@ -107,12 +147,25 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasSubmittedCode: true,
             codeDecision: 'CODE-CHANGES-REQUESTED',
         })
-        expect(resolveResearcherCodeScreen(s)).toBe('code-feedback')
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback', readOnlyCodeStep: true })
     })
 
     it('awaiting decision → code-under-review', () => {
         const s = state({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeAwaitingDecision: true })
-        expect(resolveResearcherCodeScreen(s)).toBe('code-under-review')
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review', readOnlyCodeStep: true })
+    })
+
+    // OTTER-640: the read-only step marks readOnlyCodeStep so the code screen keeps the submitted code
+    // visible while the job runs in the enclave — unlike the live /view flow, which hides it.
+    it('marks readOnlyCodeStep for an executing study (code stays visible)', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            isExecuting: true,
+        })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {

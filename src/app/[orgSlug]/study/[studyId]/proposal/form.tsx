@@ -133,7 +133,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                             <Text size="xs" mb="xs" c="charcoal.7">
                                 Select the dataset(s) you’d like to use for your research. You’ll find options based on
-                                the selected Data Organization in Step 1 and its data availability.
+                                the selected Data Partner in Step 1 and its data availability.
                             </Text>
                             <Group align="center" gap="xxl">
                                 <Box w="50%">
