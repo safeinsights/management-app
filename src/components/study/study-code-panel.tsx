@@ -4,6 +4,7 @@ import { useIDEFiles } from '@/hooks/use-ide-files'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchProgress } from './launch-progress'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 import { UploadFilesButton } from './upload-files-button'
@@ -31,6 +32,9 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchError={ide.launchError}
+                launchLastUpdatedAt={ide.launchLastUpdatedAt}
+                launchBuildLog={ide.launchBuildLog}
+                launchAgentLog={ide.launchAgentLog}
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
@@ -39,17 +43,25 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
         )
     } else {
         body = (
-            <StudyCodeReviewView
-                uploadFiles={ide.uploadFiles}
-                isUploading={ide.isUploading}
-                files={ide.fileDetails}
-                mainFile={ide.mainFile}
-                setMainFile={ide.setMainFile}
-                removeFile={ide.removeFile}
-                viewFile={ide.viewFile}
-                jobCreatedAt={ide.jobCreatedAt}
-                openRef={openRef}
-            />
+            <Stack gap="md">
+                <LaunchProgress
+                    isVisible={ide.isLaunching}
+                    buildLog={ide.launchBuildLog}
+                    agentLog={ide.launchAgentLog}
+                    lastUpdatedAt={ide.launchLastUpdatedAt}
+                />
+                <StudyCodeReviewView
+                    uploadFiles={ide.uploadFiles}
+                    isUploading={ide.isUploading}
+                    files={ide.fileDetails}
+                    mainFile={ide.mainFile}
+                    setMainFile={ide.setMainFile}
+                    removeFile={ide.removeFile}
+                    viewFile={ide.viewFile}
+                    jobCreatedAt={ide.jobCreatedAt}
+                    openRef={openRef}
+                />
+            </Stack>
         )
     }
 

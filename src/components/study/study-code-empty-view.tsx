@@ -5,6 +5,7 @@ import type { FileWithPath } from '@mantine/dropzone'
 import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
 interface StarterFile {
@@ -16,6 +17,9 @@ interface StudyCodeEmptyViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
+    launchLastUpdatedAt?: Date | null
+    launchBuildLog?: string
+    launchAgentLog?: string
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     starterFiles: StarterFile[]
@@ -26,6 +30,9 @@ export function StudyCodeEmptyView({
     launchWorkspace,
     isLaunching,
     launchError,
+    launchLastUpdatedAt,
+    launchBuildLog = '',
+    launchAgentLog = '',
     uploadFiles,
     isUploading,
     starterFiles,
@@ -59,6 +66,12 @@ export function StudyCodeEmptyView({
                                 variant="cta"
                             />
                         </Box>
+                        <LaunchProgress
+                            isVisible={isLaunching}
+                            buildLog={launchBuildLog}
+                            agentLog={launchAgentLog}
+                            lastUpdatedAt={launchLastUpdatedAt}
+                        />
                         <Text size="sm">
                             <Text span fw={700}>
                                 Note:{' '}

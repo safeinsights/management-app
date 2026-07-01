@@ -1,9 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useMutation, useQueryClient } from '@/common'
 import { reportError } from '@/components/errors'
 import { ActionFailure } from '@/lib/errors'
-import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
+import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useRef } from 'react'
+import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 
 const LAUNCH_FAILED_MESSAGE = 'Failed to launch IDE'
 
@@ -41,81 +43,91 @@ interface UseWorkspaceLauncherOptions {
 
 interface UseWorkspaceLauncherReturn {
     launchWorkspace: () => void
-    /** True while the entire launch flow is in progress (from mutation start until the workspace opens or fails) */
+    /** True while the entire launch flow is in progress (from ensure start until the workspace opens or fails) */
     isLaunching: boolean
-    /** True only while the initial workspace creation mutation is in progress */
+    /** True only while the initial ensure (create/start) mutation is in progress */
     isCreatingWorkspace: boolean
     error: Error | null
     clearError: () => void
+    /** Latest progress poll (build/agent status + log lines), or undefined before the first poll */
+    status: WorkspaceLaunchStatus | undefined
+    /** Local time a new build/agent log line last arrived, for the "last updated … ago" hint */
+    lastUpdatedAt: Date | null
+    /** Full build/agent logs accumulated across polls */
+    buildLog: string
+    agentLog: string
 }
 
-const WORKSPACE_STATUS_KEY = 'workspaceStatus'
+const STATUS_QUERY_KEY = 'workspace-build-status'
 
 export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
-    const creation = useMutation({
-        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
+    // Ensure the workspace exists and is running (creates if missing, starts if stopped).
+    const ensure = useMutation({
+        mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
         onError: (err) => reportError(err, LAUNCH_FAILED_MESSAGE),
     })
-    const workspaceId = creation.data?.workspace.id ?? null
 
-    // Once a workspace exists, poll until Coder hands back a URL (or the request errors out).
-    // The URL is permanent for a given workspace, so once resolved the result never goes stale and
-    // no refetch trigger (remount, reconnect, focus) should re-run the launch on the server.
-    const urlQuery = useQuery({
-        queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId, workspaceId],
-        enabled: !!workspaceId,
-        staleTime: Infinity,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        queryFn: () => getWorkspaceUrlAction({ studyId, workspaceId: workspaceId as string }),
-        refetchInterval: (query) => (query.state.data || query.state.error ? false : 5000),
-    })
+    const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
 
-    // Opening the tab is a one-shot side effect fired when the poll resolves; the ref latches it to
-    // the current workspace so a re-render (or StrictMode double-invoke) can't open it twice.
-    const handledWorkspaceRef = useRef<string | null>(null)
+    // Opening the tab is a one-shot side effect fired when the poll yields a url; the ref latches
+    // it to that url so a re-render (or StrictMode double-invoke) can't open it twice.
+    const handledUrlRef = useRef<string | null>(null)
     useEffect(() => {
-        const url = urlQuery.data
-        if (!url || !workspaceId || handledWorkspaceRef.current === workspaceId) return
+        const url = buildStatus.url
+        if (!url || handledUrlRef.current === url) return
 
-        handledWorkspaceRef.current = workspaceId
+        handledUrlRef.current = url
         const { blocked } = openWorkspaceInNewTab(url, studyId)
         if (blocked) notifyPopupBlocked(url)
         onSuccess?.()
-    }, [urlQuery.data, workspaceId, studyId, onSuccess])
+    }, [buildStatus.url, studyId, onSuccess])
 
-    // Latch the report to the specific error so a StrictMode double-invoke (or re-render) can't
-    // fire two Sentry events / notifications for the same failure.
+    // Report a polling failure (query error) once, latched to the specific error.
     const reportedErrorRef = useRef<unknown>(null)
     useEffect(() => {
-        if (urlQuery.error && reportedErrorRef.current !== urlQuery.error) {
-            reportedErrorRef.current = urlQuery.error
-            reportError(urlQuery.error, LAUNCH_FAILED_MESSAGE)
+        if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
+            reportedErrorRef.current = buildStatus.error
+            reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE)
         }
-    }, [urlQuery.error])
+    }, [buildStatus.error])
+
+    // Report a failed build (the poll succeeds but reports failure) once per launch.
+    const reportedFailureRef = useRef(false)
+    useEffect(() => {
+        if (buildStatus.failed && !reportedFailureRef.current) {
+            reportedFailureRef.current = true
+            reportError(new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE), LAUNCH_FAILED_MESSAGE)
+        }
+    }, [buildStatus.failed, buildStatus.reason])
 
     const clearError = useCallback(() => {
-        creation.reset()
-        handledWorkspaceRef.current = null
+        ensure.reset()
+        handledUrlRef.current = null
         reportedErrorRef.current = null
-        queryClient.removeQueries({ queryKey: ['coder', WORKSPACE_STATUS_KEY, studyId] })
-    }, [creation, queryClient, studyId])
+        reportedFailureRef.current = false
+        queryClient.removeQueries({ queryKey: [STATUS_QUERY_KEY, studyId] })
+    }, [ensure, queryClient, studyId])
 
     const launchWorkspace = useCallback(() => {
         clearError()
-        creation.mutate({ studyId })
-    }, [clearError, creation, studyId])
+        ensure.mutate({ studyId })
+    }, [clearError, ensure, studyId])
 
-    const waitingForUrl = !!workspaceId && !urlQuery.data && !urlQuery.error
-    const isLaunching = creation.isPending || waitingForUrl
+    const statusFailure = buildStatus.failed ? new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE) : null
+    const waitingForWorkspace = ensure.isSuccess && !buildStatus.url && !buildStatus.failed && !buildStatus.error
+    const isLaunching = ensure.isPending || waitingForWorkspace
 
     return {
         launchWorkspace,
         isLaunching,
-        isCreatingWorkspace: creation.isPending,
-        error: toLaunchError(creation.error || urlQuery.error || null),
+        isCreatingWorkspace: ensure.isPending,
+        error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),
         clearError,
+        status: buildStatus.status,
+        lastUpdatedAt: buildStatus.lastUpdatedAt,
+        buildLog: buildStatus.buildLog,
+        agentLog: buildStatus.agentLog,
     }
 }
