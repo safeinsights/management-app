@@ -30,7 +30,7 @@ const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}
     renderWithProviders(<Harness {...props} />)
 
 describe('ResubmissionNoteSection', () => {
-    it('renders the section title and the data org name in the secondary text', () => {
+    it('renders the section title and the data partner name in the secondary text', () => {
         renderSection()
         expect(screen.getByRole('heading', { name: 'Resubmission Note' })).toBeInTheDocument()
         expect(screen.getByText(/Rice University/)).toBeInTheDocument()
