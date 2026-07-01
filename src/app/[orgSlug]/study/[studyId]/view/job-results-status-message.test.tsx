@@ -93,7 +93,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'The results of your study have been approved by the data partner and are now available to you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.',
+                    'The results of your study have been approved by the Data Partner and are now available to you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.',
                 ),
             ).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
@@ -111,7 +111,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'The results of your study have not been released by the data partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
+                    'The results of your study have not been released by the Data Partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -126,7 +126,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'This study code has not been approved by the data partner. Consider resubmitting an updated study code.',
+                    'This study code has not been approved by the Data Partner. Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -152,7 +152,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data partner reviews and approves them.',
+                    'Study results will become available once the Data Partner reviews and approves them.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -167,7 +167,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data partner reviews and approves them.',
+                    'Study results will become available once the Data Partner reviews and approves them.',
                 ),
             ).toBeDefined()
         })
@@ -182,7 +182,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data partner reviews and approves them.',
+                    'Study results will become available once the Data Partner reviews and approves them.',
                 ),
             ).toBeDefined()
         })
@@ -233,7 +233,7 @@ describe('JobResultsStatusMessage', () => {
             // Should show files rejected message as it's checked first in the component logic
             expect(
                 screen.getByText(
-                    'The results of your study have not been released by the data partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
+                    'The results of your study have not been released by the Data Partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
         })

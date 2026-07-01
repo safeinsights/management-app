@@ -53,7 +53,7 @@ function resolveStatusBody(flags: StatusFlags, files: { fileType: FileType }[], 
         }
         return {
             message:
-                'The results of your study have been approved by the data partner and are now available to you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.',
+                'The results of your study have been approved by the Data Partner and are now available to you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.',
             additionalContent: null,
             hideResults: false,
         }
@@ -61,8 +61,8 @@ function resolveStatusBody(flags: StatusFlags, files: { fileType: FileType }[], 
 
     if (isRejected) {
         const message = isFilesRejected
-            ? 'The results of your study have not been released by the data partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.'
-            : 'This study code has not been approved by the data partner. Consider resubmitting an updated study code.'
+            ? 'The results of your study have not been released by the Data Partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.'
+            : 'This study code has not been approved by the Data Partner. Consider resubmitting an updated study code.'
         return { message, additionalContent: null, hideResults: true }
     }
 
@@ -91,7 +91,7 @@ export const JobResultsStatusMessageView: FC<JobResultsStatusMessageViewProps> =
     const body = resolveStatusBody(flags, files, jobId)
 
     if (!body) {
-        return <Text>Study results will become available once the data partner reviews and approves them.</Text>
+        return <Text>Study results will become available once the Data Partner reviews and approves them.</Text>
     }
 
     return (
