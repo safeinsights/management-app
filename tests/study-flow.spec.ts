@@ -8,7 +8,13 @@ import {
     withRole,
     type Page,
 } from './e2e.helpers'
-import { seedApprovedNoCode, seedCodeApprovedJobReady, seedCodeSubmitted, seedProposalPendingReview } from './e2e.seed'
+import {
+    seedApprovedNoCode,
+    seedCodeApprovedJobReady,
+    seedCodeResultsReady,
+    seedCodeSubmitted,
+    seedProposalPendingReview,
+} from './e2e.seed'
 import { execSync } from 'child_process'
 
 // E2e study-lifecycle coverage. Governing rule: every distinct UI surface is
@@ -666,6 +672,38 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
+
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        await expect(resubmitButton).toBeEnabled()
+        await resubmitButton.click()
+        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
+
+        await page.waitForURL('**/view')
+    })
+})
+
+// Owns the researcher code-resubmit surface from a RESULTS-READY study (FILES-APPROVED). OTTER-558:
+// the resubmit page rendered but saveCodeResubmissionNoteDraftAction / resubmitStudyCodeAction rejected
+// this state because they gated on the topmost job status instead of the decision, throwing "Study is
+// not editable" on every autosave keystroke. Guards the full page + autosave + resubmit wiring on the
+// exact state QA reported. (The non-deterministic ordering that triggered it is covered by unit tests;
+// the seed here is deterministically ordered.)
+test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('results-resubmit')
+    const { studyId } = await seedCodeResultsReady(studyTitle)
+
+    await withRole(browser, 'researcher', async (page) => {
+        await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
+        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+
+        const fileInput = page.locator('input[type="file"]')
+        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+
+        // Filling the note fires the debounced autosave against the real action. Pre-fix this threw
+        // an error toast on every keystroke; now the "All changes saved" indicator must appear.
+        await page.getByLabel(/Resubmission Note/i).fill('Reworked code after the results were approved.')
+        await expect(page.getByText(/All changes saved/i)).toBeVisible()
+        await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
         await expect(resubmitButton).toBeEnabled()
