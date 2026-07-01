@@ -71,9 +71,17 @@ interface CodeViewerProps {
     code: string
     language: HighlightLanguage
     fileName?: string
+    // Wraps the code display in an outline, matching the reviewer's submitted-code design.
+    withBorder?: boolean
 }
 
-export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
+const OUTLINE_STYLE = {
+    border: '1px solid var(--mantine-color-charcoal-1)',
+    borderRadius: '4px',
+    overflow: 'hidden',
+} as const
+
+export function CodeViewer({ code, language, fileName, withBorder = false }: CodeViewerProps) {
     const highlightedCode = useMemo(() => {
         try {
             return hljs.highlight(code, { language }).value
@@ -83,6 +91,27 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
         }
     }, [code, language])
 
+    const scroller = (
+        <ScrollArea h={500} type="auto">
+            <pre
+                style={{
+                    margin: 0,
+                    padding: '1rem',
+                    background: '#f6f8fa',
+                    borderRadius: '4px',
+                    color: '#24292f',
+                    fontSize: '14px',
+                }}
+            >
+                <code
+                    className={`language-${language}`}
+                    style={{ color: 'inherit' }}
+                    dangerouslySetInnerHTML={{ __html: highlightedCode }}
+                />
+            </pre>
+        </ScrollArea>
+    )
+
     return (
         <Box>
             {fileName && (
@@ -90,23 +119,7 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
                     {fileName}
                 </Text>
             )}
-            <ScrollArea h={500} type="auto">
-                <pre
-                    style={{
-                        margin: 0,
-                        padding: '1rem',
-                        background: '#f6f8fa',
-                        borderRadius: '4px',
-                        color: '#24292f',
-                    }}
-                >
-                    <code
-                        className={`language-${language}`}
-                        style={{ color: 'inherit' }}
-                        dangerouslySetInnerHTML={{ __html: highlightedCode }}
-                    />
-                </pre>
-            </ScrollArea>
+            {withBorder ? <Box style={OUTLINE_STYLE}>{scroller}</Box> : scroller}
         </Box>
     )
 }
