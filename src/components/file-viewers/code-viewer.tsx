@@ -100,7 +100,7 @@ export function CodeViewer({ code, language, fileName, withBorder = false }: Cod
                     background: '#f6f8fa',
                     borderRadius: '4px',
                     color: '#24292f',
-                    fontSize: '14px',
+                    fontSize: 'var(--mantine-font-size-sm)',
                 }}
             >
                 <code
