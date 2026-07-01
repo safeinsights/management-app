@@ -57,7 +57,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
         <Group wrap="nowrap">
             {showLaunchIde && (
                 <InfoTooltip
-                    label="After creating or editing files in the IDE, please return here to submit your code to the data partners."
+                    label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
                     withArrow
                     multiline
                     w={320}

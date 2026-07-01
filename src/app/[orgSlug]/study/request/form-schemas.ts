@@ -29,7 +29,7 @@ const validateDocumentFile = (label: string) => {
 
 export const studyProposalFormSchema = z
     .object({
-        orgSlug: z.string().min(1, { message: 'Data organization is required' }),
+        orgSlug: z.string().min(1, { message: 'Data Partner is required' }),
         language: z
             .enum(['R', 'PYTHON'])
             .nullable()

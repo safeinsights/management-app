@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 
 /**
- * Reference documents provided by the reviewing organization.
+ * Reference documents provided by the Data Partner.
  * Define the compliance rules and data context for the review.
  */
 export interface ReferenceDocs {

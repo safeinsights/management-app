@@ -42,7 +42,7 @@ describe('EditOrgForm', () => {
         const publicKeyTextarea = screen.getByPlaceholderText('Enter your public key') as HTMLTextAreaElement
 
         // Type is a select that shows display text
-        const typeSelect = screen.getByDisplayValue('Enclave (Data Organization)')
+        const typeSelect = screen.getByDisplayValue('Enclave (Data Partner)')
 
         expect(nameInput.value).toBe(mockOrg.name)
         expect(emailInput.value).toBe(mockOrg.email)

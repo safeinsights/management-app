@@ -33,7 +33,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     additionalNotes: null,
     orgName: 'Mars University',
     orgSlug: 'mars-university',
-    reviewingEnclaveName: 'Mars University Data Org',
+    reviewingEnclaveName: 'Mars University Data Partner',
     ...o,
 })
 

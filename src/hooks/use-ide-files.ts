@@ -196,7 +196,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             notifications.show({
                 title: 'Study Code Submitted',
                 message:
-                    'Your code has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                    'Your code has been successfully submitted to the Data Partner. Check your dashboard for status updates.',
                 color: 'green',
             })
 

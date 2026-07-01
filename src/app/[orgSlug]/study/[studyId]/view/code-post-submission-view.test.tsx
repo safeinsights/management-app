@@ -149,7 +149,7 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('banner', () => {
-        it('renders the yellow status banner with the data org name and the Figma copy', async () => {
+        it('renders the yellow status banner with the data partner name and the Figma copy', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 

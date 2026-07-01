@@ -43,7 +43,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
                 )
             } else {
                 if (!formValues.orgSlug) {
-                    throw new Error('Data organization is required to create a study')
+                    throw new Error('Data Partner is required to create a study')
                 }
                 result = actionResult(
                     await onSaveDraftStudyAction({
