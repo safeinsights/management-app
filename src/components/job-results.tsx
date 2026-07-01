@@ -1,111 +1,20 @@
 'use client'
 
-import React, { FC, useMemo, useState } from 'react'
-import { Anchor, Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
-import { useQuery } from '@/common'
-import { ErrorAlert } from '@/components/errors'
-import { DownloadBlobLink } from '@/components/download-blob-link'
-import { ImagePreviewModal } from '@/components/modals/image-preview-modal'
-import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
-import { imageMimeType } from '@/lib/file-content-helpers'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { JobFile } from '@/lib/types'
-import { LatestJobForStudy } from '@/server/db/queries'
+import { FC } from 'react'
+import { EncryptedFilesPanel } from '@/components/encrypted-files-panel'
+import { LegacyJobResults } from '@/components/legacy-job-results'
+import { jobHasLegacyResults } from '@/lib/file-type-helpers'
+import type { LatestJobForStudy } from '@/server/db/queries'
 
-const ViewResultsLink: FC<{ content: ArrayBuffer; path: string }> = ({ content, path }) => {
-    const [showImageModal, setShowImageModal] = useState(false)
-    const mime = imageMimeType(path)
-
-    const handleClick = () => {
-        if (mime) {
-            setShowImageModal(true)
-            return
-        }
-        const decoded = new TextDecoder('utf-8').decode(content)
-        const tab = window.open('about:blank', '_blank')
-        if (!tab) {
-            reportError('failed to open results window')
-            return
-        }
-        tab.document.write(decoded)
-        tab.document.close()
-    }
-
-    return (
-        <>
-            <Anchor role="button" onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
-                View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
-            </Anchor>
-            <ImagePreviewModal
-                isVisible={showImageModal}
-                name={path}
-                contents={content}
-                mime={mime}
-                onClose={() => setShowImageModal(false)}
-            />
-        </>
-    )
-}
+// Researcher-facing view of shared results. Newer jobs encrypt results for the researcher, so they
+// flow through the reviewer's EncryptedFilesPanel (table + status icons + preview + download) and
+// decrypt with the researcher's own key; onFilesApproved is a no-op since researchers don't approve.
+// Jobs from before PR #764 have plaintext results and no key, so they render via LegacyJobResults.
+const noop = () => {}
 
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const {
-        data: approvedFiles,
-        isLoading,
-        isError,
-        error,
-    } = useQuery({
-        queryKey: ['job-results', job.id],
-        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: job.id }),
-    })
-
-    const { resultsFiles, logFiles } = useMemo(() => {
-        const res: JobFile[] = []
-        const logs: JobFile[] = []
-
-        approvedFiles?.forEach((f) => {
-            if (f.fileType === 'APPROVED-RESULT') res.push(f)
-            else if (isApprovedLogType(f.fileType)) logs.push(f)
-        })
-
-        return { resultsFiles: res, logFiles: logs }
-    }, [approvedFiles])
-
-    if (isError) {
-        return <ErrorAlert error={error} />
+    if (jobHasLegacyResults(job.files ?? [])) {
+        return <LegacyJobResults job={job} />
     }
-
-    if (isLoading || !approvedFiles) {
-        return <LoadingOverlay />
-    }
-
-    return (
-        <Stack>
-            {resultsFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
-            ))}
-            {logFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
-            ))}
-        </Stack>
-    )
-}
-
-export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
-    const theme = useMantineTheme()
-    return (
-        <Group gap="xs">
-            <Text size="sm" fw={600}>
-                {logLabel(file.fileType)}:
-            </Text>
-            <ViewResultsLink content={file.contents} path={file.path} />
-            <span
-                style={{
-                    height: 16,
-                    borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
-                }}
-            ></span>
-            <DownloadBlobLink target="_blank" filename={file.path} fileContent={file.contents} />
-        </Group>
-    )
+    return <EncryptedFilesPanel isReviewer={false} job={job} onFilesApproved={noop} />
 }

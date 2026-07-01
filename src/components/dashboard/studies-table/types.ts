@@ -1,5 +1,5 @@
 import type React from 'react'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { Json, StudyJobStatus, StudyStatus } from '@/database/types'
 
 export type Audience = 'researcher' | 'reviewer'
 export type Scope = 'org' | 'user'
@@ -18,6 +18,13 @@ export type StudyRow = {
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
     researcherAgreementsAckedAt: Date | null
+    // Step 2 proposal fields — used to resume a reopened DRAFT on the step it was last left (OTTER-572).
+    piUserId: string | null
+    datasets: string[] | null
+    researchQuestions: Json | null
+    projectSummary: Json | null
+    impact: Json | null
+    additionalNotes: Json | null
     // Org actions return these
     reviewingEnclaveName?: string
     submittingLabName?: string
@@ -41,6 +48,9 @@ export type StudiesTableProps = {
 
 // Status changes that indicate job is in a final state (no refresh needed)
 export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
+// Proposal statuses where the researcher is awaiting a DO decision — keep auto-refresh polling.
+export const ACTIVE_PROPOSAL_STATUSES: StudyStatus[] = ['PENDING-REVIEW']
 
 // Status changes that represent reviewer approval/rejection actions (for filtering user's reviewed studies)
 export const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [

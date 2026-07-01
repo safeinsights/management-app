@@ -65,7 +65,7 @@ export const coderWorkspaceBuildLogsPath = (buildId: BuildId, after?: number | n
 export const coderWorkspaceAgentLogsPath = (agentId: AgentId, after?: number | null) =>
     withAfter(`/api/v2/workspaceagents/${agentId}/logs`, after)
 
-const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'researcher', 'reviewer-key', 'admin']
+const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'researcher', 'user-key', 'admin']
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)
     if (NON_ORG_PREFIXES.includes(parts[0])) {

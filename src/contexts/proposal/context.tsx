@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
@@ -9,8 +9,8 @@ import {
     initialProposalValues,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
 
@@ -46,24 +46,13 @@ interface ProposalProviderProps {
 }
 
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
-    // One id per mount of the provider. Different tabs get different ids even for
-    // the same Clerk user, which is what the listener compares against to skip
-    // only the broadcaster's own tab.
-    const [tabSessionId] = useState(() => crypto.randomUUID())
-
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(proposalFormSchema),
         initialValues: { ...initialProposalValues, ...draftData },
         validateInputOnChange: true,
     })
 
-    const websocketProvider = useYjsWebsocket()
-
-    const yjsForm = useYjsFormMap({
-        studyId,
-        form,
-        websocketProvider,
-    })
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
 
     const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })

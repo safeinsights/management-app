@@ -121,7 +121,7 @@ correctly reads "under review again." Counting handles both shapes and is permut
 
 ## Stage 2 — Screen resolution (`researcher-screen-rules.ts` / `reviewer-screen-rules.ts` + `resolve.ts`)
 
-`resolveScreen(role, state, step, ctx)` walks an **ordered, first-match-wins** rule table,
+`resolveScreen(role, state, ctx)` walks an **ordered, first-match-wins** rule table,
 **selected by `role`** (`role === 'reviewer' ? REVIEWER_SCREEN_RULES : RESEARCHER_SCREEN_RULES`).
 Order is display precedence; each table ends with `when: () => true`, so the function is **total**
 for both roles. Both tables read the **same** `StudyState` — only the projection feeds them, never
@@ -161,9 +161,15 @@ page renders); and the proposal-feedback rule is gated on `!hasSubmittedCode` so
 the screen once code exists.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
-buttons. The `?from=` query param is gone on **both** sides — revisitable pages no longer redirect,
-because the state machine derives the screen directly. A URL `step` is passed through as breadcrumb
-metadata.
+buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
+function, so `/view` always renders the study's latest natural screen and revisitable pages no longer
+redirect.
+
+**Walking back (OTTER-614).** Because the screen derives purely from state, an advanced study's
+`/view` always lands on its latest screen. The one earlier screen that needs its own address is the
+post-decision **code** view, at **`/view/code`** (served by `resolveResearcherCodeScreen`): it 404s
+until the study reaches the code stage, so it can't jump ahead. Proposal is `/submitted`; results is
+plain `/view`.
 
 ### Screen registry (`_screens/registry.ts`)
 

@@ -21,6 +21,7 @@ interface ProposalSubmittedProps {
     entries: ProposalFeedbackEntry[]
     studyVersion: number
     feedbackError?: boolean
+    returnTo?: 'org'
 }
 
 function proposalHeading(studyVersion: number): string {
@@ -84,8 +85,13 @@ function StatusBanner({
     )
 }
 
-const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ orgSlug, study }) => {
+const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?: 'org' }> = ({
+    orgSlug,
+    study,
+    returnTo,
+}) => {
     const studyParams = { orgSlug, studyId: study.id }
+    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     switch (study.status) {
         case 'CHANGE-REQUESTED':
@@ -93,7 +99,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
                 <Group justify="space-between">
                     <Button
                         component={Link}
-                        href={Routes.dashboard}
+                        href={dashboardHref}
                         variant="subtle"
                         size="md"
                         leftSection={<CaretLeftIcon />}
@@ -110,14 +116,18 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
                 <Group justify="space-between">
                     <Button
                         component={Link}
-                        href={Routes.dashboard}
+                        href={dashboardHref}
                         variant="subtle"
                         size="md"
                         leftSection={<CaretLeftIcon />}
                     >
                         Back
                     </Button>
-                    <Button component={Link} href={Routes.studyAgreements(studyParams)} size="md">
+                    <Button
+                        component={Link}
+                        href={Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })}
+                        size="md"
+                    >
                         Proceed to step 3
                     </Button>
                 </Group>
@@ -125,7 +135,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy }> = ({ org
         default:
             return (
                 <Group justify="flex-end">
-                    <Button component={Link} href={Routes.dashboard} size="md">
+                    <Button component={Link} href={dashboardHref} size="md">
                         Go to dashboard
                     </Button>
                 </Group>
@@ -153,6 +163,7 @@ export function ProposalSubmitted({
     entries,
     studyVersion,
     feedbackError,
+    returnTo,
 }: ProposalSubmittedProps) {
     const bannerConfig = PROPOSAL_BANNERS[study.status]
     const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
@@ -173,7 +184,7 @@ export function ProposalSubmitted({
                 />
                 <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
-                <ProposalNavigation orgSlug={orgSlug} study={study} />
+                <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />
             </Stack>
         </Stack>
     )

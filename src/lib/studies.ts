@@ -1,5 +1,6 @@
-import type { Json, StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus } from '@/database/types'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
 
 type StudyWithJobStatuses = {
     jobStatusChanges: Array<{ status: StudyJobStatus }>
@@ -12,15 +13,6 @@ export function studyHasJobStatus(study: StudyWithJobStatuses, status: StudyJobS
 export function deriveStudyVersion(entries: { version: number }[]): number {
     if (entries.length === 0) return 1
     return Math.max(...entries.map((e) => e.version))
-}
-
-type DraftStep2Fields = {
-    piUserId: string | null
-    datasets: string[] | null
-    researchQuestions: Json | null
-    projectSummary: Json | null
-    impact: Json | null
-    additionalNotes: Json | null
 }
 
 // Step 1 (data org + language + docs) saves `orgSlug`, `language`, `title`,

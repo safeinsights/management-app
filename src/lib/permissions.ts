@@ -1,4 +1,4 @@
-import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin, orgNeedsKey } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -66,10 +66,10 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    // user who belongs to any enclave orgs can view/create/update their keys
-    if (usersReviewerOrgIds.length) {
-        permit('view', 'ReviewerKey')
-        permit('update', 'ReviewerKey')
+    // users who belong to any key-holding org (enclave or lab) can view/create/update their keys
+    if (orgs.some(orgNeedsKey)) {
+        permit('view', 'UserKey')
+        permit('update', 'UserKey')
     }
 
     // allow review of studies for enclave orgs that the user belongs to

@@ -3,11 +3,12 @@ import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
 import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-// Realistic worst case is ~1.5K tokens (2 narrative fields × ~150 words ≈
-// 400 tokens, plus ~10 findings per check × 2 checks × ~50 tokens). 16K
-// gives ~10× headroom — schema property `description` strings carry the
-// actual length guidance to the model; this cap is just a runaway bound.
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
+// Realistic worst case is ~2K tokens (codeExplanation ~300 words ≈ 400
+// tokens, plus other narrative fields and ~10 findings per check × 2 checks ×
+// ~50 tokens). 16K still gives ~8× headroom — schema property `description`
+// strings carry the actual length guidance to the model; this cap is just a
+// runaway bound.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
@@ -35,7 +36,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             codeExplanation: {
                 type: 'string',
                 description:
-                    'What the code does, referencing file paths. One paragraph, ~150 words max. Use numbered steps if helpful.',
+                    'What the code does in plain language, referencing file paths. Up to two paragraphs, ~300 words max. Use numbered steps if helpful.',
             },
             resultsSummary: {
                 type: 'string',
@@ -133,6 +134,13 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
     return analysisReportSchema.parse(toolUse.input)
 }
 
+// Append additionalContext to the system prompt rather than replacing it.
+function buildSystemPrompt(config: ReviewAgentConfig): string {
+    const base = config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION
+    const extra = config.additionalContext?.trim()
+    return extra ? `${base}\n\n${extra}` : base
+}
+
 export async function generateAnalysis(config: ReviewAgentConfig, content: ReviewContent): Promise<AnalysisResult> {
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
@@ -140,7 +148,7 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
     const response = await client.messages.create({
         model: config.model ?? DEFAULT_MODEL,
         max_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system: config.systemPrompt ?? DEFAULT_SYSTEM_INSTRUCTION,
+        system: buildSystemPrompt(config),
         tools: [ANALYSIS_TOOL],
         tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
         messages: [{ role: 'user', content: prompt }],

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
-import { projectStudyState } from '@/lib/study-screen'
+import { Routes } from '@/lib/routes'
+import { projectStudyState, isErroredResultHiddenFromResearcher } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
@@ -10,17 +11,41 @@ import type { ScreenComponentProps } from './types'
 // code-approved AND code-feedback both render the post-decision view. The effective decision is
 // APPROVED while the code is approved or executing (OTTER-598: hide the code listing while
 // executing); otherwise it's the live CHANGES-REQUESTED/REJECTED decision.
-export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
+export async function CodeDecisionScreen({
+    study,
+    raw,
+    orgSlug,
+    dashboardHref,
+    returnTo,
+    descriptor,
+}: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const decisionStatus =
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
     if (decisionStatus === null) notFound()
+
+    // A hidden JOB-ERRORED (e.g. a packaging failure before any JOB-RUNNING substatus) is presented to
+    // the researcher as "approved / results pending"; keep the code listing hidden as during execution,
+    // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
+    // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
+    // is researcher-only and calling the role-named helper with no role guard is safe.
+    // The read-only /view/code route always shows the submitted code (OTTER-640): the execution-window /
+    // hidden-errored hide is for the live /view flow, where the page reads as "running / results pending".
+    const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
+    const hideStudyCode = !descriptor.readOnlyCodeStep && (state.isExecuting || hiddenErroredResult)
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
     if (!isSubmittedStudy(study)) notFound()
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
+
+    // OTTER-614: once results exist, the code page forwards to Step 5 (plain /view resolves to the
+    // results screen) instead of ending at the dashboard.
+    const resultsHref =
+        state.hasResults && !hiddenErroredResult
+            ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
+            : undefined
 
     return (
         <CodePostDecisionView
@@ -32,8 +57,9 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             dashboardHref={dashboardHref as Route}
             returnTo={returnTo}
             latestJobStatus={decisionStatus}
+            resultsHref={resultsHref}
             feedbackLoadError={feedbackLoadError}
-            showStudyCode={!state.isExecuting}
+            showStudyCode={!hideStudyCode}
         />
     )
 }

@@ -1,75 +1,113 @@
-import { describe, it, expect, vi } from 'vitest'
-import { screen, fireEvent, waitFor } from '@testing-library/react'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { type Org } from '@/schema/org'
+import { db, insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { waitFor, screen } from '@testing-library/react'
 import { JobResults } from './job-results'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { type JobFile } from '@/lib/types'
+import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudy } from '@/server/db/queries'
 import { type FileType } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchApprovedJobFilesAction: vi.fn(() => []),
+    fetchEncryptedJobFilesAction: vi.fn(() => []),
+    fetchSharedFileIdsAction: vi.fn(() => []),
 }))
 
-function pngBuffer(): ArrayBuffer {
-    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
-    return bytes.buffer as ArrayBuffer
+const mockFetchApproved = vi.mocked(fetchApprovedJobFilesAction)
+const mockFetchEncrypted = vi.mocked(fetchEncryptedJobFilesAction)
+
+const toArrayBuffer = (str: string): ArrayBuffer => {
+    const buf = Buffer.from(str, 'utf-8')
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
 }
 
-function textBuffer(text: string): ArrayBuffer {
-    return new TextEncoder().encode(text).buffer as ArrayBuffer
+type MinimalJob = { id: string }
+
+async function insertJobFile(job: MinimalJob, { fileType, name }: { fileType: FileType; name: string }) {
+    return db
+        .insertInto('studyJobFile')
+        .values({ studyJobId: job.id, name, path: `test-org/${job.id}/results/${name}`, fileType })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 }
 
 describe('JobResults', () => {
-    it('opens image preview modal when clicking View on a PNG result', async () => {
-        const pngFile: JobFile = {
-            contents: pngBuffer(),
-            path: 'output/plot.png',
-            fileType: 'APPROVED-RESULT' as FileType,
-        }
+    let org: Org
 
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([pngFile])
-
-        const job = { id: 'job-1' } as Parameters<typeof JobResults>[0]['job']
-        renderWithProviders(<JobResults job={job} />)
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /view/i })).toBeDefined()
-        })
-
-        fireEvent.click(screen.getByRole('button', { name: /view/i }))
-
-        await waitFor(() => {
-            expect(screen.getByRole('dialog')).toBeDefined()
-            expect(screen.getByAltText('output/plot.png')).toBeDefined()
-        })
+    beforeEach(async () => {
+        const resp = await mockSessionWithTestData()
+        org = resp.org
     })
 
-    it('opens a new tab when clicking View on a text result', async () => {
-        const csvFile: JobFile = {
-            contents: textBuffer('name,age\nAlice,30'),
-            path: 'results.csv',
-            fileType: 'APPROVED-RESULT' as FileType,
-        }
+    // Legacy (pre-PR #764): plaintext APPROVED-RESULT rows, no key. Results must render directly,
+    // routed through fetchApprovedJobFilesAction — and the encrypted decrypt path must NOT run.
+    it('renders legacy plaintext results without a decrypt key prompt', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await insertJobFile(job, { fileType: 'APPROVED-RESULT', name: 'results.csv' })
+        mockFetchApproved.mockResolvedValueOnce([
+            { contents: toArrayBuffer('a,b\n1,2'), path: 'results.csv', fileType: 'APPROVED-RESULT' },
+        ])
 
-        vi.mocked(fetchApprovedJobFilesAction).mockResolvedValue([csvFile])
-
-        const mockWrite = vi.fn()
-        const mockClose = vi.fn()
-        vi.spyOn(window, 'open').mockReturnValue({
-            document: { write: mockWrite, close: mockClose },
-        } as unknown as Window)
-
-        const job = { id: 'job-2' } as Parameters<typeof JobResults>[0]['job']
-        renderWithProviders(<JobResults job={job} />)
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<JobResults job={latestJob} />)
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /view/i })).toBeDefined()
+            expect(screen.getByText('Results:')).toBeInTheDocument()
         })
+        expect(mockFetchApproved).toHaveBeenCalled()
+        expect(mockFetchEncrypted).not.toHaveBeenCalled()
+        expect(screen.queryByText('Decrypt Files')).toBeNull()
+        expect(screen.queryByPlaceholderText(/Results Key/i)).toBeNull()
+    })
 
-        fireEvent.click(screen.getByRole('button', { name: /view/i }))
+    // Encrypted (post-PR #764): ENCRYPTED-RESULT rows still flow through the decrypt panel. With an
+    // accessible (wrapped-key) artifact, the researcher sees a locked row and the key form — and the
+    // legacy fetch must NOT run.
+    it('routes encrypted results through the decrypt panel (locked row + key form)', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        const row = await insertJobFile(job, { fileType: 'ENCRYPTED-RESULT', name: 'encrypted-results.zip' })
+        mockFetchEncrypted.mockResolvedValueOnce([
+            {
+                studyJobFileId: row.id,
+                fileType: 'ENCRYPTED-RESULT',
+                name: 'encrypted-results.zip',
+                encryptedBody: toArrayBuffer('ciphertext'),
+                recipientKeys: {},
+            },
+        ])
 
-        expect(window.open).toHaveBeenCalledWith('about:blank', '_blank')
-        expect(mockWrite).toHaveBeenCalled()
-        expect(screen.queryByRole('dialog')).toBeNull()
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<JobResults job={latestJob} />)
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Encrypted')).toBeInTheDocument()
+        })
+        expect(screen.getByRole('button', { name: 'Decrypt Files' })).toBeInTheDocument()
+        expect(mockFetchApproved).not.toHaveBeenCalled()
+    })
+
+    // A job with both encrypted and legacy artifacts (defensive) stays on the encrypted path so
+    // nothing decryptable is silently dropped.
+    it('prefers the encrypted path when a job has both encrypted and legacy artifacts', async () => {
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await insertJobFile(job, { fileType: 'APPROVED-RESULT', name: 'results.csv' })
+        const row = await insertJobFile(job, { fileType: 'ENCRYPTED-RESULT', name: 'encrypted-results.zip' })
+        mockFetchEncrypted.mockResolvedValueOnce([
+            {
+                studyJobFileId: row.id,
+                fileType: 'ENCRYPTED-RESULT',
+                name: 'encrypted-results.zip',
+                encryptedBody: toArrayBuffer('ciphertext'),
+                recipientKeys: {},
+            },
+        ])
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<JobResults job={latestJob} />)
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'Decrypt Files' })).toBeInTheDocument()
+        })
+        expect(mockFetchApproved).not.toHaveBeenCalled()
     })
 })

@@ -14,6 +14,36 @@ const isMainFile = (filename: string): boolean => {
     return basename.toLowerCase() === 'main'
 }
 
+// Whether the study's workspace currently holds any researcher-visible file. Mirrors the filtering in
+// listWorkspaceFilesAction (skip dotfiles, symlinks, non-files, empty files) so "has files" matches
+// exactly what the review table shows — and what submit-enable is computed from.
+async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
+    let coderFilesPath = await getConfigValue('CODER_FILES')
+    if (!CODER_DISABLED) {
+        coderFilesPath += `/${studyId}`
+    }
+
+    let entries: string[]
+    try {
+        entries = await fs.readdir(coderFilesPath)
+    } catch (e) {
+        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
+        throw e
+    }
+
+    for (const entry of entries) {
+        if (entry.startsWith('.')) continue
+        try {
+            const stats = await fs.lstat(path.join(coderFilesPath, entry))
+            if (stats.isSymbolicLink() || !stats.isFile() || stats.size === 0) continue
+            return true
+        } catch {
+            continue
+        }
+    }
+    return false
+}
+
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
@@ -84,7 +114,8 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
-        await ensureRoundJobForLaunch(db, studyId)
+        const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
+        await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
         if (CODER_DISABLED) {
             return {
                 success: true,

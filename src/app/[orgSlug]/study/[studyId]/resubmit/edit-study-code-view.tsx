@@ -1,9 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Group, Stack, Text } from '@mantine/core'
-import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
-import { InfoTooltip } from '@/components/tooltip'
+import { Stack } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyCodePanel } from '@/components/study/study-code-panel'
@@ -21,25 +19,6 @@ interface EditStudyCodeViewProps {
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
 }
-
-const MAIN_FILE_TOOLTIP =
-    "If you're creating or uploading multiple files, please select your main file (i.e., the script that runs first)."
-
-const IDE_BUTTON_TOOLTIP =
-    'After creating or editing files in the IDE, please return here to submit your code to the data organization.'
-
-const MainFileColumnHeader: FC = () => (
-    <Group gap={4} wrap="nowrap" align="center">
-        <Text component="span" inherit>
-            Main file
-        </Text>
-        <InfoTooltip label={MAIN_FILE_TOOLTIP} withArrow multiline w={280}>
-            <Text component="span" display="inline-flex" aria-label="Main file info">
-                <InfoIcon size={14} weight="regular" aria-hidden />
-            </Text>
-        </InfoTooltip>
-    </Group>
-)
 
 export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyId,
@@ -61,14 +40,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 timestampDate={submittedAt}
             />
 
-            <StudyCodePanel
-                ide={ide}
-                studyTitle={studyTitle}
-                mainFileColumnHeader={<MainFileColumnHeader />}
-                showLaunchIde={studyHasCodeEnv}
-                ideButtonTooltip={IDE_BUTTON_TOOLTIP}
-                footer={null}
-            />
+            <StudyCodePanel ide={ide} studyTitle={studyTitle} showLaunchIde={studyHasCodeEnv} footer={null} />
 
             <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
 
@@ -78,7 +50,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 mainFileName={ide.mainFile}
                 fileNames={ide.files}
                 hasFiles={ide.files.length > 0}
-                filesChanged={ide.filesChanged}
+                filesEdited={ide.userEditedFiles}
             />
         </Stack>
     )

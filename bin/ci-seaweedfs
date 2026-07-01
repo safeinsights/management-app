@@ -1,0 +1,27 @@
+#!/bin/sh
+# Start SeaweedFS (local S3) for CI and wait until it answers. Shared by the unit and
+# e2e jobs (the s3-integration unit test skips without S3, so both need it).
+
+set -e
+
+docker run -d \
+    --name seaweedfs \
+    -p 8333:8333 \
+    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    chrislusf/seaweedfs:latest \
+    server -s3 -dir=/data
+
+for i in $(seq 1 30); do
+    status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ 2>/dev/null || true)
+    if [ "$status" = "200" ] || [ "$status" = "403" ]; then
+        echo "SeaweedFS S3 ready (HTTP $status after ${i}s)"
+        exit 0
+    fi
+    if [ "$i" = "30" ]; then
+        echo "SeaweedFS failed to start within 30s"
+        docker logs seaweedfs
+        exit 1
+    fi
+    sleep 1
+done

@@ -1,4 +1,4 @@
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { Json, StudyJobStatus, StudyStatus } from '@/database/types'
 import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 
@@ -11,6 +11,18 @@ export type RawJob = {
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>
 }
 
+// Step 2 of the proposal wizard is the first time any of these columns is written (Step 1 saves only
+// data org + language + title + piName + doc paths). Any one being non-empty means the draft reached
+// Step 2 — see draftHasStep2Progress / projectStudyState's hasStep2Progress.
+export type DraftStep2Fields = {
+    piUserId: string | null
+    datasets: string[] | null
+    researchQuestions: Json | null
+    projectSummary: Json | null
+    impact: Json | null
+    additionalNotes: Json | null
+}
+
 export type RawStudyState = {
     status: StudyStatus
     approvedAt: Date | null
@@ -20,13 +32,16 @@ export type RawStudyState = {
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
     jobs: ReadonlyArray<RawJob>
-}
+} & DraftStep2Fields
 
 // Flat, already-disambiguated facts. Every field is a plain boolean/enum/number.
 // Job-phase facts describe the LATEST job only (max id); submissionRound is the one cross-job count.
 export type StudyState = {
     status: StudyStatus
     isDraft: boolean
+    // A DRAFT that has reached Step 2 of the proposal wizard. Routes a "resume draft" entry to the
+    // step the researcher last left off (OTTER-572) instead of always landing on the Step 1 picker.
+    hasStep2Progress: boolean
     researcherAgreementsAcked: boolean
     reviewerAgreementsAcked: boolean
     hasAnyJob: boolean

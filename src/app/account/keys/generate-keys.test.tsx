@@ -1,4 +1,4 @@
-import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { setUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
@@ -12,11 +12,11 @@ vi.mock('si-encryption/util/keypair', () => ({
 }))
 
 vi.mock('@/server/actions/user-keys.actions', () => ({
-    setReviewerPublicKeyAction: vi.fn(),
+    setUserPublicKeyAction: vi.fn(),
 }))
 
-describe('Reviewer keypair generation', () => {
-    it('should generate a reviewer key pair and display private key for copying', async () => {
+describe('Results Keypair generation', () => {
+    it('should generate a Results Key pair and display private key for copying', async () => {
         vi.mocked(useUser).mockReturnValue({
             user: {
                 firstName: 'Tester',
@@ -42,7 +42,7 @@ describe('Reviewer keypair generation', () => {
 
         await waitFor(() => {
             expect(vi.mocked(generateKeyPair)).toHaveBeenCalled()
-            expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()
+            expect(screen.getByText('Results Key', { selector: 'h1' })).toBeDefined()
         })
 
         // Simulate copy button click
@@ -58,7 +58,7 @@ describe('Reviewer keypair generation', () => {
         fireEvent.click(dashboardButton)
 
         await waitFor(() => {
-            expect(screen.getByText('Make sure you have securely saved your reviewer key.')).toBeDefined()
+            expect(screen.getByText('Make sure you have securely saved your Results Key.')).toBeDefined()
         })
 
         fireEvent.click(screen.getByRole('button', { name: 'Yes, go to dashboard' }))
@@ -66,10 +66,9 @@ describe('Reviewer keypair generation', () => {
         // Wait for state updates
         await waitFor(() => {
             // Verify that setMemberUserPublicKey was called
-            expect(setReviewerPublicKeyAction).toHaveBeenCalledWith(
+            expect(setUserPublicKeyAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     publicKey: mockKeys.exportedPublicKey,
-                    fingerprint: mockKeys.fingerprint,
                 }),
             )
         })

@@ -17,12 +17,19 @@ import * as email from './mailer'
 
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
-        after(() =>
-            handler(...args).catch((error: unknown) => {
-                logger.warn(String(error))
+        // after() runs post-response. captureException only enqueues an event;
+        // without an awaited flush the serverless instance can freeze before it
+        // transmits, silently dropping the report. Pass the real Error (not a
+        // string) so the logger/Sentry keep the stack trace, then flush.
+        after(async () => {
+            try {
+                await handler(...args)
+            } catch (error: unknown) {
+                logger.error(error)
                 Sentry.captureException(error)
-            }),
-        )
+                await Sentry.flush(2_000)
+            }
+        })
     }
 }
 
