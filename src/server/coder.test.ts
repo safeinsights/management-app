@@ -777,15 +777,17 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         expect(status.buildStatus).toBe('running')
         expect(status.ready).toBe(false)
         expect(status.url).toBeNull()
-        expect(status.lastLogAt).toBe('2020-01-01T00:00:03Z')
-        expect(status.cursors).toEqual({ build: 2, agents: { [agentId]: 5 } })
+        expect(status.buildLogLines).toEqual(['init', 'go'])
+        expect(status.agentLogLines).toEqual(['agent up'])
+        expect(status.agentStatus).toEqual({ lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' })
+        expect(status.cursors).toEqual({ build: 2, agent: 5 })
     })
 
     it('only requests logs after the provided cursors', async () => {
         const fetchMock = global.fetch as unknown as Mock
         fetchMock.mockImplementation(routeFetch({ buildLogs: [], agentLogs: [] }))
 
-        await getCoderWorkspaceLaunchStatus('study-1', { build: 2, agents: { [agentId]: 5 } })
+        await getCoderWorkspaceLaunchStatus('study-1', { build: 2, agent: 5 })
 
         const urls = fetchMock.mock.calls.map((c) => c[0] as string)
         expect(urls).toContainEqual(expect.stringContaining(`/workspacebuilds/${buildId}/logs?after=2`))
@@ -816,8 +818,27 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         const status = await getCoderWorkspaceLaunchStatus('study-1')
 
-        expect(status.lastLogAt).toBe('2020-01-01T00:00:09Z')
-        expect(status.cursors.agents[agentId]).toBe(9)
+        expect(status.buildLogLines).toEqual([])
+        expect(status.agentLogLines).toEqual(['agent'])
+        expect(status.cursors.agent).toBe(9)
+    })
+
+    it('throws when Coder reports more than one agent', async () => {
+        const twoAgentEvent = {
+            ...workspaceEvent,
+            latest_build: {
+                ...workspaceEvent.latest_build,
+                resources: [{ agents: [{ id: 'agent-1' }, { id: 'agent-2' }] }],
+            },
+        }
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string) => {
+            const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+            if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
+            if (url.includes('/workspace/')) return ok(twoAgentEvent)
+            return ok([])
+        })
+
+        await expect(getCoderWorkspaceLaunchStatus('study-1')).rejects.toThrow(/expected at most one agent/)
     })
 })
 

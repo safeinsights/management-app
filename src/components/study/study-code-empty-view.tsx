@@ -3,8 +3,11 @@ import { Anchor, Box, Divider, Paper, Stack, Text, ThemeIcon } from '@mantine/co
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'
 import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchLogs } from './launch-logs'
+import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
 interface StarterFile {
@@ -16,8 +19,10 @@ interface StudyCodeEmptyViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
-    launchReason?: string | null
-    launchLastLogAt?: string | null
+    launchStatus?: WorkspaceLaunchStatus | null
+    launchLastUpdatedAt?: Date | null
+    launchBuildLog?: string
+    launchAgentLog?: string
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     starterFiles: StarterFile[]
@@ -28,8 +33,10 @@ export function StudyCodeEmptyView({
     launchWorkspace,
     isLaunching,
     launchError,
-    launchReason,
-    launchLastLogAt,
+    launchStatus,
+    launchLastUpdatedAt,
+    launchBuildLog = '',
+    launchAgentLog = '',
     uploadFiles,
     isUploading,
     starterFiles,
@@ -60,11 +67,22 @@ export function StudyCodeEmptyView({
                                 onClick={launchWorkspace}
                                 isLaunching={isLaunching}
                                 launchError={launchError}
-                                reason={launchReason}
-                                lastLogAt={launchLastLogAt}
+                                status={launchStatus}
                                 variant="cta"
                             />
                         </Box>
+                        <LaunchProgress
+                            isVisible={isLaunching}
+                            buildLog={launchBuildLog}
+                            agentLog={launchAgentLog}
+                            lastUpdatedAt={launchLastUpdatedAt}
+                        />
+                        <LaunchLogs
+                            isVisible={isLaunching}
+                            buildLog={launchBuildLog}
+                            agentLog={launchAgentLog}
+                            lastUpdatedAt={launchLastUpdatedAt}
+                        />
                         <Text size="sm">
                             <Text span fw={700}>
                                 Note:{' '}

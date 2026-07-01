@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { formatTimeAgo } from './relative-time'
+import { formatRelativeTime, formatTimeAgo } from './relative-time'
 
 const SECONDS = 1000
 const MINUTES = 60 * SECONDS
@@ -8,6 +8,7 @@ const DAYS = 24 * HOURS
 
 const now = new Date('2026-04-24T12:00:00Z')
 const minus = (ms: number) => new Date(now.getTime() - ms)
+const plus = (ms: number) => new Date(now.getTime() + ms)
 
 describe('formatTimeAgo', () => {
     it('returns null for null or invalid dates', () => {
@@ -48,5 +49,27 @@ describe('formatTimeAgo', () => {
     it('shows a date string beyond 7 days', () => {
         expect(formatTimeAgo(minus(8 * DAYS), now)).toBe('on Apr 16, 2026')
         expect(formatTimeAgo(minus(90 * DAYS), now)).toBe('on Jan 24, 2026')
+    })
+})
+
+describe('formatRelativeTime', () => {
+    it('returns null for null or invalid dates', () => {
+        expect(formatRelativeTime(null, now)).toBeNull()
+        expect(formatRelativeTime(new Date('invalid'), now)).toBeNull()
+    })
+
+    it('matches formatTimeAgo phrasing for the past', () => {
+        expect(formatRelativeTime(minus(0), now)).toBe('just now')
+        expect(formatRelativeTime(minus(5 * MINUTES), now)).toBe('5 minutes ago')
+        expect(formatRelativeTime(minus(2 * HOURS), now)).toBe('2 hours ago')
+    })
+
+    it('phrases future instants with "in …"', () => {
+        expect(formatRelativeTime(plus(10 * SECONDS), now)).toBe('just now')
+        expect(formatRelativeTime(plus(45 * SECONDS), now)).toBe('in less than a minute')
+        expect(formatRelativeTime(plus(1 * MINUTES), now)).toBe('in 1 minute')
+        expect(formatRelativeTime(plus(5 * MINUTES), now)).toBe('in 5 minutes')
+        expect(formatRelativeTime(plus(3 * HOURS), now)).toBe('in 3 hours')
+        expect(formatRelativeTime(plus(2 * DAYS), now)).toBe('in 2 days')
     })
 })

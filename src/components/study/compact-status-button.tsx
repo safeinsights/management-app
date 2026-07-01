@@ -28,7 +28,13 @@ export const CompactStatusButton = ({
                     <Text fz="xs" lh={1}>
                         {primaryText}
                     </Text>
-                    <Text fz={10} fs="italic" c={color ? `${color}.6` : 'dimmed'} lh={1}>
+                    <Text
+                        fz={10}
+                        fs="italic"
+                        c={color ? `${color}.6` : 'dimmed'}
+                        lh={1.3}
+                        style={{ whiteSpace: 'pre-line' }}
+                    >
                         {secondaryText}
                     </Text>
                 </Stack>

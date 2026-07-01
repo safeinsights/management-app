@@ -91,18 +91,29 @@ export interface CoderWorkspaceBuild {
 export interface CoderLog {
     id: number
     created_at: string
-    // output: string // unused
+    output: string
     // log_level?: LogLevel // unused
     // level?: LogLevel // unused
 }
 
+// The single workspace agent's lifecycle/connection/code-server health. The template provisions
+// exactly one agent; getCoderWorkspaceLaunchStatus throws if Coder ever reports more.
+export interface WorkspaceAgentStatus {
+    lifecycle: AgentLifecycleState | null
+    status: AgentStatus | null
+    codeServer: AppHealth | null
+}
+
 export interface WorkspaceLaunchStatus {
     buildStatus: WorkspaceStatus
+    // New log lines fetched this poll (since the cursor); the client accumulates them into a full log.
+    buildLogLines: string[]
+    agentStatus: WorkspaceAgentStatus | null
+    agentLogLines: string[]
     ready: boolean
     failed: boolean
     reason: string
-    lastLogAt: string | null
-    cursors: { build: number | null; agents: Record<string, number | null> } // keyed by AgentId
+    cursors: { build: number | null; agent: number | null } // last log id seen per stream
     url: string | null
 }
 

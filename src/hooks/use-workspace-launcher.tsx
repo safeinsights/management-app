@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@/common'
 import { reportError } from '@/components/errors'
 import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useRef } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
@@ -48,10 +49,13 @@ interface UseWorkspaceLauncherReturn {
     isCreatingWorkspace: boolean
     error: Error | null
     clearError: () => void
-    /** Human-readable readiness reason for the current poll */
-    reason: string | null
-    /** ISO timestamp of the most recent Coder log line — proves the build is actively progressing */
-    lastLogAt: string | null
+    /** Latest progress poll (build/agent status + log lines), or undefined before the first poll */
+    status: WorkspaceLaunchStatus | undefined
+    /** Local time a new build/agent log line last arrived, for the "last updated … ago" hint */
+    lastUpdatedAt: Date | null
+    /** Full build/agent logs accumulated across polls */
+    buildLog: string
+    agentLog: string
 }
 
 const STATUS_QUERY_KEY = 'workspace-build-status'
@@ -121,7 +125,9 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         isCreatingWorkspace: ensure.isPending,
         error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),
         clearError,
-        reason: buildStatus.reason,
-        lastLogAt: buildStatus.lastLogAt,
+        status: buildStatus.status,
+        lastUpdatedAt: buildStatus.lastUpdatedAt,
+        buildLog: buildStatus.buildLog,
+        agentLog: buildStatus.agentLog,
     }
 }

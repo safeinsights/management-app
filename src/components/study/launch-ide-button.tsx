@@ -1,7 +1,6 @@
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useLoadingMessages } from '@/hooks/use-loading-messages'
-import { formatTimeAgo } from '@/lib/relative-time'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { CompactStatusButton } from './compact-status-button'
 
 export type LaunchIdeButtonVariant = 'cta' | 'outline'
@@ -11,22 +10,25 @@ interface LaunchIdeButtonProps {
     isLaunching: boolean
     launchError: Error | null
     variant: LaunchIdeButtonVariant
-    /** Human-readable build/readiness reason from the status poll */
-    reason?: string | null
-    /** ISO timestamp of the most recent Coder log line — drives the "active … ago" liveness hint */
-    lastLogAt?: string | null
+    /** Latest progress poll — drives the build/agent activity lines shown while launching */
+    status?: WorkspaceLaunchStatus | null
 }
 
-export function LaunchIdeButton({
-    onClick,
-    isLaunching,
-    launchError,
-    variant,
-    reason,
-    lastLogAt,
-}: LaunchIdeButtonProps) {
-    const { messageWithEllipsis } = useLoadingMessages(isLaunching)
+// Concise status summary shown under "Launching IDE" — the build status and the agent's
+// lifecycle/connection/code-server health. The full logs render separately in <LaunchLogs>.
+function launchProgressLines(status: WorkspaceLaunchStatus | null | undefined): string[] {
+    if (!status) return []
+    const lines = [`Build: ${status.buildStatus}`]
+    const agent = status.agentStatus
+    if (agent) {
+        lines.push(
+            `Agent: lifecycle=${agent.lifecycle ?? '∅'} status=${agent.status ?? '∅'} code-server=${agent.codeServer ?? '∅'}`,
+        )
+    }
+    return lines
+}
 
+export function LaunchIdeButton({ onClick, isLaunching, launchError, variant, status }: LaunchIdeButtonProps) {
     if (launchError) {
         return (
             <CompactStatusButton
@@ -40,8 +42,8 @@ export function LaunchIdeButton({
     }
 
     if (isLaunching) {
-        const activity = lastLogAt ? `Last activity: ${formatTimeAgo(new Date(lastLogAt))}` : null
-        const secondaryText = activity ?? reason ?? messageWithEllipsis
+        const lines = launchProgressLines(status)
+        const secondaryText = (lines.length ? lines : [status?.reason ?? 'Starting…']).join('\n')
         return <CompactStatusButton primaryText="Launching IDE" secondaryText={secondaryText} loading />
     }
 

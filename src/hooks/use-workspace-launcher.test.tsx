@@ -41,31 +41,37 @@ const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
 
 const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStatus => ({
     buildStatus: 'running',
+    buildLogLines: ['provisioning complete'],
+    agentStatus: { lifecycle: 'ready', status: 'connected', codeServer: 'healthy' },
+    agentLogLines: ['workspace ready'],
     ready: true,
     failed: false,
     reason: 'workspace ready',
-    lastLogAt: '2020-01-01T00:00:05Z',
-    cursors: { build: 3, agents: {} },
+    cursors: { build: 3, agent: 4 },
     url,
 })
 
 const provisioningStatus = (): WorkspaceLaunchStatus => ({
     buildStatus: 'running',
+    buildLogLines: ['pulling base image'],
+    agentStatus: { lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' },
+    agentLogLines: [],
     ready: false,
     failed: false,
-    reason: 'build status=running, no resources yet',
-    lastLogAt: '2020-01-01T00:00:01Z',
-    cursors: { build: 1, agents: {} },
+    reason: 'build status=running, no agent yet',
+    cursors: { build: 1, agent: null },
     url: null,
 })
 
 const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => ({
     buildStatus: 'failed',
+    buildLogLines: [],
+    agentStatus: null,
+    agentLogLines: [],
     ready: false,
     failed: true,
     reason,
-    lastLogAt: null,
-    cursors: { build: null, agents: {} },
+    cursors: { build: null, agent: null },
     url: null,
 })
 
@@ -114,8 +120,13 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() => expect(statusMock).toHaveBeenCalled())
             await waitFor(() => expect(result.current.isLaunching).toBe(true))
-            expect(result.current.reason).toBe('build status=running, no resources yet')
-            expect(result.current.lastLogAt).toBe('2020-01-01T00:00:01Z')
+            expect(result.current.status?.reason).toBe('build status=running, no agent yet')
+            expect(result.current.buildLog).toBe('pulling base image')
+            expect(result.current.status?.agentStatus).toEqual({
+                lifecycle: 'starting',
+                status: 'connecting',
+                codeServer: 'initializing',
+            })
         })
 
         it('should poll the launch status with cursors after the ensure mutation', async () => {

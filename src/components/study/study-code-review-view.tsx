@@ -2,18 +2,23 @@ import { useRef, type ReactNode } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { InfoTooltip } from '@/components/tooltip'
 import { FileDropOverlay } from './file-drop-overlay'
 import { FileReviewTable } from './file-review-table'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchLogs } from './launch-logs'
+import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
 interface StudyCodeReviewViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
-    launchReason?: string | null
-    launchLastLogAt?: string | null
+    launchStatus?: WorkspaceLaunchStatus | null
+    launchLastUpdatedAt?: Date | null
+    launchBuildLog?: string
+    launchAgentLog?: string
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     files: WorkspaceFileInfo[]
@@ -31,8 +36,10 @@ export function StudyCodeReviewView({
     launchWorkspace,
     isLaunching,
     launchError,
-    launchReason,
-    launchLastLogAt,
+    launchStatus,
+    launchLastUpdatedAt,
+    launchBuildLog = '',
+    launchAgentLog = '',
     uploadFiles,
     isUploading,
     files,
@@ -54,8 +61,7 @@ export function StudyCodeReviewView({
                 onClick={launchWorkspace}
                 isLaunching={isLaunching}
                 launchError={launchError}
-                reason={launchReason}
-                lastLogAt={launchLastLogAt}
+                status={launchStatus}
                 variant="outline"
             />
         )
@@ -74,6 +80,19 @@ export function StudyCodeReviewView({
                 {launchSection}
                 <UploadFilesButton openRef={openRef} disabled={isUploading} />
             </Group>
+
+            <LaunchProgress
+                isVisible={isLaunching}
+                buildLog={launchBuildLog}
+                agentLog={launchAgentLog}
+                lastUpdatedAt={launchLastUpdatedAt}
+            />
+            <LaunchLogs
+                isVisible={isLaunching}
+                buildLog={launchBuildLog}
+                agentLog={launchAgentLog}
+                lastUpdatedAt={launchLastUpdatedAt}
+            />
 
             <Stack gap={4}>
                 <Text fw={600}>Review files</Text>

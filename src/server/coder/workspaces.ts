@@ -15,13 +15,14 @@ import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
-    AgentId,
     WorkspaceStatus,
+    CoderAgent,
     CoderLog,
     CoderUsername,
     CoderWorkspace,
     CoderWorkspaceBuild,
     CoderWorkspaceEvent,
+    WorkspaceAgentStatus,
     WorkspaceId,
     WorkspaceLaunchStatus,
     JobStatus,
@@ -54,34 +55,23 @@ async function generateWorkspaceUrl(studyId: string): Promise<string> {
 // while polling so a workspace that never becomes ready leaves a trail of
 // exactly which gate (build status, agent lifecycle, code-server health) is
 // holding it up, instead of an opaque stream of nulls.
-function describeReadiness(event: CoderWorkspaceEvent): { ready: boolean; reason: string } {
-    if (!event) return { ready: false, reason: 'no workspace event' }
+function describeReadiness(
+    agent: CoderAgent | undefined,
+    buildStatus: WorkspaceStatus,
+): { ready: boolean; reason: string; agentStatus: WorkspaceAgentStatus | null } {
+    if (!agent) return { ready: false, reason: `build status=${buildStatus}, no agent yet`, agentStatus: null }
 
-    const buildStatus = event.latest_build?.status ?? 'unknown'
-    const resources = event.latest_build?.resources
-    if (!resources || resources.length === 0) {
-        return { ready: false, reason: `build status=${buildStatus}, no resources yet` }
-    }
+    const lifecycle = agent.lifecycle_state ?? null
+    const status = agent.status ?? null
+    const codeServer = (agent.apps ?? []).find((app) => app.slug === 'code-server')?.health ?? null
+    const agentStatus: WorkspaceAgentStatus = { lifecycle, status, codeServer }
 
-    const agentStates: string[] = []
-    for (const resource of resources) {
-        for (const agent of resource.agents ?? []) {
-            const lifecycle = agent.lifecycle_state
-            const status = agent.status
-
-            const agentReady = lifecycle === 'ready' || status === 'connected'
-            const codeServer = (agent.apps ?? []).find((app) => app.slug === 'code-server')
-            const codeServerHealth = codeServer?.health
-            const codeServerHealthy = codeServerHealth === 'healthy'
-
-            if (agentReady && codeServerHealthy) {
-                return { ready: true, reason: `agent lifecycle=${lifecycle} status=${status}, code-server=healthy` }
-            }
-            agentStates.push(`{lifecycle=${lifecycle || '∅'} status=${status || '∅'} code-server=${codeServerHealth}}`)
-        }
-    }
-
-    return { ready: false, reason: `build status=${buildStatus}, agents not ready: ${agentStates.join(', ')}` }
+    const agentReady = lifecycle === 'ready' || status === 'connected'
+    const ready = agentReady && codeServer === 'healthy'
+    const reason = ready
+        ? 'agent ready, code-server=healthy'
+        : `build status=${buildStatus}, agent not ready: lifecycle=${lifecycle ?? '∅'} status=${status ?? '∅'} code-server=${codeServer ?? '∅'}`
+    return { ready, reason, agentStatus }
 }
 
 // Once the workspace reports ready, copy starter code/context in and produce the IDE url.
@@ -105,9 +95,15 @@ function maxLogId(logs: CoderLog[], current: number | null): number | null {
     return logs.reduce((max, log) => (max == null || log.id > max ? log.id : max), current)
 }
 
-// Polls the workspace's latest build (workspacebuilds) and its agents (workspaceagents),
-// returning the build status plus the timestamp of the most recent log line so the client
-// can show real progress. Resolves the IDE url once the workspace is ready.
+// The output text of each log line in a batch, in fetch order. Coder returns logs oldest-first, so
+// appending these to the client's accumulated log preserves chronological order.
+function logLinesOf(logs: CoderLog[]): string[] {
+    return logs.map((log) => log.output)
+}
+
+// Polls the workspace's latest build (workspacebuilds) and its single agent (workspaceagents),
+// returning the build status plus the most-recent build- and agent-log line (timestamp + text)
+// so the client can show real progress. Resolves the IDE url once the workspace is ready.
 export async function getCoderWorkspaceLaunchStatus(
     studyId: string,
     cursors?: WorkspaceLaunchStatus['cursors'],
@@ -123,9 +119,12 @@ export async function getCoderWorkspaceLaunchStatus(
     })
 
     const buildId = workspace.latest_build?.id
-    const agentIds = (workspace.latest_build?.resources ?? []).flatMap((r) =>
-        (r.agents ?? []).map((a) => a.id).filter((id): id is AgentId => Boolean(id)),
-    )
+    const agents = (workspace.latest_build?.resources ?? []).flatMap((r) => r.agents ?? [])
+    if (agents.length > 1) {
+        throw new Error(`${logCtx} expected at most one agent, but Coder reported ${agents.length}`)
+    }
+    const agent = agents[0]
+    const agentId = agent?.id || undefined
 
     let build: CoderWorkspaceBuild | undefined
     if (buildId) {
@@ -140,28 +139,25 @@ export async function getCoderWorkspaceLaunchStatus(
 
     const newCursors: WorkspaceLaunchStatus['cursors'] = {
         build: cursors?.build ?? null,
-        agents: { ...(cursors?.agents ?? {}) },
-    }
-    let lastLogAt: string | null = null
-    const trackLastLog = (logs: CoderLog[]) => {
-        for (const log of logs) {
-            if (!lastLogAt || log.created_at > lastLogAt) lastLogAt = log.created_at
-        }
+        agent: cursors?.agent ?? null,
     }
 
+    let buildLogLines: string[] = []
     if (buildId) {
         const buildLogs = await fetchLogs(coderWorkspaceBuildLogsPath(buildId, newCursors.build))
-        trackLastLog(buildLogs)
+        buildLogLines = logLinesOf(buildLogs)
         newCursors.build = maxLogId(buildLogs, newCursors.build)
     }
-    for (const agentId of agentIds) {
-        const agentLogs = await fetchLogs(coderWorkspaceAgentLogsPath(agentId, newCursors.agents[agentId] ?? null))
-        trackLastLog(agentLogs)
-        newCursors.agents[agentId] = maxLogId(agentLogs, newCursors.agents[agentId] ?? null)
+
+    let agentLogLines: string[] = []
+    if (agentId) {
+        const agentLogs = await fetchLogs(coderWorkspaceAgentLogsPath(agentId, newCursors.agent))
+        agentLogLines = logLinesOf(agentLogs)
+        newCursors.agent = maxLogId(agentLogs, newCursors.agent)
     }
 
-    const readiness = describeReadiness(workspace)
     const buildStatus: WorkspaceStatus = build?.status ?? workspace.latest_build?.status ?? 'unknown'
+    const readiness = describeReadiness(agent, buildStatus)
     const jobStatus: JobStatus = build?.job?.status ?? 'unknown'
     const failedWorkspaceStatuses: WorkspaceStatus[] = ['failed', 'canceled']
     const failedJobStatuses: JobStatus[] = ['failed']
@@ -173,7 +169,17 @@ export async function getCoderWorkspaceLaunchStatus(
 
     const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId) : null
 
-    return { buildStatus, ready: readiness.ready, failed, reason, lastLogAt, cursors: newCursors, url }
+    return {
+        buildStatus,
+        buildLogLines,
+        agentStatus: readiness.agentStatus,
+        agentLogLines,
+        ready: readiness.ready,
+        failed,
+        reason,
+        cursors: newCursors,
+        url,
+    }
 }
 
 async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {

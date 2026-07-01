@@ -23,11 +23,13 @@ const studyId = 'study-1'
 
 const status = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunchStatus => ({
     buildStatus: 'running',
+    buildLogLines: ['building image'],
+    agentStatus: { lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' },
+    agentLogLines: ['agent up'],
     ready: false,
     failed: false,
     reason: 'building',
-    lastLogAt: '2020-01-01T00:00:01Z',
-    cursors: { build: 2, agents: { 'agent-1': 5 } },
+    cursors: { build: 2, agent: 5 },
     url: null,
     ...overrides,
 })
@@ -53,7 +55,10 @@ describe('useWorkspaceBuildStatus', () => {
         await waitFor(() => expect(result.current.reason).toBe('building'))
         expect(result.current.ready).toBe(false)
         expect(result.current.failed).toBe(false)
-        expect(result.current.lastLogAt).toBe('2020-01-01T00:00:01Z')
+        expect(result.current.buildLog).toBe('building image')
+        expect(result.current.agentLog).toBe('agent up')
+        // new lines arrived on the first poll, so a lastUpdated timestamp is stamped
+        expect(result.current.lastUpdatedAt).toBeInstanceOf(Date)
         expect(result.current.isPolling).toBe(true)
         expect(statusMock).toHaveBeenCalledWith({ studyId, cursors: undefined })
     })

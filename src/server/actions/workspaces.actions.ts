@@ -97,7 +97,7 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
 const cursorsSchema = z
     .object({
         build: z.number().nullable(),
-        agents: z.record(z.string(), z.number().nullable()),
+        agent: z.number().nullable(),
     })
     .optional()
 
@@ -117,11 +117,13 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
             await initializeDevWorkspaceFiles(studyId)
             return {
                 buildStatus: 'running',
+                buildLogLines: [],
+                agentStatus: null,
+                agentLogLines: [],
                 ready: true,
                 failed: false,
                 reason: 'dev workspace ready',
-                lastLogAt: null,
-                cursors: { build: null, agents: {} },
+                cursors: { build: null, agent: null },
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }
         }
