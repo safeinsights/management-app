@@ -32,7 +32,6 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchError={ide.launchError}
-                launchStatus={ide.launchStatus}
                 launchLastUpdatedAt={ide.launchLastUpdatedAt}
                 launchBuildLog={ide.launchBuildLog}
                 launchAgentLog={ide.launchAgentLog}

@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { Progress, Stack, Text } from '@mantine/core'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { useTimedProgress, type TimedStep } from '@/hooks/use-timed-progress'
+import { useSpyMode } from './spy-mode-context'
 
 // Whether an instant is still ahead of now. Kept out of the render body (which must stay pure) so the
 // Date.now() read isn't flagged; recomputed each render so an estimate can lapse as time passes.
@@ -45,6 +46,7 @@ export function TimedProgressBar<T>({
     children,
 }: TimedProgressBarProps<T>) {
     const { value, secondsRemaining } = useTimedProgress(steps, data, isVisible)
+    const { isSpyMode } = useSpyMode()
 
     if (!isVisible) return null
 
@@ -67,24 +69,25 @@ export function TimedProgressBar<T>({
         )
     }
 
-    // With children, the caption is the summary of a <details> that reveals them; otherwise it's a
-    // plain line.
-    const details = children ? (
-        <details>
-            <summary style={{ cursor: 'pointer' }}>
-                <Text span size="xs" c="dimmed">
-                    {caption ?? label}
-                </Text>
-            </summary>
-            <Stack gap={4} mt={4}>
-                {children}
-            </Stack>
-        </details>
-    ) : (
-        <Text size="xs" c="dimmed">
-            {caption}
-        </Text>
-    )
+    // In spy/debug mode the caption becomes the summary of a <details> revealing the children (e.g.
+    // logs); otherwise it's a plain line.
+    const details =
+        isSpyMode && children ? (
+            <details>
+                <summary style={{ cursor: 'pointer' }}>
+                    <Text span size="xs" c="dimmed">
+                        {caption ?? label}
+                    </Text>
+                </summary>
+                <Stack gap={4} mt={4}>
+                    {children}
+                </Stack>
+            </details>
+        ) : (
+            <Text size="xs" c="dimmed">
+                {caption}
+            </Text>
+        )
 
     return (
         <Stack gap={2}>

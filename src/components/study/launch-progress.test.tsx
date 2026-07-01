@@ -51,4 +51,12 @@ describe('LaunchProgress', () => {
         expect(container.textContent).toContain('Updated')
         expect(container.querySelectorAll('time')).toHaveLength(1)
     })
+
+    it('hides the logs textarea outside spy mode', () => {
+        // renderWithProviders defaults spy mode off, so the collapsible logs detail is not rendered.
+        const { container } = renderWithProviders(
+            <LaunchProgress isVisible={true} buildLog="pulling base image" agentLog="" lastUpdatedAt={new Date()} />,
+        )
+        expect(container.querySelector('textarea')).toBeNull()
+    })
 })

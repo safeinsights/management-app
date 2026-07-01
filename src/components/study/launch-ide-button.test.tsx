@@ -1,5 +1,4 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
-import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { LaunchIdeButton } from './launch-ide-button'
 
 describe('LaunchIdeButton', () => {
@@ -8,19 +7,6 @@ describe('LaunchIdeButton', () => {
         isLaunching: false,
         launchError: null,
     }
-
-    const launchingStatus = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunchStatus => ({
-        buildStatus: 'running',
-        buildLogLines: ['pulling base image'],
-        agentStatus: null,
-        agentLogLines: [],
-        ready: false,
-        failed: false,
-        reason: 'building',
-        cursors: { build: null, agent: null },
-        url: null,
-        ...overrides,
-    })
 
     it('renders the idle outline variant with "Edit files in IDE"', async () => {
         renderWithProviders(<LaunchIdeButton {...baseProps} variant="outline" />)
@@ -40,26 +26,10 @@ describe('LaunchIdeButton', () => {
         expect(onClick).toHaveBeenCalledTimes(1)
     })
 
-    it('shows the launching state with an animated message', async () => {
+    it('shows the launching state with just the label (no subtext)', async () => {
         renderWithProviders(<LaunchIdeButton {...baseProps} isLaunching={true} variant="outline" />)
         expect(screen.getByText(/launching ide/i)).toBeInTheDocument()
-    })
-
-    it('shows the build status while launching', async () => {
-        renderWithProviders(
-            <LaunchIdeButton {...baseProps} isLaunching={true} status={launchingStatus()} variant="outline" />,
-        )
-        expect(screen.getByText(/Build: running/)).toBeInTheDocument()
-    })
-
-    it('shows the agent status after the build status while launching', async () => {
-        const status = launchingStatus({
-            agentStatus: { lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' },
-        })
-        renderWithProviders(<LaunchIdeButton {...baseProps} isLaunching={true} status={status} variant="outline" />)
-        expect(
-            screen.getByText(/Build: running[\s\S]*lifecycle=starting status=connecting code-server=initializing/),
-        ).toBeInTheDocument()
+        expect(screen.queryByText(/Build:|lifecycle=/)).not.toBeInTheDocument()
     })
 
     it('shows the error state with a retry affordance', async () => {

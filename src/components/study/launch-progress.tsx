@@ -1,6 +1,5 @@
 import { type TimedStep } from '@/hooks/use-timed-progress'
 import { TimedProgressBar } from '@/components/timed-progress-bar'
-import { LaunchLogs } from './launch-logs'
 
 // The accumulated logs a launch step's predicate is matched against.
 type LaunchLogs = { buildLog: string; agentLog: string }
@@ -19,11 +18,11 @@ export const LAUNCH_STEPS: TimedStep<LaunchLogs>[] = [
         hasStarted: ({ buildLog }) => buildLog.includes('aws_ecs_service.workspace[0]: Plan to create'),
     },
     {
-        estimateSeconds: 70,
+        estimateSeconds: 80,
         hasStarted: ({ buildLog }) => buildLog.includes('aws_ecs_task_definition.workspace[0]: Plan to create'),
     },
-    { estimateSeconds: 10, hasStarted: ({ agentLog }) => agentLog.includes('+ mkdir -p ~/.cache/code-server') },
-    { estimateSeconds: 30, hasStarted: ({ agentLog }) => agentLog.includes('Installing extensions...') },
+    { estimateSeconds: 15, hasStarted: ({ agentLog }) => agentLog.includes('+ mkdir -p ~/.cache/code-server') },
+    { estimateSeconds: 15, hasStarted: ({ agentLog }) => agentLog.includes('Installing extensions...') },
 ]
 
 interface LaunchProgressProps {
@@ -33,8 +32,11 @@ interface LaunchProgressProps {
     lastUpdatedAt?: Date | null
 }
 
-// Launch progress bar: a TimedProgressBar wired to the launch milestones.
+// Launch progress bar: a TimedProgressBar wired to the launch milestones. The raw logs are passed as
+// the collapsible detail, which TimedProgressBar only reveals in spy/debug mode.
 export function LaunchProgress({ isVisible, buildLog, agentLog, lastUpdatedAt }: LaunchProgressProps) {
+    const logs = ['--------- Build Log', buildLog, '--------- Agent Log', agentLog].join('\n')
+
     return (
         <TimedProgressBar
             isVisible={isVisible}
@@ -43,7 +45,7 @@ export function LaunchProgress({ isVisible, buildLog, agentLog, lastUpdatedAt }:
             lastUpdatedAt={lastUpdatedAt}
             label="Launch progress"
         >
-            <LaunchLogs buildLog={buildLog} agentLog={agentLog} />
+            <textarea readOnly value={logs} rows={24} style={{ width: '100%' }} />
         </TimedProgressBar>
     )
 }

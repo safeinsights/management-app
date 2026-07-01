@@ -1,6 +1,5 @@
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { CompactStatusButton } from './compact-status-button'
 
 export type LaunchIdeButtonVariant = 'cta' | 'outline'
@@ -10,25 +9,9 @@ interface LaunchIdeButtonProps {
     isLaunching: boolean
     launchError: Error | null
     variant: LaunchIdeButtonVariant
-    /** Latest progress poll — drives the build/agent activity lines shown while launching */
-    status?: WorkspaceLaunchStatus | null
 }
 
-// Concise status summary shown under "Launching IDE" — the build status and the agent's
-// lifecycle/connection/code-server health. The full logs render separately in <LaunchLogs>.
-function launchProgressLines(status: WorkspaceLaunchStatus | null | undefined): string[] {
-    if (!status) return []
-    const lines = [`Build: ${status.buildStatus}`]
-    const agent = status.agentStatus
-    if (agent) {
-        lines.push(
-            `Agent: lifecycle=${agent.lifecycle ?? '∅'} status=${agent.status ?? '∅'} code-server=${agent.codeServer ?? '∅'}`,
-        )
-    }
-    return lines
-}
-
-export function LaunchIdeButton({ onClick, isLaunching, launchError, variant, status }: LaunchIdeButtonProps) {
+export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: LaunchIdeButtonProps) {
     if (launchError) {
         return (
             <CompactStatusButton
@@ -42,9 +25,7 @@ export function LaunchIdeButton({ onClick, isLaunching, launchError, variant, st
     }
 
     if (isLaunching) {
-        const lines = launchProgressLines(status)
-        const secondaryText = (lines.length ? lines : [status?.reason ?? 'Starting…']).join('\n')
-        return <CompactStatusButton primaryText="Launching IDE" secondaryText={secondaryText} loading />
+        return <CompactStatusButton primaryText="Launching IDE" loading />
     }
 
     if (variant === 'cta') {
