@@ -36,7 +36,7 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
         >
             <Stack>
                 {children}
-                <Group justify="flex-end">
+                <Group>
                     <Button variant="outline" onClick={onClose} disabled={isPending}>
                         Cancel
                     </Button>

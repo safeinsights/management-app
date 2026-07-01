@@ -24,7 +24,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     <AppModal isOpen={isOpen} onClose={onClose} title={title} closeButtonProps={{ 'aria-label': 'Close' }}>
         <Stack gap="xl">
             <Text size="md">{body}</Text>
-            <Group justify="flex-start">
+            <Group>
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </Button>
