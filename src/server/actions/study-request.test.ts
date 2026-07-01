@@ -1118,6 +1118,31 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBe('A draft note')
         })
 
+        it('persists the draft for a results-rejected study (FILES-REJECTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-APPROVED')
+            await insertStatus(job.id, 'RUN-COMPLETE')
+            await insertStatus(job.id, 'FILES-REJECTED')
+
+            const result = actionResult(
+                await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'reworking after rejection' }),
+            )
+            expect(result.studyId).toBe(study.id)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBe('reworking after rejection')
+        })
+
         it('rejects when a CODE-CHANGES-REQUESTED is stale (a fresh CODE-SUBMITTED was appended)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({

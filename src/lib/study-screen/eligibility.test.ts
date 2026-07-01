@@ -64,6 +64,18 @@ describe('canResearcherResubmitCode', () => {
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-SCANNED'])])).toBe(false)
     })
 
+    // AC "code errored": a bare JOB-ERRORED run is NOT resubmittable on its own. The reviewer triages
+    // the errored run and records a FILES-* decision first; only then is the researcher offered resubmit.
+    it('false for a bare JOB-ERRORED run awaiting the reviewer files decision', () => {
+        expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-ERRORED'])])).toBe(false)
+    })
+
+    it('true once an errored run is decided FILES-REJECTED', () => {
+        expect(
+            canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-ERRORED', 'FILES-REJECTED'])]),
+        ).toBe(true)
+    })
+
     it('false with no jobs', () => {
         expect(canResubmit([])).toBe(false)
     })
