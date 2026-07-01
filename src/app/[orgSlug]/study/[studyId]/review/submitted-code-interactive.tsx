@@ -193,7 +193,12 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
         <>
-            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            <Stack gap="xs">
+                <Text fw={600} size="sm">
+                    Overview
+                </Text>
+                <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            </Stack>
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
@@ -254,11 +259,8 @@ export function AiSummaryCollapsible({
     }
 
     return (
-        <Stack gap="xs" data-testid="ai-summary">
+        <Stack gap="lg" data-testid="ai-summary">
             <Text fw={700}>AI Summary: Analysis of all files</Text>
-            <Text fw={600} size="sm">
-                Overview
-            </Text>
             {renderBody()}
         </Stack>
     )
@@ -294,7 +296,7 @@ function FileTab({
             wrap="nowrap"
             align="center"
             style={{
-                backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
+                backgroundColor: isActive ? 'var(--mantine-color-blue-7)' : 'transparent',
                 borderRadius: 0,
                 whiteSpace: 'nowrap',
                 paddingRight: 6,
@@ -310,7 +312,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -473,7 +475,7 @@ function StudyCodeBody({
     }
     return (
         <div data-testid="study-code-body">
-            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} />
+            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} withBorder />
         </div>
     )
 }
@@ -535,16 +537,18 @@ export function StudyCodeViewer({
     const hasFiles = files.length > 0
 
     return (
-        <Stack gap="sm" data-testid="study-code-viewer">
-            <FileTabsRow
-                isVisible={isExpanded}
-                visible={visible}
-                activeFileName={activeFile?.name ?? null}
-                onSelect={selectFile}
-                hidden={hidden}
-                studyJobId={studyJobId}
-            />
-            <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+        <Stack gap="lg" data-testid="study-code-viewer">
+            <Stack gap="sm">
+                <FileTabsRow
+                    isVisible={isExpanded}
+                    visible={visible}
+                    activeFileName={activeFile?.name ?? null}
+                    onSelect={selectFile}
+                    hidden={hidden}
+                    studyJobId={studyJobId}
+                />
+                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+            </Stack>
             <StudyCodeToggle
                 isVisible={hasFiles}
                 isExpanded={isExpanded}

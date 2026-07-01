@@ -385,7 +385,7 @@ export function CollaborativeEditor({
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />
                 </Paper>
-                <Stack gap={4} mt="xs">
+                <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
                         <SaveStatus provider={activeProvider} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
