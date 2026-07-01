@@ -90,7 +90,7 @@ const ORG_SUFFIX_SHORT: Record<string, string> = {
 }
 
 const ORG_SUFFIX_LONG: Record<string, string> = {
-    enclave: '-Data Partner',
+    enclave: ' Data Partner',
     lab: '-Research Lab',
 }
 
