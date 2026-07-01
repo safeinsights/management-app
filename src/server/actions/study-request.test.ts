@@ -1288,5 +1288,56 @@ describe('Request Study Actions', () => {
             )
             expect(result.studyJobId).toBeDefined()
         })
+
+        // Results-ready (FILES-APPROVED) resubmit with a later CODE-SCANNED sorting first — the QA
+        // scenario, at the final-submit gate (mirrors the save-draft coverage).
+        it('resubmits a results-ready study when FILES-APPROVED is buried under a later CODE-SCANNED', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-APPROVED')
+            await insertStatus(job.id, 'RUN-COMPLETE')
+            await insertStatus(job.id, 'FILES-APPROVED')
+            await insertStatus(job.id, 'CODE-SCANNED')
+
+            const root = await createWorkspaceDir('resubmit-results-ready')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const result = actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: wordsString(10),
+                }),
+            )
+            expect(result.studyJobId).toBeDefined()
+        })
+
+        it('rejects the final submit when a CODE-CHANGES-REQUESTED is stale (fresh CODE-SUBMITTED appended)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            // Already resubmitted — awaiting a new decision, so the gate rejects before file checks.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
+
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: wordsString(10),
+            })
+            expect(result).toHaveProperty('error')
+        })
     })
 })
