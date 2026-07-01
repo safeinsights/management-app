@@ -52,7 +52,7 @@ function MainFileStar({ fileName, isSelected, onSelect }: MainFileStarProps) {
 }
 
 const MAIN_FILE_TOOLTIP =
-    "If you're creating or uploading multiple files, please select your main file (i.e., the script that runs first)"
+    "If you're creating or uploading multiple files, please select your main file (i.e., the script that runs first)."
 
 function MainFileColumnHeader() {
     return (
