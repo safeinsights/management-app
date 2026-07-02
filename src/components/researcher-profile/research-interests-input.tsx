@@ -54,6 +54,7 @@ export function ResearchInterestsInput({
                         value={draftValue}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
+                        onBlur={onAdd}
                     />
                 </Pill.Group>
             </PillsInput>

@@ -277,4 +277,90 @@ describe('ResearchDetailsSection', () => {
         expect(updated.researchInterests).toEqual(['AI Research'])
         expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
     })
+
+    // OTTER-624: a research interest typed but never committed with Enter must still be
+    // saved on a single Save click, instead of leaving the button permanently disabled.
+    it('should save a research interest that was typed without pressing Enter', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        // Fill the URL first, then type the interest LAST and click Save without ever
+        // pressing Enter, so the draft is still uncommitted at submit time.
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'https://scholar.google.com/citations?user=abc123')
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Quantum Computing')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await userEvents.click(saveButton)
+
+        await waitFor(() => {
+            expect(refetch).toHaveBeenCalled()
+        })
+
+        const updated = await db
+            .selectFrom('researcherProfile')
+            .select(['researchInterests', 'detailedPublicationsUrl'])
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researchInterests).toEqual(['Quantum Computing'])
+        expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
+    })
+
+    it('should commit a typed interest to a pill when the field loses focus', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Bioinformatics')
+
+        // Move focus away without pressing Enter; the draft should become a pill.
+        await userEvents.tab()
+
+        await waitFor(() => {
+            expect(screen.getByText('Bioinformatics')).toBeDefined()
+        })
+    })
+
+    it('should surface a validation message for an invalid URL instead of silently disabling save', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'AI Research{Enter}')
+
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'not-a-valid-url')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await userEvents.click(saveButton)
+
+        await waitFor(() => {
+            expect(screen.getByText(/must start with http:\/\/ or https:\/\//i)).toBeDefined()
+        })
+        expect(refetch).not.toHaveBeenCalled()
+    })
 })
