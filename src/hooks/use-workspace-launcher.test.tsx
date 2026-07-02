@@ -12,10 +12,11 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
+import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 
 vi.mock('@/server/actions/workspaces.actions', () => ({
-    createUserAndWorkspaceAction: vi.fn(),
-    getWorkspaceUrlAction: vi.fn(),
+    ensureWorkspaceAction: vi.fn(),
+    getWorkspaceLaunchStatusAction: vi.fn(),
 }))
 
 vi.mock('@/components/errors', async (importOriginal) => ({
@@ -29,15 +30,57 @@ Object.defineProperty(window, 'open', {
     writable: true,
 })
 
-import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
+import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
 import { reportError } from '@/components/errors'
 import { notifications } from '@mantine/notifications'
 
 const studyId = faker.string.uuid()
 
+const ensureMock = ensureWorkspaceAction as unknown as Mock
+const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
+
+const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStatus => ({
+    buildStatus: 'running',
+    buildLogLines: ['provisioning complete'],
+    agentStatus: { lifecycle: 'ready', status: 'connected', codeServer: 'healthy' },
+    agentLogLines: ['workspace ready'],
+    ready: true,
+    failed: false,
+    reason: 'workspace ready',
+    cursors: { build: 3, agent: 4 },
+    url,
+})
+
+const provisioningStatus = (): WorkspaceLaunchStatus => ({
+    buildStatus: 'running',
+    buildLogLines: ['pulling base image'],
+    agentStatus: { lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' },
+    agentLogLines: [],
+    ready: false,
+    failed: false,
+    reason: 'build status=running, no agent yet',
+    cursors: { build: 1, agent: null },
+    url: null,
+})
+
+const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => ({
+    buildStatus: 'failed',
+    buildLogLines: [],
+    agentStatus: null,
+    agentLogLines: [],
+    ready: false,
+    failed: true,
+    reason,
+    cursors: { build: null, agent: null },
+    url: null,
+})
+
 describe('useWorkspaceLauncher', () => {
     beforeEach(() => {
+        vi.clearAllMocks()
         mockWindowOpen.mockReturnValue({ closed: false })
+        ensureMock.mockResolvedValue({ success: true, workspace: { id: 'workspace-456' } })
+        statusMock.mockResolvedValue(provisioningStatus())
     })
 
     describe('initial state', () => {
@@ -55,174 +98,138 @@ describe('useWorkspaceLauncher', () => {
     })
 
     describe('launchWorkspace', () => {
-        it('should set isLaunching to true when launching', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockImplementation(
-                () => new Promise(() => {}), // Never resolves
-            )
+        it('should set isLaunching true while the ensure mutation is in flight', async () => {
+            ensureMock.mockImplementation(() => new Promise(() => {})) // never resolves
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.isLaunching).toBe(true))
+            expect(result.current.isCreatingWorkspace).toBe(true)
+        })
+
+        it('should stay launching while the workspace is still provisioning', async () => {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
             })
 
-            await waitFor(() => {
-                expect(result.current.isLaunching).toBe(true)
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(statusMock).toHaveBeenCalled())
+            await waitFor(() => expect(result.current.isLaunching).toBe(true))
+            expect(result.current.status?.reason).toBe('build status=running, no agent yet')
+            expect(result.current.buildLog).toBe('pulling base image')
+            expect(result.current.status?.agentStatus).toEqual({
+                lifecycle: 'starting',
+                status: 'connecting',
+                codeServer: 'initializing',
             })
         })
 
-        it('should handle mutation error', async () => {
-            const errorMessage = 'Failed to create workspace'
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: errorMessage })
-
+        it('should poll the launch status with cursors after the ensure mutation', async () => {
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
 
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-                expect(result.current.error?.message).toBe(errorMessage)
-                expect(result.current.isLaunching).toBe(false)
-            })
+            await waitFor(() => expect(statusMock).toHaveBeenCalledWith({ studyId, cursors: undefined }))
         })
 
-        it('should handle mutation error with non-string error', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: { code: 500 } })
+        it('should open the workspace in a new tab once the status reports a url', async () => {
+            const url = 'https://workspace.example.com'
+            statusMock.mockResolvedValue(readyStatus(url))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
 
             await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-                expect(result.current.error?.message).toBe('Failed to launch IDE')
-            })
-        })
-
-        it('should poll for workspace URL after successful mutation', async () => {
-            const workspaceId = 'workspace-456'
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: workspaceId },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(getWorkspaceUrlAction).toHaveBeenCalledWith({
-                    studyId,
-                    workspaceId: workspaceId,
-                })
-            })
-        })
-
-        it('should open workspace in new tab when URL is available', async () => {
-            const workspaceUrl = 'https://workspace.example.com'
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: 'workspace-456' },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue(workspaceUrl)
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(mockWindowOpen).toHaveBeenCalledWith(workspaceUrl, `ide-for-study-${studyId}`)
+                expect(mockWindowOpen).toHaveBeenCalledWith(url, `ide-for-study-${studyId}`)
                 expect(result.current.isLaunching).toBe(false)
             })
         })
 
         // A blocked popup is not a launch failure: the workspace launched fine and the user gets a
-        // clickable fallback notification, so the hook must NOT surface it as `error` (which would
-        // render a misleading "Launch failed" state in the UI).
+        // clickable fallback notification, so the hook must NOT surface it as `error`.
         it('should show fallback notification without erroring when popup is blocked', async () => {
-            const workspaceUrl = 'https://workspace.example.com'
-            mockWindowOpen.mockReturnValue(null) // Simulate blocked popup
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: 'workspace-456' },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue(workspaceUrl)
+            mockWindowOpen.mockReturnValue(null)
+            statusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
 
-            await waitFor(() => {
+            await waitFor(() =>
                 expect(notifications.show).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        title: 'Popup blocked',
-                        color: 'yellow',
-                        autoClose: false,
-                    }),
-                )
-            })
+                    expect.objectContaining({ title: 'Popup blocked', color: 'yellow', autoClose: false }),
+                ),
+            )
             expect(result.current.error).toBeNull()
         })
 
         it('should detect popup blocked when window.closed is true', async () => {
             mockWindowOpen.mockReturnValue({ closed: true })
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: 'workspace-456' },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
+            statusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
 
-            await waitFor(() => {
+            await waitFor(() =>
                 expect(notifications.show).toHaveBeenCalledWith(
                     expect.objectContaining({ title: 'Popup blocked', color: 'yellow' }),
-                )
-            })
+                ),
+            )
             expect(result.current.error).toBeNull()
         })
     })
 
-    describe('query error handling', () => {
-        it('should handle query error', async () => {
-            const queryError = 'Workspace not found'
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: 'workspace-456' },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: queryError })
+    describe('error handling', () => {
+        it('should surface an ensure (create/start) mutation error', async () => {
+            ensureMock.mockResolvedValue({ error: 'Failed to create workspace' })
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => {
+                expect(result.current.error?.message).toBe('Failed to create workspace')
+                expect(result.current.isLaunching).toBe(false)
             })
+        })
+
+        it('should surface a friendly fallback for a non-string ensure error', async () => {
+            ensureMock.mockResolvedValue({ error: { code: 500 } })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.error?.message).toBe('Failed to launch IDE'))
+        })
+
+        it('should surface a status polling error', async () => {
+            statusMock.mockResolvedValue({ error: 'workspace not found' })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
 
             await waitFor(() => {
                 expect(result.current.error).not.toBeNull()
@@ -230,178 +237,79 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
-        it('should handle query error with non-string error', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
-                workspace: { id: 'workspace-456' },
-            })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: { code: 404 } })
+        it('should surface a failed build as an error using its reason', async () => {
+            statusMock.mockResolvedValue(failedStatus('terraform exploded'))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
 
             await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
+                expect(result.current.error?.message).toBe('terraform exploded')
+                expect(result.current.isLaunching).toBe(false)
             })
+        })
+
+        it('should report ensure failures to Sentry/notifications', async () => {
+            ensureMock.mockResolvedValue({ error: 'boom' })
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE'))
+        })
+
+        it('should report a failed build to Sentry/notifications', async () => {
+            statusMock.mockResolvedValue(failedStatus())
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE'))
         })
     })
 
-    describe('clearError', () => {
-        it('should clear local error state', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'Some error' })
+    describe('clearError and retry', () => {
+        it('should clear error state', async () => {
+            ensureMock.mockResolvedValue({ error: 'Some error' })
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
+            await waitFor(() => expect(result.current.error).not.toBeNull())
 
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-            })
-
-            act(() => {
-                result.current.clearError()
-            })
-
-            // Note: clearError only clears local error state, not query errors
-            // This test verifies the function works for local errors
-            await waitFor(() => {
-                // After clearing, error should still be null (was mutation error)
-                expect(result.current.error).toBeNull()
-            })
+            act(() => result.current.clearError())
+            await waitFor(() => expect(result.current.error).toBeNull())
         })
-    })
 
-    describe('retry behavior', () => {
-        it('should allow retrying after mutation error', async () => {
-            ;(createUserAndWorkspaceAction as Mock)
-                .mockResolvedValueOnce({ error: 'First attempt failed' })
-                .mockResolvedValueOnce({
-                    workspace: { id: 'workspace-789' },
-                })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue('https://workspace.example.com')
+        it('should allow retrying after an ensure error', async () => {
+            ensureMock.mockResolvedValueOnce({ error: 'First attempt failed' }).mockResolvedValueOnce({
+                success: true,
+                workspace: { id: 'workspace-789' },
+            })
+            statusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
             })
 
-            // First attempt - fails
-            act(() => {
-                result.current.launchWorkspace()
-            })
+            act(() => result.current.launchWorkspace())
+            await waitFor(() => expect(result.current.error).not.toBeNull())
 
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-            })
-
-            // Second attempt - succeeds
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
+            act(() => result.current.launchWorkspace())
             await waitFor(() => {
                 expect(mockWindowOpen).toHaveBeenCalled()
                 expect(result.current.error).toBeNull()
-            })
-        })
-
-        it('should reset error state when retrying', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'Some error' })
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-            })
-
-            // Clear mocks to track new calls
-            vi.clearAllMocks()
-            ;(createUserAndWorkspaceAction as Mock).mockImplementation(() => new Promise(() => {}))
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            // Error should be cleared immediately when retrying
-            await waitFor(() => {
-                expect(result.current.error).toBeNull()
-                expect(result.current.isLaunching).toBe(true)
-            })
-        })
-    })
-
-    describe('error reporting', () => {
-        it('should report mutation failures to Sentry/notifications', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ error: 'boom' })
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE')
-            })
-        })
-
-        it('should report polling failures to Sentry/notifications', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ workspace: { id: 'workspace-456' } })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: 'poll exploded' })
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE')
-            })
-        })
-    })
-
-    describe('clearError with a query error', () => {
-        it('should clear a polling error so the UI returns to a non-error state', async () => {
-            ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({ workspace: { id: 'workspace-456' } })
-            ;(getWorkspaceUrlAction as Mock).mockResolvedValue({ error: 'Workspace not found' })
-
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
-                wrapper: createTestQueryWrapper(),
-            })
-
-            act(() => {
-                result.current.launchWorkspace()
-            })
-
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull()
-            })
-
-            act(() => {
-                result.current.clearError()
-            })
-
-            await waitFor(() => {
-                expect(result.current.error).toBeNull()
-                expect(result.current.isLaunching).toBe(false)
             })
         })
     })

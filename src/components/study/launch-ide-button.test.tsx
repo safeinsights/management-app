@@ -26,9 +26,10 @@ describe('LaunchIdeButton', () => {
         expect(onClick).toHaveBeenCalledTimes(1)
     })
 
-    it('shows the launching state with an animated message', async () => {
+    it('shows the launching state with just the label (no subtext)', async () => {
         renderWithProviders(<LaunchIdeButton {...baseProps} isLaunching={true} variant="outline" />)
         expect(screen.getByText(/launching ide/i)).toBeInTheDocument()
+        expect(screen.queryByText(/Build:|lifecycle=/)).not.toBeInTheDocument()
     })
 
     it('shows the error state with a retry affordance', async () => {

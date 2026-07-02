@@ -1,9 +1,9 @@
 'use client'
 
-import { type ReactNode } from 'react'
 import { ActionIcon, Divider, Group, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
-import { EyeIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { EyeIcon, InfoIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import { InfoTooltip } from '@/components/tooltip'
 
 interface FileReviewTableProps {
     files: WorkspaceFileInfo[]
@@ -12,7 +12,6 @@ interface FileReviewTableProps {
     onRemoveFile: (file: string) => void
     onViewFile: (file: string) => void
     jobCreatedAt: string | null
-    mainFileColumnHeader?: ReactNode
 }
 
 function formatModified(mtime: string, jobCreatedAt: string | null): string {
@@ -52,6 +51,24 @@ function MainFileStar({ fileName, isSelected, onSelect }: MainFileStarProps) {
     )
 }
 
+const MAIN_FILE_TOOLTIP =
+    "If you're creating or uploading multiple files, please select your main file (i.e., the script that runs first)."
+
+function MainFileColumnHeader() {
+    return (
+        <Group gap={4} wrap="nowrap" align="center">
+            <Text component="span" inherit>
+                Main file
+            </Text>
+            <InfoTooltip label={MAIN_FILE_TOOLTIP} withArrow multiline w={280}>
+                <Text component="span" display="inline-flex" aria-label="Main file info">
+                    <InfoIcon size={14} weight="regular" aria-hidden />
+                </Text>
+            </InfoTooltip>
+        </Group>
+    )
+}
+
 export const FileReviewTable = ({
     files,
     mainFile,
@@ -59,14 +76,15 @@ export const FileReviewTable = ({
     onRemoveFile,
     onViewFile,
     jobCreatedAt,
-    mainFileColumnHeader,
 }: FileReviewTableProps) => {
     return (
         <>
             <Table highlightOnHover verticalSpacing="md">
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={100}>{mainFileColumnHeader ?? 'Main file'}</Table.Th>
+                        <Table.Th w={100}>
+                            <MainFileColumnHeader />
+                        </Table.Th>
                         <Table.Th>File name</Table.Th>
                         <Table.Th w={200}>Last updated</Table.Th>
                         <Table.Th w={80}>Actions</Table.Th>

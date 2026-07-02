@@ -37,11 +37,12 @@ const stubReport: AnalysisReport = {
 }
 
 describe('generateAndStoreStudyReview', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
         getConfigValueMock.mockResolvedValue('test-api-key')
         fetchFileContentsMock.mockResolvedValue(new Blob(['print("hi")']))
         generateDataSourcesContextStringMock.mockResolvedValue('Data sources context')
+        await db.deleteFrom('agentContext').execute()
     })
 
     afterEach(() => {
@@ -95,6 +96,28 @@ describe('generateAndStoreStudyReview', () => {
             .where('studyJobId', '=', job.id)
             .executeTakeFirst()
         expect(stored?.studyJobId).toBe(job.id)
+    })
+
+    it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org, language: 'R' })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+        await db
+            .insertInto('agentContext')
+            .values([
+                { name: 'SYSTEM', orgId: null, content: 'How SafeInsights works' },
+                { name: 'R', orgId: null, content: 'R language guidance' },
+            ])
+            .execute()
+
+        await generateAndStoreStudyReview(job.id)
+
+        const [config] = generateAnalysisMock.mock.calls[0] as [{ additionalContext: string }]
+        expect(config.additionalContext).toContain('How SafeInsights works')
+        expect(config.additionalContext).toContain('R language guidance')
     })
 
     it('skips when a study review already exists for the job', async () => {

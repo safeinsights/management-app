@@ -1,39 +1,36 @@
-import type { ReactNode, RefObject } from 'react'
-import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
+import { useRef, type ReactNode } from 'react'
+import { Divider, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
+import { InfoTooltip } from '@/components/tooltip'
+import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchProgress } from './launch-progress'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
+import { UploadFilesButton } from './upload-files-button'
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
+    heading?: string
     studyTitle: string | null
     footer: ReactNode
-    mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
-    ideButtonTooltip?: string
-    // Replaces the default "Study code" / title block so a host can merge its page header into this card.
-    header?: ReactNode
-    // Suppress the in-panel launch/upload buttons when the custom header renders them itself.
-    hideReviewActions?: boolean
-    uploadOpenRef?: RefObject<(() => void) | null>
 }
 
 export const StudyCodePanel = ({
     ide,
     stepLabel,
+    heading = 'Study code',
     studyTitle,
     footer,
-    mainFileColumnHeader,
-    showLaunchIde,
-    ideButtonTooltip,
-    header,
-    hideReviewActions,
-    uploadOpenRef,
+    showLaunchIde = true,
 }: StudyCodePanelProps) => {
+    const openRef = useRef<() => void>(null)
+    const isReviewState = !ide.isLoadingFiles && !ide.showEmptyState
+
     let body: ReactNode
     if (ide.isLoadingFiles) {
         body = <Skeleton height={240} radius="md" />
@@ -43,6 +40,9 @@ export const StudyCodePanel = ({
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchError={ide.launchError}
+                launchLastUpdatedAt={ide.launchLastUpdatedAt}
+                launchBuildLog={ide.launchBuildLog}
+                launchAgentLog={ide.launchAgentLog}
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
@@ -51,48 +51,69 @@ export const StudyCodePanel = ({
         )
     } else {
         body = (
-            <StudyCodeReviewView
-                launchWorkspace={ide.launchWorkspace}
-                isLaunching={ide.isLaunching}
-                launchError={ide.launchError}
-                uploadFiles={ide.uploadFiles}
-                isUploading={ide.isUploading}
-                files={ide.fileDetails}
-                mainFile={ide.mainFile}
-                setMainFile={ide.setMainFile}
-                removeFile={ide.removeFile}
-                viewFile={ide.viewFile}
-                jobCreatedAt={ide.jobCreatedAt}
-                mainFileColumnHeader={mainFileColumnHeader}
-                showLaunchIde={showLaunchIde}
-                ideButtonTooltip={ideButtonTooltip}
-                hideActions={hideReviewActions}
-                uploadOpenRef={uploadOpenRef}
-            />
+            <Stack gap="md">
+                <LaunchProgress
+                    isVisible={ide.isLaunching}
+                    buildLog={ide.launchBuildLog}
+                    agentLog={ide.launchAgentLog}
+                    lastUpdatedAt={ide.launchLastUpdatedAt}
+                />
+                <StudyCodeReviewView
+                    uploadFiles={ide.uploadFiles}
+                    isUploading={ide.isUploading}
+                    files={ide.fileDetails}
+                    mainFile={ide.mainFile}
+                    setMainFile={ide.setMainFile}
+                    removeFile={ide.removeFile}
+                    viewFile={ide.viewFile}
+                    jobCreatedAt={ide.jobCreatedAt}
+                    openRef={openRef}
+                />
+            </Stack>
         )
     }
 
-    const defaultHeader = (
-        <Stack gap="sm">
-            {stepLabel && (
-                <Text fz="sm" fw={700} c="gray.7">
-                    {stepLabel}
-                </Text>
+    const reviewButtons = isReviewState ? (
+        <Group wrap="nowrap">
+            {showLaunchIde && (
+                <InfoTooltip
+                    label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
+                    withArrow
+                    multiline
+                    w={320}
+                >
+                    <LaunchIdeButton
+                        onClick={ide.launchWorkspace}
+                        isLaunching={ide.isLaunching}
+                        launchError={ide.launchError}
+                        variant="outline"
+                    />
+                </InfoTooltip>
             )}
-            <Title order={4}>Study code</Title>
-            <Text size="sm" c="dimmed">
-                Title: {studyTitle ?? 'Untitled draft'}
-            </Text>
-        </Stack>
-    )
+            <UploadFilesButton openRef={openRef} disabled={ide.isUploading} />
+        </Group>
+    ) : null
 
     return (
         <>
             <Paper p="xl">
-                <Stack gap="lg">
-                    {header ?? defaultHeader}
-                    {body}
+                <Stack gap="xs">
+                    {stepLabel && (
+                        <Text fz="sm" fw={700} c="gray.7">
+                            {stepLabel}
+                        </Text>
+                    )}
+                    <Title order={4}>{heading}</Title>
+                    <Group justify="space-between" wrap="nowrap" align="baseline">
+                        {/* 65ch ≈ 75 rendered chars in Open Sans */}
+                        <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
+                            Title: {studyTitle ?? 'Untitled draft'}
+                        </Text>
+                        {reviewButtons}
+                    </Group>
                 </Stack>
+                <Divider my="lg" />
+                {body}
             </Paper>
 
             {footer}

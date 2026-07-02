@@ -105,7 +105,7 @@ export const EditOrgForm: FC<{
                 name="type"
                 key={form.key('type')}
                 data={[
-                    { value: 'enclave', label: 'Enclave (Data Organization)' },
+                    { value: 'enclave', label: 'Enclave (Data Partner)' },
                     { value: 'lab', label: 'Lab (Research Organization)' },
                 ]}
                 {...form.getInputProps('type')}

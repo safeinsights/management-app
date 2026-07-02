@@ -50,7 +50,7 @@ export function ResearcherProfileLayout({ children }: { children: ReactNode }) {
                 <Title order={1}>Researcher Profile</Title>
                 <Text c="dimmed">
                     Create and manage your researcher profile. Adding professional details helps establish your
-                    credibility and allows Data Organizations to view your published work, credentials, and professional
+                    credibility and allows Data Partners to view your published work, credentials, and professional
                     background. Those pursuing a graduate degree will be able to share their background and interests.
                 </Text>
                 {children}

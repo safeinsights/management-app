@@ -121,7 +121,7 @@ export function SingleUserEditor({
                 <Toolbar />
             </Paper>
             {footerRight && (
-                <Stack gap={4} mt="xs">
+                <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
                         <Box ml="auto">{footerRight}</Box>
                     </Group>

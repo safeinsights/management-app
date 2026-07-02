@@ -23,7 +23,7 @@ interface SectionProps {
 }
 
 const SECTION_DESCRIPTIONS = {
-    dua: 'A set of tailored Data Use Agreements will be made available here. These documents will clearly define the constraints and responsibilities for both the researcher and the Data Organization, as well as the specific parameters governing your study and the use of the requested datasets. Once both parties agree to the terms in these agreements, they can proceed to the next steps.',
+    dua: 'A set of tailored Data Use Agreements will be made available here. These documents will clearly define the constraints and responsibilities for both the researcher and the Data Partner, as well as the specific parameters governing your study and the use of the requested datasets. Once both parties agree to the terms in these agreements, they can proceed to the next steps.',
     irb: 'An Umbrella Institutional Review Board (IRB) Protocol, with Rice as the IRB of record, will be available to cover all standard base enclave research projects. If your home institution requires separate IRB approval, you will be able to upload your institutionally approved protocol here.',
     sow: "This section will provide a detailed Statement of Work (SOW) and an estimated cost for your study, which will require your agreement to proceed. Depending on our evolving business model, elements of the SOW and payment information may become accessible at different stages of your study's execution.",
 }
