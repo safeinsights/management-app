@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
@@ -15,6 +15,11 @@ interface StudyCodePanelProps {
     mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
     ideButtonTooltip?: string
+    // Replaces the default "Study code" / title block so a host can merge its page header into this card.
+    header?: ReactNode
+    // Suppress the in-panel launch/upload buttons when the custom header renders them itself.
+    hideReviewActions?: boolean
+    uploadOpenRef?: RefObject<(() => void) | null>
 }
 
 export const StudyCodePanel = ({
@@ -25,6 +30,9 @@ export const StudyCodePanel = ({
     mainFileColumnHeader,
     showLaunchIde,
     ideButtonTooltip,
+    header,
+    hideReviewActions,
+    uploadOpenRef,
 }: StudyCodePanelProps) => {
     let body: ReactNode
     if (ide.isLoadingFiles) {
@@ -58,25 +66,33 @@ export const StudyCodePanel = ({
                 mainFileColumnHeader={mainFileColumnHeader}
                 showLaunchIde={showLaunchIde}
                 ideButtonTooltip={ideButtonTooltip}
+                hideActions={hideReviewActions}
+                uploadOpenRef={uploadOpenRef}
             />
         )
     }
 
+    const defaultHeader = (
+        <Stack gap="sm">
+            {stepLabel && (
+                <Text fz="sm" fw={700} c="gray.7">
+                    {stepLabel}
+                </Text>
+            )}
+            <Title order={4}>Study code</Title>
+            <Text size="sm" c="dimmed">
+                Title: {studyTitle ?? 'Untitled draft'}
+            </Text>
+        </Stack>
+    )
+
     return (
         <>
             <Paper p="xl">
-                <Stack gap="sm">
-                    {stepLabel && (
-                        <Text fz="sm" fw={700} c="gray.7">
-                            {stepLabel}
-                        </Text>
-                    )}
-                    <Title order={4}>Study code</Title>
-                    <Text size="sm" c="dimmed">
-                        Title: {studyTitle ?? 'Untitled draft'}
-                    </Text>
+                <Stack gap="lg">
+                    {header ?? defaultHeader}
+                    {body}
                 </Stack>
-                {body}
             </Paper>
 
             {footer}

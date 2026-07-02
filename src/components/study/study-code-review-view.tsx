@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode, type RefObject } from 'react'
 import { Group, Stack, Text } from '@mantine/core'
 import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -23,6 +23,10 @@ interface StudyCodeReviewViewProps {
     mainFileColumnHeader?: ReactNode
     showLaunchIde?: boolean
     ideButtonTooltip?: string
+    // When the host renders the launch/upload buttons elsewhere (e.g. a merged page header), hide the
+    // in-panel action row and share its upload trigger so the external Upload button still opens the picker.
+    hideActions?: boolean
+    uploadOpenRef?: RefObject<(() => void) | null>
 }
 
 export function StudyCodeReviewView({
@@ -40,8 +44,11 @@ export function StudyCodeReviewView({
     mainFileColumnHeader,
     showLaunchIde = true,
     ideButtonTooltip,
+    hideActions = false,
+    uploadOpenRef,
 }: StudyCodeReviewViewProps) {
-    const openRef = useRef<() => void>(null)
+    const internalOpenRef = useRef<() => void>(null)
+    const openRef = uploadOpenRef ?? internalOpenRef
 
     let launchSection: ReactNode = null
     if (showLaunchIde) {
@@ -64,10 +71,12 @@ export function StudyCodeReviewView({
 
     return (
         <Stack gap="md">
-            <Group justify="flex-end" wrap="nowrap">
-                {launchSection}
-                <UploadFilesButton openRef={openRef} disabled={isUploading} />
-            </Group>
+            {!hideActions && (
+                <Group justify="flex-end" wrap="nowrap">
+                    {launchSection}
+                    <UploadFilesButton openRef={openRef} disabled={isUploading} />
+                </Group>
+            )}
 
             <Stack gap={4}>
                 <Text fw={600}>Review files</Text>

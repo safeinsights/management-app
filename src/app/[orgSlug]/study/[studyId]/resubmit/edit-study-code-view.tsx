@@ -1,12 +1,13 @@
 'use client'
 
-import { FC } from 'react'
-import { Group, Stack, Text } from '@mantine/core'
+import { FC, useRef } from 'react'
+import { Box, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { InfoTooltip } from '@/components/tooltip'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyCodePanel } from '@/components/study/study-code-panel'
+import { LaunchIdeButton } from '@/components/study/launch-ide-button'
+import { UploadFilesButton } from '@/components/study/upload-files-button'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/study.actions'
@@ -17,7 +18,6 @@ interface EditStudyCodeViewProps {
     studyId: string
     studyTitle: string
     orgName: string
-    submittedAt: Date | null
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
 }
@@ -45,22 +45,54 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyId,
     studyTitle,
     orgName,
-    submittedAt,
     feedbackEntries,
     studyHasCodeEnv,
 }) => {
     const ide = useIDEFiles({ studyId })
     const { noteForm, isSaving, lastSavedAt } = useEditCodeResubmit()
+    const uploadOpenRef = useRef<() => void>(null)
+
+    // Mirror StudyCodeReviewView: the file actions only make sense once the existing files have loaded.
+    const showFileActions = !ide.isLoadingFiles && !ide.showEmptyState
+
+    const launchIdeButton = (
+        <InfoTooltip label={IDE_BUTTON_TOOLTIP} withArrow multiline w={320}>
+            <LaunchIdeButton
+                onClick={ide.launchWorkspace}
+                isLaunching={ide.isLaunching}
+                launchError={ide.launchError}
+                variant="outline"
+            />
+        </InfoTooltip>
+    )
+
+    const header = (
+        <Stack gap="lg">
+            <Group justify="space-between" align="center" wrap="nowrap">
+                <Box>
+                    <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                        STEP 4
+                    </Text>
+                    <Title order={4} fz={20} c="charcoal.9" pb={4}>
+                        Edit study code
+                    </Title>
+                    <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
+                        Title: {studyTitle}
+                    </Text>
+                </Box>
+                {showFileActions && (
+                    <Group wrap="nowrap">
+                        {studyHasCodeEnv && launchIdeButton}
+                        <UploadFilesButton openRef={uploadOpenRef} disabled={ide.isUploading} />
+                    </Group>
+                )}
+            </Group>
+            <Divider />
+        </Stack>
+    )
 
     return (
         <Stack gap="xxl">
-            <ProposalStepHeader
-                stepLabel="STEP 4"
-                heading="Edit study code"
-                studyTitle={studyTitle}
-                timestampDate={submittedAt}
-            />
-
             <StudyCodePanel
                 ide={ide}
                 studyTitle={studyTitle}
@@ -68,6 +100,9 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 showLaunchIde={studyHasCodeEnv}
                 ideButtonTooltip={IDE_BUTTON_TOOLTIP}
                 footer={null}
+                header={header}
+                hideReviewActions
+                uploadOpenRef={uploadOpenRef}
             />
 
             <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
