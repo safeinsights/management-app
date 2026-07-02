@@ -14,6 +14,12 @@ test.describe('sign in while already signed in', () => {
         await expect(page).toHaveURL(/dashboard/)
     })
 
+    test('auto-redirects when a safe redirect_url is present', async ({ page }) => {
+        await goto(page, '/account/signin?redirect_url=%2Fdashboard')
+
+        await expect(page).toHaveURL(/dashboard/)
+    })
+
     test('can switch to a different account', async ({ page }) => {
         await goto(page, '/account/signin')
 

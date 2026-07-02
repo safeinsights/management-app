@@ -35,7 +35,8 @@ export default function SigninPage() {
         }
     }, [searchParams, router])
 
-    if (!isLoaded || alreadySignedIn.status === 'loading') {
+    const isResolvingSession = alreadySignedIn.status === 'loading' || alreadySignedIn.status === 'redirecting'
+    if (!isLoaded || isResolvingSession) {
         return <Loader />
     }
 
