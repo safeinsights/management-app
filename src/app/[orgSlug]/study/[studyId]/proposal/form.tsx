@@ -10,11 +10,11 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { SaveStatusIndicator } from '@/components/save-status'
+import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS, type ProposalFormValues } from './schema'
+import { WORD_LIMITS, type CollabFieldKey, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -73,6 +73,15 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     const titleInputProps = form.getInputProps('title')
     const fieldsSaveStatus = useProviderSaveStatus(yjsForm.provider)
 
+    // The Yjs provider saves the whole fields doc, so its status is form-wide;
+    // each field only surfaces it after the user has actually edited that field
+    // (OTTER-594 QA: pristine fields must not claim "All changes saved").
+    const saveStatusFor = (key: CollabFieldKey): SaveStatusValue =>
+        yjsForm.editedKeys.has(key) ? fieldsSaveStatus : 'idle'
+    const titleSaveStatus = saveStatusFor('title')
+    const datasetsSaveStatus = saveStatusFor('datasets')
+    const piSaveStatus = saveStatusFor('piName')
+
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
         orgSlug,
@@ -122,11 +131,13 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 value={form.values.title ?? ''}
                                 error={!!form.errors.title}
                             />
-                            <Group justify={form.errors.title ? 'space-between' : 'flex-end'} mt={4}>
-                                {form.errors.title && <InputError error={form.errors.title} />}
+                            <Group justify="space-between" align="flex-start" mt={4}>
+                                <Stack gap={4}>
+                                    <InputError error={form.errors.title} />
+                                    <SaveStatusIndicator status={titleSaveStatus} />
+                                </Stack>
                                 <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
                             </Group>
-                            <SaveStatusIndicator status={fieldsSaveStatus} />
                         </Box>
 
                         <Box>
@@ -162,7 +173,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 </Anchor>
                             </Group>
                             <InputError error={form.errors.datasets} />
-                            <SaveStatusIndicator status={fieldsSaveStatus} />
+                            <SaveStatusIndicator status={datasetsSaveStatus} />
                         </Box>
                     </Stack>
                 </Paper>
@@ -202,7 +213,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     error={!!form.errors.piName}
                                 />
                             </Box>
-                            <SaveStatusIndicator status={fieldsSaveStatus} />
+                            <SaveStatusIndicator status={piSaveStatus} />
                         </Box>
 
                         <Box>
