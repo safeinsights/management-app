@@ -5,6 +5,7 @@ import {
     projectStudyState,
     resolveScreen,
     resolveResearcherCodeScreen,
+    resolveReviewerCodeScreen,
     type RawStudyState,
     type ScreenDescriptor,
     type StudyRole,
@@ -50,6 +51,14 @@ export async function renderStudyScreen(
 // when the study hasn't reached the code stage (no forward jumps).
 export async function renderResearcherCodeStep(args: RenderArgs): Promise<React.JSX.Element> {
     const descriptor = resolveResearcherCodeScreen(projectStudyState(args.raw))
+    if (!descriptor) notFound()
+    return renderScreen(descriptor, args)
+}
+
+// /review/code dispatch: the reviewer counterpart, walked back to from the results screen. Same
+// 404-when-not-yet-code contract as the researcher step.
+export async function renderReviewerCodeStep(args: RenderArgs): Promise<React.JSX.Element> {
+    const descriptor = resolveReviewerCodeScreen(projectStudyState(args.raw))
     if (!descriptor) notFound()
     return renderScreen(descriptor, args)
 }
