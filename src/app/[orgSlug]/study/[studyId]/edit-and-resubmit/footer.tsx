@@ -22,12 +22,12 @@ interface EditResubmitFooterProps {
 export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, form, noteForm, saveDraft, resubmit, isSaving, isSubmitting, isSavingNote } = useEditResubmit()
+    const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    const isBusy = isSaving || isSavingNote || isSubmitting
+    const isBusy = isSavingNote || isSubmitting
 
     const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
@@ -36,10 +36,11 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
 
     const handleBack = async () => {
-        if (form.isDirty() || noteForm.isDirty()) {
-            const saved = await saveDraft()
-            if (!saved) return
-        }
+        // Proposal fields autosave through Yjs; only the debounced note needs flushing
+        // before we leave. flushNote no-ops if nothing is pending and returns false on
+        // failure, in which case we stay so the note isn't lost.
+        const saved = await flushNote()
+        if (!saved) return
         // The only legitimate entry to this page today is the "Edit & resubmit"
         // button on /submitted, so Back always returns there. If we ever add deep
         // links or a dashboard CTA, resolve the Back target from the study state
@@ -61,7 +62,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     size="md"
                     leftSection={<CaretLeftIcon />}
                     disabled={isBusy}
-                    loading={isSaving}
+                    loading={isSavingNote}
                     onClick={handleBack}
                 >
                     Back
@@ -69,15 +70,6 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 <Group>
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="md"
-                        disabled={(!form.isDirty() && !noteForm.isDirty()) || isBusy}
-                        loading={isSaving || isSavingNote}
-                        onClick={saveDraft}
-                    >
-                        Save as draft
                     </Button>
                     <Button
                         size="md"
