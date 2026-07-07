@@ -7,7 +7,7 @@ import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/pro
 import * as Y from 'yjs'
 
 import { isActionError } from '@/lib/errors'
-import { proposalFieldsDocName } from '@/lib/collaboration-documents'
+import { PROPOSAL_FIELDS_MAP_NAME, proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { getYjsDocumentUpdatedAtAction } from '@/server/actions/editor.actions'
 import {
     COLLAB_FIELD_KEYS,
@@ -15,7 +15,7 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
-const FIELDS_MAP_NAME = 'fields'
+const FIELDS_MAP_NAME = PROPOSAL_FIELDS_MAP_NAME
 
 const LOCAL_ORIGIN = Symbol('use-yjs-form-map.local')
 

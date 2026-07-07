@@ -18,6 +18,7 @@ import {
 import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
 import { ResilientDbPool } from './db-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
+import { mirrorProposalTitleToStudy } from './title-mirror.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
 // logging when authentication has already failed. Returns null on any error.
@@ -92,7 +93,7 @@ const server = new Server({
                 })
                 return result.rows[0]?.data ?? null
             },
-            store: async ({ documentName, state }) => {
+            store: async ({ documentName, state, document }) => {
                 const parsed = parseDocumentName(documentName)
                 if (!parsed) {
                     log('db.store.reject', { documentName, reason: 'unrecognized-name' })
@@ -113,6 +114,10 @@ const server = new Server({
                     [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
+
+                // Mirror the collaborative title into study.title so drafts are
+                // discoverable on the dashboard
+                await mirrorProposalTitleToStudy(parsed, document, studyId, pool)
             },
         }),
     ],
