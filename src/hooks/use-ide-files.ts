@@ -73,6 +73,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
+        status: launchStatus,
+        lastUpdatedAt: launchLastUpdatedAt,
+        buildLog: launchBuildLog,
+        agentLog: launchAgentLog,
     } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
 
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
@@ -196,7 +200,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             notifications.show({
                 title: 'Study Code Submitted',
                 message:
-                    'Your code has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                    'Your code has been successfully submitted to the Data Partner. Check your dashboard for status updates.',
                 color: 'green',
             })
 
@@ -225,6 +229,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         launchWorkspace,
         isLaunching,
         launchError,
+        launchStatus,
+        launchLastUpdatedAt,
+        launchBuildLog,
+        launchAgentLog,
 
         isLoadingFiles: workspace.isLoading,
         showEmptyState,

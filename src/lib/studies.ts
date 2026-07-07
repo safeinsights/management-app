@@ -15,7 +15,7 @@ export function deriveStudyVersion(entries: { version: number }[]): number {
     return Math.max(...entries.map((e) => e.version))
 }
 
-// Step 1 (data org + language + docs) saves `orgSlug`, `language`, `title`,
+// Step 1 (data partner + language + docs) saves `orgSlug`, `language`, `title`,
 // `piName`, and document paths. Step 2 is the first time any of the columns
 // below are written, so any one being non-empty means the researcher has
 // reached Step 2. Used to route a "resume draft" entry to the step where

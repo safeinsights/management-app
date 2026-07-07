@@ -45,7 +45,7 @@ export const editableTextFields: EditableTextField[] = [
         id: 'additionalNotes',
         maxWords: WORD_LIMITS.additionalNotes,
         description:
-            'Add any other information, constraints, or questions for the Data Organization. This might include timing, special requirements, references, or related work.',
+            'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',
         placeholder:
             'Ex. This project is based on grants, so we are operating under specific timelines, reporting requirements, and budget constraints.',
         required: false,

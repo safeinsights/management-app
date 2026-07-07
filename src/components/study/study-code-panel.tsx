@@ -4,6 +4,7 @@ import { useIDEFiles } from '@/hooks/use-ide-files'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchProgress } from './launch-progress'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 import { UploadFilesButton } from './upload-files-button'
@@ -13,12 +14,20 @@ export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
+    heading?: string
     studyTitle: string | null
     footer: ReactNode
     showLaunchIde?: boolean
 }
 
-export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchIde = true }: StudyCodePanelProps) => {
+export const StudyCodePanel = ({
+    ide,
+    stepLabel,
+    heading = 'Study code',
+    studyTitle,
+    footer,
+    showLaunchIde = true,
+}: StudyCodePanelProps) => {
     const openRef = useRef<() => void>(null)
     const isReviewState = !ide.isLoadingFiles && !ide.showEmptyState
 
@@ -31,6 +40,9 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchError={ide.launchError}
+                launchLastUpdatedAt={ide.launchLastUpdatedAt}
+                launchBuildLog={ide.launchBuildLog}
+                launchAgentLog={ide.launchAgentLog}
                 uploadFiles={ide.uploadFiles}
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
@@ -39,17 +51,25 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
         )
     } else {
         body = (
-            <StudyCodeReviewView
-                uploadFiles={ide.uploadFiles}
-                isUploading={ide.isUploading}
-                files={ide.fileDetails}
-                mainFile={ide.mainFile}
-                setMainFile={ide.setMainFile}
-                removeFile={ide.removeFile}
-                viewFile={ide.viewFile}
-                jobCreatedAt={ide.jobCreatedAt}
-                openRef={openRef}
-            />
+            <Stack gap="md">
+                <LaunchProgress
+                    isVisible={ide.isLaunching}
+                    buildLog={ide.launchBuildLog}
+                    agentLog={ide.launchAgentLog}
+                    lastUpdatedAt={ide.launchLastUpdatedAt}
+                />
+                <StudyCodeReviewView
+                    uploadFiles={ide.uploadFiles}
+                    isUploading={ide.isUploading}
+                    files={ide.fileDetails}
+                    mainFile={ide.mainFile}
+                    setMainFile={ide.setMainFile}
+                    removeFile={ide.removeFile}
+                    viewFile={ide.viewFile}
+                    jobCreatedAt={ide.jobCreatedAt}
+                    openRef={openRef}
+                />
+            </Stack>
         )
     }
 
@@ -57,7 +77,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
         <Group wrap="nowrap">
             {showLaunchIde && (
                 <InfoTooltip
-                    label="After creating or editing files in the IDE, please return here to submit your code to the data partners."
+                    label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
                     withArrow
                     multiline
                     w={320}
@@ -83,7 +103,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                             {stepLabel}
                         </Text>
                     )}
-                    <Title order={4}>Study code</Title>
+                    <Title order={4}>{heading}</Title>
                     <Group justify="space-between" wrap="nowrap" align="baseline">
                         {/* 65ch ≈ 75 rendered chars in Open Sans */}
                         <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>

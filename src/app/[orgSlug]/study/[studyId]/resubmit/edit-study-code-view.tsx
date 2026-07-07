@@ -3,7 +3,6 @@
 import { FC } from 'react'
 import { Stack } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyCodePanel } from '@/components/study/study-code-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
@@ -15,7 +14,6 @@ interface EditStudyCodeViewProps {
     studyId: string
     studyTitle: string
     orgName: string
-    submittedAt: Date | null
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
 }
@@ -24,7 +22,6 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyId,
     studyTitle,
     orgName,
-    submittedAt,
     feedbackEntries,
     studyHasCodeEnv,
 }) => {
@@ -33,14 +30,14 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
 
     return (
         <Stack gap="xxl">
-            <ProposalStepHeader
+            <StudyCodePanel
+                ide={ide}
+                studyTitle={studyTitle}
                 stepLabel="STEP 4"
                 heading="Edit study code"
-                studyTitle={studyTitle}
-                timestampDate={submittedAt}
+                showLaunchIde={studyHasCodeEnv}
+                footer={null}
             />
-
-            <StudyCodePanel ide={ide} studyTitle={studyTitle} showLaunchIde={studyHasCodeEnv} footer={null} />
 
             <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
 
