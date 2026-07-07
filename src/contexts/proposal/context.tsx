@@ -11,15 +11,12 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
-import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
 
 interface ProposalContextValue {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    saveDraft: () => Promise<boolean>
     submitProposal: () => void
-    isSaving: boolean
     isSubmitting: boolean
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
@@ -54,22 +51,19 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
 
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
 
-    const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 
     const value = useMemo(
         () => ({
             studyId,
             form,
-            saveDraft,
             submitProposal,
-            isSaving,
             isSubmitting,
             websocketProvider,
             yjsForm,
             tabSessionId,
         }),
-        [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting, websocketProvider, yjsForm, tabSessionId],
+        [studyId, form, submitProposal, isSubmitting, websocketProvider, yjsForm, tabSessionId],
     )
 
     return <ProposalContext.Provider value={value}>{children}</ProposalContext.Provider>

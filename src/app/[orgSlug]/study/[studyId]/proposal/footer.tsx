@@ -10,7 +10,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
-import { hasUserProvidedTitle, isProposalDraftDirty } from './schema'
+import { hasUserProvidedTitle } from './schema'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
@@ -22,14 +22,13 @@ interface ProposalFooterProps {
 export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
+    const { studyId, form, submitProposal, isSubmitting } = useProposal()
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    const isBusy = isSaving || isSubmitting
-    // lexical fields store JSON even when empty, so we extract the
-    // text to determine if there's real content. title is excluded
-    // because it's always pre-populated as "Untitled draft".
+    const isBusy = isSubmitting
+    // lexical fields store JSON even when empty, so extract the text to detect real
+    // content. title is excluded — it's gated separately via canSubmit below.
     const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
@@ -40,11 +39,10 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
         submitProposal()
     }
 
-    const handlePrevious = async () => {
-        const saved = await saveDraft()
-        // /edit is revisitable — it renders Step 1 directly and no longer resume-redirects, so the
-        // back-step needs no signal.
-        if (saved) router.push(Routes.studyEdit({ orgSlug, studyId }))
+    const handlePrevious = () => {
+        // Autosave (Yjs + server-side title mirror) persists edits, so back-navigation
+        // needs no explicit save.
+        router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     return (
@@ -56,7 +54,6 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                     size="md"
                     leftSection={<CaretLeftIcon />}
                     disabled={isBusy}
-                    loading={isSaving}
                     onClick={handlePrevious}
                 >
                     Previous
@@ -64,15 +61,6 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                 <Group>
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="md"
-                        disabled={!isProposalDraftDirty(form) || isBusy}
-                        loading={isSaving}
-                        onClick={saveDraft}
-                    >
-                        Save as draft
                     </Button>
                     <Button
                         size="md"

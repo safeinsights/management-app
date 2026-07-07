@@ -89,18 +89,18 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard')
 }
 
-// On Step 2 (/proposal): set a title + one dataset (enough to mark Step 2 progress), then
-// "Save as draft" so the draft persists with Step 2 data and the row is findable by title.
-async function fillStep2AndSaveDraft(page: Page, studyTitle: string) {
+// On Step 2 (/proposal): set a title + one dataset. Edits autosave to Yjs and the title
+// mirrors to study.title server-side, so the draft persists without an explicit save.
+// Waits for the autosave round-trip to settle before returning.
+async function fillStep2(page: Page, studyTitle: string) {
     await page.getByLabel('Study Title').fill(studyTitle)
 
     await page.getByPlaceholder('Select dataset(s) of interest').click()
     await page.getByRole('option').first().click()
-    // Close the dropdown so it doesn't overlay the footer's Save button.
+    // Close the dropdown so it doesn't overlay the field.
     await page.getByLabel('Study Title').click()
 
-    await page.getByRole('button', { name: /Save as draft/i }).click()
-    await expect(page.getByText(/Draft Saved/i)).toBeVisible()
+    await expect(page.getByText('All changes saved').first()).toBeVisible()
 }
 
 // ============================================================================
@@ -385,12 +385,15 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToProposeStudy(page)
-        await fillStep2AndSaveDraft(page, studyTitle)
+        await fillStep2(page, studyTitle)
 
-        // Leave the editor entirely, then reopen the draft the way a real user does.
-        await goto(page, RESEARCHER_DASHBOARD)
+        // The title mirror lands via the debounced store flush on disconnect, so reload the
+        // dashboard until the draft row surfaces rather than asserting on a single load.
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(draftRow).toBeVisible()
+        await expect(async () => {
+            await goto(page, RESEARCHER_DASHBOARD)
+            await expect(draftRow).toBeVisible()
+        }).toPass()
         await draftRow.getByRole('link', { name: /Edit draft study/i }).click()
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).

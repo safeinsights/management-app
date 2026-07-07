@@ -4,7 +4,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { onUpdateClarifiedProposalAction } from '@/server/actions/study-request'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { buildStudyInfo } from '@/contexts/proposal/hooks/use-save-draft'
+import { buildStudyInfo } from '@/contexts/proposal/hooks/build-study-info'
 
 // Persists proposal field edits on explicit "Save as draft" clicks. The
 // resubmission note is captured in client state and only sent when
