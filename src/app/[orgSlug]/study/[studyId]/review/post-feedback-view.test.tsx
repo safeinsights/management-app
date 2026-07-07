@@ -501,6 +501,9 @@ describe('PostFeedbackView', () => {
                 expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
                 // No code-review comments => no Feedback and notes section.
                 expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+                // Without a job/scan there is no Submitted code panel, so the "View full study code"
+                // opener must not appear (clicking it would expand to an empty card with no way back).
+                expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             })
 
             it('renders nothing when entries are empty and no fallback decision is provided', () => {

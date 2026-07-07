@@ -548,6 +548,9 @@ export function StudyCodeViewer({
     const expanded = onCollapse ? true : isExpanded
     const handleToggle = onCollapse ?? toggleExpanded
     const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
+    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
+    // reachable even with no displayable code files; the plain viewer still hides it when empty.
+    const toggleVisible = onCollapse ? true : hasFiles
 
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
@@ -563,7 +566,7 @@ export function StudyCodeViewer({
                 <StudyCodeBody isVisible={expanded} activeFile={activeFile} studyJobId={studyJobId} />
             </Stack>
             <StudyCodeToggle
-                isVisible={hasFiles}
+                isVisible={toggleVisible}
                 isExpanded={expanded}
                 onClick={handleToggle}
                 labels={toggleLabels}

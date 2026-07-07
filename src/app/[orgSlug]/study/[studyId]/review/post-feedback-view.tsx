@@ -202,6 +202,10 @@ function CodeSection({
 }: CodeSectionProps) {
     const { expanded, toggle, collapse } = useExpandable()
     if (!isVisible) return null
+    // Only offer the opener when there is a Submitted code panel behind it. SubmittedCodePanel
+    // returns null without a job/scan (e.g. the fallback auto-approved page), so an unconditional
+    // opener would otherwise expand to an empty card with no way back.
+    const hasSubmittedCode = Boolean(job && scan)
     return (
         <>
             <ProposalStepHeader
@@ -212,7 +216,7 @@ function CodeSection({
                 timestampLabel={timestampLabel}
                 banner={banner}
             >
-                <StudyCodeToggle isVisible={!expanded} isExpanded={false} onClick={toggle} />
+                <StudyCodeToggle isVisible={!expanded && hasSubmittedCode} isExpanded={false} onClick={toggle} />
             </ProposalStepHeader>
             <SubmittedCodePanel
                 orgSlug={orgSlug}

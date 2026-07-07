@@ -573,6 +573,32 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(onCollapse).toHaveBeenCalledTimes(1)
     })
 
+    // The closer is the only collapse control in onCollapse mode, so it must remain reachable even
+    // when there are no displayable code files — otherwise the section would be stuck expanded.
+    it('keeps the closer toggle visible in onCollapse mode when there are no code files', async () => {
+        const fixture = await setupBaseFixture()
+        const [review, scan] = await Promise.all([
+            getStudyReviewForJob(fixture.job.id),
+            jobScanResultForJob(fixture.job.id),
+        ])
+        const onCollapse = vi.fn()
+        renderWithProviders(
+            <SubmittedCodeSection
+                orgSlug={ORG_SLUG}
+                study={fixture.study}
+                job={fixture.job}
+                review={review}
+                scan={scan}
+                onCollapse={onCollapse}
+            />,
+        )
+        const closer = await screen.findByTestId('study-code-toggle-collapse')
+        expect(closer).toHaveTextContent('Hide full study code')
+
+        await userEvent.setup().click(closer)
+        expect(onCollapse).toHaveBeenCalledTimes(1)
+    })
+
     it('renders the file contents inside the body once loaded', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)
