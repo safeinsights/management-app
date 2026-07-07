@@ -13,6 +13,8 @@ import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
+import { StudyCodeToggle } from './submitted-code-interactive'
+import { useExpandable } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -146,17 +148,21 @@ type SubmittedCodePanelProps = {
     job: LatestJobForStudy | null
     review: StudyReviewWithMeta | null
     scan: JobScanResult | null
+    expanded: boolean
+    onCollapse: () => void
 }
 
-// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer)
-// is the same one shown during active review. The raw code stays collapsed behind its toggle
-// (codeInitiallyExpanded={false}); the summary and scan results render up front.
-function SubmittedCodePanel({ orgSlug, study, job, review, scan }: SubmittedCodePanelProps) {
+// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer) is the
+// same one shown during active review. Per OTTER-613 the entire card is hidden when collapsed and
+// revealed via the "View full study code" toggle in the step card, so it only mounts when expanded;
+// its own toggle then reads "Hide full study code" and calls onCollapse to close the whole card.
+function SubmittedCodePanel({ orgSlug, study, job, review, scan, expanded, onCollapse }: SubmittedCodePanelProps) {
     // scan-presence is coupled to job-presence: the caller fetches both together and
     // jobScanResultForJob never returns null (it falls back to {status:'IN-PROGRESS', logFile:null}),
     // so scan is null exactly when job is null. The !scan check is the type-narrowing that lets us
     // pass a non-null scan to SubmittedCodeSection; in practice it only fires on the null-job branch.
     if (!job || !scan) return null
+    if (!expanded) return null
     return (
         <SubmittedCodeSection
             orgSlug={orgSlug}
@@ -164,7 +170,7 @@ function SubmittedCodePanel({ orgSlug, study, job, review, scan }: SubmittedCode
             job={job}
             review={review}
             scan={scan}
-            codeInitiallyExpanded={false}
+            onCollapse={onCollapse}
         />
     )
 }
@@ -194,6 +200,7 @@ function CodeSection({
     timestampDate,
     banner,
 }: CodeSectionProps) {
+    const { expanded, toggle, collapse } = useExpandable()
     if (!isVisible) return null
     return (
         <>
@@ -204,8 +211,18 @@ function CodeSection({
                 timestampDate={timestampDate}
                 timestampLabel={timestampLabel}
                 banner={banner}
+            >
+                <StudyCodeToggle isVisible={!expanded} isExpanded={false} onClick={toggle} />
+            </ProposalStepHeader>
+            <SubmittedCodePanel
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                review={review}
+                scan={scan}
+                expanded={expanded}
+                onCollapse={collapse}
             />
-            <SubmittedCodePanel orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
         </>
     )
 }

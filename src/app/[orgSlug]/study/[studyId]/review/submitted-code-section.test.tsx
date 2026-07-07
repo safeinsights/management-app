@@ -544,6 +544,35 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
     })
 
+    // OTTER-613: in whole-section collapse mode the parent owns expand/collapse. The code body is
+    // always shown and the toggle becomes the section's "Hide full study code" closer.
+    it('shows the code body up front and calls onCollapse from the closer toggle in onCollapse mode', async () => {
+        const fixture = await setupFilesFixture(['main.R'])
+        const [review, scan] = await Promise.all([
+            getStudyReviewForJob(fixture.job.id),
+            jobScanResultForJob(fixture.job.id),
+        ])
+        const onCollapse = vi.fn()
+        renderWithProviders(
+            <SubmittedCodeSection
+                orgSlug={ORG_SLUG}
+                study={fixture.study}
+                job={fixture.job}
+                review={review}
+                scan={scan}
+                onCollapse={onCollapse}
+            />,
+        )
+        await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
+
+        const closer = screen.getByTestId('study-code-toggle-collapse')
+        expect(closer).toHaveTextContent('Hide full study code')
+        expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
+
+        await userEvent.setup().click(closer)
+        expect(onCollapse).toHaveBeenCalledTimes(1)
+    })
+
     it('renders the file contents inside the body once loaded', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)

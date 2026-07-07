@@ -482,21 +482,23 @@ function StudyCodeBody({
 
 export type StudyCodeToggleLabels = { expand: string; collapse: string }
 
-const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
     expand: 'View full study code',
     collapse: 'Hide full study code',
 }
 
-function StudyCodeToggle({
+export function StudyCodeToggle({
     isVisible,
     isExpanded,
     onClick,
-    labels,
+    labels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+    testId = 'study-code-toggle',
 }: {
     isVisible: boolean
     isExpanded: boolean
     onClick: () => void
-    labels: StudyCodeToggleLabels
+    labels?: StudyCodeToggleLabels
+    testId?: string
 }) {
     if (!isVisible) return null
     const label = isExpanded ? labels.collapse : labels.expand
@@ -510,7 +512,7 @@ function StudyCodeToggle({
             display="inline-flex"
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
-            data-testid="study-code-toggle"
+            data-testid={testId}
             aria-expanded={isExpanded}
         >
             {label}
@@ -524,6 +526,12 @@ type StudyCodeViewerProps = {
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
+    /**
+     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
+     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
+     * section's single "Hide full study code" closer that collapses the entire card.
+     */
+    onCollapse?: () => void
 }
 
 export function StudyCodeViewer({
@@ -531,29 +539,35 @@ export function StudyCodeViewer({
     files,
     initialExpanded = true,
     toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+    onCollapse,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hidden } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
+    const expanded = onCollapse ? true : isExpanded
+    const handleToggle = onCollapse ?? toggleExpanded
+    const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
+
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
             <Stack gap="sm">
                 <FileTabsRow
-                    isVisible={isExpanded}
+                    isVisible={expanded}
                     visible={visible}
                     activeFileName={activeFile?.name ?? null}
                     onSelect={selectFile}
                     hidden={hidden}
                     studyJobId={studyJobId}
                 />
-                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+                <StudyCodeBody isVisible={expanded} activeFile={activeFile} studyJobId={studyJobId} />
             </Stack>
             <StudyCodeToggle
                 isVisible={hasFiles}
-                isExpanded={isExpanded}
-                onClick={toggleExpanded}
+                isExpanded={expanded}
+                onClick={handleToggle}
                 labels={toggleLabels}
+                testId={toggleTestId}
             />
         </Stack>
     )
