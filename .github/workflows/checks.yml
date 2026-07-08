@@ -145,10 +145,11 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                # Poll pg_isready every 2s (not 10s): the runner just waits for Docker to
-                # report the container healthy, so a shorter interval cuts the idle wait
-                # after Postgres is actually ready. Same check, faster detection.
-                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -221,10 +222,11 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                # Poll pg_isready every 2s (not 10s): the runner just waits for Docker to
-                # report the container healthy, so a shorter interval cuts the idle wait
-                # after Postgres is actually ready. Same check, faster detection.
-                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
