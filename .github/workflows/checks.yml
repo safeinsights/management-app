@@ -20,6 +20,13 @@ on:
             - main
     pull_request: {}
 
+# Cancel superseded runs on the same PR ref so an outdated commit's jobs free the runner
+# for the newest push. Gated to pull_request only: push-to-main runs never cancel, so they
+# always finish and seed the shared build cache + coverage baseline.
+concurrency:
+    group: checks-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     lint:
         timeout-minutes: 5
@@ -133,7 +140,10 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s): the runner just waits for Docker to
+                # report the container healthy, so a shorter interval cuts the idle wait
+                # after Postgres is actually ready. Same check, faster detection.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 5
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -206,7 +216,10 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s): the runner just waits for Docker to
+                # report the container healthy, so a shorter interval cuts the idle wait
+                # after Postgres is actually ready. Same check, faster detection.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 5
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -241,14 +254,15 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
-            # Next build cache — keyed on lockfile + source so an unchanged tree restores
-            # the previous .next/cache and skips most of the build.
+            # Next build cache (restore/save split). We RESTORE on every run but only SAVE on
+            # push-to-main (see the save step after the tests): the save uploads ~400MB and
+            # would add ~50s to every PR's critical path. PR runs instead restore main's cache
+            # via the `tpc1-<lockfileHash>-` restore-keys prefix and rebuild incrementally.
             # The `tpc1` token namespaces the Turbopack persistent build cache (enabled via
             # TURBOPACK_FS_CACHE) and lets us bust it with a one-character bump if a cached
-            # build ever misbehaves. The exact key includes a source hash so each run saves a
-            # fresh entry; restore-keys falls back to the latest prior cache for incremental
-            # rebuilds when only source (not the lockfile) changed.
-            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            # build ever misbehaves.
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: next_cache
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
                   key: ${{ runner.os }}-nextjs-tpc1-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
@@ -270,16 +284,50 @@ jobs:
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
             - name: pnpm install
               run: pnpm install --frozen-lockfile
+            # Playwright's system-dep install (apt) and, on a cache miss, the browser download
+            # are independent of the app build, so run them in the background and let them
+            # overlap the db provision + build below. The whole subshell is redirected to a
+            # log so it never holds this step's stdout open (which would hang the step); the
+            # exit code lands in a sentinel the wait step checks before the tests run.
+            - name: Install Playwright deps (background)
+              run: |
+                  if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+                      CMD="pnpm exec playwright install-deps chromium"
+                  else
+                      CMD="pnpm exec playwright install --with-deps --only-shell chromium"
+                  fi
+                  echo "starting in background: $CMD"
+                  rm -f .pw-deps.exit
+                  # set +e so a failing install still records its exit code (the default
+                  # shell runs with -e, which would otherwise abort before the sentinel write
+                  # and hang the wait step).
+                  ( set +e; $CMD > pw_deps.log 2>&1; echo $? > .pw-deps.exit ) &
+                  echo "playwright deps installing in background (pid $!)"
             - name: provision db
               run: pnpm run db:migrate
             - name: build and run server
               run: pnpm run ci:server -- server_output.log
-            - name: install playwright dependencies
-              if: steps.pw-cache.outputs.cache-hit != 'true'
-              run: pnpm exec playwright install --with-deps --only-shell chromium
-            - name: pnpm exec playwright install-deps (cached browser)
-              if: steps.pw-cache.outputs.cache-hit == 'true'
-              run: pnpm exec playwright install-deps chromium
+            # Barrier: the background playwright install must be finished (and successful)
+            # before the tests launch a browser. Fails loudly with the install log on error.
+            - name: Wait for Playwright deps
+              run: |
+                  echo "waiting for playwright deps to finish..."
+                  for i in $(seq 1 300); do
+                      [ -f .pw-deps.exit ] && break
+                      sleep 1
+                  done
+                  if [ ! -f .pw-deps.exit ]; then
+                      echo "playwright deps did not finish within 300s"
+                      cat pw_deps.log || true
+                      exit 1
+                  fi
+                  code=$(cat .pw-deps.exit)
+                  cat pw_deps.log || true
+                  if [ "$code" != "0" ]; then
+                      echo "playwright deps install FAILED (exit $code)"
+                      exit 1
+                  fi
+                  echo "playwright deps ready"
             - name: pnpm run test:e2e
               run: pnpm run test:e2e
             - name: upload e2e coverage
@@ -289,6 +337,14 @@ jobs:
                   path: test-results/e2e/coverage/raw
                   retention-days: 1
                   if-no-files-found: ignore
+            # Save the Next build cache ONLY on push-to-main (see the restore step above).
+            # Runs only on success, so a failed build/test never persists a poisoned cache.
+            - name: Save Next build cache (main only)
+              if: github.event_name == 'push'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  key: ${{ steps.next_cache.outputs.cache-primary-key }}
+                  path: ${{ github.workspace }}/.next/cache
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
