@@ -284,50 +284,20 @@ jobs:
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
             - name: pnpm install
               run: pnpm install --frozen-lockfile
-            # Playwright's system-dep install (apt) and, on a cache miss, the browser download
-            # are independent of the app build, so run them in the background and let them
-            # overlap the db provision + build below. The whole subshell is redirected to a
-            # log so it never holds this step's stdout open (which would hang the step); the
-            # exit code lands in a sentinel the wait step checks before the tests run.
-            - name: Install Playwright deps (background)
-              run: |
-                  if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-                      CMD="pnpm exec playwright install-deps chromium"
-                  else
-                      CMD="pnpm exec playwright install --with-deps --only-shell chromium"
-                  fi
-                  echo "starting in background: $CMD"
-                  rm -f .pw-deps.exit
-                  # set +e so a failing install still records its exit code (the default
-                  # shell runs with -e, which would otherwise abort before the sentinel write
-                  # and hang the wait step).
-                  ( set +e; $CMD > pw_deps.log 2>&1; echo $? > .pw-deps.exit ) &
-                  echo "playwright deps installing in background (pid $!)"
             - name: provision db
               run: pnpm run db:migrate
             - name: build and run server
               run: pnpm run ci:server -- server_output.log
-            # Barrier: the background playwright install must be finished (and successful)
-            # before the tests launch a browser. Fails loudly with the install log on error.
-            - name: Wait for Playwright deps
-              run: |
-                  echo "waiting for playwright deps to finish..."
-                  for i in $(seq 1 300); do
-                      [ -f .pw-deps.exit ] && break
-                      sleep 1
-                  done
-                  if [ ! -f .pw-deps.exit ]; then
-                      echo "playwright deps did not finish within 300s"
-                      cat pw_deps.log || true
-                      exit 1
-                  fi
-                  code=$(cat .pw-deps.exit)
-                  cat pw_deps.log || true
-                  if [ "$code" != "0" ]; then
-                      echo "playwright deps install FAILED (exit $code)"
-                      exit 1
-                  fi
-                  echo "playwright deps ready"
+            # Playwright deps run synchronously here. Backgrounding them to overlap the build
+            # was tried and reverted: `playwright install-deps` shells out to sudo/apt, which
+            # hangs intermittently when detached from the step (~1 in 3 runs), violating the
+            # zero-flake rule. The ~12s saving is not worth an intermittent CI hang.
+            - name: install playwright dependencies
+              if: steps.pw-cache.outputs.cache-hit != 'true'
+              run: pnpm exec playwright install --with-deps --only-shell chromium
+            - name: pnpm exec playwright install-deps (cached browser)
+              if: steps.pw-cache.outputs.cache-hit == 'true'
+              run: pnpm exec playwright install-deps chromium
             - name: pnpm run test:e2e
               run: pnpm run test:e2e
             - name: upload e2e coverage
