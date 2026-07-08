@@ -236,9 +236,7 @@ describe('ResearchDetailsSection', () => {
             // Should still only have one pill (ignore the aria-live status region, which mirrors
             // the interest text for screen readers and would otherwise double the match count).
             await waitFor(() => {
-                const pills = screen
-                    .getAllByText(/machine learning/i)
-                    .filter((el) => !el.closest('[role="status"]'))
+                const pills = screen.getAllByText(/machine learning/i).filter((el) => !el.closest('[role="status"]'))
                 expect(pills.length).toBe(1)
             })
         })
