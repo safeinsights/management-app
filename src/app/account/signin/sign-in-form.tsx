@@ -5,7 +5,7 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
@@ -19,15 +19,15 @@ const signInSchema = z.object({
 
 type SignInFormData = z.infer<typeof signInSchema>
 
+// Clerk's session_exists longMessage, thrown by signIn.create when a session is live
+const ALREADY_SIGNED_IN_MESSAGE = "You're already signed in."
+
 export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { signOut, getToken } = useAuth()
-    const [signedInRecently, setSignedInRecently] = useState(false)
-    const [isSigningOut, setIsSigningOut] = useState(false)
+    const { getToken } = useAuth()
     const { setActive, signIn } = useSignIn()
-    const { isSignedIn } = useUser()
     const router = useRouter()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
@@ -57,15 +57,7 @@ export const SignInForm: FC<{
         validate: zodResolver(signInSchema),
     })
 
-    useEffect(() => {
-        if (isSignedIn && !signedInRecently) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setIsSigningOut(true)
-            signOut().finally(() => setIsSigningOut(false))
-        }
-    }, [isSignedIn, signOut, signedInRecently])
-
-    if (isSignedIn || isSigningOut || !signIn || mfa) return null
+    if (!signIn || mfa) return null
 
     const rawRedirect = searchParams.get('redirect_url')
     const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
@@ -76,7 +68,6 @@ export const SignInForm: FC<{
     ) as Route
 
     const onSubmit = form.onSubmit(async (values) => {
-        setSignedInRecently(true)
         try {
             const attempt = await signIn.create({
                 identifier: values.email,
@@ -102,11 +93,17 @@ export const SignInForm: FC<{
 
             const errorMessage = errorToString(err, clerkErrorOverrides)
 
+            // A session was restored (e.g. in another tab) between mount and submit —
+            // the user is authenticated, so send them onward instead of erroring.
+            if (errorMessage === ALREADY_SIGNED_IN_MESSAGE) {
+                router.push(validatedRedirect)
+                return
+            }
+
             //incorrect email or password
             if (
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
-                errorMessage === clerkErrorOverrides.form_identifier_not_found ||
-                errorMessage === "You're already signed in."
+                errorMessage === clerkErrorOverrides.form_identifier_not_found
             ) {
                 form.setFieldError('email', ' ')
                 form.setFieldError('password', errorMessage)
