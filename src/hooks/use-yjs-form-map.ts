@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
@@ -29,6 +29,7 @@ type Return = {
     provider: HocuspocusProvider | null
     fieldsMap: Y.Map<unknown> | null
     isSynced: boolean
+    editedKeys: ReadonlySet<CollabFieldKey>
     pushField: <K extends CollabFieldKey>(key: K, value: ProposalFormValues[K]) => void
     pushPI: (piUserId: string, piName: string) => void
 }
@@ -46,7 +47,23 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
     const [fieldsMap, setFieldsMap] = useState<Y.Map<unknown> | null>(null)
     const [isSynced, setIsSynced] = useState(false)
+    // Tracks which fields the user has locally edited via pushField/pushPI.
+    // The initial-value seeding on first sync writes through the map directly,
+    // not through push*, so it never counts as an edit — this is what keeps the
+    // autosave indicator hidden under fields the user hasn't touched.
+    const [editedKeys, setEditedKeys] = useState<ReadonlySet<CollabFieldKey>>(new Set())
     const isApplyingRemoteRef = useRef(false)
+
+    const markEdited = useCallback(
+        (...keys: CollabFieldKey[]) =>
+            setEditedKeys((prev) => {
+                if (keys.every((key) => prev.has(key))) return prev
+                const next = new Set(prev)
+                keys.forEach((key) => next.add(key))
+                return next
+            }),
+        [],
+    )
 
     useEffect(() => {
         if (!websocketProvider) return undefined
@@ -107,6 +124,10 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
             setProvider(null)
             setFieldsMap(null)
             setIsSynced(false)
+            // Edits are scoped to a provider session; a reconnect swaps in a fresh
+            // provider whose status starts idle, so stale edited flags would only
+            // resurface the indicator without a new local edit.
+            setEditedKeys(new Set())
         }
         // form intentionally excluded — it's recreated each render but stable via Mantine ref semantics.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,12 +150,14 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
             provider,
             fieldsMap,
             isSynced,
+            editedKeys,
             pushField(key, value) {
                 if (!fieldsMap) return
                 if (isApplyingRemoteRef.current) return
                 const current = fieldsMap.get(key)
                 if (valuesEqual(current, value)) return
                 fieldsMap.doc?.transact(() => fieldsMap.set(key, value), LOCAL_ORIGIN)
+                markEdited(key)
             },
             pushPI(piUserId, piName) {
                 if (!fieldsMap) return
@@ -143,9 +166,10 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
                     fieldsMap.set('piUserId', piUserId)
                     fieldsMap.set('piName', piName)
                 }, LOCAL_ORIGIN)
+                markEdited('piUserId', 'piName')
             },
         }),
-        [provider, fieldsMap, isSynced],
+        [provider, fieldsMap, isSynced, editedKeys, markEdited],
     )
 }
 

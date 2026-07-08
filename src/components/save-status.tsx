@@ -1,11 +1,28 @@
+'use client'
+
 import { FC } from 'react'
-import { Text } from '@mantine/core'
+import { Group, Text, useMantineTheme } from '@mantine/core'
+import { CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
 export type SaveStatusValue = 'idle' | 'saving' | 'saved'
 
-const SAVE_STATUS_LABELS: Record<Exclude<SaveStatusValue, 'idle'>, string> = {
-    saving: 'Saving…',
-    saved: 'All changes saved',
+const SavingLabel: FC = () => (
+    <Text size="xs" c="dimmed" data-testid="autosave-status">
+        Saving…
+    </Text>
+)
+
+const SavedLabel: FC = () => {
+    const theme = useMantineTheme()
+
+    return (
+        <Group gap={8} wrap="nowrap" data-testid="autosave-status">
+            <CheckCircleIcon size={16} color={theme.colors.green[9]} weight="fill" />
+            <Text size="xs" c="green.9" fw={600}>
+                All changes saved
+            </Text>
+        </Group>
+    )
 }
 
 interface SaveStatusIndicatorProps {
@@ -16,11 +33,7 @@ interface SaveStatusIndicatorProps {
 // proposal fields, resubmission note). Renders nothing until there is something
 // to report so it can be dropped under any field unconditionally.
 export const SaveStatusIndicator: FC<SaveStatusIndicatorProps> = ({ status }) => {
-    if (status === 'idle') return null
-
-    return (
-        <Text size="xs" c="dimmed" data-testid="autosave-status">
-            {SAVE_STATUS_LABELS[status]}
-        </Text>
-    )
+    if (status === 'saving') return <SavingLabel />
+    if (status === 'saved') return <SavedLabel />
+    return null
 }

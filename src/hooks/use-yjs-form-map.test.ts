@@ -237,6 +237,83 @@ describe('useYjsFormMap', () => {
         fieldsMap.unobserve(observer)
     })
 
+    it('does not mark fields edited when seeding initial values on first sync', async () => {
+        const { studyId } = await createDraftStudy('seed-not-edit')
+
+        const { hookResult } = setupCollabHook({
+            studyId,
+            formInitial: { title: 'Original', datasets: ['ds-1'], piName: 'PI', piUserId: faker.string.uuid() },
+        })
+
+        constructed[0].triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        expect(hookResult.result.current.fieldsMap!.get('title')).toBe('Original')
+        expect(hookResult.result.current.editedKeys.size).toBe(0)
+    })
+
+    it('marks only the pushed field as edited, and only on an actual write', async () => {
+        const { studyId } = await createDraftStudy('edit-keys')
+
+        const { hookResult } = setupCollabHook({
+            studyId,
+            formInitial: { title: 'Original', datasets: ['ds-1'], piName: 'PI', piUserId: faker.string.uuid() },
+        })
+
+        constructed[0].triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        // A no-op push (value already in the map) must not flag the field. The real
+        // push after it bounds the assertion: once 'title' is marked, a lingering
+        // mark from the no-op would show up in the size check below.
+        hookResult.result.current.pushField('title', 'Original')
+        hookResult.result.current.pushField('datasets', ['ds-1', 'ds-2'])
+
+        await waitFor(() => expect(hookResult.result.current.editedKeys.has('datasets')).toBe(true))
+        expect(hookResult.result.current.editedKeys.has('title')).toBe(false)
+        expect(hookResult.result.current.editedKeys.size).toBe(1)
+    })
+
+    it('marks both PI keys as edited on pushPI', async () => {
+        const { studyId } = await createDraftStudy('edit-pi')
+
+        const { hookResult } = setupCollabHook({
+            studyId,
+            formInitial: { title: 'Original', datasets: ['ds-1'], piName: 'PI', piUserId: faker.string.uuid() },
+        })
+
+        constructed[0].triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        hookResult.result.current.pushPI(faker.string.uuid(), 'Dr. New')
+
+        await waitFor(() => expect(hookResult.result.current.editedKeys.has('piName')).toBe(true))
+        expect(hookResult.result.current.editedKeys.has('piUserId')).toBe(true)
+        expect(hookResult.result.current.editedKeys.has('title')).toBe(false)
+    })
+
+    it('remote updates do not mark fields as edited', async () => {
+        const { studyId } = await createDraftStudy('remote-not-edit')
+
+        const { form, hookResult } = setupCollabHook({
+            studyId,
+            formInitial: { title: 'Original', datasets: ['ds-1'], piName: 'PI', piUserId: faker.string.uuid() },
+        })
+
+        const handle = constructed[0]
+        handle.triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        const remoteOrigin = Symbol('remote')
+        const document = handle.document!
+        document.transact(() => {
+            document.getMap('fields').set('title', 'Remote')
+        }, remoteOrigin)
+
+        await waitFor(() => expect(form.getValues().title).toBe('Remote'))
+        expect(hookResult.result.current.editedKeys.size).toBe(0)
+    })
+
     it('hook is inert without a websocket provider', () => {
         const studyId = faker.string.uuid()
         const { hookResult } = setupCollabHook({
