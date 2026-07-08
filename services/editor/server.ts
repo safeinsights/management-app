@@ -115,9 +115,17 @@ const server = new Server({
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
 
-                // Mirror the collaborative title into study.title so drafts are
-                // discoverable on the dashboard
-                await mirrorProposalTitleToStudy(parsed, document, studyId, pool)
+                // Best-effort: Yjs is already persisted above; a mirror failure must not
+                // fail the store hook or roll back the canonical document write.
+                try {
+                    await mirrorProposalTitleToStudy(parsed, document, studyId, pool)
+                } catch (err) {
+                    log('db.store.titleMirror.fail', {
+                        documentName,
+                        studyId,
+                        message: err instanceof Error ? err.message : String(err),
+                    })
+                }
             },
         }),
     ],
