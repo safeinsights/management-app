@@ -20,11 +20,16 @@ on:
             - main
     pull_request: {}
 
-# Cancel superseded runs on the same PR ref so an outdated commit's jobs free the runner
-# for the newest push. Gated to pull_request only: push-to-main runs never cancel, so they
-# always finish and seed the shared build cache + coverage baseline.
+# PR runs share one group per PR ref, so a newer commit cancels the older run
+# (cancel-in-progress) and frees the runner. Push runs (e.g. main) get a UNIQUE group per
+# run via github.run_id, so they are never grouped, never queued behind or superseded by
+# another run, and always finish and seed the shared build cache. This keeps main behaving
+# exactly as it did before this workflow gained a concurrency block: GitHub drops an older
+# *pending* run whenever a newer one queues in the same group (regardless of
+# cancel-in-progress), so a per-run group is what preserves that "every main run completes"
+# guarantee.
 concurrency:
-    group: checks-${{ github.ref }}
+    group: ${{ github.event_name == 'pull_request' && format('checks-{0}', github.ref) || format('checks-{0}', github.run_id) }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
