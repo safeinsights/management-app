@@ -9,6 +9,7 @@ import {
 } from '@/tests/unit.helpers'
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
+import { deleteFolderContents } from '@/server/aws'
 
 // PROD_ENV is a module-level const, so override it via a mutable holder we can flip per test.
 const configState = { PROD_ENV: false }
@@ -103,6 +104,17 @@ describe('deleteStudyById', () => {
         expect(statuses).toHaveLength(0)
     })
 
+    it('commits the row deletes before S3 cleanup and propagates S3 failures', async () => {
+        const org = await insertTestOrg()
+        const { studyId } = await insertTestStudyData({ org })
+        ;(deleteFolderContents as Mock).mockRejectedValueOnce(new Error('s3 unavailable'))
+
+        await expect(deleteStudyById(db, studyId)).rejects.toThrow('s3 unavailable')
+
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study).toBeUndefined()
+    })
+
     it('throws for an unknown study', async () => {
         await expect(deleteStudyById(db, faker.string.uuid())).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
@@ -134,6 +146,37 @@ describe('deleteUserById', () => {
         expect(keys).toHaveLength(0)
 
         expect(client.users.deleteUser as Mock).toHaveBeenCalledWith(user.clerkId)
+    })
+
+    it('tolerates a Clerk 404 as an already-deleted account', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org })
+        const { client } = await mockSessionWithTestData({ isSiAdmin: true })
+        if (!client) throw new Error('expected a mocked clerk client')
+        ;(client.users.deleteUser as Mock).mockRejectedValue({
+            status: 404,
+            errors: [{ code: 'resource_not_found', message: 'User not found' }],
+        })
+
+        await deleteUserById(db, user.id)
+
+        const deleted = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
+    it('propagates non-404 Clerk deletion failures after committing the DB deletes', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org })
+        const { client } = await mockSessionWithTestData({ isSiAdmin: true })
+        if (!client) throw new Error('expected a mocked clerk client')
+        ;(client.users.deleteUser as Mock).mockRejectedValue(new Error('clerk is down'))
+
+        await expect(deleteUserById(db, user.id)).rejects.toThrow('clerk is down')
+
+        // Rows are deleted transactionally and committed before Clerk cleanup runs,
+        // so the DB side is complete even though the endpoint reports the failure.
+        const deleted = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
     })
 
     it('throws for an unknown user', async () => {

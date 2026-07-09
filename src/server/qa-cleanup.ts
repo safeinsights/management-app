@@ -4,7 +4,11 @@
  * non-production environments so QA can clean up after themselves.
  *
  * Deletion order is FK-safe: relations without ON DELETE CASCADE are removed
- * manually before their parent row.
+ * manually before their parent row. All row deletes for a cleanup run in a
+ * single transaction so a failure can never leave a partially deleted graph.
+ * External cleanup (S3, Clerk) runs only after the transaction commits, and
+ * its failures propagate so the caller never sees success for an incomplete
+ * cleanup.
  */
 import { type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
@@ -14,6 +18,7 @@ import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
 import { PROD_ENV } from '@/server/config'
+import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
 
 export type QaAuthResult = { ok: true } | { ok: false; status: number; message: string }
@@ -56,12 +61,17 @@ export async function requireQaAdmin(): Promise<QaAuthResult> {
 
 export class QaCleanupNotFoundError extends Error {}
 
-/**
- * Fully delete a study: its jobs and their related rows, collaborative-editing
- * documents, the study row (cascades proposal comments), and its S3 folder.
- * Returns the deleted study's id so callers can report it.
- */
-export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, studyId: string) {
+// Mutation Actions already run their handlers inside a transaction (see action.ts)
+// and Kysely does not support nesting, so reuse the caller's transaction when given one.
+async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
+    if (db.isTransaction) {
+        await fn(db)
+        return
+    }
+    await db.transaction().execute(fn)
+}
+
+async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
     const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
     if (jobs.length > 0) {
         const jobIds = jobs.map((job) => job.id)
@@ -71,6 +81,15 @@ export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, stu
     }
     await db.deleteFrom('yjsDocument').where('studyId', '=', studyId).execute()
     await db.deleteFrom('study').where('id', '=', studyId).execute()
+}
+
+/**
+ * Fully delete a study: its jobs and their related rows, collaborative-editing
+ * documents, and the study row (cascades proposal comments) in one transaction,
+ * then its S3 folder once the rows are committed.
+ */
+export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, studyId: string) {
+    await withTransaction(db, (trx) => deleteStudyRows(trx, studyId))
     await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
 }
 
@@ -101,39 +120,60 @@ export async function deleteUserById(db: Kysely<DB>, userId: string) {
     if (!user) throw new QaCleanupNotFoundError(`user ${userId} not found`)
 
     // study.researcher_id / pi_user_id / reviewer_id reference user.id with no
-    // cascade, so any study the user is attached to must be removed first.
+    // cascade, so any study the user is attached to must be removed first. Org
+    // slugs are captured up front for the post-commit S3 cleanup.
     const studies = await db
         .selectFrom('study')
-        .select('id')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['study.id as studyId', 'org.slug as orgSlug'])
         .where((eb) =>
-            eb.or([eb('researcherId', '=', userId), eb('piUserId', '=', userId), eb('reviewerId', '=', userId)]),
+            eb.or([
+                eb('study.researcherId', '=', userId),
+                eb('study.piUserId', '=', userId),
+                eb('study.reviewerId', '=', userId),
+            ]),
         )
         .execute()
+
+    await withTransaction(db, async (trx) => {
+        for (const study of studies) {
+            await deleteStudyRows(trx, study.studyId)
+        }
+        // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
+        await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
+        await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
+        await trx.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
+        await trx.deleteFrom('orgUser').where('userId', '=', userId).execute()
+        await trx.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
+        // researcher_profile (and its researcher_position rows) cascade from user.
+        await trx.deleteFrom('user').where('id', '=', userId).execute()
+    })
+
     for (const study of studies) {
-        await deleteStudyById(db, study.id)
+        await deleteFolderContents(pathForStudy({ orgSlug: study.orgSlug, studyId: study.studyId }))
     }
-
-    // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
-    await db.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
-    await db.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
-    await db.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
-    await db.deleteFrom('orgUser').where('userId', '=', userId).execute()
-    await db.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
-    // researcher_profile (and its researcher_position rows) cascade from user.
-    await db.deleteFrom('user').where('id', '=', userId).execute()
-
     await deleteClerkUser(user.clerkId)
 }
 
+// Clerk's backend client rejects with a ClerkAPIResponseError; a 404/resource_not_found
+// on delete means the account is already gone, the one failure cleanup can ignore.
+function isClerkNotFoundError(error: unknown): boolean {
+    if (!isClerkApiError(error)) return false
+    const status = (error as { status?: number }).status
+    return status === 404 || error.errors[0].code === 'resource_not_found'
+}
+
 /**
- * Delete the Clerk account. A missing Clerk user is not an error — the DB record
- * is already gone, so log and continue.
+ * Delete the Clerk account. A missing Clerk user is not an error — the account is
+ * already gone, so log and continue. Any other failure (auth/config/network/5xx)
+ * rethrows so the caller sees the cleanup did not complete.
  */
 async function deleteClerkUser(clerkId: string) {
+    const client = await clerkClient()
     try {
-        const client = await clerkClient()
         await client.users.deleteUser(clerkId)
     } catch (error) {
-        logger.warn(`failed to delete clerk user ${clerkId} during QA cleanup`, error)
+        if (!isClerkNotFoundError(error)) throw error
+        logger.warn(`clerk user ${clerkId} was already deleted before QA cleanup`)
     }
 }

@@ -124,6 +124,7 @@ function fakeClerkClient() {
             },
             updateUser: noop,
             updateUserMetadata: noop,
+            deleteUser: noop,
             disableUserMFA: noop,
             getOrganizationMembershipList: async () => ({ data: [] }),
         },
