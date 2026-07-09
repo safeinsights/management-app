@@ -1,6 +1,7 @@
 import * as aws from '@/server/aws'
 import {
     actionResult,
+    buildFeedback,
     cleanupWorkspaceDirs,
     createTestProposalDraft,
     createWorkspaceDir,
@@ -15,9 +16,9 @@ import {
     setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-    addJobToStudyAction,
     getDraftStudyAction,
     onDeleteStudyAction,
     onSaveDraftStudyAction,
@@ -257,51 +258,22 @@ describe('Request Study Actions', () => {
         )
     })
 
-    // APPROVED → PENDING-REVIEW is a code re-submission, sends "code submitted for review" email
-    it('finalizeStudySubmissionAction calls onStudyCodeSubmitted for APPROVED studies', async () => {
+    // Proposal finalize is proposal-stage only; code re-submission goes through
+    // submitStudyCodeAction/resubmitStudyCodeAction and never re-claims the proposal.
+    it('finalizeStudySubmissionAction rejects APPROVED studies', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
 
-        actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
+        const result = await finalizeStudySubmissionAction({ studyId: study.id })
 
-        const auditEntries = await getAuditEntries(study.id, 'STUDY')
+        expect(result).toEqual({ error: { submission: 'Proposal has already been submitted' } })
 
-        expect(auditEntries).toContainEqual({
-            eventType: 'UPDATED',
-            recordType: 'STUDY',
-            recordId: study.id,
-            userId: user.id,
-        })
-        expect(auditEntries).not.toContainEqual(
-            expect.objectContaining({
-                eventType: 'CREATED',
-                recordId: study.id,
-            }),
-        )
-    })
-
-    // addJobToStudyAction is only used for re-submissions (study already exists and is APPROVED),
-    // so it always sends "code submitted for review" email
-    it('addJobToStudyAction calls onStudyCodeSubmitted', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
-
-        actionResult(
-            await addJobToStudyAction({
-                studyId: study.id,
-                mainCodeFileName: 'main.R',
-                codeFileNames: [],
-            }),
-        )
-
-        const auditEntries = await getAuditEntries(study.id, 'STUDY')
-
-        expect(auditEntries).toContainEqual({
-            eventType: 'UPDATED',
-            recordType: 'STUDY',
-            recordId: study.id,
-            userId: user.id,
-        })
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('APPROVED')
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {
@@ -712,7 +684,7 @@ describe('Request Study Actions', () => {
     })
 
     describe('submitStudyCodeAction', () => {
-        it('creates job files, uploads workspace files, and moves the study to PENDING-REVIEW', async () => {
+        it('creates job files, uploads workspace files, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('submit-ide')
@@ -734,10 +706,11 @@ describe('Request Study Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select(['status'])
+                .select(['status', 'submittedAt'])
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updatedStudy.status).toBe('PENDING-REVIEW')
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.submittedAt).toEqual(study.submittedAt)
 
             await expectStudyJobRecords(study.id, [
                 { name: 'main.R', fileType: 'MAIN-CODE' },
@@ -1088,7 +1061,7 @@ describe('Request Study Actions', () => {
     describe('resubmitStudyCodeAction', () => {
         const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
-        it('creates a new job, records the resubmission note, clears the draft, and flips the study to PENDING-REVIEW', async () => {
+        it('creates a new job, records the resubmission note, clears the draft, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -1121,10 +1094,11 @@ describe('Request Study Actions', () => {
 
             const updatedStudy = await db
                 .selectFrom('study')
-                .select(['status', 'codeResubmissionNoteDraft'])
+                .select(['status', 'submittedAt', 'codeResubmissionNoteDraft'])
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updatedStudy.status).toBe('PENDING-REVIEW')
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.submittedAt).toEqual(study.submittedAt)
             expect(updatedStudy.codeResubmissionNoteDraft).toBeNull()
 
             const newJob = await db
@@ -1177,6 +1151,98 @@ describe('Request Study Actions', () => {
                 resubmissionNote: wordsString(10),
             })
             expect(result).toHaveProperty('error')
+        })
+    })
+
+    // Proposal approval is the last study.status transition; every code round after it
+    // (submit → decision → resubmit) lives on the job and must leave the study untouched.
+    describe('proposal status across code rounds', () => {
+        it('stays APPROVED with a stable submittedAt through submit, clarification, and resubmit', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-status-roundtrip' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const draft = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Status round trip', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+            actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
+
+            const studyRow = () =>
+                db
+                    .selectFrom('study')
+                    .select(['status', 'approvedAt', 'submittedAt'])
+                    .where('id', '=', draft.studyId)
+                    .executeTakeFirstOrThrow()
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            actionResult(await approveStudyProposalAction({ studyId: draft.studyId, orgSlug: enclave.slug }))
+
+            const approved = await studyRow()
+            expect(approved.status).toBe('APPROVED')
+            expect(approved.approvedAt).not.toBeNull()
+
+            const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const root = await createWorkspaceDir('roundtrip-ide')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })
+            actionResult(
+                await submitStudyCodeAction({
+                    studyId: draft.studyId,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                }),
+            )
+
+            const afterSubmit = await studyRow()
+            expect(afterSubmit.status).toBe('APPROVED')
+            expect(afterSubmit.submittedAt).toEqual(approved.submittedAt)
+
+            await flushDeferred()
+            const auditEntries = await getAuditEntries(draft.studyId, 'STUDY')
+            expect(auditEntries).toContainEqual({
+                eventType: 'UPDATED',
+                recordType: 'STUDY',
+                recordId: draft.studyId,
+                userId: researcher.id,
+            })
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            actionResult(
+                await submitCodeReviewDecisionAction({
+                    studyId: draft.studyId,
+                    orgSlug: enclave.slug,
+                    decision: 'needs-clarification',
+                    feedback: buildFeedback(60),
+                    criteria: {
+                        proposalAlignment: 'yes',
+                        agreementCompliance: 'yes',
+                        securityChecks: 'yes',
+                        privacyProtection: 'yes',
+                    },
+                }),
+            )
+
+            const afterDecision = await studyRow()
+            expect(afterDecision.status).toBe('APPROVED')
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("revised")' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: draft.studyId,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: buildFeedback(10),
+                }),
+            )
+
+            const afterResubmit = await studyRow()
+            expect(afterResubmit.status).toBe('APPROVED')
+            expect(afterResubmit.submittedAt).toEqual(approved.submittedAt)
         })
     })
 })

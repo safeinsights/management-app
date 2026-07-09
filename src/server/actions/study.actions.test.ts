@@ -143,7 +143,10 @@ describe('Study Actions', () => {
         })
     })
 
-    it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
+    // Legacy code-phase stragglers (PENDING-REVIEW with approvedAt set, written by the retired
+    // code-submit status flip) must not be re-approvable as proposals; code decisions own that
+    // state via submitCodeReviewDecisionAction.
+    it('rejects proposal approval for an already-decided study', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -153,40 +156,20 @@ describe('Study Actions', () => {
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
 
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+        const result = await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
-        await waitFor(async () => {
-            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
-                eventType: 'APPROVED',
-                recordType: 'STUDY',
-                recordId: study.id,
-                userId: user.id,
-            })
-        })
-
-        await waitFor(() => {
-            expect(deliverMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    to: user.email,
-                    template: 'vb - code approved',
-                }),
-            )
-        })
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+        expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - code approved' }))
         expect(deliverMock).not.toHaveBeenCalledWith(
-            expect.objectContaining({
-                template: 'vb - research proposal approved',
-            }),
+            expect.objectContaining({ template: 'vb - research proposal approved' }),
         )
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .select(['status'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('APPROVED')
-        expect(updatedStudy.approvedAt).toBeTruthy()
-        expect(updatedStudy.rejectedAt).toBeNull()
-        expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(updatedStudy.status).toBe('PENDING-REVIEW')
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {

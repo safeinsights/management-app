@@ -348,24 +348,25 @@ async function performStudyProposalApproval({
     useTestImage?: boolean
     sharedFiles?: SharedFile[]
 }) {
-    const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
-    const isCodeReapproval = !isFirstApproval
-
-    if (isFirstApproval) {
-        await db
-            .updateTable('study')
-            .set({
-                status: 'APPROVED',
-                approvedAt: new Date(),
-                rejectedAt: null,
-                reviewerId: userId,
-                lastUpdatedAt: new Date(),
-            })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyApproved({ studyId, userId })
+    // Proposal approval is strictly the first decision; approving a later code
+    // (re)submission is submitCodeReviewDecisionAction's job.
+    if (study.status === 'APPROVED' || study.approvedAt) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
     }
+
+    await db
+        .updateTable('study')
+        .set({
+            status: 'APPROVED',
+            approvedAt: new Date(),
+            rejectedAt: null,
+            reviewerId: userId,
+            lastUpdatedAt: new Date(),
+        })
+        .where('id', '=', studyId)
+        .execute()
+
+    onStudyApproved({ studyId, userId })
 
     const latestJob = await db
         .selectFrom('studyJob')
@@ -377,24 +378,8 @@ async function performStudyProposalApproval({
     if (!latestJob) return
 
     const job = await latestJobForStudy(studyId)
-    const latestJobStatus = job.statusChanges.at(0)?.status
-
-    if (isCodeReapproval) {
-        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
-    }
 
     await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
-
-    // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
-    if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
-        await db
-            .updateTable('study')
-            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyCodeApproved({ studyId, userId })
-    }
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
@@ -528,6 +513,9 @@ async function claimInitialProposalReviewStudy({
         .set({ reviewerId: userId, lastUpdatedAt: new Date() })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
+        // approvedAt IS NULL excludes legacy/straggler rows left at PENDING-REVIEW
+        // by the retired code-submit status flip; those are code-stage, not
+        // proposal-stage, and must not be claimable for a proposal review.
         .where('approvedAt', 'is', null)
         .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
         .executeTakeFirst()
@@ -818,6 +806,11 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
+        // Each branch below re-asserts the APPROVED resting state. Code submission
+        // no longer flips study.status, so these writes are transitional
+        // self-healing for legacy rows (and old pods during a rolling deploy) that
+        // still sit at PENDING-REVIEW with approvedAt set; once those are gone they
+        // can shrink to { reviewerId, lastUpdatedAt }.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
             await db
@@ -843,11 +836,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             onStudyCodeRejected({ studyId, userId })
         } else {
             // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
-            // pill flips to "Change requested") and move the study back to
-            // APPROVED. The proposal was already approved (approvedAt set);
-            // we restore that resting state so claimInitialCodeReviewJob's
-            // PENDING-REVIEW check blocks any further code-review submissions
-            // on this job until the researcher resubmits.
+            // pill flips to "Change requested"). The proposal stays APPROVED;
+            // claimInitialCodeReviewJob's job-status gate blocks any further
+            // code-review submissions on this job until the researcher resubmits.
             await db
                 .insertInto('jobStatusChange')
                 .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
