@@ -12,6 +12,8 @@ tmp/
 .ladle/dist-standalone/
 .ladle/*.zip
 test-results/
+# Generated route sitemap (run `pnpm run sitemap` to regenerate)
+sitemap.html
 *.tern-port
 node_modules/
 package-lock.json

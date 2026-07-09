@@ -29,6 +29,7 @@
         "ladle:build:pages": "PANDA_LOG_LEVEL=silent ladle build --outDir .ladle/dist --base ${LADLE_BASE_PATH:-/}",
         "db:migrate": "./bin/migrate-dev-db",
         "create-admin-user": "tsx bin/create-admin-user.ts",
+        "sitemap": "tsx bin/generate-sitemap.ts",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
         "lint": "eslint . && prettier --check --log-level warn .",
