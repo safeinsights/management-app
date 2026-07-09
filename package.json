@@ -100,7 +100,7 @@
         "jsonwebtoken": "^9.0.3",
         "jws": "^4.0.1",
         "kysely": "^0.28.12",
-        "kysely-ctl": "^0.20.0",
+        "kysely-ctl": "^0.21.0",
         "lexical": "^0.41.0",
         "libphonenumber-js": "^1.12.38",
         "mailgun.js": "^12.7.0",

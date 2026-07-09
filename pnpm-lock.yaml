@@ -173,8 +173,8 @@ importers:
         specifier: ^0.28.12
         version: 0.28.17
       kysely-ctl:
-        specifier: ^0.20.0
-        version: 0.20.0(kysely@0.28.17)(magicast@0.5.3)(typescript@6.0.3)
+        specifier: ^0.21.0
+        version: 0.21.0(kysely@0.28.17)(magicast@0.5.3)
       lexical:
         specifier: ^0.41.0
         version: 0.41.0
@@ -3251,9 +3251,6 @@ packages:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
 
-  citty@0.1.6:
-    resolution: {integrity: sha512-tskPPKEs8D2KPafUypv2gxwJP8h/OaJmC82QQGGDQcHvXX43xF2VDACcJVmZ0EuSxkpO9Kc4MlrA3q0+FG58AQ==}
-
   citty@0.2.2:
     resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
 
@@ -4681,12 +4678,12 @@ packages:
       tedious:
         optional: true
 
-  kysely-ctl@0.20.0:
-    resolution: {integrity: sha512-JoUBvW0uaEvM7BbR/JKaePvjQqZ8sHGOgy1VSESCjCIh5tIjP6pCuSz/u35hWpZnWrqeonqTjndW7xC7UNzqPA==}
-    engines: {node: '>=20'}
+  kysely-ctl@0.21.0:
+    resolution: {integrity: sha512-tovLEh+5eHgBt1P9L42Y3lgEI7cXK0nAPIBFg+dmTXUlmb2Ats3X3D0TwUtCV63XzVEdRV5dONa8DBhRiEf8fg==}
+    engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
-      kysely: '>=0.18.1 <0.29.0'
+      kysely: '>=0.18.1 <0.30.0'
       kysely-neon: ^2
       kysely-postgres-js: ^2 || ^3
       kysely-prisma-postgres: ^0.1
@@ -10398,10 +10395,6 @@ snapshots:
 
   chrome-trace-event@1.0.4: {}
 
-  citty@0.1.6:
-    dependencies:
-      consola: 3.4.2
-
   citty@0.2.2: {}
 
   cjs-module-lexer@2.2.0: {}
@@ -12031,10 +12024,10 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  kysely-ctl@0.20.0(kysely@0.28.17)(magicast@0.5.3)(typescript@6.0.3):
+  kysely-ctl@0.21.0(kysely@0.28.17)(magicast@0.5.3):
     dependencies:
       c12: 3.3.4(magicast@0.5.3)
-      citty: 0.1.6
+      citty: 0.2.2
       confbox: 0.2.4
       consola: 3.4.2
       jiti: 2.7.0
@@ -12043,11 +12036,9 @@ snapshots:
       ofetch: 1.5.1
       pathe: 2.0.3
       pkg-types: 2.3.1
-      std-env: 3.10.0
-      tsconfck: 3.1.6(typescript@6.0.3)
+      std-env: 4.1.0
     transitivePeerDependencies:
       - magicast
-      - typescript
 
   kysely@0.28.17: {}
 
