@@ -132,6 +132,10 @@ if [ "$prune" = true ]; then
     exit 0
 fi
 
+# Set when the DB volume is wiped or empty, so the targeted-test path (which
+# overrides the default command's migrate+seed) knows to migrate + seed first.
+db_needs_setup=false
+
 if [ "$clean_all" = true ]; then
     # Wipe the database + object-storage volumes and node_modules, but KEEP the
     # pnpm store and corepack cache so reinstalls hardlink from cache offline.
@@ -144,6 +148,7 @@ if [ "$clean_all" = true ]; then
         "${COMPOSE_PROJECT_NAME}_seaweedfs-data-unit-test" 2>/dev/null || true
     docker compose -f "$COMPOSE_FILE" run -T --rm --no-deps --entrypoint sh test-runner \
         -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' 2>/dev/null || true
+    db_needs_setup=true
 else
     # Auto-detect migration mismatch
     echo "Checking for migration mismatches..."
@@ -174,6 +179,13 @@ else
         docker compose -f "$COMPOSE_FILE" rm -f -s db-unit-test 2>/dev/null || true
         docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-unit-test" 2>/dev/null || true
     fi
+
+    # A targeted run (vitest args) overrides the default command's migrate+seed,
+    # so it must set the DB up itself when the DB isn't ready: just wiped by the
+    # mismatch rebuild, or empty on a first/blank run (no applied migrations).
+    if [ "$rebuild_db" = true ] || [ -z "$applied" ]; then
+        db_needs_setup=true
+    fi
 fi
 
 echo "Running unit tests in Docker..."
@@ -181,16 +193,17 @@ if [ -z "$vitest_args" ]; then
     # No filter: the default command (entrypoint install, then migrate + seed +
     # full suite) runs as-is.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
-elif [ "$clean_all" = true ]; then
-    # --clean wiped the DB/storage volumes, so migrate + seed before the targeted
-    # run. Passing vitest args overrides the default command (which migrates/seeds
-    # itself), so fold migrate + seed + vitest into ONE run: the entrypoint
-    # reconciles deps once, then this migrates, seeds, and execs vitest. (Two
-    # separate runs would fire the entrypoint install twice.) `exec` gives the
-    # container's PID 1 to vitest so its exit code and signals propagate.
+elif [ "$db_needs_setup" = true ]; then
+    # The DB volume was wiped (--clean / mismatch rebuild) or is empty (first run),
+    # so migrate + seed before the targeted run. Passing vitest args overrides the
+    # default command (which migrates/seeds itself), so fold migrate + seed + vitest
+    # into ONE run: the entrypoint reconciles deps once, then this migrates, seeds,
+    # and execs vitest. (Two separate runs would fire the entrypoint install twice.)
+    # `exec` gives the container's PID 1 to vitest so its exit code + signals propagate.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
         sh -c "pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest $vitest_args"
 else
+    # DB already migrated + seeded from a prior run: skip straight to vitest.
     # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
     # this pnpm version drops everything after `--` instead of forwarding it to
     # the script, so the `-- <args>` form silently ran the whole suite (no filter).
