@@ -4,8 +4,14 @@ services:
             context: .
             dockerfile: Dockerfile.dev
         working_dir: /app
-        env_file:
-            - .env
+        # No env_file: the unit-test container needs none of .env's secrets. Clerk is
+        # mocked and its keys are deleted in tests/vitest.setup.ts; Mailgun is optional
+        # (getConfigValue('MAILGUN_API_KEY', false)). Requiring .env only hard-failed
+        # fresh clones (.env is gitignored, only .env.sample is committed) and pulled
+        # real secrets into a container that doesn't use them. Every var the tests need
+        # is inlined below. (tests/vitest.setup.ts still loads .env via dotenv for the
+        # vitest process when the file is present, matching Next.js; compose env wins
+        # since dotenv doesn't override already-set vars.)
         environment:
             - DATABASE_URL=postgres://si:si@db-unit-test:5432/si_test
             - SIMULATE_CODE_BUILD=t
@@ -18,6 +24,14 @@ services:
             - BUCKET_NAME=mgmt-app-local # Aligned with CI
             - AWS_REGION=us-east-1
             - NODE_ENV=test # Explicitly set NODE_ENV for tests
+            - DOMAIN_NAME=localhost:4000 # APP_BASE_URL fallback; keeps test URLs stable
+            # Coder is simulated in tests (SIMULATE_CODE_BUILD=t) and coder tests mock
+            # getConfigValue(), but that helper throws on a truly-missing key, so set
+            # these (empty is fine) to mirror a local .env and avoid fresh-clone throws.
+            - CODER_FILES=./tests/coder-files
+            - CODER_API_ENDPOINT=
+            - CODER_TOKEN=
+            - CODER_TEMPLATE=
             # Corepack provisions pnpm@11.3.0 at runtime as the `node` user (the
             # build cached it for root). Disable the interactive download prompt so
             # a fresh container can't hang. COREPACK_HOME lives INSIDE the
