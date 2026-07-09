@@ -59,10 +59,14 @@ services:
         # supply-chain re-verification (set in pnpm-workspace.yaml) on a frozen lockfile.
         # --config.confirmModulesPurge=false lets a no-TTY (`run -T`) reinstall
         # proceed instead of aborting with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY.
+        # --frozen-lockfile keeps runs deterministic, but on drift it aborts with a
+        # cryptic ERR_PNPM_OUTDATED_LOCKFILE; we catch that and print how to fix it. We
+        # deliberately do NOT auto-update the lockfile (that would silently rewrite the
+        # bind-mounted host pnpm-lock.yaml); the dev runs `pnpm install` on the host.
         entrypoint:
             - sh
             - -c
-            - 'pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && exec "$$0" "$$@"'
+            - '{ pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false || { echo "docker-test: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2; echo "docker-test: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2; exit 1; }; } && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && exec "$$0" "$$@"'
         command:
             - sh
             - -c
