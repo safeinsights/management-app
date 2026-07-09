@@ -1,17 +1,16 @@
-import { Button, Flex, Link, useForm, zodResolver } from '@/common'
+import { useForm, zodResolver } from '@/common'
 import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
-import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
+import { useAuth, useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { type MFAState } from './logic'
-import { SignInError } from './sign-in-error'
+import { SignInFormView } from './sign-in-form-view'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -20,15 +19,15 @@ const signInSchema = z.object({
 
 type SignInFormData = z.infer<typeof signInSchema>
 
+// Clerk's session_exists longMessage, thrown by signIn.create when a session is live
+const ALREADY_SIGNED_IN_MESSAGE = "You're already signed in."
+
 export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { signOut, getToken } = useAuth()
-    const [signedInRecently, setSignedInRecently] = useState(false)
-    const [isSigningOut, setIsSigningOut] = useState(false)
+    const { getToken } = useAuth()
     const { setActive, signIn } = useSignIn()
-    const { isSignedIn } = useUser()
     const router = useRouter()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
@@ -58,15 +57,7 @@ export const SignInForm: FC<{
         validate: zodResolver(signInSchema),
     })
 
-    useEffect(() => {
-        if (isSignedIn && !signedInRecently) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setIsSigningOut(true)
-            signOut().finally(() => setIsSigningOut(false))
-        }
-    }, [isSignedIn, signOut, signedInRecently])
-
-    if (isSignedIn || isSigningOut || !signIn || mfa) return null
+    if (!signIn || mfa) return null
 
     const rawRedirect = searchParams.get('redirect_url')
     const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
@@ -77,7 +68,6 @@ export const SignInForm: FC<{
     ) as Route
 
     const onSubmit = form.onSubmit(async (values) => {
-        setSignedInRecently(true)
         try {
             const attempt = await signIn.create({
                 identifier: values.email,
@@ -88,7 +78,7 @@ export const SignInForm: FC<{
                 await onComplete(false)
                 const result = actionResult(await onUserSignInAction())
                 await getToken({ skipCache: true })
-                if (result?.redirectToReviewerKey) {
+                if (result?.redirectToKeyGeneration) {
                     router.push(Routes.accountKeys as Route)
                 } else {
                     router.push(validatedRedirect)
@@ -103,11 +93,17 @@ export const SignInForm: FC<{
 
             const errorMessage = errorToString(err, clerkErrorOverrides)
 
+            // A session was restored (e.g. in another tab) between mount and submit —
+            // the user is authenticated, so send them onward instead of erroring.
+            if (errorMessage === ALREADY_SIGNED_IN_MESSAGE) {
+                router.push(validatedRedirect)
+                return
+            }
+
             //incorrect email or password
             if (
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
-                errorMessage === clerkErrorOverrides.form_identifier_not_found ||
-                errorMessage === "You're already signed in."
+                errorMessage === clerkErrorOverrides.form_identifier_not_found
             ) {
                 form.setFieldError('email', ' ')
                 form.setFieldError('password', errorMessage)
@@ -131,43 +127,12 @@ export const SignInForm: FC<{
     })
 
     return (
-        <form onSubmit={onSubmit}>
-            <Paper bg="white" radius="sm" p="xxl">
-                <Title mb="lg" order={3} ta="center">
-                    Welcome to SafeInsights!
-                </Title>
-                <Flex direction="column" gap="xs">
-                    <TextInput
-                        key={form.key('email')}
-                        {...form.getInputProps('email')}
-                        label="Email"
-                        placeholder="Enter your registered email address"
-                        aria-label="Email"
-                    />
-                    <PasswordInput
-                        label="Password"
-                        key={form.key('password')}
-                        {...form.getInputProps('password')}
-                        mt={10}
-                        placeholder="*********"
-                        aria-label="Password"
-                    />
-                    <Link c="blue.7" fw={600} w="fit-content" size="xs" href={forgotPasswordHref}>
-                        Forgot password?
-                    </Link>
-                    <SignInError clerkError={clerkError} setClerkError={setClerkError} />
-                    <Button
-                        mt="md"
-                        mb="xxl"
-                        size="lg"
-                        disabled={!form.isValid()}
-                        type="submit"
-                        bg={!form.isValid() ? 'grey.1' : undefined}
-                    >
-                        Login
-                    </Button>
-                </Flex>
-            </Paper>
-        </form>
+        <SignInFormView
+            form={form}
+            onSubmit={onSubmit}
+            forgotPasswordHref={forgotPasswordHref}
+            clerkError={clerkError}
+            setClerkError={setClerkError}
+        />
     )
 }

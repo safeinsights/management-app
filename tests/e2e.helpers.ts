@@ -1,4 +1,4 @@
-import { setupClerkTestingToken } from '@clerk/testing/playwright'
+import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
 import { faker } from '@faker-js/faker'
 import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
@@ -6,7 +6,6 @@ import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
 export { fs, path }
 
@@ -99,7 +98,10 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
                 browserType: browser.browserType(),
                 page: page,
                 use: use,
-                enableJsCoverage: true,
+                // V8 coverage start/stop runs on every test. It's only needed for the
+                // coverage report (the test:coverage step / CI), so allow opting out
+                // (E2E_COVERAGE=0) to speed up local iteration runs.
+                enableJsCoverage: process.env.E2E_COVERAGE !== '0',
                 enableCssCoverage: false,
             }
             await collectV8CodeCoverageAsync(options)
@@ -119,34 +121,19 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 
 // --- Clerk testing helpers ---
 //
-// Clerk's testing infrastructure (setupClerkTestingToken) intercepts all Clerk
-// FAPI requests via a Playwright route handler that proxies them with a testing
-// token. This proxy has no fetch timeout — if any single Clerk API request
-// hangs (intermittent on their end), the route handler blocks forever and
-// window.Clerk.loaded never becomes true.
-//
-// This causes two categories of flakiness in tests that sign in/out:
-//
-// 1. visitClerkProtectedPage hangs: clerkLoaded() waits for window.Clerk.loaded
-//    which depends on the Clerk SDK completing its initialization requests. When
-//    one of those requests hangs in the proxy, the whole sign-in flow stalls.
-//
-// 2. Stale SDK state after sign-out: Clerk's signOut() can also hang (same root
-//    cause). When it does, the SDK is left in a broken state that blocks any
-//    subsequent sign-in on the same page/context. Tests that sign out then sign
-//    in as a different user must use a fresh browser context to avoid this.
-//
-// The production code (use-sign-out.ts) mitigates issue #2 with a Promise.race
-// timeout on signOut() so the redirect always fires regardless.
+// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. Sessions are just
+// the __e2e_role cookie: seeded per role in global.setup.ts and restored via storageState;
+// the sign-in form drives a faked useSignIn that writes the cookie on completion.
 
-const clerkLoaded = async (page: Page) => {
-    await page.waitForFunction(() => window.Clerk !== undefined)
-    await page.waitForFunction(() => window.Clerk.loaded)
-    return await page.evaluate(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
+// Ensures a signed-out state by clearing the __e2e_role cookie (the fake's session is
+// just that cookie). Used by the auth-UI specs before driving the sign-in form.
+export const e2eSignOut = async (page: Page) => {
+    await page
+        .context()
+        .clearCookies({ name: '__e2e_role' })
+        .catch(() => {})
 }
 
-// This function is serialized and executed in the browser context
-// concept: https://github.com/clerk/javascript/blob/main/packages/testing/src/common/helpers-utils.ts#L6
 type ClerkSignInParams = {
     password: string
     identifier: string
@@ -155,40 +142,6 @@ type ClerkSignInParams = {
 
 export const CLERK_MFA_CODE = '424242'
 
-export const clerkSignInHelper = async (params: ClerkSignInParams) => {
-    const w = window
-    if (!w.Clerk.client) {
-        console.error('Clerk client not found')
-        return
-    }
-
-    const signIn = await w.Clerk.client.signIn.create({ identifier: params.identifier, password: params.password })
-
-    if (signIn.status == 'complete') {
-        await w.Clerk.setActive({ session: signIn.createdSessionId })
-        return
-    }
-
-    if (
-        signIn.status !== 'needs_second_factor' ||
-        !signIn.supportedSecondFactors?.find((sf) => sf.strategy == 'phone_code')
-    ) {
-        throw new Error(
-            `testing login's status: ${signIn.status} didn't support phone code? ${JSON.stringify(signIn.supportedSecondFactors)}`,
-        )
-    }
-    await signIn.prepareSecondFactor({ strategy: 'phone_code' })
-    const result = await signIn.attemptSecondFactor({
-        strategy: 'phone_code',
-        code: params.mfa,
-    })
-    if (result.status !== 'complete') {
-        console.error(`Unknown signIn status: ${result.status}`)
-    }
-
-    await w.Clerk.setActive({ session: result.createdSessionId })
-}
-
 export const readTestSupportFile = (file: string) => {
     const filename = fileURLToPath(import.meta.url) // get the resolved path to the file
 
@@ -196,67 +149,26 @@ export const readTestSupportFile = (file: string) => {
 }
 
 export type TestingRole = 'researcher' | 'reviewer' | 'admin'
+
+// Credentials for driving the faked sign-in form. Identifiers come from the same
+// fixtures the in-app fake matches on (src/lib/clerk-fake/fixtures); the password is any
+// non-empty value (the fake accepts it for a known email). No real secrets needed.
+const FAKE_PASSWORD = 'e2e-fake-password'
 export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
-    admin: {
-        mfa: CLERK_MFA_CODE,
-        identifier: process.env.CLERK_ADMIN_EMAIL!,
-        password: process.env.CLERK_ADMIN_PASSWORD!,
-    },
-    researcher: {
-        mfa: CLERK_MFA_CODE,
-        identifier: process.env.CLERK_RESEARCHER_EMAIL!,
-        password: process.env.CLERK_RESEARCHER_PASSWORD!,
-    },
-    reviewer: {
-        mfa: CLERK_MFA_CODE,
-        identifier: process.env.CLERK_REVIEWER_EMAIL!,
-        password: process.env.CLERK_REVIEWER_PASSWORD!,
-    },
+    admin: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.admin.email, password: FAKE_PASSWORD },
+    researcher: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.researcher.email, password: FAKE_PASSWORD },
+    reviewer: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.reviewer.email, password: FAKE_PASSWORD },
 }
 
-type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
+// Per-role storageState file written by tests/global.setup.ts and consumed by specs
+// via `test.use({ storageState: authFileFor('reviewer') })`.
+export const authFileFor = (role: TestingRole) =>
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '.auth', `${role}.json`)
 
-export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
-    const creds = TestingUsers[role]
-
-    await setupClerkTestingToken({ page })
-    // load a page to initialize Clerk
-    await page.goto('/')
-    const currentEmail = await clerkLoaded(page)
-    if (currentEmail == creds.identifier) {
-        await goto(page, url)
-        return
-    }
-
-    await page.evaluate(() => {
-        return window.Clerk.session?.end()
-    })
-
-    await goto(page, '/account/signin')
-
-    await page.getByLabel('email').fill(creds.identifier)
-    await page.getByLabel('password').fill(creds.password)
-    await page.getByRole('button', { name: 'login' }).click()
-
-    await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
-    await page.getByRole('button', { name: 'SMS Verification' }).click()
-
-    await page.getByRole('heading', { name: /verify your code/i }).waitFor({ state: 'visible' })
-    await fillPinInput(page, creds.mfa, 'sms-pin-input')
-    await page.getByRole('button', { name: 'Verify code' }).click()
-
-    // Wait for MFA onSuccess to finish metadata update + token refresh + router.push
-    await page.waitForURL((u) => !u.pathname.startsWith('/account/signin'), { timeout: 30000 })
-
-    await page.waitForFunction(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
-    const updatedEmail = await clerkLoaded(page)
-    if (updatedEmail != creds.identifier) {
-        throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
-    }
-    if (page.url() != url) {
-        await goto(page, url)
-        await clerkLoaded(page)
-    }
+// Navigate to a protected URL assuming the session is already restored from
+// storageState (the __e2e_role cookie), then wait for hydration.
+export const visitAsRole = async (page: Page, url: string) => {
+    await goto(page, url)
 }
 
 export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
@@ -265,19 +177,35 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
     await page.keyboard.type(text)
 }
 
-// Opens a fresh browser context, signs in as the named role, navigates to `url`,
-// and returns both the context (for the caller to close) and its page. Use when a
-// test needs a second concurrent session in parallel with the main `page`, e.g.
-// simulating two reviewers in the same DO collaborating on a code review.
-// The caller is responsible for `context.close()` (typically in a try/finally).
-export const openContextAsRole = async (
+// Opens a context that restores `role`'s saved session from storageState (no
+// sign-in) and returns the context + page. The storageState file must exist (written
+// by globalSetup). Caller closes the context. This is the fast
+// multi-role primitive: a single seeded test acts as researcher and reviewer by
+// opening one of these per role instead of re-signing-in.
+export const openContextWithSavedRole = async (
     browser: Browser,
-    { role, url }: { role: TestingRole; url: string },
+    role: TestingRole,
 ): Promise<{ context: BrowserContext; page: Page }> => {
-    const context = await browser.newContext()
+    const context = await browser.newContext({ storageState: authFileFor(role) })
     const page = await context.newPage()
-    await visitClerkProtectedPage({ page, role, url })
     return { context, page }
+}
+
+// Runs `fn` against a page authenticated as `role` (session restored from
+// storageState), then tears the context down. Keeps role-switching explicit and
+// cheap inside a seeded test: `await withRole(browser, 'reviewer', async (page) =>
+// { ... })`.
+export const withRole = async (
+    browser: Browser,
+    role: TestingRole,
+    fn: (page: Page) => Promise<void>,
+): Promise<void> => {
+    const { context, page } = await openContextWithSavedRole(browser, role)
+    try {
+        await fn(page)
+    } finally {
+        await context.close()
+    }
 }
 
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {

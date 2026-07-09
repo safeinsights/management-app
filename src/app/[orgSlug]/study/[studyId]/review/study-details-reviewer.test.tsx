@@ -4,9 +4,9 @@ import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it } from 'vitest'
 import { StudyDetailsReviewer } from './study-details-reviewer'
 
-// OTTER-538: server-side smoke tests for the new DO Study Details page —
-// it drops the Study Code section and points "Previous" at the OTTER-552
-// post-code-feedback page (i.e. /review?from=code-review).
+// OTTER-538: server-side smoke tests for the new DO Study Details page — it drops the Study Code
+// section. OTTER-643: "Previous" walks back to the read-only code step (/review/code) rather than the
+// dashboard (a bare /review href would self-link straight back to this screen).
 
 describe('StudyDetailsReviewer', () => {
     it('omits the Study Code section', async () => {
@@ -28,13 +28,13 @@ describe('StudyDetailsReviewer', () => {
         expect(screen.getByText('No submission found')).toBeInTheDocument()
     })
 
-    it('routes Previous back to the post-code-feedback page (OTTER-552)', async () => {
+    it('routes Previous to the read-only code step (avoids the results-screen self-link)', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         renderWithProviders(await StudyDetailsReviewer({ orgSlug: org.slug, study }))
 
         const previousButton = screen.getByRole('link', { name: /previous/i })
-        expect(previousButton).toHaveAttribute('href', expect.stringContaining('/review?from=code-review'))
+        expect(previousButton).toHaveAttribute('href', `/${org.slug}/study/${study.id}/review/code`)
     })
 })

@@ -215,31 +215,45 @@ describe('CodePostDecisionView', () => {
         })
     })
 
-    describe('study code viewer', () => {
-        it('starts collapsed and toggles to "Hide submitted study code" with body visible', async () => {
+    describe('submitted code', () => {
+        it('breaks the submitted code out into its own "Submitted code" card, toggled from the step card', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
-
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveTextContent('View submitted study code')
+            expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
-            expect(toggle).toHaveTextContent('Hide submitted study code')
+            // Expanding removes the in-step opener (returns null) and reveals the breakout card's "Hide" toggle.
+            await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
+            const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
+            expect(collapseToggle).toHaveTextContent('Hide submitted study code')
+            // The file table lives in its own "Submitted code" card, not inside the step header.
+            expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
+            expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
+        })
+
+        it('shows the "View approved initial request" link to studySubmitted in the broken-out card', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
+
+            const link = screen.getByTestId('view-approved-initial-request')
+            expect(link).toHaveTextContent('View approved initial request')
+            expect(link).toHaveAttribute('href', Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id }))
+            expect(link).toHaveAttribute('target', '_blank')
         })
     })
 
     describe('study code visibility', () => {
-        it('hides the study code viewer during the execution window (showStudyCode=false)', async () => {
+        it('hides the submitted code table during the execution window (showStudyCode=false)', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { showStudyCode: false })
 
-            expect(screen.queryByTestId('study-code-viewer')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             // The approved/running banner still renders so the page reads as "running / results pending".
             expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
         })
@@ -273,15 +287,14 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyAgreements?from=previous in all decisions', async () => {
+        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
-            expect(previous).toHaveAttribute(
-                'href',
-                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements?from=previous`),
-            )
+            const href = previous.getAttribute('href') ?? ''
+            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(href).not.toContain('from=')
         })
 
         it('renders "Go to dashboard" for CODE-APPROVED', async () => {

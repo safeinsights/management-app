@@ -3,7 +3,7 @@
 import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
-import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
+import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
@@ -101,7 +101,7 @@ type LanguageOption = {
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
-    .params(z.object({ orgSlug: z.string() }))
+    .params(z.object({ orgSlug: z.string().min(1) }))
     .handler(async ({ db, params: { orgSlug } }) => {
         const { languageLabels } = await import('@/lib/languages')
         const { signedUrlForFile } = await import('@/server/aws')
@@ -191,12 +191,6 @@ export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     })
     .requireAbilityTo('view', 'Org')
     .handler(async ({ org }) => org)
-
-// TODO: move this to a more appropriate place, likely a reviewers.actions.ts file
-// also all we really need is if they have a public key, so we can just return a boolean
-export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
-    .requireAbilityTo('view', 'ReviewerKey')
-    .handler(async ({ session }) => getReviewerPublicKeyByUserId(session.user.id))
 
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 

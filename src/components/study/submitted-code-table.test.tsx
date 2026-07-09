@@ -21,7 +21,9 @@ import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 const mockFetch = fetchStudyJobCodeFileAction as unknown as Mock
 
 const buildFile = (overrides: Partial<LatestJobForStudy['files'][number]>): LatestJobForStudy['files'][number] => ({
+    id: 'file-1',
     name: 'main.py',
+    path: 'code/main.py',
     fileType: 'MAIN-CODE',
     createdAt: '2026-01-01T12:00:00Z',
     ...overrides,

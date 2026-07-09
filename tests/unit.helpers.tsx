@@ -391,6 +391,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status: 'APPROVED',
+            submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
@@ -987,13 +988,16 @@ export const expectStudyJobRecords = async (
         .execute()
     expect(jobFiles).toEqual(expectedFiles)
 
+    // Assert the SET of statuses, not their order: CODE-SUBMITTED (submit action) and
+    // CODE-SCANNED (scan webhook) are written within the same operation and can share a
+    // created_at to the millisecond, so ORDER BY created_at returns them in arbitrary order.
+    // What matters is that all three transitions were recorded, not their micro-ordering.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status'])
         .where('studyJobId', '=', latestJob.id)
-        .orderBy('createdAt', 'asc')
         .execute()
-    expect(statuses.map((row) => row.status)).toEqual(['INITIATED', 'CODE-SUBMITTED', 'CODE-SCANNED'])
+    expect(statuses.map((row) => row.status).sort()).toEqual(['CODE-SCANNED', 'CODE-SUBMITTED', 'INITIATED'])
 }
 
 export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
@@ -1009,6 +1013,12 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     createdBy: 'Researcher Name',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
     ...overrides,
 })
 

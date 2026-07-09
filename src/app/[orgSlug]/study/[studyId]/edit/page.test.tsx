@@ -20,8 +20,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string, searchParams: { from?: string } = {}) =>
-    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }), searchParams: Promise.resolve(searchParams) })
+const renderRoute = (orgSlug: string, studyId: string) =>
+    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }) })
 
 const setupDraft = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -67,59 +67,20 @@ describe('StudyEditPage', () => {
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
-    describe('redirects to Step 2 when the draft has Step 2 progress', () => {
-        it('redirects when a PI user has been selected', async () => {
-            const { org, study } = await setupDraft()
-            const { user: piUser } = await insertTestUser({ org })
-            await db.updateTable('study').set({ piUserId: piUser.id }).where('id', '=', study.id).execute()
-
-            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-            expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/proposal`)
-        })
-
-        it('redirects when datasets have been picked', async () => {
-            const { org, study } = await setupDraft()
-            await db
-                .updateTable('study')
-                .set({ datasets: ['students'] })
-                .where('id', '=', study.id)
-                .execute()
-
-            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-            expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/proposal`)
-        })
-
-        it.each(['researchQuestions', 'projectSummary', 'impact', 'additionalNotes'] as const)(
-            'redirects when %s has been saved',
-            async (field) => {
-                const { org, study } = await setupDraft()
-                await db
-                    .updateTable('study')
-                    .set({ [field]: JSON.parse(LEXICAL_BODY) })
-                    .where('id', '=', study.id)
-                    .execute()
-
-                await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
-                expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/proposal`)
-            },
-        )
-    })
-
-    // Step 2's "Previous" footer button saves the form (which writes Step-2 fields) then
-    // navigates here with ?from=step2. Without this override, the draftHasStep2Progress
-    // check would bounce the researcher right back to /proposal — the page they were
-    // trying to leave — creating a dead Previous button.
-    it('renders Step 1 when arriving from Step 2 Previous, even with Step 2 fields populated', async () => {
+    // /edit is a revisitable step: it always renders Step 1 for an authorized DRAFT researcher and
+    // never resume-redirects to Step 2, regardless of how far the draft has progressed. The screen
+    // authority (resolveScreen) — not this page — decides the canonical screen.
+    it('renders Step 1 even when the draft has Step 2 fields populated', async () => {
         const { org, study } = await setupDraft()
         const { user: piUser } = await insertTestUser({ org })
         await db
             .updateTable('study')
-            .set({ piUserId: piUser.id, datasets: ['students'] })
+            .set({ piUserId: piUser.id, datasets: ['students'], researchQuestions: JSON.parse(LEXICAL_BODY) })
             .where('id', '=', study.id)
             .execute()
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        const page = await renderRoute(org.slug, study.id, { from: 'step2' })
+        const page = await renderRoute(org.slug, study.id)
         renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
 
         expect(mockRedirect).not.toHaveBeenCalled()

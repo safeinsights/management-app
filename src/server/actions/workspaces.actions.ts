@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
-import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
+import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus, type WorkspaceLaunchStatus } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
@@ -12,6 +12,36 @@ import { initializeDevWorkspaceFiles } from '@/server/dev'
 const isMainFile = (filename: string): boolean => {
     const basename = path.basename(filename, path.extname(filename))
     return basename.toLowerCase() === 'main'
+}
+
+// Whether the study's workspace currently holds any researcher-visible file. Mirrors the filtering in
+// listWorkspaceFilesAction (skip dotfiles, symlinks, non-files, empty files) so "has files" matches
+// exactly what the review table shows — and what submit-enable is computed from.
+async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
+    let coderFilesPath = await getConfigValue('CODER_FILES')
+    if (!CODER_DISABLED) {
+        coderFilesPath += `/${studyId}`
+    }
+
+    let entries: string[]
+    try {
+        entries = await fs.readdir(coderFilesPath)
+    } catch (e) {
+        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
+        throw e
+    }
+
+    for (const entry of entries) {
+        if (entry.startsWith('.')) continue
+        try {
+            const stats = await fs.lstat(path.join(coderFilesPath, entry))
+            if (stats.isSymbolicLink() || !stats.isFile() || stats.size === 0) continue
+            return true
+        } catch {
+            continue
+        }
+    }
+    return false
 }
 
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
@@ -71,7 +101,10 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         }
     })
 
-export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
+// Ensures the workspace exists and is running: creates it if missing, starts it if stopped.
+// Kept as a one-shot mutation (not folded into the polled status action) because the baseline
+// reset and the build POST must run once per launch, not on every refetch.
+export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string().nonempty(),
@@ -81,7 +114,8 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
-        await ensureRoundJobForLaunch(db, studyId)
+        const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
+        await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
         if (CODER_DISABLED) {
             return {
                 success: true,
@@ -91,25 +125,40 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
         return await createUserAndWorkspace(studyId)
     })
 
-export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
+const cursorsSchema = z
+    .object({
+        build: z.number().nullable(),
+        agent: z.number().nullable(),
+    })
+    .optional()
+
+export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStatusAction', {})
     .params(
         z.object({
             studyId: z.string().nonempty(),
-            workspaceId: z.string(),
+            cursors: cursorsSchema,
         }),
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, workspaceId }, session }) => {
+    .handler(async ({ params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
-        if (!workspaceId) return
         if (CODER_DISABLED) {
             // these envs do not have a 'real' coder setup
-            await new Promise((resolve) => setTimeout(resolve, 3000))
             await initializeDevWorkspaceFiles(studyId)
-            return `https://coder.dev.example.com/workspace/${studyId}`
+            return {
+                buildStatus: 'running',
+                buildLogLines: [],
+                agentStatus: null,
+                agentLogLines: [],
+                ready: true,
+                failed: false,
+                reason: 'dev workspace ready',
+                cursors: { build: null, agent: null },
+                url: `https://coder.dev.example.com/workspace/${studyId}`,
+            }
         }
-        return await getCoderWorkspaceUrl(studyId, workspaceId)
+        return await getCoderWorkspaceLaunchStatus(studyId, cursors)
     })
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})
@@ -124,11 +173,15 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
         if (fileNames.length === 0) return { starterFiles: [] }
 
         const { signedUrlForFile } = await import('@/server/aws')
-        const { basename } = await import('@/lib/paths')
+        const { pathForStarterCode } = await import('@/lib/paths')
+        // starterCodeFileNames holds bare names, not S3 keys — sign the key the upload actually wrote to.
         const starterFiles = await Promise.all(
-            fileNames.map(async (filePath: string) => ({
-                name: basename(filePath),
-                url: await signedUrlForFile(filePath),
+            fileNames.map(async (fileName: string) => ({
+                name: fileName,
+                url: await signedUrlForFile(
+                    pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName }),
+                    { ResponseContentDisposition: 'inline' },
+                ),
             })),
         )
         return { starterFiles }

@@ -1,7 +1,23 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
+import path from 'node:path'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
+
+// When E2E_FAKE_CLERK is set, swap the real Clerk SDK for the in-app fake under
+// src/lib/clerk-fake so e2e tests run with zero Clerk network. Production builds
+// (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
+const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
+
+// Turbopack's persistent filesystem cache for `next build` is experimental (opt-in) in
+// Next 16, so it's gated behind TURBOPACK_FS_CACHE and only turned on for the CI e2e build
+// (see .github/workflows/checks.yml), never for the production deploy build. It writes to
+// .next/cache, which CI persists across runs to make incremental rebuilds much faster.
+// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The
+// rarer, quieter risk is a stale build if invalidation ever missed a change; content-hash change
+// detection plus a cache key that hashes every source file make this unlikely, but if a build is
+// ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
+const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
@@ -40,7 +56,31 @@ const nextConfig: NextConfig = {
     async headers() {
         return [{ source: '/:path*', headers: securityHeaders }]
     },
+    // Next 16 dev/build uses Turbopack by default, so the Clerk fake must be aliased
+    // via turbopack.resolveAlias (the webpack() hook below is a fallback for any
+    // webpack-based build). Both are gated on E2E_FAKE_CLERK so production is untouched.
+    ...(fakeClerk
+        ? {
+              turbopack: {
+                  resolveAlias: {
+                      '@clerk/nextjs/server': './src/lib/clerk-fake/server.ts',
+                      '@clerk/nextjs': './src/lib/clerk-fake/client.tsx',
+                  },
+              },
+          }
+        : {}),
+    webpack(config) {
+        if (fakeClerk) {
+            config.resolve.alias = {
+                ...config.resolve.alias,
+                '@clerk/nextjs/server': path.resolve(__dirname, 'src/lib/clerk-fake/server.ts'),
+                '@clerk/nextjs': path.resolve(__dirname, 'src/lib/clerk-fake/client.tsx'),
+            }
+        }
+        return config
+    },
     experimental: {
+        ...(turbopackFsCache ? { turbopackFileSystemCacheForBuild: true } : {}),
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {

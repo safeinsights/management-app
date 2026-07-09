@@ -6,6 +6,7 @@ import {
     generateWorkspaceName,
     getCoderOrganizationId,
     getCoderTemplateId,
+    getCoderWorkspaceLaunchStatus,
     getOrCreateCoderUser,
     generateCoderUsername,
     shaHash,
@@ -708,6 +709,136 @@ describe('md5Hash', () => {
     it('should handle strings with spaces', () => {
         const result = shaHash('hello world')
         expect(result).toBe('b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9')
+    })
+})
+
+describe('getCoderWorkspaceLaunchStatus', () => {
+    const ORIGINAL_ENV = process.env
+
+    const buildId = 'build-1'
+    const agentId = 'agent-1'
+
+    const workspaceEvent = {
+        id: 'ws-1',
+        latest_build: {
+            id: buildId,
+            status: 'running',
+            resources: [
+                {
+                    agents: [
+                        {
+                            id: agentId,
+                            lifecycle_state: 'starting',
+                            status: 'connecting',
+                            apps: [{ slug: 'code-server', health: 'initializing' }],
+                        },
+                    ],
+                },
+            ],
+        },
+    }
+
+    // Routes a coder fetch to a canned response based on the url; falls back to 404.
+    const routeFetch = (overrides: { build?: object; buildLogs?: unknown; agentLogs?: unknown }) => (url: string) => {
+        const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+        if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
+        if (url.includes('/workspacebuilds/') && url.includes('/logs')) return ok(overrides.buildLogs ?? [])
+        if (url.includes('/workspaceagents/') && url.includes('/logs')) return ok(overrides.agentLogs ?? [])
+        if (url.includes('/workspacebuilds/')) return ok(overrides.build ?? { id: buildId, status: 'running' })
+        if (url.includes('/workspace/')) return ok(workspaceEvent)
+        return Promise.resolve({ ok: false, status: 404, text: vi.fn().mockResolvedValue('Not found') })
+    }
+
+    beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV }
+        vi.resetAllMocks()
+        global.fetch = vi.fn()
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({ researcherEmail: 'john@example.com' })
+    })
+
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
+    })
+
+    it('reports provisioning with the newest log timestamp and advanced cursors', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation(
+            routeFetch({
+                buildLogs: [
+                    { id: 1, created_at: '2020-01-01T00:00:01Z', output: 'init' },
+                    { id: 2, created_at: '2020-01-01T00:00:02Z', output: 'go' },
+                ],
+                agentLogs: [{ id: 5, created_at: '2020-01-01T00:00:03Z', output: 'agent up' }],
+            }),
+        )
+
+        const status = await getCoderWorkspaceLaunchStatus('study-1')
+
+        expect(status.buildStatus).toBe('running')
+        expect(status.ready).toBe(false)
+        expect(status.url).toBeNull()
+        expect(status.buildLogLines).toEqual(['init', 'go'])
+        expect(status.agentLogLines).toEqual(['agent up'])
+        expect(status.agentStatus).toEqual({ lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' })
+        expect(status.cursors).toEqual({ build: 2, agent: 5 })
+    })
+
+    it('only requests logs after the provided cursors', async () => {
+        const fetchMock = global.fetch as unknown as Mock
+        fetchMock.mockImplementation(routeFetch({ buildLogs: [], agentLogs: [] }))
+
+        await getCoderWorkspaceLaunchStatus('study-1', { build: 2, agent: 5 })
+
+        const urls = fetchMock.mock.calls.map((c) => c[0] as string)
+        expect(urls).toContainEqual(expect.stringContaining(`/workspacebuilds/${buildId}/logs?after=2`))
+        expect(urls).toContainEqual(expect.stringContaining(`/workspaceagents/${agentId}/logs?after=5`))
+    })
+
+    it('reports a failed build using the job error as the reason', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation(
+            routeFetch({
+                build: { id: buildId, status: 'failed', job: { status: 'failed', error: 'terraform exploded' } },
+            }),
+        )
+
+        const status = await getCoderWorkspaceLaunchStatus('study-1')
+
+        expect(status.failed).toBe(true)
+        expect(status.reason).toBe('terraform exploded')
+        expect(status.url).toBeNull()
+    })
+
+    it('survives a failing log fetch and still returns status from the other source', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string) => {
+            if (url.includes('/workspacebuilds/') && url.includes('/logs')) {
+                return Promise.resolve({ ok: false, status: 500, text: vi.fn().mockResolvedValue('boom') })
+            }
+            return routeFetch({ agentLogs: [{ id: 9, created_at: '2020-01-01T00:00:09Z', output: 'agent' }] })(url)
+        })
+
+        const status = await getCoderWorkspaceLaunchStatus('study-1')
+
+        expect(status.buildLogLines).toEqual([])
+        expect(status.agentLogLines).toEqual(['agent'])
+        expect(status.cursors.agent).toBe(9)
+    })
+
+    it('throws when Coder reports more than one agent', async () => {
+        const twoAgentEvent = {
+            ...workspaceEvent,
+            latest_build: {
+                ...workspaceEvent.latest_build,
+                resources: [{ agents: [{ id: 'agent-1' }, { id: 'agent-2' }] }],
+            },
+        }
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string) => {
+            const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+            if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
+            if (url.includes('/workspace/')) return ok(twoAgentEvent)
+            return ok([])
+        })
+
+        await expect(getCoderWorkspaceLaunchStatus('study-1')).rejects.toThrow(/expected at most one agent/)
     })
 })
 

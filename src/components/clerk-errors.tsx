@@ -3,10 +3,14 @@ import { Alert } from '@mantine/core'
 import { WarningIcon } from '@phosphor-icons/react'
 import { FC } from 'react'
 
-// Custom error titles for Clerk error alerts
-export const CLERK_ERROR_TITLES: Record<string, { title: string }> = {
+// Custom copy for Clerk error alerts; `message` replaces Clerk's wording when it is
+// too vague for end users (OTTER-597)
+export const CLERK_ERROR_COPY: Record<string, { title: string; message?: string }> = {
     form_password_pwned: {
         title: 'Compromised Password',
+        message:
+            'This password was found in a database of known breached passwords and cannot be used. ' +
+            'Please choose a different password.',
     },
     verification_failed: {
         title: 'Too Many Attempts',
@@ -26,8 +30,9 @@ export const ClerkErrorAlert: FC<ClerkErrorAlertProps> = ({ error, onClose }) =>
 
     if (isClerkApiError(error)) {
         const clerkErr = error.errors[0]
-        title = CLERK_ERROR_TITLES[clerkErr.code]?.title || title
-        body = clerkErr.longMessage || clerkErr.message
+        const copy = CLERK_ERROR_COPY[clerkErr.code]
+        title = copy?.title || title
+        body = copy?.message || clerkErr.longMessage || clerkErr.message
     }
 
     return (

@@ -1,14 +1,20 @@
 'use client'
 
 import { FC } from 'react'
+import { useParams } from 'next/navigation'
 import { Stack, Title } from '@mantine/core'
-import ProxyProvider from '@/components/proxy-provider'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
+import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
 import { EditResubmitFooter } from './footer'
+
+// Change-requested proposals are co-editable by the whole lab; once any member
+// resubmits, the study leaves CHANGE-REQUESTED and the rest must be kicked out.
+const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED'] as const
 
 interface EditResubmitFormProps {
     orgName: string
@@ -27,10 +33,23 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     enclaveOrgSlug,
     feedbackEntries,
 }) => {
-    const { form, noteForm, saveDraft, isSaving, isSavingNote, noteLastSavedAt } = useEditResubmit()
+    const { studyId, noteForm, isSavingNote, noteLastSavedAt, yjsForm, tabSessionId } = useEditResubmit()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
+
+    useSubmissionRedirectListener({
+        provider: yjsForm.provider,
+        orgSlug,
+        studyId,
+        currentTabId: tabSessionId,
+    })
 
     return (
-        <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
+        <StudyKickOutProvider
+            studyId={studyId}
+            orgSlug={orgSlug}
+            editableStatuses={RESUBMIT_EDITABLE_STATUSES}
+            redirectTarget="studySubmitted"
+        >
             <Stack gap="xxl">
                 <Title order={1}>Edit Initial Request</Title>
 
@@ -55,6 +74,6 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     enclaveOrgSlug={enclaveOrgSlug}
                 />
             </Stack>
-        </ProxyProvider>
+        </StudyKickOutProvider>
     )
 }

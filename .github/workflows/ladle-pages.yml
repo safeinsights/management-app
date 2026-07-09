@@ -1,0 +1,82 @@
+# Builds the Ladle component explorer and publishes it to GitHub Pages.
+#
+# SECURITY (OTTER-545): the `deploy` job holds the Pages deploy credentials
+# (`pages: write`, `id-token: write`). Those permissions MUST NOT be exposed to
+# PR-controlled code, so this workflow publishes ONLY from `main` (push), never
+# from `pull_request`. The split below keeps the threat model tight:
+#
+#   - `build` runs `pnpm install` + the Ladle build. Even on `main` this executes
+#     repo code, so it is granted `contents: read` and nothing else.
+#   - `deploy` runs no project code — it only takes the artifact `build`
+#     produced and hands it to actions/deploy-pages. It is the only job with
+#     Pages write access.
+#
+# As elsewhere in this repo, third-party actions are pinned to commit SHAs (with
+# the version tag in a trailing comment) so a compromised upstream tag cannot
+# silently change what runs here. Use Dependabot to update the SHAs. Every
+# `actions/checkout` sets `persist-credentials: false`.
+name: Ladle Pages
+
+on:
+    push:
+        branches:
+            - main
+    # Allow manual republish from the Actions tab.
+    workflow_dispatch: {}
+
+# Allow one concurrent deployment; a newer push supersedes an in-flight one but
+# we let it finish so a half-published site is never left live.
+concurrency:
+    group: ladle-pages
+    cancel-in-progress: false
+
+jobs:
+    build:
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+            # Resolves the Pages base path (e.g. "/management-app/") so Ladle
+            # emits asset URLs that work under the project subpath. Outputs
+            # `base_path` consumed by the build step below.
+            - name: Configure Pages
+              id: pages
+              uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+            - name: pnpm install
+              run: pnpm install --frozen-lockfile
+            - name: Build Ladle
+              run: pnpm run ladle:build:pages
+              env:
+                  LADLE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+            - name: Upload Pages artifact
+              uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+              with:
+                  path: .ladle/dist
+
+    deploy:
+        needs: build
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        # SECURITY (OTTER-545): the ONLY job granted Pages write access. It runs
+        # no project code (no checkout, no install, no build) — it just deploys
+        # the artifact built above. Do NOT add `pnpm install`/build/test steps
+        # here, and do NOT widen the trigger to `pull_request`.
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

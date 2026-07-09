@@ -1,16 +1,14 @@
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { AlertNotFound } from '@/components/errors'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Divider, Group, Stack, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyResultsRedesignWithReview } from './study-results-redesign-with-review'
+import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
-// OTTER-538: Study Details page (DO) — results-only layout.
-// Removes the "Study Code" section. The "Previous" button takes the DO back to
-// the post-code-feedback page from OTTER-552.
+// OTTER-538: Study Details page (DO) — results-only layout, removes the "Study Code" section.
+// OTTER-643: Previous walks back to the read-only code step (/review/code). A bare /review href would
+// re-resolve straight back to this screen (results out-rank every other reviewer screen), so the
+// dedicated route is what breaks the self-link — see resolveReviewerCodeScreen.
 
 type StudyDetailsReviewerProps = {
     orgSlug: string
@@ -23,26 +21,11 @@ export async function StudyDetailsReviewer({ orgSlug, study }: StudyDetailsRevie
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const previousHref = Routes.studyReview({ orgSlug, studyId: study.id, from: 'code-review' })
+    const previousHref = Routes.studyReviewCode({ orgSlug, studyId: study.id })
 
     return (
-        <Stack px="xl" gap="xl">
-            <OrgBreadcrumbs
-                crumbs={{
-                    orgSlug,
-                    current: 'Study Details',
-                }}
-            />
-            <Title order={2} size="h4" fw={500}>
-                Study Details
-            </Title>
-            <Divider />
+        <StudyDetailsReviewerView orgSlug={orgSlug} previousHref={previousHref}>
             <StudyResultsRedesignWithReview job={job} study={study} />
-            <Group>
-                <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                    Previous
-                </ButtonLink>
-            </Group>
-        </Stack>
+        </StudyDetailsReviewerView>
     )
 }

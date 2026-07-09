@@ -7,6 +7,10 @@
 *.log
 tmp/
 .next/
+# Ladle build output (normal + standalone single-file) and the shareable zip — all under .ladle/
+.ladle/dist/
+.ladle/dist-standalone/
+.ladle/*.zip
 test-results/
 *.tern-port
 node_modules/
@@ -32,8 +36,11 @@ next-env.d.ts
 
 volume/
 tests/coder-files/
+# Per-role Clerk sessions saved by tests/auth.setup.ts (contain real tokens)
+tests/.auth/
 
 # Claude Code local settings (user-specific, not shared)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 CLAUDE.local.md
 .mcp.json

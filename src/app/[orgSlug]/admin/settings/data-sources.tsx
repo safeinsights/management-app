@@ -1,12 +1,13 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Button, Group, ActionIcon, Tooltip, Anchor, Box } from '@mantine/core'
+import { Stack, Text, ActionIcon, Tooltip } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modals/app-modal'
 import { DataSourceForm } from './data-source-form'
-import { TrashIcon, PlusCircleIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
+import { DataSourceRowView, DataSourcesView } from './data-sources-view'
+import { TrashIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sources.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
@@ -37,61 +38,39 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
     }
 
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-            <Group justify="space-between" p="sm" wrap="nowrap">
-                <Box style={{ minWidth: 0, flex: 1 }}>
-                    <Group gap="sm" wrap="nowrap">
-                        <Text fw={500}>{dataSource.name}</Text>
-                        <Text c="dimmed" size="sm">
-                            {dataSource.codeEnvs.map((e) => e.name).join(', ')}
-                        </Text>
-                    </Group>
-                    {dataSource.description && (
-                        <Text size="sm" c="dimmed" lineClamp={1}>
-                            {dataSource.description}
-                        </Text>
-                    )}
-                    {dataSource.urls.map(
-                        (u) =>
-                            u.url && (
-                                <Group key={u.id} gap="sm" wrap="nowrap">
-                                    <Text>
-                                        <Anchor size="sm" href={u.url} target="_blank" rel="noopener noreferrer">
-                                            {u.url}
-                                        </Anchor>
-                                    </Text>
-                                    <Text c="dimmed" size="sm">
-                                        {u.description}
-                                    </Text>
-                                </Group>
-                            ),
-                    )}
-                </Box>
-                <Group gap={4} wrap="nowrap">
-                    <Tooltip label="Edit" withArrow>
-                        <ActionIcon
-                            size="sm"
-                            variant="subtle"
-                            color="green"
-                            onClick={openEditModal}
-                            aria-label="Edit data source"
+        <>
+            <DataSourceRowView
+                name={dataSource.name}
+                codeEnvNames={dataSource.codeEnvs.map((e) => e.name).join(', ')}
+                description={dataSource.description}
+                urls={dataSource.urls}
+                actions={
+                    <>
+                        <Tooltip label="Edit" withArrow>
+                            <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="green"
+                                onClick={openEditModal}
+                                aria-label="Edit data source"
+                            >
+                                <PencilIcon />
+                            </ActionIcon>
+                        </Tooltip>
+                        <SuretyGuard
+                            onConfirmed={() => deleteMutation.mutate({ orgSlug, dataSourceId: dataSource.id })}
+                            message="Are you sure you want to delete this data source? This cannot be undone."
                         >
-                            <PencilIcon />
-                        </ActionIcon>
-                    </Tooltip>
-                    <SuretyGuard
-                        onConfirmed={() => deleteMutation.mutate({ orgSlug, dataSourceId: dataSource.id })}
-                        message="Are you sure you want to delete this data source? This cannot be undone."
-                    >
-                        <TrashIcon aria-label="Delete data source" />
-                    </SuretyGuard>
-                </Group>
-            </Group>
+                            <TrashIcon aria-label="Delete data source" />
+                        </SuretyGuard>
+                    </>
+                }
+            />
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Data Source">
                 <DataSourceForm dataSource={dataSource} onCompleteAction={handleEditComplete} />
             </AppModal>
-        </Box>
+        </>
     )
 }
 
@@ -135,18 +114,8 @@ export const DataSources: React.FC = () => {
     }
 
     return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Data Sources
-                    </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                        Add Data Source
-                    </Button>
-                </Group>
-                <Divider c="dimmed" />
-
+        <>
+            <DataSourcesView onAdd={openAddModal}>
                 {isLoading && <LoadingMessage message="Loading data sources" />}
 
                 {isError && (
@@ -159,11 +128,11 @@ export const DataSources: React.FC = () => {
                 )}
 
                 {!isLoading && !isError && <DataSourcesTable dataSources={dataSources || []} />}
-            </Stack>
+            </DataSourcesView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Data Source">
                 <DataSourceForm onCompleteAction={handleFormComplete} />
             </AppModal>
-        </Paper>
+        </>
     )
 }

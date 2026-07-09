@@ -24,6 +24,7 @@ import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile } from '@/server/aws'
+import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -31,6 +32,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn(),
         triggerScanForStudyJob: vi.fn(),
+        deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
         signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
     }
@@ -136,10 +138,14 @@ describe('StudyCode component', () => {
 
         const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
-        expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
-            'aria-pressed',
-            'true',
-        )
+        // The override is synchronous useState, but the re-render can lag the click under parallel
+        // load — wait for the aria-pressed flip rather than asserting it synchronously.
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
+                'aria-pressed',
+                'true',
+            )
+        })
         expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
             'aria-pressed',
             'false',
@@ -174,7 +180,9 @@ describe('StudyCode component', () => {
         expect(within(dialog).getByRole('button', { name: 'Yes, submit study code' })).toBeInTheDocument()
     })
 
-    it('submits IDE files and persists study job records', async () => {
+    // Submitting reuses the open round job, whose cleanup hits real S3
+    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    it.skipIf(!s3Available)('submits IDE files and persists study job records', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'main.R': 'print("main")',
@@ -214,7 +222,7 @@ describe('StudyCode component', () => {
         )
     })
 
-    it('auto-selects the only file as main and submits', async () => {
+    it.skipIf(!s3Available)('auto-selects the only file as main and submits', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'analysis.r': 'print("only")',
@@ -243,6 +251,25 @@ describe('StudyCode component', () => {
         })
 
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
+    })
+
+    it('keeps the user on the review page after deleting the only file', async () => {
+        const user = userEvent.setup()
+        await renderIDE('openstax-lab', { 'only.R': 'print("only")' })
+
+        await waitFor(() => {
+            expect(screen.getByText('only.R')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /remove only\.r/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('only.R')).not.toBeInTheDocument()
+        })
+
+        expect(screen.getByText('Review files')).toBeInTheDocument()
+        expect(screen.queryByText(/write and test your code in ide/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('OR')).not.toBeInTheDocument()
     })
 
     it('renders the page chrome and previous link', async () => {
@@ -310,7 +337,7 @@ describe('StudyCode component', () => {
     })
 
     describe('session timeout regression', () => {
-        it('submits successfully after unmount and fresh remount with same studyId', async () => {
+        it.skipIf(!s3Available)('submits successfully after unmount and fresh remount with same studyId', async () => {
             const orgSlug = 'openstax-lab'
             const { study } = await setupStudy(orgSlug)
             await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })

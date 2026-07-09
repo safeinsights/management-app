@@ -29,3 +29,17 @@ export const getAgentContext = async (db: DBConn, { name, orgId }: { name: Conte
 
     return { content: row?.content ?? '' }
 }
+
+// SYSTEM context followed by the language context, empties skipped.
+export const getAgentContextString = async (
+    db: DBConn,
+    { language, orgId }: { language: Language; orgId: string | null },
+): Promise<string> => {
+    const names: ContextName[] = ['SYSTEM', language]
+    const parts: string[] = []
+    for (const name of names) {
+        const { content } = await getAgentContext(db, { name, orgId })
+        if (content) parts.push(content)
+    }
+    return parts.join('\n')
+}

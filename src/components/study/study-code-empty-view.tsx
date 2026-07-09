@@ -5,6 +5,7 @@ import type { FileWithPath } from '@mantine/dropzone'
 import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
 interface StarterFile {
@@ -16,6 +17,9 @@ interface StudyCodeEmptyViewProps {
     launchWorkspace: () => void
     isLaunching: boolean
     launchError: Error | null
+    launchLastUpdatedAt?: Date | null
+    launchBuildLog?: string
+    launchAgentLog?: string
     uploadFiles: (files: FileWithPath[]) => void
     isUploading: boolean
     starterFiles: StarterFile[]
@@ -26,6 +30,9 @@ export function StudyCodeEmptyView({
     launchWorkspace,
     isLaunching,
     launchError,
+    launchLastUpdatedAt,
+    launchBuildLog = '',
+    launchAgentLog = '',
     uploadFiles,
     isUploading,
     starterFiles,
@@ -39,7 +46,7 @@ export function StudyCodeEmptyView({
             <Text size="sm">
                 To prepare your code, upload existing files
                 {showLaunchIde ? ' or write new code in our Integrated Development Environment (IDE)' : ''}. Once ready,
-                submit your files to the Data Organization to run against their dataset.
+                submit your files to the Data Partner to run against their dataset.
             </Text>
 
             {showLaunchIde && (
@@ -47,7 +54,7 @@ export function StudyCodeEmptyView({
                     <Stack gap="sm">
                         <Text fw={700}>Write and test your code in IDE (recommended)</Text>
                         <Text size="sm" c="dimmed">
-                            IDE is pre-configured to help you write your code and test it against sample data. It will
+                            IDE is pre-configured to help you write your code and test it against example data. It will
                             open in a new tab and you can write your code there. All files created in the IDE will
                             populate here.
                         </Text>
@@ -59,12 +66,18 @@ export function StudyCodeEmptyView({
                                 variant="cta"
                             />
                         </Box>
+                        <LaunchProgress
+                            isVisible={isLaunching}
+                            buildLog={launchBuildLog}
+                            agentLog={launchAgentLog}
+                            lastUpdatedAt={launchLastUpdatedAt}
+                        />
                         <Text size="sm">
                             <Text span fw={700}>
                                 Note:{' '}
                             </Text>
                             After creating or editing files in the IDE, please return here to submit your code to the
-                            Data Organization.
+                            Data Partner.
                         </Text>
                     </Stack>
                 </Paper>
@@ -78,8 +91,8 @@ export function StudyCodeEmptyView({
                         <Text fw={700}>Upload your files</Text>
                         <Text size="sm" c="dimmed">
                             Make sure that your main file contains the <StarterCodeLink file={starterLink} /> provided
-                            by the Data Organization for accessing their datasets. You may also continue to edit your
-                            uploaded files in the IDE before submitting them to the Data Organization.
+                            by the Data Partner for accessing their datasets. You may also continue to edit your
+                            uploaded files in the IDE before submitting them to the Data Partner.
                         </Text>
                         <Box mt="sm">
                             <Stack gap="xs" align="flex-start">

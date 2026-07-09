@@ -31,6 +31,7 @@ import {
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -209,6 +210,19 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    it('onDeleteStudyAction rejects a cross-lab user and leaves the study intact', async () => {
+        const { org: labA } = await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-A', orgType: 'lab' })
+        const { studyId } = await insertTestStudyData({ org: labA })
+
+        // A member of a different lab must not be able to delete labA's study by id.
+        await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-B', orgType: 'lab' })
+        const result = await onDeleteStudyAction({ studyId })
+        expect(result).toHaveProperty('error')
+
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study?.id).toBe(studyId)
     })
 
     // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
@@ -852,7 +866,7 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        it('resubmitting after change-requested opens a new round (a second job/version)', async () => {
+        it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit')
@@ -860,6 +874,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -880,14 +898,29 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            expect(await jobCount(study.id)).toBe(2)
+            // CR resubmit reuses the existing job — no new job is opened until FILES-APPROVED/REJECTED.
+            // markCodeSubmitted is round-aware: the CODE-CHANGES-REQUESTED opened a new round, so the
+            // resubmit appends a SECOND CODE-SUBMITTED on the same job (count = 2). This is what flips
+            // count-based liveness back to "under review" so the researcher leaves the feedback screen.
+            expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
+
+            // The note records the round it opened (study-wide submission version) so the reviewer's
+            // feedback panel labels it v2, matching the round-2 decision (OTTER-638).
+            const jobAfter = await db
+                .selectFrom('studyJob')
+                .select(['resubmissionNote', 'resubmissionRound'])
+                .where('id', '=', round1Job.id)
+                .executeTakeFirstOrThrow()
+            expect(jobAfter.resubmissionNote).not.toBeNull()
+            expect(jobAfter.resubmissionRound).toBe(2)
         })
 
         // Regression: in the real flow the researcher uploads files on the resubmit page *before*
-        // submitting, which opens a fresh INITIATED round job. The resubmit guard must gate on the
-        // prior submitted job (CODE-CHANGES-REQUESTED), not that new INITIATED job, or it throws.
-        it('resubmit succeeds after a file upload opens the new round job first', async () => {
+        // submitting. Under the new model ensureRoundJobForUpload REUSES the existing job (no new
+        // round job is minted on CR). The resubmit must still succeed and append a second
+        // CODE-SUBMITTED to the same job.
+        it('resubmit succeeds after a file upload reuses the round job (no new job on CR upload)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-upload')
@@ -895,6 +928,10 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
+            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
+            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -905,9 +942,9 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // Researcher uploads a file on the resubmit page → opens the round 2 INITIATED job.
+            // Researcher uploads a file on the resubmit page → reuses the existing round job (no new job).
             await ensureRoundJobForUpload(db, study.id)
-            expect(await jobCount(study.id)).toBe(2)
+            expect(await jobCount(study.id)).toBe(1)
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             const result = await resubmitStudyCodeAction({
@@ -918,16 +955,54 @@ describe('Request Study Actions', () => {
             })
 
             expect(result).not.toHaveProperty('error')
-            // Still exactly the two rounds; the upload job became round 2, now CODE-SUBMITTED.
-            expect(await jobCount(study.id)).toBe(2)
+            // Still one job — reused throughout. markCodeSubmitted is round-aware: round 1's
+            // CODE-SUBMITTED + the reviewer's CODE-CHANGES-REQUESTED opened round 2, so the resubmit
+            // appends a second CODE-SUBMITTED on the same job (count = 2).
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+
+        it('re-submitting again within the SAME change-requested round does not append a third CODE-SUBMITTED', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-twice')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const round1Job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            // First resubmit of round 2 → appends the second CODE-SUBMITTED.
+            await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
+            expect(await submittedStatusCount(study.id)).toBe(2)
+
+            // Resubmit AGAIN before the reviewer decides round 2 → same round, idempotent, still 2.
+            await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
+            expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
     })
 
     describe('saveCodeResubmissionNoteDraftAction', () => {
-        it('persists the draft note on the study row', async () => {
+        // Code resubmission keeps study.status APPROVED; eligibility is the latest submitted
+        // job being in a resubmittable status (here CODE-CHANGES-REQUESTED), not study.status.
+        it('persists the draft note while the study stays APPROVED for a same-lab user', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
 
             const result = actionResult(
                 await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }),
@@ -944,11 +1019,69 @@ describe('Request Study Actions', () => {
 
         it('rejects payloads larger than 10kb', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
 
             const tooLong = 'x'.repeat(10_001)
             const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
             expect(result).toHaveProperty('error')
+        })
+
+        it('rejects a cross-lab save attempt instead of silently no-op (OTTER-607)', async () => {
+            const { org: labA, user: ownerA } = await mockSessionWithTestData({
+                orgSlug: 'lab-code-note-cross-A',
+                orgType: 'lab',
+            })
+            const { study } = await insertTestStudyJobData({
+                org: labA,
+                researcherId: ownerA.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+
+            // Switch session to a user in a different lab and try to save the draft.
+            await mockSessionWithTestData({ orgSlug: 'lab-code-note-cross-B', orgType: 'lab' })
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'cross-lab attempt',
+            })
+            // Without the 0-row UPDATE check the client would render the autosave
+            // indicator as "All changes saved" while nothing was persisted.
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
+        })
+
+        it('rejects a save attempt when the latest job is not resubmittable', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'JOB-READY',
+            })
+
+            const result = await saveCodeResubmissionNoteDraftAction({
+                studyId: study.id,
+                note: 'wrong-status attempt',
+            })
+            expect('error' in result).toBe(true)
+
+            const row = await db
+                .selectFrom('study')
+                .select('codeResubmissionNoteDraft')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(row.codeResubmissionNoteDraft).toBeNull()
         })
     })
 

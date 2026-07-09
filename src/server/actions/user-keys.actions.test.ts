@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
-import {
-    getReviewerPublicKeyAction,
-    setReviewerPublicKeyAction,
-    updateReviewerPublicKeyAction,
-} from './user-keys.actions'
+import { mockSessionWithTestData, actionResult, readTestSupportFile } from '@/tests/unit.helpers'
+import { getUserPublicKeyAction, setUserPublicKeyAction, updateUserPublicKeyAction } from './user-keys.actions'
 import { db } from '@/database'
-import logger from '@/lib/logger'
+import { isActionError } from '@/lib/errors'
+import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
+
+async function validTestKey() {
+    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+    return { publicKey, fingerprint: await fingerprintKeyData(publicKey) }
+}
 
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
@@ -15,20 +17,18 @@ vi.mock('@/server/events', async (importOriginal) => ({
 }))
 
 describe('User Keys Actions', () => {
-    it('only allows reviewer users to access the actions', async () => {
-        await mockSessionWithTestData({ orgType: 'lab' })
-        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+    it('allows lab researchers to access the actions, since they now hold keys too', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        const publicKey = Buffer.from('lab-public-key')
+        const fingerprint = 'lab-fingerprint'
+        await db.insertInto('userPublicKey').values({ userId: user.id, publicKey, fingerprint }).execute()
 
-        try {
-            actionResult(await getReviewerPublicKeyAction())
-            expect.fail('Expected an error to be thrown')
-        } catch (error) {
-            expect(error).toBeInstanceOf(Error)
-            expect((error as Error).message).toMatch(/cannot view ReviewerKey/)
-        }
+        const result = actionResult(await getUserPublicKeyAction())
+        expect(result?.fingerprint).toEqual(fingerprint)
     })
 
-    it('getReviewerPublicKeyAction returns the public key for the current user', async () => {
+    it('getUserPublicKeyAction returns the public key for the current user', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         const publicKey = Buffer.from('test-public-key')
@@ -36,25 +36,39 @@ describe('User Keys Actions', () => {
 
         await db.insertInto('userPublicKey').values({ userId: user.id, publicKey, fingerprint }).execute()
 
-        const result = actionResult(await getReviewerPublicKeyAction())
+        const result = actionResult(await getUserPublicKeyAction())
         expect(result).toBeDefined()
         expect(result?.fingerprint).toEqual(fingerprint)
     })
 
-    it('setReviewerPublicKeyAction sets the public key for the current user', async () => {
+    it('setUserPublicKeyAction sets the public key for the current user', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-        const publicKey = Buffer.from('new-public-key').buffer
-        const fingerprint = 'new-fingerprint'
+        const { publicKey, fingerprint } = await validTestKey()
 
-        await setReviewerPublicKeyAction({ publicKey, fingerprint })
+        await setUserPublicKeyAction({ publicKey })
 
-        const newKeyResult = actionResult(await getReviewerPublicKeyAction())
+        // Fingerprint is derived server-side from publicKey, not taken from the client. It must match
+        // an independent derivation of the same key.
+        const newKeyResult = actionResult(await getUserPublicKeyAction())
         expect(newKeyResult).toBeDefined()
         expect(newKeyResult?.fingerprint).toEqual(fingerprint)
     })
 
-    it('updateReviewerPublicKeyAction updates the public key for the current user', async () => {
+    it('setUserPublicKeyAction rejects a key that is not valid SPKI DER', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+        const result = await setUserPublicKeyAction({
+            publicKey: Buffer.from('not-a-real-key').buffer,
+        })
+
+        expect(isActionError(result)).toBe(true)
+        const stored = actionResult(await getUserPublicKeyAction())
+        expect(stored).toBeFalsy()
+    })
+
+    it('updateUserPublicKeyAction updates the public key for the current user', async () => {
         const { user } = await mockSessionWithTestData()
         const oldPublicKey = Buffer.from('old-public-key')
         const oldFingerprint = 'old-fingerprint'
@@ -64,13 +78,29 @@ describe('User Keys Actions', () => {
             .values({ userId: user.id, publicKey: oldPublicKey, fingerprint: oldFingerprint })
             .execute()
 
-        const newPublicKey = Buffer.from('new-public-key-for-update').buffer
-        const newFingerprint = 'new-fingerprint-for-update'
+        const { publicKey, fingerprint } = await validTestKey()
 
-        await updateReviewerPublicKeyAction({ publicKey: newPublicKey, fingerprint: newFingerprint })
+        await updateUserPublicKeyAction({ publicKey })
 
-        const updatedKeyResult = actionResult(await getReviewerPublicKeyAction())
+        const updatedKeyResult = actionResult(await getUserPublicKeyAction())
         expect(updatedKeyResult).toBeDefined()
-        expect(updatedKeyResult?.fingerprint).toEqual(newFingerprint)
+        expect(updatedKeyResult?.fingerprint).toEqual(fingerprint)
+    })
+
+    it('updateUserPublicKeyAction rejects a key that is not valid SPKI DER', async () => {
+        const { user } = await mockSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('old-public-key'), fingerprint: 'old-fingerprint' })
+            .execute()
+
+        const result = await updateUserPublicKeyAction({
+            publicKey: Buffer.from('still-not-a-key').buffer,
+        })
+
+        expect(isActionError(result)).toBe(true)
+        const stored = actionResult(await getUserPublicKeyAction())
+        expect(stored?.fingerprint).toEqual('old-fingerprint')
     })
 })

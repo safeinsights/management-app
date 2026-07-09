@@ -41,7 +41,9 @@ function DatasetPills({ names }: { names: string[] }) {
     )
     return (
         <Stack gap="xs" data-testid="submitted-code-datasets">
-            <Text size="sm">Dataset(s) associated with the study</Text>
+            <Text size="sm" fw={700}>
+                Dataset(s) associated with the study
+            </Text>
             <Group gap="xs">{names.length === 0 ? empty : pills}</Group>
         </Stack>
     )
@@ -104,7 +106,7 @@ function SecurityScanLog({ scan }: { scan: JobScanResult }) {
 type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
-    job: Pick<LatestJobForStudy, 'id' | 'files'>
+    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt'>
     review: StudyReviewWithMeta | null
     scan: JobScanResult
     codeInitiallyExpanded?: boolean
@@ -122,7 +124,7 @@ export function SubmittedCodeSection({
     codeInitiallyExpanded = true,
 }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
-    const proposalHref = `${Routes.studyReview({ orgSlug, studyId: study.id })}?from=code-review`
+    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
@@ -132,16 +134,22 @@ export function SubmittedCodeSection({
                 <Divider />
                 <DatasetPills names={datasetNames} />
                 <Divider />
-                <Group align="stretch" grow gap="xl" wrap="nowrap">
-                    <Paper withBorder p="lg" radius={0}>
-                        <AiSummaryCollapsible studyJobId={job.id} initialReview={review} />
-                    </Paper>
-                    <Paper withBorder p="lg" radius={0}>
-                        <SecurityScanLog scan={scan} />
-                    </Paper>
-                </Group>
-                <Divider />
-                <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={codeInitiallyExpanded} />
+                <Stack gap="xxl">
+                    <Group align="stretch" grow gap="xl" wrap="nowrap">
+                        <Paper withBorder p="lg" radius={0}>
+                            <AiSummaryCollapsible
+                                studyJobId={job.id}
+                                initialReview={review}
+                                submittedAt={job.createdAt}
+                            />
+                        </Paper>
+                        <Paper withBorder p="lg" radius={0}>
+                            <SecurityScanLog scan={scan} />
+                        </Paper>
+                    </Group>
+                    <Divider />
+                    <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={codeInitiallyExpanded} />
+                </Stack>
             </Stack>
         </Paper>
     )

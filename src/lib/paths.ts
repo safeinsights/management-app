@@ -1,4 +1,5 @@
 import type { MinimalCodeEnvInfo, MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import type { AgentId, BuildId, CoderUsername, WorkspaceId } from '@/server/coder/types'
 import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
@@ -44,19 +45,27 @@ export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileN
 
 export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
 
-export const coderUserInfoPath = (username: string) => `/api/v2/users/${username}`
+export const coderUserInfoPath = (username: CoderUsername) => `/api/v2/users/${username}`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`
 export const coderTemplateId = () => `/api/v2/templates`
-export const coderWorkspaceCreatePath = (organization: string, username: string) =>
+export const coderWorkspaceCreatePath = (organization: string, username: CoderUsername) =>
     `/api/v2/organizations/${organization}/members/${username}/workspaces`
-export const coderWorkspacePath = (username: string, workspaceName: string) =>
+export const coderWorkspacePath = (username: CoderUsername, workspaceName: string) =>
     `/@${username}/${workspaceName}.main/apps/code-server`
-export const coderWorkspaceDataPath = (username: string, workspaceName: string) =>
+export const coderWorkspaceDataPath = (username: CoderUsername, workspaceName: string) =>
     `/api/v2/users/${username}/workspace/${workspaceName}`
-export const coderWorkspaceBuildPath = (workspaceId: string) => `/api/v2/workspaces/${workspaceId}/builds`
+export const coderWorkspaceBuildPath = (workspaceId: WorkspaceId) => `/api/v2/workspaces/${workspaceId}/builds`
+export const coderWorkspaceBuildByIdPath = (buildId: BuildId) => `/api/v2/workspacebuilds/${buildId}`
 
-const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'researcher', 'reviewer-key', 'admin']
+// Coder log endpoints accept an `after` log id to fetch only newer lines; omit it for the full log.
+const withAfter = (path: string, after?: number | null) => (after != null ? `${path}?after=${after}` : path)
+export const coderWorkspaceBuildLogsPath = (buildId: BuildId, after?: number | null) =>
+    withAfter(`/api/v2/workspacebuilds/${buildId}/logs`, after)
+export const coderWorkspaceAgentLogsPath = (agentId: AgentId, after?: number | null) =>
+    withAfter(`/api/v2/workspaceagents/${agentId}/logs`, after)
+
+const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'researcher', 'user-key', 'admin']
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)
     if (NON_ORG_PREFIXES.includes(parts[0])) {

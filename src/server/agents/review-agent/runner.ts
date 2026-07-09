@@ -6,6 +6,7 @@ import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
+import { getAgentContextString } from '@/lib/agent-context'
 
 // Written when the API key is missing, before content assembly. This means a
 // no-code-files study with a missing key gets the placeholder too — fine, since
@@ -59,13 +60,16 @@ function lexicalFieldToText(value: unknown): string {
     return extractTextFromLexical(typeof value === 'string' ? value : JSON.stringify(value))
 }
 
-async function assembleReviewContent(studyJobId: string): Promise<ReviewContent | null> {
+async function assembleReviewContent(
+    studyJobId: string,
+): Promise<{ content: ReviewContent; agentContext: string } | null> {
     const job = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select([
             'studyJob.id as studyJobId',
             'study.orgId',
+            'study.language',
             'study.projectSummary',
             'study.researchQuestions',
             'study.impact',
@@ -94,7 +98,10 @@ async function assembleReviewContent(studyJobId: string): Promise<ReviewContent 
 
     const dataDocs = await generateDataSourcesContextString(job.orgId)
 
-    return {
+    // orgId: null — global context is all the SI Admin page currently writes.
+    const agentContext = await getAgentContextString(db, { language: job.language, orgId: null })
+
+    const content: ReviewContent = {
         proposal: proposalParts.join('\n\n') || PLACEHOLDER,
         codeFiles,
         referenceDocs: {
@@ -111,6 +118,8 @@ async function assembleReviewContent(studyJobId: string): Promise<ReviewContent 
         // TODO: pass researcherTestResults once test-run output is captured per studyJob
         // (StudyJobFile fileType for results / RUN logs). Enables `resultsSummary` field.
     }
+
+    return { content, agentContext }
 }
 
 export async function generateAndStoreStudyReview(studyJobId: string): Promise<void> {
@@ -118,14 +127,28 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
 
     const existing = await db
         .selectFrom('studyReview')
-        .select('id')
+        .select(['id', 'summaryFailedAt'])
         .where('studyJobId', '=', studyJobId)
         .executeTakeFirst()
-    if (existing) {
+    // A prior failure row is not terminal: a retry clears it and re-enters here.
+    // Only a successful (or placeholder) row short-circuits.
+    if (existing && existing.summaryFailedAt == null) {
         logger.info(`Study review already exists, skipping`, { studyJobId })
         return
     }
 
+    try {
+        await runStudyReview(studyJobId)
+    } catch (error) {
+        // Record the failure so the reviewer-side poll can tell "failed" from
+        // "still generating" and surface a retry. Re-throw so the deferred
+        // wrapper still captures + flushes to Sentry.
+        await persistFailure(studyJobId)
+        throw error
+    }
+}
+
+async function runStudyReview(studyJobId: string): Promise<void> {
     const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
     if (!apiKey) {
         logger.warn('CLAUDE_API_KEY not configured — writing disabled-review placeholder', { studyJobId })
@@ -133,26 +156,34 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
         return
     }
 
-    const content = await assembleReviewContent(studyJobId)
-    if (!content) return
+    const assembled = await assembleReviewContent(studyJobId)
+    if (!assembled) return
+    const { content, agentContext } = assembled
 
-    // TODO(SI-Admin): once the SI Admin org-level config schema lands, fetch
-    // `systemPrompt` and `analysisPromptTemplate` overrides for `job.orgId`
-    // and pass them through. Agent already honors them — only the lookup is
-    // missing. Until then, both fall back to the bundled defaults.
     // TODO(chat): persist `messages` alongside `report` (e.g. add a
     // `conversation jsonb` column on studyReview) once chat follow-up lands
     // (target: before Oct 2026). Seed for `continueChat`.
-    const { report } = await generateAnalysis({ apiKey }, content)
+    const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext }, content)
 
     await persistReport(studyJobId, report)
     logger.info(`Study review generated and stored`, { studyJobId })
 }
 
 async function persistReport(studyJobId: string, report: AnalysisReport): Promise<void> {
+    // A retry may have left a cleared failure row; overwrite it with the result.
     await db
         .insertInto('studyReview')
-        .values({ studyJobId, report: JSON.stringify(report) })
-        .onConflict((oc) => oc.column('studyJobId').doNothing())
+        .values({ studyJobId, report: JSON.stringify(report), summaryFailedAt: null })
+        .onConflict((oc) =>
+            oc.column('studyJobId').doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
+        )
+        .execute()
+}
+
+async function persistFailure(studyJobId: string): Promise<void> {
+    await db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: new Date() })
+        .onConflict((oc) => oc.column('studyJobId').doUpdateSet({ report: null, summaryFailedAt: new Date() }))
         .execute()
 }

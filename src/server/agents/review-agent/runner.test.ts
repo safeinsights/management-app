@@ -37,11 +37,12 @@ const stubReport: AnalysisReport = {
 }
 
 describe('generateAndStoreStudyReview', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
         getConfigValueMock.mockResolvedValue('test-api-key')
         fetchFileContentsMock.mockResolvedValue(new Blob(['print("hi")']))
         generateDataSourcesContextStringMock.mockResolvedValue('Data sources context')
+        await db.deleteFrom('agentContext').execute()
     })
 
     afterEach(() => {
@@ -97,6 +98,28 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored?.studyJobId).toBe(job.id)
     })
 
+    it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org, language: 'R' })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+        await db
+            .insertInto('agentContext')
+            .values([
+                { name: 'SYSTEM', orgId: null, content: 'How SafeInsights works' },
+                { name: 'R', orgId: null, content: 'R language guidance' },
+            ])
+            .execute()
+
+        await generateAndStoreStudyReview(job.id)
+
+        const [config] = generateAnalysisMock.mock.calls[0] as [{ additionalContext: string }]
+        expect(config.additionalContext).toContain('How SafeInsights works')
+        expect(config.additionalContext).toContain('R language guidance')
+    })
+
     it('skips when a study review already exists for the job', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
@@ -117,6 +140,53 @@ describe('generateAndStoreStudyReview', () => {
         await generateAndStoreStudyReview(job.id)
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
+    })
+
+    it('persists a failure row and re-throws when generation throws', async () => {
+        const boom = new Error('model exploded')
+        generateAnalysisMock.mockRejectedValue(boom)
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+
+        // Re-throws so the deferred wrapper still captures + flushes to Sentry.
+        await expect(generateAndStoreStudyReview(job.id)).rejects.toThrow('model exploded')
+
+        const stored = await db
+            .selectFrom('studyReview')
+            .select(['report', 'summaryFailedAt'])
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored?.report).toBeNull()
+        expect(stored?.summaryFailedAt).toBeInstanceOf(Date)
+    })
+
+    it('re-runs generation when only a failed row exists (retry path)', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+            .execute()
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
+            .execute()
+
+        await generateAndStoreStudyReview(job.id)
+
+        // A failed row is not terminal — generation runs and overwrites it.
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const stored = await db
+            .selectFrom('studyReview')
+            .select(['report', 'summaryFailedAt'])
+            .where('studyJobId', '=', job.id)
+            .executeTakeFirst()
+        expect(stored?.report).not.toBeNull()
+        expect(stored?.summaryFailedAt).toBeNull()
     })
 
     it('writes the disabled-review placeholder and skips the agent when CLAUDE_API_KEY is unset', async () => {

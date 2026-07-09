@@ -1,12 +1,32 @@
 'use client'
 
-import { Alert, Anchor, Group, Loader, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core'
-import { CaretRight } from '@phosphor-icons/react/dist/ssr'
-import { useState } from 'react'
-import { useQuery } from '@/common'
+import {
+    ActionIcon,
+    Alert,
+    Anchor,
+    Button,
+    Group,
+    Loader,
+    Menu,
+    Skeleton,
+    Stack,
+    Text,
+    Typography,
+    UnstyledButton,
+} from '@mantine/core'
+import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { useEffect, useState } from 'react'
+import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { fetchStudyJobCodeFileAction, getStudyReviewAction } from '@/server/actions/study-job.actions'
+import { studyCodeURL } from '@/lib/paths'
+import {
+    fetchStudyJobCodeFileAction,
+    getStudyReviewAction,
+    regenerateStudyReviewAction,
+} from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 
@@ -23,12 +43,13 @@ export function truncateFileName(name: string, max = MAX_TAB_CHARS): string {
 
 export function splitVisibleFiles(files: CodeFile[]) {
     if (files.length <= MAX_VISIBLE_TABS_BEFORE_OVERFLOW) {
-        return { visible: files, hiddenCount: 0 }
+        return { visible: files, hidden: [] as CodeFile[], hiddenCount: 0 }
     }
     // When overflowing, the last visible slot becomes the "+N more files" indicator,
-    // so we keep three real tabs and roll the remainder into the overflow count.
+    // so we keep three real tabs and roll the remainder into the overflow menu.
     const visibleSlots = MAX_VISIBLE_TABS_BEFORE_OVERFLOW - 1
-    return { visible: files.slice(0, visibleSlots), hiddenCount: files.length - visibleSlots }
+    const hidden = files.slice(visibleSlots)
+    return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
 }
 
 function useAiSummaryToggle() {
@@ -36,18 +57,39 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-function AiSummaryBody({ isVisible, summary }: { isVisible: boolean; summary: string }) {
-    if (!isVisible) return null
+// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
+const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+
+// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+const MARKDOWN_LIST_COMPONENTS: Components = {
+    ul: ({ node: _node, ...props }) => (
+        <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+    ol: ({ node: _node, ...props }) => (
+        <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+}
+
+function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
-        <Text size="sm" data-testid="ai-summary-body" style={{ whiteSpace: 'pre-wrap' }}>
-            {summary}
+        <Text
+            component="div"
+            size="sm"
+            data-testid="ai-summary-body"
+            lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
+        >
+            <Typography fz="sm">
+                <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
+                    {summary}
+                </Markdown>
+            </Typography>
         </Text>
     )
 }
 
 function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
     return (
-        <CaretRight
+        <CaretRightIcon
             size={12}
             weight="bold"
             style={{
@@ -59,6 +101,31 @@ function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
 }
 
 const REVIEW_POLL_INTERVAL_MS = 5_000
+
+// A genuine failure now persists a row (summaryFailedAt) and is surfaced
+// immediately. This backstop only catches the rarer case where generation
+// hangs without ever throwing — measured from submission, not page open, so a
+// reviewer opening the page late doesn't reset the clock. 3 minutes is well
+// above a normal generation; past it with no row we assume it's stuck.
+const AI_SUMMARY_TIMEOUT_MS = 180_000
+
+// Returns true once `ms` have elapsed since `since`. Used as a backstop so a
+// generation that hangs without writing a (success or failure) row eventually
+// surfaces as an error instead of spinning forever. `since` may be a string —
+// timestamps serialize to ISO strings across the server/client boundary.
+function useElapsedSince(since: Date | string, ms: number): boolean {
+    const sinceMs = new Date(since).getTime()
+    const [elapsed, setElapsed] = useState(() => Date.now() - sinceMs >= ms)
+    useEffect(() => {
+        if (elapsed) return
+        // Clamp to 0 rather than setting state synchronously here; the timer
+        // fires the update on the next tick, out of the effect body.
+        const remaining = Math.max(0, ms - (Date.now() - sinceMs))
+        const id = setTimeout(() => setElapsed(true), remaining)
+        return () => clearTimeout(id)
+    }, [sinceMs, ms, elapsed])
+    return elapsed
+}
 
 // The review row is written by a deferred background task triggered at code
 // submission (onStudyReviewRequested). Seed with the server-fetched value and
@@ -104,9 +171,29 @@ function AiSummaryPending() {
         <Group gap="xs" data-testid="ai-summary-pending">
             <Loader size="sm" />
             <Text c="dimmed" size="sm">
-                Review in progress…
+                AI Summary is loading
             </Text>
         </Group>
+    )
+}
+
+function AiSummaryError({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) {
+    return (
+        <Alert color="red" data-testid="ai-summary-error">
+            <Group justify="space-between" gap="sm" wrap="nowrap">
+                <Text size="sm">The AI summary failed to generate.</Text>
+                <Button
+                    size="compact-sm"
+                    variant="white"
+                    color="red"
+                    onClick={onRetry}
+                    loading={isRetrying}
+                    data-testid="ai-summary-retry"
+                >
+                    Retry
+                </Button>
+            </Group>
+        </Alert>
     )
 }
 
@@ -123,36 +210,74 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
         <>
-            <AiSummaryBody isVisible={isExpanded} summary={summary} />
+            <Stack gap="xs">
+                <Text fw={600} size="sm">
+                    Overview
+                </Text>
+                <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            </Stack>
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
 }
 
-type AiSummaryProps = { studyJobId: string; initialReview: StudyReviewWithMeta | null }
+// Clears the failed row server-side, re-fires generation, then resets the
+// cached review to null so the poll resumes and the UI drops back to pending.
+function useRetryStudyReview(studyJobId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
+        onSuccess: () => {
+            queryClient.setQueryData(['study-review', studyJobId], null)
+        },
+    })
+}
 
-export function AiSummaryCollapsible({ studyJobId, initialReview }: AiSummaryProps) {
+type AiSummaryProps = {
+    studyJobId: string
+    initialReview: StudyReviewWithMeta | null
+    // When generation was requested — anchors the stuck-generation backstop so
+    // opening the page late doesn't restart the clock. May arrive as an ISO
+    // string once serialized across the server/client boundary.
+    submittedAt: Date | string
+    // Overridable so tests can exercise the backstop without faking timers.
+    timeoutMs?: number
+}
+
+export function AiSummaryCollapsible({
+    studyJobId,
+    initialReview,
+    submittedAt,
+    timeoutMs = AI_SUMMARY_TIMEOUT_MS,
+}: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    const summary = review?.report.codeExplanation ?? null
+    const retry = useRetryStudyReview(studyJobId)
+    const timedOut = useElapsedSince(submittedAt, timeoutMs)
+    const summary = review?.report?.codeExplanation ?? null
 
-    // A resolved poll (row landed, or errored out) is terminal — show the
-    // summary if present, otherwise the empty state. Until then we're still
-    // generating, so show the spinner.
-    const isResolved = error != null || review != null
+    const onRetry = () => retry.mutate()
+    const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
+    // Failure is terminal and explicit: a poll rejection, or a persisted
+    // failure row (summaryFailedAt) — surfaced with a Retry. A landed success
+    // row shows the summary, or the empty state for the no-API-key /
+    // disabled-review placeholder path. Otherwise we're genuinely still
+    // generating (spinner), with the backstop catching a silent hang.
     const renderBody = () => {
-        if (!isResolved) return <AiSummaryPending />
-        if (!summary) return <AiSummaryEmpty />
-        return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        if (error != null) return errorState
+        if (review != null) {
+            if (review.summaryFailedAt != null) return errorState
+            if (!summary) return <AiSummaryEmpty />
+            return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+        }
+        if (timedOut) return errorState
+        return <AiSummaryPending />
     }
 
     return (
-        <Stack gap="xs" data-testid="ai-summary">
+        <Stack gap="lg" data-testid="ai-summary">
             <Text fw={700}>AI Summary: Analysis of all files</Text>
-            <Text fw={600} size="sm">
-                Overview
-            </Text>
             {renderBody()}
         </Stack>
     )
@@ -170,26 +295,94 @@ function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     }
 }
 
-function FileTab({ file, isActive, onClick }: { file: CodeFile; isActive: boolean; onClick: () => void }) {
+function FileTab({
+    file,
+    isActive,
+    onClick,
+    studyJobId,
+}: {
+    file: CodeFile
+    isActive: boolean
+    onClick: () => void
+    studyJobId: string
+}) {
     const display = truncateFileName(file.name)
     return (
-        <UnstyledButton
-            onClick={onClick}
-            data-testid="study-code-file-tab"
-            data-active={isActive ? 'true' : 'false'}
-            title={file.name}
-            px="md"
-            py="xs"
+        <Group
+            gap={0}
+            wrap="nowrap"
+            align="center"
             style={{
-                backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
+                backgroundColor: isActive ? 'var(--mantine-color-blue-7)' : 'transparent',
                 borderRadius: 0,
                 whiteSpace: 'nowrap',
+                paddingRight: 6,
             }}
         >
-            <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
-                {display}
+            <UnstyledButton
+                onClick={onClick}
+                data-testid="study-code-file-tab"
+                data-active={isActive ? 'true' : 'false'}
+                title={file.name}
+                pl="md"
+                pr="xs"
+                py="xs"
+                style={{ whiteSpace: 'nowrap' }}
+            >
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
+                    {display}
+                </Text>
+            </UnstyledButton>
+            <CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} isActive={isActive} />
+        </Group>
+    )
+}
+
+function OverflowFilesMenu({
+    hidden,
+    activeFileName,
+    onSelect,
+    studyJobId,
+}: {
+    hidden: CodeFile[]
+    activeFileName: string | null
+    onSelect: (name: string) => void
+    studyJobId: string
+}) {
+    if (hidden.length === 0) return null
+    const items = hidden.map((file) => (
+        <Menu.Item
+            key={file.name}
+            onClick={() => onSelect(file.name)}
+            data-testid="study-code-files-overflow-item"
+            data-selected={file.name === activeFileName ? 'true' : 'false'}
+            title={file.name}
+            rightSection={<CodeFileDownloadButton studyJobId={studyJobId} fileName={file.name} />}
+        >
+            <Text size="sm" component="span">
+                {truncateFileName(file.name)}
             </Text>
-        </UnstyledButton>
+        </Menu.Item>
+    ))
+    return (
+        <Menu position="bottom-start" withinPortal shadow="md">
+            <Menu.Target>
+                <UnstyledButton
+                    data-testid="study-code-files-overflow"
+                    px="md"
+                    py="xs"
+                    style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
+                >
+                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c="charcoal.7" component="span">
+                            +{hidden.length} more files
+                        </Text>
+                        <CaretRightIcon size={12} weight="bold" />
+                    </Group>
+                </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown data-testid="study-code-files-overflow-menu">{items}</Menu.Dropdown>
+        </Menu>
     )
 }
 
@@ -198,13 +391,15 @@ function FileTabsRow({
     visible,
     activeFileName,
     onSelect,
-    hiddenCount,
+    hidden,
+    studyJobId,
 }: {
     isVisible: boolean
     visible: CodeFile[]
     activeFileName: string | null
     onSelect: (name: string) => void
-    hiddenCount: number
+    hidden: CodeFile[]
+    studyJobId: string
 }) {
     if (!isVisible) return null
     const tabs = visible.map((file) => (
@@ -213,28 +408,19 @@ function FileTabsRow({
             file={file}
             isActive={file.name === activeFileName}
             onClick={() => onSelect(file.name)}
+            studyJobId={studyJobId}
         />
     ))
-    const overflow =
-        hiddenCount > 0 ? (
-            <Group
-                gap={4}
-                wrap="nowrap"
-                align="center"
-                data-testid="study-code-files-overflow"
-                style={{ whiteSpace: 'nowrap' }}
-            >
-                <Text size="sm" c="charcoal.7" component="span">
-                    +{hiddenCount} more files
-                </Text>
-                <CaretRight size={12} weight="bold" />
-            </Group>
-        ) : null
 
     return (
         <Group gap="sm" wrap="nowrap" style={{ overflow: 'hidden' }} data-testid="study-code-file-tabs">
             {tabs}
-            {overflow}
+            <OverflowFilesMenu
+                hidden={hidden}
+                activeFileName={activeFileName}
+                onSelect={onSelect}
+                studyJobId={studyJobId}
+            />
         </Group>
     )
 }
@@ -246,6 +432,33 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
         enabled: !!fileName,
         staleTime: Infinity,
     })
+}
+
+// stopPropagation: in the overflow menu this icon sits inside a selectable row,
+// so a download click shouldn't also switch the active file.
+function CodeFileDownloadButton({
+    studyJobId,
+    fileName,
+    isActive = false,
+}: {
+    studyJobId: string
+    fileName: string
+    isActive?: boolean
+}) {
+    return (
+        <ActionIcon
+            component="a"
+            href={studyCodeURL(studyJobId, fileName)}
+            download={fileName}
+            onClick={(e) => e.stopPropagation()}
+            variant="transparent"
+            size="sm"
+            aria-label={`Download ${fileName}`}
+            data-testid="study-code-download"
+        >
+            <DownloadSimpleIcon weight="fill" color={isActive ? 'white' : 'var(--mantine-color-charcoal-7)'} />
+        </ActionIcon>
+    )
 }
 
 function StudyCodeBody({
@@ -279,7 +492,7 @@ function StudyCodeBody({
     }
     return (
         <div data-testid="study-code-body">
-            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} />
+            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} withBorder />
         </div>
     )
 }
@@ -337,19 +550,22 @@ export function StudyCodeViewer({
     toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
-    const { visible, hiddenCount } = splitVisibleFiles(files)
+    const { visible, hidden } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
     return (
-        <Stack gap="sm" data-testid="study-code-viewer">
-            <FileTabsRow
-                isVisible={isExpanded}
-                visible={visible}
-                activeFileName={activeFile?.name ?? null}
-                onSelect={selectFile}
-                hiddenCount={hiddenCount}
-            />
-            <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+        <Stack gap="lg" data-testid="study-code-viewer">
+            <Stack gap="sm">
+                <FileTabsRow
+                    isVisible={isExpanded}
+                    visible={visible}
+                    activeFileName={activeFile?.name ?? null}
+                    onSelect={selectFile}
+                    hidden={hidden}
+                    studyJobId={studyJobId}
+                />
+                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+            </Stack>
             <StudyCodeToggle
                 isVisible={hasFiles}
                 isExpanded={isExpanded}

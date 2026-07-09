@@ -2,6 +2,7 @@ import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actio
 import {
     actionResult,
     db,
+    fireEvent,
     insertTestDataSource,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -10,6 +11,7 @@ import {
     userEvent,
     type Mock,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,7 +23,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
-import { splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -57,6 +59,16 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
                 complianceCheck: { isCompliant: true, findings: [] },
             },
         })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
+// A failed generation persists a row with no report and summaryFailedAt set —
+// the signal the reviewer-side panel turns into the error + retry state.
+async function insertFailedStudyReview(studyJobId: string) {
+    return db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: new Date() })
         .returningAll()
         .executeTakeFirstOrThrow()
 }
@@ -111,13 +123,15 @@ describe('SubmittedCodeSection — Section header', () => {
         expect(screen.getByRole('heading', { name: 'Submitted code', level: 3 })).toBeInTheDocument()
     })
 
-    it('renders "View approved initial request" link that opens the post-proposal feedback page in a new tab', async () => {
+    it('renders "View approved initial request" link that opens the approved-proposal feedback page in a new tab', async () => {
         await renderSection(fixture)
         const link = screen.getByTestId('view-approved-initial-request')
         expect(link).toHaveTextContent('View approved initial request')
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
-        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review?from=code-review`)
+        // OTTER-540: must point at the approved *initial request* (proposal feedback),
+        // served by the dedicated /review/proposal route.
+        expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review/proposal`)
     })
 
     it('renders the section content beneath the header', async () => {
@@ -188,29 +202,33 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByText('Overview')).toBeInTheDocument()
     })
 
-    it('renders the toggle with "View full AI summary" by default and the body is collapsed', async () => {
+    it('renders the toggle with "View full AI summary" by default and shows a clamped snippet', async () => {
         await renderSection(fixture)
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('View full AI summary')
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('3')
     })
 
-    it('expands the body and flips the toggle label when clicked', async () => {
+    it('expands the body to full text and flips the toggle label when clicked', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         await user.click(screen.getByTestId('ai-summary-toggle'))
 
-        expect(screen.getByTestId('ai-summary-body')).toHaveTextContent(SUMMARY_TEXT)
+        const body = screen.getByTestId('ai-summary-body')
+        expect(body).toHaveTextContent(SUMMARY_TEXT)
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('Hide full AI summary')
     })
 
-    it('collapses the body again when the toggle is clicked twice', async () => {
+    it('collapses back to the clamped snippet when the toggle is clicked twice', async () => {
         await renderSection(fixture)
         const user = userEvent.setup()
         const toggle = screen.getByTestId('ai-summary-toggle')
         await user.click(toggle)
         await user.click(toggle)
 
-        expect(screen.queryByTestId('ai-summary-body')).not.toBeInTheDocument()
+        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('3')
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
@@ -220,9 +238,120 @@ describe('SubmittedCodeSection — AI summary', () => {
         // The review is generated by a deferred background task; until the row
         // lands the panel polls and shows the pending state rather than an empty
         // or summary state.
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Review in progress…')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+        // "Overview" only accompanies a rendered summary, never the spinner.
+        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
+    })
+
+    it('surfaces the error + retry state immediately when a failed review row exists', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={failedFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={failedFixture.job.createdAt}
+            />,
+        )
+
+        const error = await screen.findByTestId('ai-summary-error')
+        expect(error).toHaveTextContent('The AI summary failed to generate.')
+        expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
+        // A persisted failure is terminal — no spinner, even though it landed fast.
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+        // "Overview" belongs to the summary body, not the error alert.
+        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
+    })
+
+    it('retrying a failed summary clears the failure row and drops back to pending', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={failedFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={failedFixture.job.createdAt}
+            />,
+        )
+
+        const user = userEvent.setup()
+        await user.click(await screen.findByTestId('ai-summary-retry'))
+
+        // The action deletes the failed row and re-fires generation; the panel
+        // resets to the pending spinner while it polls for the new result.
+        await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
+        const remaining = await getStudyReviewForJob(failedFixture.job.id)
+        expect(remaining?.summaryFailedAt ?? null).toBeNull()
+    })
+
+    it('flips the spinner to an error once the backstop elapses past submission with no row', async () => {
+        const noReviewFixture = await setupBaseFixture()
+        const initialReview = await getStudyReviewForJob(noReviewFixture.job.id)
+        // No row ever lands (a hung generation). A short backstop measured from
+        // submission exercises the escalation without faking timers (which break
+        // the shared DB pool mid-file). Anchor submittedAt to *now* rather than the
+        // fixture's createdAt: createdAt is already some ms in the past by the time
+        // we render, and under a slow/parallel run that gap can exceed timeoutMs, so
+        // the backstop would fire before the first assertion and the spinner would
+        // never show (a flake seen in CI). Using `now` guarantees a fresh 50ms window
+        // in which the spinner is visible before it flips to error.
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={noReviewFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={new Date()}
+                timeoutMs={50}
+            />,
+        )
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
+
+        const error = await screen.findByTestId('ai-summary-error')
+        expect(error).toHaveTextContent('The AI summary failed to generate.')
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
+        const staleFixture = await setupBaseFixture()
+        const initialReview = await getStudyReviewForJob(staleFixture.job.id)
+        // Submitted well beyond the backstop: the spinner must not even flash.
+        const longAgo = new Date(Date.now() - 10 * 60_000)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={staleFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={longAgo}
+                timeoutMs={180_000}
+            />,
+        )
+        expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('keeps the blank-summary empty-state and never errors once a row exists, even past the backstop', async () => {
+        const blankFixture = await setupBaseFixture()
+        await insertStudyReview(blankFixture.job.id, '')
+        const initialReview = await getStudyReviewForJob(blankFixture.job.id)
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={blankFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={blankFixture.job.createdAt}
+                timeoutMs={50}
+            />,
+        )
+
+        // Wait past the backstop window; a landed (blank) row must stay terminal.
+        await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+        // "Overview" only accompanies a rendered summary, never the empty-state.
+        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
     it('falls back to an empty-state when a review row exists but the summary is blank', async () => {
@@ -350,6 +479,34 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.getByTestId('study-code-files-overflow')).toHaveTextContent('+4 more files')
     })
 
+    it('opens a menu listing every hidden file when the overflow is clicked (OTTER-540)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        // Hidden files are not in the document until the overflow menu is opened.
+        expect(screen.queryAllByTestId('study-code-files-overflow-item')).toHaveLength(0)
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        expect(items.map((item) => item.getAttribute('title'))).toEqual(['c.R', 'd.R', 'e.R'])
+    })
+
+    it('selecting a hidden file from the overflow menu makes it the active file (OTTER-540)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        await user.click(await screen.findByTitle('hidden-target.R'))
+
+        // Reopen the menu; the chosen file is now marked as the selected entry.
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        const selected = await screen.findByTitle('hidden-target.R')
+        expect(selected.getAttribute('data-selected')).toBe('true')
+    })
+
     it('truncates long file names with an ellipsis and capping at ~22 chars', async () => {
         const longName = 'a-very-long-supplemental-code-filename.R'
         const fixture = await setupFilesFixture(['main.R', longName])
@@ -395,6 +552,55 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(body).toHaveTextContent('hello from main.R')
         expect(body).toHaveTextContent('main.R')
     })
+
+    it('renders a download link on every visible file tab (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
+        await renderSection(fixture)
+
+        const mainDownload = await screen.findByRole('link', { name: 'Download main.R' })
+        expect(mainDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/main.R`)
+        expect(mainDownload).toHaveAttribute('download', 'main.R')
+
+        const helpersDownload = screen.getByRole('link', { name: 'Download helpers.R' })
+        expect(helpersDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/helpers.R`)
+        expect(helpersDownload).toHaveAttribute('download', 'helpers.R')
+    })
+
+    it('exposes a download link for a file hidden in the overflow menu (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+
+        // The dropdown is portalled and renders display:none in the test DOM, so the link
+        // isn't in the accessibility tree — query it by test id rather than by link role.
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
+        const hiddenDownload = within(hiddenItem).getByTestId('study-code-download')
+        expect(hiddenDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/hidden-target.R`)
+        expect(hiddenDownload).toHaveAttribute('download', 'hidden-target.R')
+        expect(hiddenDownload).toHaveAttribute('aria-label', 'Download hidden-target.R')
+    })
+
+    it('downloading from the overflow menu does not switch the active file (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        await user.click(screen.getByTestId('study-code-files-overflow'))
+        const items = await screen.findAllByTestId('study-code-files-overflow-item')
+        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
+        fireEvent.click(within(hiddenItem).getByTestId('study-code-download'))
+
+        // The same Menu.Item onClick drives both the file-select and Mantine's
+        // closeOnItemClick, and the icon's stopPropagation gates both — so the file
+        // staying unselected also proves the dropdown was not closed.
+        const after = screen
+            .getAllByTestId('study-code-files-overflow-item')
+            .find((item) => item.getAttribute('title') === 'hidden-target.R')
+        expect(after).toHaveAttribute('data-selected', 'false')
+    })
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
@@ -420,8 +626,9 @@ describe('SubmittedCodeSection — pure helpers', () => {
             name,
             fileType: 'SUPPLEMENTAL-CODE' as const,
         }))
-        const { visible, hiddenCount } = splitVisibleFiles(files)
+        const { visible, hidden, hiddenCount } = splitVisibleFiles(files)
         expect(visible.map((f) => f.name)).toEqual(['m', 'a', 'b'])
+        expect(hidden.map((f) => f.name)).toEqual(['c', 'd', 'e'])
         expect(hiddenCount).toBe(3)
     })
 })

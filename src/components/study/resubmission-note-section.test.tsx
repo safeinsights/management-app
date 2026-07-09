@@ -30,10 +30,23 @@ const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}
     renderWithProviders(<Harness {...props} />)
 
 describe('ResubmissionNoteSection', () => {
-    it('renders the section title and the data org name in the secondary text', () => {
+    it('renders the section title and the data partner name in the secondary text', () => {
         renderSection()
-        expect(screen.getByRole('heading', { name: 'Resubmission Note' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /Resubmission Note/ })).toBeInTheDocument()
         expect(screen.getByText(/Rice University/)).toBeInTheDocument()
+    })
+
+    it('renders the resubmission note title only once (no duplicate field label)', () => {
+        renderSection()
+        expect(screen.getAllByRole('heading', { name: /Resubmission Note/ })).toHaveLength(1)
+    })
+
+    it('renders the placeholder guidance copy on the textarea', () => {
+        renderSection()
+        expect(screen.getByRole('textbox', { name: 'Resubmission Note' })).toHaveAttribute(
+            'placeholder',
+            'Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.',
+        )
     })
 
     it('renders a 0/300 word counter when empty', () => {
@@ -91,6 +104,8 @@ describe('ResubmissionNoteSection', () => {
 
     it('renders the "All changes saved" label once a draft has been saved', () => {
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
-        expect(screen.getByTestId('autosave-status')).toHaveTextContent(/All changes saved at \d{1,2}:\d{2} (AM|PM)/)
+        const status = screen.getByTestId('autosave-status')
+        expect(status).toHaveTextContent('All changes saved')
+        expect(status).not.toHaveTextContent(/\d/)
     })
 })

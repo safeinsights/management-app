@@ -61,6 +61,7 @@ function renderView(
     overrides: {
         dashboardHref?: Route
         reviewingOrgName?: string
+        returnTo?: 'org'
         submissionVersion?: number
         feedbackEntries?: CodeReviewFeedbackEntry[]
         isUnderReview?: boolean
@@ -73,6 +74,7 @@ function renderView(
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref}
+            returnTo={overrides.returnTo}
             submissionVersion={overrides.submissionVersion ?? 1}
             feedbackEntries={overrides.feedbackEntries ?? []}
             isUnderReview={overrides.isUnderReview}
@@ -147,7 +149,7 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('banner', () => {
-        it('renders the yellow status banner with the data org name and the Figma copy', async () => {
+        it('renders the yellow status banner with the data partner name and the Figma copy', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
@@ -297,18 +299,26 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyAgreements with from=previous and Go to dashboard linking to dashboardHref', async () => {
+        it('renders Back as a link to studyResearcherAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const backLink = screen.getByRole('link', { name: /back/i })
-            expect(backLink).toHaveAttribute(
-                'href',
-                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/agreements?from=previous`),
-            )
+            const backHref = backLink.getAttribute('href') ?? ''
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).not.toContain('from=')
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
             expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
+        })
+
+        it('threads returnTo=org onto the Back → agreements link so org scope survives the hop', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { returnTo: 'org' })
+
+            const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).toContain('returnTo=org')
         })
 
         it('falls back to Routes.dashboard when no dashboardHref is provided', async () => {

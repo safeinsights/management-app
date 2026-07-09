@@ -7,6 +7,7 @@ import { createClerkClient, type ClerkClient } from '@clerk/backend'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { sql } from 'kysely'
 import { db } from '@/database'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
@@ -233,6 +234,14 @@ async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string
 async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
     switch (role) {
         case 'admin':
+            // safe-insights admin membership drives the editor service's SI-admin
+            // override (org_user.is_admin in the safe-insights org); without it the
+            // seeded admin is rejected by the editor unless they're in the study's org.
+            await findOrCreateOrgMembership({
+                userId: siUserId,
+                slug: 'safe-insights',
+                isAdmin: true,
+            })
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'openstax',
@@ -243,7 +252,7 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
                 slug: 'openstax-lab',
                 isAdmin: true,
             })
-            console.log(`🏢 Added to openstax (admin) and openstax-lab (admin)`)
+            console.log(`🏢 Added to safe-insights (admin), openstax (admin) and openstax-lab (admin)`)
             break
 
         case 'researcher':
@@ -277,20 +286,33 @@ async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: Test
 
     console.log(`\n📊 Setting up SI database for ${role}...`)
 
-    const existing = await db.selectFrom('user').select('id').where('id', '=', fixedUserId).executeTakeFirst()
+    // Reconcile by fixed id OR existing email. In PR environments the admin may
+    // already have logged in, so the app's user-sync created a row under a random
+    // UUID that owns this email. Forcing the email onto the fixed-id row would hit
+    // the user_email_lower_unique index and abort the whole user (leaving them in no
+    // orgs). Instead, adopt whichever row already owns the email as the canonical id
+    // so memberships and Clerk publicMetadata land on the row the app authenticates as.
+    const existing = await db
+        .selectFrom('user')
+        .select('id')
+        .where((eb) => eb.or([eb('id', '=', fixedUserId), eb(sql`lower(email)`, '=', email!.toLowerCase())]))
+        .executeTakeFirst()
+
+    let siUserId: string
     if (existing) {
         await db
             .updateTable('user')
             .set({ clerkId: clerkUserId, firstName, lastName: 'User', email })
-            .where('id', '=', fixedUserId)
+            .where('id', '=', existing.id)
             .execute()
+        siUserId = existing.id
     } else {
         await db
             .insertInto('user')
             .values({ id: fixedUserId, clerkId: clerkUserId, firstName, lastName: 'User', email })
             .execute()
+        siUserId = fixedUserId
     }
-    const siUserId = fixedUserId
     console.log(`✅ SI user ID: ${siUserId}`)
 
     if (role === 'admin' || role === 'reviewer') {
@@ -465,13 +487,29 @@ async function setupOrganizations() {
 async function seedEnvironment() {
     console.log('🌱 Seeding test environment...\n')
 
+    // In faked-Clerk mode (e2e) there is no Clerk server to provision against. The DB
+    // test users/orgs/memberships are created by the migration seed
+    // (1743608138837_test_users.ts) and the in-app fake reads them by user.id, so here we
+    // only ensure the org-side setup and skip all Clerk user provisioning.
+    if (process.env.E2E_FAKE_CLERK) {
+        console.log('🤖 E2E_FAKE_CLERK set — seeding orgs only, skipping Clerk provisioning.')
+        await setupOrganizations()
+        console.log('\n✨ Environment seeding complete (faked Clerk)!')
+        return
+    }
+
     const secretKey = process.env.CLERK_SECRET_KEY
     if (!secretKey) {
         console.error('❌ CLERK_SECRET_KEY is not set')
         process.exit(1)
     }
 
-    const clerk = createClerkClient({ secretKey })
+    // Honor CLERK_API_URL so the seeder can target a non-default Clerk endpoint
+    // (e.g. the local clerk-stub used by the e2e stack). @clerk/backend does NOT
+    // read this from env on its own — it must be passed explicitly, otherwise the
+    // client falls back to api.clerk.com and a stub secret key is rejected (401).
+    const apiUrl = process.env.CLERK_API_URL
+    const clerk = createClerkClient(apiUrl ? { secretKey, apiUrl } : { secretKey })
 
     await setupOrganizations()
 

@@ -1,9 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { ErrorAlert } from '@/components/errors'
 import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
-import { ButtonLink } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
@@ -14,12 +12,10 @@ import {
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
 } from '@/server/actions/study.actions'
-import { Divider, Flex, Group, Paper, Stack, Table, TableTbody, Text, Title } from '@mantine/core'
-import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { TableHeader } from './columns'
-import { EmptyState } from './empty-state'
 import { StudyRow } from './study-row'
+import { StudiesTableView } from './studies-table-view'
 import {
+    ACTIVE_PROPOSAL_STATUSES,
     Audience,
     FINAL_STATUS,
     REVIEWER_ACTION_STATUSES,
@@ -50,8 +46,17 @@ function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userI
     )
 }
 
-function needsRefresh(studies: StudyRowType[]): boolean {
-    return studies.some((study) => study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)))
+function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
+    // Two independent reasons to keep polling:
+    //  - study-level: a researcher is awaiting a DO decision (PENDING-REVIEW typically has no job
+    //    yet, so the job-level check below can't catch it). Reviewers are excluded because
+    //    PENDING-REVIEW is their own next action — re-fetching won't change until they act.
+    //  - job-level: an in-flight (non-final) job, regardless of audience or study status.
+    return studies.some(
+        (study) =>
+            (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
+            study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+    )
 }
 
 export function StudiesTable({
@@ -116,87 +121,32 @@ export function StudiesTable({
             ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
             : (studies as StudyRowType[])
 
-    // The header (title, toggle, refresher, CTA) must always render so dual-role users keep
-    // their audience toggle even when the selected role has no studies. Only the body below
-    // reflects error / empty / populated state.
-    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies)
-
-    const content = (
-        <Stack>
-            <Group justify="space-between" align="center">
-                {title && <Title order={3}>{title}</Title>}
-                <Flex justify="flex-end" align="center" gap="md">
-                    {headerActions}
-                    {showRefresher && (
-                        <Refresher
-                            isEnabled={shouldShowRefresher}
-                            refresh={refetch}
-                            isPending={isRefetching || isFetching}
-                        />
-                    )}
-                    {showNewStudyButton && (
-                        <ButtonLink
-                            leftSection={<PlusIcon />}
-                            data-testid="new-study"
-                            href={Routes.studyRequest({ orgSlug: effectiveOrgSlug })}
-                        >
-                            Propose New Study
-                        </ButtonLink>
-                    )}
-                </Flex>
-            </Group>
-            <Divider c="charcoal.1" />
-            {description && <Text mb="md">{description}</Text>}
-            <StudiesTableBody
-                isError={isError}
-                error={errorToString(error)}
-                isEmpty={displayedStudies.length === 0}
-                studies={displayedStudies}
-                audience={audience}
-                scope={scope}
-                orgSlug={effectiveOrgSlug}
-            />
-        </Stack>
-    )
-
-    if (paperWrapper) {
-        return (
-            <Paper shadow="xs" p="xxl">
-                {content}
-            </Paper>
-        )
-    }
-
-    return content
-}
-
-type StudiesTableBodyProps = {
-    isError: boolean
-    error: string
-    isEmpty: boolean
-    studies: StudyRowType[]
-    audience: Audience
-    scope: Scope
-    orgSlug: string
-}
-
-function StudiesTableBody({ isError, error, isEmpty, studies, audience, scope, orgSlug }: StudiesTableBodyProps) {
-    if (isError) {
-        return <ErrorAlert error={`Failed to load studies: ${error}`} />
-    }
-
-    if (isEmpty) {
-        return <EmptyState audience={audience} scope={scope} />
-    }
+    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies, audience)
 
     return (
-        <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
-            <TableHeader audience={audience} scope={scope} />
-            <TableTbody>
-                {studies.map((study) => (
-                    <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={orgSlug} />
-                ))}
-            </TableTbody>
-        </Table>
+        <StudiesTableView
+            studies={displayedStudies}
+            audience={audience}
+            scope={scope}
+            title={title}
+            description={description}
+            newStudyHref={showNewStudyButton ? Routes.studyRequest({ orgSlug: effectiveOrgSlug }) : undefined}
+            headerActions={headerActions}
+            refresher={
+                showRefresher ? (
+                    <Refresher
+                        isEnabled={shouldShowRefresher}
+                        refresh={refetch}
+                        isPending={isRefetching || isFetching}
+                    />
+                ) : undefined
+            }
+            isError={isError}
+            errorMessage={errorToString(error)}
+            paperWrapper={paperWrapper}
+            renderRow={(study) => (
+                <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={effectiveOrgSlug} />
+            )}
+        />
     )
 }

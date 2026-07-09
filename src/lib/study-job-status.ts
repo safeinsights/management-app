@@ -30,8 +30,10 @@ export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-
 export const isCodeUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && CODE_UNDER_REVIEW_JOB_STATUSES.includes(status)
 
-export const hasJobStatus = (statusChanges: { status: StudyJobStatus }[], statuses: readonly StudyJobStatus[]) =>
-    statusChanges.some((c) => statuses.includes(c.status))
+export const hasJobStatus = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
+    statuses: readonly StudyJobStatus[],
+) => statusChanges.some((c) => statuses.includes(c.status))
 
 // Job statuses that mean a code-review decision has been recorded. Used to gate the
 // post-decision views: the researcher's study view (OTTER on code-post-decision-view) and
@@ -60,11 +62,11 @@ export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status
 //
 // Each review round is CODE-SUBMITTED → (decision). Counting is order-independent: when at
 // least as many decisions as submissions exist, the latest submission has been decided and the
-// DO belongs on the post-feedback page. A resubmission adds a CODE-SUBMITTED with no following
-// decision — either on a brand-new job (the current resubmission model, where this job is no
-// longer the latest submitted job) or appended to the same job (legacy) — tipping the count
-// back so the DO returns to active review. CODE-SCANNED is an automated step between submit and
-// decision, not a fresh submission, so it is excluded from the submitted count.
+// DO belongs on the post-feedback page. A CODE-CHANGES-REQUESTED resubmit reuses the SAME job
+// (the round-boundary fix), appending a new CODE-SUBMITTED with no following decision that tips
+// the count back so the DO returns to active review; only a post-run results decision opens a
+// brand-new job. CODE-SCANNED is an automated step between submit and decision, not a fresh
+// submission, so it is excluded from the submitted count.
 export const latestSubmittedJobHasLiveCodeDecision = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): boolean => {
@@ -72,3 +74,17 @@ export const latestSubmittedJobHasLiveCodeDecision = (
     const decisionCount = statusChanges.filter((s) => isCodeDecisionStatus(s.status)).length
     return decisionCount > 0 && decisionCount >= submittedCount
 }
+
+// OTTER-552: "is the latest code change a fresh submission awaiting review?"
+//
+// The single source of truth for reviewer routing, dashboard highlighting, and the dashboard
+// pill — all three ask the same question and must not drift. It is the inverse of
+// latestSubmittedJobHasLiveCodeDecision, guarded by "a submission exists at all", and reuses
+// that helper's order-independent counting on purpose: index-based "which is newer, submission
+// or decision?" is unsafe because statuses written together in one transaction tie on createdAt
+// (constant now()) and v7 ids aren't reliably monotonic within a millisecond, so a decision and
+// a submission sharing a job (the legacy single-job path the tests exercise) could sort either
+// way. A resubmission appends CODE-SUBMITTED after the prior round's decision, tipping the
+// undecided-submission count back so this returns true while study.status stays APPROVED.
+export const latestCodeChangeIsSubmission = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
+    hasJobStatus(statusChanges, CODE_UNDER_REVIEW_JOB_STATUSES) && !latestSubmittedJobHasLiveCodeDecision(statusChanges)

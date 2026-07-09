@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { memoryRouter } from 'next-router-mock'
 import {
     actionResult,
     beforeEach,
@@ -12,6 +13,7 @@ import {
     userEvent,
     waitFor,
 } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
@@ -30,19 +32,23 @@ const mockUseCodeReviewMutation = vi.mocked(useCodeReviewMutation)
 const mockUseReviewFeedback = vi.mocked(useReviewFeedback)
 const submitReview = vi.fn()
 
-async function setupValidReviewableJob(labName = 'Rice University') {
+async function setupValidReviewableJob(
+    labName = 'Rice University',
+    studyStatus: SelectedStudy['status'] = 'PENDING-REVIEW',
+) {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
     const { study: dbStudy } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        studyStatus: 'PENDING-REVIEW',
+        studyStatus,
         jobStatus: 'CODE-SUBMITTED',
         title: 'Effect of Reading Comprehension Tools',
     })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     const studyWithLab: SelectedStudy = { ...study, submittingLabName: labName }
-    return { study: studyWithLab, job, orgSlug: org.slug }
+    const previousHref = Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id })
+    return { study: studyWithLab, job, orgSlug: org.slug, previousHref }
 }
 
 async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
@@ -74,9 +80,15 @@ describe('CodeReviewClient decision selector', () => {
     })
 
     it('renders all three decision options with their titles and descriptions', async () => {
-        const { study, job, orgSlug } = await setupValidReviewableJob('Rice University')
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
@@ -105,11 +117,52 @@ describe('CodeReviewClient decision selector', () => {
         expect(screen.getByText('Warning: This terminates the study and cannot be undone.')).toBeInTheDocument()
     })
 
+    it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
+        // OTTER-552: a resubmission after a code change-request leaves the study APPROVED
+        // (proposal-stage status) while the latest job is CODE-SUBMITTED. Editability is
+        // job-driven, so the DO must see the editor, not the closed-review alert.
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        expect(screen.queryByTestId('code-review-closed-alert')).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-review-submit')).toBeInTheDocument()
+    })
+
+    it('renders "Code review is closed" once the job has a decision (CODE-CHANGES-REQUESTED)', async () => {
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-CHANGES-REQUESTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        expect(screen.getByTestId('code-review-closed-alert')).toBeInTheDocument()
+        expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
+    })
+
     it('disables Submit when no decision is selected even with valid feedback and criteria', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -123,9 +176,15 @@ describe('CodeReviewClient decision selector', () => {
         ['code-review-decision-reject'],
     ])('enables Submit when %s is selected with valid feedback and criteria', async (decisionTestId) => {
         const user = userEvent.setup()
-        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -136,9 +195,15 @@ describe('CodeReviewClient decision selector', () => {
 
     it('opens the non-destructive confirmation modal when submitting with needs-clarification', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -155,9 +220,15 @@ describe('CodeReviewClient decision selector', () => {
 
     it('opens the destructive reject modal with the warning paragraph when submitting with reject', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -174,9 +245,15 @@ describe('CodeReviewClient decision selector', () => {
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug } = await setupValidReviewableJob()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" />,
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
         )
 
         await fillAllCriteria(user)
@@ -197,6 +274,27 @@ describe('CodeReviewClient decision selector', () => {
                     privacyProtection: 'yes',
                 },
             })
+        })
+    })
+
+    it('Back button navigates to the agreements page (previousHref), not the dashboard', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        memoryRouter.setCurrentUrl(`/${orgSlug}/study/${study.id}/review`)
+        renderWithProviders(
+            <CodeReviewClient
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                latestJobStatus="CODE-SUBMITTED"
+                previousHref={previousHref}
+            />,
+        )
+
+        await user.click(screen.getByRole('button', { name: /back/i }))
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe(previousHref)
         })
     })
 })
