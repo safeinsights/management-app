@@ -43,7 +43,9 @@ usage() {
     echo "  $0 -- --run path/to/test.tsx         # Run specific test file"
     echo "  $0 -- --run 'positions-section'      # Run tests matching pattern"
     echo ""
-    echo "Note: Database is automatically rebuilt when migration mismatch is detected."
+    echo "Note: Database is automatically rebuilt when an applied migration is missing"
+    echo "      from the codebase (e.g. after a branch switch / rollback). New migrations"
+    echo "      not yet applied are handled by 'kysely migrate:latest' on each run instead."
     exit 0
 }
 
