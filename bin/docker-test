@@ -177,20 +177,24 @@ else
 fi
 
 echo "Running unit tests in Docker..."
-if [ "$clean_all" = true ] && [ -n "$vitest_args" ]; then
-    # After --clean, volumes are gone, so install deps and run migrations
-    # before running specific tests (the default command handles this, but
-    # passing vitest args overrides it)
+if [ -z "$vitest_args" ]; then
+    # No filter: the default command (entrypoint install, then migrate + seed +
+    # full suite) runs as-is.
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
+elif [ "$clean_all" = true ]; then
+    # --clean wiped the DB/storage volumes, so migrate + seed before the targeted
+    # run. Passing vitest args overrides the default command (which migrates/seeds
+    # itself), so fold migrate + seed + vitest into ONE run: the entrypoint
+    # reconciles deps once, then this migrates, seeds, and execs vitest. (Two
+    # separate runs would fire the entrypoint install twice.) `exec` gives the
+    # container's PID 1 to vitest so its exit code and signals propagate.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
-        sh -c "pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && pnpm exec kysely migrate:latest && pnpm exec kysely seed:run"
-fi
-
-if [ -n "$vitest_args" ]; then
+        sh -c "pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest $vitest_args"
+else
     # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
     # this pnpm version drops everything after `--` instead of forwarding it to
     # the script, so the `-- <args>` form silently ran the whole suite (no filter).
     # `pnpm exec` passes args straight through to vitest, so file/name filters work.
+    # The entrypoint reconciles deps before this runs, so no install is needed here.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner pnpm exec vitest $vitest_args
-else
-    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
 fi

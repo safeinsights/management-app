@@ -29,14 +29,30 @@ services:
         volumes:
             - ./:/app/
             - node_modules_unit_test_runner:/app/node_modules
-        # The pnpm store lives INSIDE the node_modules volume (--config.store-dir
-        # below), so store and node_modules share one mount and pnpm hardlinks
-        # instead of copying: cold install ~1.8s vs ~14s from the host bind.
-        # --clean wipes node_modules but preserves the .pnpm-store subdir (see
-        # bin/docker-test), so reinstalls hardlink from cache without network.
+        # Reconcile deps in the ENTRYPOINT so it runs before whatever command
+        # executes, including a `docker compose run ... <cmd>` override (e.g.
+        # `pnpm exec vitest <args>` from bin/docker-test). `run <cmd>` replaces
+        # `command:`, never `entrypoint:`, so putting the install here is what keeps
+        # it from being dropped when args are passed. `exec "$0" "$@"` then hands
+        # off to the command as PID 1.
+        #
+        # The pnpm store lives INSIDE the node_modules volume (--config.store-dir),
+        # so store and node_modules share one mount and pnpm hardlinks instead of
+        # copying: cold install ~1.8s vs ~14s from the host bind, ~250ms when already
+        # current. --clean wipes node_modules but preserves the .pnpm-store subdir
+        # (see bin/docker-test), so reinstalls hardlink from cache without network.
         # --config.trustLockfile=true skips the redundant minimumReleaseAge
         # supply-chain re-verification (set in pnpm-workspace.yaml) on a frozen lockfile.
-        command: sh -c "pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && pnpm run test:unit"
+        # --config.confirmModulesPurge=false lets a no-TTY (`run -T`) reinstall
+        # proceed instead of aborting with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY.
+        entrypoint:
+            - sh
+            - -c
+            - 'pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && exec "$$0" "$$@"'
+        command:
+            - sh
+            - -c
+            - 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && pnpm run test:unit'
         depends_on:
             db-unit-test:
                 condition: service_healthy
