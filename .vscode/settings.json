@@ -1,9 +1,12 @@
 {
     // Use the TypeScript 7 Go-native language server (tsgo) for editor features
-    // (diagnostics, autocomplete, go-to-definition). This is EDITOR-ONLY and dev-only:
-    // it does not touch the build. Next.js, `next build`, typescript-eslint and every
-    // `pnpm` script still use TypeScript 6 (the resolved `typescript` package). Provided by
-    // the recommended "TypeScript (Native Preview)" extension (TypeScriptTeam.native-preview).
-    "typescript.experimental.useTsgo": true,
+    // (diagnostics, autocomplete, go-to-definition), via the recommended
+    // "TypeScript 7 (Native Preview)" extension (TypeScriptTeam.native-preview).
+    // Production stays on TypeScript 6: `next build` and typescript-eslint use the
+    // resolved `typescript` (6.x) package. (The `pnpm typecheck` / `checks` scripts run
+    // the TS7 Go compiler via the `typescript7` alias, but that is separate from this
+    // editor-only setting.)
+    // Setting name is `js/ts.experimental.useTsgo` — the extension renamed it from the
+    // old `typescript.experimental.useTsgo`, which newer VS Code flags as unknown.
     "js/ts.experimental.useTsgo": true
 }
