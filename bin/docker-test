@@ -50,7 +50,7 @@ usage() {
 clean_all=false
 down=false
 prune=false
-vitest_args=""
+vitest_args=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -75,7 +75,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --)
             shift
-            vitest_args="$*"
+            # Capture as an array (not "$*") so spaced filters like
+            # `--run 'my test name'` keep their argument boundaries.
+            vitest_args=("$@")
             break
             ;;
         *)
@@ -189,7 +191,7 @@ else
 fi
 
 echo "Running unit tests in Docker..."
-if [ -z "$vitest_args" ]; then
+if [ ${#vitest_args[@]} -eq 0 ]; then
     # No filter: the default command (entrypoint install, then migrate + seed +
     # full suite) runs as-is.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
@@ -200,8 +202,11 @@ elif [ "$db_needs_setup" = true ]; then
     # into ONE run: the entrypoint reconciles deps once, then this migrates, seeds,
     # and execs vitest. (Two separate runs would fire the entrypoint install twice.)
     # `exec` gives the container's PID 1 to vitest so its exit code + signals propagate.
+    # The vitest args are passed as positional params (after the `_` $0 placeholder)
+    # and expanded with "$@" inside the inner sh, so spaced filters keep their
+    # boundaries instead of being re-split by string interpolation.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
-        sh -c "pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest $vitest_args"
+        sh -c 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest "$@"' _ "${vitest_args[@]}"
 else
     # DB already migrated + seeded from a prior run: skip straight to vitest.
     # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
@@ -209,5 +214,5 @@ else
     # the script, so the `-- <args>` form silently ran the whole suite (no filter).
     # `pnpm exec` passes args straight through to vitest, so file/name filters work.
     # The entrypoint reconciles deps before this runs, so no install is needed here.
-    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner pnpm exec vitest $vitest_args
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner pnpm exec vitest "${vitest_args[@]}"
 fi
