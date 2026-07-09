@@ -26,8 +26,13 @@ import {
 } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
+import {
+    StudyCodeToggle,
+    type StudyCodeToggleLabels,
+} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type { CodeFile } from './study-code-files'
+export { StudyCodeToggle, type StudyCodeToggleLabels }
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
@@ -56,6 +61,11 @@ function useAiSummaryToggle() {
 
 // Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+
+export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View full study code',
+    collapse: 'Hide full study code',
+}
 
 function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
@@ -480,47 +490,6 @@ function StudyCodeBody({
     )
 }
 
-export type StudyCodeToggleLabels = { expand: string; collapse: string }
-
-export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
-}
-
-export function StudyCodeToggle({
-    isVisible,
-    isExpanded,
-    onClick,
-    labels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
-    testId = 'study-code-toggle',
-}: {
-    isVisible: boolean
-    isExpanded: boolean
-    onClick: () => void
-    labels?: StudyCodeToggleLabels
-    testId?: string
-}) {
-    if (!isVisible) return null
-    const label = isExpanded ? labels.collapse : labels.expand
-    return (
-        <Anchor
-            component="button"
-            type="button"
-            onClick={onClick}
-            size="sm"
-            fw={700}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            data-testid={testId}
-            aria-expanded={isExpanded}
-        >
-            {label}
-            <ToggleChevron isExpanded={isExpanded} />
-        </Anchor>
-    )
-}
-
 type StudyCodeViewerProps = {
     studyJobId: string
     files: CodeFile[]
@@ -567,7 +536,7 @@ export function StudyCodeViewer({
             </Stack>
             <StudyCodeToggle
                 isVisible={toggleVisible}
-                isExpanded={expanded}
+                expanded={expanded}
                 onClick={handleToggle}
                 labels={toggleLabels}
                 testId={toggleTestId}

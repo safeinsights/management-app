@@ -401,10 +401,9 @@ describe('PostFeedbackView', () => {
         })
 
         // OTTER-613: on the post-decision DO code page the ENTIRE "Submitted code" section is
-        // hidden while collapsed — only the "View full study code" toggle shows in the step card.
-        // Expanding reveals the full section (AI summary + security scan log + code body); the
-        // in-panel "Hide full study code" toggle collapses the whole card again.
-        it('hides the full Submitted code section until the "View full study code" toggle is clicked', async () => {
+        // visually collapsed — only the "View full study code" toggle shows in the step card.
+        // The content stays mounted so its state survives expansion and collapse.
+        it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -456,10 +455,10 @@ describe('PostFeedbackView', () => {
             )
 
             // Collapsed: the whole "Submitted code" card (header, AI summary, scan, code viewer)
-            // is absent; only the step-card opener toggle shows.
-            expect(screen.queryByTestId('submitted-code-section')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('ai-summary')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            // is hidden, while remaining mounted so its state is preserved.
+            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
             expect(opener).toHaveTextContent('View full study code')
 
@@ -467,18 +466,19 @@ describe('PostFeedbackView', () => {
             await userClick.click(opener)
 
             // Expanded: full section revealed, code body shown, opener replaced by the closer.
-            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeInTheDocument())
-            expect(screen.getByTestId('ai-summary')).toBeInTheDocument()
-            expect(screen.getByTestId('security-scan-log')).toBeInTheDocument()
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
+            expect(screen.getByTestId('ai-summary')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus())
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             const closer = screen.getByTestId('study-code-toggle-collapse')
             expect(closer).toHaveTextContent('Hide full study code')
 
-            // Closing collapses the entire card again.
+            // Closing collapses the entire card again and returns keyboard focus to the opener.
             await userClick.click(closer)
-            await waitFor(() => expect(screen.queryByTestId('submitted-code-section')).not.toBeInTheDocument())
-            expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View full study code')
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
+            expect(screen.getByTestId('study-code-toggle')).toHaveFocus()
         })
 
         // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
