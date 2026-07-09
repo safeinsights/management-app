@@ -18,6 +18,11 @@ export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
     collapse: 'Hide submitted study code',
 }
 
+export const FULL_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View full study code',
+    collapse: 'Hide full study code',
+}
+
 interface StudyCodeToggleProps {
     expanded: boolean
     onClick: () => void

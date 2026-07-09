@@ -478,7 +478,7 @@ describe('PostFeedbackView', () => {
             // Closing collapses the entire card again and returns keyboard focus to the opener.
             await userClick.click(closer)
             await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
-            expect(screen.getByTestId('study-code-toggle')).toHaveFocus()
+            await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 
         // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status

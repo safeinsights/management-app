@@ -14,15 +14,10 @@ import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } fr
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
     useExpandable,
-    type StudyCodeToggleLabels,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
-
-const FULL_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
-}
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 

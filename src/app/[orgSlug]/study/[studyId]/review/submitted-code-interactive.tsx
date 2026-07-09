@@ -27,6 +27,7 @@ import {
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
     type StudyCodeToggleLabels,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
@@ -61,11 +62,6 @@ function useAiSummaryToggle() {
 
 // Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
-
-export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
-}
 
 function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
@@ -507,7 +503,7 @@ export function StudyCodeViewer({
     studyJobId,
     files,
     initialExpanded = true,
-    toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+    toggleLabels = FULL_STUDY_CODE_TOGGLE_LABELS,
     onCollapse,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
