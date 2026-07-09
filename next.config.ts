@@ -12,9 +12,11 @@ const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 // Turbopack's persistent filesystem cache for `next build` is experimental (opt-in) in
 // Next 16, so it's gated behind TURBOPACK_FS_CACHE and only turned on for the CI e2e build
 // (see .github/workflows/checks.yml), never for the production deploy build. It writes to
-// .next/cache, which CI persists across runs to make incremental rebuilds much faster. If
-// a cached build ever looks wrong it fails loudly at build time (never a false-green test
-// run); bust it by bumping the cache-key token in the workflow.
+// .next/cache, which CI persists across runs to make incremental rebuilds much faster.
+// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The
+// rarer, quieter risk is a stale build if invalidation ever missed a change; content-hash change
+// detection plus a cache key that hashes every source file make this unlikely, but if a build is
+// ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
 const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 
 const securityHeaders = [

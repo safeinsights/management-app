@@ -317,10 +317,15 @@ jobs:
             # Save the Next build cache ONLY on push-to-main (see the restore step above).
             # Runs only on success, so a failed build/test never persists a poisoned cache.
             - name: Save Next build cache (main only)
-              # Guard on both the event and the ref: `push` is only configured for `main`, but a
-              # merged `pull_request` run also reports github.ref == refs/heads/main, so the
-              # event check keeps the save strictly on push-to-main even if triggers change later.
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              # Guard on event, ref, and cache-hit:
+              #  - `push` is only configured for `main`, and a `pull_request` run reports
+              #    refs/pull/<n>/merge (not refs/heads/main), so today the event check alone
+              #    would suffice. The ref check is belt-and-braces so the save stays strictly on
+              #    push-to-main if a future `pull_request_target` or other trigger is added.
+              #  - cache-hit != 'true' skips the save when the exact primary key was already
+              #    restored (e.g. re-running a main run on an unchanged commit); otherwise
+              #    actions/cache spends minutes taring ~430 MB only to fail reserving the key.
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.next_cache.outputs.cache-hit != 'true'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   key: ${{ steps.next_cache.outputs.cache-primary-key }}
