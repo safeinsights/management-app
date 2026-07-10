@@ -12,13 +12,17 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    // A job is finalized once it reports either outcome. RUN-COMPLETE freezes shared results under
+    // already-wrapped keys; JOB-ERRORED must be terminal too, otherwise a retried error post (which
+    // never reaches RUN-COMPLETE) re-stores the log and appends another JOB-ERRORED (OTTER-642).
+    // Re-runs use a NEW job.
     const alreadyReceived = await db
         .selectFrom('jobStatusChange')
         .where('jobStatusChange.studyJobId', '=', jobId)
-        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
+        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE', 'JOB-ERRORED'])
         .executeTakeFirst()
 
-    if (alreadyReceived) return new NextResponse('job is already complete', { status: 422 })
+    if (alreadyReceived) return new NextResponse('job already finalized', { status: 422 })
 
     const formData = await req.formData()
     const logs = formData.get('log')

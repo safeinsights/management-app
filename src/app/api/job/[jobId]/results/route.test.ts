@@ -85,6 +85,43 @@ test('rejects a second results upload once the job is already complete', async (
     expect(rows).toHaveLength(1)
 })
 
+// An errored job never reaches RUN-COMPLETE, so before OTTER-642 a retried error post sailed past
+// the completion guard and stored a second log row + another JOB-ERRORED. JOB-ERRORED is terminal too.
+test('rejects a second log-only (errored) upload once the job already errored', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const post = () => {
+        const formData = new FormData()
+        formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+        return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+            params: Promise.resolve({ jobId }),
+        })
+    }
+
+    expect((await post()).ok).toBe(true)
+
+    const second = await post()
+    expect(second.status).toBe(422)
+
+    const logRows = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
+        .execute()
+    expect(logRows).toHaveLength(1)
+
+    const erroredStatuses = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    expect(erroredStatuses).toHaveLength(1)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'

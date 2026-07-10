@@ -30,9 +30,13 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
     await storeS3File(info, file.stream(), path)
 
+    // Idempotent on (study_job_id, path): a retried/re-delivered ingest webhook overwrites the same
+    // S3 object, so it must update the existing row in place rather than insert a duplicate that
+    // shows up as a doubled log/result in the reviewer and researcher views (OTTER-642).
     return await db
         .insertInto('studyJobFile')
         .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
+        .onConflict((oc) => oc.columns(['studyJobId', 'path']).doUpdateSet({ name: file.name, fileType }))
         .executeTakeFirstOrThrow()
 }
 

@@ -149,6 +149,23 @@ test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED',
     expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
 })
 
+// Before OTTER-642 the log files were stored on every call (only the status was deduped), so a
+// re-delivered CODE-SCANNED webhook doubled the scan-log rows. storeJobFile is now idempotent on
+// (study_job_id, path), so a repeat delivery updates in place instead of inserting a duplicate.
+test.skipIf(!s3Available)('does not duplicate log files when CODE-SCANNED is delivered twice', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const body = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toHaveLength(1)
+    expect(files.filter((f) => f.fileType === 'SECURITY-SCAN-LOG')).toHaveLength(1)
+})
+
 // A stray CODE-SUBMITTED echo from an older scanner must never reach the status log — it would
 // corrupt the append-only submission count (here: turn a decided round back into "under review").
 test('ignores a CODE-SUBMITTED echo even after the round has been decided', async () => {
