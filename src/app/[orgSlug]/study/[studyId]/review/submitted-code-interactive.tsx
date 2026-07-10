@@ -11,10 +11,13 @@ import {
     Skeleton,
     Stack,
     Text,
+    Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useEffect, useState } from 'react'
+import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
@@ -63,22 +66,36 @@ function useAiSummaryToggle() {
 // Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
 
+// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+const MARKDOWN_LIST_COMPONENTS: Components = {
+    ul: ({ node: _node, ...props }) => (
+        <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+    ol: ({ node: _node, ...props }) => (
+        <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+}
+
 function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
         <Text
+            component="div"
             size="sm"
             data-testid="ai-summary-body"
             lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
-            style={{ whiteSpace: 'pre-wrap' }}
         >
-            {summary}
+            <Typography fz="sm">
+                <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
+                    {summary}
+                </Markdown>
+            </Typography>
         </Text>
     )
 }
 
 function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
     return (
-        <CaretRight
+        <CaretRightIcon
             size={12}
             weight="bold"
             style={{
@@ -366,7 +383,7 @@ function OverflowFilesMenu({
                         <Text size="sm" c="charcoal.7" component="span">
                             +{hidden.length} more files
                         </Text>
-                        <CaretRight size={12} weight="bold" />
+                        <CaretRightIcon size={12} weight="bold" />
                     </Group>
                 </UnstyledButton>
             </Menu.Target>

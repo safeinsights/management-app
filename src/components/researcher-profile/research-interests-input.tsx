@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
-import { Pill, PillsInput, Text } from '@mantine/core'
+import React, { useRef } from 'react'
+import { Pill, PillsInput, Text, VisuallyHidden } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import type { ResearchDetailsValues } from '@/schema/researcher-profile'
 
@@ -20,6 +20,9 @@ export function ResearchInterestsInput({
     onAdd,
     onRemove,
 }: ResearchInterestsInputProps) {
+    // PillsInput forwards ref to its root element; Mantine types that ref as HTMLInputElement
+    // even though the root renders as a div. We only need Node.contains, so the type is harmless.
+    const rootRef = useRef<HTMLInputElement>(null)
     const interests = form.values.researchInterests || []
     const maxItems = 5
     const isAtLimit = interests.length >= maxItems
@@ -38,15 +41,29 @@ export function ResearchInterestsInput({
         }
     }
 
+    // Commit the draft only when focus moves to another element outside this input. Skip when
+    // focus leaves the page entirely (switching tabs/windows makes relatedTarget null) or moves
+    // to a control inside the widget (e.g. a pill's remove button, which lives inside rootRef),
+    // so the user does not get an accidental pill they never meant to add.
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const next = e.relatedTarget as Node | null
+        if (!next || rootRef.current?.contains(next)) return
+        onAdd()
+    }
+
     const interestPills = interests.map((item, idx) => (
         <Pill key={form.key(`researchInterests.${idx}`)} withRemoveButton onRemove={() => onRemove(idx)}>
             {item}
         </Pill>
     ))
 
+    const announcement = interests.length
+        ? `Research interests: ${interests.join(', ')}`
+        : 'No research interests selected'
+
     return (
         <>
-            <PillsInput id="researchInterests" error={form.errors.researchInterests as unknown as string}>
+            <PillsInput ref={rootRef} id="researchInterests" error={form.errors.researchInterests as unknown as string}>
                 <Pill.Group>
                     {interestPills}
                     <PillsInput.Field
@@ -54,9 +71,11 @@ export function ResearchInterestsInput({
                         value={draftValue}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
+                        onBlur={handleBlur}
                     />
                 </Pill.Group>
             </PillsInput>
+            <VisuallyHidden role="status">{announcement}</VisuallyHidden>
             <InterestsHelperText isVisible={!isAtLimit} />
         </>
     )

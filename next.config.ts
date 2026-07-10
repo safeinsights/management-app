@@ -9,6 +9,16 @@ const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 // (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
 const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 
+// Turbopack's persistent filesystem cache for `next build` is experimental (opt-in) in
+// Next 16, so it's gated behind TURBOPACK_FS_CACHE and only turned on for the CI e2e build
+// (see .github/workflows/checks.yml), never for the production deploy build. It writes to
+// .next/cache, which CI persists across runs to make incremental rebuilds much faster.
+// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The
+// rarer, quieter risk is a stale build if invalidation ever missed a change; content-hash change
+// detection plus a cache key that hashes every source file make this unlikely, but if a build is
+// ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
+const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
+
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
     // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN
@@ -70,6 +80,7 @@ const nextConfig: NextConfig = {
         return config
     },
     experimental: {
+        ...(turbopackFsCache ? { turbopackFileSystemCacheForBuild: true } : {}),
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {

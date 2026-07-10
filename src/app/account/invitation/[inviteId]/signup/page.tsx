@@ -6,7 +6,7 @@ import {
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
 import { useMutation, useQuery, z, zodResolver } from '@/common'
-import { CLERK_ERROR_TITLES } from '@/components/clerk-errors'
+import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
@@ -113,6 +113,10 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
         },
     })
 
+    const clerkErrorCopy = CLERK_ERROR_COPY[String(form.errors.code)]
+    const formErrorTitle = clerkErrorCopy?.title || 'Could not create account'
+    const formErrorBody = clerkErrorCopy?.message || form.errors.form
+
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
@@ -182,11 +186,11 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     {form.errors.form && (
                         <Alert
                             color="red"
-                            title={CLERK_ERROR_TITLES[String(form.errors.code)]?.title || 'Could not create account'}
+                            title={formErrorTitle}
                             withCloseButton
                             onClose={() => form.clearFieldError('form')}
                         >
-                            {form.errors.form}
+                            {formErrorBody}
                         </Alert>
                     )}
 

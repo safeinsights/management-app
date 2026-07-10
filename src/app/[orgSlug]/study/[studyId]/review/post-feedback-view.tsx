@@ -8,7 +8,9 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import { Box, Button, Collapse, Group, Stack, Text, Title } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
 import { useCallback, useRef, type ReactNode, type RefObject } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
@@ -39,6 +41,12 @@ type PostFeedbackViewProps = {
         decision: ReviewDecision
         timestamp: Date | string
     }
+    /**
+     * Set only on the read-only /review/code walk-back step (OTTER-643) to render a "Previous" link back
+     * through the flow. Omitted for the live code-decision screen and every proposal usage, which show
+     * only "Go to dashboard" (matching the live DO design, which hides Previous).
+     */
+    previousHref?: Route
 }
 
 type DecisionCopy = {
@@ -141,6 +149,20 @@ function GoToDashboardButton() {
     return (
         <Button onClick={handleClick} data-testid="go-to-dashboard">
             Go to dashboard
+        </Button>
+    )
+}
+
+function PreviousButton({ href }: { href: Route }) {
+    const router = useRouter()
+    return (
+        <Button
+            variant="subtle"
+            leftSection={<CaretLeftIcon />}
+            onClick={() => router.push(href)}
+            data-testid="post-feedback-previous"
+        >
+            Previous
         </Button>
     )
 }
@@ -324,6 +346,7 @@ export function PostFeedbackView({
     review = null,
     scan = null,
     fallback,
+    previousHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -369,7 +392,8 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify="flex-end">
+                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
+                    {previousHref && <PreviousButton href={previousHref} />}
                     <GoToDashboardButton />
                 </Group>
             </Stack>
