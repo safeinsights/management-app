@@ -140,6 +140,10 @@ fi
 # overrides the default command's migrate+seed) knows to migrate + seed first.
 db_needs_setup=false
 
+# Set when the DB is otherwise healthy but a migration exists on disk that hasn't
+# been applied yet; the targeted-test path then runs migrate:latest (no reseed) first.
+pending_migration=false
+
 if [ "$clean_all" = true ]; then
     # Wipe the database + object-storage volumes and node_modules, but KEEP the
     # pnpm store and corepack cache so reinstalls hardlink from cache offline.
@@ -177,6 +181,17 @@ else
         fi
     done
 
+    # Forward drift (mirror of the check above, reusing the lists already fetched): a
+    # migration exists on disk but isn't applied to this DB yet. migrate:latest applies
+    # it; no rebuild or reseed needed. Ignored when db_needs_setup is set below (that
+    # path migrates too). A failed/empty `applied` falls through to db_needs_setup.
+    for migration in $filesystem; do
+        if [ -n "$migration" ] && ! echo "$applied" | grep -qx "$migration"; then
+            pending_migration=true
+            break
+        fi
+    done
+
     if [ "$rebuild_db" = true ]; then
         echo "Rebuilding database only (node_modules preserved)..."
         # Stop and remove just the db container
@@ -209,8 +224,14 @@ elif [ "$db_needs_setup" = true ]; then
     # boundaries instead of being re-split by string interpolation.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
         sh -c 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest "$@"' _ "${vitest_args[@]}"
+elif [ "$pending_migration" = true ]; then
+    # DB is already set up + seeded, but a migration was added on disk and isn't applied
+    # yet. Apply it (migrate:latest only, no reseed) before the targeted run, folded into
+    # one run. Same positional-args pattern as above so spaced filters keep boundaries.
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
+        sh -c 'pnpm exec kysely migrate:latest && exec pnpm exec vitest "$@"' _ "${vitest_args[@]}"
 else
-    # DB already migrated + seeded from a prior run: skip straight to vitest.
+    # DB already migrated + seeded and no pending migration: skip straight to vitest.
     # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
     # this pnpm version drops everything after `--` instead of forwarding it to
     # the script, so the `-- <args>` form silently ran the whole suite (no filter).
