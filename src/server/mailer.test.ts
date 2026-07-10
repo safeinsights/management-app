@@ -114,6 +114,37 @@ describe('mailgun email functions', () => {
         )
     })
 
+    it('mass emails never put recipient addresses in To (OTTER-651 regression)', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+
+        const orgMembers = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .distinctOn('user.id')
+            .select(['user.email'])
+            .where('orgUser.orgId', '=', study.orgId)
+            .execute()
+        const allEmails = orgMembers.map((m) => m.email).filter(Boolean)
+
+        expect(allEmails.length).toBeGreaterThan(1)
+
+        await mailgun.sendStudyProposalEmails(study.id)
+        const proposalCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
+        expect(proposalCall.to).toBe(SI_EMAIL)
+        for (const email of allEmails) {
+            expect(proposalCall.to).not.toContain(email)
+            expect(proposalCall.bcc).toContain(email)
+        }
+
+        await mailgun.sendStudyCodeSubmittedEmail(study.id)
+        const codeCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
+        expect(codeCall.to).toBe(SI_EMAIL)
+        for (const email of allEmails) {
+            expect(codeCall.to).not.toContain(email)
+            expect(codeCall.bcc).toContain(email)
+        }
+    })
+
     it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {
         const { study, user1: reviewer } = await insertTestOrgStudyJobUsers()
         await db.updateTable('study').set({ reviewerId: reviewer.id }).where('id', '=', study.id).execute()
