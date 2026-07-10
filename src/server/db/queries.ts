@@ -530,7 +530,7 @@ export function parseSonarqubeStatus(log: string): ScanToolStatus {
 
 // Reads the plaintext SECURITY-SCAN-LOG (not the encrypted zip) and derives a
 // per-tool status from its text. No log row yet, or an unreadable file, is
-// treated as "not reported" — no statuses and no download affordance.
+// treated as "not reported" (no statuses and no download affordance).
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
     const logFile = await Action.db
         .selectFrom('studyJobFile')

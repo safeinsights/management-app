@@ -64,7 +64,7 @@ function ScanWarningIcon({ isVisible }: { isVisible: boolean }) {
 }
 
 // A tool's result: plain text when it passed, otherwise a warning icon paired
-// with the failure phrasing. Deliberately no "pass" icon — we only flag the
+// with the failure phrasing. Deliberately no "pass" icon; we only flag the
 // results that need a human to look (OTTER-649).
 function ScanRow({ label, status, passedLabel, failedLabel, testId }: ScanRowProps) {
     const passed = status === 'PASSED'
