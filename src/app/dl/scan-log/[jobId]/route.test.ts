@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { BLANK_UUID, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
 // The route only reads the DB row for the file path; stub the signed-URL helper so
 // the redirect case doesn't need S3.
@@ -34,6 +34,14 @@ describe('GET /dl/scan-log/[jobId]', () => {
         const resp = await apiHandler.GET(request(), { params: Promise.resolve({ jobId: job.id }) })
 
         expect(resp.status).toBe(404)
+    })
+
+    it('returns 401 (not 404) for an unknown job, so job existence is not disclosed', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        const resp = await apiHandler.GET(request(), { params: Promise.resolve({ jobId: BLANK_UUID }) })
+
+        expect(resp.status).toBe(401)
     })
 
     it('returns 401 when the requester cannot view the job (different org)', async () => {

@@ -430,12 +430,19 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
     })
 
-    it('shows an in-progress indicator and no download link when no scan log exists yet', async () => {
+    it('keeps both labeled rows in a pending state, with no icon or download, when no scan log exists yet', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanInProgress)
-        expect(screen.getByTestId('security-scan-log-pending')).toHaveTextContent('Scan in progress')
+        const trivy = screen.getByTestId('security-scan-trivy')
+        const sonar = screen.getByTestId('security-scan-sonarqube')
+        expect(trivy).toHaveTextContent('Trivy Filesystem Scan:')
+        expect(trivy).toHaveTextContent('Scan in progress')
+        expect(sonar).toHaveTextContent('SonarQube Quality Gate:')
+        expect(sonar).toHaveTextContent('Scan in progress')
+        // No fabricated pass/fail while the status is unknown.
+        expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
         expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
-        expect(screen.queryByTestId('security-scan-trivy')).not.toBeInTheDocument()
     })
 })
 

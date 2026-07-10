@@ -12,16 +12,19 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'no job id provided' }, { status: 400 })
     }
 
+    // Authorize before touching the file, so a denied requester can't infer from a
+    // 404-vs-401 whether another org's job produced a scan log. An unknown job and an
+    // unauthorized one both return 401 rather than disclosing which case applied.
+    const job = await jobInfoForJobId(jobId).catch(() => null)
+
+    if (!job || !(await canViewStudyJob(job))) {
+        return NextResponse.json({ error: 'permission denied' }, { status: 401 })
+    }
+
     const file = await getStudyJobFileOfType(jobId, 'SECURITY-SCAN-LOG', false)
 
     if (!file) {
         return NextResponse.json({ error: 'scan log not found' }, { status: 404 })
-    }
-
-    const job = await jobInfoForJobId(jobId)
-
-    if (!(await canViewStudyJob(job))) {
-        return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }
 
     const url = await urlForFile(file.path)

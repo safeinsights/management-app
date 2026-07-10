@@ -63,20 +63,42 @@ function ScanWarningIcon({ isVisible }: { isVisible: boolean }) {
     return <WarningCircle size={20} color="var(--mantine-color-red-9)" data-icon="warning" aria-hidden="true" />
 }
 
-// A tool's result: plain text when it passed, otherwise a warning icon paired
-// with the failure phrasing. Deliberately no "pass" icon; we only flag the
-// results that need a human to look (OTTER-649).
-function ScanRow({ label, status, passedLabel, failedLabel, testId }: ScanRowProps) {
+// A tool's result: plain text when it passed, a warning icon plus the failure
+// phrasing when it failed, and a neutral pending note while the scan has not
+// reported (status null). Deliberately no "pass" icon, and never a fabricated
+// pass/fail when the status is unknown; we only flag what needs a human (OTTER-649).
+function ScanRowValue({
+    status,
+    passedLabel,
+    failedLabel,
+}: {
+    status: ScanToolStatus | null
+    passedLabel: string
+    failedLabel: string
+}) {
+    if (status === null) {
+        return (
+            <Text size="sm" c="dimmed">
+                Scan in progress…
+            </Text>
+        )
+    }
     const passed = status === 'PASSED'
+    return (
+        <Group gap={4} wrap="nowrap" align="center">
+            <ScanWarningIcon isVisible={!passed} />
+            <Text size="sm" fw={600}>
+                {passed ? passedLabel : failedLabel}
+            </Text>
+        </Group>
+    )
+}
+
+function ScanRow({ label, status, passedLabel, failedLabel, testId }: ScanRowProps) {
     return (
         <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
             <Text size="sm">{label}</Text>
-            <Group gap={4} wrap="nowrap" align="center">
-                <ScanWarningIcon isVisible={!passed} />
-                <Text size="sm" fw={600}>
-                    {passed ? passedLabel : failedLabel}
-                </Text>
-            </Group>
+            <ScanRowValue status={status} passedLabel={passedLabel} failedLabel={failedLabel} />
         </Group>
     )
 }
@@ -99,14 +121,10 @@ function ScanLogDownload({ jobId, isVisible }: { jobId: string; isVisible: boole
     )
 }
 
+// The two labeled rows are always shown (the AC lists them as static elements).
+// Their values come from the parsed log; when no log has been read yet, each row
+// shows a pending note rather than a status.
 function ScanLogBody({ scan }: { scan: JobScanResult }) {
-    if (!scan.logFile) {
-        return (
-            <Text size="sm" c="dimmed" data-testid="security-scan-log-pending">
-                Scan in progress…
-            </Text>
-        )
-    }
     return (
         <Stack gap="sm">
             <ScanRow
