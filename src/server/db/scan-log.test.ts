@@ -45,6 +45,19 @@ describe('parseSonarqubeStatus', () => {
     it('needs review when the SonarQube section is absent (skipped/unavailable)', () => {
         expect(parseSonarqubeStatus(TRIVY_CLEAN)).toBe('FAILED')
     })
+
+    // The scanner (iac fetchSonarQualityGate) can emit these non-OK statuses; all mean "needs review".
+    it.each(['ERROR', 'WARN', 'NONE', 'TIMEOUT', 'UNKNOWN'])('needs review for non-OK gate status %s', (status) => {
+        expect(
+            parseSonarqubeStatus(
+                `Trivy Filesystem Scan: no vulnerabilities found\n\nSonarQube Quality Gate: ${status}`,
+            ),
+        ).toBe('FAILED')
+    })
+
+    it('matches OK case-insensitively', () => {
+        expect(parseSonarqubeStatus('sonarqube quality gate: ok')).toBe('PASSED')
+    })
 })
 
 describe('jobScanResultForJob', () => {
