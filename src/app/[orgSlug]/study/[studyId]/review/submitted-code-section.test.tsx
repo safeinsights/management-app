@@ -1,4 +1,5 @@
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     db,
@@ -267,6 +268,41 @@ describe('SubmittedCodeSection — AI summary', () => {
                 { studyJobId: resubmissionFixture.job.id, status: 'CODE-SUBMITTED', createdAt: resubmittedAt },
             ])
             .execute()
+
+        await renderSection(await refreshFixtureJob(resubmissionFixture))
+
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    // latestCodeSubmittedAt's own unit tests only exercise a hand-built statusChanges
+    // array. This drives the same shape through the real query (latestJobForStudy's
+    // jsonArrayFrom + orderBy) with two full resubmission rounds on one reused job, so
+    // a regression in the ORDER BY (e.g. losing the `id desc` tiebreak) would surface
+    // here even though every row shares no obvious natural order otherwise.
+    it('keeps loading across two resubmission rounds on the same reused job', async () => {
+        const resubmissionFixture = await setupBaseFixture()
+        const day = 24 * 60 * 60 * 1000
+        const originalSubmittedAt = new Date(Date.now() - 5 * day)
+
+        await db
+            .updateTable('studyJob')
+            .set({ createdAt: originalSubmittedAt })
+            .where('id', '=', resubmissionFixture.job.id)
+            .execute()
+        const statuses: { status: StudyJobStatus; createdAt: Date }[] = [
+            { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 4 * day) },
+            { status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() - 3 * day) },
+            { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 2 * day) },
+            { status: 'CODE-SUBMITTED', createdAt: new Date() },
+        ]
+        await db
+            .insertInto('jobStatusChange')
+            .values(statuses.map((change) => ({ ...change, studyJobId: resubmissionFixture.job.id })))
+            .execute()
+
+        const job = await latestJobForStudy(resubmissionFixture.study.id)
+        expect(latestCodeSubmittedAt(job)).not.toBe(originalSubmittedAt)
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
