@@ -45,7 +45,10 @@ export async function requireQaAdmin(): Promise<QaAuthResult> {
 
     let claims
     try {
-        claims = await verifyToken(token, {})
+        // The standalone verifyToken (unlike auth()/clerkClient()) does not read CLERK_SECRET_KEY
+        // from the environment on its own — it only uses the key passed in options. Without it,
+        // JWK resolution fails and the guard rejects every request, so pass the secret explicitly.
+        claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
     } catch (error) {
         logger.warn('QA cleanup token verification failed', error)
         return { ok: false, status: 401, message: 'Authentication required' }

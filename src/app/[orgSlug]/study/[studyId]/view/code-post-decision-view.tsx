@@ -31,6 +31,11 @@ interface CodePostDecisionViewProps {
     /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
+    /**
+     * Forward link to results (Step 5); set only once results exist. When set, the primary action
+     * reads "Proceed to step 5" instead of "Go to dashboard" (OTTER-614).
+     */
+    resultsHref?: Route
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
     /**
@@ -102,6 +107,7 @@ type DecisionActionsProps = {
     previousHref: Route
     dashboardHref: Route
     resubmitHref: Route
+    resultsHref?: Route
 }
 
 const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
@@ -119,6 +125,15 @@ const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, h
     )
 }
 
+const ProceedToResultsAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
+    if (!isVisible || !href) return null
+    return (
+        <ButtonLink href={href} size="md" data-testid="cta-proceed-to-results">
+            Proceed to step 5
+        </ButtonLink>
+    )
+}
+
 const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
     if (!isVisible) return null
     return (
@@ -128,12 +143,15 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
     )
 }
 
-function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref }: DecisionActionsProps) {
+function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, resultsHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
+    // Once results exist, continue forward to Step 5 instead of ending at the dashboard.
+    const showProceedToResults = !showResubmit && !!resultsHref
     return (
         <Group justify="space-between">
             <PreviousStepLink href={previousHref} />
-            <DashboardAction isVisible={!showResubmit} href={dashboardHref} />
+            <ProceedToResultsAction isVisible={showProceedToResults} href={resultsHref} />
+            <DashboardAction isVisible={!showResubmit && !showProceedToResults} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
         </Group>
     )
@@ -235,13 +253,14 @@ export function CodePostDecisionView({
     dashboardHref,
     returnTo,
     latestJobStatus,
+    resultsHref,
     feedbackLoadError = false,
     showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
 
-    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
+    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
@@ -282,6 +301,7 @@ export function CodePostDecisionView({
                     previousHref={previousHref}
                     dashboardHref={dashboardHref}
                     resubmitHref={resubmitHref}
+                    resultsHref={resultsHref}
                 />
             </Stack>
         </Stack>

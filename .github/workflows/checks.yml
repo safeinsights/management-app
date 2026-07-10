@@ -20,13 +20,25 @@ on:
             - main
     pull_request: {}
 
+# PR runs share one group per PR ref, so a newer commit cancels the older run
+# (cancel-in-progress) and frees the runner. Push runs (e.g. main) get a UNIQUE group per
+# run via github.run_id, so they are never grouped, never queued behind or superseded by
+# another run, and always finish and seed the shared build cache. This keeps main behaving
+# exactly as it did before this workflow gained a concurrency block: GitHub drops an older
+# *pending* run whenever a newer one queues in the same group (regardless of
+# cancel-in-progress), so a per-run group is what preserves that "every main run completes"
+# guarantee.
+concurrency:
+    group: ${{ github.event_name == 'pull_request' && format('checks-{0}', github.ref) || format('checks-{0}', github.run_id) }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     lint:
         timeout-minutes: 5
         runs-on: ubuntu-latest
         permissions: {}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -60,7 +72,7 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
@@ -96,7 +108,7 @@ jobs:
             # binaries.sonarsource.com: on a cache hit the binary is reused instead
             # of re-downloaded. Keyed on the scanner version pin so a bump busts it.
             - name: Cache SonarQube scanner
-              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ${{ github.workspace }}/.sonar
                   key: ${{ runner.os }}-sonar-7006c4492b2e0ee0f816d36501671557c97f5995
@@ -133,7 +145,11 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -151,7 +167,7 @@ jobs:
             # default (~half the cores) leaves the box idle. Override via vitest --maxWorkers.
             VITEST_MAX_WORKERS: '4'
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -206,7 +222,11 @@ jobs:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -218,6 +238,13 @@ jobs:
             SINGLE_USER_EDITING: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
             NEXT_PUBLIC_CI: 'true'
+            # Opt this build into Turbopack's persistent filesystem cache (experimental in
+            # Next 16, off by default). next.config.ts reads TURBOPACK_FS_CACHE and enables
+            # turbopackFileSystemCacheForBuild only when set, so it applies to this CI e2e
+            # build alone and never to the production deploy build. Turbopack writes the
+            # cache into .next/cache, which the actions/cache step below persists between
+            # runs to make incremental rebuilds fast.
+            TURBOPACK_FS_CACHE: '1'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
             AWS_ACCESS_KEY_ID: 'si-local-s3'
@@ -226,7 +253,7 @@ jobs:
             AWS_REGION: 'us-east-1'
             PORT: '4100'
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -234,20 +261,26 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
-            # Next build cache — keyed on lockfile + source so an unchanged tree restores
-            # the previous .next/cache and skips most of the build.
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            # Next build cache (restore/save split). We RESTORE on every run but only SAVE on
+            # push-to-main (see the save step after the tests): the save uploads ~400MB and
+            # would add ~50s to every PR's critical path. PR runs instead restore main's cache
+            # via the `tpc1-<lockfileHash>-` restore-keys prefix and rebuild incrementally.
+            # The `tpc1` token namespaces the Turbopack persistent build cache (enabled via
+            # TURBOPACK_FS_CACHE) and lets us bust it with a one-character bump if a cached
+            # build ever misbehaves.
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: next_cache
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  key: ${{ runner.os }}-nextjs-tpc1-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+                      ${{ runner.os }}-nextjs-tpc1-${{ hashFiles('**/pnpm-lock.yaml') }}-
             # Cache the Playwright browser binaries so they aren't re-downloaded every run.
             # Keyed on the installed Playwright version (from the lockfile).
             - name: Resolve Playwright version
               id: pw
               run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
-            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               id: pw-cache
               with:
                   path: ~/.cache/ms-playwright
@@ -262,6 +295,10 @@ jobs:
               run: pnpm run db:migrate
             - name: build and run server
               run: pnpm run ci:server -- server_output.log
+            # Playwright deps run synchronously here. Backgrounding them to overlap the build
+            # was tried and reverted: `playwright install-deps` shells out to sudo/apt, which
+            # hangs intermittently when detached from the step (~1 in 3 runs), violating the
+            # zero-flake rule. The ~12s saving is not worth an intermittent CI hang.
             - name: install playwright dependencies
               if: steps.pw-cache.outputs.cache-hit != 'true'
               run: pnpm exec playwright install --with-deps --only-shell chromium
@@ -277,6 +314,22 @@ jobs:
                   path: test-results/e2e/coverage/raw
                   retention-days: 1
                   if-no-files-found: ignore
+            # Save the Next build cache ONLY on push-to-main (see the restore step above).
+            # Runs only on success, so a failed build/test never persists a poisoned cache.
+            - name: Save Next build cache (main only)
+              # Guard on event, ref, and cache-hit:
+              #  - `push` is only configured for `main`, and a `pull_request` run reports
+              #    refs/pull/<n>/merge (not refs/heads/main), so today the event check alone
+              #    would suffice. The ref check is belt-and-braces so the save stays strictly on
+              #    push-to-main if a future `pull_request_target` or other trigger is added.
+              #  - cache-hit != 'true' skips the save when the exact primary key was already
+              #    restored (e.g. re-running a main run on an unchanged commit); otherwise
+              #    actions/cache spends minutes taring ~430 MB only to fail reserving the key.
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.next_cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  key: ${{ steps.next_cache.outputs.cache-primary-key }}
+                  path: ${{ github.workspace }}/.next/cache
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
@@ -297,7 +350,7 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -311,14 +364,14 @@ jobs:
             # uses whatever is present rather than failing the report.
             - name: download unit coverage (all shards)
               continue-on-error: true
-              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   pattern: coverage-unit-*
                   merge-multiple: true
                   path: test-results/unit/raw
             - name: download e2e coverage
               continue-on-error: true
-              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   name: coverage-e2e
                   path: test-results/e2e/coverage/raw

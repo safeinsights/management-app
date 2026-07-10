@@ -18,6 +18,18 @@ export function shellQuote(value: string): string {
     return `'${escaped}'`
 }
 
+/**
+ * Replace each `%f` token in a command template with a shell-quoted `fileName`.
+ *
+ * A quote pair hugging the token (`"%f"`, `'%f'`) is absorbed so an admin-quoted
+ * template doesn't double-quote on top of our own quoting (OTTER-477).
+ */
+export function substituteEntryPointFile(template: string, fileName: string): string {
+    // \1 matches only quotes hugging the token; the function form keeps `$` in the
+    // filename from being read as a replacement pattern.
+    return template.replace(/(['"]?)%f\1/g, () => shellQuote(fileName))
+}
+
 // https://dense13.com/blog/2009/05/03/converting-string-to-slug-javascript/
 export function slugify(str: string) {
     str = str.replace(/^\s+|\s+$/g, '') // trim
@@ -78,7 +90,7 @@ const ORG_SUFFIX_SHORT: Record<string, string> = {
 }
 
 const ORG_SUFFIX_LONG: Record<string, string> = {
-    enclave: '-Data Org',
+    enclave: ' Data Partner',
     lab: '-Research Lab',
 }
 

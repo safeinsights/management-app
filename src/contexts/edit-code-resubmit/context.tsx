@@ -125,7 +125,7 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
             lastSavedValueRef.current = pendingValueRef.current
             notifications.show({
                 title: 'Study Code Resubmitted',
-                message: 'Your updated code has been submitted to the reviewing organization.',
+                message: 'Your updated code has been submitted to the Data Partner.',
                 color: 'green',
             })
             router.push(Routes.studyView({ orgSlug, studyId }))

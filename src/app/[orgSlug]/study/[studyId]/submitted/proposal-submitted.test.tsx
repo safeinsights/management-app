@@ -17,7 +17,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
-const ORG_NAME = 'Test Data Organization'
+const ORG_NAME = 'Test Data Partner'
 
 const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFeedbackEntry =>
     ({

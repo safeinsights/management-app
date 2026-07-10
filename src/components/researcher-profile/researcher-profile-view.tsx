@@ -50,7 +50,7 @@ export function ResearcherProfileLayout({ children }: { children: ReactNode }) {
                 <Title order={1}>Researcher Profile</Title>
                 <Text c="dimmed">
                     Create and manage your researcher profile. Adding professional details helps establish your
-                    credibility and allows Data Organizations to view your published work, credentials, and professional
+                    credibility and allows Data Partners to view your published work, credentials, and professional
                     background. Those pursuing a graduate degree will be able to share their background and interests.
                 </Text>
                 {children}
@@ -385,7 +385,7 @@ interface ResearchDetailsSectionViewProps {
     onInterestDraftChange: (value: string) => void
     onAddInterest: () => void
     onRemoveInterest: (index: number) => void
-    onSubmit: (values: ResearchDetailsValues) => void
+    onSubmit: () => void
 }
 
 type ResearchDetailsEditFormProps = Pick<
@@ -403,7 +403,12 @@ function ResearchDetailsEditForm({
     onSubmit,
 }: ResearchDetailsEditFormProps) {
     return (
-        <form onSubmit={form.onSubmit(onSubmit)}>
+        <form
+            onSubmit={(e) => {
+                e.preventDefault()
+                onSubmit()
+            }}
+        >
             <Stack gap="md">
                 <div>
                     <FormFieldLabel label="Research interests" required inputId="researchInterests" />
@@ -451,7 +456,7 @@ function ResearchDetailsEditForm({
                 </div>
 
                 <Group justify="flex-end" mt="xl">
-                    <Button type="submit" disabled={!form.isValid() || isPending} loading={isPending}>
+                    <Button type="submit" disabled={isPending} loading={isPending}>
                         Save changes
                     </Button>
                 </Group>

@@ -253,6 +253,25 @@ describe('StudyCode component', () => {
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
     })
 
+    it('keeps the user on the review page after deleting the only file', async () => {
+        const user = userEvent.setup()
+        await renderIDE('openstax-lab', { 'only.R': 'print("only")' })
+
+        await waitFor(() => {
+            expect(screen.getByText('only.R')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /remove only\.r/i }))
+
+        await waitFor(() => {
+            expect(screen.queryByText('only.R')).not.toBeInTheDocument()
+        })
+
+        expect(screen.getByText('Review files')).toBeInTheDocument()
+        expect(screen.queryByText(/write and test your code in ide/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('OR')).not.toBeInTheDocument()
+    })
+
     it('renders the page chrome and previous link', async () => {
         const { previousHref } = await renderIDE()
 

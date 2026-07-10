@@ -60,6 +60,29 @@ describe('generateAnalysis', () => {
         expect(args.tool_choice).toEqual({ type: 'tool', name: 'submit_analysis' })
     })
 
+    it('appends additionalContext to the system prompt, keeping the auditor persona', async () => {
+        const { client, create } = makeClient(toolUseBlock)
+
+        await generateAnalysis({ client, additionalContext: 'ORG GUIDANCE' }, baseContent)
+
+        const system = create.mock.calls[0][0].system as string
+        expect(system).toContain('Code & Compliance Auditor')
+        expect(system).toContain('ORG GUIDANCE')
+    })
+
+    it('appends additionalContext after a custom systemPrompt override', async () => {
+        const { client, create } = makeClient(toolUseBlock)
+
+        await generateAnalysis(
+            { client, systemPrompt: 'custom system', additionalContext: 'ORG GUIDANCE' },
+            baseContent,
+        )
+
+        const system = create.mock.calls[0][0].system as string
+        expect(system).toContain('custom system')
+        expect(system).toContain('ORG GUIDANCE')
+    })
+
     it('embeds code files and proposal in the user message', async () => {
         const { client, create } = makeClient(toolUseBlock)
 

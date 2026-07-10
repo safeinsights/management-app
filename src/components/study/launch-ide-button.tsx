@@ -1,7 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Button } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { CompactStatusButton } from './compact-status-button'
 
 export type LaunchIdeButtonVariant = 'cta' | 'outline'
@@ -14,8 +13,6 @@ interface LaunchIdeButtonProps {
 }
 
 export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: LaunchIdeButtonProps) {
-    const { messageWithEllipsis } = useLoadingMessages(isLaunching)
-
     if (launchError) {
         return (
             <CompactStatusButton
@@ -29,7 +26,7 @@ export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: 
     }
 
     if (isLaunching) {
-        return <CompactStatusButton primaryText="Launching IDE" secondaryText={messageWithEllipsis} loading />
+        return <CompactStatusButton primaryText="Launching IDE" loading />
     }
 
     if (variant === 'cta') {

@@ -87,6 +87,18 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         })
     }
 
+    // Folds any interest the user typed but never committed with Enter into the form
+    // value before validating, so a visible-but-uncommitted interest is not silently
+    // dropped and does not leave the user with a permanently disabled Save button.
+    // insertListItem updates the ref synchronously, so form.validate/getValues below
+    // see the just-added interest even in controlled mode.
+    const submitWithDraft = () => {
+        addInterest()
+        const { hasErrors } = form.validate()
+        if (hasErrors) return
+        handleSubmit(form.getValues())
+    }
+
     return {
         form,
         isEditing,
@@ -98,5 +110,6 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         addInterest,
         removeInterest,
         handleSubmit,
+        submitWithDraft,
     }
 }

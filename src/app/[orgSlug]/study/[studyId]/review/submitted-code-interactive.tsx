@@ -11,10 +11,13 @@ import {
     Skeleton,
     Stack,
     Text,
+    Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRight, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useEffect, useState } from 'react'
+import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
 import { highlightLanguageForFile } from '@/lib/languages'
@@ -57,22 +60,36 @@ function useAiSummaryToggle() {
 // Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
 
+// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+const MARKDOWN_LIST_COMPONENTS: Components = {
+    ul: ({ node: _node, ...props }) => (
+        <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+    ol: ({ node: _node, ...props }) => (
+        <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
+    ),
+}
+
 function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
     return (
         <Text
+            component="div"
             size="sm"
             data-testid="ai-summary-body"
             lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
-            style={{ whiteSpace: 'pre-wrap' }}
         >
-            {summary}
+            <Typography fz="sm">
+                <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
+                    {summary}
+                </Markdown>
+            </Typography>
         </Text>
     )
 }
 
 function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
     return (
-        <CaretRight
+        <CaretRightIcon
             size={12}
             weight="bold"
             style={{
@@ -193,7 +210,12 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
         <>
-            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            <Stack gap="xs">
+                <Text fw={600} size="sm">
+                    Overview
+                </Text>
+                <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            </Stack>
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
         </>
     )
@@ -254,11 +276,8 @@ export function AiSummaryCollapsible({
     }
 
     return (
-        <Stack gap="xs" data-testid="ai-summary">
+        <Stack gap="lg" data-testid="ai-summary">
             <Text fw={700}>AI Summary: Analysis of all files</Text>
-            <Text fw={600} size="sm">
-                Overview
-            </Text>
             {renderBody()}
         </Stack>
     )
@@ -294,7 +313,7 @@ function FileTab({
             wrap="nowrap"
             align="center"
             style={{
-                backgroundColor: isActive ? 'var(--mantine-color-blue-6)' : 'transparent',
+                backgroundColor: isActive ? 'var(--mantine-color-blue-7)' : 'transparent',
                 borderRadius: 0,
                 whiteSpace: 'nowrap',
                 paddingRight: 6,
@@ -310,7 +329,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={isActive ? 700 : 400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -358,7 +377,7 @@ function OverflowFilesMenu({
                         <Text size="sm" c="charcoal.7" component="span">
                             +{hidden.length} more files
                         </Text>
-                        <CaretRight size={12} weight="bold" />
+                        <CaretRightIcon size={12} weight="bold" />
                     </Group>
                 </UnstyledButton>
             </Menu.Target>
@@ -473,7 +492,7 @@ function StudyCodeBody({
     }
     return (
         <div data-testid="study-code-body">
-            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} />
+            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} withBorder />
         </div>
     )
 }
@@ -535,16 +554,18 @@ export function StudyCodeViewer({
     const hasFiles = files.length > 0
 
     return (
-        <Stack gap="sm" data-testid="study-code-viewer">
-            <FileTabsRow
-                isVisible={isExpanded}
-                visible={visible}
-                activeFileName={activeFile?.name ?? null}
-                onSelect={selectFile}
-                hidden={hidden}
-                studyJobId={studyJobId}
-            />
-            <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+        <Stack gap="lg" data-testid="study-code-viewer">
+            <Stack gap="sm">
+                <FileTabsRow
+                    isVisible={isExpanded}
+                    visible={visible}
+                    activeFileName={activeFile?.name ?? null}
+                    onSelect={selectFile}
+                    hidden={hidden}
+                    studyJobId={studyJobId}
+                />
+                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+            </Stack>
             <StudyCodeToggle
                 isVisible={hasFiles}
                 isExpanded={isExpanded}

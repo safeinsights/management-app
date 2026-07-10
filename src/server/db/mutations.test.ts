@@ -238,6 +238,36 @@ describe('ensureRoundJobForLaunch (OTTER-601)', () => {
 
         expect(await jobsForStudy(study.id)).toHaveLength(2)
     })
+
+    it('does NOT refresh createdAt when the round already has files (OTTER-602)', async () => {
+        const org = await insertTestOrg()
+        const { study, job } = await insertTestStudyJobData({ org, studyStatus: 'APPROVED', jobStatus: 'INITIATED' })
+        const backdated = new Date(Date.now() - 60_000)
+        await db.updateTable('studyJob').set({ createdAt: backdated }).where('id', '=', job.id).execute()
+
+        const result = await ensureRoundJobForLaunch(db, study.id, { hasWorkspaceFiles: true })
+
+        const after = await jobsForStudy(study.id)
+        expect(after).toHaveLength(1)
+        expect(after[0].id).toBe(job.id)
+        // A manual upload before launch must keep counting toward submit-enable.
+        expect(after[0].createdAt.getTime()).toBe(backdated.getTime())
+        expect(result.createdAt.getTime()).toBe(backdated.getTime())
+    })
+
+    it('still refreshes createdAt when the round has no files yet', async () => {
+        const org = await insertTestOrg()
+        const { study, job } = await insertTestStudyJobData({ org, studyStatus: 'APPROVED', jobStatus: 'INITIATED' })
+        const backdated = new Date(Date.now() - 60_000)
+        await db.updateTable('studyJob').set({ createdAt: backdated }).where('id', '=', job.id).execute()
+
+        await ensureRoundJobForLaunch(db, study.id, { hasWorkspaceFiles: false })
+
+        const after = await jobsForStudy(study.id)
+        expect(after).toHaveLength(1)
+        expect(after[0].id).toBe(job.id)
+        expect(after[0].createdAt.getTime()).toBeGreaterThan(backdated.getTime())
+    })
 })
 
 describe('ensureRoundJobForUpload (OTTER-601)', () => {

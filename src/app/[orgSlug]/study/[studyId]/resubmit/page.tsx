@@ -1,4 +1,4 @@
-import { Box, Stack } from '@mantine/core'
+import { Box, Stack, Title } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
@@ -52,12 +52,12 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                         ['Edit study code'],
                     ]}
                 />
+                <Title order={1}>Study proposal</Title>
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
                     <EditStudyCodeView
                         studyId={studyId}
                         studyTitle={study.title}
                         orgName={orgName}
-                        submittedAt={study.submittedAt}
                         feedbackEntries={feedbackEntries}
                         studyHasCodeEnv={studyHasCodeEnv}
                     />

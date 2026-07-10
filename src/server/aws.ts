@@ -31,7 +31,7 @@ import {
     pathForStudyJobCode,
 } from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
-import { shellQuote, strToAscii } from '@/lib/string'
+import { substituteEntryPointFile, strToAscii } from '@/lib/string'
 import { parseCsv } from '@/lib/file-content-helpers'
 import logger from '@/lib/logger'
 import { Readable } from 'stream'
@@ -490,12 +490,11 @@ export async function buildTriggerBuildImageCommandInput(
         containerLocation: string
     },
 ) {
-    // Shell-quote the filename so names with parentheses or other shell metacharacters
-    // don't break the `/bin/sh` command the containerizer runs (OTTER-477). The
-    // replacement must be a function — a string replacement would interpret `$`
-    // sequences in the filename as special replacement patterns. replaceAll covers
-    // templates that reference %f more than once.
-    const cmd = info.cmdLine.replaceAll('%f', () => shellQuote(info.codeEntryPointFileName))
+    // Substitute the %f entry-point token, shell-quoting the filename so names with
+    // parentheses or other shell metacharacters don't break the `/bin/sh` command the
+    // containerizer runs (OTTER-477). The helper also absorbs quotes an admin may have
+    // wrapped around %f in the env's command template, so the two don't double-quote.
+    const cmd = substituteEntryPointFile(info.cmdLine, info.codeEntryPointFileName)
     return {
         projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {

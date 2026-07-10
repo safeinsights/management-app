@@ -8,12 +8,13 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import type { LatestJobForStudy } from '@/server/db/queries'
-import { StudyCodeViewer } from './submitted-code-interactive'
-import { filterAndOrderCodeFiles } from './study-code-files'
+import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import { SubmittedCodeSection } from './submitted-code-section'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -23,6 +24,9 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
+    /** AI summary + security scan, fetched alongside the job for the CODE post-decision section. */
+    review?: StudyReviewWithMeta | null
+    scan?: JobScanResult | null
     /**
      * Render the decision banner + timestamp from this when `entries` carries no decision. Proposal
      * approve/reject can write a CODE-* job status without a code-review comment, so the page would
@@ -32,6 +36,12 @@ type PostFeedbackViewProps = {
         decision: ReviewDecision
         timestamp: Date | string
     }
+    /**
+     * Set only on the read-only /review/code walk-back step (OTTER-643) to render a "Previous" link back
+     * through the flow. Omitted for the live code-decision screen and every proposal usage, which show
+     * only "Go to dashboard" (matching the live DO design, which hides Previous).
+     */
+    previousHref?: Route
 }
 
 type DecisionCopy = {
@@ -138,30 +148,87 @@ function GoToDashboardButton() {
     )
 }
 
-type CodeSectionProps = {
-    isVisible: boolean
+function PreviousButton({ href }: { href: Route }) {
+    const router = useRouter()
+    return (
+        <Button
+            variant="subtle"
+            leftSection={<CaretLeftIcon />}
+            onClick={() => router.push(href)}
+            data-testid="post-feedback-previous"
+        >
+            Previous
+        </Button>
+    )
+}
+
+type SubmittedCodePanelProps = {
+    orgSlug: string
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy | null
+    review: StudyReviewWithMeta | null
+    scan: JobScanResult | null
+}
+
+// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer)
+// is the same one shown during active review. The raw code stays collapsed behind its toggle
+// (codeInitiallyExpanded={false}); the summary and scan results render up front.
+function SubmittedCodePanel({ orgSlug, study, job, review, scan }: SubmittedCodePanelProps) {
+    // scan-presence is coupled to job-presence: the caller fetches both together and
+    // jobScanResultForJob never returns null (it falls back to {status:'IN-PROGRESS', logFile:null}),
+    // so scan is null exactly when job is null. The !scan check is the type-narrowing that lets us
+    // pass a non-null scan to SubmittedCodeSection; in practice it only fires on the null-job branch.
+    if (!job || !scan) return null
+    return (
+        <SubmittedCodeSection
+            orgSlug={orgSlug}
+            study={study}
+            job={job}
+            review={review}
+            scan={scan}
+            codeInitiallyExpanded={false}
+        />
+    )
+}
+
+type CodeSectionProps = {
+    isVisible: boolean
+    orgSlug: string
+    study: Submitted<SelectedStudy>
+    job: LatestJobForStudy | null
+    review: StudyReviewWithMeta | null
+    scan: JobScanResult | null
     kindCopy: KindCopy
     timestampLabel: string
     timestampDate: Date | string | null
     banner: ReactNode
 }
 
-function CodeSection({ isVisible, study, job, kindCopy, timestampLabel, timestampDate, banner }: CodeSectionProps) {
+function CodeSection({
+    isVisible,
+    orgSlug,
+    study,
+    job,
+    review,
+    scan,
+    kindCopy,
+    timestampLabel,
+    timestampDate,
+    banner,
+}: CodeSectionProps) {
     if (!isVisible) return null
-    const codeFiles = job ? filterAndOrderCodeFiles(job.files) : []
     return (
-        <ProposalStepHeader
-            stepLabel={kindCopy.stepLabel}
-            heading={kindCopy.heading}
-            studyTitle={study.title}
-            timestampDate={timestampDate}
-            timestampLabel={timestampLabel}
-            banner={banner}
-        >
-            {job && <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={false} />}
-        </ProposalStepHeader>
+        <>
+            <ProposalStepHeader
+                stepLabel={kindCopy.stepLabel}
+                heading={kindCopy.heading}
+                studyTitle={study.title}
+                timestampDate={timestampDate}
+                timestampLabel={timestampLabel}
+                banner={banner}
+            />
+            <SubmittedCodePanel orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
+        </>
     )
 }
 
@@ -223,7 +290,10 @@ export function PostFeedbackView({
     entries,
     kind = 'PROPOSAL',
     job = null,
+    review = null,
+    scan = null,
     fallback,
+    previousHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -249,8 +319,11 @@ export function PostFeedbackView({
                 </Title>
                 <CodeSection
                     isVisible={isCode}
+                    orgSlug={orgSlug}
                     study={study}
                     job={job}
+                    review={review}
+                    scan={scan}
                     kindCopy={kindCopy}
                     timestampLabel={timestampLabel}
                     timestampDate={timestampDate}
@@ -266,7 +339,8 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify="flex-end">
+                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
+                    {previousHref && <PreviousButton href={previousHref} />}
                     <GoToDashboardButton />
                 </Group>
             </Stack>

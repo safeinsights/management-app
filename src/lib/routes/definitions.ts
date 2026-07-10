@@ -110,9 +110,27 @@ export const Routes = {
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
+    // Read-only post-decision code view: lets a researcher walk back to the code step from a results
+    // study (whose /view resolves to the results screen). The page 404s if code isn't reached yet.
+    studyViewCode: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/view/code`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
+
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
+
+    // Read-only post-decision code view for the reviewer (DO), the counterpart to studyViewCode: lets a
+    // reviewer walk back to the code step from a results study (whose /review resolves to results). No
+    // returnTo — the reviewer flow is always org-scoped via the path. The page 404s if code isn't reached.
+    studyReviewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/code`, StudyParams),
 
     studyReviewProposal: makeRoute(
         ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/proposal`,
@@ -149,7 +167,16 @@ export const Routes = {
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
-    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
+    studySubmitted: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/submitted`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
 
     researcherProfileView: makeRoute(
         ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/researcher-profile`,

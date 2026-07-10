@@ -391,6 +391,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status: 'APPROVED',
+            submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',

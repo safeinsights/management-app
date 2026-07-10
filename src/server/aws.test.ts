@@ -135,6 +135,36 @@ describe('buildTriggerBuildImageCommandInput', () => {
         const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
         expect(cmdLineVar?.value).toBe("cp 'main(1).r' /tmp/ && Rscript 'main(1).r'")
     })
+
+    it('does not double-quote when the env template already wraps %f in double quotes (OTTER-477 follow-up)', async () => {
+        const input = await buildTriggerBuildImageCommandInput({
+            studyJobId: 'job-123',
+            codeEnvURL: 'docker.io/my-base-image:latest',
+            codeEntryPointFileName: 'main_revised (1).R',
+            containerLocation: 'a-bad-url',
+            cmdLine: 'Rscript "%f"',
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        })
+
+        const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
+        expect(cmdLineVar?.value).toBe("Rscript 'main_revised (1).R'")
+    })
+
+    it('does not re-expose parens when the env template already wraps %f in single quotes', async () => {
+        const input = await buildTriggerBuildImageCommandInput({
+            studyJobId: 'job-123',
+            codeEnvURL: 'docker.io/my-base-image:latest',
+            codeEntryPointFileName: 'main(1).r',
+            containerLocation: 'a-bad-url',
+            cmdLine: "Rscript '%f'",
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        })
+
+        const cmdLineVar = input.environmentVariablesOverride.find((v) => v.name === 'DOCKER_CMD_LINE')
+        expect(cmdLineVar?.value).toBe("Rscript 'main(1).r'")
+    })
 })
 
 describe('buildTriggerScanForStudyJobCommandInput', () => {

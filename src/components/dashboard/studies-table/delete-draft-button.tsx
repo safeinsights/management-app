@@ -74,7 +74,7 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
                         Please confirm that you are wanting to delete this proposal draft. Once this draft is deleted
                         you will not be able to recover it. This action cannot be undone.
                     </Text>
-                    <Group justify="flex-end">
+                    <Group>
                         <Button variant="outline" onClick={close} disabled={isPending}>
                             Cancel
                         </Button>

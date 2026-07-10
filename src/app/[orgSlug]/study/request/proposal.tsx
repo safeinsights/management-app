@@ -57,7 +57,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     const handleCancel = () => {
         reset()
-        router.back()
+        router.push(Routes.dashboard)
     }
 
     return (
