@@ -207,29 +207,32 @@ else
     fi
 fi
 
+# Run a filtered vitest inside ONE container, optionally preceded by a DB-prep step.
+# Folding prep + vitest into a single `run` means the entrypoint reconciles deps once;
+# `exec` hands the container's PID 1 to vitest so its exit code + signals propagate.
+# $1 is an optional prep command (e.g. migrate[+seed]); when set it is chained ahead
+# of vitest via `&&`. The vitest args are passed as positional params (after the `_`
+# $0 placeholder) and expanded with "$@" inside the inner sh, so spaced filters like
+# `-t 'my name'` keep their boundaries instead of being re-split by interpolation.
+run_targeted_tests() {
+    local prep=$1
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
+        sh -c "${prep:+$prep && }exec pnpm exec vitest \"\$@\"" _ "${vitest_args[@]}"
+}
+
 echo "Running unit tests in Docker..."
 if [ ${#vitest_args[@]} -eq 0 ]; then
     # No filter: the default command (entrypoint install, then migrate + seed +
     # full suite) runs as-is.
     docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
 elif [ "$db_needs_setup" = true ]; then
-    # The DB volume was wiped (--clean / mismatch rebuild) or is empty (first run),
-    # so migrate + seed before the targeted run. Passing vitest args overrides the
-    # default command (which migrates/seeds itself), so fold migrate + seed + vitest
-    # into ONE run: the entrypoint reconciles deps once, then this migrates, seeds,
-    # and execs vitest. (Two separate runs would fire the entrypoint install twice.)
-    # `exec` gives the container's PID 1 to vitest so its exit code + signals propagate.
-    # The vitest args are passed as positional params (after the `_` $0 placeholder)
-    # and expanded with "$@" inside the inner sh, so spaced filters keep their
-    # boundaries instead of being re-split by string interpolation.
-    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
-        sh -c 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && exec pnpm exec vitest "$@"' _ "${vitest_args[@]}"
+    # DB was wiped (--clean / mismatch rebuild) or is empty (first run): migrate + seed
+    # before the targeted run (passing vitest args overrides the default command, which
+    # would otherwise migrate/seed itself).
+    run_targeted_tests 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run'
 elif [ "$pending_migration" = true ]; then
-    # DB is already set up + seeded, but a migration was added on disk and isn't applied
-    # yet. Apply it (migrate:latest only, no reseed) before the targeted run, folded into
-    # one run. Same positional-args pattern as above so spaced filters keep boundaries.
-    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
-        sh -c 'pnpm exec kysely migrate:latest && exec pnpm exec vitest "$@"' _ "${vitest_args[@]}"
+    # DB is set up + seeded but a migration is pending on disk: apply it (no reseed).
+    run_targeted_tests 'pnpm exec kysely migrate:latest'
 else
     # DB already migrated + seeded and no pending migration: skip straight to vitest.
     # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
