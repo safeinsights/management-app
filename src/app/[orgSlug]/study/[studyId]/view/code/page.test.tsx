@@ -42,6 +42,19 @@ const seedResultsStudy = async () => {
     return { org, study }
 }
 
+const seedRunningOrErroredCodeStudy = async (statuses: StudyJobStatus[]) => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+    const { study } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        studyStatus: 'APPROVED',
+        jobStatus: 'CODE-SUBMITTED',
+    })
+    await addJobStatus(study.id, 'CODE-APPROVED')
+    for (const status of statuses) await addJobStatus(study.id, status)
+    return { org, study }
+}
+
 describe('StudyViewCode (/view/code)', () => {
     it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
         const { org, study } = await seedResultsStudy()
@@ -70,6 +83,26 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+    })
+
+    // OTTER-640: normal /view hides submitted code while execution or an unreviewed error is presented
+    // as "Code approved". The read-only /view/code step must still expose it behind this collapsed control.
+    it.each([
+        ['the code is running in the enclave', ['JOB-RUNNING']],
+        ['the run errored before the reviewer recorded a files decision', ['JOB-RUNNING', 'JOB-ERRORED']],
+    ] as const)('shows the submitted-code control when %s', async (_description, statuses) => {
+        const { org, study } = await seedRunningOrErroredCodeStudy([...statuses])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(CodePostDecisionView)
+        expect(page?.props.showStudyCode).toBe(true)
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {
