@@ -747,6 +747,41 @@ describe('Request Study Actions', () => {
             expect(aws.storeS3File).toHaveBeenCalledTimes(2)
         })
 
+        // Two entries that resolve to the same storage path (here a duplicated supplemental name)
+        // must not trip the study_job_file(study_job_id, path) unique index added for OTTER-642: they
+        // collapse to a single SUPPLEMENTAL-CODE row with the MAIN-CODE row preserved, rather than the
+        // submit throwing a constraint violation.
+        it('collapses code files that resolve to the same storage path instead of failing', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-dupe')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+            })
+
+            const result = actionResult(
+                await submitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R', 'helper.R', 'helper.R'],
+                }),
+            )
+            expect(result.studyJobId).toBeDefined()
+
+            const jobFiles = await db
+                .selectFrom('studyJobFile')
+                .select(['name', 'fileType'])
+                .where('studyJobId', '=', result.studyJobId)
+                .orderBy('fileType', 'asc')
+                .execute()
+            expect(jobFiles).toEqual([
+                { name: 'main.R', fileType: 'MAIN-CODE' },
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
+            ])
+        })
+
         it('rejects a main file that is not in the workspace file list', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })

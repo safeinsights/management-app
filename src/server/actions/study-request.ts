@@ -2,7 +2,7 @@
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
-import { DB } from '@/database/types'
+import { DB, FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
@@ -96,27 +96,25 @@ async function attachCodeToRoundJob(
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
     }
 
-    await db
-        .insertInto('studyJobFile')
-        .values({
-            name: mainCodeFileName,
-            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, mainCodeFileName),
-            studyJobId,
-            fileType: 'MAIN-CODE',
-        })
-        .executeTakeFirstOrThrow()
+    // One row per S3 path. Two filenames can resolve to the same path (e.g. names that sanitize
+    // identically, or a supplemental matching the main file), which the study_job_file(study_job_id,
+    // path) unique index now rejects, so collapse duplicates here instead of letting the insert throw.
+    // The MAIN-CODE row is reserved first and never overwritten: a supplemental that collides with the
+    // main path is dropped, so the entry-point file keeps its MAIN-CODE type.
+    const filesByPath = new Map<string, { name: string; path: string; studyJobId: string; fileType: FileType }>()
+    const mainPath = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, mainCodeFileName)
+    filesByPath.set(mainPath, { name: mainCodeFileName, path: mainPath, studyJobId, fileType: 'MAIN-CODE' })
 
     for (const fileName of codeFileNames) {
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: fileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName),
-                studyJobId,
-                fileType: 'SUPPLEMENTAL-CODE',
-            })
-            .executeTakeFirstOrThrow()
+        const filePath = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName)
+        if (filesByPath.has(filePath)) continue
+        filesByPath.set(filePath, { name: fileName, path: filePath, studyJobId, fileType: 'SUPPLEMENTAL-CODE' })
     }
+
+    await db
+        .insertInto('studyJobFile')
+        .values([...filesByPath.values()])
+        .execute()
 
     // s3 signed url for client to upload
     const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))

@@ -122,6 +122,34 @@ test('rejects a second log-only (errored) upload once the job already errored', 
     expect(erroredStatuses).toHaveLength(1)
 })
 
+// Two error deliveries landing at the same instant both clear the sequential guard above; the per-job
+// row lock must still let only one record JOB-ERRORED, matching OTTER-642's "listed once" guarantee
+// even under a concurrent retry.
+test('deduplicates JOB-ERRORED when two errored uploads race', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const post = () => {
+        const formData = new FormData()
+        formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+        return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+            params: Promise.resolve({ jobId }),
+        })
+    }
+
+    const responses = await Promise.all([post(), post()])
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 422])
+
+    const erroredStatuses = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    expect(erroredStatuses).toHaveLength(1)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'
