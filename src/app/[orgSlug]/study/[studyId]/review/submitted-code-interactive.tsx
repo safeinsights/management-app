@@ -113,20 +113,22 @@ const AI_SUMMARY_TIMEOUT_MS = 180_000
 // generation that hangs without writing a (success or failure) row eventually
 // surfaces as an error instead of spinning forever. `since` may be a string —
 // timestamps serialize to ISO strings across the server/client boundary.
-function useElapsedSince(since: Date | string, ms: number): boolean {
-    const sinceMs = new Date(since).getTime()
-    const [elapsed, setElapsed] = useState(() => Date.now() - sinceMs >= ms)
+function useElapsedSince(since: Date | string, ms: number) {
+    const initialSinceMs = new Date(since).getTime()
+    const [startedAt, setStartedAt] = useState(initialSinceMs)
+    const [elapsed, setElapsed] = useState(() => Date.now() - initialSinceMs >= ms)
     useEffect(() => {
-        const remaining = Math.max(0, ms - (Date.now() - sinceMs))
-        if (remaining === 0) {
-            setElapsed(true)
-            return
-        }
-        setElapsed(false)
+        const remaining = Math.max(0, ms - (Date.now() - startedAt))
         const id = setTimeout(() => setElapsed(true), remaining)
         return () => clearTimeout(id)
-    }, [sinceMs, ms])
-    return elapsed
+    }, [startedAt, ms])
+    return {
+        elapsed,
+        reset: () => {
+            setStartedAt(Date.now())
+            setElapsed(false)
+        },
+    }
 }
 
 // The review row is written by a deferred background task triggered at code
@@ -257,9 +259,9 @@ export function AiSummaryCollapsible({
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
     // A successful retry is a new generation request, so it needs its own
     // timeout window instead of inheriting the original submission's age.
-    const [generationStartedAt, setGenerationStartedAt] = useState<Date | string>(submittedAt)
-    const retry = useRetryStudyReview(studyJobId, () => setGenerationStartedAt(new Date()))
-    const timedOut = useElapsedSince(generationStartedAt, timeoutMs)
+    const timeout = useElapsedSince(submittedAt, timeoutMs)
+    const retry = useRetryStudyReview(studyJobId, timeout.reset)
+    const timedOut = timeout.elapsed
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()

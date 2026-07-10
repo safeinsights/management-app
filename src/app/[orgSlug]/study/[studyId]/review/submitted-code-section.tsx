@@ -129,7 +129,8 @@ export function SubmittedCodeSection({
     // A complex resubmission reuses its study job, so createdAt can predate the
     // generation request by days. The latest CODE-SUBMITTED event is the only
     // timestamp that accurately anchors the summary-generation timeout.
-    const submittedAt = job.statusChanges.find((change) => change.status === 'CODE-SUBMITTED')?.createdAt ?? job.createdAt
+    const submittedAt =
+        job.statusChanges.find((change) => change.status === 'CODE-SUBMITTED')?.createdAt ?? job.createdAt
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
