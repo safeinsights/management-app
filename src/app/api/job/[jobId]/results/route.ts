@@ -66,12 +66,14 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
 
         if (runComplete || runErrored) return false
 
+        // Pass trx so the row insert shares this transaction's connection; the global db would take a
+        // second pool connection and deadlock against the lock held here.
         if (logs instanceof File) {
-            await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG')
+            await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG', trx)
         }
 
         if (results instanceof File) {
-            await storeStudyEncryptedResultsFile(info, results)
+            await storeStudyEncryptedResultsFile(info, results, trx)
         }
 
         await trx.insertInto('jobStatusChange').values({ status, studyJobId: info.studyJobId }).execute()
