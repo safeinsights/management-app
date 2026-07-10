@@ -261,23 +261,12 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
-            # Cache key prefix, computed once so the exact `key` and the restore-keys tiers stay
-            # in sync. `gen` (YYYY-MM) rolls the key monthly so the Turbopack cache reseeds cold
-            # about once a month, bounding accretion (Turbopack has no GC / size cap). `node<major>`
-            # busts the cache on a Node upgrade, whose on-disk cache format is not guaranteed to be
-            # reusable across versions.
+            # Compute the cache key prefix (and previous-month variant) as step outputs, so the
+            # exact `key` and the restore-keys tiers below stay in sync. Logic lives in the script;
+            # see it for why the key carries a monthly generation token and the Node major.
             - name: Compute Next cache key prefix
               id: cachekey
-              run: |
-                  gen=$(date -u +%Y-%m)
-                  # Previous month (via "first of this month minus one day") for the PR-only
-                  # fallback tier: at a month boundary, before the first main push of the new
-                  # month has reseeded `gen`, PRs would otherwise miss every tier and build cold.
-                  prev=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
-                  node_major=$(node -v | sed 's/v\([0-9]*\).*/\1/')
-                  base="${{ runner.os }}-nextjs-tpc1"
-                  echo "prefix=${base}-${gen}-node${node_major}" >> "$GITHUB_OUTPUT"
-                  echo "prev_prefix=${base}-${prev}-node${node_major}" >> "$GITHUB_OUTPUT"
+              run: ./bin/ci-next-cache-key
             # Next build cache (restore/save split). We RESTORE on every run but only SAVE on
             # push-to-main (see the save step after the tests): the save uploads ~400MB and would
             # add ~50s to every PR's critical path. PR runs restore main's cache via the tiers
