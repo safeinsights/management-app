@@ -261,36 +261,69 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
+            # Cache key prefix, computed once so the exact `key` and the restore-keys tiers stay
+            # in sync. `gen` (YYYY-MM) rolls the key monthly so the Turbopack cache reseeds cold
+            # about once a month, bounding accretion (Turbopack has no GC / size cap). `node<major>`
+            # busts the cache on a Node upgrade, whose on-disk cache format is not guaranteed to be
+            # reusable across versions.
+            - name: Compute Next cache key prefix
+              id: cachekey
+              run: |
+                  gen=$(date -u +%Y-%m)
+                  # Previous month (via "first of this month minus one day") for the PR-only
+                  # fallback tier: at a month boundary, before the first main push of the new
+                  # month has reseeded `gen`, PRs would otherwise miss every tier and build cold.
+                  prev=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
+                  node_major=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+                  base="${{ runner.os }}-nextjs-tpc1"
+                  echo "prefix=${base}-${gen}-node${node_major}" >> "$GITHUB_OUTPUT"
+                  echo "prev_prefix=${base}-${prev}-node${node_major}" >> "$GITHUB_OUTPUT"
             # Next build cache (restore/save split). We RESTORE on every run but only SAVE on
-            # push-to-main (see the save step after the tests): the save uploads ~400MB and
-            # would add ~50s to every PR's critical path. PR runs instead restore main's cache
-            # via the `tpc1-<lockfileHash>-` restore-keys prefix and rebuild incrementally.
-            # The `tpc1` token namespaces the Turbopack persistent build cache (enabled via
-            # TURBOPACK_FS_CACHE) and lets us bust it with a one-character bump if a cached
-            # build ever misbehaves.
+            # push-to-main (see the save step after the tests): the save uploads ~400MB and would
+            # add ~50s to every PR's critical path. PR runs restore main's cache via the tiers
+            # below and rebuild incrementally. The `tpc1` token namespaces the Turbopack
+            # persistent build cache (enabled via TURBOPACK_FS_CACHE) and lets us bust it with a
+            # one-character bump if a cached build ever misbehaves.
             - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               id: next_cache
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-tpc1-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  key: ${{ steps.cachekey.outputs.prefix }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
+                  # Tier 2: same deps, any source change -> warm incremental rebuild.
+                  # Tier 3 (PR only): drop the lockfile hash so a dep-changing PR still restores
+                  # main's cache; Turbopack content-hashes its inputs and rebuilds only the
+                  # affected modules, so a dep change is a warm partial rebuild, not a cold one.
+                  # Tier 4 (PR only): previous month's prefix, so PRs stay warm during the window
+                  # at the start of a new month before the first main push reseeds `gen`.
+                  # Tiers 3 and 4 are omitted on push-to-main (they evaluate to empty strings,
+                  # which the cache action drops), so each month main still reseeds one compact
+                  # cache from cold instead of inheriting last month's accreted one.
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-tpc1-${{ hashFiles('**/pnpm-lock.yaml') }}-
-            # Cache the Playwright browser binaries so they aren't re-downloaded every run.
-            # Keyed on the installed Playwright version (from the lockfile).
-            - name: Resolve Playwright version
-              id: pw
-              run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
-            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              id: pw-cache
-              with:
-                  path: ~/.cache/ms-playwright
-                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+                      ${{ steps.cachekey.outputs.prefix }}-${{ hashFiles('**/pnpm-lock.yaml') }}-
+                      ${{ github.event_name == 'pull_request' && format('{0}-', steps.cachekey.outputs.prefix) || '' }}
+                      ${{ github.event_name == 'pull_request' && format('{0}-', steps.cachekey.outputs.prev_prefix) || '' }}
             - name: Start SeaweedFS
               run: ./bin/ci-seaweedfs
             - name: Create S3 bucket
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
             - name: pnpm install
               run: pnpm install --frozen-lockfile
+            # Cache the Playwright browser binaries so they aren't re-downloaded every run.
+            # Keyed on the installed Playwright version. Runs AFTER `pnpm install` so `require`
+            # resolves the real version; running it before install (as it used to) left
+            # node_modules absent, so the version silently fell back to "unknown" and the key
+            # never busted on a Playwright upgrade, risking stale cached browsers. A failed
+            # resolve now fails the step loudly rather than poisoning the key with a constant.
+            - name: Resolve Playwright version
+              id: pw
+              run: |
+                  version=$(node -p "require('@playwright/test/package.json').version")
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: pw-cache
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
             - name: provision db
               run: pnpm run db:migrate
             - name: build and run server
