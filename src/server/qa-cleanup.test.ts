@@ -85,6 +85,18 @@ describe('requireQaAdmin', () => {
         const result = await requireQaAdmin()
         expect(result).toEqual({ ok: true })
     })
+
+    // Regression guard for the empty-options bug: standalone verifyToken does not read
+    // CLERK_SECRET_KEY from the env, so the guard must pass it explicitly or JWK resolution
+    // fails and every request 401s. Assert the option is present (by key, not value — the key
+    // is unset in the test env) so dropping it back to `{}` fails here.
+    it('passes the Clerk secret key to verifyToken', async () => {
+        await authenticateAsSiAdmin({ isSiAdmin: true })
+        await requireQaAdmin()
+
+        const [, options] = (verifyToken as Mock).mock.calls.at(-1) ?? []
+        expect(Object.keys(options ?? {})).toContain('secretKey')
+    })
 })
 
 describe('deleteStudyById', () => {
