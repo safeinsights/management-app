@@ -4,9 +4,11 @@ import {
     buildTriggerBuildImageCommandInput,
     buildTriggerScanForStudyJobCommandInput,
     sanitizeColumnName,
+    s3KeyPrefix,
     testDataBucketName,
     toAthenaDbName,
     toPgDbName,
+    withS3Prefix,
 } from './aws'
 
 // The CodeBuild triggers in aws.ts construct a `StartBuildCommand` from a
@@ -205,6 +207,69 @@ describe('sanitizeColumnName', () => {
 
     it('should trim leading and trailing underscores', () => {
         expect(sanitizeColumnName(' hello ')).toBe('hello')
+    })
+})
+
+describe('S3_KEY_PREFIX', () => {
+    const originalEnv = process.env.S3_KEY_PREFIX
+
+    afterEach(() => {
+        if (originalEnv !== undefined) {
+            process.env.S3_KEY_PREFIX = originalEnv
+        } else {
+            delete process.env.S3_KEY_PREFIX
+        }
+    })
+
+    describe('when unset or empty', () => {
+        it('s3KeyPrefix returns an empty string', () => {
+            delete process.env.S3_KEY_PREFIX
+            expect(s3KeyPrefix()).toBe('')
+            process.env.S3_KEY_PREFIX = ''
+            expect(s3KeyPrefix()).toBe('')
+        })
+
+        it('withS3Prefix leaves the key unchanged', () => {
+            delete process.env.S3_KEY_PREFIX
+            expect(withS3Prefix('studies/org/study')).toBe('studies/org/study')
+        })
+    })
+
+    describe('when set', () => {
+        it('normalizes to exactly one trailing slash and no leading slash', () => {
+            process.env.S3_KEY_PREFIX = 'staging'
+            expect(s3KeyPrefix()).toBe('staging/')
+            process.env.S3_KEY_PREFIX = '/staging/'
+            expect(s3KeyPrefix()).toBe('staging/')
+            process.env.S3_KEY_PREFIX = 'team/staging//'
+            expect(s3KeyPrefix()).toBe('team/staging/')
+        })
+
+        it('withS3Prefix prepends the prefix to a logical key', () => {
+            process.env.S3_KEY_PREFIX = 'staging'
+            expect(withS3Prefix('studies/org/study')).toBe('staging/studies/org/study')
+        })
+
+        it('withS3Prefix is idempotent for an already-prefixed key', () => {
+            process.env.S3_KEY_PREFIX = 'staging'
+            expect(withS3Prefix('staging/studies/org/study')).toBe('staging/studies/org/study')
+        })
+    })
+
+    it('flows the prefix into the CodeBuild S3_PATH and ARTIFACTS_PATH', async () => {
+        process.env.S3_KEY_PREFIX = 'staging'
+        process.env.SCANNER_PROJECT_NAME = 'TestScannerProject'
+        process.env.CODEBUILD_WEBHOOK_SECRET = 'mock-webhook-secret'
+
+        const input = await buildTriggerScanForStudyJobCommandInput({
+            studyJobId: 'job-456',
+            studyId: 'study-abc',
+            orgSlug: 'org-xyz',
+        })
+
+        const byName = (name: string) => input.environmentVariablesOverride.find((v) => v.name === name)?.value
+        expect(byName('S3_PATH')).toBe('staging/studies/org-xyz/study-abc/jobs/job-456/code')
+        expect(byName('ARTIFACTS_PATH')).toBe('staging/scan-artifacts/jobs/job-456')
     })
 })
 
