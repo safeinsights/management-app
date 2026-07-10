@@ -2,7 +2,7 @@ import { db } from '@/database'
 import * as mailgun from '@/server/mailer'
 import { insertTestOrgStudyJobUsers } from '@/tests/unit.helpers'
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { deliver } from './mailgun'
+import { deliver, SI_EMAIL } from './mailgun'
 
 vi.mock('./mailgun')
 
@@ -28,7 +28,7 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyProposalEmails calls deliver for reviewers', async () => {
+    it('sendStudyProposalEmails sends all org members in Bcc, not To (OTTER-651)', async () => {
         const { study, org, user1 } = await insertTestOrgStudyJobUsers()
 
         const researcher = await getUser(study.researcherId)
@@ -37,7 +37,7 @@ describe('mailgun email functions', () => {
 
         expect(deliver).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || researcher.email || ''),
+                to: SI_EMAIL,
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
@@ -51,7 +51,7 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyCodeSubmittedEmail calls deliver for reviewers', async () => {
+    it('sendStudyCodeSubmittedEmail sends all org members in Bcc, not To (OTTER-651)', async () => {
         const { study, user1 } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)
 
@@ -59,7 +59,7 @@ describe('mailgun email functions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || researcher.email || ''),
+                to: SI_EMAIL,
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: 'Study code submitted for review',
                 template: 'vb - new code submission',
