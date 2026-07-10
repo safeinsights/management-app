@@ -106,7 +106,7 @@ function SecurityScanLog({ scan }: { scan: JobScanResult }) {
 type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
-    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt'>
+    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     review: StudyReviewWithMeta | null
     scan: JobScanResult
     codeInitiallyExpanded?: boolean
@@ -126,6 +126,10 @@ export function SubmittedCodeSection({
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
+    // A complex resubmission reuses its study job, so createdAt can predate the
+    // generation request by days. The latest CODE-SUBMITTED event is the only
+    // timestamp that accurately anchors the summary-generation timeout.
+    const submittedAt = job.statusChanges.find((change) => change.status === 'CODE-SUBMITTED')?.createdAt ?? job.createdAt
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
@@ -140,7 +144,7 @@ export function SubmittedCodeSection({
                             <AiSummaryCollapsible
                                 studyJobId={job.id}
                                 initialReview={review}
-                                submittedAt={job.createdAt}
+                                submittedAt={submittedAt}
                             />
                         </Paper>
                         <Paper withBorder p="lg" radius={0}>

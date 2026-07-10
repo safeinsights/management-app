@@ -246,6 +246,34 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
+    it('keeps loading for a complex resubmission on a reused job', async () => {
+        const resubmissionFixture = await setupBaseFixture()
+        const oldJobCreatedAt = new Date(Date.now() - 10 * 60_000)
+        const resubmittedAt = new Date()
+
+        await db
+            .updateTable('studyJob')
+            .set({ createdAt: oldJobCreatedAt })
+            .where('id', '=', resubmissionFixture.job.id)
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                {
+                    studyJobId: resubmissionFixture.job.id,
+                    status: 'CODE-CHANGES-REQUESTED',
+                    createdAt: new Date(resubmittedAt.getTime() - 1_000),
+                },
+                { studyJobId: resubmissionFixture.job.id, status: 'CODE-SUBMITTED', createdAt: resubmittedAt },
+            ])
+            .execute()
+
+        await renderSection(await refreshFixtureJob(resubmissionFixture))
+
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
     it('surfaces the error + retry state immediately when a failed review row exists', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
@@ -254,7 +282,7 @@ describe('SubmittedCodeSection — AI summary', () => {
             <AiSummaryCollapsible
                 studyJobId={failedFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={failedFixture.job.createdAt}
+                submittedAt={new Date(Date.now() - 10 * 60_000)}
             />,
         )
 
@@ -275,15 +303,15 @@ describe('SubmittedCodeSection — AI summary', () => {
             <AiSummaryCollapsible
                 studyJobId={failedFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={failedFixture.job.createdAt}
+                submittedAt={new Date(Date.now() - 10 * 60_000)}
             />,
         )
 
         const user = userEvent.setup()
         await user.click(await screen.findByTestId('ai-summary-retry'))
 
-        // The action deletes the failed row and re-fires generation; the panel
-        // resets to the pending spinner while it polls for the new result.
+        // A retry is a new generation request, so it resets an already-elapsed
+        // backstop and returns to pending while the new result is polled.
         await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
         const remaining = await getStudyReviewForJob(failedFixture.job.id)
         expect(remaining?.summaryFailedAt ?? null).toBeNull()

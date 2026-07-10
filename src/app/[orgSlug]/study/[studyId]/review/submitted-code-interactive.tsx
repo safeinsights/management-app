@@ -117,13 +117,15 @@ function useElapsedSince(since: Date | string, ms: number): boolean {
     const sinceMs = new Date(since).getTime()
     const [elapsed, setElapsed] = useState(() => Date.now() - sinceMs >= ms)
     useEffect(() => {
-        if (elapsed) return
-        // Clamp to 0 rather than setting state synchronously here; the timer
-        // fires the update on the next tick, out of the effect body.
         const remaining = Math.max(0, ms - (Date.now() - sinceMs))
+        if (remaining === 0) {
+            setElapsed(true)
+            return
+        }
+        setElapsed(false)
         const id = setTimeout(() => setElapsed(true), remaining)
         return () => clearTimeout(id)
-    }, [sinceMs, ms, elapsed])
+    }, [sinceMs, ms])
     return elapsed
 }
 
@@ -223,12 +225,13 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
 
 // Clears the failed row server-side, re-fires generation, then resets the
 // cached review to null so the poll resumes and the UI drops back to pending.
-function useRetryStudyReview(studyJobId: string) {
+function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
         onSuccess: () => {
             queryClient.setQueryData(['study-review', studyJobId], null)
+            onRetryStarted()
         },
     })
 }
@@ -252,8 +255,11 @@ export function AiSummaryCollapsible({
 }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    const retry = useRetryStudyReview(studyJobId)
-    const timedOut = useElapsedSince(submittedAt, timeoutMs)
+    // A successful retry is a new generation request, so it needs its own
+    // timeout window instead of inheriting the original submission's age.
+    const [generationStartedAt, setGenerationStartedAt] = useState<Date | string>(submittedAt)
+    const retry = useRetryStudyReview(studyJobId, () => setGenerationStartedAt(new Date()))
+    const timedOut = useElapsedSince(generationStartedAt, timeoutMs)
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()
