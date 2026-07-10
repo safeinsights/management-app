@@ -8,7 +8,13 @@ import {
     withRole,
     type Page,
 } from './e2e.helpers'
-import { seedApprovedNoCode, seedCodeApprovedJobReady, seedCodeSubmitted, seedProposalPendingReview } from './e2e.seed'
+import {
+    seedApprovedNoCode,
+    seedCodeApprovedJobReady,
+    seedCodeSubmitted,
+    seedDraftStep2,
+    seedProposalPendingReview,
+} from './e2e.seed'
 import { execSync } from 'child_process'
 
 // E2e study-lifecycle coverage. Governing rule: every distinct UI surface is
@@ -87,20 +93,6 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
         .first()
         .click()
     await page.waitForURL('**/dashboard')
-}
-
-// On Step 2 (/proposal): set a title + one dataset. Edits autosave to Yjs and the title
-// mirrors to study.title server-side, so the draft persists without an explicit save.
-// Waits for the autosave round-trip to settle before returning.
-async function fillStep2(page: Page, studyTitle: string) {
-    await page.getByLabel('Study Title').fill(studyTitle)
-
-    await page.getByPlaceholder('Select dataset(s) of interest').click()
-    await page.getByRole('option').first().click()
-    // Close the dropdown so it doesn't overlay the field.
-    await page.getByLabel('Study Title').click()
-
-    await expect(page.getByText('All changes saved').first()).toBeVisible()
 }
 
 // ============================================================================
@@ -378,22 +370,17 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
 })
 
 // OTTER-572: a draft left on Step 2 must reopen on Step 2 from the dashboard, not the Step 1
-// data-org picker. Owns the draft-resume surface: creates a draft, reaches Step 2, saves, leaves,
-// then reopens via the dashboard "Edit" link and asserts it lands back on Step 2.
+// data-org picker. Seeds a DRAFT with Step 2 progress so the routing rule is testable in
+// both collaborative and single-user editing modes (CI runs without Hocuspocus).
 test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('resume-step2')
+    await seedDraftStep2(studyTitle)
 
     await withRole(browser, 'researcher', async (page) => {
-        await navigateToProposeStudy(page)
-        await fillStep2(page, studyTitle)
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
 
-        // The title mirror lands via the debounced store flush on disconnect, so reload the
-        // dashboard until the draft row surfaces rather than asserting on a single load.
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(async () => {
-            await goto(page, RESEARCHER_DASHBOARD)
-            await expect(draftRow).toBeVisible()
-        }).toPass()
+        await expect(draftRow).toBeVisible()
         await draftRow.getByRole('link', { name: /Edit draft study/i }).click()
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
