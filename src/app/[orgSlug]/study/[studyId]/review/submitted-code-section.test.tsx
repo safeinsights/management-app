@@ -22,7 +22,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
-import { SubmittedCodeSection } from './submitted-code-section'
+import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
 import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
 vi.mock('@/server/storage', async () => {
@@ -658,5 +658,41 @@ describe('SubmittedCodeSection — pure helpers', () => {
         expect(visible.map((f) => f.name)).toEqual(['m', 'a', 'b'])
         expect(hidden.map((f) => f.name)).toEqual(['c', 'd', 'e'])
         expect(hiddenCount).toBe(3)
+    })
+
+    it('latestCodeSubmittedAt returns the CODE-SUBMITTED event timestamp when present', () => {
+        const createdAt = new Date('2026-01-01')
+        const resubmittedAt = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt,
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: resubmittedAt },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-07-09T00:00:00.000Z' },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(resubmittedAt)
+    })
+
+    it('latestCodeSubmittedAt falls back to createdAt when no CODE-SUBMITTED event exists', () => {
+        const createdAt = new Date('2026-01-01')
+        const job = {
+            createdAt,
+            statusChanges: [{ status: 'INITIATED' as const, createdAt: createdAt.toISOString() }],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(createdAt)
+    })
+
+    it('latestCodeSubmittedAt uses the newest CODE-SUBMITTED event (array is desc-ordered)', () => {
+        const old = '2026-01-01T00:00:00.000Z'
+        const recent = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt: new Date(old),
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: recent },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-06-01T00:00:00.000Z' },
+                { status: 'CODE-SUBMITTED' as const, createdAt: old },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(recent)
     })
 })

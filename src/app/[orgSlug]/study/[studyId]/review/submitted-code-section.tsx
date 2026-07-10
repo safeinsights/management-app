@@ -112,6 +112,14 @@ type SubmittedCodeSectionProps = {
     codeInitiallyExpanded?: boolean
 }
 
+// A complex resubmission reuses its study job, so createdAt can predate the
+// generation request by days. The latest CODE-SUBMITTED event is the only
+// timestamp that accurately anchors the summary-generation timeout (and the
+// "Submitted/Resubmitted on" header label).
+export function latestCodeSubmittedAt(job: Pick<LatestJobForStudy, 'createdAt' | 'statusChanges'>): Date | string {
+    return job.statusChanges.find((change) => change.status === 'CODE-SUBMITTED')?.createdAt ?? job.createdAt
+}
+
 // Data fetching lives in the parent (CodeReview) so this component
 // stays a plain sync function. Nested async server components don't render
 // under testing-library / happy-dom — the parent's await is what tests rely on.
@@ -126,11 +134,7 @@ export function SubmittedCodeSection({
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
-    // A complex resubmission reuses its study job, so createdAt can predate the
-    // generation request by days. The latest CODE-SUBMITTED event is the only
-    // timestamp that accurately anchors the summary-generation timeout.
-    const submittedAt =
-        job.statusChanges.find((change) => change.status === 'CODE-SUBMITTED')?.createdAt ?? job.createdAt
+    const submittedAt = latestCodeSubmittedAt(job)
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
