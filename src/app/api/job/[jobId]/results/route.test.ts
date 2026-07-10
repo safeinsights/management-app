@@ -122,9 +122,35 @@ test('rejects a second log-only (errored) upload once the job already errored', 
     expect(erroredStatuses).toHaveLength(1)
 })
 
-// Two error deliveries landing at the same instant both clear the sequential guard above; the per-job
-// row lock must still let only one record JOB-ERRORED, matching OTTER-642's "listed once" guarantee
-// even under a concurrent retry.
+// A JOB-ERRORED raised by the scan/packaging step (which stores a packaging/scan log, never a run log)
+// must not block a later legitimate run-results delivery for the same job (OTTER-642). The results
+// route keys "already finalized" on the run log it alone writes, not on a bare JOB-ERRORED status.
+test('a prior scan/packaging JOB-ERRORED does not block a later results delivery', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
+
+    const formData = new FormData()
+    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .execute()
+    expect(runComplete).toHaveLength(1)
+})
+
+// Two error deliveries landing at the same instant both see no prior run log; the per-job row lock
+// must still let only one record JOB-ERRORED, matching OTTER-642's "listed once" guarantee even under
+// a concurrent retry.
 test('deduplicates JOB-ERRORED when two errored uploads race', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
