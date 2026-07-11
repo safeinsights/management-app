@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyStatus } from '@/database/types'
-import { proposalReviewDecision } from './review-decision'
+import { effectiveProposalStatus, proposalReviewDecision } from './review-decision'
 
 const study = (status: StudyStatus, overrides: { approvedAt?: Date | null; rejectedAt?: Date | null } = {}) => ({
     status,
@@ -32,5 +32,26 @@ describe('proposalReviewDecision', () => {
     it('returns undefined for a proposal that was never decided', () => {
         expect(proposalReviewDecision(study('PENDING-REVIEW'))).toBeUndefined()
         expect(proposalReviewDecision(study('DRAFT'))).toBeUndefined()
+    })
+})
+
+describe('effectiveProposalStatus', () => {
+    it('passes through decided statuses as-is', () => {
+        expect(effectiveProposalStatus(study('APPROVED'))).toBe('APPROVED')
+        expect(effectiveProposalStatus(study('REJECTED'))).toBe('REJECTED')
+        expect(effectiveProposalStatus(study('CHANGE-REQUESTED'))).toBe('CHANGE-REQUESTED')
+    })
+
+    it('restores APPROVED when code submission reset status to PENDING-REVIEW', () => {
+        expect(effectiveProposalStatus(study('PENDING-REVIEW', { approvedAt: new Date() }))).toBe('APPROVED')
+    })
+
+    it('restores REJECTED when status no longer carries the decision', () => {
+        expect(effectiveProposalStatus(study('PENDING-REVIEW', { rejectedAt: new Date() }))).toBe('REJECTED')
+    })
+
+    it('returns raw status for undecided proposals', () => {
+        expect(effectiveProposalStatus(study('PENDING-REVIEW'))).toBe('PENDING-REVIEW')
+        expect(effectiveProposalStatus(study('DRAFT'))).toBe('DRAFT')
     })
 })
