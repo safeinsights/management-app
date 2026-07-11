@@ -1,7 +1,7 @@
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { PROPOSAL_STATUS_TO_REVIEW_DECISION } from '@/lib/review-decision'
+import { proposalReviewDecision } from '@/lib/review-decision'
 import { getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
@@ -12,7 +12,7 @@ export async function ReviewerProposalFeedbackScreen({ study, orgSlug }: ScreenC
     }
     const entries = await getProposalFeedbackForStudyAction({ studyId: study.id })
     const safeEntries = isActionError(entries) ? [] : entries
-    const decision = PROPOSAL_STATUS_TO_REVIEW_DECISION[study.status]
+    const decision = proposalReviewDecision(study)
     const fallback = decision
         ? { decision, timestamp: study.approvedAt ?? study.rejectedAt ?? study.createdAt }
         : undefined

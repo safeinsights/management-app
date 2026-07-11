@@ -25,6 +25,21 @@ export const PROPOSAL_STATUS_TO_REVIEW_DECISION: Partial<Record<StudyStatus, Rev
     'CHANGE-REQUESTED': 'NEEDS-CLARIFICATION',
 }
 
+// Code submit/resubmit flips study.status back to PENDING-REVIEW, so status alone can't say
+// whether the proposal was ever decided. approvedAt/rejectedAt survive those flips (approval and
+// rejection clear each other), making them the durable record once the study is code-stage.
+export function proposalReviewDecision(study: {
+    status: StudyStatus
+    approvedAt: Date | null
+    rejectedAt: Date | null
+}): ReviewDecision | undefined {
+    const byStatus = PROPOSAL_STATUS_TO_REVIEW_DECISION[study.status]
+    if (byStatus) return byStatus
+    if (study.approvedAt) return 'APPROVE'
+    if (study.rejectedAt) return 'REJECT'
+    return undefined
+}
+
 // A code decision can be written (proposal approve/reject path) without a code-review comment, so
 // the code feedback view synthesizes the decision from the job's CODE-* status when no comment rows
 // exist — keeps the page on the code post-feedback view rather than blanking out.

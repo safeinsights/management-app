@@ -14,7 +14,7 @@ interface StarterFile {
 }
 
 interface StudyCodeEmptyViewProps {
-    launchWorkspace: () => void
+    launchWorkspace: (options?: { sameWindow?: boolean }) => void
     isLaunching: boolean
     launchError: Error | null
     launchLastUpdatedAt?: Date | null
@@ -60,7 +60,7 @@ export function StudyCodeEmptyView({
                         </Text>
                         <Box>
                             <LaunchIdeButton
-                                onClick={launchWorkspace}
+                                onClick={(event) => launchWorkspace({ sameWindow: event.ctrlKey })}
                                 isLaunching={isLaunching}
                                 launchError={launchError}
                                 variant="cta"

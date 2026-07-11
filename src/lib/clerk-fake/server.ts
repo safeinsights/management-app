@@ -62,6 +62,19 @@ export async function currentUser(): Promise<User | null> {
     return { ...buildFakeUser(fixture), id: await resolveClerkId(fixture) }
 }
 
+// Mirrors @clerk/nextjs/server `verifyToken()`: the standalone token verifier the QA-cleanup
+// routes use (they live under /api/*, which clerkMiddleware skips, so auth() has no context).
+// The E2E suite never exercises those routes, so this exists to keep the aliased build resolving;
+// it resolves the admin fixture's claims so any manual call against a fake build still authorizes.
+export async function verifyToken(_token: string, _options: unknown): Promise<{ sub: string } & SessionClaims> {
+    const fixture = fixtureForRole('admin')!
+    return {
+        sub: await resolveClerkId(fixture),
+        userMetadata: buildV3Metadata(fixture),
+        unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
+    }
+}
+
 // --- clerkClient (backend API) -------------------------------------------------
 //
 // Mirrors the subset of methods tests/unit.helpers.tsx mockClerkSession() stubs.
@@ -111,6 +124,7 @@ function fakeClerkClient() {
             },
             updateUser: noop,
             updateUserMetadata: noop,
+            deleteUser: noop,
             disableUserMFA: noop,
             getOrganizationMembershipList: async () => ({ data: [] }),
         },

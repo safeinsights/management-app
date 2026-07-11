@@ -289,6 +289,30 @@ describe('PostFeedbackView', () => {
             await user.click(screen.getByRole('button', { name: 'Go to dashboard' }))
             expect(memoryRouter.asPath).toBe('/dashboard')
         })
+
+        // OTTER-643: Previous is opt-in via previousHref (set only on the read-only /review/code
+        // walk-back). It must stay hidden for the live code screen and every proposal usage.
+        it('omits the Previous button when previousHref is not provided', () => {
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
+
+            expect(screen.queryByTestId('post-feedback-previous')).not.toBeInTheDocument()
+        })
+
+        it('renders Previous and navigates to previousHref when provided', async () => {
+            const user = userEvent.setup()
+            const previousHref = Routes.studyReviewerAgreements({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderWithProviders(
+                <PostFeedbackView
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[buildEntry()]}
+                    previousHref={previousHref}
+                />,
+            )
+
+            await user.click(screen.getByTestId('post-feedback-previous'))
+            expect(memoryRouter.asPath).toBe(previousHref)
+        })
     })
 
     describe('kind="CODE"', () => {

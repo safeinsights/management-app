@@ -123,7 +123,7 @@ export async function inferColumnsFromCsv(s3Key: string): Promise<Column[]> {
     const result = await getS3Client().send(
         new GetObjectCommand({
             Bucket: s3BucketName(),
-            Key: s3Key,
+            Key: withS3Prefix(s3Key),
             Range: 'bytes=0-8192',
         }),
     )
@@ -201,7 +201,9 @@ export async function copyToTestDataBucket(sourcePrefix: string, targetPrefix: s
     }
 
     const sourceBucket = s3BucketName()
-    const listed = await getS3Client().send(new ListObjectsV2Command({ Bucket: sourceBucket, Prefix: sourcePrefix }))
+    const listed = await getS3Client().send(
+        new ListObjectsV2Command({ Bucket: sourceBucket, Prefix: withS3Prefix(sourcePrefix) }),
+    )
     if (!listed.Contents?.length) return []
 
     const tables: CopiedTable[] = []
@@ -317,8 +319,27 @@ export const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
+// Optional environment-wide prefix applied to every key/prefix read from or written to the
+// main S3 bucket. Lets multiple environments share one bucket without colliding. When unset
+// or empty it is a no-op. Normalized to have no leading slash and exactly one trailing slash.
+export const s3KeyPrefix = (): string => {
+    const raw = process.env.S3_KEY_PREFIX
+    if (!raw) return ''
+    const trimmed = raw.replace(/^\/+/, '').replace(/\/+$/, '')
+    return trimmed ? `${trimmed}/` : ''
+}
+
+// Prepend the environment prefix to a logical (unprefixed) key or prefix before it is handed to
+// the S3 SDK. Idempotent: a value that already carries the prefix is returned unchanged, so keys
+// that come back from a List call can be re-submitted to another command without double-prefixing.
+export const withS3Prefix = (keyOrPrefix: string): string => {
+    const prefix = s3KeyPrefix()
+    if (!prefix || keyOrPrefix === prefix || keyOrPrefix.startsWith(prefix)) return keyOrPrefix
+    return `${prefix}${keyOrPrefix}`
+}
+
 export const completePathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string }) =>
-    `s3://${s3BucketName()}/${pathForSampleData(parts)}`
+    `s3://${s3BucketName()}/${withS3Prefix(pathForSampleData(parts))}`
 
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
     return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`
@@ -354,7 +375,7 @@ export const storeS3File = async (
         tags: objectToAWSTags(info),
         params: {
             Bucket: s3BucketName(),
-            Key,
+            Key: withS3Prefix(Key),
             Body: body,
         },
     })
@@ -367,17 +388,18 @@ export async function signedUrlForFile(
 ) {
     return await getSignedUrl(
         getS3BrowserClient(),
-        new GetObjectCommand({ Bucket: s3BucketName(), Key, ...commandOverrides }),
+        new GetObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(Key), ...commandOverrides }),
         { expiresIn: 3600 },
     )
 }
 
 export const createSignedUploadUrl = async (path: string) => {
+    const prefixedPath = withS3Prefix(path)
     return await createPresignedPost(getS3BrowserClient(), {
         Bucket: s3BucketName(),
         Expires: 3600,
-        Conditions: [['starts-with', '$key', path]],
-        Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+        Conditions: [['starts-with', '$key', prefixedPath]],
+        Key: prefixedPath + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
     })
 }
 
@@ -385,7 +407,7 @@ export const deleteS3File = async (Key: string) => {
     await getS3Client().send(
         new DeleteObjectCommand({
             Bucket: s3BucketName(),
-            Key,
+            Key: withS3Prefix(Key),
         }),
     )
 }
@@ -393,7 +415,7 @@ export const deleteS3File = async (Key: string) => {
 export const deleteFolderContents = async (folderPath: string) => {
     const listCommand = new ListObjectsV2Command({
         Bucket: s3BucketName(),
-        Prefix: folderPath,
+        Prefix: withS3Prefix(folderPath),
     })
 
     const listedObjects = await getS3Client().send(listCommand)
@@ -419,14 +441,16 @@ export const deleteFolderContents = async (folderPath: string) => {
 
 export const moveFolderContents = async (oldPrefix: string, newPrefix: string) => {
     const Bucket = s3BucketName()
-    const listedObjects = await getS3Client().send(new ListObjectsV2Command({ Bucket, Prefix: oldPrefix }))
+    const prefixedOld = withS3Prefix(oldPrefix)
+    const prefixedNew = withS3Prefix(newPrefix)
+    const listedObjects = await getS3Client().send(new ListObjectsV2Command({ Bucket, Prefix: prefixedOld }))
 
     if (!listedObjects.Contents?.length) return
 
     for (const obj of listedObjects.Contents) {
         if (!obj.Key) continue
-        const suffix = obj.Key.slice(oldPrefix.length)
-        const newKey = newPrefix + suffix
+        const suffix = obj.Key.slice(prefixedOld.length)
+        const newKey = prefixedNew + suffix
         await getS3Client().send(new CopyObjectCommand({ Bucket, CopySource: `${Bucket}/${obj.Key}`, Key: newKey }))
     }
 
@@ -439,7 +463,7 @@ export const moveFolderContents = async (oldPrefix: string, newPrefix: string) =
 }
 
 export async function fetchS3File(Key: string) {
-    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key }))
+    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(Key) }))
     if (!result.Body) throw new Error(`no file received from s3 for path ${Key}`)
     return result.Body as Readable
 }
@@ -478,7 +502,7 @@ export async function buildTriggerBuildImageCommandInput(
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
             ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
             STUDY_JOB_ID: info.studyJobId,
-            S3_PATH: pathForStudyJobCode(info),
+            S3_PATH: withS3Prefix(pathForStudyJobCode(info)),
             DOCKER_CMD_LINE: cmd,
             DOCKER_BASE_IMAGE_LOCATION: info.codeEnvURL,
             DOCKER_CODE_LOCATION: `${info.containerLocation}:${info.studyJobId}`,
@@ -518,8 +542,8 @@ export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobIn
             ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
             SCAN_MODE: 'source',
             STUDY_JOB_ID: info.studyJobId,
-            S3_PATH: pathForStudyJobCode(info),
-            ARTIFACTS_PATH: pathForJobScanArtifacts(info),
+            S3_PATH: withS3Prefix(pathForStudyJobCode(info)),
+            ARTIFACTS_PATH: withS3Prefix(pathForJobScanArtifacts(info)),
         }),
     }
 }
@@ -542,7 +566,7 @@ export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl:
                 SCAN_MODE: 'image',
                 CODE_ENV_ID: info.codeEnvId,
                 DOCKER_IMAGE_URL: info.imageUrl,
-                ARTIFACTS_PATH: pathForCodeEnvScanArtifacts(info),
+                ARTIFACTS_PATH: withS3Prefix(pathForCodeEnvScanArtifacts(info)),
             }),
         }),
     )

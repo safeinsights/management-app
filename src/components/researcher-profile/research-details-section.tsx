@@ -21,7 +21,7 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
         setInterestDraft,
         addInterest,
         removeInterest,
-        handleSubmit,
+        submitWithDraft,
     } = useResearchDetailsSection(data, refetch)
 
     const hasData = Boolean(defaults.researchInterests?.length) || Boolean(defaults.detailedPublicationsUrl)
@@ -40,7 +40,7 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
             onInterestDraftChange={setInterestDraft}
             onAddInterest={addInterest}
             onRemoveInterest={removeInterest}
-            onSubmit={handleSubmit}
+            onSubmit={submitWithDraft}
         />
     )
 }
