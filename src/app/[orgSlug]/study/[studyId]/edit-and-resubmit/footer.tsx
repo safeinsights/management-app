@@ -10,6 +10,7 @@ import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
 import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
@@ -23,11 +24,14 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
+    // omitBlankTitle: nulling the title column on a CHANGE-REQUESTED row would
+    // violate the study_title_required_when_not_draft check constraint.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { omitBlankTitle: true })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    const isBusy = isSavingNote || isSubmitting
+    const isBusy = isSavingNote || isSaving || isSubmitting
 
     const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
@@ -36,15 +40,10 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
 
     const handleBack = async () => {
-        // Proposal fields autosave through Yjs; only the debounced note needs flushing
-        // before we leave. flushNote no-ops if nothing is pending and returns false on
-        // failure, in which case we stay so the note isn't lost.
-        const saved = await flushNote()
-        if (!saved) return
-        // The only legitimate entry to this page today is the "Edit & resubmit"
-        // button on /submitted, so Back always returns there. If we ever add deep
-        // links or a dashboard CTA, resolve the Back target from the study state
-        // machine rather than a ?from= param (the old query-param routing is gone).
+        // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
+        // proposal fields to the study row explicitly. Also flush the debounced note.
+        const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
+        if (!fieldsSaved || !noteSaved) return
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
     }
 
@@ -62,7 +61,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     size="md"
                     leftSection={<CaretLeftIcon />}
                     disabled={isBusy}
-                    loading={isSavingNote}
+                    loading={isSavingNote || isSaving}
                     onClick={handleBack}
                 >
                     Back

@@ -262,12 +262,6 @@ async function insertSubmittedJob(
 
 export type SeedResult = { studyId: string; jobId?: string }
 
-// DRAFT that already reached Step 2
-export async function seedDraftStep2(title: string): Promise<SeedResult> {
-    const { study } = await insertStudy({ title, status: 'DRAFT', submittedAt: null })
-    return { studyId: study.id }
-}
-
 // PENDING-REVIEW proposal, no code. For reviewer proposal-decision tests
 // (approve / reject / request-clarification) and the proposal-only review view.
 export async function seedProposalPendingReview(title: string): Promise<SeedResult> {

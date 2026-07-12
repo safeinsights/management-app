@@ -8,13 +8,7 @@ import {
     withRole,
     type Page,
 } from './e2e.helpers'
-import {
-    seedApprovedNoCode,
-    seedCodeApprovedJobReady,
-    seedCodeSubmitted,
-    seedDraftStep2,
-    seedProposalPendingReview,
-} from './e2e.seed'
+import { seedApprovedNoCode, seedCodeApprovedJobReady, seedCodeSubmitted, seedProposalPendingReview } from './e2e.seed'
 import { execSync } from 'child_process'
 
 // E2e study-lifecycle coverage. Governing rule: every distinct UI surface is
@@ -369,14 +363,28 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
     })
 })
 
-// OTTER-572: a draft left on Step 2 must reopen on Step 2 from the dashboard, not the Step 1
-// data-org picker. Seeds a DRAFT with Step 2 progress so the routing rule is testable in
-// both collaborative and single-user editing modes (CI runs without Hocuspocus).
+// OTTER-572: a draft left on Step 2 must reopen on Step 2 from the dashboard,
+// not the Step 1 data-org picker. Drives the real flow: create via Step 1,
+// land on Step 2, fill a field (creating Step 2 progress), navigate back
+// (which flushes fields to the study row via onUpdateDraftStudyAction), then
+// verify the dashboard "Edit draft" link routes to /proposal.
 test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('resume-step2')
-    await seedDraftStep2(studyTitle)
 
     await withRole(browser, 'researcher', async (page) => {
+        await navigateToProposeStudy(page)
+
+        await page.getByLabel('Study Title').fill(studyTitle)
+        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await page.getByRole('option').first().click()
+        // Close the dropdown so it doesn't overlay the footer buttons.
+        await page.getByLabel('Study Title').click()
+
+        // Navigate back — triggers save-on-navigate, flushing Step 2 fields
+        // to the study row so draftHasStep2Progress resolves correctly.
+        await page.getByRole('button', { name: /Previous/i }).click()
+        await page.waitForURL(/\/edit$/)
+
         await visitAsRole(page, RESEARCHER_DASHBOARD)
 
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -386,7 +394,6 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
         await page.waitForURL(/\/proposal$/)
         await expect(page.getByText('STEP 2')).toBeVisible()
-        await expect(page).toHaveURL(/\/proposal$/)
     })
 })
 

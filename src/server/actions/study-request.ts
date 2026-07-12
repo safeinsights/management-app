@@ -654,53 +654,6 @@ const resubmissionNoteParam = z
         message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
     })
 
-// click). CASL `update Study` is org-type-scoped (any lab member), so we pair
-// it with a `submittedByOrgId in <user's lab orgs>` filter to allow any
-// researcher in the submitting lab to co-author the resubmission. The 0-row
-// `executeTakeFirst()` check turns a cross-lab / wrong-status attempt into a
-// hard ActionFailure instead of a silent no-op that the client would render
-// as success. Mirrors onUpdateDraftStudyAction.
-export const onUpdateClarifiedProposalAction = new Action('onUpdateClarifiedProposalAction', {
-    performsMutations: true,
-})
-    .params(z.object({ studyId: z.string(), studyInfo: draftStudyApiSchema }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session }) => {
-        const userLabOrgIds = Object.values(session.orgs)
-            .filter((org) => org.type === 'lab')
-            .map((org) => org.id)
-        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
-
-        const updateValues = Object.fromEntries(
-            proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
-        )
-
-        const verified =
-            Object.keys(updateValues).length > 0
-                ? await db
-                      .updateTable('study')
-                      .set(updateValues)
-                      .where('id', '=', studyId)
-                      .where('status', '=', 'CHANGE-REQUESTED')
-                      .where('submittedByOrgId', 'in', labScope)
-                      .returning(['id'])
-                      .executeTakeFirst()
-                : await db
-                      .selectFrom('study')
-                      .select('id')
-                      .where('id', '=', studyId)
-                      .where('status', '=', 'CHANGE-REQUESTED')
-                      .where('submittedByOrgId', 'in', labScope)
-                      .executeTakeFirst()
-
-        if (!verified) {
-            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
-        }
-
-        return { studyId }
-    })
-
 // Final resubmission: writes the latest proposal edits, records the
 // resubmission note as a study_proposal_comment row, and transitions
 // CHANGE-REQUESTED -> PENDING-REVIEW.
