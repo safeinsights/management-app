@@ -18,6 +18,11 @@ const formatUpdatedAt = (date: Date | string) =>
         minute: '2-digit',
     })
 
+// Post-submission the main file is locked in, so the star renders in the disabled
+// grey style (still filled to show it's selected) rather than the active indigo used
+// while the researcher is choosing their main file.
+const STAR_COLOR = 'var(--mantine-color-gray-5)'
+
 const SubmittedCodeRow: FC<{
     file: SubmittedFile
     jobId: string
@@ -25,10 +30,6 @@ const SubmittedCodeRow: FC<{
 }> = ({ file, jobId, onPreview }) => {
     const isMain = file.fileType === 'MAIN-CODE'
     const starWeight = isMain ? 'fill' : 'regular'
-    // Post-submission the main file is locked in, so the star renders in the disabled
-    // grey style (still filled to show it's selected) rather than the active indigo used
-    // while the researcher is choosing their main file.
-    const starColor = 'var(--mantine-color-gray-5)'
     const starLabel = isMain ? 'Main file' : 'Supplemental file'
     const tooltipDisabled = file.name.length <= 48
     const lastUpdated = formatUpdatedAt(file.createdAt)
@@ -36,7 +37,7 @@ const SubmittedCodeRow: FC<{
     return (
         <Table.Tr>
             <Table.Td>
-                <StarIcon size={20} weight={starWeight} color={starColor} aria-label={starLabel} />
+                <StarIcon size={20} weight={starWeight} color={STAR_COLOR} aria-label={starLabel} />
             </Table.Td>
             <Table.Td>
                 <Tooltip label={file.name} disabled={tooltipDisabled}>
