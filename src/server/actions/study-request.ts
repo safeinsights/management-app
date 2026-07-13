@@ -344,7 +344,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
         const userId = session.user.id
 
         // CASL `update Study` is org-type-scoped (any lab member), so we additionally
@@ -372,14 +372,12 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             }
         }
 
-        // APPROVED is included to preserve the legacy code re-submission flow where an
-        // already-approved proposal moves back to PENDING-REVIEW for a new code review.
         const submittedAt = new Date()
         const claimed = await db
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
-            .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
+            .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id', 'submittedByOrgId'])
             .executeTakeFirst()
@@ -431,11 +429,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             onStudyReviewRequested({ studyJobId: latestJob.id })
         }
 
-        if (status === 'APPROVED') {
-            onStudyCodeSubmitted({ userId, studyId })
-        } else {
-            onStudyCreated({ userId, studyId })
-        }
+        onStudyCreated({ userId, studyId })
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
@@ -517,47 +511,6 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsM
         await deleteStudyCompletely(db, orgSlug, studyId)
     })
 
-const addJobToStudyActionArgsSchema = z.object({
-    studyId: z.string(),
-    mainCodeFileName: z.string(),
-    codeFileNames: z.array(z.string()),
-})
-
-export const addJobToStudyAction = new Action('addJobToStudyAction', { performsMutations: true })
-    .params(addJobToStudyActionArgsSchema)
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('create', 'StudyJob')
-    .handler(async ({ orgSlug, params: { studyId, mainCodeFileName, codeFileNames }, session, db }) => {
-        const userId = session.user.id
-
-        const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
-            db,
-            studyId,
-            orgSlug,
-            mainCodeFileName,
-            codeFileNames,
-        )
-
-        await markCodeSubmitted(db, { studyJobId, userId })
-
-        const now = new Date()
-        await db
-            .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyCodeSubmitted({ userId, studyId })
-        onStudyReviewRequested({ studyJobId })
-
-        revalidatePath('/dashboard')
-        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
-
-        triggerCodeScan(studyJobId, orgSlug, studyId)
-
-        return { studyJobId, urlForCodeUpload }
-    })
-
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
@@ -599,12 +552,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         await markCodeSubmitted(db, { studyJobId, userId })
 
-        const now = new Date()
-        await db
-            .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now })
-            .where('id', '=', studyId)
-            .execute()
+        await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId })
@@ -872,8 +820,8 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 // OTTER-558: Finalize the code resubmission. Creates a new study_job (mirroring
 // submitStudyCodeAction's flow), copies the coder workspace files to S3,
 // records the resubmission note on the job row, clears the draft on study,
-// flips the study to PENDING-REVIEW, and triggers the scan + review-requested
-// events.
+// and triggers the scan + review-requested events. The study's proposal-stage
+// status is untouched; the new CODE-SUBMITTED job status drives the review phase.
 export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
     .params(
         z.object({
@@ -940,10 +888,9 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyJobId)
             .execute()
 
-        const now = new Date()
         await db
             .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', submittedAt: now, lastUpdatedAt: now, codeResubmissionNoteDraft: null })
+            .set({ lastUpdatedAt: new Date(), codeResubmissionNoteDraft: null })
             .where('id', '=', studyId)
             .execute()
 

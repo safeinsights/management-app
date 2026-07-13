@@ -3,9 +3,13 @@
 import { ErrorPanel } from '@/components/panel'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { Paper } from '@mantine/core'
+import { usePathname } from 'next/navigation'
 
 export const SignOutPanel = () => {
-    const signOut = useSignOut({ redirectAfterSignOut: window.location.href })
+    // usePathname, not window.location.href: this client component is also
+    // server-rendered, and reading window during SSR crashes the whole route.
+    const pathname = usePathname()
+    const signOut = useSignOut({ redirectAfterSignOut: pathname ?? '/' })
 
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600}>

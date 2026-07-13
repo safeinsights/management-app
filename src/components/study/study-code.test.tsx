@@ -40,6 +40,19 @@ vi.mock('@/server/aws', async () => {
 
 const workspaceRoots: string[] = []
 
+// Submission no longer touches study.status; the durable submit marker is the
+// job's CODE-SUBMITTED status change.
+const codeSubmittedCount = async (studyId: string) => {
+    const row = await db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .executeTakeFirstOrThrow()
+    return Number(row.n)
+}
+
 const setupStudy = async (orgSlug = 'openstax-lab') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -150,7 +163,11 @@ describe('StudyCode component', () => {
             'aria-pressed',
             'false',
         )
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        // Submit-enable also depends on the async last-job query (filesChanged is false
+        // until it resolves), so this must be awaited rather than asserted synchronously.
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
     })
 
     it('shows the Launch IDE button for all orgs', async () => {
@@ -204,12 +221,7 @@ describe('StudyCode component', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
+            expect(await codeSubmittedCount(study.id)).toBe(1)
         })
 
         await expectStudyJobRecords(study.id, [
@@ -242,12 +254,7 @@ describe('StudyCode component', () => {
         await user.click(within(dialog2).getByRole('button', { name: 'Yes, submit study code' }))
 
         await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
+            expect(await codeSubmittedCount(study.id)).toBe(1)
         })
 
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
@@ -372,12 +379,7 @@ describe('StudyCode component', () => {
             await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
             await waitFor(async () => {
-                const updated = await db
-                    .selectFrom('study')
-                    .select(['status'])
-                    .where('id', '=', study.id)
-                    .executeTakeFirstOrThrow()
-                expect(updated.status).toBe('PENDING-REVIEW')
+                expect(await codeSubmittedCount(study.id)).toBe(1)
             })
 
             await expectStudyJobRecords(study.id, [

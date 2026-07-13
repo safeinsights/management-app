@@ -25,9 +25,10 @@ export const PROPOSAL_STATUS_TO_REVIEW_DECISION: Partial<Record<StudyStatus, Rev
     'CHANGE-REQUESTED': 'NEEDS-CLARIFICATION',
 }
 
-// Code submit/resubmit flips study.status back to PENDING-REVIEW, so status alone can't say
-// whether the proposal was ever decided. approvedAt/rejectedAt survive those flips (approval and
-// rejection clear each other), making them the durable record once the study is code-stage.
+// Code submit/resubmit used to flip study.status back to PENDING-REVIEW, so status alone couldn't
+// say whether the proposal was ever decided. The flip is removed and flipped rows are backfilled,
+// but the approvedAt/rejectedAt fallback (approval and rejection clear each other) stays to cover
+// stragglers written by old pods during a rolling deploy.
 export function proposalReviewDecision(study: {
     status: StudyStatus
     approvedAt: Date | null
