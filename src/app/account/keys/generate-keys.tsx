@@ -23,12 +23,6 @@ type GenerateKeysProps = {
     isRegenerating?: boolean
 }
 
-const SECONDARY_TEXT_LEAD =
-    'This is your security key. You will need it to access your study outputs across every organization you belong to. '
-const SECONDARY_TEXT_BOLD =
-    'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'
-const COPY_FAILED_MESSAGE = 'Copy did not work. Select the key above and copy it manually.'
-
 export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) => {
     const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
@@ -65,9 +59,11 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                 </Title>
 
                 <Text fz={16}>
-                    {SECONDARY_TEXT_LEAD}
+                    This is your security key. You will need it to access your study outputs across every organization
+                    you belong to.{' '}
                     <Text component="b" fw={700} inherit>
-                        {SECONDARY_TEXT_BOLD}
+                        It is shown only once. Copy and store it somewhere safe, like a password manager, before you
+                        continue.
                     </Text>
                 </Text>
 
@@ -137,7 +133,7 @@ const CopyFailedIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
         <Group gap="xs">
             <XIcon size={16} color={theme.colors.red[9]} />
             <Text c="red.9" fz={14}>
-                {COPY_FAILED_MESSAGE}
+                Copy did not work. Select the key above and copy it manually.
             </Text>
         </Group>
     )
