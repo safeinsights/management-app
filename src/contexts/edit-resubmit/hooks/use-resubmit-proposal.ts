@@ -10,7 +10,7 @@ import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposa
 import { type ResubmitNoteValue } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
-import { buildStudyInfo } from '@/contexts/proposal/hooks/use-save-draft'
+import { buildStudyInfo } from '@/contexts/proposal/hooks/build-study-info'
 
 interface UseResubmitProposalOptions {
     studyId: string
