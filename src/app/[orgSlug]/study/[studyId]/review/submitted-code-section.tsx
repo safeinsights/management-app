@@ -106,7 +106,7 @@ function SecurityScanLog({ scan }: { scan: JobScanResult }) {
 type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
-    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt'>
+    job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     review: StudyReviewWithMeta | null
     scan: JobScanResult
     codeInitiallyExpanded?: boolean
@@ -116,6 +116,20 @@ type SubmittedCodeSectionProps = {
      * study code" closer, calling this to collapse the entire card.
      */
     onCollapse?: () => void
+}
+
+// A complex resubmission reuses its study job, so createdAt can predate the
+// generation request by days. The latest CODE-SUBMITTED event is the only
+// timestamp that accurately anchors the summary-generation timeout (and the
+// "Submitted/Resubmitted on" header label). We scan for the max createdAt rather
+// than relying on statusChanges arriving in any particular order, so a caller
+// passing an unsorted array still gets the newest submission back.
+export function latestCodeSubmittedAt(job: Pick<LatestJobForStudy, 'createdAt' | 'statusChanges'>): Date | string {
+    const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
+    if (submissions.length === 0) return job.createdAt
+    return submissions.reduce((latest, change) =>
+        new Date(change.createdAt).getTime() > new Date(latest.createdAt).getTime() ? change : latest,
+    ).createdAt
 }
 
 // Data fetching lives in the parent (CodeReview) so this component
@@ -133,6 +147,7 @@ export function SubmittedCodeSection({
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
+    const submittedAt = latestCodeSubmittedAt(job)
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
@@ -147,7 +162,7 @@ export function SubmittedCodeSection({
                             <AiSummaryCollapsible
                                 studyJobId={job.id}
                                 initialReview={review}
-                                submittedAt={job.createdAt}
+                                submittedAt={submittedAt}
                             />
                         </Paper>
                         <Paper withBorder p="lg" radius={0}>
