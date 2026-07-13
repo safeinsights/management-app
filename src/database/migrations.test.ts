@@ -3,7 +3,7 @@ import path from 'path'
 import type { Kysely } from 'kysely'
 import { describe, expect, it } from 'vitest'
 import { db, sql } from '@/database'
-import { up as dedupeStudyJobFiles } from '@/database/migrations/1780300000000_dedupe_and_unique_study_job_file_path'
+import { up as dedupeStudyJobFiles } from '@/database/migrations/1780400000000_dedupe_and_unique_study_job_file_path'
 
 describe('migrations', () => {
     it('has no duplicate timestamps', () => {
