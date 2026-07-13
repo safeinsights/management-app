@@ -432,57 +432,83 @@ describe('SubmittedCodeSection — AI summary', () => {
 
 describe('SubmittedCodeSection — Security scan log', () => {
     // These tests render the component with a known `scan` value passed directly,
-    // rather than going through `jobScanResultForJob`. The query's own behavior
-    // is covered by queries.test.ts; here we only care that the component
-    // renders the right icon/body for each scan status. Mocking the underlying
-    // `fetchFileContents` import was tried but the storage module ends up
-    // loaded twice in this test's graph, so `vi.mock` only catches one copy.
-    const scanWithStatus = (status: JobScanResult['status']): JobScanResult => ({
-        status,
-        logFile: { id: 'scan-log-id', name: 'security-scan.log', path: 'studies/x/security-scan.log' },
+    // rather than going through `jobScanResultForJob`. The query's own parsing is
+    // covered by queries.test.ts; here we only care that the component renders the
+    // right per-tool status text, warning icon, and download affordance.
+    const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
+        trivy,
+        sonarqube,
+        logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
     })
 
-    const scanWithoutLogFile: JobScanResult = { status: 'IN-PROGRESS', logFile: null }
+    const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
 
-    it('renders section title "Security scan log"', async () => {
+    it('renders section title "Security scan log" with no status icon in the title', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithoutLogFile)
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
         expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
     })
 
-    it('renders the scan log file name when a log is attached', async () => {
+    it('renders both static tool labels in order', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('PASSED'))
-        expect(screen.getByTestId('security-scan-log-file')).toHaveTextContent('security-scan.log')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy Filesystem Scan:')
+        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube Quality Gate:')
     })
 
-    it('shows an in-progress indicator when no scan log exists yet', async () => {
+    it('shows Trivy "No vulnerabilities found" with no warning icon when it passed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithoutLogFile)
-        expect(screen.getByTestId('security-scan-log-pending')).toHaveTextContent('Scan in progress')
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('No vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
     })
 
-    it("displays a green icon when the log contents contain 'OK'", async () => {
+    it('shows Trivy "Vulnerabilities found" with a warning icon when it failed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('PASSED'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('pass')
+        await renderSection(fixture, scanResult('FAILED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('Vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
     })
 
-    it("displays a red icon when the log contents do not contain 'OK'", async () => {
+    it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('FAILED'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('fail')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-sonarqube')
+        expect(row).toHaveTextContent('Passed')
+        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
     })
 
-    it('falls back to in-progress when the log file is unreadable', async () => {
+    it('shows SonarQube "Needs review" with a warning icon when it failed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('IN-PROGRESS'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
+        await renderSection(fixture, scanResult('PASSED', 'FAILED'))
+        const row = screen.getByTestId('security-scan-sonarqube')
+        expect(row).toHaveTextContent('Needs review')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+    })
+
+    it('shows a download link to the plaintext scan log when a log file is present', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const link = screen.getByTestId('security-scan-log-download')
+        expect(link).toHaveTextContent('Download')
+        expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
+    })
+
+    it('keeps both labeled rows in a pending state, with no icon or download, when no scan log exists yet', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanInProgress)
+        const trivy = screen.getByTestId('security-scan-trivy')
+        const sonar = screen.getByTestId('security-scan-sonarqube')
+        expect(trivy).toHaveTextContent('Trivy Filesystem Scan:')
+        expect(trivy).toHaveTextContent('Scan in progress')
+        expect(sonar).toHaveTextContent('SonarQube Quality Gate:')
+        expect(sonar).toHaveTextContent('Scan in progress')
+        // No fabricated pass/fail while the status is unknown.
+        expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
     })
 })
 
