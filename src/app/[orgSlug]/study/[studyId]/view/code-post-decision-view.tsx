@@ -3,7 +3,7 @@
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOut, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -231,7 +231,7 @@ const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
                             data-testid="view-approved-initial-request"
                         >
                             View approved initial request
-                            <ArrowSquareOut size={14} />
+                            <ArrowSquareOutIcon size={14} />
                         </Anchor>
                     </Group>
                     <Divider />
