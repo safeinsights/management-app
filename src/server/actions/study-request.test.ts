@@ -782,6 +782,67 @@ describe('Request Study Actions', () => {
             ])
         })
 
+        it('serializes concurrent submissions with different file sets', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-concurrent')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main-a.R': 'print("main a")',
+                'only-a.R': 'print("only a")',
+                'main-b.R': 'print("main b")',
+                'only-b.R': 'print("only b")',
+            })
+            const existingJob = await ensureRoundJobForLaunch(db, study.id)
+
+            const submissions = await Promise.all([
+                submitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main-a.R',
+                    fileNames: ['main-a.R', 'only-a.R'],
+                }),
+                submitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main-b.R',
+                    fileNames: ['main-b.R', 'only-b.R'],
+                }),
+            ])
+            const results = submissions.map(actionResult)
+            expect(results.map((result) => result.studyJobId)).toEqual([existingJob.id, existingJob.id])
+
+            const files = await db
+                .selectFrom('studyJobFile')
+                .select('name')
+                .where('studyJobId', '=', existingJob.id)
+                .orderBy('name')
+                .execute()
+            expect([
+                ['main-a.R', 'only-a.R'],
+                ['main-b.R', 'only-b.R'],
+            ]).toContainEqual(files.map((file) => file.name))
+        })
+
+        it('creates one round job when first submissions race', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-first-concurrent')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main-a.R': 'print("main a")',
+                'main-b.R': 'print("main b")',
+            })
+
+            const submissions = await Promise.all([
+                submitStudyCodeAction({ studyId: study.id, mainFileName: 'main-a.R', fileNames: ['main-a.R'] }),
+                submitStudyCodeAction({ studyId: study.id, mainFileName: 'main-b.R', fileNames: ['main-b.R'] }),
+            ])
+            const jobIds = submissions.map((submission) => actionResult(submission).studyJobId)
+            expect(new Set(jobIds).size).toBe(1)
+
+            const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobs).toHaveLength(1)
+        })
+
         it('rejects a main file that is not in the workspace file list', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })

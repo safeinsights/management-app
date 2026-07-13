@@ -82,6 +82,10 @@ async function attachCodeToRoundJob(
     mainCodeFileName: string,
     codeFileNames: string[],
 ) {
+    // Lock the parent before choosing the current round. Locking a job after selection is too late
+    // when no round exists yet: two transactions could each create and lock a different job.
+    await db.selectFrom('study').where('id', '=', studyId).select('id').forUpdate().executeTakeFirstOrThrow()
+
     const job = await getOrCreateCurrentRoundJob(db, studyId)
     const studyJobId = job.id
 
