@@ -374,6 +374,7 @@ export async function getStudyJobFileOfType(
         // A resubmission can leave more than one row of a given type for a job; take the
         // newest so this matches the log the displayed scan statuses were parsed from.
         .orderBy('studyJobFile.createdAt', 'desc')
+        .orderBy('studyJobFile.id', 'desc')
         .executeTakeFirst()
 
     if (!file && throwIfNotFound) {
@@ -541,6 +542,7 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         .where('studyJobId', '=', studyJobId)
         .where('fileType', '=', 'SECURITY-SCAN-LOG')
         .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
         .limit(1)
         .executeTakeFirst()
 

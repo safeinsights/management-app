@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
+import { urlForFile } from '@/server/storage'
 import { BLANK_UUID, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
 // The route only reads the DB row for the file path; stub the signed-URL helper so
@@ -59,11 +60,35 @@ describe('GET /dl/scan-log/[jobId]', () => {
     it('redirects to the signed URL when the log exists and the user can view it', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org, researcherId: user.id })
-        await insertScanLog(job.id)
+        const createdAt = new Date('2026-01-01T00:00:00Z')
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                {
+                    id: '00000000-0000-7000-8000-000000000001',
+                    studyJobId: job.id,
+                    name: 'old-security-scan-log.txt',
+                    path: `studies/x/jobs/${job.id}/results/old-security-scan-log.txt`,
+                    fileType: 'SECURITY-SCAN-LOG',
+                    createdAt,
+                },
+                {
+                    id: '00000000-0000-7000-8000-000000000002',
+                    studyJobId: job.id,
+                    name: 'security-scan-log.txt',
+                    path: `studies/x/jobs/${job.id}/results/security-scan-log.txt`,
+                    fileType: 'SECURITY-SCAN-LOG',
+                    createdAt,
+                },
+            ])
+            .execute()
 
         const resp = await apiHandler.GET(request(), { params: Promise.resolve({ jobId: job.id }) })
 
         expect(resp.status).toBe(307)
         expect(resp.headers.get('location')).toBe('https://signed.example/security-scan-log.txt')
+        expect(vi.mocked(urlForFile)).toHaveBeenCalledWith(`studies/x/jobs/${job.id}/results/security-scan-log.txt`, {
+            ResponseContentDisposition: 'attachment; filename="security-scan-log.txt"',
+        })
     })
 })

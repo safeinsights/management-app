@@ -74,16 +74,29 @@ describe('jobScanResultForJob', () => {
     it('keeps the log downloadable with unknown statuses when the file cannot be read', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const createdAt = new Date('2026-01-01T00:00:00Z')
 
-        // Row exists but no object was stored, so fetchFileContents throws and the parse fails.
+        // Neither object is stored, so fetchFileContents throws after the newest row is selected.
         await db
             .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'security-scan-log.txt',
-                path: `studies/x/jobs/${job.id}/results/security-scan-log.txt`,
-                fileType: 'SECURITY-SCAN-LOG',
-            })
+            .values([
+                {
+                    id: '00000000-0000-7000-8000-000000000001',
+                    studyJobId: job.id,
+                    name: 'old-security-scan-log.txt',
+                    path: `studies/x/jobs/${job.id}/results/old-security-scan-log.txt`,
+                    fileType: 'SECURITY-SCAN-LOG',
+                    createdAt,
+                },
+                {
+                    id: '00000000-0000-7000-8000-000000000002',
+                    studyJobId: job.id,
+                    name: 'security-scan-log.txt',
+                    path: `studies/x/jobs/${job.id}/results/security-scan-log.txt`,
+                    fileType: 'SECURITY-SCAN-LOG',
+                    createdAt,
+                },
+            ])
             .execute()
 
         const result = await jobScanResultForJob(job.id)
