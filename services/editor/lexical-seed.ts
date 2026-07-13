@@ -32,6 +32,33 @@ export const SLUG_TO_STUDY_COLUMN: Record<ProposalTextSlug, string> = {
     'additional-notes': 'additional_notes',
 }
 
+// The resubmission-note draft column predates the collaborative note
+// (OTTER-658): rows written by the old plain-textarea autosave hold raw text,
+// while rows written since hold serialized Lexical JSON. Normalize either
+// shape into Lexical JSON the seeder accepts. Mirrors src/lib/lexical.ts's
+// isValidLexicalState/lexicalJson pair; duplicated per this service's policy
+// of not importing the client lib graph.
+export function toLexicalJsonIfPlain(value: string | null | undefined): string | null {
+    if (!value) return null
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return null
+
+    try {
+        const state = JSON.parse(trimmed)
+        const root = state?.root
+        if (root && Array.isArray(root.children) && root.children.length > 0) return trimmed
+    } catch {
+        // fall through: not JSON, treat as plain text
+    }
+
+    return JSON.stringify({
+        root: {
+            type: 'root',
+            children: [{ type: 'paragraph', children: [{ type: 'text', text: value }] }],
+        },
+    })
+}
+
 // Stub Provider satisfying the @lexical/yjs binding's structural type. The
 // binding doesn't dispatch awareness or remote events during a one-shot seed,
 // so all the listeners are no-ops.

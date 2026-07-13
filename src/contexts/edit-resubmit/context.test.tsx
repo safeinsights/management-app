@@ -1,6 +1,7 @@
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { useParams } from 'next/navigation'
 import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import { lexicalJson } from '@/lib/lexical'
 import { EditResubmitProvider, useEditResubmit } from './context'
 import {
     onUpdateClarifiedProposalAction,
@@ -97,7 +98,10 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         expect(saveNoteAction).not.toHaveBeenCalled()
     })
 
-    it('initialises the form from initialNote so a draft survives a page reload', () => {
+    // The note editor is Lexical (OTTER-658): the provider normalizes a legacy
+    // plain-text draft into Lexical JSON so dirty-tracking and submit operate in
+    // JSON space from the first render.
+    it('initialises the form from initialNote, normalized to Lexical JSON, so a draft survives a page reload', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
         const onSaveResult = vi.fn()
 
@@ -107,7 +111,20 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             </EditResubmitProvider>,
         )
 
-        expect(screen.getByLabelText('Resubmission note')).toHaveValue('previously saved draft')
+        expect(screen.getByLabelText('Resubmission note')).toHaveValue(lexicalJson('previously saved draft'))
+    })
+
+    it('initialises the form verbatim when the draft is already Lexical JSON', () => {
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+        const draft = lexicalJson('draft saved by the collaborative editor')
+
+        renderWithProviders(
+            <EditResubmitProvider studyId={STUDY_ID} initialNote={draft}>
+                <Harness onSaveResult={vi.fn()} />
+            </EditResubmitProvider>,
+        )
+
+        expect(screen.getByLabelText('Resubmission note')).toHaveValue(draft)
     })
 })
 

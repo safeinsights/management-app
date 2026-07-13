@@ -108,4 +108,13 @@ describe('ResubmissionNoteSection', () => {
         expect(status).toHaveTextContent('All changes saved')
         expect(status).not.toHaveTextContent(/\d/)
     })
+
+    // OTTER-658 regression: the section once composed its own CheckCircleIcon next
+    // to SaveStatusIndicator, which already renders one — QA saw a double checkmark.
+    // The saved state must surface exactly one icon (the indicator's own).
+    it('renders exactly one check icon in the saved state', () => {
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const section = screen.getByTestId('resubmission-note-section')
+        expect(section.querySelectorAll('svg')).toHaveLength(1)
+    })
 })

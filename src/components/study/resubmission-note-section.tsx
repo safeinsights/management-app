@@ -3,7 +3,6 @@
 import { FC } from 'react'
 import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
@@ -37,17 +36,11 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const wordCount = countWords(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
-    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
-    const footerStatus = error ? (
-        <InputError error={error} />
-    ) : (
-        <Group gap={6} align="center">
-            {saveStatus === 'saved' && (
-                <CheckCircleIcon size={16} weight="fill" color="var(--mantine-color-green-7)" aria-hidden />
-            )}
-            <SaveStatusIndicator status={saveStatus} />
-        </Group>
-    )
+    // The status indicator and validation error share the footer's left slot; only one is relevant at
+    // a time. SaveStatusIndicator already renders the green check icon in its saved state (OTTER-594),
+    // so nothing extra may be composed next to it — a second icon here is how OTTER-658's duplicate
+    // checkmark happened.
+    const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
 
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">

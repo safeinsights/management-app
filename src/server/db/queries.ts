@@ -195,6 +195,17 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
     return row?.version ?? 1
 }
 
+/**
+ * Version the RESUBMISSION-NOTE comment will take when the current
+ * CHANGE-REQUESTED round is resubmitted — `nextVersionForStudyComment`
+ * (mutations.ts) with `increment: true`, as a plain read. Binds the
+ * collaborative resubmission-note editor to its round-scoped Yjs document
+ * (OTTER-658): the version only advances via resubmit, which kicks every
+ * editor out, so a value read at page load cannot go stale mid-session.
+ */
+export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
+    (await currentReviewVersion(studyId)) + 1
+
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db
