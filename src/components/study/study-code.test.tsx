@@ -163,7 +163,11 @@ describe('StudyCode component', () => {
             'aria-pressed',
             'false',
         )
-        expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        // Submit-enable also depends on the async last-job query (filesChanged is false
+        // until it resolves), so this must be awaited rather than asserted synchronously.
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
     })
 
     it('shows the Launch IDE button for all orgs', async () => {
