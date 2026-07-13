@@ -36,7 +36,6 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type { CodeFile } from './study-code-files'
-export { StudyCodeToggle, type StudyCodeToggleLabels }
 
 // 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
