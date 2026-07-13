@@ -19,10 +19,17 @@
 set -e
 
 gen=$(date -u +%Y-%m)
-# Previous month via "first of this month minus one day" (robust across month lengths and year
-# rollover). At a month boundary, before the first main push of the new month has reseeded `gen`,
-# PRs would otherwise miss every tier and build cold; the prev_prefix tier keeps them warm.
-prev=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
+# Previous month via plain arithmetic on `gen`, so this stays portable POSIX shell and avoids the
+# GNU-only `date -d`. At a month boundary, before the first main push of the new month has reseeded
+# `gen`, PRs would otherwise miss every tier and build cold; the prev_prefix tier keeps them warm.
+year=${gen%-*}
+month=${gen#*-}
+month=${month#0} # strip a leading zero so 08/09 are not read as invalid octal inside $(( ))
+if [ "$month" -eq 1 ]; then
+    prev="$((year - 1))-12"
+else
+    prev=$(printf '%d-%02d' "$year" "$((month - 1))")
+fi
 node_major=$(node -v | sed 's/v\([0-9]*\).*/\1/')
 base="${RUNNER_OS}-nextjs-tpc1"
 
