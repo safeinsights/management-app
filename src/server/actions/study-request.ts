@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
-import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
+import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
@@ -22,6 +22,7 @@ import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
+import { deleteStudyCompletely } from '@/server/qa-cleanup'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -513,16 +514,7 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsM
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
     .handler(async ({ db, orgSlug, params: { studyId } }) => {
-        const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
-        if (jobs.length > 0) {
-            const jobIds = jobs.map((job) => job.id)
-            await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
-            await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
-            await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
-        }
-        await db.deleteFrom('study').where('id', '=', studyId).execute()
-        // Clean up the files from s3
-        await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
+        await deleteStudyCompletely(db, orgSlug, studyId)
     })
 
 const addJobToStudyActionArgsSchema = z.object({

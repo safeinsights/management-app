@@ -83,7 +83,7 @@ export const StudyCodePanel = ({
                     w={320}
                 >
                     <LaunchIdeButton
-                        onClick={ide.launchWorkspace}
+                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.ctrlKey })}
                         isLaunching={ide.isLaunching}
                         launchError={ide.launchError}
                         variant="outline"

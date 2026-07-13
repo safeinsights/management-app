@@ -12,6 +12,7 @@ import {
     seedApprovedNoCode,
     seedCodeApprovedJobReady,
     seedCodeResultsReady,
+    seedCodeRejected,
     seedCodeSubmitted,
     seedProposalPendingReview,
 } from './e2e.seed'
@@ -714,37 +715,19 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer hard-reject-code surface (terminal) + the researcher terminal
-// rejected-code view. Seeds CODE-SUBMITTED.
+// Owns the reviewer post-code-rejection surface (terminal) + the researcher terminal
+// rejected-code view. OTTER-650 removed the DP "Reject and end study" option, so the
+// CODE-REJECTED state can no longer be reached through the UI; we seed it directly to
+// keep coverage of the preserved post-rejection views.
 test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('code-hard-rej')
-    await seedCodeSubmitted(studyTitle)
+    const { studyId } = await seedCodeRejected(studyTitle)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await openCodeReviewEditor(page, studyTitle)
-
-        await fillCodeCriteria(page, 'no')
-        // Reject -> CODE-REJECTED (study ends). Destructive confirm modal ("Reject study code?").
-        await page.getByTestId('code-review-decision-reject').click()
-        const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
-        await expect(feedbackEditor).toBeVisible()
-        await feedbackEditor.click()
-        await page.keyboard.type('Rejecting submitted code — it cannot run against this dataset.')
-
-        await page.getByTestId('code-review-submit').click()
-        const dialog = page.getByRole('dialog')
-        await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Reject study code$/i }).click()
-        await expect(dialog).toBeHidden()
+        await goto(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText(/Rejected on/)).toBeVisible()
         await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
-        await page.getByTestId('go-to-dashboard').click()
-        await page.waitForURL('**/dashboard')
-
-        const rejectedRow = page.getByRole('row').filter({ hasText: studyTitle })
-        await expect(rejectedRow).toBeVisible()
-        await expect(rejectedRow.getByText(/REJECTED/i)).toBeVisible()
     })
 
     await withRole(browser, 'researcher', async (page) => {
