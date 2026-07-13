@@ -29,6 +29,11 @@ import {
 } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
+import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
+    StudyCodeToggle,
+    type StudyCodeToggleLabels,
+} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type { CodeFile } from './study-code-files'
 
@@ -497,80 +502,56 @@ function StudyCodeBody({
     )
 }
 
-export type StudyCodeToggleLabels = { expand: string; collapse: string }
-
-const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
-}
-
-function StudyCodeToggle({
-    isVisible,
-    isExpanded,
-    onClick,
-    labels,
-}: {
-    isVisible: boolean
-    isExpanded: boolean
-    onClick: () => void
-    labels: StudyCodeToggleLabels
-}) {
-    if (!isVisible) return null
-    const label = isExpanded ? labels.collapse : labels.expand
-    return (
-        <Anchor
-            component="button"
-            type="button"
-            onClick={onClick}
-            size="sm"
-            fw={700}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            data-testid="study-code-toggle"
-            aria-expanded={isExpanded}
-        >
-            {label}
-            <ToggleChevron isExpanded={isExpanded} />
-        </Anchor>
-    )
-}
-
 type StudyCodeViewerProps = {
     studyJobId: string
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
+    /**
+     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
+     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
+     * section's single "Hide full study code" closer that collapses the entire card.
+     */
+    onCollapse?: () => void
 }
 
 export function StudyCodeViewer({
     studyJobId,
     files,
     initialExpanded = true,
-    toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+    toggleLabels = FULL_STUDY_CODE_TOGGLE_LABELS,
+    onCollapse,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hidden } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
+    const expanded = onCollapse ? true : isExpanded
+    const handleToggle = onCollapse ?? toggleExpanded
+    const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
+    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
+    // reachable even with no displayable code files; the plain viewer still hides it when empty.
+    const toggleVisible = onCollapse ? true : hasFiles
+
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
             <Stack gap="sm">
                 <FileTabsRow
-                    isVisible={isExpanded}
+                    isVisible={expanded}
                     visible={visible}
                     activeFileName={activeFile?.name ?? null}
                     onSelect={selectFile}
                     hidden={hidden}
                     studyJobId={studyJobId}
                 />
-                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+                <StudyCodeBody isVisible={expanded} activeFile={activeFile} studyJobId={studyJobId} />
             </Stack>
             <StudyCodeToggle
-                isVisible={hasFiles}
-                isExpanded={isExpanded}
-                onClick={toggleExpanded}
+                isVisible={toggleVisible}
+                expanded={expanded}
+                onClick={handleToggle}
                 labels={toggleLabels}
+                testId={toggleTestId}
             />
         </Stack>
     )

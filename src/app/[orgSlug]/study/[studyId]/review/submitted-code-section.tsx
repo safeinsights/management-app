@@ -110,6 +110,12 @@ type SubmittedCodeSectionProps = {
     review: StudyReviewWithMeta | null
     scan: JobScanResult
     codeInitiallyExpanded?: boolean
+    /**
+     * When set, the parent owns whole-section expand/collapse (post-decision reviewer page). The
+     * code viewer then always shows its files and its toggle becomes the section's "Hide full
+     * study code" closer, calling this to collapse the entire card.
+     */
+    onCollapse?: () => void
 }
 
 // Data fetching lives in the parent (CodeReview) so this component
@@ -122,6 +128,7 @@ export function SubmittedCodeSection({
     review,
     scan,
     codeInitiallyExpanded = true,
+    onCollapse,
 }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
@@ -148,7 +155,12 @@ export function SubmittedCodeSection({
                         </Paper>
                     </Group>
                     <Divider />
-                    <StudyCodeViewer studyJobId={job.id} files={codeFiles} initialExpanded={codeInitiallyExpanded} />
+                    <StudyCodeViewer
+                        studyJobId={job.id}
+                        files={codeFiles}
+                        initialExpanded={codeInitiallyExpanded}
+                        onCollapse={onCollapse}
+                    />
                 </Stack>
             </Stack>
         </Paper>
