@@ -25,7 +25,10 @@ const SubmittedCodeRow: FC<{
 }> = ({ file, jobId, onPreview }) => {
     const isMain = file.fileType === 'MAIN-CODE'
     const starWeight = isMain ? 'fill' : 'regular'
-    const starColor = isMain ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-gray-5)'
+    // Post-submission the main file is locked in, so the star renders in the disabled
+    // grey style (still filled to show it's selected) rather than the active indigo used
+    // while the researcher is choosing their main file.
+    const starColor = 'var(--mantine-color-gray-5)'
     const starLabel = isMain ? 'Main file' : 'Supplemental file'
     const tooltipDisabled = file.name.length <= 48
     const lastUpdated = formatUpdatedAt(file.createdAt)
