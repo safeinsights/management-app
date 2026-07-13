@@ -646,9 +646,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Dual-shape: the proposal flow submits Lexical JSON (collaborative editor,
-// OTTER-658) while the code flow still submits plain textarea text.
-// resubmissionNoteWordCount counts words for either shape.
+// The proposal flow submits Lexical JSON; the code flow still submits plain text.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => resubmissionNoteWordCount(val) >= RESUBMIT_NOTE_MIN_WORDS, {

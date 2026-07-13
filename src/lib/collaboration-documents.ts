@@ -40,11 +40,9 @@ export const reviewFeedbackDocNameForVersion = (studyId: string, version: number
     `${REVIEW_FEEDBACK_PREFIX}${studyId}-v${version}`
 
 /**
- * Versioned resubmission-note document name (OTTER-658). Versioned for the
- * same round-boundary reason as review feedback: the note for round N+1 must
- * start empty, and a zombie tab from round N reconnecting once the study is
- * CHANGE-REQUESTED again must not merge the previous round's note into it.
- * `version` is the version the RESUBMISSION-NOTE comment will take on submit.
+ * Versioned resubmission-note document name, for the same round-boundary
+ * reason as review feedback. `version` is the version the RESUBMISSION-NOTE
+ * comment will take on submit.
  */
 export const proposalResubmissionNoteDocNameForVersion = (studyId: string, version: number) =>
     `${PROPOSAL_PREFIX}${studyId}-resubmission-note-v${version}`

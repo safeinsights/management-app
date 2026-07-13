@@ -121,8 +121,7 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'proposal-fields':
         case 'proposal-text':
             return snap.status === 'DRAFT' || snap.status === 'CHANGE-REQUESTED'
-        // Unlike the other proposal docs, the resubmission note only exists while
-        // the lab is answering a change request — there is no note during DRAFT.
+        // No note exists during DRAFT — only while answering a change request.
         case 'proposal-resubmission-note':
             return snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':

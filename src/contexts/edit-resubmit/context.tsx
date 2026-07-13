@@ -68,9 +68,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         validateInputOnChange: true,
     })
 
-    // The note editor is Lexical (OTTER-658), so the form value is Lexical JSON.
-    // Legacy drafts saved by the old plain textarea are normalized up front so
-    // dirty-tracking and submit both operate in JSON space.
+    // The note form holds Lexical JSON; legacy plain-text drafts are normalized
+    // up front so dirty-tracking and submit operate in one shape.
     const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
 
     const noteForm = useForm<ResubmitNoteValue>({
@@ -134,12 +133,10 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     const currentNote = noteForm.values.resubmissionNote
     const singleUserEditing = useSingleUserEditing()
 
-    // In collaborative mode the Yjs document is the live persistence (the
-    // editor service stores every debounced update), so the per-keystroke
-    // draft-column autosave would only duplicate traffic — the column is
-    // refreshed by the explicit Save-as-draft flush instead, keeping it a
-    // valid cold-seed fallback. In single-user mode there is no Yjs, so the
-    // debounced autosave remains the only persistence.
+    // In collaborative mode the Yjs doc is the live persistence, so skip the
+    // per-keystroke column save (Save-as-draft still refreshes the column as
+    // the cold-seed fallback). In single-user mode this debounce is the only
+    // persistence.
     useEffect(() => {
         pendingNoteRef.current = currentNote
         if (!singleUserEditing) return

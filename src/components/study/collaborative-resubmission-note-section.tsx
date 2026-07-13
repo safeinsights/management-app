@@ -17,7 +17,7 @@ import {
     resubmissionNoteWordCount,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import type { ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
+import { noteSaveStatus, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
 
 const EDITOR_MIN_HEIGHT = 140
 
@@ -44,20 +44,14 @@ interface CollaborativeResubmissionNoteSectionProps {
     autosaveStatus: ResubmissionNoteAutosaveStatus
 }
 
-function singleUserSaveStatus(status: ResubmissionNoteAutosaveStatus) {
-    if (status.isSaving) return 'saving' as const
-    if (status.lastSavedAt) return 'saved' as const
-    return 'idle' as const
-}
-
-// Save-status shown only in single-user mode: the collaborative editor renders
-// its own provider-driven indicator, so rendering this one there would double up.
+// In collaborative mode the editor renders its own provider-driven indicator;
+// showing this one too would double up.
 const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: ResubmissionNoteAutosaveStatus }> = ({
     isVisible,
     autosaveStatus,
 }) => {
     if (!isVisible) return null
-    return <SaveStatusIndicator status={singleUserSaveStatus(autosaveStatus)} />
+    return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} />
 }
 
 export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionNoteSectionProps> = ({
@@ -73,6 +67,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
     const wordCount = resubmissionNoteWordCount(value)
+    const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
 
@@ -91,7 +86,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                     <Editor
                         id={proposalResubmissionNoteDocNameForVersion(studyId, noteVersion)}
                         studyId={studyId}
-                        initialValue={resubmissionNoteToLexicalJson(initialNote) || undefined}
+                        initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
                         placeholder={PLACEHOLDER_TEXT}

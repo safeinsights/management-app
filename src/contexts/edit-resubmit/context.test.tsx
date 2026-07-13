@@ -98,9 +98,6 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         expect(saveNoteAction).not.toHaveBeenCalled()
     })
 
-    // The note editor is Lexical (OTTER-658): the provider normalizes a legacy
-    // plain-text draft into Lexical JSON so dirty-tracking and submit operate in
-    // JSON space from the first render.
     it('initialises the form from initialNote, normalized to Lexical JSON, so a draft survives a page reload', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
         const onSaveResult = vi.fn()

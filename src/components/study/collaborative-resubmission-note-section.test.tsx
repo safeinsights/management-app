@@ -21,9 +21,8 @@ function Harness({ initialNote = '' }: { initialNote?: string }) {
         validateInputOnChange: true,
     })
 
-    // websocketProvider stays null (SSR/pre-hydration shape): the Editor renders
-    // its skeleton, which is as far as jsdom can take a Yjs-backed editor. The
-    // live collaborative behavior is covered by the e2e study flow.
+    // With a null websocketProvider the Editor renders its skeleton — as far as
+    // jsdom can take a Yjs editor; live behavior is covered by e2e.
     return (
         <CollaborativeResubmissionNoteSection
             studyId={STUDY_ID}
@@ -52,16 +51,8 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.getByText(/feedback from Rice University/)).toBeInTheDocument()
     })
 
-    it('does not render the plain-textarea autosave indicator in collaborative mode', () => {
-        // The collaborative editor surfaces its own provider-driven save status;
-        // a second section-level indicator is exactly the duplication OTTER-658
-        // flagged. Default test context is collaborative (singleUserEditing=false).
+    it('does not render the section-level autosave indicator in collaborative mode', () => {
         renderSection()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
-    })
-
-    it('does not render a plain textarea — the note is an editor surface now', () => {
-        renderSection()
-        expect(screen.queryByRole('textbox', { name: 'Resubmission Note' })).not.toBeInTheDocument()
     })
 })

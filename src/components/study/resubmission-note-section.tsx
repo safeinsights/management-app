@@ -24,7 +24,7 @@ interface ResubmissionNoteSectionProps {
     autosaveStatus?: ResubmissionNoteAutosaveStatus
 }
 
-function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveStatusValue {
+export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveStatusValue {
     if (status?.isSaving) return 'saving'
     if (status?.lastSavedAt) return 'saved'
     return 'idle'
@@ -36,10 +36,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const wordCount = countWords(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
-    // The status indicator and validation error share the footer's left slot; only one is relevant at
-    // a time. SaveStatusIndicator already renders the green check icon in its saved state (OTTER-594),
-    // so nothing extra may be composed next to it — a second icon here is how OTTER-658's duplicate
-    // checkmark happened.
+    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
     const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
 
     return (

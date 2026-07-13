@@ -187,9 +187,6 @@ const server = new Server({
             )
             lexicalJson = row.rows[0]?.value ?? null
         } else {
-            // The note draft is a plain text column that predates the
-            // collaborative note; toLexicalJsonIfPlain normalizes legacy plain
-            // text and modern Lexical JSON drafts alike.
             const row = await pool.query<{ value: string | null }>(
                 'SELECT proposal_resubmission_note_draft AS value FROM study WHERE id = $1',
                 [parsed.studyId],

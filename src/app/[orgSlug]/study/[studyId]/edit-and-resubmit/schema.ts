@@ -7,16 +7,13 @@ export const RESUBMIT_NOTE_MAX_WORDS = 300
 const REQUIRED_NOTE_ERROR = 'A resubmission note is required.'
 const NOTE_MAX_ERROR = `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`
 
-// The proposal flow stores the note as Lexical JSON (the collaborative editor,
-// OTTER-658); the code-resubmit flow still submits plain textarea text. Count
-// words for either shape so both flows can share one schema.
+// The proposal flow submits Lexical JSON; the code flow still submits plain text.
 export function resubmissionNoteWordCount(value: string): number {
     return isValidLexicalState(value) ? countWordsFromLexical(value) : countWords(value)
 }
 
-// Normalizes a stored draft — legacy plain text or Lexical JSON — into Lexical
-// JSON for editor seeding and comment persistence. Empty drafts stay '' because
-// Lexical rejects an empty-root state; callers treat '' as "no initial value".
+// Empty drafts stay '' — Lexical rejects an empty-root state, so callers treat
+// '' as "no initial value".
 export function resubmissionNoteToLexicalJson(value: string): string {
     if (!value.trim()) return ''
     return isValidLexicalState(value) ? value : lexicalJson(value)

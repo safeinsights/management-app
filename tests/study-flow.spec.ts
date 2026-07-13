@@ -598,9 +598,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
             'This research will improve understanding of study habits.',
         )
 
-        // Form is pre-filled; only the resubmission note gates submit. The note is a
-        // collaborative Lexical editor (OTTER-658), so type into it like the other
-        // Lexical fields rather than fill()ing a textarea.
+        // Form is pre-filled; only the resubmission note gates submit.
         await fillLexicalField(page, 'Resubmission Note', 'Clarified the dataset scope and analysis plan per feedback.')
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit initial request$/i })

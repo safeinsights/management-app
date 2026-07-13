@@ -196,12 +196,9 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
 }
 
 /**
- * Version the RESUBMISSION-NOTE comment will take when the current
- * CHANGE-REQUESTED round is resubmitted — `nextVersionForStudyComment`
- * (mutations.ts) with `increment: true`, as a plain read. Binds the
- * collaborative resubmission-note editor to its round-scoped Yjs document
- * (OTTER-658): the version only advances via resubmit, which kicks every
- * editor out, so a value read at page load cannot go stale mid-session.
+ * Version the next RESUBMISSION-NOTE comment will take (`nextVersionForStudyComment`
+ * with `increment: true`, as a plain read). Safe to read at page load: the version
+ * only advances via resubmit, which kicks every editor out.
  */
 export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
     (await currentReviewVersion(studyId)) + 1

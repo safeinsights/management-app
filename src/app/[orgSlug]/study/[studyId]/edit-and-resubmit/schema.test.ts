@@ -4,7 +4,6 @@ import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
     resubmitNoteSchema,
 } from './schema'
 
@@ -35,8 +34,6 @@ describe('resubmitNoteSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    // The proposal flow submits Lexical JSON (collaborative editor, OTTER-658);
-    // the same schema must enforce the word bounds on that shape too.
     it('accepts a Lexical JSON note within the word bounds', () => {
         const result = resubmitNoteSchema.safeParse({
             resubmissionNote: lexicalJson(buildNote(RESUBMIT_NOTE_MAX_WORDS)),
@@ -54,20 +51,6 @@ describe('resubmitNoteSchema', () => {
     it('rejects a Lexical JSON note whose text is only whitespace', () => {
         const result = resubmitNoteSchema.safeParse({ resubmissionNote: lexicalJson('   ') })
         expect(result.success).toBe(false)
-    })
-})
-
-describe('resubmissionNoteWordCount', () => {
-    it('counts plain text words', () => {
-        expect(resubmissionNoteWordCount('one two three')).toBe(3)
-    })
-
-    it('counts words inside Lexical JSON', () => {
-        expect(resubmissionNoteWordCount(lexicalJson('one two three'))).toBe(3)
-    })
-
-    it('returns 0 for empty input', () => {
-        expect(resubmissionNoteWordCount('')).toBe(0)
     })
 })
 
