@@ -17,12 +17,8 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import {
-    codeSubmissionVersion,
-    getInfoForStudyId,
-    getOrgIdFromSlug,
-    latestSubmittedJobForStudy,
-} from '@/server/db/queries'
+import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -37,7 +33,7 @@ import {
     RESUBMIT_NOTE_MIN_WORDS,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { countWords, lexicalJson } from '@/lib/lexical'
-import { canResubmitStudyCode } from '@/lib/code-resubmission'
+import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -70,7 +66,7 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
  * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
  * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
  * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
- * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in code-resubmission.ts).
+ * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in study-job-status.ts).
  *
  * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
  * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
@@ -857,15 +853,12 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // Code resubmission runs while study.status stays APPROVED (the reviewer's
-        // CODE-CHANGES-REQUESTED / results decision lives on the job, not the study),
-        // so eligibility is gated on the latest *submitted* job — exactly as the
-        // resubmit page and resubmitStudyCodeAction do — not on study.status. Guarding
-        // on study.status = 'CHANGE-REQUESTED' here (a proposal-clarification status)
-        // would make this autosave throw on every keystroke during a code resubmit.
-        const latestJob = await latestSubmittedJobForStudy(studyId)
-        const latestStatus = latestJob?.statusChanges.at(0)?.status
-        if (!canResubmitStudyCode(latestStatus)) {
+        // Code resubmission runs while study.status stays APPROVED (the reviewer's decision lives on the
+        // job, not the study). Eligibility is the projected-state fact shared with the resubmit page and
+        // resubmitStudyCodeAction (order-independent and liveness-aware), so this autosave can't reject a
+        // state the page rendered as editable. Run on the handler executor.
+        const raw = await rawStudyStateForStudy(studyId, db)
+        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
@@ -942,13 +935,12 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
-        // Gate on the latest *submitted* job, not the raw latest: a file upload during resubmit opens
-        // a fresh INITIATED round job that would otherwise mask the prior submission and fail this
-        // guard (OTTER-601). The prior submission's status is what determines resubmit eligibility.
-        const latestJob = await latestSubmittedJobForStudy(studyId)
-        const latestStatus = latestJob?.statusChanges.at(0)?.status
-        if (!canResubmitStudyCode(latestStatus)) {
-            throw new Error(`Cannot resubmit study code: latest job status is ${latestStatus ?? 'none'}`)
+        // Same projected-state eligibility as the autosave action and the resubmit page: order-independent
+        // (a late CODE-SCANNED sorting to the top can't mask the decision) and liveness-aware (a study
+        // already resubmitted and awaiting review is not resubmittable). Run on the handler executor.
+        const raw = await rawStudyStateForStudy(studyId, db)
+        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
+            throw new Error('Cannot resubmit study code: study is not in a resubmittable state')
         }
 
         if (fileNames.length === 0) throw new Error('No files provided')

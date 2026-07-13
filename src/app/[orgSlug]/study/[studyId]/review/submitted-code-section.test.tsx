@@ -1,4 +1,5 @@
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     db,
@@ -22,7 +23,7 @@ import {
     latestJobForStudy,
     type LatestJobForStudy,
 } from '@/server/db/queries'
-import { SubmittedCodeSection } from './submitted-code-section'
+import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
 import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 
 vi.mock('@/server/storage', async () => {
@@ -246,15 +247,80 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
+    it('keeps loading for a complex resubmission on a reused job', async () => {
+        const resubmissionFixture = await setupBaseFixture()
+        const oldJobCreatedAt = new Date(Date.now() - 10 * 60_000)
+        const resubmittedAt = new Date()
+
+        await db
+            .updateTable('studyJob')
+            .set({ createdAt: oldJobCreatedAt })
+            .where('id', '=', resubmissionFixture.job.id)
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                {
+                    studyJobId: resubmissionFixture.job.id,
+                    status: 'CODE-CHANGES-REQUESTED',
+                    createdAt: new Date(resubmittedAt.getTime() - 1_000),
+                },
+                { studyJobId: resubmissionFixture.job.id, status: 'CODE-SUBMITTED', createdAt: resubmittedAt },
+            ])
+            .execute()
+
+        await renderSection(await refreshFixtureJob(resubmissionFixture))
+
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    // latestCodeSubmittedAt's own unit tests only exercise a hand-built statusChanges
+    // array. This drives the same shape through the real query (latestJobForStudy's
+    // jsonArrayFrom + orderBy) with two full resubmission rounds on one reused job, so
+    // a regression that dropped the latest CODE-SUBMITTED (e.g. picking the original
+    // createdAt instead) would surface here through the real serialized payload.
+    it('keeps loading across two resubmission rounds on the same reused job', async () => {
+        const resubmissionFixture = await setupBaseFixture()
+        const day = 24 * 60 * 60 * 1000
+        const originalSubmittedAt = new Date(Date.now() - 5 * day)
+
+        await db
+            .updateTable('studyJob')
+            .set({ createdAt: originalSubmittedAt })
+            .where('id', '=', resubmissionFixture.job.id)
+            .execute()
+        const statuses: { status: StudyJobStatus; createdAt: Date }[] = [
+            { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 4 * day) },
+            { status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() - 3 * day) },
+            { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 2 * day) },
+            { status: 'CODE-SUBMITTED', createdAt: new Date() },
+        ]
+        await db
+            .insertInto('jobStatusChange')
+            .values(statuses.map((change) => ({ ...change, studyJobId: resubmissionFixture.job.id })))
+            .execute()
+
+        const job = await latestJobForStudy(resubmissionFixture.study.id)
+        expect(new Date(latestCodeSubmittedAt(job)).getTime()).toBe(statuses[3].createdAt.getTime())
+
+        await renderSection(await refreshFixtureJob(resubmissionFixture))
+
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
     it('surfaces the error + retry state immediately when a failed review row exists', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
         const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        // Anchor submittedAt to now so the backstop has *not* elapsed: the error
+        // can then only come from the persisted failure row, not from `timedOut`.
         renderWithProviders(
             <AiSummaryCollapsible
                 studyJobId={failedFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={failedFixture.job.createdAt}
+                submittedAt={new Date()}
             />,
         )
 
@@ -275,15 +341,15 @@ describe('SubmittedCodeSection — AI summary', () => {
             <AiSummaryCollapsible
                 studyJobId={failedFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={failedFixture.job.createdAt}
+                submittedAt={new Date(Date.now() - 10 * 60_000)}
             />,
         )
 
         const user = userEvent.setup()
         await user.click(await screen.findByTestId('ai-summary-retry'))
 
-        // The action deletes the failed row and re-fires generation; the panel
-        // resets to the pending spinner while it polls for the new result.
+        // A retry is a new generation request, so it resets an already-elapsed
+        // backstop and returns to pending while the new result is polled.
         await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
         const remaining = await getStudyReviewForJob(failedFixture.job.id)
         expect(remaining?.summaryFailedAt ?? null).toBeNull()
@@ -366,57 +432,83 @@ describe('SubmittedCodeSection — AI summary', () => {
 
 describe('SubmittedCodeSection — Security scan log', () => {
     // These tests render the component with a known `scan` value passed directly,
-    // rather than going through `jobScanResultForJob`. The query's own behavior
-    // is covered by queries.test.ts; here we only care that the component
-    // renders the right icon/body for each scan status. Mocking the underlying
-    // `fetchFileContents` import was tried but the storage module ends up
-    // loaded twice in this test's graph, so `vi.mock` only catches one copy.
-    const scanWithStatus = (status: JobScanResult['status']): JobScanResult => ({
-        status,
-        logFile: { id: 'scan-log-id', name: 'security-scan.log', path: 'studies/x/security-scan.log' },
+    // rather than going through `jobScanResultForJob`. The query's own parsing is
+    // covered by queries.test.ts; here we only care that the component renders the
+    // right per-tool status text, warning icon, and download affordance.
+    const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
+        trivy,
+        sonarqube,
+        logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
     })
 
-    const scanWithoutLogFile: JobScanResult = { status: 'IN-PROGRESS', logFile: null }
+    const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
 
-    it('renders section title "Security scan log"', async () => {
+    it('renders section title "Security scan log" with no status icon in the title', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithoutLogFile)
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
         expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
     })
 
-    it('renders the scan log file name when a log is attached', async () => {
+    it('renders both static tool labels in order', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('PASSED'))
-        expect(screen.getByTestId('security-scan-log-file')).toHaveTextContent('security-scan.log')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy Filesystem Scan:')
+        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube Quality Gate:')
     })
 
-    it('shows an in-progress indicator when no scan log exists yet', async () => {
+    it('shows Trivy "No vulnerabilities found" with no warning icon when it passed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithoutLogFile)
-        expect(screen.getByTestId('security-scan-log-pending')).toHaveTextContent('Scan in progress')
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('No vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
     })
 
-    it("displays a green icon when the log contents contain 'OK'", async () => {
+    it('shows Trivy "Vulnerabilities found" with a warning icon when it failed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('PASSED'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('pass')
+        await renderSection(fixture, scanResult('FAILED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('Vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
     })
 
-    it("displays a red icon when the log contents do not contain 'OK'", async () => {
+    it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('FAILED'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('fail')
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const row = screen.getByTestId('security-scan-sonarqube')
+        expect(row).toHaveTextContent('Passed')
+        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
     })
 
-    it('falls back to in-progress when the log file is unreadable', async () => {
+    it('shows SonarQube "Needs review" with a warning icon when it failed', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanWithStatus('IN-PROGRESS'))
-        const icon = screen.getByTestId('security-scan-log').querySelector('[data-icon]')
-        expect(icon?.getAttribute('data-icon')).toBe('in-progress')
+        await renderSection(fixture, scanResult('PASSED', 'FAILED'))
+        const row = screen.getByTestId('security-scan-sonarqube')
+        expect(row).toHaveTextContent('Needs review')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+    })
+
+    it('shows a download link to the plaintext scan log when a log file is present', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        const link = screen.getByTestId('security-scan-log-download')
+        expect(link).toHaveTextContent('Download')
+        expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
+    })
+
+    it('keeps both labeled rows in a pending state, with no icon or download, when no scan log exists yet', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanInProgress)
+        const trivy = screen.getByTestId('security-scan-trivy')
+        const sonar = screen.getByTestId('security-scan-sonarqube')
+        expect(trivy).toHaveTextContent('Trivy Filesystem Scan:')
+        expect(trivy).toHaveTextContent('Scan in progress')
+        expect(sonar).toHaveTextContent('SonarQube Quality Gate:')
+        expect(sonar).toHaveTextContent('Scan in progress')
+        // No fabricated pass/fail while the status is unknown.
+        expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
     })
 })
 
@@ -685,5 +777,55 @@ describe('SubmittedCodeSection — pure helpers', () => {
         expect(visible.map((f) => f.name)).toEqual(['m', 'a', 'b'])
         expect(hidden.map((f) => f.name)).toEqual(['c', 'd', 'e'])
         expect(hiddenCount).toBe(3)
+    })
+
+    it('latestCodeSubmittedAt returns the CODE-SUBMITTED event timestamp when present', () => {
+        const createdAt = new Date('2026-01-01')
+        const resubmittedAt = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt,
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: resubmittedAt },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-07-09T00:00:00.000Z' },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(resubmittedAt)
+    })
+
+    it('latestCodeSubmittedAt falls back to createdAt when no CODE-SUBMITTED event exists', () => {
+        const createdAt = new Date('2026-01-01')
+        const job = {
+            createdAt,
+            statusChanges: [{ status: 'INITIATED' as const, createdAt: createdAt.toISOString() }],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(createdAt)
+    })
+
+    it('latestCodeSubmittedAt uses the newest CODE-SUBMITTED event (array is desc-ordered)', () => {
+        const old = '2026-01-01T00:00:00.000Z'
+        const recent = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt: new Date(old),
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: recent },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-06-01T00:00:00.000Z' },
+                { status: 'CODE-SUBMITTED' as const, createdAt: old },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(recent)
+    })
+
+    it('latestCodeSubmittedAt picks the newest even when the array is not desc-ordered', () => {
+        const old = '2026-01-01T00:00:00.000Z'
+        const recent = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt: new Date(old),
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: old },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-06-01T00:00:00.000Z' },
+                { status: 'CODE-SUBMITTED' as const, createdAt: recent },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(recent)
     })
 })

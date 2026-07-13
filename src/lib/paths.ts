@@ -45,6 +45,8 @@ export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileN
 
 export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
 
+export const scanLogDownloadURL = (jobId: string) => `/dl/scan-log/${jobId}`
+
 export const coderUserInfoPath = (username: CoderUsername) => `/api/v2/users/${username}`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`
