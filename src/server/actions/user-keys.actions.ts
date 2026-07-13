@@ -79,10 +79,7 @@ export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
         await assertValidPublicKey(publicKey)
         const fingerprint = await fingerprintKeyData(publicKey)
 
-        // Rotation swaps the fingerprint, orphaning study_job_file_recipient_key rows wrapped to the
-        // old one — the researcher loses access to already-approved results. Recovery is the renewal
-        // re-wrap flow (a teammate re-wraps for the new key); until that ships, self-rotate is not
-        // surfaced to researchers. See renewal follow-up.
+        // Rotation swaps the fingerprint, orphaning outputs wrapped to the old key; the loss is confirmed in the reset modal.
         await db
             .updateTable('userPublicKey')
             .set({

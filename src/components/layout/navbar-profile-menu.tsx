@@ -5,7 +5,7 @@ import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { useProfileMenuDisclosure } from '@/hooks/use-profile-menu-disclosure'
 import { Routes } from '@/lib/routes'
-import { AuthRole } from '@/lib/types'
+import { AuthRole, orgNeedsKey } from '@/lib/types'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
@@ -27,6 +27,8 @@ export function NavbarProfileMenu() {
 
     const menuRef = useClickOutside<HTMLDivElement>(handleClickOutside)
     const isSiAdmin = session?.user.isSiAdmin || false
+    // Any key-holding member (enclave or lab); mirrors the UserKey ability + RequireUserKey guard.
+    const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
 
     const navigateTo = (route: string) => (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -88,13 +90,9 @@ export function NavbarProfileMenu() {
                 component="button"
             />
 
-            {/* Reviewer-only on purpose: this is the self-rotate entry, and rotating orphans a
-                researcher's access to already-approved results with no recovery until the renewal
-                re-wrap flow ships. Researchers still reach first-time key generation via the
-                RequireUserKey redirect. Widen to researchers once renewal exists. */}
-            <Protect role={AuthRole.Reviewer}>
+            {needsKey && (
                 <NavLink
-                    label="Results Key"
+                    label="Security key"
                     leftSection={<LockIcon aria-hidden="true" />}
                     onClick={navigateTo(Routes.userKey)}
                     c="white"
@@ -102,11 +100,11 @@ export function NavbarProfileMenu() {
                     color="blue.7"
                     variant="filled"
                     className={styles.navLinkProfileHover}
-                    aria-label="Results Key"
+                    aria-label="Security key"
                     role="menuitem"
                     component="button"
                 />
-            </Protect>
+            )}
 
             {isSiAdmin && (
                 <NavLink
