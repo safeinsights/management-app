@@ -1,7 +1,12 @@
-import { db, jsonArrayFrom } from '@/database'
+import { db as defaultDb, jsonArrayFrom, type DBExecutor } from '@/database'
 import type { RawStudyState } from '@/lib/study-screen'
 
-export async function rawStudyStateForStudy(studyId: string): Promise<RawStudyState | null> {
+// Accepts an optional executor (mirrors codeSubmissionVersion) so a mutation action can run this gate
+// on its own handler transaction rather than the module singleton. Pages call it with the default.
+export async function rawStudyStateForStudy(
+    studyId: string,
+    db: DBExecutor = defaultDb,
+): Promise<RawStudyState | null> {
     const row = await db
         .selectFrom('study')
         .where('study.id', '=', studyId)
