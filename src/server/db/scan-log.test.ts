@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { storeStudyLogFile } from '@/server/storage'
+import { db } from '@/database'
 import { jobScanResultForJob, parseTrivyStatus, parseSonarqubeStatus } from './queries'
 
 // Real scanner output (see iac codebuild/scripts/common.ts injectScanResults):
@@ -68,6 +69,28 @@ describe('jobScanResultForJob', () => {
         const result = await jobScanResultForJob(job.id)
 
         expect(result).toEqual({ trivy: null, sonarqube: null, logFile: null })
+    })
+
+    it('keeps the log downloadable with unknown statuses when the file cannot be read', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { job } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        // Row exists but no object was stored, so fetchFileContents throws and the parse fails.
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'security-scan-log.txt',
+                path: `studies/x/jobs/${job.id}/results/security-scan-log.txt`,
+                fileType: 'SECURITY-SCAN-LOG',
+            })
+            .execute()
+
+        const result = await jobScanResultForJob(job.id)
+
+        expect(result.trivy).toBeNull()
+        expect(result.sonarqube).toBeNull()
+        expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 
     it.skipIf(!s3Available)('parses per-tool statuses from the stored plaintext log', async () => {

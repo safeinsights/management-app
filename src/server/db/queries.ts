@@ -371,6 +371,9 @@ export async function getStudyJobFileOfType(
         .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path', 'study.orgId', 'study.submittedByOrgId'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', '=', fileType)
+        // A resubmission can leave more than one row of a given type for a job; take the
+        // newest so this matches the log the displayed scan statuses were parsed from.
+        .orderBy('studyJobFile.createdAt', 'desc')
         .executeTakeFirst()
 
     if (!file && throwIfNotFound) {
@@ -548,7 +551,10 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         const contents = await blob.text()
         return { trivy: parseTrivyStatus(contents), sonarqube: parseSonarqubeStatus(contents), logFile }
     } catch {
-        return { trivy: null, sonarqube: null, logFile: null }
+        // A transient read/parse failure shouldn't hide the download: the route serves the
+        // file from the DB row + a signed URL and doesn't depend on this fetch. Keep the log
+        // downloadable with unknown (null) statuses rather than pretending the scan is pending.
+        return { trivy: null, sonarqube: null, logFile }
     }
 }
 

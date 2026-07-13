@@ -13,8 +13,11 @@ export async function fetchFileContents(filePath: string) {
     return new Blob(chunks as BlobPart[])
 }
 
-export async function urlForFile(filePath: string): Promise<string> {
-    return await signedUrlForFile(filePath)
+export async function urlForFile(
+    filePath: string,
+    commandOverrides: Partial<{ ResponseContentDisposition: string }> = {},
+): Promise<string> {
+    return await signedUrlForFile(filePath, commandOverrides)
 }
 
 export async function urlForStudyJobCodeFile(info: MinimalJobInfo, fileName: string) {

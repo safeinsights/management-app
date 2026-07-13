@@ -27,6 +27,11 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'scan log not found' }, { status: 404 })
     }
 
-    const url = await urlForFile(file.path)
+    // Pin the download: the anchor's `download` attribute doesn't survive the cross-origin
+    // redirect to S3, so force a Content-Disposition rather than relying on the stored
+    // object's content type (uploads set none today, but that could change).
+    const url = await urlForFile(file.path, {
+        ResponseContentDisposition: 'attachment; filename="security-scan-log.txt"',
+    })
     return NextResponse.redirect(url)
 }
