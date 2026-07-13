@@ -700,8 +700,11 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
-        // Filling the note fires the debounced autosave against the real action. Pre-fix this threw
-        // an error toast on every keystroke; now the "All changes saved" indicator must appear.
+        // Filling the note fires the debounced autosave against the real action: the "All changes
+        // saved" indicator must appear and no "not editable" error toast. This guards the page +
+        // autosave + resubmit wiring on a Results-ready study, NOT the ordering bug itself: this seed
+        // is deterministically ordered (FILES-APPROVED newest), so the old at(0) gate would have
+        // passed here too. The ordering-triggered failure is covered by the unit tests.
         await page.getByLabel(/Resubmission Note/i).fill('Reworked code after the results were approved.')
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()

@@ -90,4 +90,12 @@ describe('canResearcherResubmitCode', () => {
             ]),
         ).toBe(true)
     })
+
+    // OTTER-601 masking guard: a mid-resubmit file upload opens a fresh baseline (INITIATED-only) job
+    // after the results decision. latestJob's prefer-submitted filter must skip that baseline job so
+    // eligibility still reads FILES-APPROVED on the last submitted round. Pins the filter for the
+    // eligibility path (only the e2e exercised it before).
+    it('true when a later baseline-only INITIATED job trails a FILES-APPROVED round', () => {
+        expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'FILES-APPROVED']), job(ID2, ['INITIATED'])])).toBe(true)
+    })
 })
