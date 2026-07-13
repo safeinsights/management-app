@@ -278,8 +278,8 @@ describe('SubmittedCodeSection — AI summary', () => {
     // latestCodeSubmittedAt's own unit tests only exercise a hand-built statusChanges
     // array. This drives the same shape through the real query (latestJobForStudy's
     // jsonArrayFrom + orderBy) with two full resubmission rounds on one reused job, so
-    // a regression in the ORDER BY (e.g. losing the `id desc` tiebreak) would surface
-    // here even though every row shares no obvious natural order otherwise.
+    // a regression that dropped the latest CODE-SUBMITTED (e.g. picking the original
+    // createdAt instead) would surface here through the real serialized payload.
     it('keeps loading across two resubmission rounds on the same reused job', async () => {
         const resubmissionFixture = await setupBaseFixture()
         const day = 24 * 60 * 60 * 1000
@@ -302,7 +302,7 @@ describe('SubmittedCodeSection — AI summary', () => {
             .execute()
 
         const job = await latestJobForStudy(resubmissionFixture.study.id)
-        expect(latestCodeSubmittedAt(job)).not.toBe(originalSubmittedAt)
+        expect(new Date(latestCodeSubmittedAt(job)).getTime()).toBe(statuses[3].createdAt.getTime())
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
@@ -314,11 +314,13 @@ describe('SubmittedCodeSection — AI summary', () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
         const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        // Anchor submittedAt to now so the backstop has *not* elapsed: the error
+        // can then only come from the persisted failure row, not from `timedOut`.
         renderWithProviders(
             <AiSummaryCollapsible
                 studyJobId={failedFixture.job.id}
                 initialReview={initialReview}
-                submittedAt={new Date(Date.now() - 10 * 60_000)}
+                submittedAt={new Date()}
             />,
         )
 
@@ -727,6 +729,20 @@ describe('SubmittedCodeSection — pure helpers', () => {
                 { status: 'CODE-SUBMITTED' as const, createdAt: recent },
                 { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-06-01T00:00:00.000Z' },
                 { status: 'CODE-SUBMITTED' as const, createdAt: old },
+            ],
+        }
+        expect(latestCodeSubmittedAt(job)).toBe(recent)
+    })
+
+    it('latestCodeSubmittedAt picks the newest even when the array is not desc-ordered', () => {
+        const old = '2026-01-01T00:00:00.000Z'
+        const recent = '2026-07-10T00:00:00.000Z'
+        const job = {
+            createdAt: new Date(old),
+            statusChanges: [
+                { status: 'CODE-SUBMITTED' as const, createdAt: old },
+                { status: 'CODE-CHANGES-REQUESTED' as const, createdAt: '2026-06-01T00:00:00.000Z' },
+                { status: 'CODE-SUBMITTED' as const, createdAt: recent },
             ],
         }
         expect(latestCodeSubmittedAt(job)).toBe(recent)

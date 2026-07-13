@@ -109,10 +109,15 @@ const REVIEW_POLL_INTERVAL_MS = 5_000
 // above a normal generation; past it with no row we assume it's stuck.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Returns true once `ms` have elapsed since `since`. Used as a backstop so a
-// generation that hangs without writing a (success or failure) row eventually
-// surfaces as an error instead of spinning forever. `since` may be a string —
-// timestamps serialize to ISO strings across the server/client boundary.
+// Returns `{ elapsed, reset }`: `elapsed` becomes true once `ms` have passed
+// since the start time, and `reset()` re-arms the timer from now. Used as a
+// backstop so a generation that hangs without writing a (success or failure)
+// row eventually surfaces as an error instead of spinning forever, while a
+// retry can restart the clock. `since` is read once on mount to seed the start
+// time; later prop changes are ignored, so a new submission must arrive via a
+// fresh server render (or an explicit reset()), not a changed `since`. `since`
+// may be a string — timestamps serialize to ISO strings across the
+// server/client boundary.
 function useElapsedSince(since: Date | string, ms: number) {
     const initialSinceMs = new Date(since).getTime()
     const [startedAt, setStartedAt] = useState(initialSinceMs)
