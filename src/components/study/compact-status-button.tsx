@@ -1,5 +1,5 @@
 import { Button, Group, Loader, Stack, Text } from '@mantine/core'
-import { ReactNode } from 'react'
+import { MouseEvent, ReactNode } from 'react'
 
 interface CompactStatusButtonProps {
     icon?: ReactNode
@@ -8,7 +8,7 @@ interface CompactStatusButtonProps {
     color?: string
     loading?: boolean
     disabled?: boolean
-    onClick?: () => void
+    onClick?: (event: MouseEvent) => void
 }
 
 export const CompactStatusButton = ({

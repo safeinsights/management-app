@@ -1,0 +1,37 @@
+#!/bin/sh
+# Compute the Next/Turbopack build-cache key prefix for the e2e job (checks.yml) and expose it,
+# plus a previous-month variant, as step outputs via $GITHUB_OUTPUT. Kept in a script so the
+# workflow stays declarative instead of carrying a block of inline shell.
+#
+#   prefix      = <os>-nextjs-tpc1-<YYYY-MM>-node<major>   stem for the exact key + restore tiers
+#   prev_prefix = same, but for last month                 for the PR-only month-boundary fallback
+#
+# Why these dimensions:
+#  - gen (YYYY-MM) rolls the key monthly, so the cache reseeds cold about once a month. That
+#    bounds accretion: Turbopack has no cache GC or size cap, and only main saves, so a fresh
+#    stem each month keeps main's cache compact instead of growing forever.
+#  - node<major> busts the cache on a Node upgrade, whose on-disk cache format is not guaranteed
+#    to be reusable across versions.
+#
+# RUNNER_OS and GITHUB_OUTPUT are provided by GitHub Actions and inherited by this child process,
+# so RUNNER_OS matches ${{ runner.os }} used elsewhere in the workflow and no args are needed.
+
+set -e
+
+gen=$(date -u +%Y-%m)
+# Previous month via plain arithmetic on `gen`, so this stays portable POSIX shell and avoids the
+# GNU-only `date -d`. At a month boundary, before the first main push of the new month has reseeded
+# `gen`, PRs would otherwise miss every tier and build cold; the prev_prefix tier keeps them warm.
+year=${gen%-*}
+month=${gen#*-}
+month=${month#0} # strip a leading zero so 08/09 are not read as invalid octal inside $(( ))
+if [ "$month" -eq 1 ]; then
+    prev="$((year - 1))-12"
+else
+    prev=$(printf '%d-%02d' "$year" "$((month - 1))")
+fi
+node_major=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+base="${RUNNER_OS}-nextjs-tpc1"
+
+echo "prefix=${base}-${gen}-node${node_major}" >> "$GITHUB_OUTPUT"
+echo "prev_prefix=${base}-${prev}-node${node_major}" >> "$GITHUB_OUTPUT"

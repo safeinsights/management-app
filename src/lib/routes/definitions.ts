@@ -127,6 +127,11 @@ export const Routes = {
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
+    // Read-only post-decision code view for the reviewer (DO), the counterpart to studyViewCode: lets a
+    // reviewer walk back to the code step from a results study (whose /review resolves to results). No
+    // returnTo — the reviewer flow is always org-scoped via the path. The page 404s if code isn't reached.
+    studyReviewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/code`, StudyParams),
+
     studyReviewProposal: makeRoute(
         ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/proposal`,
         StudyParams,

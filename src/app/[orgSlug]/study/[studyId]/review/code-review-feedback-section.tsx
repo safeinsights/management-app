@@ -105,20 +105,6 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
         ),
         testId: 'code-review-decision-needs-clarification',
     },
-    {
-        value: 'reject',
-        title: 'Reject and end study',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                Permanently end this study due to major, unresolvable issues. Share rationale with {labName}.
-                <br />
-                <Text component="span" size="sm" c="grey.7" fw={600}>
-                    Warning: This terminates the study and cannot be undone.
-                </Text>
-            </Text>
-        ),
-        testId: 'code-review-decision-reject',
-    },
 ]
 
 const RADIO_STYLES = {

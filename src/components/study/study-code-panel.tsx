@@ -14,12 +14,20 @@ export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
+    heading?: string
     studyTitle: string | null
     footer: ReactNode
     showLaunchIde?: boolean
 }
 
-export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchIde = true }: StudyCodePanelProps) => {
+export const StudyCodePanel = ({
+    ide,
+    stepLabel,
+    heading = 'Study code',
+    studyTitle,
+    footer,
+    showLaunchIde = true,
+}: StudyCodePanelProps) => {
     const openRef = useRef<() => void>(null)
     const isReviewState = !ide.isLoadingFiles && !ide.showEmptyState
 
@@ -75,7 +83,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                     w={320}
                 >
                     <LaunchIdeButton
-                        onClick={ide.launchWorkspace}
+                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.ctrlKey })}
                         isLaunching={ide.isLaunching}
                         launchError={ide.launchError}
                         variant="outline"
@@ -95,7 +103,7 @@ export const StudyCodePanel = ({ ide, stepLabel, studyTitle, footer, showLaunchI
                             {stepLabel}
                         </Text>
                     )}
-                    <Title order={4}>Study code</Title>
+                    <Title order={4}>{heading}</Title>
                     <Group justify="space-between" wrap="nowrap" align="baseline">
                         {/* 65ch ≈ 75 rendered chars in Open Sans */}
                         <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>

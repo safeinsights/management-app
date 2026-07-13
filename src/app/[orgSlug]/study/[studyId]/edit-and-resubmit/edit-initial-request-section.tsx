@@ -66,20 +66,25 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
             <Paper p="xxl">
                 <Stack gap="xxl">
                     <Box>
-                        <Title order={4} c="charcoal.9">
-                            Edit Initial Request
+                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                            STEP 2
+                        </Text>
+                        <Title fz={20} order={4} c="charcoal.9">
+                            Edit proposal
                         </Title>
                         <Divider my="md" />
-                        <Text mb="xl">
-                            Use this form to revise your study proposal in response to {orgName}. Auto-saving keeps your
-                            progress while you work.
+                        <Text>
+                            Use this form to submit your proposal. The information you share will help {orgName} assess
+                            the feasibility, scientific value, and potential impact of your proposed research on
+                            instructional practice. On review, they may approve or decline the request.
                         </Text>
                     </Box>
 
                     <Box>
                         <FormFieldLabel label="Study title" required inputId="title" />
                         <Text size="xs" c="charcoal.7" mb="xs">
-                            Give your study a short, clear title.
+                            Give your study a short, clear title. This will help identify and reference your project on
+                            SafeInsights.
                         </Text>
                         <TextInput
                             id="title"
@@ -102,7 +107,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     <Box>
                         <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
                         <Text size="xs" mb="xs" c="charcoal.7">
-                            Select the dataset(s) you’d like to use for your research.
+                            Select the dataset(s) you’d like to use for your research. You’ll find options based on the
+                            selected Data Partner in Step 1 and its data availability.
                         </Text>
                         <Group align="center" gap="xxl">
                             <Box w="50%">

@@ -762,9 +762,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         // round gets its own decision row (OTTER-638). The round-1 decision is written before its
         // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
         // Load-bearing: codeSubmissionVersion counts CODE-CHANGES-REQUESTED/FILES-APPROVED/FILES-REJECTED
-        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not in
-        // CODE_RESUBMITTABLE_JOB_STATUSES) so no second decision can follow it. If reject ever becomes
-        // resubmittable, codeSubmissionVersion must count it too, or the round won't advance and the
+        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not resubmittable) so no
+        // second decision can follow it. If reject ever becomes resubmittable, codeSubmissionVersion
+        // must count it too (and canResearcherResubmitCode must allow it), or the round won't advance and the
         // next decision would collide on the round-scoped unique constraint.
         const round = await codeSubmissionVersion(studyId, db)
 

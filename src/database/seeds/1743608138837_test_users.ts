@@ -32,30 +32,41 @@ const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'reviewer-is-org-admin', type: 'enclave', id: '00000000-0000-4000-8000-000000000106' },
 ]
 
-const TEST_USERS = [
-    { role: 'admin', id: '00000000-0000-4000-8000-000000000001', email: 'si-adm-tester-dbfyq3@mailinator.com' },
-    {
-        role: 'researcher',
-        id: '00000000-0000-4000-8000-000000000002',
-        email: 'si-research-tester-dbfyq3@mailinator.com',
-    },
-    {
-        role: 'reviewer',
-        id: '00000000-0000-4000-8000-000000000003',
-        email: 'si-member-tester-dbfyq3@mailinator.com',
-    },
-] as const
+type TestUserRole = 'admin' | 'researcher' | 'reviewer'
 
-type TestUserRole = (typeof TEST_USERS)[number]['role']
+// Test users are keyed by a unique `key`, not by role, so multiple users can share a role
+// (e.g. the persistent QA login accounts alongside the original per-role fixtures). `role`
+// drives org memberships (see ORG_MEMBERSHIPS_BY_ROLE); `key` gives each user a distinct
+// deterministic clerkId. Fixed UUIDs keep concurrent CI runs sharing a Clerk instance stable.
+type TestUser = { key: string; role: TestUserRole; id: string; email: string }
 
-const ORG_MEMBERSHIPS: { role: TestUserRole; slug: string; isAdmin: boolean }[] = [
-    { role: 'admin', slug: 'safe-insights', isAdmin: true },
-    { role: 'admin', slug: 'openstax', isAdmin: true },
-    { role: 'admin', slug: 'openstax-lab', isAdmin: true },
-    { role: 'researcher', slug: 'openstax-lab', isAdmin: false },
-    { role: 'reviewer', slug: 'openstax', isAdmin: false },
-    { role: 'reviewer', slug: 'reviewer-is-org-admin', isAdmin: true },
+const TEST_USERS: TestUser[] = [
+    { key: 'admin', role: 'admin', id: '00000000-0000-4000-8000-000000000001', email: 'si-adm-tester-dbfyq3@mailinator.com' }, // prettier-ignore
+    { key: 'researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000002', email: 'si-research-tester-dbfyq3@mailinator.com' }, // prettier-ignore
+    { key: 'reviewer', role: 'reviewer', id: '00000000-0000-4000-8000-000000000003', email: 'si-member-tester-dbfyq3@mailinator.com' }, // prettier-ignore
+
+    // Persistent QA login accounts. These already exist in Clerk; this seed only wires up their
+    // SI DB access (user row + memberships + key). The clerkId here is a placeholder — user-sync
+    // reconciles the real Clerk id by email on first login (matched via lower(email) below).
+    { key: 'qa-admin', role: 'admin', id: '00000000-0000-4000-8000-000000000011', email: 'qa-review+admin@safeinsights.org' }, // prettier-ignore
+    { key: 'qa-dp', role: 'reviewer', id: '00000000-0000-4000-8000-000000000012', email: 'qa-review+dp@safeinsights.org' }, // prettier-ignore
+    { key: 'qa-researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000013', email: 'qa-review+researcher@safeinsights.org' }, // prettier-ignore
 ]
+
+// Role → org memberships. Every user of a role gets the same set, so a new same-role user
+// (e.g. qa-dp mirrors reviewer) needs no per-user membership wiring.
+const ORG_MEMBERSHIPS_BY_ROLE: Record<TestUserRole, { slug: string; isAdmin: boolean }[]> = {
+    admin: [
+        { slug: 'safe-insights', isAdmin: true },
+        { slug: 'openstax', isAdmin: true },
+        { slug: 'openstax-lab', isAdmin: true },
+    ],
+    researcher: [{ slug: 'openstax-lab', isAdmin: false }],
+    reviewer: [
+        { slug: 'openstax', isAdmin: false },
+        { slug: 'reviewer-is-org-admin', isAdmin: true },
+    ],
+}
 
 export async function seed(db: Kysely<DB>): Promise<void> {
     if (process.env.NO_TESTING_DATA) return
@@ -190,7 +201,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     // these emails but different (pre-fixed-UUID) ids — match by id OR by
     // lower(email) so we update in place instead of hitting the unique
     // `user_email_lower_unique` index.
-    const userIdByRole = new Map<TestUserRole, string>()
+    const userIdByKey = new Map<string, string>()
 
     for (const user of TEST_USERS) {
         const firstName = `Test ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`
@@ -207,43 +218,46 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                 .set({ firstName, lastName: 'User', email: user.email })
                 .where('id', '=', existing.id)
                 .execute()
-            userIdByRole.set(user.role, existing.id)
+            userIdByKey.set(user.key, existing.id)
         } else {
             await db
                 .insertInto('user')
                 .values({
                     id: user.id,
-                    clerkId: `test-clerk-${user.role}`,
+                    clerkId: `test-clerk-${user.key}`,
                     firstName,
                     lastName: 'User',
                     email: user.email,
                 })
                 .execute()
-            userIdByRole.set(user.role, user.id)
+            userIdByKey.set(user.key, user.id)
         }
     }
 
-    // Org memberships
-    for (const membership of ORG_MEMBERSHIPS) {
-        const userId = userIdByRole.get(membership.role)!
-        const orgId = orgIdBySlug.get(membership.slug)!
+    // Org memberships, expanded per user from its role's template.
+    for (const user of TEST_USERS) {
+        const userId = userIdByKey.get(user.key)!
 
-        const existing = await db
-            .selectFrom('orgUser')
-            .select('id')
-            .where('userId', '=', userId)
-            .where('orgId', '=', orgId)
-            .executeTakeFirst()
+        for (const membership of ORG_MEMBERSHIPS_BY_ROLE[user.role]) {
+            const orgId = orgIdBySlug.get(membership.slug)!
 
-        if (existing) {
-            await db
-                .updateTable('orgUser')
-                .set({ isAdmin: membership.isAdmin })
+            const existing = await db
+                .selectFrom('orgUser')
+                .select('id')
                 .where('userId', '=', userId)
                 .where('orgId', '=', orgId)
-                .execute()
-        } else {
-            await db.insertInto('orgUser').values({ userId, orgId, isAdmin: membership.isAdmin }).execute()
+                .executeTakeFirst()
+
+            if (existing) {
+                await db
+                    .updateTable('orgUser')
+                    .set({ isAdmin: membership.isAdmin })
+                    .where('userId', '=', userId)
+                    .where('orgId', '=', orgId)
+                    .execute()
+            } else {
+                await db.insertInto('orgUser').values({ userId, orgId, isAdmin: membership.isAdmin }).execute()
+            }
         }
     }
 
@@ -260,7 +274,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const fingerprint = createHash('sha256').update(publicKeyDer).digest('hex')
 
     for (const user of TEST_USERS) {
-        const userId = userIdByRole.get(user.role)!
+        const userId = userIdByKey.get(user.key)!
 
         const existing = await db
             .selectFrom('userPublicKey')

@@ -29,7 +29,8 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
         .execute()
 }
 
-const seedResultsStudy = async () => {
+// A CODE-APPROVED study with the given trailing job statuses appended (execution/results substatuses).
+const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
     const { study } = await insertTestStudyJobData({
         org,
@@ -38,9 +39,11 @@ const seedResultsStudy = async () => {
         jobStatus: 'CODE-SUBMITTED',
     })
     await addJobStatus(study.id, 'CODE-APPROVED')
-    await addJobStatus(study.id, 'FILES-APPROVED')
+    for (const status of statuses) await addJobStatus(study.id, status)
     return { org, study }
 }
+
+const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
     it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
@@ -70,6 +73,33 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+    })
+
+    // OTTER-640: normal /view hides submitted code while execution or an unreviewed error is presented
+    // as "Code approved". The read-only /view/code step must still expose it behind this collapsed control.
+    // The first two shapes keep isExecuting true (a hidden error doesn't close the append-only execution
+    // window); the bare JOB-ERRORED shape (a packaging failure before any JOB-RUNNING substatus) is the
+    // only one where isExecuting is false and the hidden-errored result alone would drive the /view hide.
+    it.each([
+        ['the code is running in the enclave', ['JOB-RUNNING']],
+        [
+            'the run errored after starting, before the reviewer recorded a files decision',
+            ['JOB-RUNNING', 'JOB-ERRORED'],
+        ],
+        ['the run errored before any enclave execution, before a files decision', ['JOB-ERRORED']],
+    ] as const)('shows the submitted-code control when %s', async (_description, statuses) => {
+        const { org, study } = await seedCodeStudy([...statuses])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(CodePostDecisionView)
+        expect(page?.props.showStudyCode).toBe(true)
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {

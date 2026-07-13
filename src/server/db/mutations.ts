@@ -1,7 +1,7 @@
 import { Action } from '../actions/action'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/code-resubmission'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null

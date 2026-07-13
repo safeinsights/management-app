@@ -7,12 +7,19 @@ import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
-import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Collapse, Group, Stack, Text, Title } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import type { ReactNode } from 'react'
+import type { Route } from 'next'
+import { useCallback, useRef, type ReactNode, type RefObject } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
+import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
+    StudyCodeToggle,
+    useExpandable,
+} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -34,6 +41,12 @@ type PostFeedbackViewProps = {
         decision: ReviewDecision
         timestamp: Date | string
     }
+    /**
+     * Set only on the read-only /review/code walk-back step (OTTER-643) to render a "Previous" link back
+     * through the flow. Omitted for the live code-decision screen and every proposal usage, which show
+     * only "Go to dashboard" (matching the live DO design, which hides Previous).
+     */
+    previousHref?: Route
 }
 
 type DecisionCopy = {
@@ -140,32 +153,62 @@ function GoToDashboardButton() {
     )
 }
 
+function PreviousButton({ href }: { href: Route }) {
+    const router = useRouter()
+    return (
+        <Button
+            variant="subtle"
+            leftSection={<CaretLeftIcon />}
+            onClick={() => router.push(href)}
+            data-testid="post-feedback-previous"
+        >
+            Previous
+        </Button>
+    )
+}
+
 type SubmittedCodePanelProps = {
     orgSlug: string
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy | null
     review: StudyReviewWithMeta | null
     scan: JobScanResult | null
+    expanded: boolean
+    onCollapse: () => void
+    panelRef: RefObject<HTMLDivElement | null>
 }
 
-// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer)
-// is the same one shown during active review. The raw code stays collapsed behind its toggle
-// (codeInitiallyExpanded={false}); the summary and scan results render up front.
-function SubmittedCodePanel({ orgSlug, study, job, review, scan }: SubmittedCodePanelProps) {
+// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer) is the
+// same one shown during active review. Per OTTER-613 the entire card is collapsed behind the
+// "View full study code" toggle in the step card, preserving its state between expansions.
+function SubmittedCodePanel({
+    orgSlug,
+    study,
+    job,
+    review,
+    scan,
+    expanded,
+    onCollapse,
+    panelRef,
+}: SubmittedCodePanelProps) {
     // scan-presence is coupled to job-presence: the caller fetches both together and
     // jobScanResultForJob never returns null (it falls back to {status:'IN-PROGRESS', logFile:null}),
     // so scan is null exactly when job is null. The !scan check is the type-narrowing that lets us
     // pass a non-null scan to SubmittedCodeSection; in practice it only fires on the null-job branch.
     if (!job || !scan) return null
     return (
-        <SubmittedCodeSection
-            orgSlug={orgSlug}
-            study={study}
-            job={job}
-            review={review}
-            scan={scan}
-            codeInitiallyExpanded={false}
-        />
+        <Collapse in={expanded} keepMounted>
+            <Box ref={panelRef} tabIndex={-1}>
+                <SubmittedCodeSection
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    review={review}
+                    scan={scan}
+                    onCollapse={onCollapse}
+                />
+            </Box>
+        </Collapse>
     )
 }
 
@@ -194,7 +237,22 @@ function CodeSection({
     timestampDate,
     banner,
 }: CodeSectionProps) {
+    const { expanded, toggle, collapse } = useExpandable()
+    const openerRef = useRef<HTMLButtonElement>(null)
+    const panelRef = useRef<HTMLDivElement>(null)
+    const onCollapse = useCallback(() => {
+        collapse()
+        requestAnimationFrame(() => openerRef.current?.focus())
+    }, [collapse])
+    const onExpand = useCallback(() => {
+        toggle()
+        requestAnimationFrame(() => panelRef.current?.focus())
+    }, [toggle])
     if (!isVisible) return null
+    // Only offer the opener when there is a Submitted code panel behind it. SubmittedCodePanel
+    // returns null without a job/scan (e.g. the fallback auto-approved page), so an unconditional
+    // opener would otherwise expand to an empty card with no way back.
+    const hasSubmittedCode = Boolean(job && scan)
     return (
         <>
             <ProposalStepHeader
@@ -204,8 +262,25 @@ function CodeSection({
                 timestampDate={timestampDate}
                 timestampLabel={timestampLabel}
                 banner={banner}
+            >
+                <StudyCodeToggle
+                    ref={openerRef}
+                    isVisible={!expanded && hasSubmittedCode}
+                    expanded={false}
+                    onClick={onExpand}
+                    labels={FULL_STUDY_CODE_TOGGLE_LABELS}
+                />
+            </ProposalStepHeader>
+            <SubmittedCodePanel
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                review={review}
+                scan={scan}
+                expanded={expanded}
+                onCollapse={onCollapse}
+                panelRef={panelRef}
             />
-            <SubmittedCodePanel orgSlug={orgSlug} study={study} job={job} review={review} scan={scan} />
         </>
     )
 }
@@ -271,6 +346,7 @@ export function PostFeedbackView({
     review = null,
     scan = null,
     fallback,
+    previousHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -316,7 +392,8 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify="flex-end">
+                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
+                    {previousHref && <PreviousButton href={previousHref} />}
                     <GoToDashboardButton />
                 </Group>
             </Stack>

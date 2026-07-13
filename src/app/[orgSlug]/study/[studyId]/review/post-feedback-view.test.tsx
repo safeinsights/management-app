@@ -289,6 +289,30 @@ describe('PostFeedbackView', () => {
             await user.click(screen.getByRole('button', { name: 'Go to dashboard' }))
             expect(memoryRouter.asPath).toBe('/dashboard')
         })
+
+        // OTTER-643: Previous is opt-in via previousHref (set only on the read-only /review/code
+        // walk-back). It must stay hidden for the live code screen and every proposal usage.
+        it('omits the Previous button when previousHref is not provided', () => {
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
+
+            expect(screen.queryByTestId('post-feedback-previous')).not.toBeInTheDocument()
+        })
+
+        it('renders Previous and navigates to previousHref when provided', async () => {
+            const user = userEvent.setup()
+            const previousHref = Routes.studyReviewerAgreements({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderWithProviders(
+                <PostFeedbackView
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[buildEntry()]}
+                    previousHref={previousHref}
+                />,
+            )
+
+            await user.click(screen.getByTestId('post-feedback-previous'))
+            expect(memoryRouter.asPath).toBe(previousHref)
+        })
     })
 
     describe('kind="CODE"', () => {
@@ -400,10 +424,10 @@ describe('PostFeedbackView', () => {
             expect(crumbs[2][0]).toBe('Review initial request')
         })
 
-        // OTTER-613: the post-decision DO code page must show the full "Submitted code" section
-        // (AI summary + security scan log + code viewer), not a stripped-down code dump. The raw
-        // code stays collapsed behind the "View full study code" toggle.
-        it('renders the full Submitted code section with the code collapsed when a job is provided', async () => {
+        // OTTER-613: on the post-decision DO code page the ENTIRE "Submitted code" section is
+        // visually collapsed — only the "View full study code" toggle shows in the step card.
+        // The content stays mounted so its state survives expansion and collapse.
+        it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -454,21 +478,31 @@ describe('PostFeedbackView', () => {
                 />,
             )
 
-            // Full section: AI summary + security scan log are visible up front.
-            expect(screen.getByTestId('submitted-code-section')).toBeInTheDocument()
-            expect(screen.getByTestId('ai-summary')).toBeInTheDocument()
-            expect(screen.getByTestId('security-scan-log')).toBeInTheDocument()
-
-            // The code viewer is present, but the code body stays hidden until the toggle is clicked.
-            expect(screen.getByTestId('study-code-viewer')).toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
-            const toggle = screen.getByTestId('study-code-toggle')
-            expect(toggle).toHaveTextContent('View full study code')
+            // Collapsed: the whole "Submitted code" card (header, AI summary, scan, code viewer)
+            // is hidden, while remaining mounted so its state is preserved.
+            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
+            const opener = screen.getByTestId('study-code-toggle')
+            expect(opener).toHaveTextContent('View full study code')
 
             const userClick = userEvent.setup()
-            await userClick.click(toggle)
+            await userClick.click(opener)
+
+            // Expanded: full section revealed, code body shown, opener replaced by the closer.
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
+            expect(screen.getByTestId('ai-summary')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus())
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
-            expect(toggle).toHaveTextContent('Hide full study code')
+            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
+            const closer = screen.getByTestId('study-code-toggle-collapse')
+            expect(closer).toHaveTextContent('Hide full study code')
+
+            // Closing collapses the entire card again and returns keyboard focus to the opener.
+            await userClick.click(closer)
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
+            await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 
         // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
@@ -491,6 +525,9 @@ describe('PostFeedbackView', () => {
                 expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
                 // No code-review comments => no Feedback and notes section.
                 expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+                // Without a job/scan there is no Submitted code panel, so the "View full study code"
+                // opener must not appear (clicking it would expand to an empty card with no way back).
+                expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             })
 
             it('renders nothing when entries are empty and no fallback decision is provided', () => {
