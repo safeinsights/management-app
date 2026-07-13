@@ -8,7 +8,7 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
+import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -64,7 +64,6 @@ function useCodeReview({
     const decision = useReviewDecision()
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-    const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
 
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
         initialValues: {
@@ -91,12 +90,7 @@ function useCodeReview({
 
     const handleSubmit = () => {
         if (!hasDecision) return
-
-        if (decision.selected === 'reject') {
-            openReject()
-        } else {
-            openConfirm()
-        }
+        openConfirm()
     }
 
     const handleConfirmSubmit = () => {
@@ -118,8 +112,6 @@ function useCodeReview({
         handleSubmit,
         confirmOpen,
         closeConfirm,
-        rejectOpen,
-        closeReject,
         handleConfirmSubmit,
         isPending,
     }
@@ -213,8 +205,6 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
         handleSubmit,
         confirmOpen,
         closeConfirm,
-        rejectOpen,
-        closeReject,
         handleConfirmSubmit,
         isPending,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
@@ -263,18 +253,6 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
                 confirmLabel="Yes, submit review"
             >
                 <Text size="md">{CONFIRM_BODY}</Text>
-            </ReviewConfirmationModal>
-            <ReviewConfirmationModal
-                isOpen={rejectOpen}
-                onClose={closeReject}
-                onConfirm={handleConfirmSubmit}
-                isPending={isPending}
-                title="Reject study code?"
-                confirmLabel="Reject study code"
-                variant="destructive"
-            >
-                <Text size="md">{CONFIRM_BODY}</Text>
-                {REJECTION_WARNING}
             </ReviewConfirmationModal>
         </StudyKickOutProvider>
     )
