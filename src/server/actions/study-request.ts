@@ -111,9 +111,19 @@ async function attachCodeToRoundJob(
         filesByPath.set(filePath, { name: fileName, path: filePath, studyJobId, fileType: 'SUPPLEMENTAL-CODE' })
     }
 
+    // Two concurrent submits for the same study (double-click, two tabs) reuse the same round job and
+    // their delete-then-insert steps can interleave, so B's insert can hit a path A already re-inserted.
+    // Upsert on (study_job_id, path) mirrors storeJobFile so that race updates the existing row in place
+    // instead of throwing on the unique index and 500-ing the submit.
     await db
         .insertInto('studyJobFile')
         .values([...filesByPath.values()])
+        .onConflict((oc) =>
+            oc.columns(['studyJobId', 'path']).doUpdateSet((eb) => ({
+                name: eb.ref('excluded.name'),
+                fileType: eb.ref('excluded.fileType'),
+            })),
+        )
         .execute()
 
     // s3 signed url for client to upload

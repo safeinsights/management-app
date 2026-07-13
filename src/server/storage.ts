@@ -48,7 +48,7 @@ async function storeJobFile(
     return await executor
         .insertInto('studyJobFile')
         .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
-        .onConflict((oc) => oc.columns(['studyJobId', 'path']).doUpdateSet({ name: file.name, fileType }))
+        .onConflict((oc) => oc.columns(['studyJobId', 'path']).doUpdateSet({ name: file.name, fileType, sourceId }))
         .executeTakeFirstOrThrow()
 }
 
