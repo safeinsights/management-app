@@ -13,6 +13,7 @@ import type { Submitted } from '@/schema/study'
 import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
+import { effectiveProposalStatus } from '@/lib/review-decision'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -63,23 +64,24 @@ const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
 
 function StatusBanner({
     orgName,
-    status,
+    study,
     studyVersion,
 }: {
     orgName: string
-    status: StudyStatus
+    study: Pick<SelectedStudy, 'status' | 'approvedAt' | 'rejectedAt'>
     studyVersion: number
 }) {
-    const config = PROPOSAL_BANNERS[status]
+    const proposalStatus = effectiveProposalStatus(study)
+    const config = PROPOSAL_BANNERS[proposalStatus]
     if (!config) return null
 
-    const isResubmission = status === 'PENDING-REVIEW' && studyVersion > 1
+    const isResubmission = proposalStatus === 'PENDING-REVIEW' && studyVersion > 1
     const message = isResubmission
         ? `Your revised initial request has been resubmitted to ${displayOrgName(orgName)}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`
         : config.message(orgName)
 
     return (
-        <Alert color={config.color} mb="md" data-testid={`status-banner-${status}`}>
+        <Alert color={config.color} mb="md" data-testid={`status-banner-${proposalStatus}`}>
             {message}
         </Alert>
     )
@@ -92,8 +94,9 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
 }) => {
     const studyParams = { orgSlug, studyId: study.id }
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    const proposalStatus = effectiveProposalStatus(study)
 
-    switch (study.status) {
+    switch (proposalStatus) {
         case 'CHANGE-REQUESTED':
             return (
                 <Group justify="space-between">
@@ -165,7 +168,8 @@ export function ProposalSubmitted({
     feedbackError,
     returnTo,
 }: ProposalSubmittedProps) {
-    const bannerConfig = PROPOSAL_BANNERS[study.status]
+    const proposalStatus = effectiveProposalStatus(study)
+    const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
     const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
 
     return (
@@ -177,12 +181,12 @@ export function ProposalSubmitted({
                     orgSlug={orgSlug}
                     stepLabel="STEP 2"
                     heading={proposalHeading(studyVersion)}
-                    banner={<StatusBanner orgName={orgName} status={study.status} studyVersion={studyVersion} />}
+                    banner={<StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} />}
                     statusBadge={statusBadge}
                     entries={entries}
                     initialExpanded={false}
                 />
-                <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
+                <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
                 <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />
             </Stack>
