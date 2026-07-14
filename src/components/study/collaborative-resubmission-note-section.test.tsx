@@ -21,6 +21,10 @@ function Harness({ initialNote = '' }: { initialNote?: string }) {
         validateInputOnChange: true,
     })
 
+    // lastSavedAt is non-null so the saved indicator WOULD render were it not
+    // for the collaborative-mode gate — keeps the absence assertion meaningful.
+    const savedAutosaveStatus = { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') }
+
     // With a null websocketProvider the Editor renders its skeleton — as far as
     // jsdom can take a Yjs editor; live behavior is covered by e2e.
     return (
@@ -31,7 +35,7 @@ function Harness({ initialNote = '' }: { initialNote?: string }) {
             orgName="Rice University"
             initialNote={initialNote}
             websocketProvider={null}
-            autosaveStatus={{ isSaving: false, lastSavedAt: null }}
+            autosaveStatus={savedAutosaveStatus}
         />
     )
 }

@@ -30,7 +30,7 @@ const contentStyle = {
 } as const
 
 const PLACEHOLDER_TEXT =
-    'Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.'
+    'Ex. Summarize the modifications made to your initial request, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.'
 
 interface CollaborativeResubmissionNoteSectionProps {
     studyId: string
