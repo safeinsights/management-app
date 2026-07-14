@@ -320,6 +320,22 @@ export async function seedCodeChangeRequested(title: string): Promise<SeedResult
     return { studyId: study.id }
 }
 
+// Results ready: code ran and the reviewer approved the files (FILES-APPROVED closes the round).
+// This is a resubmittable state (the researcher can revise and resubmit code). The status history
+// deliberately ends on FILES-APPROVED with the automated CODE-SCANNED earlier, mirroring the QA
+// scenario where the resubmit save gate must key on the decision, not the topmost status row.
+export async function seedCodeResultsReady(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
+    await insertSubmittedJob(study.id, [
+        'CODE-SUBMITTED',
+        'CODE-SCANNED',
+        'CODE-APPROVED',
+        'RUN-COMPLETE',
+        'FILES-APPROVED',
+    ])
+    return { studyId: study.id }
+}
+
 // Code hard-rejected (terminal, study ends). For the terminal rejected-code-view tests.
 export async function seedCodeRejected(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({

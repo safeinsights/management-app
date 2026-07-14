@@ -11,7 +11,7 @@ import { Box, Stack, Title } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
-import { SubmittedCodeSection } from './submitted-code-section'
+import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -124,7 +124,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                 </Title>
                 <CodeReviewSection
                     study={study}
-                    submittedAt={job.createdAt}
+                    submittedAt={latestCodeSubmittedAt(job)}
                     isResubmission={isResubmission}
                     version={version}
                 />

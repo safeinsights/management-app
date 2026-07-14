@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, type FC } from 'react'
+import { forwardRef, useCallback, useState } from 'react'
 import { Anchor, type MantineSpacing } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 
@@ -11,22 +11,39 @@ export function useExpandable(initial = false) {
     return { expanded, toggle, collapse }
 }
 
+export type StudyCodeToggleLabels = { expand: string; collapse: string }
+
+export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View submitted study code',
+    collapse: 'Hide submitted study code',
+}
+
+export const FULL_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
+    expand: 'View full study code',
+    collapse: 'Hide full study code',
+}
+
 interface StudyCodeToggleProps {
     expanded: boolean
     onClick: () => void
     isVisible?: boolean
     mt?: MantineSpacing
-    /** Override the test id so multiple toggles on one page (e.g. an in-card opener and an in-panel closer) stay distinct. */
+    labels?: StudyCodeToggleLabels
+    /** Override the test id so multiple toggles on one page stay distinct. */
     testId?: string
 }
 
-export const StudyCodeToggle: FC<StudyCodeToggleProps> = ({
-    expanded,
-    onClick,
-    isVisible = true,
-    mt,
-    testId = 'study-code-toggle',
-}) => {
+export const StudyCodeToggle = forwardRef<HTMLButtonElement, StudyCodeToggleProps>(function StudyCodeToggle(
+    {
+        expanded,
+        onClick,
+        isVisible = true,
+        mt,
+        labels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+        testId = 'study-code-toggle',
+    },
+    ref,
+) {
     if (!isVisible) return null
     return (
         <Anchor
@@ -41,9 +58,10 @@ export const StudyCodeToggle: FC<StudyCodeToggleProps> = ({
             style={{ alignItems: 'center', gap: 4 }}
             aria-expanded={expanded}
             data-testid={testId}
+            ref={ref}
         >
-            {expanded ? 'Hide submitted study code' : 'View submitted study code'}
+            {expanded ? labels.collapse : labels.expand}
             <CaretRightIcon size={12} weight="bold" style={{ transform: expanded ? 'rotate(-90deg)' : undefined }} />
         </Anchor>
     )
-}
+})

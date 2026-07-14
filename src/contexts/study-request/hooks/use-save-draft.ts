@@ -23,8 +23,9 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
     const mutation = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
+            // title is omitted: it's owned by the Step 2 editor's autosave mirror and by
+            // submission. Sending Step 1's stale copy would overwrite the mirrored title.
             const draftInfo = {
-                title: formValues.title || undefined,
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
                 descriptionDocPath: formValues.descriptionDocument?.name,

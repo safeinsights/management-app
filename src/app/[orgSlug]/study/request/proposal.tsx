@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import { useStudyRequest } from '@/contexts/study-request'
@@ -31,25 +30,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when draft ID changes, not on every object reference change
     }, [draftData?.id, submittingOrgSlug])
 
-    const handleSave = (proceed: boolean) => {
-        if (proceed) setIsProceeding(true)
+    // Step 1 has no autosave, so proceeding persists the study row (create or update)
+    // before advancing to the collaborative Step 2 editor.
+    const handleProceed = () => {
+        setIsProceeding(true)
         saveDraft({
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
-                if (proceed) {
-                    router.push(Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
-                } else {
-                    if (!studyId) {
-                        router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }), {
-                            scroll: false,
-                        })
-                    }
-                    notifications.show({
-                        title: 'Draft Saved',
-                        message: 'Your study proposal has been saved as a draft.',
-                        color: 'green',
-                    })
-                }
+                router.push(Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
             },
             onError: () => setIsProceeding(false),
         })
@@ -68,7 +56,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             <ProposalFooterActions
                 isSaving={isSaving || isProceeding}
                 isValid={isStep1Valid}
-                onSave={handleSave}
+                onProceed={handleProceed}
                 onCancel={handleCancel}
                 proceedLabel="Proceed to Step 2"
             />
