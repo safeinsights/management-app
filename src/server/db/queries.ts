@@ -195,6 +195,14 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
     return row?.version ?? 1
 }
 
+/**
+ * Version the next RESUBMISSION-NOTE comment will take (`nextVersionForStudyComment`
+ * with `increment: true`, as a plain read). Safe to read at page load: the version
+ * only advances via resubmit, which kicks every editor out.
+ */
+export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
+    (await currentReviewVersion(studyId)) + 1
+
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db

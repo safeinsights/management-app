@@ -52,6 +52,14 @@ describe('parseDocumentName', () => {
         },
     )
 
+    it.each([2, 3, 42])('parses proposal-resubmission-note document at version %s', (version) => {
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note-v${version}`)).toEqual({
+            kind: 'proposal-resubmission-note',
+            studyId: STUDY_ID,
+            version,
+        })
+    })
+
     it.each([
         '',
         'random-string',
@@ -67,6 +75,11 @@ describe('parseDocumentName', () => {
         `review-feedback-${STUDY_ID}-v-1`,
         `review-feedback-${STUDY_ID}-v`,
         `code-review-feedback-not-a-uuid`,
+        `proposal-${STUDY_ID}-resubmission-note`,
+        `proposal-${STUDY_ID}-resubmission-note-v0`,
+        `proposal-${STUDY_ID}-resubmission-note-v01`,
+        `proposal-${STUDY_ID}-resubmission-note-v`,
+        `proposal-not-a-uuid-resubmission-note-v2`,
     ])('rejects malformed name "%s"', (name) => {
         expect(parseDocumentName(name)).toBeNull()
     })
@@ -557,6 +570,14 @@ describe('isDocumentEditable', () => {
             expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, { status })).toBe(
                 false,
             )
+        }
+    })
+
+    it('allows the resubmission note only while CHANGE-REQUESTED (no note exists during DRAFT)', () => {
+        const parsed = { kind: 'proposal-resubmission-note', studyId: STUDY_ID, version: 2 } as const
+        expect(isDocumentEditable(parsed, { status: 'CHANGE-REQUESTED' })).toBe(true)
+        for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'REJECTED', 'ARCHIVED'] as const) {
+            expect(isDocumentEditable(parsed, { status })).toBe(false)
         }
     })
 

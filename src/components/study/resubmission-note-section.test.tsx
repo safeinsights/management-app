@@ -108,4 +108,10 @@ describe('ResubmissionNoteSection', () => {
         expect(status).toHaveTextContent('All changes saved')
         expect(status).not.toHaveTextContent(/\d/)
     })
+
+    it('renders exactly one check icon in the saved state (OTTER-658)', () => {
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const section = screen.getByTestId('resubmission-note-section')
+        expect(section.querySelectorAll('svg')).toHaveLength(1)
+    })
 })

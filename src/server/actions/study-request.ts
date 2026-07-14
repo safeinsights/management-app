@@ -31,8 +31,9 @@ import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
+    resubmissionNoteToLexicalJson,
+    resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { countWords, lexicalJson } from '@/lib/lexical'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
@@ -589,12 +590,13 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
+// The proposal flow submits Lexical JSON; the code flow still submits plain text.
 const resubmissionNoteParam = z
     .string()
-    .refine((val) => countWords(val) >= RESUBMIT_NOTE_MIN_WORDS, {
+    .refine((val) => resubmissionNoteWordCount(val) >= RESUBMIT_NOTE_MIN_WORDS, {
         message: 'A resubmission note is required.',
     })
-    .refine((val) => countWords(val) <= RESUBMIT_NOTE_MAX_WORDS, {
+    .refine((val) => resubmissionNoteWordCount(val) <= RESUBMIT_NOTE_MAX_WORDS, {
         message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
     })
 
@@ -688,7 +690,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 authorId: userId,
                 authorRole: 'RESEARCHER',
                 entryType: 'RESUBMISSION-NOTE',
-                body: JSON.parse(lexicalJson(resubmissionNote)),
+                body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
                 version: nextVersionForStudyComment({ studyId, increment: true }),
             })
             .execute()
@@ -793,7 +795,9 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
 export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // 100_000: the draft is serialized Lexical JSON since OTTER-658, and heavy
+    // per-word formatting can push a legitimate 300-word note past lower bounds.
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note }, session }) => {
@@ -884,7 +888,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         await db
             .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson(resubmissionNote)), resubmissionRound })
+            .set({ resubmissionNote: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)), resubmissionRound })
             .where('id', '=', studyJobId)
             .execute()
 

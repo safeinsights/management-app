@@ -2,7 +2,7 @@ import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
-import { getUsersForOrgId } from '@/server/db/queries'
+import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
@@ -38,6 +38,9 @@ export default async function StudyEditAndResubmitRoute(props: {
     const labMembers = await getUsersForOrgId(study.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
+    const noteVersion = await upcomingResubmissionNoteVersion(studyId)
+    const initialNote = study.proposalResubmissionNoteDraft ?? ''
+
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
@@ -45,7 +48,7 @@ export default async function StudyEditAndResubmitRoute(props: {
             />
             <EditResubmitProvider
                 studyId={studyId}
-                initialNote={study.proposalResubmissionNoteDraft ?? ''}
+                initialNote={initialNote}
                 draftData={{
                     title: study.title ?? '',
                     piName: study.piName,
@@ -64,6 +67,8 @@ export default async function StudyEditAndResubmitRoute(props: {
                     researcherId={study.researcherId}
                     enclaveOrgSlug={study.orgSlug}
                     feedbackEntries={entries}
+                    noteVersion={noteVersion}
+                    initialNote={initialNote}
                 />
             </EditResubmitProvider>
         </Stack>
