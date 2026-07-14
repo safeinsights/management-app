@@ -8,9 +8,10 @@ import { AppModal } from '@/components/modals/app-modal'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
+import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
-import { hasUserProvidedTitle, isProposalDraftDirty } from './schema'
+import { hasUserProvidedTitle } from './schema'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
@@ -22,14 +23,14 @@ interface ProposalFooterProps {
 export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
+    const { studyId, form, submitProposal, isSubmitting } = useProposal()
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form)
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    const isBusy = isSaving || isSubmitting
-    // lexical fields store JSON even when empty, so we extract the
-    // text to determine if there's real content. title is excluded
-    // because it's always pre-populated as "Untitled draft".
+    const isBusy = isSubmitting || isSaving
+    // lexical fields store JSON even when empty, so extract the text to detect real
+    // content. title is excluded — it's gated separately via canSubmit below.
     const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
@@ -41,10 +42,12 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
     }
 
     const handlePrevious = async () => {
+        // Flush Step 2 fields to the study row so draftHasStep2Progress resolves
+        // correctly on the dashboard. In single-user mode (CI / PR envs) Yjs
+        // autosave is inactive, so this is the only write path.
         const saved = await saveDraft()
-        // /edit is revisitable — it renders Step 1 directly and no longer resume-redirects, so the
-        // back-step needs no signal.
-        if (saved) router.push(Routes.studyEdit({ orgSlug, studyId }))
+        if (!saved) return
+        router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     return (
@@ -64,15 +67,6 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                 <Group>
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="md"
-                        disabled={!isProposalDraftDirty(form) || isBusy}
-                        loading={isSaving}
-                        onClick={saveDraft}
-                    >
-                        Save as draft
                     </Button>
                     <Button
                         size="md"

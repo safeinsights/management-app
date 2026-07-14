@@ -79,7 +79,7 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
-    it('renders all three decision options with their titles and descriptions', async () => {
+    it('renders both decision options with their titles and descriptions', async () => {
         const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
             <CodeReviewClient
@@ -93,11 +93,12 @@ describe('CodeReviewClient decision selector', () => {
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
         expect(screen.getByTestId('code-review-decision-needs-clarification')).toBeInTheDocument()
-        expect(screen.getByTestId('code-review-decision-reject')).toBeInTheDocument()
+        // OTTER-650: the "Reject and end study" option was removed as an interim step.
+        expect(screen.queryByTestId('code-review-decision-reject')).not.toBeInTheDocument()
 
         expect(screen.getByText('Approve and run code')).toBeInTheDocument()
         expect(screen.getByText('Request revision')).toBeInTheDocument()
-        expect(screen.getByText('Reject and end study')).toBeInTheDocument()
+        expect(screen.queryByText('Reject and end study')).not.toBeInTheDocument()
 
         expect(
             screen.getByText(
@@ -109,12 +110,6 @@ describe('CodeReviewClient decision selector', () => {
                 /Return this code submission to Rice University for necessary updates, additional information, or specific changes\./,
             ),
         ).toBeInTheDocument()
-        expect(
-            screen.getByText(
-                /Permanently end this study due to major, unresolvable issues\. Share rationale with Rice University\./,
-            ),
-        ).toBeInTheDocument()
-        expect(screen.getByText('Warning: This terminates the study and cannot be undone.')).toBeInTheDocument()
     })
 
     it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
@@ -170,28 +165,27 @@ describe('CodeReviewClient decision selector', () => {
         expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })
 
-    it.each([
-        ['code-review-decision-approve'],
-        ['code-review-decision-needs-clarification'],
-        ['code-review-decision-reject'],
-    ])('enables Submit when %s is selected with valid feedback and criteria', async (decisionTestId) => {
-        const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
-        renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
-        )
+    it.each([['code-review-decision-approve'], ['code-review-decision-needs-clarification']])(
+        'enables Submit when %s is selected with valid feedback and criteria',
+        async (decisionTestId) => {
+            const user = userEvent.setup()
+            const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+            renderWithProviders(
+                <CodeReviewClient
+                    orgSlug={orgSlug}
+                    study={study}
+                    job={job}
+                    latestJobStatus="CODE-SUBMITTED"
+                    previousHref={previousHref}
+                />,
+            )
 
-        await fillAllCriteria(user)
-        await user.click(screen.getByTestId(decisionTestId))
+            await fillAllCriteria(user)
+            await user.click(screen.getByTestId(decisionTestId))
 
-        expect(screen.getByTestId('code-review-submit')).toBeEnabled()
-    })
+            expect(screen.getByTestId('code-review-submit')).toBeEnabled()
+        },
+    )
 
     it('opens the non-destructive confirmation modal when submitting with needs-clarification', async () => {
         const user = userEvent.setup()
@@ -216,31 +210,6 @@ describe('CodeReviewClient decision selector', () => {
             'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.',
         )
         expect(screen.getByRole('button', { name: 'Yes, submit review' })).toBeInTheDocument()
-    })
-
-    it('opens the destructive reject modal with the warning paragraph when submitting with reject', async () => {
-        const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
-        renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
-        )
-
-        await fillAllCriteria(user)
-        await user.click(screen.getByTestId('code-review-decision-reject'))
-        await user.click(screen.getByTestId('code-review-submit'))
-
-        const dialog = await screen.findByRole('dialog')
-        expect(dialog).toHaveTextContent('Reject study code?')
-        expect(dialog).toHaveTextContent(
-            /Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study\. This action cannot be undone\./,
-        )
-        expect(screen.getByRole('button', { name: 'Reject study code' })).toBeInTheDocument()
     })
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {

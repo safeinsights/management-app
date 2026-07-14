@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildStudyInfo } from './use-save-draft'
+import { buildStudyInfo } from './build-study-info'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 

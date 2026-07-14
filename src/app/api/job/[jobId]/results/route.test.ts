@@ -57,7 +57,7 @@ test.skipIf(!s3Available)('uploading results', async () => {
 // Guards the stale-shared-key case: once a job is RUN-COMPLETE its encrypted results (and the
 // AES keys the manifest/researcher rows are wrapped against) are frozen. A re-post must be
 // rejected rather than overwrite the blob under already-shared keys. Re-runs use a NEW job.
-test('rejects a second results upload once the job is already complete', async () => {
+test.skipIf(!s3Available)('rejects a second results upload once the job is already complete', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
     const jobId = jobIds[0]

@@ -10,7 +10,7 @@ import { reportMutationError } from '@/components/errors'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
-import { buildStudyInfo } from './use-save-draft'
+import { buildStudyInfo } from './build-study-info'
 
 interface UseSubmitProposalOptions {
     studyId: string

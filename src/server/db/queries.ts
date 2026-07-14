@@ -379,6 +379,10 @@ export async function getStudyJobFileOfType(
         .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path', 'study.orgId', 'study.submittedByOrgId'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', '=', fileType)
+        // A resubmission can leave more than one row of a given type for a job; take the
+        // newest so this matches the log the displayed scan statuses were parsed from.
+        .orderBy('studyJobFile.createdAt', 'desc')
+        .orderBy('studyJobFile.id', 'desc')
         .executeTakeFirst()
 
     if (!file && throwIfNotFound) {
@@ -510,34 +514,57 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export type JobScanStatus = 'PASSED' | 'FAILED' | 'IN-PROGRESS'
+// Trivy and SonarQube report independently. Per OTTER-649 we cannot say with
+// confidence that a scan "failed"; we only assert PASSED when the log carries an
+// explicit clean signal and otherwise surface the result for human review.
+export type ScanToolStatus = 'PASSED' | 'FAILED'
 
 export type JobScanResult = {
-    status: JobScanStatus
+    // null when the scan hasn't reported yet (no readable plaintext log).
+    trivy: ScanToolStatus | null
+    sonarqube: ScanToolStatus | null
+    // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
 
-// Per @nathanstitt: there's no clear-cut success/failure signal in the tools, so
-// the first-pass heuristic is to read the scan log and check for 'OK'. If the
-// log row doesn't exist yet (or the file can't be read), treat as in-progress.
+// Trivy passes only on the explicit clean line the scanner emits; anything else
+// (findings, "no results", or an unrecognized log) is flagged for review.
+export function parseTrivyStatus(log: string): ScanToolStatus {
+    return /trivy (?:filesystem|image) scan:\s*no vulnerabilities found/i.test(log) ? 'PASSED' : 'FAILED'
+}
+
+// SonarQube passes only when its quality gate reports OK. Any other gate status,
+// or a missing SonarQube section (skipped/unavailable), needs human review.
+export function parseSonarqubeStatus(log: string): ScanToolStatus {
+    const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
+    return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
+}
+
+// Reads the plaintext SECURITY-SCAN-LOG (not the encrypted zip) and derives a
+// per-tool status from its text. No log row yet, or an unreadable file, is
+// treated as "not reported" (no statuses and no download affordance).
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
     const logFile = await Action.db
         .selectFrom('studyJobFile')
         .select(['id', 'name', 'path'])
         .where('studyJobId', '=', studyJobId)
-        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .where('fileType', '=', 'SECURITY-SCAN-LOG')
         .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { status: 'IN-PROGRESS', logFile: null }
+    if (!logFile) return { trivy: null, sonarqube: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
         const contents = await blob.text()
-        return { status: contents.includes('OK') ? 'PASSED' : 'FAILED', logFile }
+        return { trivy: parseTrivyStatus(contents), sonarqube: parseSonarqubeStatus(contents), logFile }
     } catch {
-        return { status: 'IN-PROGRESS', logFile }
+        // A transient read/parse failure shouldn't hide the download: the route serves the
+        // file from the DB row + a signed URL and doesn't depend on this fetch. Keep the log
+        // downloadable with unknown (null) statuses rather than pretending the scan is pending.
+        return { trivy: null, sonarqube: null, logFile }
     }
 }
 

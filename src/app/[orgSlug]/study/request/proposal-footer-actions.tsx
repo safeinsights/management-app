@@ -3,16 +3,21 @@
 import { FC } from 'react'
 import { Button, Group } from '@mantine/core'
 
-interface Step1FooterProps {
+interface ProposalFooterActionsProps {
     isSaving: boolean
     isValid: boolean
-    onSave: (proceed: boolean) => void
+    onProceed: () => void
     proceedLabel: string
-    saveDraft?: { isDirty: boolean }
     onCancel?: () => void
 }
 
-const Step1Footer: FC<Step1FooterProps> = ({ isSaving, isValid, onSave, proceedLabel, saveDraft, onCancel }) => {
+export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
+    isSaving,
+    isValid,
+    onProceed,
+    proceedLabel,
+    onCancel,
+}) => {
     const showCancel = !!onCancel
 
     return (
@@ -22,43 +27,16 @@ const Step1Footer: FC<Step1FooterProps> = ({ isSaving, isValid, onSave, proceedL
                     Cancel
                 </Button>
             )}
-            <Group>
-                {saveDraft && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="md"
-                        disabled={!saveDraft.isDirty || isSaving}
-                        loading={isSaving}
-                        onClick={() => onSave(false)}
-                    >
-                        Save as draft
-                    </Button>
-                )}
-                <Button
-                    type="button"
-                    size="md"
-                    variant="primary"
-                    disabled={!isValid || isSaving}
-                    loading={isSaving}
-                    onClick={() => onSave(true)}
-                >
-                    {proceedLabel}
-                </Button>
-            </Group>
+            <Button
+                type="button"
+                size="md"
+                variant="primary"
+                disabled={!isValid || isSaving}
+                loading={isSaving}
+                onClick={onProceed}
+            >
+                {proceedLabel}
+            </Button>
         </Group>
     )
-}
-
-interface ProposalFooterActionsProps {
-    isSaving: boolean
-    isValid: boolean
-    onSave: (proceed: boolean) => void
-    saveDraft?: { isDirty: boolean }
-    onCancel?: () => void
-    proceedLabel: string
-}
-
-export const ProposalFooterActions: FC<ProposalFooterActionsProps> = (props) => {
-    return <Step1Footer {...props} />
 }

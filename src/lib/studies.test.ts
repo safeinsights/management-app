@@ -62,6 +62,12 @@ describe('decisionTimestampForProposalHeader', () => {
             expected: submittedAt,
         },
         {
+            name: 'PENDING-REVIEW with approvedAt uses approvedAt',
+            study: study({ status: 'PENDING-REVIEW', approvedAt }),
+            entries: [],
+            expected: approvedAt,
+        },
+        {
             name: 'CHANGE-REQUESTED with empty entries uses submittedAt',
             study: study({ status: 'CHANGE-REQUESTED' }),
             entries: [],

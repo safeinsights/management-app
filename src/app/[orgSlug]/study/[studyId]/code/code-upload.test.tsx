@@ -63,6 +63,19 @@ const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setu
     await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 }
 
+// Submission no longer touches study.status; the durable submit marker is the
+// job's CODE-SUBMITTED status change.
+const codeSubmittedCount = async (studyId: string) => {
+    const row = await db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .executeTakeFirstOrThrow()
+    return Number(row.n)
+}
+
 describe('CodeUploadPage', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
@@ -138,13 +151,15 @@ describe('CodeUploadPage', () => {
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
+            expect(await codeSubmittedCount(study.id)).toBe(1)
         })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('APPROVED')
 
         await expectStudyJobRecords(study.id, [
             { name: 'main.r', fileType: 'MAIN-CODE' },
@@ -180,12 +195,7 @@ describe('CodeUploadPage', () => {
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select(['status'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
+            expect(await codeSubmittedCount(study.id)).toBe(1)
         })
 
         await waitFor(() => {
@@ -228,11 +238,6 @@ describe('CodeUploadPage', () => {
             )
         })
 
-        const updated = await db
-            .selectFrom('study')
-            .select(['status'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).not.toBe('PENDING-REVIEW')
+        expect(await codeSubmittedCount(study.id)).toBe(0)
     })
 })

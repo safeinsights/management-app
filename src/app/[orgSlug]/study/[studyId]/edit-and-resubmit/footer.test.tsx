@@ -1,8 +1,24 @@
 import { TextInput } from '@mantine/core'
-import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import { notifications } from '@mantine/notifications'
+import { memoryRouter } from 'next-router-mock'
+import {
+    BLANK_UUID,
+    db,
+    describe,
+    expect,
+    insertTestStudyJobData,
+    it,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { lexicalJson } from '@/lib/lexical'
+import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { EditResubmitFooter } from './footer'
 import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
@@ -160,5 +176,130 @@ describe('EditResubmitFooter — confirmation modal (OTTER-568)', () => {
         await waitFor(() =>
             expect(screen.queryByText(/ready to resubmit your initial request/i)).not.toBeInTheDocument(),
         )
+    })
+})
+
+// Yjs autosave is inactive in single-user mode (no collaboration websocket), so
+// Back must flush the form to the study row before returning to the submitted
+// view — otherwise edits made since page load are lost (OTTER-573).
+describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
+    const setupChangeRequestedStudy = async (studyStatus: 'CHANGE-REQUESTED' | 'PENDING-REVIEW') => {
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: researcher.id,
+            studyStatus,
+            title: 'Original title',
+        })
+        memoryRouter.setCurrentUrl('/start')
+        return { org, researcher, study }
+    }
+
+    // piUserId must reference a real user row — the flush writes it to the study
+    // table, and a placeholder UUID would trip the foreign key.
+    const renderFooterForStudy = (studyId: string, title: string, piUserId: string) =>
+        renderWithProviders(
+            <EditResubmitProvider studyId={studyId} draftData={{ ...VALID_PROPOSAL_DRAFT, title, piUserId }}>
+                <TitleInputProbe />
+                <EditResubmitFooter researcherName="Researcher" researcherId="researcher-1" />
+            </EditResubmitProvider>,
+        )
+
+    const retypeTitle = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+        await user.clear(screen.getByLabelText('Study Title Probe'))
+        await user.type(screen.getByLabelText('Study Title Probe'), title)
+    }
+
+    it('flushes edited fields to the study row, then navigates back to the submitted view', async () => {
+        const user = userEvent.setup()
+        const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
+
+        renderFooterForStudy(study.id, 'Original title', researcher.id)
+        await retypeTitle(user, 'Saved on Back')
+
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+
+        await waitFor(
+            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            { timeout: 5000 },
+        )
+
+        const after = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.title).toBe('Saved on Back')
+        expect(after.status).toBe('CHANGE-REQUESTED')
+    })
+
+    it('preserves the stored title when the form title is blank mid-rename', async () => {
+        const user = userEvent.setup()
+        const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
+
+        renderFooterForStudy(study.id, 'Original title', researcher.id)
+        // Blank title mid-rename: nulling the column would violate the
+        // study_title_required_when_not_draft check constraint and trap the
+        // user on the page; the flush must skip the title but still save.
+        await user.clear(screen.getByLabelText('Study Title Probe'))
+
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+
+        await waitFor(
+            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            { timeout: 5000 },
+        )
+
+        const after = await db
+            .selectFrom('study')
+            .select(['title', 'piName'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.title).toBe('Original title')
+        // The rest of the flush still landed.
+        expect(after.piName).toBe('PI Name')
+    })
+
+    it('reports the error and stays on the page when the flush fails', async () => {
+        const user = userEvent.setup()
+        // A PENDING-REVIEW study is no longer editable, so the flush is rejected.
+        const { researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
+        ;(notifications.show as Mock).mockClear()
+
+        renderFooterForStudy(study.id, 'Original title', researcher.id)
+        await retypeTitle(user, 'Should not persist')
+
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        const errorCall = (notifications.show as Mock).mock.calls.find(
+            ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
+        )
+        expect(errorCall).toBeDefined()
+        expect(memoryRouter.asPath).toBe('/start')
+
+        const after = await db.selectFrom('study').select('title').where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(after.title).toBe('Original title')
+    })
+
+    it('skips the flush and navigates when the form is pristine', async () => {
+        const user = userEvent.setup()
+        // Non-editable status would fail the flush — a pristine form must not
+        // attempt it, so a viewer can still navigate back.
+        const { org, researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
+        ;(notifications.show as Mock).mockClear()
+
+        renderFooterForStudy(study.id, 'Original title', researcher.id)
+
+        await user.click(screen.getByRole('button', { name: 'Back' }))
+
+        await waitFor(
+            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            { timeout: 5000 },
+        )
+        expect(notifications.show).not.toHaveBeenCalled()
+
+        const after = await db.selectFrom('study').select('title').where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(after.title).toBe('Original title')
     })
 })

@@ -28,6 +28,10 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
 
 export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
 
+// Y.Map name for the collab fields inside the proposal-fields doc. Shared so
+// the client hook and editor service agree on the key.
+export const PROPOSAL_FIELDS_MAP_NAME = 'fields'
+
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
     `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
 

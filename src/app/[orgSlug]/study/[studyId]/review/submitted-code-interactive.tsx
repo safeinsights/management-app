@@ -29,6 +29,11 @@ import {
 } from '@/server/actions/study-job.actions'
 import type { StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
+import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
+    StudyCodeToggle,
+    type StudyCodeToggleLabels,
+} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 
 export type { CodeFile } from './study-code-files'
 
@@ -109,22 +114,31 @@ const REVIEW_POLL_INTERVAL_MS = 5_000
 // above a normal generation; past it with no row we assume it's stuck.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Returns true once `ms` have elapsed since `since`. Used as a backstop so a
-// generation that hangs without writing a (success or failure) row eventually
-// surfaces as an error instead of spinning forever. `since` may be a string —
-// timestamps serialize to ISO strings across the server/client boundary.
-function useElapsedSince(since: Date | string, ms: number): boolean {
-    const sinceMs = new Date(since).getTime()
-    const [elapsed, setElapsed] = useState(() => Date.now() - sinceMs >= ms)
+// Returns `{ elapsed, reset }`: `elapsed` becomes true once `ms` have passed
+// since the start time, and `reset()` re-arms the timer from now. Used as a
+// backstop so a generation that hangs without writing a (success or failure)
+// row eventually surfaces as an error instead of spinning forever, while a
+// retry can restart the clock. `since` is read once on mount to seed the start
+// time; later prop changes are ignored, so a new submission must arrive via a
+// fresh server render (or an explicit reset()), not a changed `since`. `since`
+// may be a string — timestamps serialize to ISO strings across the
+// server/client boundary.
+function useElapsedSince(since: Date | string, ms: number) {
+    const initialSinceMs = new Date(since).getTime()
+    const [startedAt, setStartedAt] = useState(initialSinceMs)
+    const [elapsed, setElapsed] = useState(() => Date.now() - initialSinceMs >= ms)
     useEffect(() => {
-        if (elapsed) return
-        // Clamp to 0 rather than setting state synchronously here; the timer
-        // fires the update on the next tick, out of the effect body.
-        const remaining = Math.max(0, ms - (Date.now() - sinceMs))
+        const remaining = Math.max(0, ms - (Date.now() - startedAt))
         const id = setTimeout(() => setElapsed(true), remaining)
         return () => clearTimeout(id)
-    }, [sinceMs, ms, elapsed])
-    return elapsed
+    }, [startedAt, ms])
+    return {
+        elapsed,
+        reset: () => {
+            setStartedAt(Date.now())
+            setElapsed(false)
+        },
+    }
 }
 
 // The review row is written by a deferred background task triggered at code
@@ -223,12 +237,13 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
 
 // Clears the failed row server-side, re-fires generation, then resets the
 // cached review to null so the poll resumes and the UI drops back to pending.
-function useRetryStudyReview(studyJobId: string) {
+function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
         onSuccess: () => {
             queryClient.setQueryData(['study-review', studyJobId], null)
+            onRetryStarted()
         },
     })
 }
@@ -252,8 +267,11 @@ export function AiSummaryCollapsible({
 }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    const retry = useRetryStudyReview(studyJobId)
-    const timedOut = useElapsedSince(submittedAt, timeoutMs)
+    // A successful retry is a new generation request, so it needs its own
+    // timeout window instead of inheriting the original submission's age.
+    const timeout = useElapsedSince(submittedAt, timeoutMs)
+    const retry = useRetryStudyReview(studyJobId, timeout.reset)
+    const timedOut = timeout.elapsed
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()
@@ -497,80 +515,56 @@ function StudyCodeBody({
     )
 }
 
-export type StudyCodeToggleLabels = { expand: string; collapse: string }
-
-const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
-}
-
-function StudyCodeToggle({
-    isVisible,
-    isExpanded,
-    onClick,
-    labels,
-}: {
-    isVisible: boolean
-    isExpanded: boolean
-    onClick: () => void
-    labels: StudyCodeToggleLabels
-}) {
-    if (!isVisible) return null
-    const label = isExpanded ? labels.collapse : labels.expand
-    return (
-        <Anchor
-            component="button"
-            type="button"
-            onClick={onClick}
-            size="sm"
-            fw={700}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            data-testid="study-code-toggle"
-            aria-expanded={isExpanded}
-        >
-            {label}
-            <ToggleChevron isExpanded={isExpanded} />
-        </Anchor>
-    )
-}
-
 type StudyCodeViewerProps = {
     studyJobId: string
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
+    /**
+     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
+     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
+     * section's single "Hide full study code" closer that collapses the entire card.
+     */
+    onCollapse?: () => void
 }
 
 export function StudyCodeViewer({
     studyJobId,
     files,
     initialExpanded = true,
-    toggleLabels = DEFAULT_STUDY_CODE_TOGGLE_LABELS,
+    toggleLabels = FULL_STUDY_CODE_TOGGLE_LABELS,
+    onCollapse,
 }: StudyCodeViewerProps) {
     const { activeFile, selectFile, isExpanded, toggleExpanded } = useStudyCodeViewer(files, initialExpanded)
     const { visible, hidden } = splitVisibleFiles(files)
     const hasFiles = files.length > 0
 
+    const expanded = onCollapse ? true : isExpanded
+    const handleToggle = onCollapse ?? toggleExpanded
+    const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
+    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
+    // reachable even with no displayable code files; the plain viewer still hides it when empty.
+    const toggleVisible = onCollapse ? true : hasFiles
+
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
             <Stack gap="sm">
                 <FileTabsRow
-                    isVisible={isExpanded}
+                    isVisible={expanded}
                     visible={visible}
                     activeFileName={activeFile?.name ?? null}
                     onSelect={selectFile}
                     hidden={hidden}
                     studyJobId={studyJobId}
                 />
-                <StudyCodeBody isVisible={isExpanded} activeFile={activeFile} studyJobId={studyJobId} />
+                <StudyCodeBody isVisible={expanded} activeFile={activeFile} studyJobId={studyJobId} />
             </Stack>
             <StudyCodeToggle
-                isVisible={hasFiles}
-                isExpanded={isExpanded}
-                onClick={toggleExpanded}
+                isVisible={toggleVisible}
+                expanded={expanded}
+                onClick={handleToggle}
                 labels={toggleLabels}
+                testId={toggleTestId}
             />
         </Stack>
     )

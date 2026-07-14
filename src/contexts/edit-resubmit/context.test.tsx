@@ -3,14 +3,9 @@ import { useParams } from 'next/navigation'
 import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { EditResubmitProvider, useEditResubmit } from './context'
-import {
-    onUpdateClarifiedProposalAction,
-    resubmitProposalAction,
-    saveProposalResubmissionNoteDraftAction,
-} from '@/server/actions/study-request'
+import { resubmitProposalAction, saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
 
 vi.mock('@/server/actions/study-request', () => ({
-    onUpdateClarifiedProposalAction: vi.fn(),
     resubmitProposalAction: vi.fn(),
     saveProposalResubmissionNoteDraftAction: vi.fn(),
 }))
@@ -18,7 +13,7 @@ vi.mock('@/server/actions/study-request', () => ({
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) {
-    const { noteForm, saveDraft, isSavingNote, noteLastSavedAt } = useEditResubmit()
+    const { noteForm, flushNote, isSavingNote, noteLastSavedAt } = useEditResubmit()
 
     return (
         <>
@@ -27,7 +22,7 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
                 value={noteForm.values.resubmissionNote}
                 onChange={(event) => noteForm.setFieldValue('resubmissionNote', event.currentTarget.value)}
             />
-            <button type="button" onClick={async () => onSaveResult(await saveDraft())}>
+            <button type="button" onClick={async () => onSaveResult(await flushNote())}>
                 Save
             </button>
             <span data-testid="is-saving-note">{String(isSavingNote)}</span>
@@ -47,9 +42,6 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         saveNoteAction
             .mockResolvedValueOnce({ error: 'temporary failure' })
             .mockResolvedValueOnce({ studyId: STUDY_ID, savedAt: new Date().toISOString() })
-        // saveDraft also flushes the proposal fields; force a benign success for
-        // those so the boolean result reflects only the note's outcome.
-        vi.mocked(onUpdateClarifiedProposalAction).mockResolvedValue({ studyId: STUDY_ID })
 
         const onSaveResult = vi.fn()
 
@@ -81,7 +73,6 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
         const saveNoteAction = vi.mocked(saveProposalResubmissionNoteDraftAction)
         saveNoteAction.mockResolvedValue({ studyId: STUDY_ID, savedAt: new Date().toISOString() })
-        vi.mocked(onUpdateClarifiedProposalAction).mockResolvedValue({ studyId: STUDY_ID })
 
         const onSaveResult = vi.fn()
 
@@ -91,8 +82,8 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             </EditResubmitProvider>,
         )
 
-        // No edit, just hit Save — proposal-side may save, but the note action
-        // must not fire because the pending value matches the last-saved value.
+        // No edit, just hit Save — the note action must not fire because the pending
+        // value matches the last-saved value.
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSaveResult).toHaveBeenCalled())
         expect(saveNoteAction).not.toHaveBeenCalled()

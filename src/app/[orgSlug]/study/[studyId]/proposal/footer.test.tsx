@@ -1,6 +1,22 @@
 import { TextInput } from '@mantine/core'
-import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { notifications } from '@mantine/notifications'
+import { memoryRouter } from 'next-router-mock'
+import {
+    BLANK_UUID,
+    createTestProposalDraft,
+    db,
+    describe,
+    expect,
+    it,
+    renderWithProviders,
+    screen,
+    setTestStudyStatus,
+    userEvent,
+    waitFor,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal, type ProposalDraftData } from '@/contexts/proposal'
+import { Routes } from '@/lib/routes'
 import { ProposalFooter } from './footer'
 import { type ProposalFormValues } from './schema'
 
@@ -77,61 +93,87 @@ describe('ProposalFooter submit gating (OTTER-557)', () => {
     })
 })
 
-describe('ProposalFooter save-as-draft dirty tracking', () => {
-    const trackedFieldEdits: Array<[keyof ProposalFormValues, ProposalFormValues[keyof ProposalFormValues]]> = [
-        ['title', 'A brand new title'],
-        ['datasets', ['dataset-1', 'dataset-2']],
-        ['piName', 'Dr. New Name'],
-        ['piUserId', '22222222-2222-4222-8222-222222222222'],
-    ]
-
-    const lexicalFieldEdits: Array<[keyof ProposalFormValues, ProposalFormValues[keyof ProposalFormValues]]> = [
-        ['researchQuestions', lexicalText('A different research question')],
-        ['projectSummary', lexicalText('A different summary')],
-        ['impact', lexicalText('A different impact statement')],
-        ['additionalNotes', lexicalText('Some additional notes')],
-    ]
-
-    const FieldProbe = ({ field, value }: { field: keyof ProposalFormValues; value: unknown }) => {
-        const { form } = useProposal()
-        return (
-            <button type="button" onClick={() => form.setFieldValue(field, value as never)}>
-                Edit field
-            </button>
-        )
-    }
-
-    const renderWithFieldProbe = (field: keyof ProposalFormValues, value: unknown) =>
+// Yjs autosave is inactive in single-user mode (no collaboration websocket), so
+// Previous must flush the form to the study row before leaving — otherwise Step 2
+// progress is lost and the dashboard resumes the draft on Step 1 (OTTER-572/573).
+describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
+    // piUserId must reference a real user row — the flush writes it to the study
+    // table, and a placeholder UUID would trip the foreign key.
+    const renderFooterForStudy = (studyId: string, piUserId: string) =>
         renderWithProviders(
-            <ProposalProvider studyId={STUDY_ID} draftData={fullyValidExceptTitle}>
-                <FieldProbe field={field} value={value} />
+            <ProposalProvider studyId={studyId} draftData={{ ...fullyValidExceptTitle, piUserId }}>
+                <TitleInputProbe />
                 <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
             </ProposalProvider>,
         )
 
-    it('keeps Save as draft disabled before any changes', () => {
-        renderWithFieldProbe('title', 'unused')
-        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
-    })
-
-    it.each(trackedFieldEdits)('enables Save as draft when draft-tracked field "%s" changes', async (field, value) => {
+    it('flushes edited fields to the study row, then navigates to Step 1', async () => {
         const user = userEvent.setup()
-        renderWithFieldProbe(field, value)
+        const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-save' })
+        memoryRouter.setCurrentUrl('/start')
 
-        await user.click(screen.getByRole('button', { name: 'Edit field' }))
+        renderFooterForStudy(studyId, researcher.id)
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved on Previous')
 
-        expect(screen.getByRole('button', { name: 'Save as draft' })).toBeEnabled()
+        await user.click(screen.getByRole('button', { name: 'Previous' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
+            timeout: 5000,
+        })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'piName', 'datasets'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.title).toBe('Saved on Previous')
+        expect(study.piName).toBe('Jane Smith')
+        expect(study.datasets).toEqual(['dataset-1'])
     })
 
-    it.each(lexicalFieldEdits)(
-        'keeps Save as draft disabled when auto-saved editor field "%s" changes',
-        async (field, value) => {
-            const user = userEvent.setup()
-            renderWithFieldProbe(field, value)
+    it('reports the error and stays on Step 2 when the flush fails', async () => {
+        const user = userEvent.setup()
+        const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-fail' })
+        // A study that left DRAFT is no longer editable, so the flush is rejected.
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+        memoryRouter.setCurrentUrl('/start')
+        ;(notifications.show as Mock).mockClear()
 
-            await user.click(screen.getByRole('button', { name: 'Edit field' }))
+        renderFooterForStudy(studyId, researcher.id)
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
-            expect(screen.getByRole('button', { name: 'Save as draft' })).toBeDisabled()
-        },
-    )
+        await user.click(screen.getByRole('button', { name: 'Previous' }))
+
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        const errorCall = (notifications.show as Mock).mock.calls.find(
+            ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
+        )
+        expect(errorCall).toBeDefined()
+        expect(memoryRouter.asPath).toBe('/start')
+
+        const study = await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(study.title).toBe('Test draft')
+    })
+
+    it('skips the flush and navigates when the form is pristine', async () => {
+        const user = userEvent.setup()
+        const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-clean' })
+        // Non-editable status would fail the flush — a pristine form must not
+        // attempt it, so a viewer can still navigate back.
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+        memoryRouter.setCurrentUrl('/start')
+        ;(notifications.show as Mock).mockClear()
+
+        renderFooterForStudy(studyId, researcher.id)
+
+        await user.click(screen.getByRole('button', { name: 'Previous' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
+            timeout: 5000,
+        })
+        expect(notifications.show).not.toHaveBeenCalled()
+
+        const study = await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(study.title).toBe('Test draft')
+    })
 })
