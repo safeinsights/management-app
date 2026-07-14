@@ -27,7 +27,8 @@ export function NavbarProfileMenu() {
 
     const menuRef = useClickOutside<HTMLDivElement>(handleClickOutside)
     const isSiAdmin = session?.user.isSiAdmin || false
-    // Any key-holding member (enclave or lab); mirrors the UserKey ability + RequireUserKey guard.
+    // Member of a key-requiring org (enclave or lab), whether or not they've generated one yet;
+    // mirrors the UserKey ability + RequireUserKey guard.
     const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
 
     const navigateTo = (route: string) => (e: React.MouseEvent) => {
