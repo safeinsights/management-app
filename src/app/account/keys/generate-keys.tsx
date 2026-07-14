@@ -90,7 +90,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                         <NextButton isVisible={hasAttemptedCopy} onClick={openConfirm} />
                     </Group>
                     <CopySucceededIndicator isVisible={clipboard.copied} />
-                    <CopyFailedIndicator isVisible={hasAttemptedCopy && clipboard.error != null} />
+                    <CopyFailedIndicator isVisible={clipboard.error != null} />
                 </Stack>
             </Stack>
 
