@@ -12,9 +12,11 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
+import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
 import {
     resubmitNoteSchema,
+    resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
     initialResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -64,9 +66,13 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         validateInputOnChange: true,
     })
 
+    // The note form holds Lexical JSON; legacy plain-text drafts are normalized
+    // up front so dirty-tracking and submit operate in one shape.
+    const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
+
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
-        initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
+        initialValues: { ...initialResubmitNoteValue, resubmissionNote: normalizedInitialNote },
         validateInputOnChange: true,
     })
 
@@ -77,8 +83,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     // save tracked by refs so a flurry of keystrokes collapses into one network
     // call, and flushNote() can flush the latest typed value synchronously.
     const [noteLastSavedAt, setNoteLastSavedAt] = useState<Date | null>(null)
-    const lastSavedNoteRef = useRef<string>(initialNote)
-    const pendingNoteRef = useRef<string>(initialNote)
+    const lastSavedNoteRef = useRef<string>(normalizedInitialNote)
+    const pendingNoteRef = useRef<string>(normalizedInitialNote)
     const savingNoteRef = useRef<string | null>(null)
     const inFlightNoteSaveRef = useRef<Promise<boolean> | null>(null)
 
@@ -121,15 +127,21 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     )
 
     const currentNote = noteForm.values.resubmissionNote
+    const singleUserEditing = useSingleUserEditing()
 
+    // In collaborative mode the Yjs doc is the live persistence, so skip the
+    // per-keystroke column save (Save-as-draft still refreshes the column as
+    // the cold-seed fallback). In single-user mode this debounce is the only
+    // persistence.
     useEffect(() => {
         pendingNoteRef.current = currentNote
+        if (!singleUserEditing) return
         if (currentNote === lastSavedNoteRef.current) return
         const handle = setTimeout(() => {
             void flushNoteSave(currentNote)
         }, AUTOSAVE_DEBOUNCE_MS)
         return () => clearTimeout(handle)
-    }, [currentNote, flushNoteSave])
+    }, [currentNote, singleUserEditing, flushNoteSave])
 
     // Proposal fields autosave through Yjs; only the debounced note needs an explicit
     // flush before navigating away, otherwise a note typed inside the last debounce

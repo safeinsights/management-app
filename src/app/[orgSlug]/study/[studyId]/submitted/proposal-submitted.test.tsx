@@ -138,6 +138,7 @@ describe('ProposalSubmitted', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
+                approvedAt: null,
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
@@ -153,10 +154,31 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Apr 16, 2025')
         })
 
+        it('displays "Approved on {date}" when status is PENDING-REVIEW but proposal was approved', () => {
+            const codeUnderReviewStudy = {
+                ...study,
+                status: 'PENDING-REVIEW' as const,
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+                submittedAt: new Date('2026-05-01T10:00:00Z'),
+            }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={codeUnderReviewStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+        })
+
         it('displays "Resubmitted on {date}" when status is PENDING-REVIEW after a resubmission', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
+                approvedAt: null,
                 submittedAt: new Date('2025-04-16T10:00:00Z'),
             }
             renderWithProviders(
@@ -306,7 +328,7 @@ describe('ProposalSubmitted', () => {
         })
 
         it('renders resubmission copy when status is PENDING-REVIEW after a resubmission', () => {
-            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const }
+            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
                     orgSlug={ORG_SLUG}
@@ -321,6 +343,29 @@ describe('ProposalSubmitted', () => {
             expect(banner).toHaveTextContent(
                 `Your revised initial request has been resubmitted to ${ORG_NAME}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`,
             )
+        })
+
+        it('renders approved banner when status is PENDING-REVIEW but proposal was previously approved', () => {
+            const codeUnderReviewStudy = {
+                ...study,
+                status: 'PENDING-REVIEW' as const,
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+            }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={codeUnderReviewStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const banner = screen.getByTestId('status-banner-APPROVED')
+            expect(banner).toHaveTextContent(
+                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+            )
+            expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
         })
     })
 
@@ -443,6 +488,30 @@ describe('ProposalSubmitted', () => {
 
             const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
             expect(dashboardLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('shows "Proceed to step 3" when status is PENDING-REVIEW but proposal was approved', () => {
+            const codeUnderReviewStudy = {
+                ...study,
+                status: 'PENDING-REVIEW' as const,
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+            }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={codeUnderReviewStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
+            expect(proceedLink).toHaveAttribute(
+                'href',
+                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
+            )
+            expect(screen.queryByRole('link', { name: /go to dashboard/i })).not.toBeInTheDocument()
         })
     })
 

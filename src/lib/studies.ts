@@ -1,6 +1,7 @@
 import type { StudyJobStatus } from '@/database/types'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
+import { effectiveProposalStatus } from '@/lib/review-decision'
 
 type StudyWithJobStatuses = {
     jobStatusChanges: Array<{ status: StudyJobStatus }>
@@ -32,18 +33,19 @@ export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
 
 /** Returns the timestamp of the latest decision for the submitted proposal header. */
 export function decisionTimestampForProposalHeader(study: SelectedStudy, entries: ProposalFeedbackEntry[]): Date {
-    if (study.status === 'APPROVED' && study.approvedAt) {
+    const status = effectiveProposalStatus(study)
+    if (status === 'APPROVED' && study.approvedAt) {
         return study.approvedAt
     }
-    if (study.status === 'REJECTED' && study.rejectedAt) {
+    if (status === 'REJECTED' && study.rejectedAt) {
         return study.rejectedAt
     }
-    if (study.status === 'CHANGE-REQUESTED' && entries.length > 0) {
+    if (status === 'CHANGE-REQUESTED' && entries.length > 0) {
         // entries are ordered by createdAt descending
         const latestClarification = entries.find((e) => e.decision === 'NEEDS-CLARIFICATION')
         if (latestClarification) return latestClarification.createdAt
     }
-    if (study.status === 'PENDING-REVIEW' && entries.length > 0) {
+    if (status === 'PENDING-REVIEW' && entries.length > 0) {
         // source the resubmission date from the latest RESUBMISSION-NOTE entry.
         const latestResubmission = entries.find((e) => e.entryType === 'RESUBMISSION-NOTE')
         if (latestResubmission) return latestResubmission.createdAt

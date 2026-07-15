@@ -6,7 +6,7 @@ import { Stack, Title } from '@mantine/core'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
+import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
@@ -23,6 +23,10 @@ interface EditResubmitFormProps {
     researcherId: string
     enclaveOrgSlug?: string
     feedbackEntries: ProposalFeedbackEntry[]
+    /** Version the RESUBMISSION-NOTE comment will take on submit; scopes the note's Yjs doc to this round. */
+    noteVersion: number
+    /** Persisted note draft; seeds the single-user editor. */
+    initialNote: string
 }
 
 export const EditResubmitForm: FC<EditResubmitFormProps> = ({
@@ -32,8 +36,11 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     researcherId,
     enclaveOrgSlug,
     feedbackEntries,
+    noteVersion,
+    initialNote,
 }) => {
-    const { studyId, noteForm, isSavingNote, noteLastSavedAt, yjsForm, tabSessionId } = useEditResubmit()
+    const { studyId, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
+        useEditResubmit()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     useSubmissionRedirectListener({
@@ -62,9 +69,13 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
 
                 <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                <ResubmissionNoteSection
+                <CollaborativeResubmissionNoteSection
+                    studyId={studyId}
+                    noteVersion={noteVersion}
                     noteForm={noteForm}
                     orgName={orgName}
+                    initialNote={initialNote}
+                    websocketProvider={websocketProvider}
                     autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
                 />
 
