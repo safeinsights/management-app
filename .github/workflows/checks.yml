@@ -421,7 +421,7 @@ jobs:
                   name: coverage-summary
                   path: test-results/coverage/coverage-summary.json
                   retention-days: 1
-                  if-no-files-found: ignore
+                  if-no-files-found: error
             - name: Coverage Diff
               # PR-only: reads the wiki baseline (kept fresh by the push-only
               # `coverage-baseline` job) and posts the delta comment. This job never writes
@@ -445,18 +445,19 @@ jobs:
     #     never trigger, so no PR-controlled code ever executes with this token (GitHub
     #     also downgrades fork-PR tokens to read-only regardless of this block);
     #   - it runs NO `pnpm install` and NO app/test code: it only downloads the
-    #     already-merged coverage-summary.json artifact and lets coverage-diff-action
-    #     push it to the wiki, keeping the code under contents:write minimal.
+    #     already-merged coverage-summary.json artifact, checks the current main ref,
+    #     and lets coverage-diff-action push it to the wiki, keeping the code under
+    #     contents:write minimal.
     # Do NOT add a `pull_request` trigger or a same-repo-PR gate to this job, do NOT add
     # any stored repository secrets (anything under `secrets.*` other than the automatic
     # `GITHUB_TOKEN`), and do NOT check out PR head; each of those reopens OTTER-545.
     coverage-baseline:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         # Serialize baseline writes across concurrent main runs (the workflow-level group
-        # keys push runs by run_id, so they run in parallel). Without this, two main pushes
-        # can race the wiki push (non-fast-forward failure) or overwrite the baseline out of
-        # order, leaving it stale. cancel-in-progress lets the newer run win. Safe for the
-        # build cache: that is seeded in `e2e`, which finishes before this job starts.
+        # keys push runs by run_id, so they run in parallel). GitHub does not guarantee the
+        # order of jobs in a concurrency group, so the main-HEAD check below prevents an
+        # older run that arrives late from overwriting a newer baseline. Safe for the build
+        # cache: that is seeded in `e2e`, which finishes before this job starts.
         concurrency:
             group: coverage-baseline-${{ github.ref }}
             cancel-in-progress: true
@@ -474,7 +475,20 @@ jobs:
               with:
                   name: coverage-summary
                   path: test-results/coverage
+            - name: check whether this run is current main HEAD
+              id: main-head
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+                  if [[ "$head_sha" == "$GITHUB_SHA" ]]; then
+                      echo "is-current=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "is-current=false" >> "$GITHUB_OUTPUT"
+                      echo "Skipping baseline refresh: $GITHUB_SHA is no longer main HEAD ($head_sha)."
+                  fi
             - name: Push coverage baseline to wiki
+              if: steps.main-head.outputs.is-current == 'true'
               uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
