@@ -41,10 +41,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         // No backfill for late joiners: keys are wrapped only for lab members with a registered key
         // at approval time. Registering a key later can't unlock already-approved results —
         // re-wrapping needs the raw AES key, which the browser no longer holds.
-        const sharedKeyCount = await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
-        if (sharedKeyCount === 0) {
-            throw new ActionFailure({ sharedFiles: 'Results cannot be approved without a researcher encryption key.' })
-        }
+        await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
 
         await db
             .insertInto('jobStatusChange')

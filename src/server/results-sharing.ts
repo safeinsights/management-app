@@ -18,7 +18,7 @@ import { getLabPublicKeysForJob } from '@/server/db/queries'
  * changes, orphaning old rows), lost/compromised keys, new hires, and departed members without
  * re-running the job. This insert path is the mechanism that flow will reuse/extend.
  */
-export async function insertSharedFileKeys(db: DBExecutor, jobId: string, sharedFiles: SharedFile[]): Promise<number> {
+export async function insertSharedFileKeys(db: DBExecutor, jobId: string, sharedFiles: SharedFile[]): Promise<void> {
     const labKeys = await getLabPublicKeysForJob(jobId)
     const labFingerprints = new Set(labKeys.map((k) => k.fingerprint))
 
@@ -49,13 +49,11 @@ export async function insertSharedFileKeys(db: DBExecutor, jobId: string, shared
         }),
     )
 
-    if (!rows.length) return 0
+    if (!rows.length) return
 
     await db
         .insertInto('studyJobFileRecipientKey')
         .values(rows)
         .onConflict((oc) => oc.columns(['studyJobFileId', 'filePath', 'fingerprint']).doNothing())
         .execute()
-
-    return rows.length
 }

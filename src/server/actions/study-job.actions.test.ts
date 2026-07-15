@@ -40,18 +40,16 @@ vi.mock('@/server/events', async (importOriginal) => ({
     onStudyReviewRequested: vi.fn(),
 }))
 
-async function setupResultApprovalFixture({ withResearcherKey = true } = {}) {
+async function setupResultApprovalFixture() {
     const { user: reviewer, org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
     const lab = await insertTestOrg({ slug: 'otter-635-lab', type: 'lab' })
     const { user: researcher } = await insertTestUser({ org: lab })
     const fingerprint = 'otter-635-researcher-key'
 
-    if (withResearcherKey) {
-        await db
-            .insertInto('userPublicKey')
-            .values({ userId: researcher.id, publicKey: Buffer.from('labPublicKey'), fingerprint })
-            .executeTakeFirstOrThrow()
-    }
+    await db
+        .insertInto('userPublicKey')
+        .values({ userId: researcher.id, publicKey: Buffer.from('labPublicKey'), fingerprint })
+        .executeTakeFirstOrThrow()
 
     const { job, study } = await insertTestStudyJobData({
         org: enclave,
@@ -81,7 +79,7 @@ async function setupResultApprovalFixture({ withResearcherKey = true } = {}) {
             {
                 studyJobFileId: file.id,
                 filePath: 'results.csv',
-                keys: withResearcherKey ? [{ fingerprint, crypt: 'wrapped-for-researcher' }] : [],
+                keys: [{ fingerprint, crypt: 'wrapped-for-researcher' }],
             },
         ],
         study,
@@ -260,29 +258,6 @@ describe('Study Job Actions', () => {
                 studyJobFileId: file.id,
                 recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
             })
-        })
-
-        test('does not approve results when no researcher encryption keys are shared', async () => {
-            const { enclave, job, sharedFiles, study } = await setupResultApprovalFixture({
-                withResearcherKey: false,
-            })
-
-            const result = await approveStudyJobFilesAction({
-                orgSlug: enclave.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
-                sharedFiles,
-            })
-
-            expect(result).toEqual({
-                error: { sharedFiles: 'Results cannot be approved without a researcher encryption key.' },
-            })
-            const approval = await db
-                .selectFrom('jobStatusChange')
-                .select('id')
-                .where('studyJobId', '=', job.id)
-                .where('status', '=', 'FILES-APPROVED')
-                .executeTakeFirst()
-            expect(approval).toBeUndefined()
         })
 
         test('permission denied for non-enclave user', async () => {
