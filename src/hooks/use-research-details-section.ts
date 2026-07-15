@@ -35,10 +35,13 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         validateInputOnBlur: true,
     })
 
-    // Reflect the persisted values into the form whenever they change. `defaults` is
-    // memoized on the underlying field values, so this only re-runs on a real change
-    // and never clobbers in-progress edits (typing doesn't change `data`).
+    // Reflect the persisted values into the form when they change, but never while the
+    // user has unsaved edits open: a background refetch (15-min interval / window focus)
+    // can change `data` mid-edit, and resetting the form would silently discard the edit.
+    // When not editing (or editing with no changes yet) this still populates the form,
+    // including the auto-opened incomplete-profile case below.
     useEffect(() => {
+        if (isEditing && form.isDirty()) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
@@ -47,14 +50,15 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
     // Open straight into edit mode for an incomplete profile and clear any stale
     // interest draft. Derived during render (keyed on the persisted values) instead
     // of in an effect to avoid a cascading set-state-in-effect; the effect above
-    // still populates the form either way.
-    if (data) {
+    // still populates the form either way. Gated on !isEditing so a mid-edit refetch
+    // cannot clear an interest the user has typed but not yet committed.
+    if (data && !isEditing) {
         const key = JSON.stringify([defaults.detailedPublicationsUrl, defaults.researchInterests ?? []])
         if (key !== autoOpenKey) {
             setAutoOpenKey(key)
             setInterestDraft('')
             const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
-            if (!isEditing && !complete) {
+            if (!complete) {
                 setIsEditing(true)
             }
         }
