@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { useState } from 'react'
 import { screen, waitFor } from '@testing-library/react'
 import {
     renderWithProviders,
@@ -143,6 +144,50 @@ describe('PersonalInfoSection', () => {
             expect(emailInput.disabled).toBe(true)
             expect(emailInput.value).toBe(user.email)
         })
+    })
+
+    it('preserves unsaved edits when a background refetch changes server data', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        // Harness lets the test swap in changed server data (as a periodic refetch or a
+        // window-focus refetch would) while the form is open for editing.
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            return (
+                <>
+                    <button
+                        onClick={() =>
+                            setData((prev) =>
+                                prev ? { ...prev, user: { ...prev.user, lastName: 'RemoteChange' } } : prev,
+                            )
+                        }
+                    >
+                        simulate-refetch
+                    </button>
+                    <PersonalInfoSection data={data} refetch={refetch} />
+                </>
+            )
+        }
+
+        renderWithProviders(<Harness />)
+
+        const editButton = screen.getByRole('button', { name: /edit/i })
+        await userEvents.click(editButton)
+
+        const firstNameInput = screen.getByPlaceholderText('Enter your first name')
+        await userEvents.clear(firstNameInput)
+        await userEvents.type(firstNameInput, 'MyUnsavedName')
+
+        await userEvents.click(screen.getByRole('button', { name: 'simulate-refetch' }))
+
+        // The in-progress edit must not be clobbered by the refetch.
+        expect((screen.getByPlaceholderText('Enter your first name') as HTMLInputElement).value).toBe('MyUnsavedName')
     })
 
     it('should close edit mode without API call when no changes are made', async () => {

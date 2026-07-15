@@ -116,6 +116,10 @@ export function StudyRequestProvider({
 
     useEffect(() => {
         if (initialDraft) {
+            // Seeds the Mantine form and the document-file store from the server-provided
+            // draft. This is a genuine external-store sync from props, and initFromDraft's
+            // form/store writes cannot run during render, so it must stay in an effect.
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- external store seeding from a server draft
             initFromDraft(initialDraft, initialSubmittingOrgSlug)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
