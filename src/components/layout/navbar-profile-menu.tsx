@@ -5,7 +5,7 @@ import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { useProfileMenuDisclosure } from '@/hooks/use-profile-menu-disclosure'
 import { Routes } from '@/lib/routes'
-import { AuthRole, orgNeedsKey } from '@/lib/types'
+import { AuthRole, sessionNeedsKey } from '@/lib/types'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
@@ -27,9 +27,7 @@ export function NavbarProfileMenu() {
 
     const menuRef = useClickOutside<HTMLDivElement>(handleClickOutside)
     const isSiAdmin = session?.user.isSiAdmin || false
-    // Member of a key-requiring org (enclave or lab), whether or not they've generated one yet;
-    // mirrors the UserKey ability + RequireUserKey guard.
-    const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
+    const needsKey = sessionNeedsKey(session)
 
     const navigateTo = (route: string) => (e: React.MouseEvent) => {
         e.stopPropagation()

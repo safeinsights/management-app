@@ -44,6 +44,16 @@ export function orgNeedsKey(org: { type: OrgType }): boolean {
     return isEnclaveOrg(org) || isLabOrg(org)
 }
 
+// Single source of truth for "this user must hold an encryption key": any member of a key-holding
+// org, plus SI admins (who can review/decrypt anything and are the intended re-key operators).
+// Mirrored by the UserKey ability (permissions.ts), the RequireUserKey guard, and the sign-in
+// redirect. SI admins already satisfy orgNeedsKey today via the enclave `safe-insights` org — the
+// explicit isSiAdmin term makes the requirement independent of that org's type.
+export function sessionNeedsKey(session: Pick<UserSession, 'user' | 'orgs'> | null | undefined): boolean {
+    if (!session) return false
+    return session.user.isSiAdmin || Object.values(session.orgs).some(orgNeedsKey)
+}
+
 // Helper functions to get orgs from session
 export function getLabOrg(session: UserSession): Org | null {
     return Object.values(session.orgs).find(isLabOrg) || null

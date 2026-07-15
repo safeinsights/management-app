@@ -1,6 +1,6 @@
 'use client'
 
-import { orgNeedsKey } from '@/lib/types'
+import { sessionNeedsKey } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
 import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
@@ -14,8 +14,7 @@ export const RequireUserKey = () => {
 
     useLayoutEffect(() => {
         const checkForUserKey = async () => {
-            const needsKey = Object.values(session?.orgs || {}).some(orgNeedsKey)
-            if (!session || !needsKey) return
+            if (!session || !sessionNeedsKey(session)) return
 
             const hasKey = actionResult(await userKeyExistsAction())
 
