@@ -9,6 +9,7 @@ import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
+import { actionResult } from '@/lib/utils'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -46,7 +47,7 @@ export const JobReviewButtons = ({
                 // Re-wrap each approved file's AES key for the lab researchers, client-side.
                 // Only the wrapped keys are sent — never the raw key or plaintext.
                 const sharedFiles = await buildSharedFiles(job.studyId, decryptedResults)
-                await approveStudyJobFilesAction({ orgSlug, jobInfo, sharedFiles })
+                actionResult(await approveStudyJobFilesAction({ orgSlug, jobInfo, sharedFiles }))
             }
 
             if (status === 'FILES-REJECTED') {
