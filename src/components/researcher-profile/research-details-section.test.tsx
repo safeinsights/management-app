@@ -378,8 +378,8 @@ describe('ResearchDetailsSection', () => {
     // A committed interest edit (added via Enter, so it went through form.insertListItem) must
     // also survive a mid-edit refetch. Reproduces the exact reviewer scenario: commit a pill,
     // then change and restore another field, then a background refetch changes the persisted
-    // interests. form.isDirty() must still report the list divergence (Mantine v8 computes it by
-    // deep comparison), so the guard skips the resync and the edit is preserved.
+    // interests. The edit-session guard must skip the resync without relying on Mantine's dirty
+    // tracking, which can miss this combination of list and scalar edits.
     it('preserves a committed interest edit when a background refetch changes server data', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
