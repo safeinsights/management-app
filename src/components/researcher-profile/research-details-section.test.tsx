@@ -375,6 +375,68 @@ describe('ResearchDetailsSection', () => {
         expect((interestInput as HTMLInputElement).value).toBe('MyDraftInterest')
     })
 
+    // A committed interest edit (added via Enter, so it went through form.insertListItem) must
+    // also survive a mid-edit refetch. Reproduces the exact reviewer scenario: commit a pill,
+    // then change and restore another field, then a background refetch changes the persisted
+    // interests. form.isDirty() must still report the list divergence (Mantine v8 computes it by
+    // deep comparison), so the guard skips the resync and the edit is preserved.
+    it('preserves a committed interest edit when a background refetch changes server data', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        await userEvents.click(screen.getByRole('button', { name: /edit/i }))
+
+        // Commit a new interest via Enter (goes through form.insertListItem).
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'KeepMe{Enter}')
+        await waitFor(() => expect(screen.getByText('KeepMe')).toBeDefined())
+
+        // Change another field and restore it, per the reviewer scenario.
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'X')
+        await userEvents.clear(urlInput)
+        await userEvents.type(urlInput, 'https://scholar.google.com/user')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The committed edit must survive and the refetched interest must not be pulled in.
+        expect(screen.getByText('KeepMe')).toBeDefined()
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+    })
+
     it('should commit a typed interest to a pill when the field loses focus', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })

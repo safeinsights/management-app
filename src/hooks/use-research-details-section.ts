@@ -10,7 +10,6 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 export function useResearchDetailsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [isEditing, setIsEditing] = useState(false)
     const [interestDraft, setInterestDraft] = useState('')
-    const [autoOpenKey, setAutoOpenKey] = useState<string | null>(null)
 
     const defaults: ResearchDetailsValues = useMemo(
         () => ({
@@ -35,36 +34,26 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         validateInputOnBlur: true,
     })
 
-    // Reflect the persisted values into the form when they change, but never while the
-    // user has unsaved input open: a background refetch (15-min interval / window focus)
-    // can change `data` mid-edit, and resetting the form would silently discard it.
-    // "Unsaved input" is both dirty form fields and a typed-but-uncommitted interest
-    // draft (separate state that form.isDirty() does not track). When not editing (or
-    // editing with nothing entered yet) this still populates the form, including the
-    // auto-opened incomplete-profile case below.
+    // Seed the form from the persisted profile, decide the initial edit mode, and clear any
+    // stale interest draft, but never while the user is editing, so a background refetch
+    // (15-min interval / window focus) can never overwrite unsaved input. Seeding the form
+    // (an external Mantine store) and the coupled edit-mode / draft resets must run together
+    // in this effect: they have to happen in the same pass so the form is populated before it
+    // opens, and "not editing" is the only reliable divergence guard. form.isDirty() is not
+    // dependable here: committed interest edits go through Mantine list ops and an uncommitted
+    // draft is separate state, so neither reliably marks the form dirty.
     useEffect(() => {
-        if (isEditing && (form.isDirty() || interestDraft.trim().length > 0)) return
+        if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
-    }, [defaults])
-
-    // Open straight into edit mode for an incomplete profile and clear any stale
-    // interest draft. Derived during render (keyed on the persisted values) instead
-    // of in an effect to avoid a cascading set-state-in-effect; the effect above
-    // still populates the form either way. Gated on !isEditing so a mid-edit refetch
-    // cannot clear an interest the user has typed but not yet committed.
-    if (data && !isEditing) {
-        const key = JSON.stringify([defaults.detailedPublicationsUrl, defaults.researchInterests ?? []])
-        if (key !== autoOpenKey) {
-            setAutoOpenKey(key)
-            setInterestDraft('')
+        if (data) {
             const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
-            if (!complete) {
-                setIsEditing(true)
-            }
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- initial edit mode is coupled to seeding the form from server data
+            setIsEditing(!complete)
         }
-    }
+        setInterestDraft('')
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
+    }, [data, defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
 
     const saveMutation = useMutation({
         mutationFn: async (values: ResearchDetailsValues) => updateResearchDetailsAction(values),

@@ -9,7 +9,6 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 export function usePersonalInfoSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [isEditing, setIsEditing] = useState(false)
-    const [autoOpenKey, setAutoOpenKey] = useState<string | null>(null)
 
     const defaults: PersonalInfoValues = useMemo(
         () => ({
@@ -26,30 +25,23 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
         validateInputOnBlur: true,
     })
 
-    // Reflect the persisted values into the form when they change, but never while the
-    // user has unsaved edits open: a background refetch (15-min interval / window focus)
-    // can change `data` mid-edit, and resetting the form would silently discard the edit.
-    // When not editing (or editing with no changes yet) this still populates the form,
-    // including the auto-opened incomplete-profile case below.
+    // Seed the form from the persisted profile and decide the initial edit mode, but never
+    // while the user is editing, so a background refetch (15-min interval / window focus)
+    // can never overwrite unsaved input. Seeding the form (an external Mantine store) and the
+    // coupled edit-mode decision must run together in this effect: they have to happen in the
+    // same pass so the form is populated before it opens, and "not editing" is the only
+    // reliable divergence guard (form.isDirty() is not dependable, e.g. after list edits).
     useEffect(() => {
-        if (isEditing && form.isDirty()) return
+        if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
-    }, [defaults])
-
-    // Open straight into edit mode for an incomplete profile. Derived during render
-    // (keyed on the persisted values) instead of in an effect to avoid a cascading
-    // set-state-in-effect; the effect above still populates the form either way.
-    if (data) {
-        const key = JSON.stringify([defaults.firstName, defaults.lastName])
-        if (key !== autoOpenKey) {
-            setAutoOpenKey(key)
-            if (!isEditing && !(Boolean(defaults.firstName) && Boolean(defaults.lastName))) {
-                setIsEditing(true)
-            }
+        if (data) {
+            const complete = Boolean(defaults.firstName) && Boolean(defaults.lastName)
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- initial edit mode is coupled to seeding the form from server data
+            setIsEditing(!complete)
         }
-    }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
+    }, [data, defaults.firstName, defaults.lastName])
 
     const saveMutation = useMutation({
         mutationFn: async (values: PersonalInfoValues) => updatePersonalInfoAction(values),
