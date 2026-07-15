@@ -54,15 +54,25 @@ pipeline {
                     echo commitMsg
                     env.COMMIT_MESSAGE = commitMsg
 
-                    // try two common patterns: "Merge pull request #123" or any "#123"
-                    def prMatcher = (commitMsg =~ /Merge pull request #(\d+)/)
-
-                    if (prMatcher) {
-                        // the first capturing group is the number
-                        env.MERGED_PR_NUMBER = prMatcher[0][1]
-                        echo "Found merged PR number: ${env.MERGED_PR_NUMBER}"
-                    } else {
-                        echo "Not a merge commit"
+                    // Merge detection only makes sense on the main build: that's where the merge/squash
+                    // commit lands. A PR-* build checks out refs/pull/N/head (the PR's own head commit,
+                    // never a merge), and its CHANGE_ID already drives a preview deploy — so looking for
+                    // a merge there both never matches and would wrongly compete with the preview deploy.
+                    if (env.BRANCH_NAME == 'main') {
+                        // GitHub merge-commit messages: "Merge pull request #123 ...". GitHub
+                        // squash/rebase merges instead append "(#123)" to the (usually first) line.
+                        def merge = (commitMsg =~ /Merge pull request #(\d+)/)
+                        def squash = (commitMsg =~ /\(#(\d+)\)/)
+                        if (merge) {
+                            env.MERGED_PR_NUMBER = merge[0][1]
+                        } else if (squash) {
+                            env.MERGED_PR_NUMBER = squash[0][1]
+                        }
+                        if (env.MERGED_PR_NUMBER) {
+                            echo "Found merged PR number: ${env.MERGED_PR_NUMBER}"
+                        } else {
+                            echo "No merged PR number in commit message"
+                        }
                     }
                 }
                 sh """
