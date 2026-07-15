@@ -18,8 +18,9 @@
 # is OTTER-545-safe because it runs ONLY on push to main (guarded by both the event
 # and `github.ref == 'refs/heads/main'`): trusted, post-merge code that a PR/fork
 # can never trigger, and it runs no pnpm install and no app/test code (see the
-# comment on that job). Every `pull_request`-reachable job here still holds no write
-# scope and no secrets.
+# comment on that job). Every `pull_request`-reachable job here still holds no
+# `contents: write` and no stored repository secrets: the only token in scope is the
+# automatic, ephemeral, job-scoped `GITHUB_TOKEN`, bounded by each job's `permissions:`.
 name: Checks
 on:
     push:
@@ -447,9 +448,18 @@ jobs:
     #     already-merged coverage-summary.json artifact and lets coverage-diff-action
     #     push it to the wiki, keeping the code under contents:write minimal.
     # Do NOT add a `pull_request` trigger or a same-repo-PR gate to this job, do NOT add
-    # any `secrets.*`, and do NOT check out PR head; each of those reopens OTTER-545.
+    # any stored repository secrets (anything under `secrets.*` other than the automatic
+    # `GITHUB_TOKEN`), and do NOT check out PR head; each of those reopens OTTER-545.
     coverage-baseline:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # Serialize baseline writes across concurrent main runs (the workflow-level group
+        # keys push runs by run_id, so they run in parallel). Without this, two main pushes
+        # can race the wiki push (non-fast-forward failure) or overwrite the baseline out of
+        # order, leaving it stale. cancel-in-progress lets the newer run win. Safe for the
+        # build cache: that is seeded in `e2e`, which finishes before this job starts.
+        concurrency:
+            group: coverage-baseline-${{ github.ref }}
+            cancel-in-progress: true
         timeout-minutes: 10
         runs-on: ubuntu-latest
         needs: [coverage]
