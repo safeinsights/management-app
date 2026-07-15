@@ -453,14 +453,12 @@ jobs:
     # `GITHUB_TOKEN`), and do NOT check out PR head; each of those reopens OTTER-545.
     coverage-baseline:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        # Serialize baseline writes across concurrent main runs (the workflow-level group
-        # keys push runs by run_id, so they run in parallel). GitHub does not guarantee the
-        # order of jobs in a concurrency group, so the main-HEAD check below prevents an
-        # older run that arrives late from overwriting a newer baseline. Safe for the build
-        # cache: that is seeded in `e2e`, which finishes before this job starts.
+        # Queue baseline writes from concurrent main runs while allowing their test jobs to
+        # run in parallel. The main-HEAD check below makes late older runs skip instead of
+        # overwriting a newer baseline.
         concurrency:
-            group: coverage-baseline-${{ github.ref }}
-            cancel-in-progress: true
+            group: coverage-baseline-main
+            queue: max
         timeout-minutes: 10
         runs-on: ubuntu-latest
         needs: [coverage]
