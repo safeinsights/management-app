@@ -20,6 +20,7 @@ import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer } from '@/components/file-viewers'
+import { decodeFileContents } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { studyCodeURL } from '@/lib/paths'
 import {
@@ -508,9 +509,10 @@ function StudyCodeBody({
             </Alert>
         )
     }
+    const code = decodeFileContents(data.contents)
     return (
         <div data-testid="study-code-body">
-            <CodeViewer code={data.contents} language={highlightLanguageForFile(activeFile.name)} withBorder />
+            <CodeViewer code={code} language={highlightLanguageForFile(activeFile.name)} withBorder />
         </div>
     )
 }
