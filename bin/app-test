@@ -21,7 +21,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# next build/start don't auto-load .env.test — load it explicitly.
+# Optional local override: if a .env.test exists it wins, but it is NOT required — every
+# value the e2e app needs has a safe, non-secret default set below (faked Clerk, local
+# Postgres, local SeaweedFS). This mirrors docker-compose.testunit.yml, which inlines its
+# env instead of depending on a gitignored file.
 if [ -f .env.test ]; then
     set -a
     # shellcheck disable=SC1091
@@ -35,6 +38,19 @@ export SINGLE_USER_EDITING=t
 export PORT=4100
 export ASSETS_PREFIX=/
 export CODER_FILES=./coder-files
+
+# --- Test DB + local S3 defaults (non-secret; .env is the base, these override) ----------
+# The host-run server connects to the dedicated e2e stack (docker-compose.e2e.yml), whose
+# Postgres + SeaweedFS are published on the host at E2E_PG_PORT (5433) / E2E_S3_PORT (8334) —
+# distinct from dev's 5432/8333. DATABASE_URL and S3_ENDPOINT MUST override .env here: .env
+# points at the dev DB and the in-container S3 DNS, neither of which is right for a host run.
+export DATABASE_URL="${DATABASE_URL:-postgres://si:si@localhost:${E2E_PG_PORT:-5433}/si_test}"
+export S3_ENDPOINT="${S3_ENDPOINT:-http://localhost:${E2E_S3_PORT:-8334}}"
+export S3_BROWSER_ENDPOINT="${S3_BROWSER_ENDPOINT:-http://127.0.0.1:${E2E_S3_PORT:-8334}}"
+export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-si-local-s3}"
+export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-si-local-s3}"
+export AWS_REGION="${AWS_REGION:-us-east-1}"
+export BUCKET_NAME="${BUCKET_NAME:-mgmt-app-local}"
 # .env.test sets AWS_PROFILE, which makes the AWS SDK prefer (expired) SSO over the static
 # local-S3 creds — S3 calls then hang ~30s and time out the upload-heavy specs. Drop it so
 # the static AWS_ACCESS_KEY_ID/SECRET (SeaweedFS) are used, matching CI.

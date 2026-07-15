@@ -85,7 +85,7 @@ export default defineConfig({
     // (with E2E_FAKE_CLERK so Clerk is faked in-process — no external auth server) and
     // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
     // compilation is slow and unstable under the suite. The shared infra (Postgres +
-    // SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`. On CI the app is
+    // SeaweedFS + the test DB) is brought up first by `pnpm run test:e2e`. On CI the app is
     // built+started by bin/ci-server, so no webServer is managed here. The timeout covers a
     // full `next build`; `reuseExistingServer` lets you keep a manually-started server
     // (./bin/app-test, or ./bin/app-test --no-build) running across iterations.
@@ -108,7 +108,7 @@ export default defineConfig({
             // Specs opt in with `test.use({ storageState: authFileFor(role) })` to start
             // authenticated. The storageState files + route warmup are produced by
             // globalSetup (tests/global.setup.ts); DB users/orgs are seeded by
-            // `pnpm test:e2e:up` (db:migrate). No separate auth-setup project/barrier.
+            // `pnpm run test:e2e` (migrate + seed). No separate auth-setup project/barrier.
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
         },

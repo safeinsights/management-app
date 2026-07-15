@@ -1,0 +1,124 @@
+# docker-compose.e2e.yml
+#
+# Local e2e infrastructure for HOST-run Playwright. Analogous to docker-compose.testunit.yml,
+# but with two differences:
+#   1. It PUBLISHES ports to the host, because Playwright and the app under test
+#      (bin/app-test on :4100) run on the host and must reach the DB + S3.
+#   2. It includes a one-shot `seed-e2e` service so migrate + seed happen INSIDE Docker
+#      (no host-level psql/kysely needed).
+#
+# Driven by ./bin/test-e2e (= `pnpm run test:e2e`), which brings this stack up, seeds it,
+# then runs Playwright on the host. Interactive debugging (`--ui` / `--headed`) works
+# because Playwright is local.
+#
+# Isolation: a DEDICATED Postgres container (si_test) with its own volume — it never
+# touches the dev DB (mgmnt_dev on the main docker-compose.yml). Uses the same si/si/si_test
+# identity as the unit-test stack. `.env` is loaded as the base (env_file); only the values
+# that MUST differ for an isolated host run (DATABASE_URL) are overridden.
+services:
+    db-e2e:
+        image: 'postgres:16'
+        environment:
+            - POSTGRES_USER=si
+            - POSTGRES_PASSWORD=si
+            - POSTGRES_DB=si_test
+        # Published so the host-run app server (bin/app-test) can reach the test DB.
+        # Distinct from dev's 5432 so the two never clash; override with E2E_PG_PORT.
+        ports:
+            - '${E2E_PG_PORT:-5433}:5432'
+        volumes:
+            - pgdata-e2e:/var/lib/postgresql/data
+        networks:
+            - e2e-net
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U si -d si_test']
+            interval: 2s
+            retries: 10
+            start_period: 2s
+            timeout: 3s
+        restart: unless-stopped
+
+    seaweedfs-e2e:
+        image: chrislusf/seaweedfs
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        command: server -s3 -dir=/data
+        # Published so the host-run app server can reach S3; distinct from dev's 8333.
+        ports:
+            - '${E2E_S3_PORT:-8334}:8333'
+        volumes:
+            - seaweedfs-data-e2e:/data
+        networks:
+            - e2e-net
+        healthcheck:
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 3s
+        restart: unless-stopped
+
+    create-buckets-e2e:
+        image: amazon/aws-cli
+        depends_on:
+            seaweedfs-e2e:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
+        entrypoint: >
+            /bin/sh -c "
+            aws --endpoint-url http://seaweedfs-e2e:8333 s3 mb s3://mgmt-app-local;
+            exit 0;
+            "
+        networks:
+            - e2e-net
+        restart: 'no'
+
+    # One-shot: migrate + seed the test DB from INSIDE Docker (mirrors the unit-test
+    # runner's migrate/seed). E2E_FAKE_CLERK makes bin/seed-environment.ts seed orgs
+    # only and skip Clerk provisioning. All steps are idempotent, so re-running is cheap.
+    seed-e2e:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        working_dir: /app
+        env_file:
+            - .env
+        environment:
+            # Override .env's dev DATABASE_URL to target the isolated test DB by service DNS.
+            - DATABASE_URL=postgres://si:si@db-e2e:5432/si_test
+            - E2E_FAKE_CLERK=1
+            - NODE_ENV=test
+            # Drop any AWS_PROFILE from .env so the SDK never blocks on expired SSO.
+            - AWS_PROFILE=
+            # Corepack provisions pnpm at runtime; cache it inside the node_modules volume
+            # (mirrors docker-compose.testunit.yml) and never prompt.
+            - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+            - COREPACK_HOME=/app/node_modules/.corepack
+        volumes:
+            - ./:/app/
+            - node_modules_e2e:/app/node_modules
+        command: >
+            sh -c "corepack enable &&
+            pnpm install --config.store-dir=/app/node_modules/.pnpm-store --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false &&
+            ([ -d src/styles/generated/css ] || pnpm exec panda codegen) &&
+            pnpm exec kysely migrate:latest &&
+            pnpm exec kysely seed:run &&
+            pnpm exec tsx bin/seed-environment.ts"
+        depends_on:
+            db-e2e:
+                condition: service_healthy
+        networks:
+            - e2e-net
+        restart: 'no'
+
+networks:
+    e2e-net:
+
+volumes:
+    pgdata-e2e:
+    seaweedfs-data-e2e:
+    node_modules_e2e: # also holds the co-located pnpm store (.pnpm-store) and corepack cache (.corepack)

@@ -206,12 +206,26 @@ pnpm run test:unit
 
 ### E2E Testing with Playwright 🎭
 
-To run playwright tests locally, you'll need to install playwright:
+E2E tests use the dedicated stack in `docker-compose.e2e.yml`: an isolated test database and
+object storage run in Docker (and are migrated + seeded there), while Playwright and the app
+under test run on your host, so interactive debugging works. The dev database (`mgmnt_dev`)
+is never touched.
+
+One-time setup:
 
 - `pnpm install`
 - `pnpm exec playwright install`
 
-And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
+Run the suite (brings the stack up, seeds it in Docker, then runs Playwright on your host):
+
+- `pnpm run test:e2e` — full suite (headless)
+- `pnpm run test:e2e -- --ui` — Playwright UI (interactive)
+- `pnpm run test:e2e -- --headed` — watch the browser run
+- `pnpm run test:e2e -- tests/signin.spec.ts` — a subset (any Playwright args after `--`)
+
+Once the stack is up and seeded you can re-run Playwright directly for fast iteration: `pnpm exec playwright test --ui`.
+
+Manage the stack via `./bin/test-e2e`: `--clean` (fresh DB + storage, reseed), `--down` (stop containers, keep volumes), `--prune` (remove everything including volumes).
 
 If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
