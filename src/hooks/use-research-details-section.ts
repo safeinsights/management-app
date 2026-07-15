@@ -10,6 +10,7 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 export function useResearchDetailsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [isEditing, setIsEditing] = useState(false)
     const [interestDraft, setInterestDraft] = useState('')
+    const [autoOpenKey, setAutoOpenKey] = useState<string | null>(null)
 
     const defaults: ResearchDetailsValues = useMemo(
         () => ({
@@ -34,17 +35,30 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         validateInputOnBlur: true,
     })
 
+    // Reflect the persisted values into the form whenever they change. `defaults` is
+    // memoized on the underlying field values, so this only re-runs on a real change
+    // and never clobbers in-progress edits (typing doesn't change `data`).
     useEffect(() => {
-        if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
-        if (data) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
+    }, [defaults])
+
+    // Open straight into edit mode for an incomplete profile and clear any stale
+    // interest draft. Derived during render (keyed on the persisted values) instead
+    // of in an effect to avoid a cascading set-state-in-effect; the effect above
+    // still populates the form either way.
+    if (data) {
+        const key = JSON.stringify([defaults.detailedPublicationsUrl, defaults.researchInterests ?? []])
+        if (key !== autoOpenKey) {
+            setAutoOpenKey(key)
+            setInterestDraft('')
             const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
-            setIsEditing(!complete)
+            if (!isEditing && !complete) {
+                setIsEditing(true)
+            }
         }
-        setInterestDraft('')
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [data, defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
+    }
 
     const saveMutation = useMutation({
         mutationFn: async (values: ResearchDetailsValues) => updateResearchDetailsAction(values),

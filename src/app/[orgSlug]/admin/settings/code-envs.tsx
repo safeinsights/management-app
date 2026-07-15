@@ -98,6 +98,19 @@ const CodeEnvDetailPanel: React.FC<{
     )
 }
 
+const DeleteCodeEnv: React.FC<{ isVisible: boolean; onConfirmed: () => void }> = ({ isVisible, onConfirmed }) => {
+    if (!isVisible) return null
+
+    return (
+        <SuretyGuard
+            onConfirmed={onConfirmed}
+            message="Are you sure you want to delete this code environment? This cannot be undone."
+        >
+            <TrashIcon />
+        </SuretyGuard>
+    )
+}
+
 const CodeEnvRow: React.FC<{
     image: CodeEnv
     canDelete: boolean
@@ -153,19 +166,6 @@ const CodeEnvRow: React.FC<{
         }
     }
 
-    const DeleteCodeEnv = () => {
-        if (!canDelete) return null
-
-        return (
-            <SuretyGuard
-                onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
-                message="Are you sure you want to delete this code environment? This cannot be undone."
-            >
-                <TrashIcon />
-            </SuretyGuard>
-        )
-    }
-
     return (
         <>
             <CodeEnvRowView
@@ -185,7 +185,10 @@ const CodeEnvRow: React.FC<{
                                 <PencilIcon />
                             </ActionIcon>
                         </Tooltip>
-                        <DeleteCodeEnv />
+                        <DeleteCodeEnv
+                            isVisible={canDelete}
+                            onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
+                        />
                     </>
                 }
                 detail={

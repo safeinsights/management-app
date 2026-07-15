@@ -9,6 +9,7 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 export function useEducationSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [isEditing, setIsEditing] = useState(false)
+    const [autoOpenKey, setAutoOpenKey] = useState<string | null>(null)
 
     const defaults: EducationValues = useMemo(
         () => ({
@@ -32,17 +33,29 @@ export function useEducationSection(data: ResearcherProfileData | null, refetch:
         validateInputOnBlur: true,
     })
 
+    // Reflect the persisted values into the form whenever they change. `defaults` is
+    // memoized on the underlying field values, so this only re-runs on a real change
+    // and never clobbers in-progress edits (typing doesn't change `data`).
     useEffect(() => {
-        if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
-        if (data) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
+    }, [defaults])
+
+    // Open straight into edit mode for an incomplete profile. Derived during render
+    // (keyed on the persisted values) instead of in an effect to avoid a cascading
+    // set-state-in-effect; the effect above still populates the form either way.
+    if (data) {
+        const key = JSON.stringify([defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
+        if (key !== autoOpenKey) {
+            setAutoOpenKey(key)
             const complete =
                 Boolean(defaults.educationalInstitution) && Boolean(defaults.degree) && Boolean(defaults.fieldOfStudy)
-            setIsEditing(!complete)
+            if (!isEditing && !complete) {
+                setIsEditing(true)
+            }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [data, defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
+    }
 
     const saveMutation = useMutation({
         mutationFn: async (values: EducationValues) => updateEducationAction(values),
