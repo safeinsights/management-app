@@ -111,7 +111,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         stage: 'Code',
         label: 'Processing',
         tooltip:
-            "The code is now running against the enclave. You'll receive an email once results are ready for review.",
+            'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
         colors: COLORS.default,
     },
     'JOB-ERRORED': {
