@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { useState } from 'react'
+import { screen, waitFor, fireEvent, act } from '@testing-library/react'
 import {
     renderWithProviders,
     userEvent,
@@ -315,6 +316,63 @@ describe('ResearchDetailsSection', () => {
 
         expect(updated.researchInterests).toEqual(['Quantum Computing'])
         expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
+    })
+
+    // A background refetch (15-min interval / window focus) that changes the persisted
+    // interests must not resync into an open edit session while the user has a typed-but-
+    // uncommitted interest draft. That draft is separate state form.isDirty() cannot see;
+    // resyncing would pull in the server interests and silently drop the draft on Save.
+    it('does not pull refetched interests into an open edit form with an uncommitted draft', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML', 'Data Science', 'NLP'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        // Deliver the refetch by mutating the harness state directly (not via a DOM click),
+        // so the interest input never blurs and the draft stays uncommitted.
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'Data Science', 'NLP', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        const editButton = screen.getByRole('button', { name: /edit/i })
+        await userEvents.click(editButton)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'MyDraftInterest')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The open edit session must not absorb the refetched interest, and the uncommitted
+        // draft must remain intact.
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+        expect((interestInput as HTMLInputElement).value).toBe('MyDraftInterest')
     })
 
     it('should commit a typed interest to a pill when the field loses focus', async () => {

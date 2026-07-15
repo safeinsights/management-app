@@ -36,12 +36,14 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
     })
 
     // Reflect the persisted values into the form when they change, but never while the
-    // user has unsaved edits open: a background refetch (15-min interval / window focus)
-    // can change `data` mid-edit, and resetting the form would silently discard the edit.
-    // When not editing (or editing with no changes yet) this still populates the form,
-    // including the auto-opened incomplete-profile case below.
+    // user has unsaved input open: a background refetch (15-min interval / window focus)
+    // can change `data` mid-edit, and resetting the form would silently discard it.
+    // "Unsaved input" is both dirty form fields and a typed-but-uncommitted interest
+    // draft (separate state that form.isDirty() does not track). When not editing (or
+    // editing with nothing entered yet) this still populates the form, including the
+    // auto-opened incomplete-profile case below.
     useEffect(() => {
-        if (isEditing && form.isDirty()) return
+        if (isEditing && (form.isDirty() || interestDraft.trim().length > 0)) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- resync only when persisted values change
