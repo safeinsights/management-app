@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useParams } from 'next/navigation'
+import { useState } from 'react'
 
 type Props = {
     form: UseFormReturnType<StudyProposalFormValues>
@@ -14,7 +15,13 @@ type Props = {
 
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
-    const { studyId } = useParams<{ studyId?: string }>()
+    const { studyId: routeStudyId } = useParams<{ studyId?: string }>()
+    // OTTER-636 Phase 7: the draft is now lazy-created on Data-Partner selection (before the URL gains a
+    // studyId). The request context stamps the new id into the form's `createdStudyId`; watch it so the
+    // selector locks once a draft exists. The Data Partner is fixed at creation (the update path does not
+    // change org), matching the edit flow.
+    const [createdStudyId, setCreatedStudyId] = useState(form.getValues().createdStudyId)
+    form.watch('createdStudyId', ({ value }) => setCreatedStudyId(value))
 
     const { data: orgs = [], isLoading } = useQuery({
         queryKey: ['orgs-with-languages'],
@@ -24,7 +31,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
-    const isExistingDraft = !!studyId
+    const isExistingDraft = !!routeStudyId || !!createdStudyId
 
     return (
         <Paper p="xxl">
