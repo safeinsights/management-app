@@ -5,7 +5,7 @@ import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { useProfileMenuDisclosure } from '@/hooks/use-profile-menu-disclosure'
 import { Routes } from '@/lib/routes'
-import { AuthRole, sessionNeedsKey } from '@/lib/types'
+import { AuthRole } from '@/lib/types'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
@@ -27,7 +27,6 @@ export function NavbarProfileMenu() {
 
     const menuRef = useClickOutside<HTMLDivElement>(handleClickOutside)
     const isSiAdmin = session?.user.isSiAdmin || false
-    const needsKey = sessionNeedsKey(session)
 
     const navigateTo = (route: string) => (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -89,21 +88,19 @@ export function NavbarProfileMenu() {
                 component="button"
             />
 
-            {needsKey && (
-                <NavLink
-                    label="Security key"
-                    leftSection={<LockIcon aria-hidden="true" />}
-                    onClick={navigateTo(Routes.userKey)}
-                    c="white"
-                    active={pathname === Routes.userKey}
-                    color="blue.7"
-                    variant="filled"
-                    className={styles.navLinkProfileHover}
-                    aria-label="Security key"
-                    role="menuitem"
-                    component="button"
-                />
-            )}
+            <NavLink
+                label="Security key"
+                leftSection={<LockIcon aria-hidden="true" />}
+                onClick={navigateTo(Routes.userKey)}
+                c="white"
+                active={pathname === Routes.userKey}
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkProfileHover}
+                aria-label="Security key"
+                role="menuitem"
+                component="button"
+            />
 
             {isSiAdmin && (
                 <NavLink

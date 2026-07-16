@@ -8,7 +8,7 @@ import { fingerprintKeyData } from 'si-encryption/util'
 import { Action, ActionFailure, z } from './action'
 
 // Pages that render the user's key state — bust both after a key write so presence/fingerprint
-// don't read stale. Both reviewers and researchers use the same key now (orgNeedsKey).
+// don't read stale.
 function revalidateKeyPages(): void {
     revalidatePath(Routes.accountKeys)
     revalidatePath(Routes.userKey)
