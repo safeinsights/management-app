@@ -26,6 +26,7 @@ const base = (jobs: RawJob[]): RawStudyState => ({
     reviewerAgreementsAckedAt: null,
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
+    proposalEditedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,

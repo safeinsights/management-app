@@ -23,6 +23,8 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         reviewerAgreementsAckedAt: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
+        // OTTER-636: drives the researcher's "Proposal draft" pill for a change-requested study being revised.
+        proposalEditedAt: study.proposalEditedAt,
         // Step 2 fields drive hasStep2Progress so a reopened DRAFT resumes on the right step (OTTER-572).
         piUserId: study.piUserId,
         datasets: study.datasets,

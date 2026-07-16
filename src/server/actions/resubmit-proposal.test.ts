@@ -8,11 +8,10 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
-    setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
-    markProposalDraftEditedAction,
+    markProposalEditedAction,
     onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
@@ -185,60 +184,33 @@ describe('resubmitProposalAction', () => {
         expect(result.orgName).toBe(reviewerOrg.orgName)
     })
 
-    // OTTER-636: the first edit on the Edit Proposal page flips a change-requested study to DRAFT
-    // ("Proposal draft"). That reverted draft (submittedAt still set) must remain resubmittable.
-    it('accepts a resubmission from a reverted DRAFT (previously submitted)', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-reverted', orgType: 'lab' })
+    // OTTER-636: resubmission ends the "Proposal draft" display by clearing the edit stamp so a future
+    // change-request round starts clean.
+    it('clears proposalEditedAt when resubmitting', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-clear-edited', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original title',
         })
-        // Simulate the first-edit flip: CHANGE-REQUESTED -> DRAFT, submittedAt preserved.
-        await setTestStudyStatus(study.id, 'DRAFT')
+        await db.updateTable('study').set({ proposalEditedAt: new Date() }).where('id', '=', study.id).execute()
 
         actionResult(
             await resubmitProposalAction({
                 studyId: study.id,
-                studyInfo: { title: 'Revised from draft' },
+                studyInfo: { title: 'Revised' },
                 resubmissionNote: NOTE_50_WORDS,
             }),
         )
 
         const updated = await db
             .selectFrom('study')
-            .select(['status', 'title', 'submittedAt'])
+            .select(['status', 'proposalEditedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
-        expect(updated.title).toBe('Revised from draft')
-        expect(updated.submittedAt).toEqual(study.submittedAt)
-    })
-
-    // A never-submitted draft (submittedAt null) belongs to the fresh-draft/finalize path, so the
-    // resubmit action must not accept it even though its status is DRAFT.
-    it('rejects a resubmission from a never-submitted DRAFT', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-fresh-draft', orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'DRAFT',
-        })
-
-        const result = await resubmitProposalAction({
-            studyId: study.id,
-            studyInfo: { title: 'attempting' },
-            resubmissionNote: NOTE_50_WORDS,
-        })
-        expect('error' in result).toBe(true)
-
-        const unchanged = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(unchanged.status).toBe('DRAFT')
+        expect(updated.proposalEditedAt).toBeNull()
     })
 
     it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {
@@ -424,9 +396,10 @@ describe('resubmitProposalAction', () => {
     })
 })
 
-// OTTER-636: editing a previously submitted proposal re-enters draft status.
-describe('markProposalDraftEditedAction', () => {
-    it('flips a CHANGE-REQUESTED study to DRAFT and preserves submittedAt', async () => {
+// OTTER-636: editing a previously submitted proposal stamps a display-only "Proposal draft" signal
+// without changing study.status (the resubmission flow keeps working).
+describe('markProposalEditedAction', () => {
+    it('stamps proposalEditedAt on a CHANGE-REQUESTED study and leaves status unchanged', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-mark-edited-1', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -434,16 +407,15 @@ describe('markProposalDraftEditedAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        actionResult(await markProposalDraftEditedAction({ studyId: study.id }))
+        actionResult(await markProposalEditedAction({ studyId: study.id }))
 
         const updated = await db
             .selectFrom('study')
-            .select(['status', 'submittedAt'])
+            .select(['status', 'proposalEditedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('DRAFT')
-        // submittedAt is preserved so the study stays on the resubmit-with-note path.
-        expect(updated.submittedAt).toEqual(study.submittedAt)
+        expect(updated.status).toBe('CHANGE-REQUESTED')
+        expect(updated.proposalEditedAt).not.toBeNull()
     })
 
     it('is a no-op for a study that is not CHANGE-REQUESTED (e.g. PENDING-REVIEW)', async () => {
@@ -454,17 +426,18 @@ describe('markProposalDraftEditedAction', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        actionResult(await markProposalDraftEditedAction({ studyId: study.id }))
+        actionResult(await markProposalEditedAction({ studyId: study.id }))
 
         const updated = await db
             .selectFrom('study')
-            .select('status')
+            .select(['status', 'proposalEditedAt'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
+        expect(updated.proposalEditedAt).toBeNull()
     })
 
-    it('does not flip a change-requested study for a caller from a different lab', async () => {
+    it('does not stamp a change-requested study for a caller from a different lab', async () => {
         const { org: labA, user: ownerA } = await mockSessionWithTestData({
             orgSlug: 'lab-mark-edited-A',
             orgType: 'lab',
@@ -476,14 +449,14 @@ describe('markProposalDraftEditedAction', () => {
         })
 
         await mockSessionWithTestData({ orgSlug: 'lab-mark-edited-B', orgType: 'lab' })
-        await markProposalDraftEditedAction({ studyId: study.id })
+        await markProposalEditedAction({ studyId: study.id })
 
         const unchanged = await db
             .selectFrom('study')
-            .select('status')
+            .select('proposalEditedAt')
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(unchanged.status).toBe('CHANGE-REQUESTED')
+        expect(unchanged.proposalEditedAt).toBeNull()
     })
 })
 

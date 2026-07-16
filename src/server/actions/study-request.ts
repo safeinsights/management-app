@@ -278,15 +278,15 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         }
     })
 
-// OTTER-636: a study re-enters draft status the moment a real edit is made to a previously submitted
-// proposal. The Edit Proposal page (change-requested) fires this on the researcher's first field/note
-// edit, flipping CHANGE-REQUESTED -> DRAFT so the study reads "Proposal draft" while they revise and
-// drops out of the reviewer's queue until they resubmit. Idempotent: a study not in CHANGE-REQUESTED
-// (already flipped, or a race) claims 0 rows and the flip is simply skipped — merely opening the page
-// or making no edits never changes the status. The resubmit-with-note flow is preserved: the reverted
-// DRAFT still carries submittedAt, which the page gate and resubmitProposalAction use to keep it on the
-// Edit Proposal path rather than the fresh-draft path.
-export const markProposalDraftEditedAction = new Action('markProposalDraftEditedAction', { performsMutations: true })
+// OTTER-636: a study reads as "Proposal draft" the moment a real edit is made to a previously
+// submitted (change-requested) proposal. This is a DISPLAY-ONLY signal: study.status stays
+// CHANGE-REQUESTED so the whole resubmission flow (note autosave, collaborative editor auth, kick-out,
+// back-nav, delete rules, reviewer visibility) keeps working unchanged; only the researcher's pill
+// switches to "Proposal draft" (see projectStudyState / resolvePillStatus). The Edit Proposal page
+// fires this on the researcher's first real field/note edit. Idempotent and stamp-once: a study not in
+// CHANGE-REQUESTED, or one already stamped, claims 0 rows. Merely opening the page or making no edits
+// never stamps it. Cleared on resubmit (resubmitProposalAction).
+export const markProposalEditedAction = new Action('markProposalEditedAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
@@ -297,9 +297,10 @@ export const markProposalDraftEditedAction = new Action('markProposalDraftEdited
 
         await db
             .updateTable('study')
-            .set({ status: 'DRAFT', lastUpdatedAt: new Date() })
+            .set({ proposalEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
+            .where('proposalEditedAt', 'is', null)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .execute()
 
@@ -492,7 +493,6 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.irbDocPath',
                 'study.agreementDocPath',
                 'study.status',
-                'study.submittedAt',
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',
@@ -555,6 +555,18 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         if (!fileNames.includes(mainFileName)) {
             throw new Error('Main file not in file list')
+        }
+
+        // OTTER-636: this is the INITIAL code-submit path (no resubmission note). Once a review decision
+        // has landed (change requested, or a results decision), a further submission is a resubmission
+        // and must go through resubmitStudyCodeAction, which requires a note. Re-submitting within the
+        // same un-reviewed round (no decision yet) is still allowed here. Guards the bypass where a
+        // post-decision draft round routes back through /code.
+        const submitRaw = await rawStudyStateForStudy(studyId, db)
+        if (submitRaw && canResearcherResubmitCode(projectStudyState(submitRaw))) {
+            throw new ActionFailure({
+                submission: 'This study must be resubmitted with a note; use the resubmit flow.',
+            })
         }
 
         const userId = session.user.id
@@ -671,12 +683,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select([
-                'study.id as id',
-                'study.status as status',
-                'study.submittedAt as submittedAt',
-                'org.name as orgName',
-            ])
+            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
             .where('study.id', '=', studyId)
             .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
@@ -684,12 +691,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
         // so the client receives a structured `{ error: { submission } }` it can show,
         // rather than a plain Error bubbling up as a generic unhandled exception.
-        // OTTER-636: the study may be CHANGE-REQUESTED, or a reverted DRAFT (its first Edit-Proposal
-        // edit flipped it to draft). A reverted draft is identified by submittedAt being set — a
-        // never-submitted draft (submittedAt null) belongs to the fresh-draft/finalize path, not here.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
-        const isRevertedDraft = study.status === 'DRAFT' && study.submittedAt != null
-        if (study.status !== 'CHANGE-REQUESTED' && !isRevertedDraft) {
+        if (study.status !== 'CHANGE-REQUESTED') {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
@@ -712,19 +715,13 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 ...updateValues,
                 status: 'PENDING-REVIEW',
                 proposalResubmissionNoteDraft: null,
+                // OTTER-636: resubmission ends the "Proposal draft" display; clear the edit stamp so a
+                // future change-request round starts clean.
+                proposalEditedAt: null,
                 lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
-            // CHANGE-REQUESTED (always resubmittable), or a reverted DRAFT that was previously submitted
-            // (OTTER-636). The submittedAt guard applies only to the DRAFT branch, keeping a
-            // never-submitted draft (submittedAt null) out of the resubmit path while not requiring
-            // change-requested rows to carry submittedAt.
-            .where((eb) =>
-                eb.or([
-                    eb('status', '=', 'CHANGE-REQUESTED'),
-                    eb.and([eb('status', '=', 'DRAFT'), eb('submittedAt', 'is not', null)]),
-                ]),
-            )
+            .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', labScope)
             .returning(['id'])
             .executeTakeFirst()

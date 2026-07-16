@@ -5,6 +5,7 @@ import { resolveDashboardAction } from './resolve'
 const dstate = (overrides: Partial<DashboardState>): DashboardState => ({
     status: 'DRAFT',
     isDraft: true,
+    proposalDraftInProgress: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,

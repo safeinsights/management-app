@@ -31,6 +31,9 @@ export type RawStudyState = {
     reviewerAgreementsAckedAt: Date | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
+    // OTTER-636: stamped when a real edit is made to a change-requested proposal; drives the
+    // researcher's "Proposal draft" display without flipping study.status.
+    proposalEditedAt: Date | null
     jobs: ReadonlyArray<RawJob>
 } & DraftStep2Fields
 
@@ -39,6 +42,9 @@ export type RawStudyState = {
 export type StudyState = {
     status: StudyStatus
     isDraft: boolean
+    // OTTER-636: a change-requested proposal the researcher has started revising. Display-only —
+    // study.status stays CHANGE-REQUESTED; only the researcher's pill reads "Proposal draft".
+    proposalDraftInProgress: boolean
     // A DRAFT that has reached Step 2 of the proposal wizard. Routes a "resume draft" entry to the
     // step the researcher last left off (OTTER-572) instead of always landing on the Step 1 picker.
     hasStep2Progress: boolean

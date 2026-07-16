@@ -26,6 +26,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     createdBy: 'Ada Lovelace',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    proposalEditedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,

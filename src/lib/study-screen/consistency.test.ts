@@ -9,6 +9,7 @@ const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
 const full = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
     isDraft: true,
+    proposalDraftInProgress: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,

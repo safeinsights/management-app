@@ -5,6 +5,7 @@ import { resolvePillStatus, resolveRowHighlight } from './pill'
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'APPROVED',
     isDraft: false,
+    proposalDraftInProgress: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
@@ -27,6 +28,24 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
 })
 
 describe('resolvePillStatus', () => {
+    // OTTER-636: while the researcher revises a change-requested proposal, their pill reads "Proposal
+    // draft"; the reviewer keeps seeing "Change requested" (display-only, researcher-only).
+    it('researcher sees Proposal draft when revising a change-requested proposal', () => {
+        const label = resolvePillStatus(
+            'researcher',
+            state({ status: 'CHANGE-REQUESTED', proposalDraftInProgress: true, hasAnyJob: false }),
+        )
+        expect(label.stage).toBe('Proposal')
+        expect(label.label).toBe('Draft')
+    })
+    it('reviewer still sees Change requested while the researcher revises', () => {
+        const label = resolvePillStatus(
+            'reviewer',
+            state({ status: 'CHANGE-REQUESTED', proposalDraftInProgress: true, hasAnyJob: false }),
+        )
+        expect(label.label).toBe('Change requested')
+    })
+
     it('researcher does NOT see Errored until a reviewer files a decision (falls back to Approved)', () => {
         const label = resolvePillStatus(
             'researcher',

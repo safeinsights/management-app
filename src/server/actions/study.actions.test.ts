@@ -7,6 +7,7 @@ import {
     createTestProposalDraft,
     db,
     getAuditEntries,
+    insertTestBaselineJob,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
@@ -498,6 +499,31 @@ describe('Study Actions', () => {
                 error: expect.objectContaining({ permission_denied: expect.any(String) }),
             })
         })
+    })
+
+    // OTTER-636 (Finding 6): a researcher's in-progress code-draft round (a fresh INITIATED job opened
+    // after a decision) must not mask the last reviewed round on the REVIEWER dashboard.
+    it('reviewer dashboard keeps the last submitted round when a newer INITIATED draft round exists', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+            .execute()
+        // The researcher relaunches/edits → a fresh INITIATED round-2 job (newer id) with no submission.
+        await insertTestBaselineJob(study.id)
+
+        const result = await fetchStudiesForOrgAction({ orgSlug: org.slug })
+        const row = Array.isArray(result) ? result.find((r) => r.id === study.id) : undefined
+        const statuses = row?.jobStatusChanges.map((c) => c.status) ?? []
+        // The reviewer still sees the reviewed round's decision, not the bare INITIATED draft round.
+        expect(statuses).toContain('CODE-CHANGES-REQUESTED')
+        expect(statuses).not.toEqual(['INITIATED'])
     })
 
     it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {

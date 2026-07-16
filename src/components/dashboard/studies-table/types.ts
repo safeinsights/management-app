@@ -18,6 +18,8 @@ export type StudyRow = {
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
     researcherAgreementsAckedAt: Date | null
+    // OTTER-636: drives the researcher's "Proposal draft" pill while a change-requested proposal is revised.
+    proposalEditedAt: Date | null
     // Step 2 proposal fields — used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
     datasets: string[] | null

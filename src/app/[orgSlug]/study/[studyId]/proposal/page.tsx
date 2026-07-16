@@ -17,13 +17,6 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         return notFound()
     }
 
-    // OTTER-636: a reverted draft (a previously-submitted proposal flipped back to DRAFT by an edit on
-    // the Edit Proposal page) belongs on the resubmit-with-note flow, not this fresh-draft Step 2 editor.
-    // submittedAt distinguishes it from a never-submitted draft.
-    if (result.status === 'DRAFT' && result.submittedAt != null) {
-        redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
-    }
-
     if (result.status !== 'DRAFT' && result.status !== 'CHANGE-REQUESTED') {
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }

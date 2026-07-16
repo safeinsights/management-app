@@ -26,6 +26,14 @@ const FALLBACK_LABEL: StatusLabel = { stage: 'Proposal', label: 'Draft', colors:
 //    reads Approved / Rejected, not the stale earlier round.
 export function resolvePillStatus(role: StudyRole, state: StudyState): StatusLabel {
     const labels = LABELS[role]
+
+    // OTTER-636: while the researcher revises a change-requested proposal, their pill reads "Proposal
+    // draft" (the DRAFT label). Display-only and researcher-only: study.status is still CHANGE-REQUESTED,
+    // so the reviewer keeps seeing "Change requested" until the proposal is resubmitted.
+    if (role === 'researcher' && state.proposalDraftInProgress) {
+        return labels['DRAFT'] ?? FALLBACK_LABEL
+    }
+
     const present = new Set<StudyJobStatus>(state.latestJobStatuses)
 
     const hideErrored = role === 'researcher' && isErroredResultHiddenFromResearcher(state)

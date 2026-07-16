@@ -34,10 +34,16 @@ const EditableTextFieldEntry: FC<{
     form: UseFormReturnType<ProposalFormValues>
     studyId: string
     websocketProvider: HocuspocusProviderWebsocket | null
-}> = ({ field, form, studyId, websocketProvider }) => {
+    onEdit: () => void
+}> = ({ field, form, studyId, websocketProvider, onEdit }) => {
     const value = form.values[field.id] as string
     const error = form.errors[field.id] as string | undefined
-    const onChange = (val: string) => form.setFieldValue(field.id, val)
+    // OTTER-636: signal a real edit only when the content actually changes, so a hydration re-emit of
+    // the seeded value doesn't spuriously mark the proposal as edited.
+    const onChange = (val: string) => {
+        if (val !== value) onEdit()
+        form.setFieldValue(field.id, val)
+    }
 
     return (
         <CollaborativeProposalTextField
@@ -57,7 +63,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     researcherName,
     enclaveOrgSlug,
 }) => {
-    const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
+    const { studyId, form, yjsForm, websocketProvider, signalProposalEdited } = useEditResubmit()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
 
@@ -94,6 +100,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                             onChange={(event) => {
                                 titleInputProps.onChange?.(event)
                                 yjsForm.pushField('title', event.currentTarget.value)
+                                signalProposalEdited()
                             }}
                             value={form.values.title ?? ''}
                             error={!!form.errors.title}
@@ -118,6 +125,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     onChange={(val) => {
                                         form.setFieldValue('datasets', val)
                                         yjsForm.pushField('datasets', val)
+                                        signalProposalEdited()
                                     }}
                                     orgSlug={enclaveOrgSlug}
                                 />
@@ -148,6 +156,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     form={form}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
+                    onEdit={signalProposalEdited}
                 />
             ))}
 
@@ -172,6 +181,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     form.setFieldValue('piUserId', piUserId)
                                     form.setFieldValue('piName', piName)
                                     yjsForm.pushPI(piUserId, piName)
+                                    signalProposalEdited()
                                 }}
                                 error={!!form.errors.piName}
                             />

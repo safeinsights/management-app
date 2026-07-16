@@ -118,6 +118,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     return {
         status: raw.status,
         isDraft: raw.status === 'DRAFT',
+        proposalDraftInProgress: raw.status === 'CHANGE-REQUESTED' && raw.proposalEditedAt != null,
         hasStep2Progress: draftHasStep2Progress(raw),
         researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
         reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,

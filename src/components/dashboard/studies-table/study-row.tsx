@@ -21,6 +21,8 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
         studyStatus: study.status,
         audience,
         jobStatusChanges: study.jobStatusChanges,
+        // OTTER-636: researcher-only — a change-requested proposal being revised reads "Proposal draft".
+        proposalEditedAt: audience === 'researcher' ? study.proposalEditedAt : null,
     })
 
     const isHighlighted = shouldHighlight(study, audience)

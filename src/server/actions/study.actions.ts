@@ -45,7 +45,13 @@ import { Action, z } from './action'
 // stay lifecycle-agnostic. Because soft-delete only applies to DRAFTs and a deleted DRAFT is no longer surfaced
 // on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
 // a known gap.
-function fetchStudyQuery(db: DBExecutor) {
+// OTTER-636: `latestJobMode` selects which job drives the dashboard row's statuses.
+//  - 'any' (researcher/default): the absolute-latest job, so a fresh post-decision INITIATED draft
+//    round reads as "Code draft" — the researcher is mid-revision.
+//  - 'submitted' (reviewer): the latest job that actually reached a submission (any non-INITIATED
+//    status), so a researcher's in-progress draft round never masks the last reviewed round on the
+//    reviewer's dashboard (they keep seeing the decision until an actual resubmission).
+function fetchStudyQuery(db: DBExecutor, { latestJobMode = 'any' }: { latestJobMode?: 'any' | 'submitted' } = {}) {
     return db
         .selectFrom('study')
         .where('study.deletedAt', 'is', null)
@@ -53,6 +59,17 @@ function fetchStudyQuery(db: DBExecutor) {
             (eb) =>
                 eb
                     .selectFrom('studyJob')
+                    .$if(latestJobMode === 'submitted', (qb) =>
+                        qb.where((eb2) =>
+                            eb2.exists(
+                                eb2
+                                    .selectFrom('jobStatusChange')
+                                    .select('jobStatusChange.id')
+                                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                                    .where('jobStatusChange.status', '!=', 'INITIATED'),
+                            ),
+                        ),
+                    )
                     .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
                     .distinctOn('studyId')
                     .orderBy('studyId')
@@ -111,6 +128,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
             'study.proposalResubmissionNoteDraft',
+            'study.proposalEditedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -130,7 +148,9 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     )
     .requireAbilityTo('view', 'OrgStudies')
     .handler(async ({ db, orgId, orgType }) => {
-        let query = fetchStudyQuery(db)
+        // Reviewers (enclave) track the last submitted round; labs (researchers) track the latest round
+        // so an in-progress code-draft round reads as "Code draft" (OTTER-636).
+        let query = fetchStudyQuery(db, { latestJobMode: orgType === 'enclave' ? 'submitted' : 'any' })
         if (orgType === 'enclave') {
             // Reviewer dashboards should not see draft studies
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
@@ -169,7 +189,8 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         if (reviewerOrgIds.length === 0) {
             return []
         }
-        return fetchStudyQuery(db)
+        // Reviewer dashboard tracks the last submitted round, not a researcher's in-progress draft (OTTER-636).
+        return fetchStudyQuery(db, { latestJobMode: 'submitted' })
             .where('study.orgId', 'in', reviewerOrgIds)
             .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
             .innerJoin('org', 'org.id', 'study.orgId')

@@ -14,7 +14,7 @@ import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
-import { useMarkProposalDraftEdited } from './hooks/use-mark-proposal-draft-edited'
+import { useMarkProposalEdited } from './hooks/use-mark-proposal-edited'
 import {
     resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
@@ -38,6 +38,8 @@ interface EditResubmitContextValue {
     yjsForm: ReturnType<typeof useYjsFormMap>
     /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
     tabSessionId: string
+    /** OTTER-636: editable inputs call this on a genuine user edit to stamp the "Proposal draft" signal. */
+    signalProposalEdited: () => void
 }
 
 const EditResubmitContext = createContext<EditResubmitContextValue | null>(null)
@@ -130,10 +132,17 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     const currentNote = noteForm.values.resubmissionNote
     const singleUserEditing = useSingleUserEditing()
 
-    // OTTER-636: a real edit (a proposal field via Yjs, or the resubmission note) flips a
-    // change-requested proposal back to DRAFT so it reads "Proposal draft" while being revised.
-    const hasEdited = yjsForm.editedKeys.size > 0 || currentNote !== normalizedInitialNote
-    useMarkProposalDraftEdited(studyId, hasEdited)
+    // OTTER-636: stamp the display-only "Proposal draft" signal on the first real edit. Field inputs
+    // (title/datasets/PI/rich-text) call signalProposalEdited directly from their user-driven change
+    // handlers; the note is wired below. study.status stays CHANGE-REQUESTED throughout.
+    const signalProposalEdited = useMarkProposalEdited(studyId)
+
+    // The note change counts as a genuine edit only in single-user mode, where the editor's onChange is
+    // driven by the user's own keystrokes. In collaborative mode the note persists through Yjs and
+    // hydration can emit onChange, so the note editor's user-driven handler is the signal there.
+    useEffect(() => {
+        if (singleUserEditing && currentNote !== normalizedInitialNote) signalProposalEdited()
+    }, [singleUserEditing, currentNote, normalizedInitialNote, signalProposalEdited])
 
     // In collaborative mode the Yjs doc is the live persistence, so skip the
     // per-keystroke column save (Save-as-draft still refreshes the column as
@@ -169,6 +178,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             websocketProvider,
             yjsForm,
             tabSessionId,
+            signalProposalEdited,
         }),
         [
             studyId,
@@ -182,6 +192,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             websocketProvider,
             yjsForm,
             tabSessionId,
+            signalProposalEdited,
         ],
     )
 
