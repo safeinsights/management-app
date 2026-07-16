@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from 'react'
 import { Divider, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
-import { FilePreviewModal } from '@/components/modals/file-preview-modal'
+import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import { LaunchIdeButton } from './launch-ide-button'
 import { LaunchProgress } from './launch-progress'
@@ -118,7 +118,7 @@ export const StudyCodePanel = ({
 
             {footer}
 
-            <FilePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
+            <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
         </>
     )
 }
