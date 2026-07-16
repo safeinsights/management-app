@@ -14,6 +14,7 @@ import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
+import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -32,6 +33,7 @@ function proposalHeading(studyVersion: number): string {
 
 type ProposalBannerConfig = {
     color: string
+    bg?: string
     message: (orgName: string) => string
     statusBadge?: string
 }
@@ -44,18 +46,21 @@ const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
     },
     APPROVED: {
         color: 'green',
+        bg: STATUS_BANNER_BG.approved,
         statusBadge: 'Approved on',
         message: (orgName) =>
             `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
     },
     REJECTED: {
         color: 'red',
+        bg: STATUS_BANNER_BG.rejected,
         statusBadge: 'Rejected on',
         message: (orgName) =>
             `${displayOrgName(orgName)} has reviewed your initial request and is unable to support it at this time. Please review their feedback below for more details.`,
     },
     'CHANGE-REQUESTED': {
-        color: 'blue',
+        color: 'purple',
+        bg: STATUS_BANNER_BG.changesRequestedResearcher,
         statusBadge: 'Clarification requested on',
         message: (orgName) =>
             `${displayOrgName(orgName)} has reviewed your initial request and has requested clarifications. Please review their feedback below. You can revise and resubmit your request to address their questions.`,
@@ -81,7 +86,7 @@ function StatusBanner({
         : config.message(orgName)
 
     return (
-        <Alert color={config.color} mb="md" data-testid={`status-banner-${proposalStatus}`}>
+        <Alert color={config.color} bg={config.bg} mb="md" data-testid={`status-banner-${proposalStatus}`}>
             {message}
         </Alert>
     )

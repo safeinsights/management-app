@@ -60,10 +60,12 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             // short delay to ensure the token is propagated before navigation
             await new Promise((resolve) => setTimeout(resolve, 500))
 
+            const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
-                router.push(Routes.accountKeys)
+                // First-time key generation: land them on the inviting org's dashboard afterwards.
+                router.push(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route)
             } else {
-                router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
+                router.push(orgDashboard)
             }
         },
         onError: (error) => {
