@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 
-import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed'
+import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed'
 
 const SAMPLE_LEXICAL_JSON = JSON.stringify({
     root: {
@@ -88,5 +88,36 @@ describe('SLUG_TO_STUDY_COLUMN', () => {
             impact: 'impact',
             'additional-notes': 'additional_notes',
         })
+    })
+})
+
+describe('toLexicalJsonIfPlain', () => {
+    it('returns null for null, undefined, and whitespace-only input', () => {
+        expect(toLexicalJsonIfPlain(null)).toBeNull()
+        expect(toLexicalJsonIfPlain(undefined)).toBeNull()
+        expect(toLexicalJsonIfPlain('   ')).toBeNull()
+    })
+
+    it('passes valid Lexical JSON through untouched', () => {
+        expect(toLexicalJsonIfPlain(SAMPLE_LEXICAL_JSON)).toBe(SAMPLE_LEXICAL_JSON)
+    })
+
+    it('wraps legacy plain-text drafts into a single-paragraph Lexical state', () => {
+        const wrapped = toLexicalJsonIfPlain('a plain draft note')
+        expect(wrapped).not.toBeNull()
+        const parsed = JSON.parse(wrapped!)
+        expect(parsed.root.children).toHaveLength(1)
+        expect(parsed.root.children[0].children[0].text).toBe('a plain draft note')
+    })
+
+    it('wraps JSON-ish text that is not a Lexical state instead of passing it through', () => {
+        const wrapped = toLexicalJsonIfPlain('{"not":"lexical"}')
+        const parsed = JSON.parse(wrapped!)
+        expect(parsed.root.children[0].children[0].text).toBe('{"not":"lexical"}')
+    })
+
+    it('produces output the seeder accepts', () => {
+        const yDoc = new Y.Doc()
+        expect(seedYDocFromLexical(yDoc, toLexicalJsonIfPlain('seed me'))).toBe(true)
     })
 })

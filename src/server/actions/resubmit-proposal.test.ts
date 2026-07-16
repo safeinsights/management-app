@@ -503,7 +503,7 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
         expect(row.proposalResubmissionNoteDraft).toBe('co-author note')
     })
 
-    it('rejects payloads larger than 10kb', async () => {
+    it('rejects payloads larger than 100kb', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-3', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -511,7 +511,9 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        const tooLong = 'x'.repeat(10_001)
+        // The draft is serialized Lexical JSON since OTTER-658, so the schema bound is
+        // 100_000 chars; a legitimate heavily-formatted note can exceed the old 10kb limit.
+        const tooLong = 'x'.repeat(100_001)
         const result = await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
         expect(result).toHaveProperty('error')
     })

@@ -68,7 +68,7 @@ export const getUserPublicKey = async (userId: string) => {
     // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
+        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey', 'userPublicKey.updatedAt'])
         .where('userPublicKey.userId', '=', userId)
         .executeTakeFirst()
 
@@ -194,6 +194,14 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
         .executeTakeFirst()
     return row?.version ?? 1
 }
+
+/**
+ * Version the next RESUBMISSION-NOTE comment will take (`nextVersionForStudyComment`
+ * with `increment: true`, as a plain read). Safe to read at page load: the version
+ * only advances via resubmit, which kicks every editor out.
+ */
+export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
+    (await currentReviewVersion(studyId)) + 1
 
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([

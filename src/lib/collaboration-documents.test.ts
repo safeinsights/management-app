@@ -3,6 +3,7 @@ import {
     codeReviewFeedbackDocName,
     parseDocumentName,
     proposalFieldsDocName,
+    proposalResubmissionNoteDocNameForVersion,
     proposalTextFieldDocName,
     reviewFeedbackDocNameForVersion,
 } from './collaboration-documents'
@@ -46,6 +47,27 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-foo`)).toBeNull()
         expect(parseDocumentName(`review-feedback-${STUDY_ID}-v-1`)).toBeNull()
         expect(parseDocumentName(`review-feedback-not-a-uuid-v1`)).toBeNull()
+    })
+
+    it('round-trips versioned resubmission-note docs', () => {
+        for (const version of [2, 3, 17, 123]) {
+            const name = proposalResubmissionNoteDocNameForVersion(STUDY_ID, version)
+            expect(name).toBe(`proposal-${STUDY_ID}-resubmission-note-v${version}`)
+            expect(parseDocumentName(name)).toEqual({
+                kind: 'proposal-resubmission-note',
+                studyId: STUDY_ID,
+                version,
+            })
+        }
+    })
+
+    it('rejects malformed resubmission-note names', () => {
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note`)).toBeNull()
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note-v0`)).toBeNull()
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note-v01`)).toBeNull()
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note-v`)).toBeNull()
+        expect(parseDocumentName(`proposal-${STUDY_ID}-resubmission-note-v-1`)).toBeNull()
+        expect(parseDocumentName(`proposal-not-a-uuid-resubmission-note-v2`)).toBeNull()
     })
 
     it('round-trips code-review-feedback docs', () => {

@@ -14,6 +14,7 @@ import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/
 import { StudyCodeToggle, useExpandable } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
+import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -55,21 +56,21 @@ type DecisionCopy = {
 const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     'CODE-APPROVED': {
         timestampLabel: 'Approved on',
-        bannerBg: 'green.1',
+        bannerBg: STATUS_BANNER_BG.approved,
         bannerTestId: 'decision-banner-code-approved',
         banner: (orgName) =>
             `${displayOrgName(orgName)} has reviewed and approved your study code. Your code will now proceed to run in the secure enclave.`,
     },
     'CODE-CHANGES-REQUESTED': {
         timestampLabel: 'Change requested on',
-        bannerBg: 'purple.1',
+        bannerBg: STATUS_BANNER_BG.changesRequestedResearcher,
         bannerTestId: 'decision-banner-code-change-requested',
         banner: (orgName) =>
             `${displayOrgName(orgName)} has reviewed your code and has requested information and/or changes. Please review the feedback below. You can update your code and resubmit it to address their comments.`,
     },
     'CODE-REJECTED': {
         timestampLabel: 'Rejected on',
-        bannerBg: 'red.1',
+        bannerBg: STATUS_BANNER_BG.rejected,
         bannerTestId: 'decision-banner-code-rejected',
         banner: (orgName) =>
             `${displayOrgName(orgName)} has determined this code does not meet the requirements to proceed. Please review their feedback below. No further code submissions will be accepted for this study, but you may submit a new study proposal. If you believe this decision was made in error, contact SafeInsights.`,

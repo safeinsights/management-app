@@ -3,7 +3,7 @@
 import { NavLink } from '@mantine/core'
 import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { FC, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 import { NavbarLink } from './navbar-link'
@@ -25,9 +25,14 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
 
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
-    useEffect(() => {
+    // Re-sync the menu's open state to the route during render (rather than in an
+    // effect) so navigating into/out of /admin opens or closes it without a
+    // cascading re-render, while a manual toggle still holds between navigations.
+    const [prevIsAdminPage, setPrevIsAdminPage] = useState(isAdminPage)
+    if (isAdminPage !== prevIsAdminPage) {
+        setPrevIsAdminPage(isAdminPage)
         setIsAdminMenuOpen(isAdminPage)
-    }, [isAdminPage])
+    }
 
     if (!isVisible) return null
 

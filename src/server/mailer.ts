@@ -3,7 +3,7 @@ import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import logger from '@/lib/logger'
-import { deliver } from './mailgun'
+import { deliver, SI_EMAIL } from './mailgun'
 
 // For local testing, send to a fixed 'to' email address that is authorized to
 // receive emails from Mailgun, and remove the 'vb -' prefix from the template name.
@@ -45,16 +45,17 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
     const emails = reviewers.map((r) => r.email).filter(Boolean)
-    const to = study.reviewerEmail ?? emails.join(', ')
 
-    if (!to) {
+    if (emails.length === 0) {
         logger.warn(`No recipients for study proposal email, studyId: ${studyId}`)
         return
     }
 
+    // All recipients go in Bcc so no one sees another's address (OTTER-651).
+    // Mailgun requires at least one "To", so we use the no-reply sender.
     await deliver({
-        to,
-        ...(emails.length > 0 && { bcc: emails.join(', ') }),
+        to: SI_EMAIL,
+        bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
         vars: {
@@ -69,16 +70,16 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
     const emails = reviewers.map((reviewer) => reviewer.email).filter((email) => email)
-    const to = study.reviewerEmail ?? emails.join(', ')
 
-    if (!to) {
+    if (emails.length === 0) {
         logger.warn(`No recipients for study code submitted email, studyId: ${studyId}`)
         return
     }
 
+    // See OTTER-651: never put multiple recipient addresses in "To".
     await deliver({
-        to,
-        ...(emails.length > 0 && { bcc: emails.join(', ') }),
+        to: SI_EMAIL,
+        bcc: emails.join(', '),
         subject: 'Study code submitted for review',
         template: 'vb - new code submission',
         vars: {

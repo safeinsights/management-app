@@ -603,7 +603,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         )
 
         // Form is pre-filled; only the resubmission note gates submit.
-        await page.getByLabel(/Resubmission Note/i).fill('Clarified the dataset scope and analysis plan per feedback.')
+        await fillLexicalField(page, 'Resubmission Note', 'Clarified the dataset scope and analysis plan per feedback.')
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit initial request$/i })
         await expect(resubmitButton).toBeEnabled()

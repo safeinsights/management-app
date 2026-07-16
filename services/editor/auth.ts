@@ -7,6 +7,7 @@ import {
     CODE_REVIEW_FEEDBACK_PREFIX,
     PROPOSAL_PREFIX,
     PROPOSAL_TEXT_SLUGS,
+    RESUBMISSION_NOTE_SUFFIX_RE,
     REVIEW_FEEDBACK_PREFIX,
     UUID_RE,
     type ProposalTextSlug,
@@ -48,6 +49,7 @@ export type ParsedDocumentName =
     | { kind: 'code-review-feedback'; jobId: string }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
+    | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
 
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
@@ -80,6 +82,9 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     const suffix = remainder.slice(UUID_LEN + 1)
 
     if (suffix === 'fields') return { kind: 'proposal-fields', studyId }
+
+    const noteMatch = RESUBMISSION_NOTE_SUFFIX_RE.exec(suffix)
+    if (noteMatch) return { kind: 'proposal-resubmission-note', studyId, version: Number(noteMatch[1]) }
 
     if ((PROPOSAL_TEXT_SLUGS as readonly string[]).includes(suffix)) {
         return { kind: 'proposal-text', studyId, slug: suffix as ProposalTextSlug }
@@ -116,6 +121,9 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'proposal-fields':
         case 'proposal-text':
             return snap.status === 'DRAFT' || snap.status === 'CHANGE-REQUESTED'
+        // No note exists during DRAFT — only while answering a change request.
+        case 'proposal-resubmission-note':
+            return snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':
             return true
     }

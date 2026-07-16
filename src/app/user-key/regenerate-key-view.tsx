@@ -1,18 +1,13 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 
-// Presentational user-key screen. It owns the breadcrumbs + "Results Key details" card
-// (lost-key copy, destructive note, regenerate button) and the confirm modal. Kept in its OWN
-// file — free of useSession (Clerk), useRouter and Routes navigation — so it renders in
-// isolation (e.g. Ladle). The RegenerateKey container (./regenerate-key) derives the dashboard
-// crumb from the session and wires the modal/navigation handlers.
+// Presentational security-key screen; kept navigation-free so it renders in isolation (e.g. Ladle).
 export type RegenerateKeyViewProps = {
-    /** Dashboard breadcrumb target, derived from the session by the container. */
-    dashboardHref: string
+    /** Date the current key was generated, preformatted (MMM DD, YYYY). */
+    generatedOn: string
     isModalOpen: boolean
     onOpenModal: () => void
     onCloseModal: () => void
@@ -20,56 +15,55 @@ export type RegenerateKeyViewProps = {
     onConfirmGenerate: () => void
 }
 
+const DIVIDER_COLOR = 'charcoal.1'
+
 export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
-    dashboardHref,
+    generatedOn,
     isModalOpen,
     onOpenModal,
     onCloseModal,
     onConfirmGenerate,
 }) => {
     return (
-        <Stack p="xl" mx="sm">
-            <PageBreadcrumbs crumbs={[['Dashboard', dashboardHref], ['Results Key']]} />
-            <Title my="xxl">Results Key</Title>
-            <Paper shadow="xs" p="xxl">
-                <Stack>
-                    <Title size="xl">Results Key details</Title>
-                    <Divider c="charcoal.1" />
-                    <Stack gap={8}>
-                        <Text size="sm" fw={600}>
-                            Results Key already exists
-                        </Text>
-                        <Text size="md" mb={16}>
-                            You have already generated a Results Key. For security reasons, SafeInsights does not store
-                            or display it again.
-                        </Text>
-                        <Text size="sm" fw={600}>
-                            Lost key?
-                        </Text>
+        <Stack p="xl" mx="sm" gap={40}>
+            <Title fz={34}>Security key</Title>
 
-                        <Text size="md">If you have lost your Results Key, you will need to generate a new one.</Text>
-                        <Text size="md" c="red.9" mb={8}>
-                            Note: If you generate a new Results Key, you will no longer have access to any study results
-                            associated with your previous key. This action cannot be undone.
-                        </Text>
-                    </Stack>
-                    <Group>
-                        <Button
-                            onClick={onOpenModal}
-                            size="sm"
-                            styles={{ label: { whiteSpace: 'normal', wordBreak: 'break-word' } }}
-                        >
-                            Lost key? Generate a new one
-                        </Button>
-                    </Group>
-                </Stack>
-            </Paper>
-            <GenerateNewKeyModal onClose={onCloseModal} isOpen={isModalOpen} onConfirmAndClose={onConfirmGenerate} />
+            <Stack gap={16}>
+                <Title order={2} fz={20}>
+                    Existing security key
+                </Title>
+                <Divider c={DIVIDER_COLOR} />
+                <Text fz={16}>
+                    You generated a security key on {generatedOn}. For security reasons, SafeInsights does not store or
+                    display it again.
+                </Text>
+            </Stack>
+
+            <Stack gap={16}>
+                <Title order={2} fz={20}>
+                    Lost access to your key?
+                </Title>
+                <Divider c={DIVIDER_COLOR} />
+                <Text fz={16}>
+                    Outputs can be accessed only with a security key. If you have lost yours, ask another member of your
+                    organization to access them with their key. To restore your own access going forward, you can
+                    generate a new key below.{' '}
+                    <Text component="b" fw={700} inherit>
+                        A new key cannot decrypt your current outputs. It works only for outputs encrypted after you
+                        generate it.
+                    </Text>
+                </Text>
+                <Group>
+                    <Button onClick={onOpenModal}>Generate new key</Button>
+                </Group>
+            </Stack>
+
+            <ConfirmKeyResetModal onClose={onCloseModal} isOpen={isModalOpen} onConfirmAndClose={onConfirmGenerate} />
         </Stack>
     )
 }
 
-const GenerateNewKeyModal: FC<{
+const ConfirmKeyResetModal: FC<{
     onClose: () => void
     isOpen: boolean
     onConfirmAndClose: () => void
@@ -77,17 +71,17 @@ const GenerateNewKeyModal: FC<{
     return (
         <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
             <Stack>
-                <Text size="md">
-                    Generating a new Results Key will permanently remove access to study results tied to your old key.
-                </Text>
-                <Text size="md" mb="md">
-                    This action cannot be undone.
+                <Text fz={16} mb="md">
+                    A new key cannot decrypt your current outputs. If you no longer have your key and no one in your
+                    organization can access them, those outputs will be lost. This action cannot be undone.
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button onClick={onConfirmAndClose}>Generate new key</Button>
+                    <Button color="red.9" onClick={onConfirmAndClose}>
+                        Generate new key
+                    </Button>
                 </Group>
             </Stack>
         </AppModal>

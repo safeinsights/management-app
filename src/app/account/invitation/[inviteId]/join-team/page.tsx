@@ -57,12 +57,12 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
             markOrgJoined(org!.name)
 
-            const dashboard = Routes.orgDashboard({ orgSlug: org!.slug })
-
+            const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
-                router.push(`${Routes.accountKeys}?redirect_url=${dashboard}`)
+                // First-time key generation: land them on the inviting org's dashboard afterwards.
+                router.push(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route)
             } else {
-                router.push(dashboard)
+                router.push(orgDashboard)
             }
         },
         onError: (error) => {
