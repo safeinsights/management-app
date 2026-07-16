@@ -87,6 +87,33 @@ describe('resubmitProposalAction', () => {
         expect(JSON.stringify(comments[0].body)).toContain('word1')
     })
 
+    it('writes an immutable proposal snapshot from the resubmitted fields', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-snap', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Resubmitted title' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const snaps = await db
+            .selectFrom('studyProposalSubmission')
+            .select(['version', 'snapshot'])
+            .where('studyId', '=', study.id)
+            .orderBy('version', 'desc')
+            .execute()
+        expect(snaps.length).toBeGreaterThanOrEqual(1)
+        expect((snaps[0].snapshot as { title: string }).title).toBe('Resubmitted title')
+    })
+
     it('deletes stale review-feedback yjs_document rows when resubmitting', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-yjs', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({

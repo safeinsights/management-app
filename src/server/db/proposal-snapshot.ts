@@ -1,6 +1,56 @@
 import { db as defaultDb, type DBExecutor } from '@/database'
-import { parseProposalSnapshot, type ProposalSnapshot } from '@/lib/proposal-snapshot'
+import type { Json } from '@/database/types'
+import { parseProposalSnapshot, serializeProposalSnapshot, type ProposalSnapshot } from '@/lib/proposal-snapshot'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+
+// OTTER-636: capture an immutable snapshot of a study's current canonical proposal columns as the next
+// submission version. Called inside the submission transaction by both the fresh-submit (finalize) and
+// resubmit paths, so every submission produces exactly one immutable version and reviewers always have a
+// safe source to read. Version = max(existing) + 1 (so a fresh submit is v1, each resubmit the next).
+export async function writeProposalSubmissionSnapshot(
+    db: DBExecutor,
+    studyId: string,
+    submittedByUserId: string,
+): Promise<number> {
+    const study = await db
+        .selectFrom('study')
+        .select([
+            'title',
+            'piName',
+            'piUserId',
+            'language',
+            'datasets',
+            'dataSources',
+            'researchQuestions',
+            'projectSummary',
+            'impact',
+            'additionalNotes',
+            'irbProtocols',
+            'descriptionDocPath',
+            'irbDocPath',
+            'agreementDocPath',
+        ])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+
+    const maxRow = await db
+        .selectFrom('studyProposalSubmission')
+        .select((eb) => eb.fn.max('version').as('max'))
+        .where('studyId', '=', studyId)
+        .executeTakeFirst()
+    const version = Number(maxRow?.max ?? 0) + 1
+
+    await db
+        .insertInto('studyProposalSubmission')
+        .values({
+            studyId,
+            version,
+            submittedByUserId,
+            snapshot: serializeProposalSnapshot(study) as unknown as Json,
+        })
+        .execute()
+    return version
+}
 
 export type LatestProposalSnapshot = {
     version: number

@@ -24,6 +24,7 @@ import {
     getOrgIdFromSlug,
 } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -385,7 +386,11 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
-            .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
+            // OTTER-636: finalize is the FRESH-submit path only. A revision of a change-requested proposal
+            // goes through resubmitProposalAction (with a note); a revision draft (DRAFT + base snapshot)
+            // is excluded here so it can never be finalized without its note.
+            .where('status', '=', 'DRAFT')
+            .where('proposalRevisionBaseSubmissionId', 'is', null)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id', 'submittedByOrgId'])
             .executeTakeFirst()
@@ -393,6 +398,10 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         if (!claimed) {
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
+
+        // OTTER-636: record immutable submission snapshot v1 from the just-persisted proposal columns,
+        // so reviewers read this frozen version rather than the mutable row.
+        await writeProposalSubmissionSnapshot(db, studyId, userId)
 
         // The atomic UPDATE above is the canonical post-submit snapshot. Drop the
         // proposal-* yjs_document rows so a future CHANGE-REQUESTED reopen falls
@@ -700,6 +709,10 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         if (!claimed) {
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
+
+        // OTTER-636: record the immutable snapshot for this resubmission (the next version) from the
+        // just-persisted proposal columns, so reviewers read this frozen version, not the mutable row.
+        await writeProposalSubmissionSnapshot(db, studyId, userId)
 
         await db
             .insertInto('studyProposalComment')

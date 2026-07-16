@@ -399,22 +399,47 @@ describe('Request Study Actions', () => {
             expect(study.status).toBe('PENDING-REVIEW')
         })
 
-        it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
+        // OTTER-636 (Finding 3): finalize is the FRESH-submit path only. A change-requested proposal must
+        // be revised via the edit-and-resubmit flow (resubmitProposalAction, which requires a note), so
+        // finalize now rejects it rather than submitting it without a note.
+        it('finalizeStudySubmissionAction rejects a CHANGE-REQUESTED study (must resubmit with a note)', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org })
-
-            // Force the test study into CHANGE-REQUESTED status (insertTestStudyOnly defaults to APPROVED)
             await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
-            const result = actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
-            expect(result.studyId).toBe(study.id)
+            const result = await finalizeStudySubmissionAction({ studyId: study.id })
+            expect(result).toHaveProperty('error')
 
             const updated = await db
                 .selectFrom('study')
                 .select(['status'])
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('PENDING-REVIEW')
+            expect(updated.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('finalizeStudySubmissionAction writes immutable proposal snapshot v1', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-snap-v1' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const draft = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: { title: 'Snapshot Study', piName: 'PI', language: 'R' as const },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+
+            actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
+
+            const snaps = await db
+                .selectFrom('studyProposalSubmission')
+                .select(['version', 'snapshot'])
+                .where('studyId', '=', draft.studyId)
+                .execute()
+            expect(snaps).toHaveLength(1)
+            expect(snaps[0].version).toBe(1)
+            expect((snaps[0].snapshot as { title: string }).title).toBe('Snapshot Study')
         })
 
         it('finalizeStudySubmissionAction rejects callers outside the submitting lab', async () => {
