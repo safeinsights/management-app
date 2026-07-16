@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 
 // Defer the reveal so a keyless user's transient dashboard mount (before RequireUserKey redirects to
 // key setup) unmounts first and cancels the timer, leaving the flag intact for the real landing.
-export const REVEAL_DELAY_MS = 1200
+export const REVEAL_DELAY_MS = 500
 
 export function JoinedOrgBanner() {
     const theme = useMantineTheme()
