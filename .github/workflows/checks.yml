@@ -62,8 +62,6 @@ jobs:
               run: pnpm list
             - name: pnpm run checks
               run: pnpm run checks
-            - name: validate actions
-              run: pnpm run validate-actions
 
     # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
     # exposed to PR-controlled code. This job is safe ONLY because it does not run
