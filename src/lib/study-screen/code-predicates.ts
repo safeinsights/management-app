@@ -36,10 +36,12 @@ export const canStartInitialCodeDraft = (s: CodeRoundStatuses): boolean => s.lat
 export const canStartCodeRevisionDraft = (s: CodeRoundStatuses): boolean =>
     !!s.latestSubmitted && isCodeRevisionEntry(s.latestSubmitted)
 
-// Positive gate for the INITIAL submission path (/code, no note): an open draft round exists and there
-// is no prior submitted round.
-export const canSubmitInitialCode = (s: CodeRoundStatuses): boolean =>
-    hasOpenCodeDraftRound(s) && s.latestSubmitted == null
+// Positive gate for the INITIAL submission path (/code, no note): valid only while the study has no
+// prior submitted round. The submit action itself opens the round if one is not already open, so this
+// does not require an open draft round — only that nothing has been submitted yet. Once a round has been
+// submitted (even before review), a further submission must use the resubmit-with-note path, so this
+// can never overwrite reviewed code or bypass the note (OTTER-636 Finding 6).
+export const canSubmitInitialCode = (s: CodeRoundStatuses): boolean => s.latestSubmitted == null
 
 // Positive gate for the RESUBMISSION path (/resubmit, requires a note): the latest submitted round is
 // in a revision entry state.

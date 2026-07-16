@@ -17,7 +17,12 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import {
+    codeRoundStatusesForStudy,
+    codeSubmissionVersion,
+    getInfoForStudyId,
+    getOrgIdFromSlug,
+} from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
@@ -34,7 +39,7 @@ import {
     resubmissionNoteToLexicalJson,
     resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
+import { canResearcherResubmitCode, canSubmitInitialCode, projectStudyState } from '@/lib/study-screen'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -64,14 +69,15 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
 }
 
 /**
- * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
- * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
- * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in study-job-status.ts).
+ * Attach the submitted code to the study's current submission round, reusing the job the researcher's
+ * edits already opened at IDE launch / file upload instead of minting a new one (OTTER-601). Round
+ * identity and reuse-vs-new is decided by getOrCreateCurrentRoundJob: once a round has been reviewed
+ * (change-requested, bare errored, or a results decision) the next edit opens a FRESH round, so by
+ * resubmit time this attaches to that new round and reviewed rounds stay immutable (OTTER-636).
  *
- * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
- * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
- * prior attempt — in the DB and in S3.
+ * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within the same un-reviewed
+ * round reflects exactly the files now provided, with no leftovers from a prior attempt — in the DB and
+ * in S3.
  */
 async function attachCodeToRoundJob(
     db: Kysely<DB>,
@@ -130,10 +136,11 @@ async function attachCodeToRoundJob(
  * CODE-SUBMITTED" — that would swallow the new round's submission and leave the researcher's /view
  * stuck on the feedback screen and the reviewer never re-notified.
  *
- * Round-aware idempotency (order-independent — same counting the liveness/version logic uses): the
- * current round is already submitted iff submitted-count > change-requested-count on this job. A
- * re-submit within the same un-reviewed round (submitted > requested) is a no-op; the first submit
- * of a round (submitted == requested) appends.
+ * Round-aware idempotency (order-independent): the current round is already submitted iff
+ * submitted-count > change-requested-count on this job. A re-submit within the same un-reviewed round
+ * (submitted > requested) is a no-op; the first submit of a round (submitted == requested) appends. Note
+ * that under OTTER-636 a fresh round is opened per review decision, so a resubmit lands on a new job
+ * that appends its own CODE-SUBMITTED.
  */
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     const counts = await db
@@ -523,6 +530,17 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         if (!fileNames.includes(mainFileName)) {
             throw new Error('Main file not in file list')
+        }
+
+        // OTTER-636 (Finding 6): the initial code-submit path carries no resubmission note, so it is
+        // valid ONLY for a genuine first submission (an open INITIATED round, no prior submitted round).
+        // Once a round has been submitted/reviewed, a further submission must go through
+        // resubmitStudyCodeAction (which requires a note) — a positive gate here stops the initial path
+        // from ever overwriting reviewed code or bypassing the note.
+        if (!canSubmitInitialCode(await codeRoundStatusesForStudy(studyId, db))) {
+            throw new ActionFailure({
+                submission: 'This study must be resubmitted with a note; use the resubmit flow.',
+            })
         }
 
         const userId = session.user.id

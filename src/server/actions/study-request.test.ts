@@ -821,7 +821,11 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        it('re-submitting before review overwrites files on the same job (no new job, no new version)', async () => {
+        // OTTER-636 (Finding 6): once a round has been submitted (under review), the initial-submit path
+        // is closed — a further change must go through the resubmit-with-note flow. This replaces the old
+        // "re-submit before review overwrites in place" behavior so the initial path can never overwrite
+        // reviewed code or bypass the note. Files and submission count stay at the first submission.
+        it('rejects re-submitting an under-review round via the initial submit path', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-overwrite')
@@ -829,19 +833,20 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'v1', 'helper.R': 'v1' }, 'main.R')
-            vi.mocked(aws.deleteFolderContents).mockClear()
 
-            // second submit drops helper.R, adds extra.R
-            await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R')
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'v2', 'extra.R': 'v2' })
+            const second = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R', 'extra.R'],
+            })
+            expect(second).toHaveProperty('error')
 
             expect(await jobCount(study.id)).toBe(1)
             expect(await codeFilesFor(study.id)).toEqual([
-                { name: 'extra.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
                 { name: 'main.R', fileType: 'MAIN-CODE' },
             ])
-            // old S3 code objects cleared before re-upload
-            expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
-            // still a single submission/version
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
@@ -935,7 +940,7 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
 
-        it('re-submitting again within the SAME code-draft round does not append a third CODE-SUBMITTED', async () => {
+        it('rejects a second resubmit of the same round until a new decision lands', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-twice')
@@ -954,13 +959,31 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // First resubmit of round 2 → opens the new round and appends its CODE-SUBMITTED (2 study-wide).
-            await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
+            // Resubmit round 2 → opens the new round and appends its CODE-SUBMITTED (2 study-wide). The
+            // initial submit path is closed after a decision (Finding 6), so resubmission uses the
+            // resubmit-with-note action.
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2a' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
             expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            // Re-submit AGAIN before the reviewer decides round 2 → same (round-2) round, idempotent.
-            await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
+            // Round 2 is now awaiting review (no new decision), so a second resubmit is rejected — no
+            // third CODE-SUBMITTED, no new round.
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2b' })
+            const second = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'attempting to resubmit again before a decision',
+            })
+            expect(second).toHaveProperty('error')
             expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
