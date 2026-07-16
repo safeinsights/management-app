@@ -6,7 +6,6 @@ import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { clerkClient } from '@clerk/nextjs/server'
-import { orgNeedsKey } from '@/lib/types'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
@@ -145,16 +144,9 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('claimedByUserId', 'is', null)
             .executeTakeFirst()
 
-        // The client-side RequireUserKey guard depends on Clerk's useUser() metadata,
-        // which may be stale right after this server-side update. We check here so callers
-        // can redirect to the key generation page immediately.
-        const org = await db
-            .selectFrom('org')
-            .select('org.type')
-            .where('org.id', '=', invite.orgId)
-            .executeTakeFirstOrThrow()
-
-        const needsUserKey = orgNeedsKey(org) && !(await getUserPublicKey(siUser.id))
+        // Checked here too because the client RequireUserKey guard reads Clerk useUser() metadata,
+        // which can be stale right after this server-side update.
+        const needsUserKey = !(await getUserPublicKey(siUser.id))
 
         return { ...siUser, needsUserKey }
     })
