@@ -51,7 +51,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                     bg="gray.0"
                     py="md"
                     px="lg"
-                    style={{ border: `1px solid ${theme.colors?.grey[2]}`, maxHeight: 130, overflowY: 'auto' }}
+                    style={{ border: `1px solid ${theme.colors.gray[2]}`, maxHeight: 130, overflowY: 'auto' }}
                 >
                     {codes && codes.length ? (
                         <Stack gap={2} style={{ overflowY: 'auto' }}>
