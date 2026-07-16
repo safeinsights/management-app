@@ -1,6 +1,7 @@
 'use server'
 
 import { StudiesTable } from '@/components/dashboard/studies-table'
+import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
@@ -35,6 +36,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 ]}
             />
             <Title order={1}>{orgName + (isEnclave ? ' Data Partner' : ' Research Lab')} dashboard</Title>
+            <JoinedOrgBanner />
             <Text mt="-md">{description}</Text>
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
