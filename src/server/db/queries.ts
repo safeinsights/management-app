@@ -10,6 +10,7 @@ import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
+import type { CodeRoundStatuses } from '@/lib/study-screen/code-predicates'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -155,6 +156,51 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
     return Number(row?.count ?? 0) + 1
+}
+
+// OTTER-636: the two canonical code-round status sets that drive every positive code gate
+// (see code-predicates.ts). Round identity is v7 id order, never createdAt (which is backdated).
+//  - latestAbsolute: the absolute-latest round (open-draft detection + "Code draft" display)
+//  - latestSubmitted: the latest round that reached a submission (reviewer content + resubmit gate)
+export const codeRoundStatusesForStudy = async (
+    studyId: string,
+    db: DBExecutor = Action.db,
+): Promise<CodeRoundStatuses> => {
+    const latestAbsolute = await db
+        .selectFrom('studyJob')
+        .select('id')
+        .where('studyId', '=', studyId)
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    if (!latestAbsolute) return { latestAbsolute: null, latestSubmitted: null }
+
+    const statusesFor = async (jobId: string) =>
+        (await db.selectFrom('jobStatusChange').select('status').where('studyJobId', '=', jobId).execute()).map(
+            (r) => r.status,
+        )
+
+    const submitted = await db
+        .selectFrom('studyJob')
+        .select('studyJob.id')
+        .where('studyJob.studyId', '=', studyId)
+        .where((eb) =>
+            eb.exists(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select('jobStatusChange.id')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                    .where('jobStatusChange.status', '!=', 'INITIATED'),
+            ),
+        )
+        .orderBy('studyJob.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return {
+        latestAbsolute: await statusesFor(latestAbsolute.id),
+        latestSubmitted: submitted ? await statusesFor(submitted.id) : null,
+    }
 }
 
 export const jobInfoForJobId = async (jobId: string) => {

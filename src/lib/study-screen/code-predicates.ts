@@ -18,8 +18,9 @@ export const hasOpenCodeDraftRound = (s: CodeRoundStatuses): boolean =>
 
 // The latest submitted round is in a state the researcher may revise from: live changes-requested, a
 // bare errored run, or a results decision. Terminal CODE-REJECTED and a normal CODE-APPROVED
-// (provisioning/running, no error/results yet) are NOT revision entry states.
-const isRevisionEntry = (submitted: readonly StudyJobStatus[]): boolean => {
+// (provisioning/running, no error/results yet) are NOT revision entry states. Exported so the
+// round-creation helper (server/db/mutations.ts) opens a fresh draft round on exactly these states.
+export const isCodeRevisionEntry = (submitted: readonly StudyJobStatus[]): boolean => {
     if (has(submitted, 'CODE-REJECTED')) return false
     if (has(submitted, 'FILES-APPROVED') || has(submitted, 'FILES-REJECTED')) return true
     if (has(submitted, 'JOB-ERRORED')) return true
@@ -33,7 +34,7 @@ export const canStartInitialCodeDraft = (s: CodeRoundStatuses): boolean => s.lat
 
 // Eligible to open/continue a revision draft round over a submitted round in an entry state.
 export const canStartCodeRevisionDraft = (s: CodeRoundStatuses): boolean =>
-    !!s.latestSubmitted && isRevisionEntry(s.latestSubmitted)
+    !!s.latestSubmitted && isCodeRevisionEntry(s.latestSubmitted)
 
 // Positive gate for the INITIAL submission path (/code, no note): an open draft round exists and there
 // is no prior submitted round.
@@ -43,7 +44,7 @@ export const canSubmitInitialCode = (s: CodeRoundStatuses): boolean =>
 // Positive gate for the RESUBMISSION path (/resubmit, requires a note): the latest submitted round is
 // in a revision entry state.
 export const canResubmitCode = (s: CodeRoundStatuses): boolean =>
-    !!s.latestSubmitted && isRevisionEntry(s.latestSubmitted)
+    !!s.latestSubmitted && isCodeRevisionEntry(s.latestSubmitted)
 
 // Reviewer may act on code only when the latest submitted round is awaiting a decision and no open
 // draft round is masking it (the researcher's in-progress revision is never actionable by a reviewer).

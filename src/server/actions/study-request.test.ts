@@ -845,7 +845,10 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
+        // OTTER-636: a live CODE-CHANGES-REQUESTED is a revision entry state, so the researcher's edit +
+        // resubmit open a FRESH round; the reviewed round-1 job is preserved untouched. Study-wide the
+        // submission count still climbs to 2 and the note records version 2.
+        it('resubmitting after change-requested opens a new round job (fresh code-draft round)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit')
@@ -855,7 +858,7 @@ describe('Request Study Actions', () => {
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
             // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
             // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
-            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            // decision).
             await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
@@ -868,7 +871,7 @@ describe('Request Study Actions', () => {
                 .execute()
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
-            actionResult(
+            const result = actionResult(
                 await resubmitStudyCodeAction({
                     studyId: study.id,
                     mainFileName: 'main.R',
@@ -877,29 +880,25 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            // CR resubmit reuses the existing job — no new job is opened until FILES-APPROVED/REJECTED.
-            // markCodeSubmitted is round-aware: the CODE-CHANGES-REQUESTED opened a new round, so the
-            // resubmit appends a SECOND CODE-SUBMITTED on the same job (count = 2). This is what flips
-            // count-based liveness back to "under review" so the researcher leaves the feedback screen.
-            expect(await jobCount(study.id)).toBe(1)
+            // A new round job now carries round 2; the reviewed round-1 job is left intact.
+            expect(await jobCount(study.id)).toBe(2)
+            expect(result.studyJobId).not.toBe(round1Job.id)
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            // The note records the round it opened (study-wide submission version) so the reviewer's
-            // feedback panel labels it v2, matching the round-2 decision (OTTER-638).
+            // The note records version 2 and lives on the new round job (OTTER-638).
             const jobAfter = await db
                 .selectFrom('studyJob')
                 .select(['resubmissionNote', 'resubmissionRound'])
-                .where('id', '=', round1Job.id)
+                .where('id', '=', result.studyJobId)
                 .executeTakeFirstOrThrow()
             expect(jobAfter.resubmissionNote).not.toBeNull()
             expect(jobAfter.resubmissionRound).toBe(2)
         })
 
-        // Regression: in the real flow the researcher uploads files on the resubmit page *before*
-        // submitting. Under the new model ensureRoundJobForUpload REUSES the existing job (no new
-        // round job is minted on CR). The resubmit must still succeed and append a second
-        // CODE-SUBMITTED to the same job.
-        it('resubmit succeeds after a file upload reuses the round job (no new job on CR upload)', async () => {
+        // In the real flow the researcher uploads files on the Edit Study Code page before submitting.
+        // That upload opens the fresh code-draft round after change-requested; the resubmit then reuses
+        // it (no third job) and appends the round's CODE-SUBMITTED.
+        it('resubmit reuses the code-draft round opened by a file upload after change-requested', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-upload')
@@ -907,9 +906,6 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
-            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
-            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
-            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
             await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
@@ -921,9 +917,9 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // Researcher uploads a file on the resubmit page → reuses the existing round job (no new job).
+            // Upload on the Edit Study Code page opens the fresh code-draft round.
             await ensureRoundJobForUpload(db, study.id)
-            expect(await jobCount(study.id)).toBe(1)
+            expect(await jobCount(study.id)).toBe(2)
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             const result = await resubmitStudyCodeAction({
@@ -934,14 +930,12 @@ describe('Request Study Actions', () => {
             })
 
             expect(result).not.toHaveProperty('error')
-            // Still one job — reused throughout. markCodeSubmitted is round-aware: round 1's
-            // CODE-SUBMITTED + the reviewer's CODE-CHANGES-REQUESTED opened round 2, so the resubmit
-            // appends a second CODE-SUBMITTED on the same job (count = 2).
-            expect(await jobCount(study.id)).toBe(1)
+            // The resubmit reuses the round the upload opened — still two jobs, submission count 2.
+            expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
 
-        it('re-submitting again within the SAME change-requested round does not append a third CODE-SUBMITTED', async () => {
+        it('re-submitting again within the SAME code-draft round does not append a third CODE-SUBMITTED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-twice')
@@ -960,13 +954,14 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // First resubmit of round 2 → appends the second CODE-SUBMITTED.
+            // First resubmit of round 2 → opens the new round and appends its CODE-SUBMITTED (2 study-wide).
             await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
+            expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            // Resubmit AGAIN before the reviewer decides round 2 → same round, idempotent, still 2.
+            // Re-submit AGAIN before the reviewer decides round 2 → same (round-2) round, idempotent.
             await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
-            expect(await jobCount(study.id)).toBe(1)
+            expect(await jobCount(study.id)).toBe(2)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
     })

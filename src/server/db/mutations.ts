@@ -1,7 +1,7 @@
 import { Action } from '../actions/action'
-import type { DB } from '@/database/types'
+import type { DB, StudyJobStatus } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { isCodeRevisionEntry } from '@/lib/study-screen/code-predicates'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -54,14 +54,16 @@ async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date):
 
 /**
  * A study accumulates one studyJob per submission *round*: a round opens when work begins (IDE launch
- * or file upload) and closes only when its job reaches a post-run results decision (FILES-APPROVED /
- * FILES-REJECTED — see ROUND_CLOSING_JOB_STATUSES). Change-requested/errored rounds stay on the same
- * job. The latest job is the "current round" unless it has closed, in which case the next
- * launch/submit starts a new round.
+ * or file upload) and stays the current round until a review decision lands on it. Once the latest
+ * round is one the researcher may revise from — a live CODE-CHANGES-REQUESTED, a bare JOB-ERRORED, or a
+ * results decision (FILES-APPROVED/FILES-REJECTED); see isCodeRevisionEntry — the next real action opens
+ * a FRESH INITIATED round, so reviewed history stays immutable and the study reads "Code draft"
+ * (OTTER-636). An un-reviewed round (INITIATED-only, or CODE-SUBMITTED still awaiting a decision) is
+ * reused. Terminal CODE-REJECTED and a normal CODE-APPROVED (provisioning/running) are not revised.
  *
  * This is the single source of truth for "which job does this study's in-progress work belong to" —
- * shared by IDE launch, file upload, and code submission so they all converge on the same job instead
- * of each minting its own (which is what let an empty IDE-init job mask a real submission, OTTER-601).
+ * shared by IDE launch, file upload, delete, and code submission so they all converge on one job
+ * instead of each minting its own (OTTER-601), and at most one open draft round exists per study.
  *
  * `created` distinguishes a freshly-opened round from a reused one so callers can decide whether to
  * re-anchor the submit-enable timestamp or overwrite a prior submission's files.
@@ -71,52 +73,41 @@ export async function getOrCreateCurrentRoundJob(
     studyId: string,
     { backdateMs = 0 }: { backdateMs?: number } = {},
 ): Promise<RoundJob> {
+    // OTTER-636 (Finding 10): serialize round creation per study so concurrent launch/upload/delete/
+    // submit can't each read "no open round" and mint duplicates that split files/notes/scans across
+    // jobs. Transaction-scoped — the mutating actions that call this run inside a transaction.
+    await sql`select pg_advisory_xact_lock(hashtext(${studyId}))`.execute(db)
+
     const latest = await db
         .selectFrom('studyJob')
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
-        // Both flags are EXISTENCE checks, not "latest status" lookups, so they're independent of
-        // jobStatusChange ordering. jobStatusChange.createdAt defaults to now() (constant within a
-        // transaction), so two statuses written together tie on createdAt and v7 ids aren't reliably
-        // monotonic within a millisecond — ordering by them to pick "the latest status" is
-        // non-deterministic and could flip the reuse-vs-new-round decision. A round-closing status
-        // (FILES-APPROVED/FILES-REJECTED) is never followed by another status on the same job (the
-        // next round opens a NEW job), so "has any round-closing status" is an order-independent test
-        // for a closed round.
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
-                )
-                .as('roundClosed'),
-        )
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', '!=', 'INITIATED'),
-                )
-                .as('hasSubmission'),
-        )
         .where('studyJob.studyId', '=', studyId)
-        // Order by id (v7 = insertion order), NOT createdAt: ensureRoundJobForUpload deliberately
-        // backdates a new round job's createdAt (so uploaded files read as newer for submit-enable),
-        // which would otherwise rank it *behind* the prior submission and make us open yet another
-        // round. id is monotonic with insertion, so the most-recently-created job always wins.
+        // Round identity is v7 id order (insertion order), NOT createdAt: ensureRoundJobForUpload
+        // deliberately backdates a new round's createdAt for file-mtime/submit-enable, so createdAt is
+        // presentation metadata only and must not decide which round is current (OTTER-636 Finding 11).
         .orderBy('studyJob.id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
-    if (!latest || latest.roundClosed) {
+    if (!latest) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
     }
-    return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }
+
+    // Status SET of the latest round (order-independent). jobStatusChange.createdAt defaults to now()
+    // (constant within a transaction) and v7 ids aren't reliably monotonic within a millisecond, so a
+    // "latest status" lookup would be non-deterministic; the revision-entry test reads the set.
+    const statusRows = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', latest.id)
+        .execute()
+    const statuses = statusRows.map((r) => r.status as StudyJobStatus)
+    const hasSubmission = statuses.some((s) => s !== 'INITIATED')
+
+    if (isCodeRevisionEntry(statuses)) {
+        return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
+    }
+    return { id: latest.id, createdAt: latest.createdAt, hasSubmission, created: false }
 }
 
 // Submit is enabled when any workspace file's mtime > the current round job's createdAt.
