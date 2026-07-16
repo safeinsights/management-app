@@ -65,13 +65,16 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
 
 /**
  * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
- * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
- * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in study-job-status.ts).
+ * launch / file upload instead of minting a new one (OTTER-601). A new round job is opened once a
+ * decision has landed on the reviewed round: a post-run results decision (FILES-APPROVED /
+ * FILES-REJECTED) that closes the round, or a live code-review decision (CODE-CHANGES-REQUESTED) that
+ * the researcher then edits against — the first real edit opens a fresh INITIATED round so the study
+ * reads "Code draft" while they work (OTTER-636, see getOrCreateCurrentRoundJob). By resubmit time the
+ * edit round already exists, so this reuses it.
  *
  * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
- * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
- * prior attempt — in the DB and in S3.
+ * round reflects exactly the files now provided, with no leftovers from a prior attempt — in the DB
+ * and in S3.
  */
 async function attachCodeToRoundJob(
     db: Kysely<DB>,
@@ -275,6 +278,34 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         }
     })
 
+// OTTER-636: a study re-enters draft status the moment a real edit is made to a previously submitted
+// proposal. The Edit Proposal page (change-requested) fires this on the researcher's first field/note
+// edit, flipping CHANGE-REQUESTED -> DRAFT so the study reads "Proposal draft" while they revise and
+// drops out of the reviewer's queue until they resubmit. Idempotent: a study not in CHANGE-REQUESTED
+// (already flipped, or a race) claims 0 rows and the flip is simply skipped — merely opening the page
+// or making no edits never changes the status. The resubmit-with-note flow is preserved: the reverted
+// DRAFT still carries submittedAt, which the page gate and resubmitProposalAction use to keep it on the
+// Edit Proposal path rather than the fresh-draft path.
+export const markProposalDraftEditedAction = new Action('markProposalDraftEditedAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
+        await db
+            .updateTable('study')
+            .set({ status: 'DRAFT', lastUpdatedAt: new Date() })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
+            .execute()
+
+        return { studyId }
+    })
+
 // Submit a draft study - converts DRAFT to PENDING-REVIEW and creates study job
 const onSubmitDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
@@ -461,6 +492,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.irbDocPath',
                 'study.agreementDocPath',
                 'study.status',
+                'study.submittedAt',
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',
@@ -639,7 +671,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
+            .select([
+                'study.id as id',
+                'study.status as status',
+                'study.submittedAt as submittedAt',
+                'org.name as orgName',
+            ])
             .where('study.id', '=', studyId)
             .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
@@ -647,8 +684,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
         // so the client receives a structured `{ error: { submission } }` it can show,
         // rather than a plain Error bubbling up as a generic unhandled exception.
+        // OTTER-636: the study may be CHANGE-REQUESTED, or a reverted DRAFT (its first Edit-Proposal
+        // edit flipped it to draft). A reverted draft is identified by submittedAt being set — a
+        // never-submitted draft (submittedAt null) belongs to the fresh-draft/finalize path, not here.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
-        if (study.status !== 'CHANGE-REQUESTED') {
+        const isRevertedDraft = study.status === 'DRAFT' && study.submittedAt != null
+        if (study.status !== 'CHANGE-REQUESTED' && !isRevertedDraft) {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
@@ -674,7 +715,16 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
+            // CHANGE-REQUESTED (always resubmittable), or a reverted DRAFT that was previously submitted
+            // (OTTER-636). The submittedAt guard applies only to the DRAFT branch, keeping a
+            // never-submitted draft (submittedAt null) out of the resubmit path while not requiring
+            // change-requested rows to carry submittedAt.
+            .where((eb) =>
+                eb.or([
+                    eb('status', '=', 'CHANGE-REQUESTED'),
+                    eb.and([eb('status', '=', 'DRAFT'), eb('submittedAt', 'is not', null)]),
+                ]),
+            )
             .where('submittedByOrgId', 'in', labScope)
             .returning(['id'])
             .executeTakeFirst()
@@ -855,10 +905,10 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        // attachCodeToRoundJob → getOrCreateCurrentRoundJob decides reuse-vs-new-round by whether the
-        // round has CLOSED (FILES-APPROVED/FILES-REJECTED only). A CODE-CHANGES-REQUESTED resubmit
-        // revises IN PLACE (same job, overwritten files, a new CODE-SUBMITTED); a resubmit after a
-        // post-run results decision opens a genuinely new round job.
+        // attachCodeToRoundJob → getOrCreateCurrentRoundJob reuses the round job the researcher's edits
+        // already opened. After a decision (CODE-CHANGES-REQUESTED or a post-run results decision) the
+        // first edit opens a fresh INITIATED round (OTTER-636), so by resubmit time that new job is the
+        // current round and this simply attaches to it with a new CODE-SUBMITTED.
         const { studyJobId } = await attachCodeToRoundJob(
             db,
             studyId,

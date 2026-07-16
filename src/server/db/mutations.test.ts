@@ -55,7 +55,9 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         expect(await jobsForStudy(study.id)).toHaveLength(1)
     })
 
-    it('reuses the job after CODE-CHANGES-REQUESTED (revise in place, no new round)', async () => {
+    // OTTER-636: a live CODE-CHANGES-REQUESTED opens a fresh code-draft round on the next real edit,
+    // so the study reads "Code draft" while the researcher works (was previously same-job in place).
+    it('opens a new round after a live CODE-CHANGES-REQUESTED (fresh code-draft round)', async () => {
         const org = await insertTestOrg()
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -67,9 +69,29 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
 
         const result = await getOrCreateCurrentRoundJob(db, study.id)
 
-        expect(result.created).toBe(false)
-        expect(result.id).toBe(job.id)
-        expect(await jobsForStudy(study.id)).toHaveLength(1)
+        expect(result.created).toBe(true)
+        expect(result.id).not.toBe(job.id)
+        expect(await jobsForStudy(study.id)).toHaveLength(2)
+    })
+
+    // Once the change-requested round has been resubmitted over (a fresh INITIATED-only round already
+    // exists), the next edit reuses that open round rather than stacking yet another.
+    it('reuses the fresh INITIATED round opened after CODE-CHANGES-REQUESTED', async () => {
+        const org = await insertTestOrg()
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addFile(job.id)
+        await addStatus(job.id, 'CODE-CHANGES-REQUESTED')
+
+        const opened = await getOrCreateCurrentRoundJob(db, study.id)
+        const reused = await getOrCreateCurrentRoundJob(db, study.id)
+
+        expect(reused.created).toBe(false)
+        expect(reused.id).toBe(opened.id)
+        expect(await jobsForStudy(study.id)).toHaveLength(2)
     })
 
     it('reuses the job after JOB-ERRORED (awaiting files review, no new round)', async () => {

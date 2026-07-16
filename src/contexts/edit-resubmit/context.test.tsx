@@ -3,11 +3,17 @@ import { useParams } from 'next/navigation'
 import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { EditResubmitProvider, useEditResubmit } from './context'
-import { resubmitProposalAction, saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import {
+    markProposalDraftEditedAction,
+    resubmitProposalAction,
+    saveProposalResubmissionNoteDraftAction,
+} from '@/server/actions/study-request'
 
 vi.mock('@/server/actions/study-request', () => ({
     resubmitProposalAction: vi.fn(),
     saveProposalResubmissionNoteDraftAction: vi.fn(),
+    // OTTER-636: the provider fires this on the first real edit to flip CHANGE-REQUESTED -> DRAFT.
+    markProposalDraftEditedAction: vi.fn().mockResolvedValue({ studyId: '11111111-1111-4111-8111-111111111111' }),
 }))
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
@@ -113,6 +119,45 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         )
 
         expect(screen.getByLabelText('Resubmission note')).toHaveValue(draft)
+    })
+})
+
+// OTTER-636: the provider flips a change-requested proposal to DRAFT on the first real edit.
+describe('EditResubmitProvider — reverts to draft on first edit', () => {
+    it('does not flip on mount when nothing has been edited', async () => {
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+        const markEdited = vi.mocked(markProposalDraftEditedAction)
+        markEdited.mockClear()
+
+        renderWithProviders(
+            <EditResubmitProvider studyId={STUDY_ID} initialNote="">
+                <Harness onSaveResult={vi.fn()} />
+            </EditResubmitProvider>,
+        )
+
+        // Give any effects a chance to run; the flip must not fire without an edit.
+        await waitFor(() => expect(screen.getByLabelText('Resubmission note')).toBeInTheDocument())
+        expect(markEdited).not.toHaveBeenCalled()
+    })
+
+    it('flips to draft once after the resubmission note is edited', async () => {
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+        const markEdited = vi.mocked(markProposalDraftEditedAction)
+        markEdited.mockClear()
+
+        renderWithProviders(
+            <EditResubmitProvider studyId={STUDY_ID} initialNote="">
+                <Harness onSaveResult={vi.fn()} />
+            </EditResubmitProvider>,
+        )
+
+        fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: 'a real edit' } })
+
+        await waitFor(() => expect(markEdited).toHaveBeenCalledWith({ studyId: STUDY_ID }))
+        // Further edits must not re-fire — the flip is once-per-mount.
+        fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: 'a real edit again' } })
+        await waitFor(() => expect(screen.getByLabelText('Resubmission note')).toHaveValue('a real edit again'))
+        expect(markEdited).toHaveBeenCalledTimes(1)
     })
 })
 

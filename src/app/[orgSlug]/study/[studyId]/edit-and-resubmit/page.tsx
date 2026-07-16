@@ -17,7 +17,12 @@ export default async function StudyEditAndResubmitRoute(props: {
     const study = await getStudyAction({ studyId })
 
     if ('error' in study) return notFound()
-    if (study.status !== 'CHANGE-REQUESTED') return notFound()
+    // OTTER-636: the Edit Proposal page serves a change-requested proposal AND a reverted draft — a
+    // change-requested study whose first edit here flipped it to DRAFT. A reverted draft is a
+    // previously-submitted study (submittedAt set); a never-submitted draft belongs to the fresh-draft
+    // path (/proposal) and is not served here.
+    const isRevertedDraft = study.status === 'DRAFT' && study.submittedAt != null
+    if (study.status !== 'CHANGE-REQUESTED' && !isRevertedDraft) return notFound()
 
     // OTTER-497: any member of the submitting lab may edit/resubmit a
     // change-requested proposal, so gate on lab membership (not the original

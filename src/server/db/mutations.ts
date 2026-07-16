@@ -1,7 +1,7 @@
 import { Action } from '../actions/action'
-import type { DB } from '@/database/types'
+import type { DB, StudyJobStatus } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { ROUND_CLOSING_JOB_STATUSES, latestSubmittedJobHasLiveCodeDecision } from '@/lib/study-job-status'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -74,49 +74,52 @@ export async function getOrCreateCurrentRoundJob(
     const latest = await db
         .selectFrom('studyJob')
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
-        // Both flags are EXISTENCE checks, not "latest status" lookups, so they're independent of
-        // jobStatusChange ordering. jobStatusChange.createdAt defaults to now() (constant within a
-        // transaction), so two statuses written together tie on createdAt and v7 ids aren't reliably
-        // monotonic within a millisecond — ordering by them to pick "the latest status" is
-        // non-deterministic and could flip the reuse-vs-new-round decision. A round-closing status
-        // (FILES-APPROVED/FILES-REJECTED) is never followed by another status on the same job (the
-        // next round opens a NEW job), so "has any round-closing status" is an order-independent test
-        // for a closed round.
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
-                )
-                .as('roundClosed'),
-        )
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', '!=', 'INITIATED'),
-                )
-                .as('hasSubmission'),
-        )
-        .where('studyJob.studyId', '=', studyId)
         // Order by id (v7 = insertion order), NOT createdAt: ensureRoundJobForUpload deliberately
         // backdates a new round job's createdAt (so uploaded files read as newer for submit-enable),
         // which would otherwise rank it *behind* the prior submission and make us open yet another
         // round. id is monotonic with insertion, so the most-recently-created job always wins.
+        .where('studyJob.studyId', '=', studyId)
         .orderBy('studyJob.id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
-    if (!latest || latest.roundClosed) {
+    if (!latest) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
     }
-    return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }
+
+    // The reuse-vs-new-round decision reads the latest job's status SET, never a "latest status"
+    // lookup: jobStatusChange.createdAt defaults to now() (constant within a transaction) so statuses
+    // written together tie on createdAt, and v7 ids aren't reliably monotonic within a millisecond —
+    // ordering by them to pick "the latest status" is non-deterministic. Set-based tests below are
+    // order-independent.
+    const statusChanges = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', latest.id)
+        .execute()
+    const statuses = statusChanges.map((c) => c.status as StudyJobStatus)
+
+    // A round-closing status (FILES-APPROVED/FILES-REJECTED) is never followed by another status on
+    // the same job, so "has any round-closing status" is an order-independent test for a closed round.
+    const roundClosed = statuses.some((s) => (ROUND_CLOSING_JOB_STATUSES as readonly StudyJobStatus[]).includes(s))
+    const hasSubmission = statuses.some((s) => s !== 'INITIATED')
+    // OTTER-636: a live CODE-CHANGES-REQUESTED decision opens a NEW draft round on the researcher's
+    // next real edit (IDE launch / upload / delete on the Edit Study Code page), so the study reads
+    // "Code draft" while they work rather than holding "Change requested". Narrowly scoped to
+    // change-requested: CODE-APPROVED (code is running / may have errored, awaiting the reviewer's
+    // files decision) and terminal CODE-REJECTED are not researcher-editable and keep the same job;
+    // results decisions (FILES-*) are already handled by roundClosed.
+    const liveDecision = latestSubmittedJobHasLiveCodeDecision(statuses.map((status) => ({ status })))
+    const liveChangesRequested =
+        liveDecision &&
+        statuses.includes('CODE-CHANGES-REQUESTED') &&
+        !statuses.includes('CODE-APPROVED') &&
+        !statuses.includes('CODE-REJECTED')
+
+    if (roundClosed || liveChangesRequested) {
+        return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
+    }
+    return { id: latest.id, createdAt: latest.createdAt, hasSubmission, created: false }
 }
 
 // Submit is enabled when any workspace file's mtime > the current round job's createdAt.

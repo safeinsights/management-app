@@ -50,7 +50,12 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName } }) => {
+        // OTTER-636: deleting/replacing a code file is a real edit, so it opens (or refreshes) the
+        // current code-draft round exactly like an upload does — after a prior decision this opens a
+        // fresh INITIATED round so the study reads "Code draft".
+        await ensureRoundJobForUpload(db, studyId)
+
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)

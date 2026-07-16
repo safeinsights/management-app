@@ -14,6 +14,7 @@ import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
+import { useMarkProposalDraftEdited } from './hooks/use-mark-proposal-draft-edited'
 import {
     resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
@@ -128,6 +129,11 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
 
     const currentNote = noteForm.values.resubmissionNote
     const singleUserEditing = useSingleUserEditing()
+
+    // OTTER-636: a real edit (a proposal field via Yjs, or the resubmission note) flips a
+    // change-requested proposal back to DRAFT so it reads "Proposal draft" while being revised.
+    const hasEdited = yjsForm.editedKeys.size > 0 || currentNote !== normalizedInitialNote
+    useMarkProposalDraftEdited(studyId, hasEdited)
 
     // In collaborative mode the Yjs doc is the live persistence, so skip the
     // per-keystroke column save (Save-as-draft still refreshes the column as

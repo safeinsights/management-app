@@ -8,9 +8,11 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
+    markProposalDraftEditedAction,
     onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
@@ -181,6 +183,62 @@ describe('resubmitProposalAction', () => {
         expect(result.submitterFullName).toBe(user.fullName)
         expect(result.submitterClerkId).toBe(user.clerkId)
         expect(result.orgName).toBe(reviewerOrg.orgName)
+    })
+
+    // OTTER-636: the first edit on the Edit Proposal page flips a change-requested study to DRAFT
+    // ("Proposal draft"). That reverted draft (submittedAt still set) must remain resubmittable.
+    it('accepts a resubmission from a reverted DRAFT (previously submitted)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-reverted', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+        // Simulate the first-edit flip: CHANGE-REQUESTED -> DRAFT, submittedAt preserved.
+        await setTestStudyStatus(study.id, 'DRAFT')
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Revised from draft' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status', 'title', 'submittedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('PENDING-REVIEW')
+        expect(updated.title).toBe('Revised from draft')
+        expect(updated.submittedAt).toEqual(study.submittedAt)
+    })
+
+    // A never-submitted draft (submittedAt null) belongs to the fresh-draft/finalize path, so the
+    // resubmit action must not accept it even though its status is DRAFT.
+    it('rejects a resubmission from a never-submitted DRAFT', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-fresh-draft', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'DRAFT',
+        })
+
+        const result = await resubmitProposalAction({
+            studyId: study.id,
+            studyInfo: { title: 'attempting' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+        expect('error' in result).toBe(true)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
     })
 
     it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {
@@ -363,6 +421,69 @@ describe('resubmitProposalAction', () => {
             .where('entryType', '=', 'RESUBMISSION-NOTE')
             .executeTakeFirstOrThrow()
         expect(Number(noteCount.count)).toBe(1)
+    })
+})
+
+// OTTER-636: editing a previously submitted proposal re-enters draft status.
+describe('markProposalDraftEditedAction', () => {
+    it('flips a CHANGE-REQUESTED study to DRAFT and preserves submittedAt', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-mark-edited-1', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        actionResult(await markProposalDraftEditedAction({ studyId: study.id }))
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status', 'submittedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('DRAFT')
+        // submittedAt is preserved so the study stays on the resubmit-with-note path.
+        expect(updated.submittedAt).toEqual(study.submittedAt)
+    })
+
+    it('is a no-op for a study that is not CHANGE-REQUESTED (e.g. PENDING-REVIEW)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-mark-edited-2', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        actionResult(await markProposalDraftEditedAction({ studyId: study.id }))
+
+        const updated = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('PENDING-REVIEW')
+    })
+
+    it('does not flip a change-requested study for a caller from a different lab', async () => {
+        const { org: labA, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-mark-edited-A',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org: labA,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        await mockSessionWithTestData({ orgSlug: 'lab-mark-edited-B', orgType: 'lab' })
+        await markProposalDraftEditedAction({ studyId: study.id })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
 })
 
