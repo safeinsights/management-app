@@ -11,7 +11,7 @@ import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/st
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
 import { latestCodeSubmittedAt } from './submitted-code-section'
-import { CodeReviewSubmittedCode } from './code-review-submitted-code'
+import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -101,14 +101,15 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                 <Title order={1} fz={40} fw={700}>
                     Study Proposal
                 </Title>
-                <CodeReviewSubmittedCode
+                <CollapsibleSubmittedCodeSection
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
                     review={review}
                     scan={scan}
+                    stepLabel="STEP 3"
                     heading={heading}
-                    submittedAt={latestCodeSubmittedAt(job)}
+                    timestampDate={latestCodeSubmittedAt(job)}
                     timestampLabel={timestampLabel}
                     banner={<CodeReviewStatusBanner labName={labName} isResubmission={isResubmission} />}
                     initiallyExpanded={!isResubmission}
