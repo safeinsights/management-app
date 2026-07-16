@@ -133,8 +133,17 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            // Reviewer dashboards should not see draft studies
-            query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
+            // OTTER-636: reviewers see revision drafts (a change-requested proposal being edited) but
+            // not fresh drafts (a brand-new proposal). Exclude only the fresh-draft case: DRAFT with no
+            // base snapshot.
+            query = query
+                .where('study.orgId', '=', orgId)
+                .where((eb) =>
+                    eb.or([
+                        eb('study.status', '!=', 'DRAFT'),
+                        eb('study.proposalRevisionBaseSubmissionId', 'is not', null),
+                    ]),
+                )
         }
         if (orgType === 'lab') {
             // Lab dashboards: show every study submitted by the lab (including drafts and
@@ -170,12 +179,21 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         if (reviewerOrgIds.length === 0) {
             return []
         }
-        return fetchStudyQuery(db)
-            .where('study.orgId', 'in', reviewerOrgIds)
-            .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug'])
-            .execute()
+        return (
+            fetchStudyQuery(db)
+                .where('study.orgId', 'in', reviewerOrgIds)
+                // OTTER-636: hide fresh drafts only; a revision draft (DRAFT with a base snapshot) stays
+                // visible so the reviewer can see the change-requested proposal is being revised.
+                .where((eb) =>
+                    eb.or([
+                        eb('study.status', '!=', 'DRAFT'),
+                        eb('study.proposalRevisionBaseSubmissionId', 'is not', null),
+                    ]),
+                )
+                .innerJoin('org', 'org.id', 'study.orgId')
+                .select(['org.name as orgName', 'org.slug as orgSlug'])
+                .execute()
+        )
     })
 
 export const getStudyAction = new Action('getStudyAction')

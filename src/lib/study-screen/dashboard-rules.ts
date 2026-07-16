@@ -18,6 +18,13 @@ const POST_SUBMISSION_STATUSES: ReadonlyArray<DashboardState['status']> = [
 ]
 
 export const DASHBOARD_RULES: DashboardRule[] = [
+    // OTTER-636: a revision draft (a change-requested proposal the researcher has begun editing) resumes
+    // directly on the edit-and-resubmit flow and has NO delete affordance — it carries submitted history
+    // and must be resubmitted, not deleted. Must precede the plain-DRAFT rules below (it is also isDraft).
+    {
+        when: (s) => s.isProposalRevisionDraft,
+        action: (ctx) => ({ label: 'Edit', href: Routes.studyEditAndResubmit(ctx) }),
+    },
     // DRAFT that already reached Step 2 → resume on Step 2 (the proposal editor) instead of the
     // Step 1 data-partner picker (OTTER-572). Must precede the plain-DRAFT rule below.
     {

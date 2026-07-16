@@ -7,6 +7,7 @@ const ctx = { orgSlug: 'org', studyId: '01900000-0000-7000-8000-000000000001' }
 const st = (overrides: Partial<StudyState>): StudyState => ({
     status: 'PENDING-REVIEW',
     isDraft: false,
+    isProposalRevisionDraft: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
@@ -39,6 +40,20 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'APPROVED' }))).toBe('reviewer-proposal-feedback')
         expect(screen(st({ status: 'REJECTED' }))).toBe('reviewer-proposal-feedback')
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
+    })
+
+    // OTTER-636: a revision draft (a change-requested proposal being edited) reads DRAFT but must show
+    // the reviewer the read-only submitted feedback, never a fresh-draft/study-overview fallback.
+    it('revision draft → reviewer-proposal-feedback (read-only, not actionable)', () => {
+        expect(screen(st({ status: 'DRAFT', isDraft: true, isProposalRevisionDraft: true }))).toBe(
+            'reviewer-proposal-feedback',
+        )
+    })
+
+    // A fresh draft has no submitted history and should not reach a reviewer screen beyond the safe
+    // overview fallback (the page guard 404s it first).
+    it('fresh draft → study-overview fallback', () => {
+        expect(screen(st({ status: 'DRAFT', isDraft: true, isProposalRevisionDraft: false }))).toBe('study-overview')
     })
 
     it('code submitted, agreements NOT acked → reviewer-agreements (gate before review)', () => {

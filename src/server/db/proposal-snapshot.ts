@@ -96,8 +96,14 @@ export async function overlaidWithLatestProposalSnapshot(
 ): Promise<SelectedStudy> {
     const latest = await latestProposalSnapshotForStudy(studyId, db)
     if (!latest) return study
+    // OTTER-636: a revision draft renders as its last submitted version, which was change-requested (the
+    // only decision that produces a revision draft). Present that effective status so read-only feedback
+    // / submitted views treat it as a submitted proposal rather than a fresh draft; the base id is left
+    // on the object so those views can still show a "being revised" notice.
+    const isRevisionDraft = study.status === 'DRAFT' && study.proposalRevisionBaseSubmissionId != null
     return {
         ...study,
+        status: isRevisionDraft ? 'CHANGE-REQUESTED' : study.status,
         title: latest.snapshot.title,
         piName: latest.snapshot.piName,
         piUserId: latest.snapshot.piUserId,

@@ -21,20 +21,25 @@ export const REVIEWER_SCREEN_RULES = [
     // 4. Code submitted, awaiting a decision, agreements acked → active code review.
     ['reviewer-code-review', { when: (s) => s.codeAwaitingDecision }],
 
-    // 5. Proposal decided but no code yet → read-only proposal feedback.
+    // 5. Proposal decided but no code yet → read-only proposal feedback. OTTER-636: a revision draft
+    //    (a change-requested proposal the researcher is now editing) routes here too — the reviewer
+    //    sees the last submitted snapshot + prior feedback, read-only, with no actionable decision.
     [
         'reviewer-proposal-feedback',
         {
             when: (s) =>
                 !s.hasSubmittedCode &&
-                (s.status === 'APPROVED' || s.status === 'REJECTED' || s.status === 'CHANGE-REQUESTED'),
+                (s.status === 'APPROVED' ||
+                    s.status === 'REJECTED' ||
+                    s.status === 'CHANGE-REQUESTED' ||
+                    s.isProposalRevisionDraft),
         },
     ],
 
     // 6. Proposal under review → editable proposal review.
     ['reviewer-proposal-review', { when: (s) => s.status === 'PENDING-REVIEW' }],
 
-    // 7. Exhaustive fallback. DRAFT shouldn't reach a reviewer (the page's not-found guard handles
-    //    it), but the table stays total; study-overview is a safe read-only render.
+    // 7. Exhaustive fallback. A FRESH DRAFT shouldn't reach a reviewer (the page's not-found guard
+    //    handles it), but the table stays total; study-overview is a safe read-only render.
     ['study-overview', { when: () => true }],
 ] as const satisfies ReadonlyArray<ScreenRuleEntry>

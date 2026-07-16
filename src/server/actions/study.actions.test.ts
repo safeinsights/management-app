@@ -32,6 +32,7 @@ import {
     submitProposalReviewAction,
 } from './study.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 import { lexicalJson } from '@/lib/lexical'
 
 vi.mock('@/server/mailgun', () => ({
@@ -480,6 +481,46 @@ describe('Study Actions', () => {
             expect(result).toEqual(
                 expect.arrayContaining([expect.objectContaining({ id: studyId, status: 'CHANGE-REQUESTED' })]),
             )
+        })
+
+        // OTTER-636: reviewers (enclave dashboards) see a revision draft (a change-requested proposal
+        // being edited) but never a fresh draft.
+        it('reviewer sees a revision draft but not a fresh draft', async () => {
+            const {
+                enclave,
+                studyId: revisionId,
+                user: revisionAuthor,
+            } = await createTestProposalDraft({
+                enclaveSlug: 'fetch-reviewer-revision-enclave',
+                studyInfo: { title: 'Revision draft' },
+            })
+            await writeProposalSubmissionSnapshot(db, revisionId, revisionAuthor.id)
+            const snap = await db
+                .selectFrom('studyProposalSubmission')
+                .select('id')
+                .where('studyId', '=', revisionId)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('study')
+                .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: snap.id })
+                .where('id', '=', revisionId)
+                .execute()
+
+            // A fresh draft in the same enclave (no base snapshot).
+            const { studyId: freshId } = await createTestProposalDraft({
+                enclaveSlug: `${enclave.slug}-fresh`,
+                studyInfo: { title: 'Fresh draft' },
+            })
+            await db.updateTable('study').set({ orgId: enclave.id }).where('id', '=', freshId).execute()
+
+            // A reviewer in the enclave loads their dashboard.
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            const result = await fetchStudiesForOrgAction({ orgSlug: enclave.slug })
+
+            expect(Array.isArray(result)).toBe(true)
+            const ids = (result as Array<{ id: string }>).map((s) => s.id)
+            expect(ids).toContain(revisionId)
+            expect(ids).not.toContain(freshId)
         })
 
         it("outside-lab user does not see another lab's draft", async () => {
