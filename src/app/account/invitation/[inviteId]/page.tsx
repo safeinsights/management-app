@@ -42,7 +42,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .executeTakeFirst()
 
     if (claimedInvite || !pendingInvite) {
-        // redirect to the signin page with a flag, shows error message
+        if (session) return <InvalidInvitePanel />
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
@@ -123,3 +123,20 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         </Paper>
     )
 }
+
+const InvalidInvitePanel = () => (
+    <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
+            <Title order={3} ta="center" c="red.8">
+                This invitation is no longer valid
+            </Title>
+            <Text size="md">
+                It may have already been accepted or expired. If you think this is a mistake, contact the person who
+                invited you for a new invitation.
+            </Text>
+            <ButtonLink variant="filled" size="lg" href={Routes.dashboard} fullWidth>
+                Go to your dashboard
+            </ButtonLink>
+        </Flex>
+    </Paper>
+)
