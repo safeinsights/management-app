@@ -73,6 +73,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                     feedbackEntries={entries}
                     noteVersion={noteVersion}
                     initialNote={initialNote}
+                    initialStatus={study.status === 'CHANGE-REQUESTED' ? 'CHANGE-REQUESTED' : 'DRAFT'}
                 />
             </EditResubmitProvider>
         </Stack>

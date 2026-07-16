@@ -9,6 +9,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { ProposalRevisionProvider } from '@/hooks/use-start-proposal-revision'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
 import { EditResubmitFooter } from './footer'
 
@@ -30,6 +31,11 @@ interface EditResubmitFormProps {
     noteVersion: number
     /** Persisted note draft; seeds the single-user editor. */
     initialNote: string
+    /**
+     * Server status at page load. CHANGE-REQUESTED means the first edit still needs to flip the study
+     * to a revision DRAFT; a revision DRAFT is already flipped (a page reload after the first edit).
+     */
+    initialStatus: 'CHANGE-REQUESTED' | 'DRAFT'
 }
 
 export const EditResubmitForm: FC<EditResubmitFormProps> = ({
@@ -41,6 +47,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     feedbackEntries,
     noteVersion,
     initialNote,
+    initialStatus,
 }) => {
     const { studyId, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
         useEditResubmit()
@@ -60,34 +67,40 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <Stack gap="xxl">
-                <Title order={1}>Edit Initial Request</Title>
+            <ProposalRevisionProvider
+                studyId={studyId}
+                orgSlug={orgSlug}
+                enabled={initialStatus === 'CHANGE-REQUESTED'}
+            >
+                <Stack gap="xxl">
+                    <Title order={1}>Edit Initial Request</Title>
 
-                <EditInitialRequestSection
-                    orgName={orgName}
-                    members={members}
-                    researcherName={researcherName}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
+                    <EditInitialRequestSection
+                        orgName={orgName}
+                        members={members}
+                        researcherName={researcherName}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                    />
 
-                <FeedbackAndNotesSection entries={feedbackEntries} />
+                    <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                <CollaborativeResubmissionNoteSection
-                    studyId={studyId}
-                    noteVersion={noteVersion}
-                    noteForm={noteForm}
-                    orgName={orgName}
-                    initialNote={initialNote}
-                    websocketProvider={websocketProvider}
-                    autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
-                />
+                    <CollaborativeResubmissionNoteSection
+                        studyId={studyId}
+                        noteVersion={noteVersion}
+                        noteForm={noteForm}
+                        orgName={orgName}
+                        initialNote={initialNote}
+                        websocketProvider={websocketProvider}
+                        autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
+                    />
 
-                <EditResubmitFooter
-                    researcherName={researcherName}
-                    researcherId={researcherId}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
-            </Stack>
+                    <EditResubmitFooter
+                        researcherName={researcherName}
+                        researcherId={researcherId}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                    />
+                </Stack>
+            </ProposalRevisionProvider>
         </StudyKickOutProvider>
     )
 }

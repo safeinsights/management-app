@@ -96,11 +96,17 @@ function ActiveEditorsList({
     )
 }
 
-function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) {
+function EditorChangePlugin({
+    onChange,
+    onLocalUserEdit,
+}: {
+    onChange?: (json: string) => void
+    onLocalUserEdit?: () => void
+}) {
     const [editor] = useLexicalComposerContext()
 
     useEffect(() => {
-        return editor.registerUpdateListener(({ editorState }) => {
+        return editor.registerUpdateListener(({ editorState, tags }) => {
             const json = editorState.toJSON()
             // On mount, before Yjs syncs, Lexical's root briefly has no children.
             // That state is valid in memory but Lexical rejects it on re-hydration,
@@ -109,9 +115,16 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
             // input still keeps an empty paragraph in children, so this only filters
             // the pre-sync state.
             if (!json.root?.children?.length) return
-            onChange(JSON.stringify(json))
+            // OTTER-636: a local user edit is one that did NOT originate from Yjs sync
+            // (tagged `collaboration`) or the initial hydration merge (`history-merge`).
+            // A remote collaborator's change arrives tagged `collaboration`; their own
+            // client signals the transition for them, so we must not impersonate it here.
+            if (onLocalUserEdit && !tags.has('collaboration') && !tags.has('history-merge')) {
+                onLocalUserEdit()
+            }
+            onChange?.(JSON.stringify(json))
         })
-    }, [editor, onChange])
+    }, [editor, onChange, onLocalUserEdit])
 
     return null
 }
@@ -180,6 +193,12 @@ export type CollaborativeEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /**
+     * OTTER-636: fires on the first and every subsequent *local* user edit (not on Yjs hydration or
+     * remote collaborator updates). Used to transition a change-requested proposal to a revision draft
+     * the moment the researcher actually edits it.
+     */
+    onLocalUserEdit?: () => void
     footerRight?: React.ReactNode
     /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
@@ -235,6 +254,7 @@ export function CollaborativeEditor({
     placeholder,
     ariaLabel,
     onChange,
+    onLocalUserEdit,
     footerRight,
     onProviderReady,
 }: CollaborativeEditorProps) {
@@ -378,7 +398,9 @@ export function CollaborativeEditor({
                         cursorColor={cursorColor}
                         awarenessData={awarenessData}
                     />
-                    {onChange && <EditorChangePlugin onChange={onChange} />}
+                    {(onChange || onLocalUserEdit) && (
+                        <EditorChangePlugin onChange={onChange} onLocalUserEdit={onLocalUserEdit} />
+                    )}
                     <ListPlugin />
                     <TabIndentationPlugin />
                     <EscapeFocusPlugin />
