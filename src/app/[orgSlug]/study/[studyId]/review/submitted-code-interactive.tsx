@@ -19,8 +19,8 @@ import { useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
-import { CodeViewer } from '@/components/file-viewers'
-import { decodeFileContents } from '@/lib/file-content-helpers'
+import { CodeViewer, ImageViewer } from '@/components/file-viewers'
+import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { studyCodeURL } from '@/lib/paths'
 import {
@@ -509,6 +509,15 @@ function StudyCodeBody({
             </Alert>
         )
     }
+    const mime = imageMimeType(activeFile.name)
+    if (mime) {
+        return (
+            <div data-testid="study-code-body">
+                <ImageViewer name={activeFile.name} contents={data.contents} mime={mime} />
+            </div>
+        )
+    }
+
     const code = decodeFileContents(data.contents)
     return (
         <div data-testid="study-code-body">
