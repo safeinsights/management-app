@@ -13,8 +13,11 @@ import { EditInitialRequestSection, type MemberOption } from './edit-initial-req
 import { EditResubmitFooter } from './footer'
 
 // Change-requested proposals are co-editable by the whole lab; once any member
-// resubmits, the study leaves CHANGE-REQUESTED and the rest must be kicked out.
-const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED'] as const
+// resubmits, the study leaves this editing flow (→ PENDING-REVIEW) and the rest
+// must be kicked out. OTTER-636: the first edit flips CHANGE-REQUESTED → a revision
+// DRAFT, so DRAFT is editable here too. The page guard guarantees any DRAFT reaching
+// this form is a revision draft (a fresh draft is served by /proposal, never here).
+const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED', 'DRAFT'] as const
 
 interface EditResubmitFormProps {
     orgName: string

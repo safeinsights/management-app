@@ -477,6 +477,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.irbDocPath',
                 'study.agreementDocPath',
                 'study.status',
+                'study.proposalRevisionBaseSubmissionId',
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',
@@ -633,6 +634,52 @@ const resubmissionNoteParam = z
 //
 // `performsMutations: true` runs this handler inside db.transaction().
 // Do not drop it: the study updates/inserts must commit or roll back together.
+// OTTER-636: the first real edit to a change-requested proposal transitions it to a literal revision
+// DRAFT that points at the immutable submitted snapshot it is revising. study.status becomes DRAFT so
+// the researcher sees "Proposal draft" and it leaves the reviewer's actionable queue, while reviewers
+// still read the frozen snapshot (Phase 4). Idempotent: an already-started revision draft, or a study
+// not in CHANGE-REQUESTED, is a no-op. Lab-scoped.
+export const startProposalRevisionAction = new Action('startProposalRevisionAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
+
+        const current = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', studyId)
+            .where('submittedByOrgId', 'in', labScope)
+            .executeTakeFirst()
+
+        if (!current) throw new ActionFailure({ submission: 'Study not found or access denied' })
+        // Already a revision draft, or not a change-requested proposal → nothing to do (idempotent).
+        if (current.status !== 'CHANGE-REQUESTED') return { studyId }
+
+        const latest = await db
+            .selectFrom('studyProposalSubmission')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('version', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+        if (!latest) throw new ActionFailure({ submission: 'Cannot start a revision: no submitted version exists' })
+
+        await db
+            .updateTable('study')
+            .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: latest.id, lastUpdatedAt: new Date() })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', labScope)
+            .execute()
+
+        return { studyId }
+    })
+
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -666,7 +713,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
+            .select([
+                'study.id as id',
+                'study.status as status',
+                'study.proposalRevisionBaseSubmissionId as revisionBase',
+                'org.name as orgName',
+            ])
             .where('study.id', '=', studyId)
             .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
@@ -674,8 +726,11 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
         // so the client receives a structured `{ error: { submission } }` it can show,
         // rather than a plain Error bubbling up as a generic unhandled exception.
+        // OTTER-636: resubmit accepts a change-requested proposal OR a revision draft (a study whose
+        // first edit flipped it to DRAFT with a base snapshot). Both carry submitted history and a note.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
-        if (study.status !== 'CHANGE-REQUESTED') {
+        const isRevisionDraft = study.status === 'DRAFT' && study.revisionBase != null
+        if (study.status !== 'CHANGE-REQUESTED' && !isRevisionDraft) {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
@@ -698,10 +753,19 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 ...updateValues,
                 status: 'PENDING-REVIEW',
                 proposalResubmissionNoteDraft: null,
+                // OTTER-636: the revision is now submitted; clear the base so it is no longer a draft.
+                proposalRevisionBaseSubmissionId: null,
                 lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
+            // CHANGE-REQUESTED, or a revision draft (DRAFT with a base snapshot). submittedAt is left
+            // untouched; the studyProposalComment/snapshot carry the resubmission version.
+            .where((eb) =>
+                eb.or([
+                    eb('status', '=', 'CHANGE-REQUESTED'),
+                    eb.and([eb('status', '=', 'DRAFT'), eb('proposalRevisionBaseSubmissionId', 'is not', null)]),
+                ]),
+            )
             .where('submittedByOrgId', 'in', labScope)
             .returning(['id'])
             .executeTakeFirst()
@@ -840,7 +904,14 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
             .updateTable('study')
             .set({ proposalResubmissionNoteDraft: note })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
+            // OTTER-636: the note is editable while the study is CHANGE-REQUESTED and after its first
+            // edit flips it to a revision DRAFT (DRAFT with a base snapshot). A fresh DRAFT has no note.
+            .where((eb) =>
+                eb.or([
+                    eb('status', '=', 'CHANGE-REQUESTED'),
+                    eb.and([eb('status', '=', 'DRAFT'), eb('proposalRevisionBaseSubmissionId', 'is not', null)]),
+                ]),
+            )
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
             .executeTakeFirst()

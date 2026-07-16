@@ -104,6 +104,15 @@ export function requiredOrgIdForDocument(
 
 export type StudyEditabilitySnapshot = {
     status: StudyStatus
+    // OTTER-636: set on a revision DRAFT (a change-requested proposal whose first edit flipped it to
+    // DRAFT). Points at the immutable snapshot being revised. Null for a fresh draft or a submitted study.
+    proposalRevisionBaseSubmissionId: string | null
+}
+
+// A revision draft is a DRAFT that carries a base snapshot id: the researcher is mid-revision of a
+// change-requested proposal. Its proposal docs and resubmission note must stay editable.
+function isRevisionDraftSnapshot(snap: StudyEditabilitySnapshot): boolean {
+    return snap.status === 'DRAFT' && snap.proposalRevisionBaseSubmissionId != null
 }
 
 // Whether the canonical Yjs state for `parsed` may still be mutated given the
@@ -121,9 +130,11 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'proposal-fields':
         case 'proposal-text':
             return snap.status === 'DRAFT' || snap.status === 'CHANGE-REQUESTED'
-        // No note exists during DRAFT — only while answering a change request.
+        // The note exists while answering a change request: either the study is still CHANGE-REQUESTED,
+        // or its first edit has already flipped it to a revision DRAFT (OTTER-636). A fresh DRAFT (no
+        // base snapshot) has no note.
         case 'proposal-resubmission-note':
-            return snap.status === 'CHANGE-REQUESTED'
+            return snap.status === 'CHANGE-REQUESTED' || isRevisionDraftSnapshot(snap)
         case 'code-review-feedback':
             return true
     }
@@ -138,11 +149,17 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     if (parsed.kind === 'code-review-feedback') return true
 
-    const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
-    const status = row.rows[0]?.status
-    if (!status) return false
+    const row = await db.query<{ status: StudyStatus; proposal_revision_base_submission_id: string | null }>(
+        'SELECT status, proposal_revision_base_submission_id FROM study WHERE id = $1',
+        [parsed.studyId],
+    )
+    const studyRow = row.rows[0]
+    if (!studyRow?.status) return false
 
-    return isDocumentEditable(parsed, { status })
+    return isDocumentEditable(parsed, {
+        status: studyRow.status,
+        proposalRevisionBaseSubmissionId: studyRow.proposal_revision_base_submission_id,
+    })
 }
 
 export type EventType = 'proposal-submitted' | 'proposal-review-submitted' | 'code-review-submitted'
@@ -350,10 +367,14 @@ export async function authenticate(
 
     const studyId = await studyIdForDocument(parsed, deps.db)
 
-    const studyRow = await deps.db.query<{ org_id: string; submitted_by_org_id: string; status: StudyStatus }>(
-        'SELECT org_id, submitted_by_org_id, status FROM study WHERE id = $1',
-        [studyId],
-    )
+    const studyRow = await deps.db.query<{
+        org_id: string
+        submitted_by_org_id: string
+        status: StudyStatus
+        proposal_revision_base_submission_id: string | null
+    }>('SELECT org_id, submitted_by_org_id, status, proposal_revision_base_submission_id FROM study WHERE id = $1', [
+        studyId,
+    ])
     const study = studyRow.rows[0]
     if (!study) throw new AuthFailureError('STUDY_NOT_FOUND', 'study not found')
 
@@ -379,7 +400,12 @@ export async function authenticate(
     // layer is the single enforcer of code-review versioning, and Hocuspocus
     // per-document room isolation prevents stale-round writes from leaking
     // into a different round's persisted state.
-    if (!isDocumentEditable(parsed, { status: study.status })) {
+    if (
+        !isDocumentEditable(parsed, {
+            status: study.status,
+            proposalRevisionBaseSubmissionId: study.proposal_revision_base_submission_id,
+        })
+    ) {
         throw new AuthFailureError('STUDY_NOT_EDITABLE', `study is not editable (status: ${study.status})`)
     }
 

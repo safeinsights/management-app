@@ -17,7 +17,11 @@ export default async function StudyEditAndResubmitRoute(props: {
     const study = await getStudyAction({ studyId })
 
     if ('error' in study) return notFound()
-    if (study.status !== 'CHANGE-REQUESTED') return notFound()
+    // OTTER-636: this is the revision editor for a change-requested proposal AND its in-progress revision
+    // draft (a study whose first edit flipped it to DRAFT with a base snapshot). It reads the mutable row
+    // (the researcher's live edits); reviewers read the frozen snapshot elsewhere.
+    const isRevisionDraft = study.status === 'DRAFT' && study.proposalRevisionBaseSubmissionId != null
+    if (study.status !== 'CHANGE-REQUESTED' && !isRevisionDraft) return notFound()
 
     // OTTER-497: any member of the submitting lab may edit/resubmit a
     // change-requested proposal, so gate on lab membership (not the original

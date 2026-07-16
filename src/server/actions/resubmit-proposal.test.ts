@@ -14,7 +14,9 @@ import {
     onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
+    startProposalRevisionAction,
 } from '@/server/actions/study-request'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -390,6 +392,138 @@ describe('resubmitProposalAction', () => {
             .where('entryType', '=', 'RESUBMISSION-NOTE')
             .executeTakeFirstOrThrow()
         expect(Number(noteCount.count)).toBe(1)
+    })
+})
+
+// OTTER-636: the first real edit to a change-requested proposal flips it to a literal revision DRAFT
+// that points at the immutable snapshot being revised.
+describe('startProposalRevisionAction', () => {
+    it('flips a CHANGE-REQUESTED study to DRAFT and points at the latest submitted snapshot', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-1', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, user.id)
+        const snap = await db
+            .selectFrom('studyProposalSubmission')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .orderBy('version', 'desc')
+            .executeTakeFirstOrThrow()
+
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+
+        const after = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.status).toBe('DRAFT')
+        expect(after.proposalRevisionBaseSubmissionId).toBe(snap.id)
+    })
+
+    it('is idempotent for a study whose revision has already started', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-idem', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, user.id)
+
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+        const first = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        // second call must not throw or change the base
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+        const second = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+
+        expect(second.status).toBe('DRAFT')
+        expect(second.proposalRevisionBaseSubmissionId).toBe(first.proposalRevisionBaseSubmissionId)
+    })
+
+    it('is a no-op for a study that is not CHANGE-REQUESTED', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-noop', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+
+        const after = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.status).toBe('PENDING-REVIEW')
+        expect(after.proposalRevisionBaseSubmissionId).toBeNull()
+    })
+
+    it('rejects a caller from a different lab', async () => {
+        const { org: labA, user: ownerA } = await mockSessionWithTestData({
+            orgSlug: 'lab-start-rev-A',
+            orgType: 'lab',
+        })
+        const { study } = await insertTestStudyJobData({
+            org: labA,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, ownerA.id)
+
+        await mockSessionWithTestData({ orgSlug: 'lab-start-rev-B', orgType: 'lab' })
+        const result = await startProposalRevisionAction({ studyId: study.id })
+        expect('error' in result).toBe(true)
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('CHANGE-REQUESTED')
+    })
+
+    it('lets resubmitProposalAction finalize a revision draft and clear the base', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-resub', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, user.id)
+
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Revised title' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+
+        const after = await db
+            .selectFrom('study')
+            .select(['status', 'title', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.status).toBe('PENDING-REVIEW')
+        expect(after.title).toBe('Revised title')
+        expect(after.proposalRevisionBaseSubmissionId).toBeNull()
     })
 })
 
