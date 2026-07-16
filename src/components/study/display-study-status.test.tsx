@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS } from '@/lib/status-labels'
 import type { AllStatus } from '@/lib/types'
@@ -35,13 +35,11 @@ describe('DisplayStudyStatus', () => {
 
             await user.hover(screen.getByText('Code processing'))
 
-            await waitFor(() => {
-                expect(
-                    screen.getByText(
-                        'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
-                    ),
-                ).toBeDefined()
-            })
+            expect(
+                await screen.findByText(
+                    'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
+                ),
+            ).toBeVisible()
         })
     })
 
