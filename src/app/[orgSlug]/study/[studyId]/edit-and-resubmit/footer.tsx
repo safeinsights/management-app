@@ -10,6 +10,7 @@ import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import { useProposalRevision } from '@/hooks/use-start-proposal-revision'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
 import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
@@ -24,6 +25,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
+    const { blockResubmit } = useProposalRevision()
     // omitBlankTitle: nulling the title column on a CHANGE-REQUESTED row would
     // violate the study_title_required_when_not_draft check constraint.
     const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { omitBlankTitle: true })
@@ -73,11 +75,11 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     <Button
                         size="md"
                         variant="primary"
-                        // OTTER-636: resubmit is NOT gated on the first-edit DRAFT flip. The flip is a
-                        // best-effort display transition (it can no-op when a study has no base snapshot),
-                        // and resubmitProposalAction accepts both CHANGE-REQUESTED and a revision DRAFT, so
-                        // gating here would only risk stranding a researcher on a failed/slow flip.
-                        disabled={!isFormValid || isBusy}
+                        // OTTER-636 (architecture §4/§7): resubmitProposalAction accepts only a revision
+                        // DRAFT, so Resubmit stays disabled until the first-edit flip commits (blockResubmit
+                        // is true while it is pending or failed). The flip retries automatically and reports
+                        // a visible error if exhausted.
+                        disabled={!isFormValid || isBusy || blockResubmit}
                         loading={isSubmitting}
                         onClick={openConfirm}
                     >

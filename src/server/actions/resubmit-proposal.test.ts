@@ -31,8 +31,26 @@ vi.mock('@/server/aws', async () => {
 
 const NOTE_50_WORDS = buildFeedback(50)
 
+// OTTER-636 (architecture §7): resubmitProposalAction accepts ONLY a revision draft. In production the
+// researcher's first edit flips a change-requested proposal into that state; here we set it up directly:
+// write the immutable submitted snapshot and point the row at it as its revision base.
+const asRevisionDraft = async (studyId: string, submittedByUserId: string) => {
+    await writeProposalSubmissionSnapshot(db, studyId, submittedByUserId)
+    const snap = await db
+        .selectFrom('studyProposalSubmission')
+        .select('id')
+        .where('studyId', '=', studyId)
+        .orderBy('version', 'desc')
+        .executeTakeFirstOrThrow()
+    await db
+        .updateTable('study')
+        .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: snap.id })
+        .where('id', '=', studyId)
+        .execute()
+}
+
 describe('resubmitProposalAction', () => {
-    it('transitions a CHANGE-REQUESTED study to PENDING-REVIEW and writes a RESUBMISSION-NOTE comment', async () => {
+    it('transitions a revision draft to PENDING-REVIEW and writes a RESUBMISSION-NOTE comment', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-1', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -40,6 +58,7 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original title',
         })
+        await asRevisionDraft(study.id, user.id)
 
         const beforeResubmit = await db
             .selectFrom('study')
@@ -97,6 +116,7 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original title',
         })
+        await asRevisionDraft(study.id, user.id)
 
         actionResult(
             await resubmitProposalAction({
@@ -123,6 +143,7 @@ describe('resubmitProposalAction', () => {
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
         })
+        await asRevisionDraft(study.id, user.id)
 
         await db
             .insertInto('yjsDocument')
@@ -157,6 +178,7 @@ describe('resubmitProposalAction', () => {
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
         })
+        await asRevisionDraft(study.id, user.id)
 
         await db
             .insertInto('yjsDocument')
@@ -191,6 +213,7 @@ describe('resubmitProposalAction', () => {
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
         })
+        await asRevisionDraft(study.id, user.id)
 
         const result = actionResult(
             await resubmitProposalAction({
@@ -212,7 +235,7 @@ describe('resubmitProposalAction', () => {
         expect(result.orgName).toBe(reviewerOrg.orgName)
     })
 
-    it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {
+    it('rejects resubmission when the study is not a revision draft', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-2', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -252,6 +275,7 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Other lab study',
         })
+        await asRevisionDraft(study.id, ownerA.id)
 
         // a different user from lab B logs in and tries to resubmit it
         await mockSessionWithTestData({ orgSlug: 'lab-B', orgType: 'lab' })
@@ -270,7 +294,8 @@ describe('resubmitProposalAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.title).toBe('Other lab study')
-        expect(unchanged.status).toBe('CHANGE-REQUESTED')
+        // The revision draft is untouched by the rejected cross-lab attempt.
+        expect(unchanged.status).toBe('DRAFT')
     })
 
     it('allows any member of the submitting lab to resubmit, not just the original researcher', async () => {
@@ -284,6 +309,7 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original title',
         })
+        await asRevisionDraft(study.id, ownerA.id)
 
         // a second researcher in the same lab takes over the resubmission
         const { user: teammate } = await insertTestUser({ org })
@@ -335,6 +361,7 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original title',
         })
+        await asRevisionDraft(study.id, ownerA.id)
 
         const loginAs = (user: { id: string; clerkId: string; email: string | null }) =>
             mockClerkSession({
@@ -456,7 +483,9 @@ describe('startProposalRevisionAction', () => {
     // A change-requested study with no submitted snapshot (e.g. seeded directly, or a legacy row the
     // backfill missed) cannot become a revision draft — but must not fail the researcher's edit. It
     // stays CHANGE-REQUESTED, from which resubmit works directly.
-    it('is a graceful no-op when the study has no submitted snapshot', async () => {
+    // A submitted study always has a snapshot in production (finalize + backfill), so a missing one is a
+    // data-integrity error the researcher's edit must surface visibly, not swallow (invariant 10).
+    it('fails visibly when the study has no submitted snapshot', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-nosnap', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -464,7 +493,8 @@ describe('startProposalRevisionAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+        const result = await startProposalRevisionAction({ studyId: study.id })
+        expect('error' in result).toBe(true)
 
         const after = await db
             .selectFrom('study')
@@ -592,6 +622,7 @@ describe('lab co-author edit & resubmit', () => {
             studyStatus: 'CHANGE-REQUESTED',
             title: 'Original',
         })
+        await asRevisionDraft(study.id, originalAuthor.id)
 
         const NOTE_50_WORDS = Array.from({ length: 50 }, (_, i) => `word${i}`).join(' ')
 
@@ -752,8 +783,9 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
         })
-        // Seed an in-progress draft note
+        // Seed an in-progress draft note, then flip to a revision draft (the note draft is preserved).
         actionResult(await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: 'will-be-cleared' }))
+        await asRevisionDraft(study.id, user.id)
 
         const NOTE_50_WORDS = Array.from({ length: 50 }, (_, i) => `word${i}`).join(' ')
         actionResult(

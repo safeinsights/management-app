@@ -40,7 +40,12 @@ import {
     resubmissionNoteToLexicalJson,
     resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { canResearcherResubmitCode, canSubmitInitialCode, projectStudyState } from '@/lib/study-screen'
+import {
+    canResearcherResubmitCode,
+    canResubmitProposal,
+    canSubmitInitialCode,
+    projectStudyState,
+} from '@/lib/study-screen'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -667,12 +672,11 @@ export const startProposalRevisionAction = new Action('startProposalRevisionActi
             .orderBy('version', 'desc')
             .limit(1)
             .executeTakeFirst()
-        // No snapshot means we cannot set the revision base (the fresh-vs-revision discriminator), so we
-        // cannot flip to a revision DRAFT. This should not happen in production (finalize + the backfill
-        // guarantee a submitted study has a snapshot), but rather than fail the edit, leave the study
-        // CHANGE-REQUESTED — resubmitProposalAction accepts that status directly, so the researcher is
-        // never blocked. The flip is a best-effort display concern, not a prerequisite for resubmitting.
-        if (!latest) return { studyId }
+        // A change-requested proposal was submitted at least once, so finalize + the backfill migration
+        // guarantee it has an immutable snapshot. A missing one is a data-integrity error — surface it
+        // visibly (architecture invariant 10) rather than silently leaving the study un-flipped, which
+        // would let the researcher resubmit without ever becoming a revision draft.
+        if (!latest) throw new ActionFailure({ submission: 'Cannot start a revision: no submitted version exists' })
 
         await db
             .updateTable('study')
@@ -731,11 +735,11 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
         // so the client receives a structured `{ error: { submission } }` it can show,
         // rather than a plain Error bubbling up as a generic unhandled exception.
-        // OTTER-636: resubmit accepts a change-requested proposal OR a revision draft (a study whose
-        // first edit flipped it to DRAFT with a base snapshot). Both carry submitted history and a note.
+        // OTTER-636 (architecture §7): resubmit accepts ONLY a revision draft — a DRAFT with a non-null
+        // base snapshot. The researcher's first edit flips a change-requested proposal into that state
+        // (startProposalRevisionAction); resubmit never handles an un-flipped CHANGE-REQUESTED row.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
-        const isRevisionDraft = study.status === 'DRAFT' && study.revisionBase != null
-        if (study.status !== 'CHANGE-REQUESTED' && !isRevisionDraft) {
+        if (!canResubmitProposal({ status: study.status, proposalRevisionBaseSubmissionId: study.revisionBase })) {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
@@ -763,14 +767,10 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
-            // CHANGE-REQUESTED, or a revision draft (DRAFT with a base snapshot). submittedAt is left
-            // untouched; the studyProposalComment/snapshot carry the resubmission version.
-            .where((eb) =>
-                eb.or([
-                    eb('status', '=', 'CHANGE-REQUESTED'),
-                    eb.and([eb('status', '=', 'DRAFT'), eb('proposalRevisionBaseSubmissionId', 'is not', null)]),
-                ]),
-            )
+            // Revision draft only (DRAFT with a base snapshot). submittedAt is left untouched; the
+            // studyProposalComment/snapshot carry the resubmission version.
+            .where('status', '=', 'DRAFT')
+            .where('proposalRevisionBaseSubmissionId', 'is not', null)
             .where('submittedByOrgId', 'in', labScope)
             .returning(['id'])
             .executeTakeFirst()

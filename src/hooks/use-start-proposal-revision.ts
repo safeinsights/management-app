@@ -35,6 +35,12 @@ export type ProposalRevisionSignal = {
     isStartingRevision: boolean
     revisionStartFailed: boolean
     revisionStarted: boolean
+    /**
+     * OTTER-636 (architecture §4): true while the revision transition is pending or has failed. Resubmit
+     * must stay disabled until the flip commits, because resubmitProposalAction accepts only a revision
+     * DRAFT — submitting before the flip lands would be rejected.
+     */
+    blockResubmit: boolean
 }
 
 /**
@@ -78,6 +84,7 @@ export function useStartProposalRevision({ studyId, enabled }: Args): ProposalRe
         isStartingRevision: isPending,
         revisionStartFailed: isError,
         revisionStarted: isSuccess,
+        blockResubmit: enabled && (isPending || isError),
     }
 }
 
@@ -88,6 +95,7 @@ const DISABLED_SIGNAL: ProposalRevisionSignal = {
     isStartingRevision: false,
     revisionStartFailed: false,
     revisionStarted: false,
+    blockResubmit: false,
 }
 
 const ProposalRevisionContext = createContext<ProposalRevisionSignal>(DISABLED_SIGNAL)
