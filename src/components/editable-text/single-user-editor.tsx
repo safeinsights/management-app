@@ -66,14 +66,26 @@ function EditorChangePlugin({
 
     useEffect(() => {
         return editor.registerUpdateListener(
-            ({ editorState, tags }: { editorState: EditorState; tags: Set<string> }) => {
+            ({
+                editorState,
+                dirtyElements,
+                dirtyLeaves,
+                tags,
+            }: {
+                editorState: EditorState
+                dirtyElements: Map<string, boolean>
+                dirtyLeaves: Set<string>
+                tags: Set<string>
+            }) => {
                 const json = editorState.toJSON()
                 // Mirror the collaborative editor: never persist an empty root, which
                 // Lexical rejects on re-hydration and would crash the read-only views.
                 if (!json.root?.children?.length) return
-                // OTTER-636: skip the initial hydration merge; any other content-ful update in
-                // single-user mode is a local user edit (there is no remote collaborator here).
-                if (onLocalUserEdit && !tags.has('history-merge')) onLocalUserEdit()
+                // OTTER-636: only a real content mutation is a local edit. Lexical fires this on
+                // selection-only updates (focus / cursor move) with empty dirty sets; those are not edits
+                // (card non-trigger) and must not flip the study to a draft. Skip the hydration merge too.
+                const contentChanged = dirtyElements.size > 0 || dirtyLeaves.size > 0
+                if (onLocalUserEdit && contentChanged && !tags.has('history-merge')) onLocalUserEdit()
                 onChange?.(JSON.stringify(json))
             },
         )

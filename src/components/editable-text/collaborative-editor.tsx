@@ -106,7 +106,7 @@ function EditorChangePlugin({
     const [editor] = useLexicalComposerContext()
 
     useEffect(() => {
-        return editor.registerUpdateListener(({ editorState, tags }) => {
+        return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves, tags }) => {
             const json = editorState.toJSON()
             // On mount, before Yjs syncs, Lexical's root briefly has no children.
             // That state is valid in memory but Lexical rejects it on re-hydration,
@@ -115,11 +115,13 @@ function EditorChangePlugin({
             // input still keeps an empty paragraph in children, so this only filters
             // the pre-sync state.
             if (!json.root?.children?.length) return
-            // OTTER-636: a local user edit is one that did NOT originate from Yjs sync
-            // (tagged `collaboration`) or the initial hydration merge (`history-merge`).
-            // A remote collaborator's change arrives tagged `collaboration`; their own
-            // client signals the transition for them, so we must not impersonate it here.
-            if (onLocalUserEdit && !tags.has('collaboration') && !tags.has('history-merge')) {
+            // OTTER-636: a local user edit is one that (a) actually mutated content, and (b) did NOT
+            // originate from Yjs sync (`collaboration`) or the initial hydration merge (`history-merge`).
+            // Lexical fires this listener on selection-only updates too (focus / cursor move), where
+            // dirtyElements+dirtyLeaves are empty — those are NOT edits (card non-trigger) and must never
+            // flip the study to a draft. A remote collaborator's own client signals for them.
+            const contentChanged = dirtyElements.size > 0 || dirtyLeaves.size > 0
+            if (onLocalUserEdit && contentChanged && !tags.has('collaboration') && !tags.has('history-merge')) {
                 onLocalUserEdit()
             }
             onChange?.(JSON.stringify(json))

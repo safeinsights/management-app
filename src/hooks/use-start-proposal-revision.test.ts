@@ -34,12 +34,11 @@ const readStudy = (studyId: string) =>
 
 describe('useStartProposalRevision', () => {
     it('flips the study to a revision DRAFT on the first signalled edit when enabled', async () => {
-        const { org, study } = await setupChangeRequestedWithSnapshot('lab-hook-flip')
+        const { study } = await setupChangeRequestedWithSnapshot('lab-hook-flip')
 
-        const { result } = renderHook(
-            () => useStartProposalRevision({ studyId: study.id, orgSlug: org.slug, enabled: true }),
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderHook(() => useStartProposalRevision({ studyId: study.id, enabled: true }), {
+            wrapper: createTestQueryWrapper(),
+        })
 
         await act(async () => {
             result.current.signalRealEdit()
@@ -52,12 +51,11 @@ describe('useStartProposalRevision', () => {
     })
 
     it('does nothing when disabled (fresh draft or already-started revision)', async () => {
-        const { org, study } = await setupChangeRequestedWithSnapshot('lab-hook-disabled')
+        const { study } = await setupChangeRequestedWithSnapshot('lab-hook-disabled')
 
-        const { result } = renderHook(
-            () => useStartProposalRevision({ studyId: study.id, orgSlug: org.slug, enabled: false }),
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderHook(() => useStartProposalRevision({ studyId: study.id, enabled: false }), {
+            wrapper: createTestQueryWrapper(),
+        })
 
         await act(async () => {
             result.current.signalRealEdit()
@@ -70,12 +68,11 @@ describe('useStartProposalRevision', () => {
     })
 
     it('fires the transition at most once even when signalled repeatedly', async () => {
-        const { org, study } = await setupChangeRequestedWithSnapshot('lab-hook-once')
+        const { study } = await setupChangeRequestedWithSnapshot('lab-hook-once')
 
-        const { result } = renderHook(
-            () => useStartProposalRevision({ studyId: study.id, orgSlug: org.slug, enabled: true }),
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderHook(() => useStartProposalRevision({ studyId: study.id, enabled: true }), {
+            wrapper: createTestQueryWrapper(),
+        })
 
         await act(async () => {
             result.current.signalRealEdit()

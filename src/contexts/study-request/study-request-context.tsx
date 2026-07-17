@@ -82,6 +82,10 @@ export function StudyRequestProvider({
         studyIdRef.current = studyId
     }, [studyId])
     const createInFlightRef = useRef(false)
+    // Set when a Step-1 field changes while the create is still in flight. The create captured an earlier
+    // snapshot of the form, so on success we run one follow-up save to persist whatever changed during
+    // that window (otherwise a language pick made mid-create would be lost until Proceed).
+    const pendingSaveRef = useRef(false)
 
     // Choosing a Data Partner is the first persistable edit. Fire the create once; the create captures
     // whatever else Step 1 already holds (e.g. a language picked first). Subsequent edits autosave below.
@@ -97,9 +101,15 @@ export function StudyRequestProvider({
                     // Stamp the new id into the form so the Data-Partner selector locks (it is fixed at
                     // creation) without coupling that component to this context.
                     form.setFieldValue('createdStudyId', newStudyId)
+                    // Flush any edit made while the create was in flight.
+                    if (pendingSaveRef.current) {
+                        pendingSaveRef.current = false
+                        saveDraftInternal(form.getValues())
+                    }
                 },
                 onError: () => {
                     createInFlightRef.current = false
+                    pendingSaveRef.current = false
                 },
             })
         },
@@ -109,11 +119,15 @@ export function StudyRequestProvider({
     // eslint-disable-next-line react-hooks/refs
     form.watch('orgSlug', onOrgSlugChange)
 
-    // Autosave a later Step-1 field change once the draft exists. Skips while the create is still in
-    // flight (studyId not yet known) so it can never create a duplicate draft; anything typed in that
-    // window is still persisted by the create itself or by Proceed.
+    // Autosave a later Step-1 field change once the draft exists. While the create is still in flight
+    // (studyId not yet known) we can't save without spawning a duplicate draft, so record that a save is
+    // owed and let the create's onSuccess flush it.
     const onLanguageChange = useCallback(() => {
-        if (!studyIdRef.current || createInFlightRef.current) return
+        if (createInFlightRef.current) {
+            pendingSaveRef.current = true
+            return
+        }
+        if (!studyIdRef.current) return
         saveDraftInternal(form.getValues())
     }, [saveDraftInternal, form])
     // Deferred watch callback (see above); ref reads run on change, not during render.

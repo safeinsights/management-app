@@ -264,7 +264,15 @@ export const softDeleteStudyAction = new Action('softDeleteStudyAction', { perfo
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .select([
+                'id',
+                'status',
+                'title',
+                'researcherId',
+                'orgId',
+                'submittedByOrgId',
+                'proposalRevisionBaseSubmissionId',
+            ])
             .where('id', '=', studyId)
             .where('deletedAt', 'is', null)
             .executeTakeFirstOrThrow(throwNotFound('study'))
@@ -274,6 +282,12 @@ export const softDeleteStudyAction = new Action('softDeleteStudyAction', { perfo
     .handler(async ({ db, study, params: { studyId }, session }) => {
         if (study.status !== 'DRAFT') {
             throw new ActionFailure({ study: 'only draft studies can be deleted' })
+        }
+        // OTTER-636: a revision draft (a change-requested proposal being edited) is also DRAFT, but it
+        // carries an immutable submitted-proposal snapshot. Deleting it would destroy that submitted
+        // history (the snapshot cascades on study delete), so only a FRESH draft may be deleted.
+        if (study.proposalRevisionBaseSubmissionId !== null) {
+            throw new ActionFailure({ study: 'a proposal being revised cannot be deleted' })
         }
         if (study.researcherId !== session.user.id) {
             throw new ActionFailure({ user: 'only the draft author can delete this proposal' })

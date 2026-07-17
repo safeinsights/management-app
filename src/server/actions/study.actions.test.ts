@@ -2516,4 +2516,37 @@ describe('softDeleteStudyAction', () => {
             error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
         })
     })
+
+    // OTTER-636: a revision draft (a change-requested proposal being edited) is DRAFT but carries an
+    // immutable submitted snapshot; deleting it would destroy submitted history, so it must be refused.
+    it('rejects deleting a revision draft, preserving its submitted history', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'soft-delete-revision', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, user.id)
+        const snap = await db
+            .selectFrom('studyProposalSubmission')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        await db
+            .updateTable('study')
+            .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: snap.id })
+            .where('id', '=', study.id)
+            .execute()
+
+        await expect(softDeleteStudyAction({ studyId: study.id })).resolves.toMatchObject({
+            error: expect.objectContaining({ study: expect.stringMatching(/being revised/i) }),
+        })
+
+        const row = await db
+            .selectFrom('study')
+            .select('deletedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(row.deletedAt).toBeNull()
+    })
 })

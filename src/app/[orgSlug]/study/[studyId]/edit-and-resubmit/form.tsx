@@ -67,11 +67,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <ProposalRevisionProvider
-                studyId={studyId}
-                orgSlug={orgSlug}
-                enabled={initialStatus === 'CHANGE-REQUESTED'}
-            >
+            <ProposalRevisionProvider studyId={studyId} enabled={initialStatus === 'CHANGE-REQUESTED'}>
                 <Stack gap="xxl">
                     <Title order={1}>Edit Initial Request</Title>
 

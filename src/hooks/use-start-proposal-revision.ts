@@ -7,13 +7,20 @@ import { reportMutationError } from '@/components/errors'
 import { actionResult } from '@/lib/utils'
 import { startProposalRevisionAction } from '@/server/actions/study-request'
 
-// Every dashboard query that shows proposal status. The flip removes a study from the reviewer's
-// actionable queue and relabels it "Proposal draft" for the researcher, so both must refetch.
-const RESEARCHER_DASHBOARD_KEYS = [['researcher-studies'], ['user-researcher-studies'], ['user-orgs']] as const
+// Every dashboard query family that could show this study. Invalidate by key PREFIX (no org slug / user
+// id), so BOTH the researcher lab dashboards AND the reviewer enclave dashboards refetch: the flip both
+// removes the study from the reviewer's actionable queue and relabels it "Proposal Draft". Keying the
+// reviewer's `org-studies` on the researcher's lab slug (as before) never matched, so it was stale.
+const DASHBOARD_KEYS = [
+    ['researcher-studies'],
+    ['user-researcher-studies'],
+    ['org-studies'],
+    ['user-reviewer-studies'],
+    ['user-orgs'],
+] as const
 
 type Args = {
     studyId: string
-    orgSlug: string
     /**
      * True only while the study still needs the flip (its initial status is CHANGE-REQUESTED). A
      * revision draft is already flipped and a fresh draft never flips, so both pass `false` and
@@ -40,7 +47,7 @@ export type ProposalRevisionSignal = {
  * autosaving through Yjs / the draft columns). This hook owns only the status transition and reports
  * its own pending/failed state so the Resubmit button can stay disabled until the flip lands.
  */
-export function useStartProposalRevision({ studyId, orgSlug, enabled }: Args): ProposalRevisionSignal {
+export function useStartProposalRevision({ studyId, enabled }: Args): ProposalRevisionSignal {
     const queryClient = useQueryClient()
     // Guards against re-firing while a request is in flight or after it has succeeded. Reset in
     // onError so the next local edit re-attempts once react-query's automatic retries are exhausted.
@@ -54,10 +61,9 @@ export function useStartProposalRevision({ studyId, orgSlug, enabled }: Args): P
             reportMutationError('Could not start your revision. Your edits are safe; keep typing to retry.')(err)
         },
         onSuccess: () => {
-            for (const queryKey of RESEARCHER_DASHBOARD_KEYS) {
+            for (const queryKey of DASHBOARD_KEYS) {
                 queryClient.invalidateQueries({ queryKey })
             }
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
         },
     })
 
