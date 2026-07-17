@@ -49,6 +49,23 @@ describe('latestProposalSnapshotForStudy', () => {
         const { study } = await insertTestStudyOnly({ org })
         expect(await latestProposalSnapshotForStudy(study.id)).toBeNull()
     })
+
+    // Regression: datasets can hold non-uuid values (legacy rows, e2e seeds). Resolving org data sources
+    // must not blow up on `orgDataSource.id` (a uuid) — a raw uuid `IN` threw "invalid input syntax for
+    // type uuid" and 500'd every reviewer/submitted page for the study.
+    it('does not throw when datasets contain non-uuid values', async () => {
+        const org = await insertTestOrg()
+        const { study } = await insertTestStudyOnly({ org })
+        await insertSnapshot(study.id, study.researcherId, 1, {
+            ...baseSource,
+            datasets: ['Student Activity Logs', 'Another Label'],
+        })
+
+        const latest = await latestProposalSnapshotForStudy(study.id)
+        expect(latest?.snapshot.datasets).toEqual(['Student Activity Logs', 'Another Label'])
+        // No matching org_data_source rows, but crucially the query resolves instead of throwing.
+        expect(latest?.orgDataSources).toEqual([])
+    })
 })
 
 describe('overlaidWithLatestProposalSnapshot', () => {

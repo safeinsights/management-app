@@ -1,3 +1,4 @@
+import { sql } from 'kysely'
 import { db as defaultDb, type DBExecutor } from '@/database'
 import type { Json } from '@/database/types'
 import { parseProposalSnapshot, serializeProposalSnapshot, type ProposalSnapshot } from '@/lib/proposal-snapshot'
@@ -78,8 +79,15 @@ export async function latestProposalSnapshotForStudy(
 
     const snapshot = parseProposalSnapshot(row.snapshot)
     const datasets = snapshot.datasets ?? []
+    // Compare on id::text (mirrors fetchStudyQuery), not `id IN (...)`. `orgDataSource.id` is a uuid, and
+    // datasets can hold non-uuid values (legacy rows, e2e seeds); a raw uuid `IN` would make Postgres
+    // throw "invalid input syntax for type uuid" and 500 every reviewer/submitted page for that study.
     const orgDataSources = datasets.length
-        ? await db.selectFrom('orgDataSource').select(['id', 'name']).where('id', 'in', datasets).execute()
+        ? await db
+              .selectFrom('orgDataSource')
+              .select(['id', 'name'])
+              .where(sql<boolean>`"org_data_source"."id"::text = ANY(${datasets})`)
+              .execute()
         : []
     return { version: row.version, snapshot, orgDataSources }
 }
