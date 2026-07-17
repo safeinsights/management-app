@@ -667,7 +667,12 @@ export const startProposalRevisionAction = new Action('startProposalRevisionActi
             .orderBy('version', 'desc')
             .limit(1)
             .executeTakeFirst()
-        if (!latest) throw new ActionFailure({ submission: 'Cannot start a revision: no submitted version exists' })
+        // No snapshot means we cannot set the revision base (the fresh-vs-revision discriminator), so we
+        // cannot flip to a revision DRAFT. This should not happen in production (finalize + the backfill
+        // guarantee a submitted study has a snapshot), but rather than fail the edit, leave the study
+        // CHANGE-REQUESTED — resubmitProposalAction accepts that status directly, so the researcher is
+        // never blocked. The flip is a best-effort display concern, not a prerequisite for resubmitting.
+        if (!latest) return { studyId }
 
         await db
             .updateTable('study')

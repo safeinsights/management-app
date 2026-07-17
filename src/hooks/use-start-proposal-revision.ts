@@ -28,8 +28,6 @@ export type ProposalRevisionSignal = {
     isStartingRevision: boolean
     revisionStartFailed: boolean
     revisionStarted: boolean
-    /** True while the transition is pending or has failed — Resubmit must stay disabled. */
-    blockResubmit: boolean
 }
 
 /**
@@ -74,7 +72,6 @@ export function useStartProposalRevision({ studyId, orgSlug, enabled }: Args): P
         isStartingRevision: isPending,
         revisionStartFailed: isError,
         revisionStarted: isSuccess,
-        blockResubmit: enabled && (isPending || isError),
     }
 }
 
@@ -85,7 +82,6 @@ const DISABLED_SIGNAL: ProposalRevisionSignal = {
     isStartingRevision: false,
     revisionStartFailed: false,
     revisionStarted: false,
-    blockResubmit: false,
 }
 
 const ProposalRevisionContext = createContext<ProposalRevisionSignal>(DISABLED_SIGNAL)

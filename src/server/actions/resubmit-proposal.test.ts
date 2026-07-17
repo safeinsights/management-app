@@ -453,6 +453,28 @@ describe('startProposalRevisionAction', () => {
         expect(second.proposalRevisionBaseSubmissionId).toBe(first.proposalRevisionBaseSubmissionId)
     })
 
+    // A change-requested study with no submitted snapshot (e.g. seeded directly, or a legacy row the
+    // backfill missed) cannot become a revision draft — but must not fail the researcher's edit. It
+    // stays CHANGE-REQUESTED, from which resubmit works directly.
+    it('is a graceful no-op when the study has no submitted snapshot', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-nosnap', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        actionResult(await startProposalRevisionAction({ studyId: study.id }))
+
+        const after = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.status).toBe('CHANGE-REQUESTED')
+        expect(after.proposalRevisionBaseSubmissionId).toBeNull()
+    })
+
     it('is a no-op for a study that is not CHANGE-REQUESTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-start-rev-noop', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
