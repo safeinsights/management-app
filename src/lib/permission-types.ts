@@ -53,7 +53,7 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
-    | Ability<'IDE', 'load', { researcherId: UUID }>
+    | Ability<'IDE', 'load', { researcherId?: UUID; submittedByOrgId?: UUID }>
     | Ability<
           'AgentContext',
           'create' | 'update' | 'view',
