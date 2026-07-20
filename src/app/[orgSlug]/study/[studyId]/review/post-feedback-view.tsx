@@ -5,10 +5,11 @@ import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 import { type Submitted } from '@/schema/study'
-import { Box, Button, Collapse, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Collapse, Group, Stack, Text } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
@@ -366,11 +367,9 @@ export function PostFeedbackView({
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs crumbs={crumbs} />
-                <Title order={1} fz={40} fw={700}>
-                    Study proposal
-                </Title>
+                <StudyPageHeader>Study proposal</StudyPageHeader>
                 <CodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}

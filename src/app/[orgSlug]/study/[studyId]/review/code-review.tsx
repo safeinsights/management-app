@@ -3,11 +3,12 @@ import { AlertNotFound } from '@/components/errors'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
-import { Box, Stack, Title } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
@@ -111,7 +112,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs
                     crumbs={[
                         ['Dashboard', Routes.orgDashboard({ orgSlug })],
@@ -119,9 +120,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                         ['Study code'],
                     ]}
                 />
-                <Title order={1} fz={40} fw={700}>
-                    Study Proposal
-                </Title>
+                <StudyPageHeader>Study proposal</StudyPageHeader>
                 <CodeReviewSection
                     study={study}
                     submittedAt={latestCodeSubmittedAt(job)}
