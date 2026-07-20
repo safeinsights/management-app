@@ -1,4 +1,5 @@
 import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
+import type { StudyStatus } from '@/database/types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -9,6 +10,20 @@ import {
 } from './permission-types'
 
 export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
+
+// Every study status except DRAFT, i.e. "has been submitted at least once". Used to gate what a
+// Data Organization (enclave reviewer) may read: unsubmitted drafts belong to the Research Lab only
+// (OTTER-596). This is a positive allowlist on purpose — the ability subject is assembled from
+// middleware-returned fields, and a mongo `$in` fails CLOSED when `status` is absent (denies),
+// whereas `$ne: 'DRAFT'` would fail OPEN (grant). A new StudyStatus must be added here or DOs will
+// not be able to view studies in that status — the safe direction for a fix about hiding content.
+const SUBMITTED_STUDY_STATUSES: StudyStatus[] = [
+    'APPROVED',
+    'ARCHIVED',
+    'CHANGE-REQUESTED',
+    'PENDING-REVIEW',
+    'REJECTED',
+]
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
@@ -43,8 +58,11 @@ export function defineAbilityFor(session: UserSession) {
     // researchers need to be able to view enclave orgs to create studies
     permit('view', 'Org')
 
-    permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds } })
-    permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds } })
+    // Enclave (Data Organization) reviewers may only view SUBMITTED studies/jobs. Unsubmitted drafts
+    // (proposal content + uploaded code) stay private to the submitting Research Lab, which retains
+    // access via the submittedByOrgId rules below (OTTER-596).
+    permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds }, status: { $in: SUBMITTED_STUDY_STATUSES } })
+    permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds }, status: { $in: SUBMITTED_STUDY_STATUSES } })
 
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })

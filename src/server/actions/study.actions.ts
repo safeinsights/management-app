@@ -194,7 +194,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.language',
             ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study }) => {
@@ -208,10 +208,10 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId'])
+            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study, params: { studyId, role }, db, session }) => {
@@ -668,7 +668,7 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => {
         const { study, entries } = await getProposalFeedbackForStudy(studyId)
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, entries }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status, entries }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ entries }) => entries)
@@ -861,10 +861,10 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {

@@ -7,10 +7,13 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    createTestProposalDraft,
+    setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
+    fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
@@ -21,6 +24,7 @@ import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import { projectStudyState, resolvePillStatus } from '@/lib/study-screen'
+import logger from '@/lib/logger'
 
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
@@ -312,5 +316,40 @@ describe('Study Job Actions', () => {
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
         })
+    })
+})
+
+describe('draft code files are private to the Research Lab (OTTER-596)', () => {
+    // Attach a code file to the draft's own studyJob so there is something to fetch.
+    const seedCodeFile = async (studyId: string) => {
+        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })
+            .execute()
+        return job.id
+    }
+
+    test('data-org member cannot fetch a code file for an unsubmitted draft', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-code-draft-enclave' })
+        const studyJobId = await seedCodeFile(studyId)
+
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' })
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
+    })
+
+    test('data-org member can fetch a code file once the study is submitted', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-code-submitted-enclave' })
+        const studyJobId = await seedCodeFile(studyId)
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        const result = actionResult(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' }))
+        expect(result).toMatchObject({ fileName: 'main.r' })
     })
 })

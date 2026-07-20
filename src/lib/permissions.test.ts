@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
 
 import type { UserSession, UserOrgRoles } from './types'
+import type { StudyStatus } from '@/database/types'
 import { faker } from '@faker-js/faker'
 import { defineAbilityFor, toRecord } from './permissions'
 
@@ -45,6 +46,41 @@ test('reviewer role', () => {
     // enclave members hold a key to decrypt results for review
     expect(ability.can('view', 'UserKey')).toBe(true)
     expect(ability.can('update', 'UserKey')).toBe(true)
+})
+
+test('reviewer cannot view unsubmitted drafts, but can view submitted studies (OTTER-596)', () => {
+    const { ability, session } = createAbilty({}, 'enclave')
+    const orgId = session.orgs.test.id
+
+    // Data Organization (enclave reviewer) must NOT see an unsubmitted draft, even with the org id
+    const draft: StudyStatus = 'DRAFT'
+    expect(ability.can('view', toRecord('Study', { orgId, status: draft }))).toBe(false)
+    expect(ability.can('view', toRecord('StudyJob', { orgId, status: draft }))).toBe(false)
+
+    // ...but keeps access to every submitted status (incl. CHANGE-REQUESTED resubmissions)
+    const submitted: StudyStatus[] = ['PENDING-REVIEW', 'CHANGE-REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED']
+    for (const status of submitted) {
+        expect(ability.can('view', toRecord('Study', { orgId, status }))).toBe(true)
+        expect(ability.can('view', toRecord('StudyJob', { orgId, status }))).toBe(true)
+    }
+
+    // Fail-closed: a subject that omits status is denied rather than silently granted
+    expect(ability.can('view', toRecord('Study', { orgId }))).toBe(false)
+    expect(ability.can('view', toRecord('StudyJob', { orgId }))).toBe(false)
+})
+
+test('lab members can still view their own lab drafts (OTTER-596 regression guard)', () => {
+    const { ability, session } = createAbilty({}, 'lab')
+    const submittedByOrgId = session.orgs.test.id
+    const otherLabId = faker.string.uuid()
+    const draft: StudyStatus = 'DRAFT'
+
+    // The submitting Research Lab retains full draft access via the submittedByOrgId rule
+    expect(ability.can('view', toRecord('Study', { submittedByOrgId, status: draft }))).toBe(true)
+    expect(ability.can('view', toRecord('StudyJob', { submittedByOrgId, status: draft }))).toBe(true)
+
+    // ...but not another lab's draft
+    expect(ability.can('view', toRecord('Study', { submittedByOrgId: otherLabId, status: draft }))).toBe(false)
 })
 
 test('researcher role', () => {
