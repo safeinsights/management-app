@@ -383,18 +383,47 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug }, db, ...codeEnv }) => {
         if (!codeEnv.isTesting) {
-            const nonTestingForLanguage = await db
+            const otherNonTesting = await db
                 .selectFrom('orgCodeEnv')
-                .select(({ fn }) => [fn.count<number>('id').as('count')])
-                .where('orgId', '=', codeEnv.orgId)
-                .where('language', '=', codeEnv.language)
-                .where('isTesting', '=', false)
-                .where('id', '!=', codeEnv.id)
-                .executeTakeFirstOrThrow()
+                .select((eb) => [
+                    'orgCodeEnv.id',
+                    eb
+                        .selectFrom('codeScan')
+                        .select('codeScan.status')
+                        .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                        .orderBy('codeScan.createdAt', 'desc')
+                        .limit(1)
+                        .as('latestScanStatus'),
+                ])
+                .where('orgCodeEnv.orgId', '=', codeEnv.orgId)
+                .where('orgCodeEnv.language', '=', codeEnv.language)
+                .where('orgCodeEnv.isTesting', '=', false)
+                .where('orgCodeEnv.id', '!=', codeEnv.id)
+                .execute()
 
-            if (Number(nonTestingForLanguage.count) === 0) {
+            if (otherNonTesting.length === 0) {
                 throw new Error(
                     `Cannot delete the last non-testing ${codeEnv.language} code environment. At least one non-testing code environment must exist for each language.`,
+                )
+            }
+
+            // OTTER-527: an env whose latest scan passed must not be deleted unless another
+            // non-testing env for the language also passed, otherwise the language's default
+            // image would fall back to one that failed (or never finished) scanning.
+            const latestScan = await db
+                .selectFrom('codeScan')
+                .select('status')
+                .where('codeEnvId', '=', codeEnv.id)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .executeTakeFirst()
+
+            const deletingPassedEnv = latestScan?.status === 'SCAN-COMPLETE'
+            const anotherPassedEnvExists = otherNonTesting.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
+
+            if (deletingPassedEnv && !anotherPassedEnvExists) {
+                throw new Error(
+                    `Cannot delete the only ${codeEnv.language} code environment that passed scanning. At least one scan-passed, non-testing code environment must exist for each language.`,
                 )
             }
         }
