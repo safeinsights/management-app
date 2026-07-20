@@ -334,6 +334,89 @@ describe('Code Environment Actions', () => {
         expect(deleted).toBeUndefined()
     })
 
+    it('deleteOrgCodeEnvAction prevents deleting the only scan-passed code environment for a language', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const failed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Failed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+        const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: passed.id })
+
+        expect(isActionError(result)).toBe(true)
+        if (isActionError(result)) {
+            expect(result.error).toContain('passed scanning')
+        }
+
+        const stillExists = await db.selectFrom('orgCodeEnv').where('id', '=', passed.id).executeTakeFirst()
+        expect(stillExists).toBeDefined()
+    })
+
+    it('deleteOrgCodeEnvAction allows deleting a scan-failed code environment when a passed one remains', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const failed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Failed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: failed.id })
+
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', failed.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
+    it('deleteOrgCodeEnvAction allows deleting a scan-passed code environment when another passed one exists', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed1 = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const passed2 = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image 2',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed1.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: passed2.id, status: 'SCAN-COMPLETE' }).execute()
+
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: passed1.id })
+
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', passed1.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
     it('createOrgCodeEnvAction with athena does not call createAthenaDatabase in test env', async () => {
         const { createAthenaDatabase } = await import('@/server/aws')
         const { org } = await mockSessionWithTestData({ isAdmin: true })

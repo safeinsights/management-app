@@ -98,11 +98,16 @@ const CodeEnvDetailPanel: React.FC<{
     )
 }
 
-const DeleteCodeEnv: React.FC<{ isVisible: boolean; onConfirmed: () => void }> = ({ isVisible, onConfirmed }) => {
+const DeleteCodeEnv: React.FC<{ isVisible: boolean; label: string; onConfirmed: () => void }> = ({
+    isVisible,
+    label,
+    onConfirmed,
+}) => {
     if (!isVisible) return null
 
     return (
         <SuretyGuard
+            label={label}
             onConfirmed={onConfirmed}
             message="Are you sure you want to delete this code environment? This cannot be undone."
         >
@@ -187,6 +192,7 @@ const CodeEnvRow: React.FC<{
                         </Tooltip>
                         <DeleteCodeEnv
                             isVisible={canDelete}
+                            label={`Delete ${image.name}`}
                             onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
                         />
                     </>
@@ -236,6 +242,22 @@ function needsRefresh(codeEnvs: CodeEnv[]): boolean {
     return codeEnvs.some((env) => ACTIVE_SCAN_STATUSES.includes(env.latestScanStatus as ScanStatus))
 }
 
+const SCAN_PASSED_STATUS: ScanStatus = 'SCAN-COMPLETE'
+
+const hasPassedScan = (env: CodeEnv) => env.latestScanStatus === SCAN_PASSED_STATUS
+
+// OTTER-527: deleting the last non-testing env for a language — or the only one that
+// passed scanning — would leave the language without a usable default image, so the
+// delete control is hidden for those. The server action enforces the same rules.
+const canDeleteCodeEnv = (env: CodeEnv, allEnvs: CodeEnv[]): boolean => {
+    if (env.isTesting) return true
+    const siblings = allEnvs.filter(
+        (other) => other.id !== env.id && !other.isTesting && other.language === env.language,
+    )
+    if (!siblings.length) return false
+    return !hasPassedScan(env) || siblings.some(hasPassedScan)
+}
+
 const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
     if (!images.length) {
         return (
@@ -245,7 +267,6 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
         )
     }
 
-    const canDelete = images.length > 1
     const defaultEnvIds = new Set(
         ['R', 'PYTHON']
             .map((lang) => images.find((img) => !img.isTesting && img.language === lang)?.id)
@@ -258,7 +279,7 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
                 <CodeEnvRow
                     key={image.id}
                     image={image}
-                    canDelete={canDelete}
+                    canDelete={canDeleteCodeEnv(image, images)}
                     isDefault={defaultEnvIds.has(image.id)}
                 />
             ))}
