@@ -25,6 +25,7 @@ import {
 } from '@/server/db/queries'
 import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
 import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import { fetchFileContents } from '@/server/storage'
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -698,6 +699,27 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(body).toHaveTextContent('print')
         expect(body).toHaveTextContent('hello from main.R')
         expect(body).toHaveTextContent('main.R')
+    })
+
+    // OTTER-516 follow-up: a png submitted alongside code (e.g. an IDE-generated plot) can be an
+    // active tab here, so the body must render it as an image rather than decoding its bytes to text.
+    it('renders a png tab as an image instead of decoded text', async () => {
+        vi.mocked(fetchFileContents).mockImplementation(async (path: string) =>
+            path.endsWith('.png')
+                ? new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])])
+                : new Blob(['print("hello from main.R")\n']),
+        )
+        const fixture = await setupFilesFixture(['main.R', 'plot.png'])
+        await renderSection(fixture)
+        const user = userEvent.setup()
+
+        const plotTab = screen.getAllByTestId('study-code-file-tab').find((tab) => tab.title === 'plot.png')!
+        await user.click(plotTab)
+
+        const body = await screen.findByTestId('study-code-body')
+        await waitFor(() => {
+            expect(within(body).getByAltText('plot.png')).toBeInTheDocument()
+        })
     })
 
     it('renders a download link on every visible file tab (OTTER-608)', async () => {

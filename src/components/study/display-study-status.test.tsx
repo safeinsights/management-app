@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderWithProviders } from '@/tests/unit.helpers'
-import { screen } from '@testing-library/react'
+import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS } from '@/lib/status-labels'
 import type { AllStatus } from '@/lib/types'
@@ -28,6 +27,19 @@ describe('DisplayStudyStatus', () => {
             const textEl = screen.getByText(expectedText)
             expect(textEl).toBeDefined()
             expect(textEl.parentElement?.textContent?.trim()).toBe(expectedText)
+        })
+
+        it('shows the escalation tooltip when hovering the JOB-RUNNING pill', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<DisplayStudyStatus status={REVIEWER_STATUS_LABELS['JOB-RUNNING']!} />)
+
+            await user.hover(screen.getByText('Code processing'))
+
+            expect(
+                await screen.findByText(
+                    'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
+                ),
+            ).toBeVisible()
         })
     })
 

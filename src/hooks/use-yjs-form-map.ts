@@ -88,6 +88,9 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
         // syncs (no SYNC_STEP1 ever leaves the client).
         next.attach()
 
+        // The Hocuspocus provider is an external resource created and torn down by this
+        // effect; storing the instance in state is how consumers re-render once it exists.
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- exposing an effect-created external resource
         setProvider(next)
 
         const onSynced = async () => {

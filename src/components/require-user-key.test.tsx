@@ -15,28 +15,20 @@ vi.mock('@/server/actions/user-keys.actions', () => ({
     userKeyExistsAction: vi.fn(),
 }))
 
-const mockSessionOrgs = (orgs: Record<string, { type: string }>) =>
-    (useSession as Mock).mockReturnValue({ session: { orgs } })
+const mockSession = () => (useSession as Mock).mockReturnValue({ session: { orgs: {} } })
 
 describe('RequireUserKey', () => {
     it('redirects when key is missing', async () => {
-        mockSessionOrgs({ enclave: { type: 'enclave' } })
+        mockSession()
         ;(userKeyExistsAction as Mock).mockResolvedValue(false)
         render(<RequireUserKey />)
         await waitFor(() => expect(push).toHaveBeenCalledWith('/account/keys'))
     })
 
     it('does nothing when key exists', async () => {
-        mockSessionOrgs({ enclave: { type: 'enclave' } })
+        mockSession()
         ;(userKeyExistsAction as Mock).mockResolvedValue(true)
         render(<RequireUserKey />)
         expect(push).not.toHaveBeenCalled()
-    })
-
-    it('redirects lab researchers without a key', async () => {
-        mockSessionOrgs({ lab: { type: 'lab' } })
-        ;(userKeyExistsAction as Mock).mockResolvedValue(false)
-        render(<RequireUserKey />)
-        await waitFor(() => expect(push).toHaveBeenCalledWith('/account/keys'))
     })
 })

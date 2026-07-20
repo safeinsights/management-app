@@ -6,6 +6,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { Routes } from '@/lib/routes'
+import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 import { type Submitted } from '@/schema/study'
 import { Box, Button, Collapse, Group, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
@@ -65,7 +66,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     APPROVE: {
         timestampLabel: 'Approved on',
         banner: {
-            bg: 'green.1',
+            bg: STATUS_BANNER_BG.approved,
             testId: 'decision-banner-approved',
             copy: "This initial request has been approved. You'll receive email notifications when the researcher proceeds to the next step.",
         },
@@ -73,7 +74,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     'NEEDS-CLARIFICATION': {
         timestampLabel: 'Clarification requested on',
         banner: {
-            bg: 'yellow.1',
+            bg: STATUS_BANNER_BG.changesRequestedReviewer,
             testId: 'decision-banner-clarification',
             copy: 'You have requested clarification. The researcher has been notified, and we will inform you once they resubmit.',
         },
@@ -81,7 +82,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     REJECT: {
         timestampLabel: 'Rejected on',
         banner: {
-            bg: 'red.1',
+            bg: STATUS_BANNER_BG.rejected,
             testId: 'decision-banner-rejected',
             copy: 'This initial request has been rejected. No further action is required at this time.',
         },
@@ -92,7 +93,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     APPROVE: {
         timestampLabel: 'Approved on',
         banner: {
-            bg: 'green.1',
+            bg: STATUS_BANNER_BG.approved,
             testId: 'decision-banner-code-approved',
             copy: 'This study code has been approved. You will be notified when the study results are available for review.',
         },
@@ -100,7 +101,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     'NEEDS-CLARIFICATION': {
         timestampLabel: 'Change requested on',
         banner: {
-            bg: 'yellow.1',
+            bg: STATUS_BANNER_BG.changesRequestedReviewer,
             testId: 'decision-banner-code-change-requested',
             copy: 'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
         },
@@ -108,7 +109,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     REJECT: {
         timestampLabel: 'Rejected on',
         banner: {
-            bg: 'red.1',
+            bg: STATUS_BANNER_BG.rejected,
             testId: 'decision-banner-code-rejected',
             copy: 'This study code was rejected and the study was ended. No further action is required at this time.',
         },

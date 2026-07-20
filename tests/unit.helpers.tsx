@@ -742,7 +742,11 @@ export const createWorkspaceDir = async (prefix: string) => {
     return root
 }
 
-export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
+export const writeWorkspaceFiles = async (
+    root: string,
+    studyId: string,
+    files: Record<string, string | Uint8Array>,
+) => {
     const { CODER_DISABLED } = await import('@/server/config')
     const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
     await fs.promises.mkdir(workspaceDir, { recursive: true })

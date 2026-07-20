@@ -68,7 +68,7 @@ export const getUserPublicKey = async (userId: string) => {
     // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
+        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey', 'userPublicKey.updatedAt'])
         .where('userPublicKey.userId', '=', userId)
         .executeTakeFirst()
 

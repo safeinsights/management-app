@@ -1,8 +1,6 @@
-import { FilePreviewModal } from '@/components/modals/file-preview-modal'
-import { ImagePreviewModal } from '@/components/modals/image-preview-modal'
+import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
-import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -129,13 +127,6 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView }) => {
 }
 
 const DecryptedFilePreview: FC<{ file: JobFile | null; onClose: () => void }> = ({ file, onClose }) => {
-    if (!file) return null
-
-    const mime = imageMimeType(file.path)
-    if (mime) {
-        return <ImagePreviewModal isVisible name={file.path} contents={file.contents} mime={mime} onClose={onClose} />
-    }
-
-    const previewFile = { name: file.path, contents: decodeFileContents(file.contents) }
-    return <FilePreviewModal file={previewFile} onClose={onClose} />
+    const previewFile = file ? { name: file.path, contents: file.contents } : null
+    return <FileOrImagePreviewModal file={previewFile} onClose={onClose} />
 }

@@ -210,8 +210,9 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         )
         if (!file) throw new ActionFailure({ file: `Code file "${fileName}" not found` })
 
+        // Raw bytes, not text: code submissions can include binary files like png plots (OTTER-516)
         const blob = await fetchFileContents(file.path)
-        const contents = await blob.text()
+        const contents = await blob.arrayBuffer()
         return { fileName: file.name, contents }
     })
 

@@ -71,4 +71,18 @@ describe('StudyCodePanel', () => {
         renderWithProviders(<StudyCodePanel ide={ide} studyTitle="My Study" footer={null} />)
         expect(screen.queryByRole('button', { name: /edit files in ide/i })).not.toBeInTheDocument()
     })
+
+    it('shows an image preview when viewing a png file (OTTER-516)', () => {
+        const contents = new TextEncoder().encode('fake-png-bytes').buffer
+        const ide = createMockIde({ viewingFile: { name: 'plot.png', contents } })
+        renderWithProviders(<StudyCodePanel ide={ide} studyTitle="My Study" footer={null} />)
+        expect(screen.getByAltText('plot.png')).toBeInTheDocument()
+    })
+
+    it('shows a text preview when viewing a code file', () => {
+        const contents = new TextEncoder().encode('print(1)').buffer
+        const ide = createMockIde({ viewingFile: { name: 'main.R', contents } })
+        renderWithProviders(<StudyCodePanel ide={ide} studyTitle="My Study" footer={null} />)
+        expect(screen.getByText(/print/)).toBeInTheDocument()
+    })
 })
