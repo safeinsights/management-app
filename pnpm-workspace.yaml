@@ -24,7 +24,14 @@ overrides:
     vite: ^8.0.16
     ws: ^8.21.0
     'hono@<4.12.25': '>=4.12.25'
-    'js-yaml@<=4.1.1': '>=4.1.2'
+    # axios <1.18.0: GHSA-gcfj-64vw-6mp9 (HIGH) — transitive via mailgun.js
+    'axios@<1.18.0': '>=1.18.0'
+    # brace-expansion <5.0.7: CVE-2026-13149 (HIGH) — dev-only transitive via minimatch/eslint
+    'brace-expansion@<5.0.7': '>=5.0.7'
+    # js-yaml <4.3.0: CVE-2026-59869 (HIGH); range widened from <=4.1.1 to cover the new CVE
+    'js-yaml@<4.3.0': '>=4.3.0'
+    # shell-quote <1.9.0: CVE-2026-13311 (HIGH) — dev-only transitive via concurrently
+    'shell-quote@<1.9.0': '>=1.9.0'
     'nodemailer@<=8.0.8': '>=8.0.9'
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
