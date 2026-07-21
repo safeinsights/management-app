@@ -29,3 +29,7 @@ overrides:
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
+    # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
+    # attacker-controlled string blocks the event loop (DoS). Dev-only transitive (concurrently),
+    # but Trivy scans dev deps.
+    'shell-quote@<1.8.5': '>=1.8.5'
