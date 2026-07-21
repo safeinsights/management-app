@@ -2,10 +2,10 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
+import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
@@ -220,19 +220,15 @@ const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
                 <Stack gap="md">
                     <Group justify="space-between" align="center" wrap="nowrap">
                         <Title order={5}>Submitted code</Title>
-                        <Anchor
+                        <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            size="sm"
-                            fw={700}
-                            display="inline-flex"
-                            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            icon={<ArrowSquareOutIcon size={14} />}
                             data-testid="view-approved-initial-request"
                         >
                             View approved initial request
-                            <ArrowSquareOutIcon size={14} />
-                        </Anchor>
+                        </LinkWithIcon>
                     </Group>
                     <Divider />
                     <Text>View the code files that you uploaded to run against the dataset.</Text>
