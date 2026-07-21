@@ -106,17 +106,19 @@ describe('proxy session marshaling failures', () => {
         expect(res.headers.get('location')).toBeNull()
     })
 
-    it('still redirects unauthenticated visitors to signin with a redirect_url', async () => {
+    // OTTER-671: the bounce must not capture the attempted page — after signing
+    // back in, users land on their dashboard, not wherever the dead session was.
+    it('still redirects unauthenticated visitors to signin, without a redirect_url', async () => {
         const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
 
         const { proxy } = await import('./proxy')
-        const req = new NextRequest('https://app.staging.safeinsights.org/dashboard')
+        const req = new NextRequest('https://app.staging.safeinsights.org/openstax/study/123/view')
 
         const res = await (proxy as unknown as ProxyHandler)(auth, req)
 
         const location = res.headers.get('location')
         expect(location).toContain('/account/signin')
-        expect(location).toContain('redirect_url=%2Fdashboard')
+        expect(location).not.toContain('redirect_url')
         expect(location).not.toContain('error=session')
     })
 })

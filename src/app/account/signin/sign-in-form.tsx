@@ -59,10 +59,12 @@ export const SignInForm: FC<{
 
     if (!signIn || mfa) return null
 
+    // Default landing is the dashboard (OTTER-671); redirect_url only appears when a
+    // flow (e.g. invitations) constructed it deliberately.
     const rawRedirect = searchParams.get('redirect_url')
-    const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
+    const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.dashboard)
     const forgotPasswordHref = (
-        rawRedirect && validatedRedirect !== Routes.home
+        rawRedirect && validatedRedirect !== Routes.dashboard
             ? `${Routes.accountResetPassword}?redirect_url=${encodeURIComponent(validatedRedirect)}`
             : Routes.accountResetPassword
     ) as Route

@@ -90,9 +90,11 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         if (clerkUserId) {
             session = BLANK_SESSION
         } else {
-            const signInUrl = new URL('/account/signin', req.url)
-            const intended = safeRedirectUrl(req.nextUrl.pathname + req.nextUrl.search, Routes.home)
-            signInUrl.searchParams.set('redirect_url', intended)
+            // Deliberately no redirect_url: users always land on their dashboard
+            // after signing back in, never on the page they were trying to reach
+            // when the session ended (OTTER-671). Flows that need a post-signin
+            // destination (e.g. invitations) construct redirect_url themselves.
+            const signInUrl = new URL(Routes.accountSignin, req.url)
             log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
