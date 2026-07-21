@@ -35,7 +35,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 <Divider c={DIVIDER_COLOR} />
                 <Text fz={16}>
                     You generated a security key on {generatedOn}. For security reasons, SafeInsights does not store or
-                    display it again.
+                    display it again. You need this key to access your outputs in every organization you belong to.
                 </Text>
             </Stack>
 
