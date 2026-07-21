@@ -11,19 +11,27 @@ import {
 
 export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
 
-// Every study status except DRAFT, i.e. "has been submitted at least once". Used to gate what a
-// Data Organization (enclave reviewer) may read: unsubmitted drafts belong to the Research Lab only
-// (OTTER-596). This is a positive allowlist on purpose — the ability subject is assembled from
-// middleware-returned fields, and a mongo `$in` fails CLOSED when `status` is absent (denies),
-// whereas `$ne: 'DRAFT'` would fail OPEN (grant). A new StudyStatus must be added here or DOs will
-// not be able to view studies in that status — the safe direction for a fix about hiding content.
-const SUBMITTED_STUDY_STATUSES: StudyStatus[] = [
-    'APPROVED',
-    'ARCHIVED',
-    'CHANGE-REQUESTED',
-    'PENDING-REVIEW',
-    'REJECTED',
-]
+// Which study statuses a Data Organization (enclave reviewer) may read: every status except DRAFT,
+// i.e. "has been submitted at least once". Unsubmitted drafts belong to the Research Lab only
+// (OTTER-596). Declared as a Record<StudyStatus, …> so adding a new StudyStatus is a TypeScript error
+// until someone makes an explicit visible/hidden decision here — the one constant the whole read
+// boundary hinges on.
+const ENCLAVE_VIEWABLE_STUDY_STATUS: Record<StudyStatus, boolean> = {
+    DRAFT: false,
+    'PENDING-REVIEW': true,
+    'CHANGE-REQUESTED': true,
+    APPROVED: true,
+    REJECTED: true,
+    ARCHIVED: true,
+}
+
+// Derived allowlist used as a positive `$in` condition. Positive on purpose — the ability subject is
+// assembled from middleware-returned fields, and a mongo `$in` fails CLOSED when `status` is absent
+// (denies), whereas `$ne: 'DRAFT'` would fail OPEN (grant): the safe direction for a fix about hiding
+// content.
+const SUBMITTED_STUDY_STATUSES = (Object.keys(ENCLAVE_VIEWABLE_STUDY_STATUS) as StudyStatus[]).filter(
+    (status) => ENCLAVE_VIEWABLE_STUDY_STATUS[status],
+)
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user

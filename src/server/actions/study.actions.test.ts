@@ -31,6 +31,7 @@ import {
     submitCodeReviewDecisionAction,
     submitProposalReviewAction,
 } from './study.actions'
+import { finalizeStudySubmissionAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
 
@@ -536,6 +537,53 @@ describe('Study Actions', () => {
             // A different member of the submitting lab.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             await expect(getStudyAction({ studyId })).resolves.toMatchObject({ id: studyId })
+        })
+
+        // Guards the status-flip bypass: without a server-side PENDING-REVIEW check, a DO reviewer
+        // could approve/reject a DRAFT to move it into a viewable status and then read it.
+        it('data-org member cannot approve an unsubmitted draft, and status stays DRAFT', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-approve-draft' })
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            const result = await approveStudyProposalAction({ studyId, orgSlug: enclave.slug })
+
+            expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('DRAFT')
+        })
+
+        it('data-org member cannot reject an unsubmitted draft, and status stays DRAFT', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-reject-draft' })
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            const result = await rejectStudyProposalAction({ studyId, orgSlug: enclave.slug })
+
+            expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('DRAFT')
+        })
+
+        // AC3: Research Lab collaboration is unaffected — a lab member can still submit their draft.
+        it('lab member can still submit their own draft (DRAFT to PENDING-REVIEW)', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-lab-submit' })
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await expect(finalizeStudySubmissionAction({ studyId })).resolves.toMatchObject({ studyId })
+
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('PENDING-REVIEW')
         })
     })
 

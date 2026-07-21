@@ -348,13 +348,13 @@ async function performStudyProposalApproval({
     useTestImage?: boolean
     sharedFiles?: SharedFile[]
 }) {
-    // Proposal approval is strictly the first decision; approving a later code
-    // (re)submission is submitCodeReviewDecisionAction's job.
-    if (study.status === 'APPROVED' || study.approvedAt) {
-        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
-    }
-
-    await db
+    // Proposal approval is strictly the first decision from PENDING-REVIEW; approving a later code
+    // (re)submission is submitCodeReviewDecisionAction's job. The PENDING-REVIEW + approvedAt IS NULL
+    // predicate is the server-side gate (mirrors claimInitialProposalReviewStudy): it blocks flipping
+    // a DRAFT (or any non-pending study) into a viewable status, which would otherwise let a DO
+    // reviewer read a draft it was never meant to see (OTTER-596). Atomic so it also settles the
+    // OTTER-471 race where two decisions land at once.
+    const claimed = await db
         .updateTable('study')
         .set({
             status: 'APPROVED',
@@ -364,7 +364,14 @@ async function performStudyProposalApproval({
             lastUpdatedAt: new Date(),
         })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
+    }
 
     onStudyApproved({ studyId, userId })
 
@@ -383,7 +390,11 @@ async function performStudyProposalApproval({
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await db
+    // Same PENDING-REVIEW gate as approval: a proposal can only be rejected while it is under review,
+    // so a DO reviewer can't flip a DRAFT to REJECTED to make it readable (OTTER-596). Atomic for the
+    // OTTER-471 race. Code-stage rejection is a separate path (submitCodeReviewDecisionAction) and does
+    // not go through here.
+    const claimed = await db
         .updateTable('study')
         .set({
             status: 'REJECTED',
@@ -393,7 +404,14 @@ async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; stud
             lastUpdatedAt: new Date(),
         })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
+    }
 }
 
 async function performStudyProposalRejection({
