@@ -41,6 +41,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
+            'study.status',
             'org.id as orgId',
             'org.slug as orgSlug',
             'study.submittedByOrgId',
@@ -82,7 +83,7 @@ function latestJobForStudyQuery(studyId: string) {
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
+        .select(['study.orgId', 'study.language', 'study.status'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -168,6 +169,7 @@ export const jobInfoForJobId = async (jobId: string) => {
             'org.slug as orgSlug',
             'org.id as orgId',
             'study.submittedByOrgId',
+            'study.status',
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
@@ -207,7 +209,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study')),
         Action.db
@@ -242,6 +244,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
             'org.slug as orgSlug',
             'study.submittedByOrgId',
             'study.language',
+            'study.status',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -333,7 +336,13 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId', 'study.submittedByOrgId'])
+        .select([
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.id as studyId',
+            'study.submittedByOrgId',
+            'study.status',
+        ])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
