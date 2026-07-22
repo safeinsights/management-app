@@ -1,0 +1,16 @@
+{
+    "//": "Type-check config for the TypeScript 7 (Go) compiler used by the default `typecheck` script (and therefore by `pnpm checks` and `pre:push`). It extends the real tsconfig.json but drops the story/ladle files, whose type-only `@ladle/react` imports pull @ladle/react's own bundled .tsx into the program. TS7 is stricter than TS6 and reports 2 pre-existing type errors inside @ladle/react's typings-for-build/app/src/ui.tsx (a third-party dev-tool issue, not our code; --skipLibCheck cannot skip it because it is .tsx, not .d.ts). Those excluded files are still fully type-checked by TS6 via `next build` (production/CI) and the `typecheck:ts6` script. Nothing here affects the production build, which always uses TypeScript 6.",
+    "extends": "./tsconfig.json",
+    "exclude": [
+        "node_modules",
+        "bin/**/*",
+        "services/**/server.ts",
+        "services/**/lexical-seed.ts",
+        "services/**/lexical-seed.test.ts",
+        "services/**/build",
+        "services/**/node_modules",
+        ".ladle/**/*",
+        "**/*.stories.tsx",
+        "**/*.stories.ts"
+    ]
+}
