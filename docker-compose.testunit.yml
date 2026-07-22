@@ -1,0 +1,151 @@
+services:
+    test-runner:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        working_dir: /app
+        # No env_file: the unit-test container needs none of .env's secrets. Clerk is
+        # mocked and its keys are deleted in tests/vitest.setup.ts; Mailgun is optional
+        # (getConfigValue('MAILGUN_API_KEY', false)). Requiring .env only hard-failed
+        # fresh clones (.env is gitignored, only .env.sample is committed) and pulled
+        # real secrets into a container that doesn't use them. Every var the tests need
+        # is inlined below. (tests/vitest.setup.ts still loads .env via dotenv for the
+        # vitest process when the file is present, matching Next.js; compose env wins
+        # since dotenv doesn't override already-set vars.)
+        environment:
+            - DATABASE_URL=postgres://si:si@db-unit-test:5432/si_test
+            - SIMULATE_CODE_BUILD=t
+            - S3_ENDPOINT=http://seaweedfs-unit-test:8333
+            # Explicitly clear so any value from .env can't leak in; getS3BrowserClient()
+            # falls back to S3_ENDPOINT when S3_BROWSER_ENDPOINT is empty.
+            - S3_BROWSER_ENDPOINT=
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
+            - BUCKET_NAME=mgmt-app-local # Aligned with CI
+            - AWS_REGION=us-east-1
+            - NODE_ENV=test # Explicitly set NODE_ENV for tests
+            - DOMAIN_NAME=localhost:4000 # APP_BASE_URL fallback; keeps test URLs stable
+            # Coder is simulated in tests (SIMULATE_CODE_BUILD=t) and coder tests mock
+            # getConfigValue(), but that helper throws on a truly-missing key, so set
+            # these (empty is fine) to mirror a local .env and avoid fresh-clone throws.
+            - CODER_FILES=./tests/coder-files
+            - CODER_API_ENDPOINT=
+            - CODER_TOKEN=
+            - CODER_TEMPLATE=
+            # Corepack provisions pnpm@11.3.0 at runtime as the `node` user (the
+            # build cached it for root). Disable the interactive download prompt so
+            # a fresh container can't hang. COREPACK_HOME lives INSIDE the
+            # node_modules volume on purpose: a standalone volume is created
+            # root-owned and `node` can't write to it (EACCES on a fresh mkdir after
+            # --prune), whereas the node_modules volume seeds from the image as node.
+            - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+            - COREPACK_HOME=/app/node_modules/.corepack
+        volumes:
+            - ./:/app/
+            - node_modules_unit_test_runner:/app/node_modules
+        # Reconcile deps in the ENTRYPOINT so it runs before whatever command
+        # executes, including a `docker compose run ... <cmd>` override (e.g.
+        # `pnpm exec vitest <args>` from bin/docker-test). `run <cmd>` replaces
+        # `command:`, never `entrypoint:`, so putting the install here is what keeps
+        # it from being dropped when args are passed. `exec "$0" "$@"` then hands
+        # off to the command as PID 1.
+        #
+        # The pnpm store lives INSIDE the node_modules volume (--config.store-dir),
+        # so store and node_modules share one mount and pnpm hardlinks instead of
+        # copying: cold install ~1.8s vs ~14s from the host bind, ~250ms when already
+        # current. --clean wipes node_modules but preserves the .pnpm-store subdir
+        # (see bin/docker-test), so reinstalls hardlink from cache without network.
+        # --config.trustLockfile=true skips the redundant minimumReleaseAge
+        # supply-chain re-verification (set in pnpm-workspace.yaml) on a frozen lockfile.
+        # --config.confirmModulesPurge=false lets a no-TTY (`run -T`) reinstall
+        # proceed instead of aborting with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY.
+        # --frozen-lockfile keeps runs deterministic, but on drift it aborts with a
+        # cryptic ERR_PNPM_OUTDATED_LOCKFILE; we catch that and print how to fix it. We
+        # deliberately do NOT auto-update the lockfile (that would silently rewrite the
+        # bind-mounted host pnpm-lock.yaml); the dev runs `pnpm install` on the host.
+        entrypoint:
+            - sh
+            - -c
+            - '{ pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false || { echo "docker-test: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2; echo "docker-test: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2; exit 1; }; } && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && exec "$$0" "$$@"'
+        command:
+            - sh
+            - -c
+            - 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && pnpm run test:unit'
+        depends_on:
+            db-unit-test:
+                condition: service_healthy
+            seaweedfs-unit-test:
+                condition: service_healthy
+            create-buckets-unit-test:
+                condition: service_completed_successfully
+        networks:
+            - unit-test-net
+        restart: 'no'
+
+    db-unit-test:
+        image: 'postgres:16'
+        volumes:
+            - pgdata-unit-test:/var/lib/postgresql/data
+        networks:
+            - unit-test-net
+        environment:
+            - POSTGRES_USER=si
+            - POSTGRES_PASSWORD=si
+            - POSTGRES_DB=si_test
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U si -d si_test']
+            # Tight interval/start_period: postgres is ready in ~1-2s, so the
+            # default 10s interval adds a variable idle wait (up to ~10s) before the
+            # test-runner is unblocked on cold/clean starts. retries*interval still
+            # leaves ample grace.
+            interval: 2s
+            retries: 10
+            start_period: 2s
+            timeout: 3s
+        restart: unless-stopped
+
+    seaweedfs-unit-test:
+        image: chrislusf/seaweedfs
+        volumes:
+            - seaweedfs-data-unit-test:/data
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        command: server -s3 -dir=/data
+        networks:
+            - unit-test-net
+        healthcheck:
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            # Tight interval so the test-runner isn't gated on a 10-15s idle wait
+            # for the S3 port to come up on cold/clean starts.
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 3s
+        restart: unless-stopped
+
+    create-buckets-unit-test:
+        image: amazon/aws-cli
+        depends_on:
+            seaweedfs-unit-test:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
+        entrypoint: >
+            /bin/sh -c "
+            aws --endpoint-url http://seaweedfs-unit-test:8333 s3 mb s3://mgmt-app-local;
+            exit 0;
+            "
+        networks:
+            - unit-test-net
+        restart: 'no'
+
+networks:
+    unit-test-net:
+
+volumes:
+    pgdata-unit-test:
+    seaweedfs-data-unit-test:
+    node_modules_unit_test_runner: # also holds the co-located pnpm store (.pnpm-store) and corepack cache (.corepack)

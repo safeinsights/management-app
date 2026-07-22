@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+set -e
+
+# Resolve the canonical repo root, following symlinks. Hashing the canonical
+# path means a clone reached via a symlink and one reached directly map to
+# the same project namespace, instead of fighting over duplicate stacks.
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+cd "$repo_root"
+
+# Unique Compose project name per checkout, so parallel `docker-test` runs
+# from different clones don't share containers/volumes/networks.
+# `shasum` ships by default on macOS; `sha256sum` (coreutils) is the Linux
+# default. Pick whichever exists; fail loudly if neither is present.
+if command -v shasum >/dev/null 2>&1; then
+    project_hash=$(printf '%s' "$repo_root" | shasum -a 256 | cut -c1-8)
+elif command -v sha256sum >/dev/null 2>&1; then
+    project_hash=$(printf '%s' "$repo_root" | sha256sum | cut -c1-8)
+else
+    echo "Error: neither 'shasum' nor 'sha256sum' is available; install one of them." >&2
+    exit 1
+fi
+export COMPOSE_PROJECT_NAME="mgmt-app-test-${project_hash}"
+
+COMPOSE_FILE="$repo_root/docker-compose.testunit.yml"
+
+usage() {
+    echo "Usage: $0 [--clean | --down | --prune] [-- <vitest-args>]"
+    echo ""
+    echo "Run unit tests in Docker containers."
+    echo ""
+    echo "Options:"
+    echo "  --clean               Fresh database + node_modules, but KEEP the pnpm store & corepack cache (fast reinstall)"
+    echo "  --down                Stop and remove the unit-test containers + network, but KEEP all volumes (db, storage,"
+    echo "                        node_modules & pnpm store). Manual 'I'm done for now' cleanup so the postgres/seaweedfs"
+    echo "                        helper containers don't linger in 'docker ps'. Next run recreates them fast. Then exits."
+    echo "  --prune               Stop and delete EVERYTHING for this checkout: containers, networks, and ALL volumes"
+    echo "                        including the pnpm store & corepack cache. Next run re-downloads deps. Then exits."
+    echo "  --print-project-name  Print this checkout's Compose project name and exit"
+    echo "  --help                Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                                   # Run all tests"
+    echo "  $0 -- --run path/to/test.tsx         # Run specific test file"
+    echo "  $0 -- --run 'positions-section'      # Run tests matching pattern"
+    echo ""
+    echo "Note: Database is automatically rebuilt when an applied migration is missing"
+    echo "      from the codebase (e.g. after a branch switch / rollback). New migrations"
+    echo "      not yet applied are handled by 'kysely migrate:latest' on each run instead."
+    exit 0
+}
+
+clean_all=false
+down=false
+prune=false
+vitest_args=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --clean)
+            clean_all=true
+            shift
+            ;;
+        --down)
+            down=true
+            shift
+            ;;
+        --prune)
+            prune=true
+            shift
+            ;;
+        --print-project-name)
+            echo "$COMPOSE_PROJECT_NAME"
+            exit 0
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --)
+            shift
+            # Capture as an array (not "$*") so spaced filters like
+            # `--run 'my test name'` keep their argument boundaries.
+            vitest_args=("$@")
+            break
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+if [ "$down" = true ]; then
+    # Manual "I'm done testing for now" teardown. By design the postgres and
+    # seaweedfs helper containers stay running between test runs (they're marked
+    # `restart: unless-stopped` and `docker compose run --rm` only removes the
+    # test-runner, not its dependencies) so reruns start warm and fast. The
+    # downside is they keep showing up in `docker ps` long after you've stopped
+    # testing. Run this when you want them gone.
+    #
+    # This stops and removes the containers + the project network, but KEEPS all
+    # volumes (pgdata, seaweedfs data, node_modules + the co-located pnpm store /
+    # corepack cache). So nothing is re-downloaded, re-migrated, or rebuilt from
+    # scratch: the next `docker-test` run recreates the containers and reattaches
+    # the existing volumes, costing only a ~1-2s container start + healthcheck.
+    #
+    # An explicit `down` also clears the `restart: unless-stopped` policy, so the
+    # containers stay down until you next run tests (they won't pop back up on a
+    # Docker daemon/Desktop restart). With nothing else running, Docker Desktop's
+    # Resource Saver can then suspend the VM and reclaim its memory too.
+    #
+    # For a heavier teardown that ALSO deletes the volumes (forcing a fresh deps
+    # download + DB rebuild next run), use --prune instead.
+    echo "Stopping and removing unit-test containers + network (volumes kept)..."
+    docker compose -f "$COMPOSE_FILE" down --remove-orphans
+    echo "Done. Containers and network removed; volumes preserved for a fast next run."
+    exit 0
+fi
+
+if [ "$prune" = true ]; then
+    # Full teardown: containers, networks, and ALL volumes for this checkout,
+    # including the pnpm store (inside the node_modules volume) and corepack cache.
+    echo "Pruning ALL unit-test Docker resources for this checkout..."
+    docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
+
+    # `down -v` only removes volumes the current compose still declares. Sweep up
+    # any leftovers from earlier configurations that share this checkout's prefix.
+    leftover=$(docker volume ls -q --filter "name=^${COMPOSE_PROJECT_NAME}_" 2>/dev/null)
+    if [ -n "$leftover" ]; then
+        echo "Removing leftover volumes:"
+        echo "$leftover" | sed 's/^/  /'
+        echo "$leftover" | xargs docker volume rm >/dev/null 2>&1 || true
+    fi
+
+    echo "Done. All containers, networks, and volumes removed (pnpm store + corepack cache deleted)."
+    echo "The next run will rebuild node_modules and re-download packages from the network."
+    exit 0
+fi
+
+# Set when the DB volume is wiped or empty, so the targeted-test path (which
+# overrides the default command's migrate+seed) knows to migrate + seed first.
+db_needs_setup=false
+
+# Set when the DB is otherwise healthy but a migration exists on disk that hasn't
+# been applied yet; the targeted-test path then runs migrate:latest (no reseed) first.
+pending_migration=false
+
+if [ "$clean_all" = true ]; then
+    # Wipe the database + object-storage volumes and node_modules, but KEEP the
+    # pnpm store and corepack cache so reinstalls hardlink from cache offline.
+    # Both caches live inside the node_modules volume (.pnpm-store and .corepack),
+    # so we can't just `docker volume rm` node_modules; instead clear its contents
+    # while preserving those two dirs.
+    echo "Cleaning up containers, DB/storage, and node_modules (pnpm store + corepack cache preserved)..."
+    docker compose -f "$COMPOSE_FILE" down
+    docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-unit-test" \
+        "${COMPOSE_PROJECT_NAME}_seaweedfs-data-unit-test" 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" run -T --rm --no-deps --entrypoint sh test-runner \
+        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' 2>/dev/null || true
+    db_needs_setup=true
+else
+    # Auto-detect migration mismatch
+    echo "Checking for migration mismatches..."
+
+    # Start only the database container
+    docker compose -f "$COMPOSE_FILE" up -d db-unit-test --wait 2>/dev/null || true
+
+    # Get applied migrations from DB (may fail if table doesn't exist - that's OK)
+    applied=$(docker compose -f "$COMPOSE_FILE" exec -T db-unit-test \
+        psql -U si -d si_test -t -c "SELECT name FROM kysely_migration" 2>/dev/null | tr -d ' ' | grep -v '^$' || echo "")
+
+    # Get filesystem migrations (basenames without .ts)
+    filesystem=$(ls src/database/migrations/*.ts 2>/dev/null | xargs -n1 basename | sed 's/\.ts$//')
+
+    # Check if any applied migration is missing from filesystem
+    rebuild_db=false
+    for migration in $applied; do
+        if [ -n "$migration" ] && ! echo "$filesystem" | grep -qx "$migration"; then
+            echo "Migration mismatch: '$migration' is applied but not in codebase"
+            rebuild_db=true
+            break
+        fi
+    done
+
+    # Forward drift (mirror of the check above, reusing the lists already fetched): a
+    # migration exists on disk but isn't applied to this DB yet. migrate:latest applies
+    # it; no rebuild or reseed needed. Ignored when db_needs_setup is set below (that
+    # path migrates too). A failed/empty `applied` falls through to db_needs_setup.
+    for migration in $filesystem; do
+        if [ -n "$migration" ] && ! echo "$applied" | grep -qx "$migration"; then
+            pending_migration=true
+            break
+        fi
+    done
+
+    if [ "$rebuild_db" = true ]; then
+        echo "Rebuilding database only (node_modules preserved)..."
+        # Stop and remove just the db container
+        docker compose -f "$COMPOSE_FILE" rm -f -s db-unit-test 2>/dev/null || true
+        docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-unit-test" 2>/dev/null || true
+    fi
+
+    # A targeted run (vitest args) overrides the default command's migrate+seed,
+    # so it must set the DB up itself when the DB isn't ready: just wiped by the
+    # mismatch rebuild, or empty on a first/blank run (no applied migrations).
+    if [ "$rebuild_db" = true ] || [ -z "$applied" ]; then
+        db_needs_setup=true
+    fi
+fi
+
+# Run a filtered vitest inside ONE container, optionally preceded by a DB-prep step.
+# Folding prep + vitest into a single `run` means the entrypoint reconciles deps once;
+# `exec` hands the container's PID 1 to vitest so its exit code + signals propagate.
+# $1 is an optional prep command (e.g. migrate[+seed]); when set it is chained ahead
+# of vitest via `&&`. The vitest args are passed as positional params (after the `_`
+# $0 placeholder) and expanded with "$@" inside the inner sh, so spaced filters like
+# `-t 'my name'` keep their boundaries instead of being re-split by interpolation.
+run_targeted_tests() {
+    local prep=$1
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner \
+        sh -c "${prep:+$prep && }exec pnpm exec vitest \"\$@\"" _ "${vitest_args[@]}"
+}
+
+echo "Running unit tests in Docker..."
+if [ ${#vitest_args[@]} -eq 0 ]; then
+    # No filter: the default command (entrypoint install, then migrate + seed +
+    # full suite) runs as-is.
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner
+elif [ "$db_needs_setup" = true ]; then
+    # DB was wiped (--clean / mismatch rebuild) or is empty (first run): migrate + seed
+    # before the targeted run (passing vitest args overrides the default command, which
+    # would otherwise migrate/seed itself).
+    run_targeted_tests 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run'
+elif [ "$pending_migration" = true ]; then
+    # DB is set up + seeded but a migration is pending on disk: apply it (no reseed).
+    run_targeted_tests 'pnpm exec kysely migrate:latest'
+else
+    # DB already migrated + seeded and no pending migration: skip straight to vitest.
+    # Exec the vitest binary directly rather than `pnpm run test:unit -- <args>`:
+    # this pnpm version drops everything after `--` instead of forwarding it to
+    # the script, so the `-- <args>` form silently ran the whole suite (no filter).
+    # `pnpm exec` passes args straight through to vitest, so file/name filters work.
+    # The entrypoint reconciles deps before this runs, so no install is needed here.
+    docker compose -f "$COMPOSE_FILE" run -T --rm test-runner pnpm exec vitest "${vitest_args[@]}"
+fi
