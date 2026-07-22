@@ -8,6 +8,7 @@ import {
     screen,
     setTestStudyStatus,
     faker,
+    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -121,6 +122,36 @@ describe('StudyViewPage', () => {
             .insertInto('jobStatusChange')
             .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
             .execute()
+    }
+
+    const addMainCodeFile = async (studyId: string) => {
+        const job = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .executeTakeFirstOrThrow()
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'main.R',
+                path: `studies/${studyId}/${job.id}/main.R`,
+                fileType: 'MAIN-CODE',
+            })
+            .execute()
+    }
+
+    const expectSubmittedCodeCanExpand = async () => {
+        const toggle = screen.getByTestId('study-code-toggle')
+        expect(toggle).toHaveTextContent('View submitted study code')
+        expect(toggle).toHaveAttribute('aria-expanded', 'false')
+        expect(screen.queryByTestId('cta-proceed-to-results')).not.toBeInTheDocument()
+
+        await userEvent.setup().click(toggle)
+
+        expect(await screen.findByTestId('submitted-code-table')).toBeInTheDocument()
+        expect(screen.getByText('main.R')).toBeInTheDocument()
+        expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide submitted study code')
     }
 
     describe('post-code-submission', () => {
@@ -243,8 +274,8 @@ describe('StudyViewPage', () => {
                 })
 
                 expect(page?.type).toBe(CodePostDecisionView)
-                // A plain code decision (not executing) still shows the submitted code listing.
-                expect(page?.props.showStudyCode).toBe(true)
+                renderWithProviders(page!)
+                expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
             },
         )
 
@@ -288,7 +319,7 @@ describe('StudyViewPage', () => {
         })
     })
 
-    describe('execution window and late-scan race (OTTER-598)', () => {
+    describe('execution window and late-scan race (OTTER-598, OTTER-640)', () => {
         it.each(['JOB-PROVISIONING', 'JOB-PACKAGING', 'JOB-READY', 'JOB-RUNNING'] as const)(
             'renders CodePostDecisionView with effective CODE-APPROVED while %s',
             async (jobStatus) => {
@@ -301,6 +332,7 @@ describe('StudyViewPage', () => {
                 })
                 await addJobStatus(study.id, 'CODE-APPROVED')
                 await addJobStatus(study.id, jobStatus)
+                await addMainCodeFile(study.id)
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -309,8 +341,9 @@ describe('StudyViewPage', () => {
 
                 expect(page?.type).toBe(CodePostDecisionView)
                 expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-                // Execution window reads as "running / results pending": the code listing is hidden.
-                expect(page?.props.showStudyCode).toBe(false)
+                renderWithProviders(page!)
+                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
+                await expectSubmittedCodeCanExpand()
             },
         )
 
@@ -328,6 +361,7 @@ describe('StudyViewPage', () => {
             await addJobStatus(study.id, 'CODE-APPROVED')
             await addJobStatus(study.id, 'JOB-RUNNING')
             await addJobStatus(study.id, 'JOB-ERRORED')
+            await addMainCodeFile(study.id)
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -336,14 +370,16 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.showStudyCode).toBe(false)
             expect(page?.props.resultsHref).toBeUndefined()
+            renderWithProviders(page!)
+            expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
+            await expectSubmittedCodeCanExpand()
         })
 
-        it('hides the code listing when a packaging error (JOB-ERRORED, no JOB-RUNNING) is hidden from the researcher (OTTER-598)', async () => {
+        it('keeps submitted code accessible when a packaging error is hidden from the researcher', async () => {
             // Packaging-stage failure: the containerizer posts JOB-ERRORED with no execution substatus,
             // so isExecuting is false. The error is still hidden from the researcher, so the page must
-            // hold on the post-code-approval view AND keep the code listing hidden (not re-expose it).
+            // hold on the post-code-approval view without disclosing the failure.
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -353,6 +389,7 @@ describe('StudyViewPage', () => {
             })
             await addJobStatus(study.id, 'CODE-APPROVED')
             await addJobStatus(study.id, 'JOB-ERRORED')
+            await addMainCodeFile(study.id)
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -361,8 +398,10 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.showStudyCode).toBe(false)
             expect(page?.props.resultsHref).toBeUndefined()
+            renderWithProviders(page!)
+            expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
+            await expectSubmittedCodeCanExpand()
         })
 
         it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
@@ -376,6 +415,7 @@ describe('StudyViewPage', () => {
             await addJobStatus(study.id, 'CODE-APPROVED')
             await addJobStatus(study.id, 'JOB-READY')
             await addJobStatus(study.id, 'CODE-SCANNED')
+            await addMainCodeFile(study.id)
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
@@ -384,7 +424,8 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.showStudyCode).toBe(false)
+            renderWithProviders(page!)
+            await expectSubmittedCodeCanExpand()
         })
     })
 

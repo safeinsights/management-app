@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker'
 import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
 // Reviewer is the org admin for `reviewer-is-org-admin`; restore its saved session
@@ -81,6 +82,24 @@ test.describe('Organization Admin', () => {
         // account's sign-in returns `needs_second_factor` rather than completing. The signup page
         // surfaces an actionable error for that case instead of stranding the user (see PR #742).
         await expect(page.getByText(/multi-factor authentication is required before you can sign in/i)).toBeVisible()
+    })
+
+    test('shows a confirmation banner on the dashboard after joining an org', async ({ page }) => {
+        // Invite acceptance sets a sessionStorage flag that the dashboard turns into a one-time
+        // "You have been added to <org>" banner.
+        const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
+
+        await visitAsRole(page, '/dashboard')
+        await page.evaluate(([key, name]) => sessionStorage.setItem(key, name), [JOINED_ORG_STORAGE_KEY, orgName])
+
+        await goto(page, '/dashboard')
+        const banner = page.getByTestId('joined-org-banner')
+        await expect(banner).toBeVisible()
+        await expect(banner).toContainText(`You have been added to ${orgName}.`)
+
+        // The banner clears the flag once shown, so a reload does not repeat it.
+        await goto(page, '/dashboard')
+        await expect(page.getByTestId('joined-org-banner')).toBeHidden()
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {

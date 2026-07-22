@@ -480,7 +480,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.id', '=', studyId)
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, study }) => {

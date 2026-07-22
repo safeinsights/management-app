@@ -24,15 +24,25 @@ overrides:
     vite: ^8.0.16
     ws: ^8.21.0
     'hono@<4.12.25': '>=4.12.25'
-    # axios <1.18.0: GHSA-gcfj-64vw-6mp9 (HIGH) — transitive via mailgun.js
-    'axios@<1.18.0': '>=1.18.0'
-    # brace-expansion <5.0.7: CVE-2026-13149 (HIGH) — dev-only transitive via minimatch/eslint
-    'brace-expansion@<5.0.7': '>=5.0.7'
-    # js-yaml <4.3.0: CVE-2026-59869 (HIGH); range widened from <=4.1.1 to cover the new CVE
-    'js-yaml@<4.3.0': '>=4.3.0'
-    # shell-quote <1.9.0: CVE-2026-13311 (HIGH) — dev-only transitive via concurrently
-    'shell-quote@<1.9.0': '>=1.9.0'
+    # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
+    # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
+    'js-yaml@>=4.0.0 <4.3.0': '>=4.3.0 <5'
     'nodemailer@<=8.0.8': '>=8.0.9'
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
+    # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
+    # attacker-controlled string blocks the event loop (DoS). Dev-only transitive (concurrently),
+    # but Trivy scans dev deps.
+    'shell-quote@<1.8.5': '>=1.8.5'
+    # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
+    # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
+    # the bump stays a patch/minor, never a breaking major.
+    # axios <1.18.0: GHSA-gcfj-64vw-6mp9 — Node adapter can reuse an inherited proxy after config clone.
+    'axios@>=1.0.0 <1.18.0': '>=1.18.0 <2'
+    # brace-expansion <5.0.7: CVE-2026-13149 — DoS via exponential-time expansion.
+    'brace-expansion@>=5.0.0 <5.0.7': '>=5.0.7 <6'
+    # fast-uri <3.1.4: CVE-2026-13676 + CVE-2026-16221 — policy bypass via bad Unicode hostname canon.
+    'fast-uri@>=3.0.0 <3.1.4': '>=3.1.4 <4'
+    # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
+    'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'

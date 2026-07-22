@@ -8,10 +8,10 @@ export const getYjsDocumentUpdatedAtAction = new Action('getYjsDocumentUpdatedAt
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId'])
+            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, params: { documentName } }) => {
@@ -32,10 +32,10 @@ export const getStudyStatusAction = new Action('getStudyStatusAction')
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId'])
+            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, params: { studyId } }) => {
