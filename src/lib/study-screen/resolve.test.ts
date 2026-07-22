@@ -137,7 +137,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasResults: true,
             resultsApproved: true,
         })
-        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved' })
     })
 
     it('picks the code screen by state: changes-requested → code-feedback', () => {
@@ -147,17 +147,15 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasSubmittedCode: true,
             codeDecision: 'CODE-CHANGES-REQUESTED',
         })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback' })
     })
 
     it('awaiting decision → code-under-review', () => {
         const s = state({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeAwaitingDecision: true })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review' })
     })
 
-    // OTTER-640: the read-only step marks readOnlyCodeStep so the code screen keeps the submitted code
-    // visible while the job runs in the enclave — unlike the live /view flow, which hides it.
-    it('marks readOnlyCodeStep for an executing study (code stays visible)', () => {
+    it('resolves an executing study to the approved-code screen', () => {
         const s = state({
             status: 'APPROVED',
             isDraft: false,
@@ -165,7 +163,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             codeDecision: 'CODE-APPROVED',
             isExecuting: true,
         })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {
