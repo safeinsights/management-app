@@ -5,10 +5,12 @@ import { Routes } from '@/lib/routes'
 // React Query cache. Without this, signing in as a different user can show
 // stale data from the previous session.
 //
-// The signin URL deliberately carries no redirect_url: after signing back in,
-// users always land on their dashboard rather than the page they were on when
-// the session ended (OTTER-671). Flows that need a different destination
-// (e.g. invitation acceptance) pass redirectAfterSignOut explicitly.
+// App-initiated logout deliberately carries no redirect_url: the next sign-in
+// lands on the dashboard, not the page the user was on when the session ended
+// (OTTER-671). Deep links are unaffected — the proxy still captures the
+// destination when a signed-out browser requests a protected page. Flows that
+// need a different destination (e.g. invitation acceptance) pass
+// redirectAfterSignOut explicitly.
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
 

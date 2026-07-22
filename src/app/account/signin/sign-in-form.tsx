@@ -59,8 +59,8 @@ export const SignInForm: FC<{
 
     if (!signIn || mfa) return null
 
-    // Default landing is the dashboard (OTTER-671); redirect_url only appears when a
-    // flow (e.g. invitations) constructed it deliberately.
+    // Default landing is the dashboard (OTTER-671); redirect_url is present when the
+    // user arrived via a deep link (proxy-captured) or an explicit flow (e.g. invitations).
     const rawRedirect = searchParams.get('redirect_url')
     const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.dashboard)
     const forgotPasswordHref = (
