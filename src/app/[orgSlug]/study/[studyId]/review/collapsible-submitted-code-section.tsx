@@ -49,6 +49,8 @@ function SubmittedCodePanel({
     onCollapse,
     panelRef,
 }: SubmittedCodePanelProps) {
+    // Callers fetch the job and scan together, and jobScanResultForJob always returns a scan fallback.
+    // The scan check narrows its type and only rejects the same missing-job state in practice.
     if (!isVisible || !job || !scan) return null
     return (
         <Collapse in={expanded} keepMounted>
@@ -80,6 +82,7 @@ export function CollapsibleSubmittedCodeSection({
     banner,
     initiallyExpanded = false,
 }: CollapsibleSubmittedCodeSectionProps) {
+    // Without a panel, an opener would expand to an empty card with no way to collapse it again.
     const hasSubmittedCode = Boolean(job && scan)
     const { expanded, toggle, collapse } = useExpandable(initiallyExpanded && hasSubmittedCode)
     const openerRef = useRef<HTMLButtonElement>(null)
