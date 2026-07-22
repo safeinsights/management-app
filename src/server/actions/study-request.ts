@@ -92,6 +92,10 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
+        // The AI review describes the code files just deleted. Drop it too, or
+        // generateAndStoreStudyReview's already-exists short-circuit keeps the
+        // stale summary for the resubmitted code (SHRMP-263).
+        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
     }
 
     await db
