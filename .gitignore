@@ -26,7 +26,6 @@ yarn-error.log*
 .pnpm-store/
 tests/coverage/
 playwright-report/
-src/styles/generated
 ./tests/fixtures/temp/large-file
 monocart-report/
 # auto-created and updated by nextjs

@@ -26,7 +26,6 @@ const eslintConfig = [
             '!.ladle/**',
             '.ladle/dist/**',
             'CHANGELOG.md',
-            'src/styles/generated/',
             'test-results/**',
             'tests/coverage/**',
             'services/**',
