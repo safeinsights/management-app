@@ -247,8 +247,11 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByText(/Approved on/)).toBeVisible()
-    await page.getByTestId('go-to-dashboard').click()
+    // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
+    // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
+    await expect(page.getByTestId('status-alert')).toBeVisible()
+    await expect(page.getByText(/Outputs not ready/)).toBeVisible()
+    await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
 
