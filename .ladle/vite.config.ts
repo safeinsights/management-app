@@ -10,8 +10,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 // undefined under Vite — crashing any component whose import graph touches Sentry.
 // `@clerk/nextjs` is aliased too: its hooks throw without a <ClerkProvider>, which Ladle
 // has no session for — the shim makes them inert so e.g. <UserAvatar> renders from its prop.
-// PostCSS (Panda) is picked up from the repo-root postcss.config.cjs automatically,
-// so Ladle gets the SAME Panda + Mantine styling pipeline as the app.
+// Styling is Mantine-only; Ladle gets the same Mantine pipeline as the app.
 export default defineConfig({
     // STANDALONE build: inline all JS/CSS into a single self-contained index.html so the build
     // opens from a plain file:// double-click with no server (a normal Ladle build emits module

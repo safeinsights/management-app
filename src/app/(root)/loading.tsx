@@ -1,12 +1,12 @@
+import { Flex, Stack } from '@mantine/core'
 import DashboardSkeleton from '@/components/layout/skeleton/dashboard'
-import { mainStyles, pageStyles } from '@/styles/common'
 
 export default function LoadingRoot() {
     return (
-        <div className={pageStyles}>
-            <main className={mainStyles}>
+        <Flex direction="column" align="center" justify="center" mih="100svh" p="md" gap="xs">
+            <Stack component="main" gap="xl" fw={700} fz={20}>
                 <DashboardSkeleton />
-            </main>
-        </div>
+            </Stack>
+        </Flex>
     )
 }
