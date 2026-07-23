@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
@@ -12,7 +11,8 @@ import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
-import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
+import { latestCodeSubmittedAt } from './submitted-code-section'
+import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -72,30 +72,6 @@ function CodeReviewStatusBanner({ labName, isResubmission }: CodeReviewStatusBan
     )
 }
 
-type CodeReviewSectionProps = {
-    study: Submitted<SelectedStudy>
-    submittedAt: Date | string
-    isResubmission: boolean
-    version: number
-}
-
-function CodeReviewSection({ study, submittedAt, isResubmission, version }: CodeReviewSectionProps) {
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const timestampLabel = isResubmission ? 'Resubmitted on' : 'Submitted on'
-    const heading = codeReviewHeading(version)
-
-    return (
-        <ProposalStepHeader
-            stepLabel="STEP 3"
-            heading={heading}
-            studyTitle={study.title}
-            timestampDate={submittedAt}
-            timestampLabel={timestampLabel}
-            banner={<CodeReviewStatusBanner labName={labName} isResubmission={isResubmission} />}
-        />
-    )
-}
-
 export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     const job = await latestJobForStudyOrNull(study.id)
     if (!job) {
@@ -109,6 +85,9 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
 
     const version = deriveCodeReviewVersion(entries)
     const isResubmission = version > 1
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const timestampLabel = isResubmission ? 'Resubmitted on' : 'Submitted on'
+    const heading = codeReviewHeading(version)
 
     return (
         <Box bg="grey.10">
@@ -121,19 +100,18 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     ]}
                 />
                 <StudyPageHeader>Study proposal</StudyPageHeader>
-                <CodeReviewSection
-                    study={study}
-                    submittedAt={latestCodeSubmittedAt(job)}
-                    isResubmission={isResubmission}
-                    version={version}
-                />
-                <SubmittedCodeSection
+                <CollapsibleSubmittedCodeSection
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
                     review={review}
                     scan={scan}
-                    codeInitiallyExpanded={!isResubmission}
+                    stepLabel="STEP 3"
+                    heading={heading}
+                    timestampDate={latestCodeSubmittedAt(job)}
+                    timestampLabel={timestampLabel}
+                    banner={<CodeReviewStatusBanner labName={labName} isResubmission={isResubmission} />}
+                    initiallyExpanded={!isResubmission}
                 />
                 {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}
                 <CodeReviewClient

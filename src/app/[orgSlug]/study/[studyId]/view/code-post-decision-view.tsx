@@ -40,11 +40,6 @@ interface CodePostDecisionViewProps {
     resultsHref?: Route
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
-    /**
-     * Hidden during the execution window (approved code running in the enclave) so the page reads as
-     * "running / results pending" with no code listing, per OTTER-598. Shown for plain code decisions.
-     */
-    showStudyCode?: boolean
 }
 
 type DecisionCopy = {
@@ -176,12 +171,11 @@ type StepCardProps = {
     copy: DecisionCopy
     timestampDate: Date | string | null
     banner: ReactNode
-    showToggle: boolean
     expanded: boolean
     onToggle: () => void
 }
 
-function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, onToggle }: StepCardProps) {
+function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -191,7 +185,7 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeToggle isVisible={showToggle} expanded={expanded} onClick={onToggle} />
+            <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )
 }
@@ -199,7 +193,6 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
 // Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
 // this card reveals the proposal link, file table, and the matching "Hide" toggle.
 type SubmittedCodePanelProps = {
-    isVisible: boolean
     expanded: boolean
     jobId: string
     codeFiles: CodeFileList
@@ -207,15 +200,7 @@ type SubmittedCodePanelProps = {
     onCollapse: () => void
 }
 
-const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
-    isVisible,
-    expanded,
-    jobId,
-    codeFiles,
-    proposalHref,
-    onCollapse,
-}) => {
-    if (!isVisible) return null
+const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({ expanded, jobId, codeFiles, proposalHref, onCollapse }) => {
     return (
         <Collapse in={expanded}>
             <Paper p="xxl">
@@ -257,7 +242,6 @@ export function CodePostDecisionView({
     latestJobStatus,
     resultsHref,
     feedbackLoadError = false,
-    showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
@@ -285,12 +269,10 @@ export function CodePostDecisionView({
                     copy={copy}
                     timestampDate={timestampDate}
                     banner={banner}
-                    showToggle={showStudyCode && !expanded}
                     expanded={expanded}
                     onToggle={toggle}
                 />
                 <SubmittedCodePanel
-                    isVisible={showStudyCode}
                     expanded={expanded}
                     jobId={job.id}
                     codeFiles={codeFiles}

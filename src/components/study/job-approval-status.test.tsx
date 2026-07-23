@@ -11,6 +11,7 @@ describe('ApprovalStatus', () => {
         id: 'test-id',
         studyId: 'study-1',
         orgId: 'org-1',
+        status: 'APPROVED',
         language: 'R',
         createdAt: new Date('2024-03-03T00:00:00Z'),
         statusChanges: [],

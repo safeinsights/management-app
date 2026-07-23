@@ -9,6 +9,8 @@ import {
     renderWithProviders,
     screen,
     type Mock,
+    userEvent,
+    waitFor,
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
@@ -136,6 +138,32 @@ describe('CodeReview', () => {
 
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
+
+        it('collapses and restores the entire Submitted code section', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.getByTestId('ai-summary')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+
+            const user = userEvent.setup()
+            await user.click(screen.getByTestId('study-code-toggle-collapse'))
+
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
+            expect(screen.getByTestId('submitted-code-datasets')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
+            const opener = screen.getByTestId('study-code-toggle')
+            expect(opener).toHaveTextContent('View full study code')
+            expect(opener).toHaveFocus()
+
+            await user.click(opener)
+
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
+            expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus()
+            expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide full study code')
+        })
     })
 
     describe('resubmission (prior entries present)', () => {
@@ -208,9 +236,7 @@ describe('CodeReview', () => {
             expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
-        it('collapses the submitted code viewer by default on resubmission', async () => {
-            // Insert a code file so StudyCodeViewer renders the toggle (hidden when files is empty).
-            // The toggle visibility plus its label is what proves the "collapsed by default" AC.
+        it('collapses the entire Submitted code section by default on resubmission', async () => {
             const job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -232,9 +258,9 @@ describe('CodeReview', () => {
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
             expect(toggle).toHaveTextContent('View full study code')
-            // Body must remain hidden until the user expands.
-            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-body-loading')).not.toBeInTheDocument()
+            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
         })
     })
 })

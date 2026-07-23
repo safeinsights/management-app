@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
+import { markOrgJoined } from '@/lib/joined-org'
 
 const formSchema = z
     .object({
@@ -87,6 +88,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                 if (attempt.status === 'complete') {
                     await setActive({ session: attempt.createdSessionId })
                     await onPendingUserLoginAction({ inviteId })
+                    markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
                     // A freshly-created account has no MFA factors enrolled, so a second-factor
