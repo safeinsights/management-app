@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import dayjs from 'dayjs'
 import { Anchor } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
@@ -24,10 +25,7 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
 export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
     const totalMinutes = Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
     if (totalMinutes < DAY_MINUTES) return `${formatElapsed(startedAtMs, nowMs)} ago`
-    const date = new Date(startedAtMs)
-    const datePart = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    return `on ${datePart} at ${timePart}`
+    return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`
 }
 
 const SlackLink = () => (

@@ -1,4 +1,5 @@
 import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
+import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
@@ -24,12 +25,7 @@ describe('formatStartedWhen', () => {
     const base = new Date('2026-07-20T10:00:00Z').getTime()
     const at = (minutes: number) => base + minutes * 60_000
 
-    const absolute = (ms: number) => {
-        const d = new Date(ms)
-        const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-        return `on ${date} at ${time}`
-    }
+    const absolute = (ms: number) => `on ${dayjs(ms).format('MMM DD, YYYY [at] h:mm A')}`
 
     it('uses relative "ago" phrasing within 24 hours', () => {
         expect(formatStartedWhen(base, at(5))).toBe('5 minutes ago')
