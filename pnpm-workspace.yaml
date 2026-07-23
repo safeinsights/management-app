@@ -14,16 +14,20 @@ overrides:
     '@types/react': 19.2.14
     esbuild: ^0.28.1
     form-data: ^4.0.6
-    # hono <4.12.25: GHSA-88fw-hqm2-52qc (CVE-2026-54290, HIGH) — CORS middleware reflects any
-    # Origin with credentials when origin defaults to wildcard. Dev-only transitive (@pandacss/dev
+    # hono <4.12.27: GHSA-88fw-hqm2-52qc (CVE-2026-54290, HIGH) CORS-wildcard-with-credentials plus
+    # three moderate advisories — API Gateway header de-dup drop, hono/jsx cross-request context
+    # disclosure, and server-side XSS via cx() JSX escaping bypass. Dev-only transitive (@pandacss/dev
     # → @pandacss/mcp → @modelcontextprotocol/sdk → @hono/node-server), but Trivy scans dev deps.
-    hono: ^4.12.25
+    hono: ^4.12.27
     minimatch: ^10.2.1
     picomatch: ^4.0.4
     postcss: ^8.5.10
     vite: ^8.0.16
     ws: ^8.21.0
-    'hono@<4.12.25': '>=4.12.25'
+    'hono@<4.12.27': '>=4.12.27'
+    # @hono/node-server <2.0.5: path traversal in serve-static on Windows via encoded backslash
+    # (%5C). Same dev-only @pandacss/mcp chain; Trivy scans dev deps.
+    '@hono/node-server@<2.0.5': '>=2.0.5'
     # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
     # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
     'js-yaml@>=4.0.0 <4.3.0': '>=4.3.0 <5'
@@ -46,3 +50,6 @@ overrides:
     'fast-uri@>=3.0.0 <3.1.4': '>=3.1.4 <4'
     # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
     'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'
+    # body-parser <2.3.0: GHSA-v422-hmwv-36x6 — DoS when an invalid limit value silently disables
+    # request-size enforcement. Dev-only @pandacss/mcp → express chain; Trivy scans dev deps.
+    'body-parser@>=2.0.0 <2.3.0': '>=2.3.0 <3'
