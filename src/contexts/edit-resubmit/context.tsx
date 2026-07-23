@@ -12,10 +12,11 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
-import { useResubmitSaveDraft } from './hooks/use-resubmit-save-draft'
+import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
 import {
     resubmitNoteSchema,
+    resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
     initialResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -27,9 +28,8 @@ interface EditResubmitContextValue {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     noteForm: UseFormReturnType<ResubmitNoteValue>
-    saveDraft: () => Promise<boolean>
+    flushNote: () => Promise<boolean>
     resubmit: () => void
-    isSaving: boolean
     isSubmitting: boolean
     isSavingNote: boolean
     noteLastSavedAt: Date | null
@@ -66,23 +66,25 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         validateInputOnChange: true,
     })
 
+    // The note form holds Lexical JSON; legacy plain-text drafts are normalized
+    // up front so dirty-tracking and submit operate in one shape.
+    const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
+
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
-        initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
+        initialValues: { ...initialResubmitNoteValue, resubmissionNote: normalizedInitialNote },
         validateInputOnChange: true,
     })
 
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
 
-    const { saveDraft: saveProposalDraft, isSaving } = useResubmitSaveDraft({ studyId, form })
-
     // OTTER-521 follow-up: persist the resubmission note via the same debounced
     // autosave the code-resubmission flow uses (OTTER-558). Single in-flight
     // save tracked by refs so a flurry of keystrokes collapses into one network
-    // call, and saveDraft() can flush the latest typed value synchronously.
+    // call, and flushNote() can flush the latest typed value synchronously.
     const [noteLastSavedAt, setNoteLastSavedAt] = useState<Date | null>(null)
-    const lastSavedNoteRef = useRef<string>(initialNote)
-    const pendingNoteRef = useRef<string>(initialNote)
+    const lastSavedNoteRef = useRef<string>(normalizedInitialNote)
+    const pendingNoteRef = useRef<string>(normalizedInitialNote)
     const savingNoteRef = useRef<string | null>(null)
     const inFlightNoteSaveRef = useRef<Promise<boolean> | null>(null)
 
@@ -125,23 +127,26 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     )
 
     const currentNote = noteForm.values.resubmissionNote
+    const singleUserEditing = useSingleUserEditing()
 
+    // In collaborative mode the Yjs doc is the live persistence, so skip the
+    // per-keystroke column save (Save-as-draft still refreshes the column as
+    // the cold-seed fallback). In single-user mode this debounce is the only
+    // persistence.
     useEffect(() => {
         pendingNoteRef.current = currentNote
+        if (!singleUserEditing) return
         if (currentNote === lastSavedNoteRef.current) return
         const handle = setTimeout(() => {
             void flushNoteSave(currentNote)
         }, AUTOSAVE_DEBOUNCE_MS)
         return () => clearTimeout(handle)
-    }, [currentNote, flushNoteSave])
+    }, [currentNote, singleUserEditing, flushNoteSave])
 
-    // Save-as-draft: flush the proposal fields AND the latest note in parallel.
-    // Returning true only when both succeed lets the Back handler block
-    // navigation on a failed save (existing contract).
-    const saveDraft = useCallback(async () => {
-        const [proposalOk, noteOk] = await Promise.all([saveProposalDraft(), flushNoteSave(pendingNoteRef.current)])
-        return proposalOk && noteOk
-    }, [saveProposalDraft, flushNoteSave])
+    // Proposal fields autosave through Yjs; only the debounced note needs an explicit
+    // flush before navigating away, otherwise a note typed inside the last debounce
+    // window would be lost. Returns false on failure so Back can block navigation.
+    const flushNote = useCallback(() => flushNoteSave(pendingNoteRef.current), [flushNoteSave])
 
     const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
 
@@ -150,9 +155,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             studyId,
             form,
             noteForm,
-            saveDraft,
+            flushNote,
             resubmit,
-            isSaving,
             isSubmitting,
             isSavingNote: noteSaveMutation.isPending,
             noteLastSavedAt,
@@ -164,9 +168,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
             studyId,
             form,
             noteForm,
-            saveDraft,
+            flushNote,
             resubmit,
-            isSaving,
             isSubmitting,
             noteSaveMutation.isPending,
             noteLastSavedAt,

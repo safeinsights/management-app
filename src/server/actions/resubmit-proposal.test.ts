@@ -1,6 +1,5 @@
-// OTTER-521: DB-backed tests for resubmitProposalAction and
-// onUpdateClarifiedProposalAction. Uses the studyProposalComment table that
-// already exists on main (migration 1776200000001).
+// OTTER-521: DB-backed tests for resubmitProposalAction. Uses the
+// studyProposalComment table (migration 1776200000001).
 import {
     actionResult,
     buildFeedback,
@@ -12,7 +11,7 @@ import {
 } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
-    onUpdateClarifiedProposalAction,
+    onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
 } from '@/server/actions/study-request'
@@ -333,8 +332,8 @@ describe('resubmitProposalAction', () => {
         const { user: teammateC } = await insertTestUser({ org })
         loginAs(teammateC)
 
-        // editing is no longer allowed
-        const editResult = await onUpdateClarifiedProposalAction({
+        // editing is no longer allowed (status flipped to PENDING-REVIEW)
+        const editResult = await onUpdateDraftStudyAction({
             studyId: study.id,
             studyInfo: { title: 'Late edit by C' },
         })
@@ -367,118 +366,6 @@ describe('resubmitProposalAction', () => {
     })
 })
 
-describe('onUpdateClarifiedProposalAction', () => {
-    it('saves draft edits to a CHANGE-REQUESTED study without changing status', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-3', orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'CHANGE-REQUESTED',
-            title: 'Original',
-        })
-
-        actionResult(
-            await onUpdateClarifiedProposalAction({
-                studyId: study.id,
-                studyInfo: { title: 'Edited' },
-            }),
-        )
-
-        const after = await db
-            .selectFrom('study')
-            .select(['title', 'status'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(after.title).toBe('Edited')
-        expect(after.status).toBe('CHANGE-REQUESTED')
-    })
-
-    it('rejects edits to a study that is not in CHANGE-REQUESTED status', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-4', orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            title: 'Original',
-        })
-
-        const result = await onUpdateClarifiedProposalAction({
-            studyId: study.id,
-            studyInfo: { title: 'Should-not-apply' },
-        })
-        expect('error' in result).toBe(true)
-
-        const after = await db.selectFrom('study').select('title').where('id', '=', study.id).executeTakeFirstOrThrow()
-        expect(after.title).toBe('Original')
-    })
-
-    it('allows any member of the submitting lab to save draft edits on a CHANGE-REQUESTED study', async () => {
-        const { org, user: ownerA } = await mockSessionWithTestData({
-            orgSlug: 'lab-clarified-sameorg',
-            orgType: 'lab',
-        })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: ownerA.id,
-            studyStatus: 'CHANGE-REQUESTED',
-            title: 'Original',
-        })
-
-        const { user: teammate } = await insertTestUser({ org })
-        mockClerkSession({
-            userId: teammate.id,
-            clerkUserId: teammate.clerkId,
-            email: teammate.email ?? undefined,
-            orgSlug: org.slug,
-            orgId: org.id,
-            orgType: 'lab',
-        })
-
-        actionResult(
-            await onUpdateClarifiedProposalAction({
-                studyId: study.id,
-                studyInfo: { title: 'Edited by teammate' },
-            }),
-        )
-
-        const after = await db
-            .selectFrom('study')
-            .select(['title', 'status'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(after.title).toBe('Edited by teammate')
-        expect(after.status).toBe('CHANGE-REQUESTED')
-    })
-
-    it('rejects draft edits from a user outside the submitting lab', async () => {
-        const { org: labA, user: ownerA } = await mockSessionWithTestData({
-            orgSlug: 'lab-clarified-A',
-            orgType: 'lab',
-        })
-        const { study } = await insertTestStudyJobData({
-            org: labA,
-            researcherId: ownerA.id,
-            studyStatus: 'CHANGE-REQUESTED',
-            title: 'Lab A study',
-        })
-
-        await mockSessionWithTestData({ orgSlug: 'lab-clarified-B', orgType: 'lab' })
-
-        const result = await onUpdateClarifiedProposalAction({
-            studyId: study.id,
-            studyInfo: { title: 'Hijack attempt' },
-        })
-        expect('error' in result).toBe(true)
-
-        const unchanged = await db
-            .selectFrom('study')
-            .select('title')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(unchanged.title).toBe('Lab A study')
-    })
-})
-
 // Any researcher in the submitting lab — not just the study's original
 // researcher — must be able to edit and resubmit a CHANGE-REQUESTED proposal.
 describe('lab co-author edit & resubmit', () => {
@@ -496,7 +383,7 @@ describe('lab co-author edit & resubmit', () => {
         // Caller is the lab member from mockSessionWithTestData — a different
         // researcher than the study owner.
         actionResult(
-            await onUpdateClarifiedProposalAction({
+            await onUpdateDraftStudyAction({
                 studyId: study.id,
                 studyInfo: { title: 'Co-author edited' },
             }),
@@ -558,7 +445,7 @@ describe('lab co-author edit & resubmit', () => {
         // Switch session to a user in lab-cross-author-B
         await mockSessionWithTestData({ orgSlug: 'lab-cross-author-B', orgType: 'lab' })
 
-        const result = await onUpdateClarifiedProposalAction({
+        const result = await onUpdateDraftStudyAction({
             studyId: study.id,
             studyInfo: { title: 'Cross-lab hijack' },
         })
@@ -616,7 +503,7 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
         expect(row.proposalResubmissionNoteDraft).toBe('co-author note')
     })
 
-    it('rejects payloads larger than 10kb', async () => {
+    it('rejects payloads larger than 100kb', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-3', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -624,7 +511,9 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        const tooLong = 'x'.repeat(10_001)
+        // The draft is serialized Lexical JSON since OTTER-658, so the schema bound is
+        // 100_000 chars; a legitimate heavily-formatted note can exceed the old 10kb limit.
+        const tooLong = 'x'.repeat(100_001)
         const result = await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
         expect(result).toHaveProperty('error')
     })

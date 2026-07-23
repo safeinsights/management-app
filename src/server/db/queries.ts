@@ -41,6 +41,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
+            'study.status',
             'org.id as orgId',
             'org.slug as orgSlug',
             'study.submittedByOrgId',
@@ -68,7 +69,7 @@ export const getUserPublicKey = async (userId: string) => {
     // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
+        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey', 'userPublicKey.updatedAt'])
         .where('userPublicKey.userId', '=', userId)
         .executeTakeFirst()
 
@@ -82,7 +83,7 @@ function latestJobForStudyQuery(studyId: string) {
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
+        .select(['study.orgId', 'study.language', 'study.status'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -168,6 +169,7 @@ export const jobInfoForJobId = async (jobId: string) => {
             'org.slug as orgSlug',
             'org.id as orgId',
             'study.submittedByOrgId',
+            'study.status',
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
@@ -195,11 +197,19 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
     return row?.version ?? 1
 }
 
+/**
+ * Version the next RESUBMISSION-NOTE comment will take (`nextVersionForStudyComment`
+ * with `increment: true`, as a plain read). Safe to read at page load: the version
+ * only advances via resubmit, which kicks every editor out.
+ */
+export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
+    (await currentReviewVersion(studyId)) + 1
+
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study')),
         Action.db
@@ -234,6 +244,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
             'org.slug as orgSlug',
             'study.submittedByOrgId',
             'study.language',
+            'study.status',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -325,7 +336,13 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId', 'study.submittedByOrgId'])
+        .select([
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.id as studyId',
+            'study.submittedByOrgId',
+            'study.status',
+        ])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
@@ -371,6 +388,10 @@ export async function getStudyJobFileOfType(
         .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path', 'study.orgId', 'study.submittedByOrgId'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', '=', fileType)
+        // A resubmission can leave more than one row of a given type for a job; take the
+        // newest so this matches the log the displayed scan statuses were parsed from.
+        .orderBy('studyJobFile.createdAt', 'desc')
+        .orderBy('studyJobFile.id', 'desc')
         .executeTakeFirst()
 
     if (!file && throwIfNotFound) {
@@ -502,34 +523,57 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-export type JobScanStatus = 'PASSED' | 'FAILED' | 'IN-PROGRESS'
+// Trivy and SonarQube report independently. Per OTTER-649 we cannot say with
+// confidence that a scan "failed"; we only assert PASSED when the log carries an
+// explicit clean signal and otherwise surface the result for human review.
+export type ScanToolStatus = 'PASSED' | 'FAILED'
 
 export type JobScanResult = {
-    status: JobScanStatus
+    // null when the scan hasn't reported yet (no readable plaintext log).
+    trivy: ScanToolStatus | null
+    sonarqube: ScanToolStatus | null
+    // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
 
-// Per @nathanstitt: there's no clear-cut success/failure signal in the tools, so
-// the first-pass heuristic is to read the scan log and check for 'OK'. If the
-// log row doesn't exist yet (or the file can't be read), treat as in-progress.
+// Trivy passes only on the explicit clean line the scanner emits; anything else
+// (findings, "no results", or an unrecognized log) is flagged for review.
+export function parseTrivyStatus(log: string): ScanToolStatus {
+    return /trivy (?:filesystem|image) scan:\s*no vulnerabilities found/i.test(log) ? 'PASSED' : 'FAILED'
+}
+
+// SonarQube passes only when its quality gate reports OK. Any other gate status,
+// or a missing SonarQube section (skipped/unavailable), needs human review.
+export function parseSonarqubeStatus(log: string): ScanToolStatus {
+    const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
+    return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
+}
+
+// Reads the plaintext SECURITY-SCAN-LOG (not the encrypted zip) and derives a
+// per-tool status from its text. No log row yet, or an unreadable file, is
+// treated as "not reported" (no statuses and no download affordance).
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
     const logFile = await Action.db
         .selectFrom('studyJobFile')
         .select(['id', 'name', 'path'])
         .where('studyJobId', '=', studyJobId)
-        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .where('fileType', '=', 'SECURITY-SCAN-LOG')
         .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { status: 'IN-PROGRESS', logFile: null }
+    if (!logFile) return { trivy: null, sonarqube: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
         const contents = await blob.text()
-        return { status: contents.includes('OK') ? 'PASSED' : 'FAILED', logFile }
+        return { trivy: parseTrivyStatus(contents), sonarqube: parseSonarqubeStatus(contents), logFile }
     } catch {
-        return { status: 'IN-PROGRESS', logFile }
+        // A transient read/parse failure shouldn't hide the download: the route serves the
+        // file from the DB row + a signed URL and doesn't depend on this fetch. Keep the log
+        // downloadable with unknown (null) statuses rather than pretending the scan is pending.
+        return { trivy: null, sonarqube: null, logFile }
     }
 }
 

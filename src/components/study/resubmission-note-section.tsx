@@ -3,7 +3,7 @@
 import { FC } from 'react'
 import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { FormFieldLabel } from '@/components/form-field-label'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
@@ -24,7 +24,7 @@ interface ResubmissionNoteSectionProps {
     autosaveStatus?: ResubmissionNoteAutosaveStatus
 }
 
-function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveStatusValue {
+export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveStatusValue {
     if (status?.isSaving) return 'saving'
     if (status?.lastSavedAt) return 'saved'
     return 'idle'
@@ -36,21 +36,21 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const wordCount = countWords(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
+    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
+    const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
+
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Group justify="space-between" align="baseline">
-                        <Title order={4} c="charcoal.9">
-                            Resubmission Note
-                        </Title>
-                        <SaveStatusIndicator status={saveStatus} />
-                    </Group>
+                    <Title order={4} c="charcoal.9">
+                        Resubmission Note
+                        <RequiredIndicator isVisible />
+                    </Title>
                     <Divider my="md" />
                     <Text size="sm" c="charcoal.7" mb="md">
                         {`Summarize the changes you’ve made based on the feedback from ${orgName}, or include any notes or questions.`}
                     </Text>
-                    <FormFieldLabel label="Resubmission Note" required inputId="resubmissionNote" />
                     <Textarea
                         id="resubmissionNote"
                         aria-label="Resubmission Note"
@@ -63,8 +63,8 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         onBlur={() => noteForm.validateField('resubmissionNote')}
                         error={!!error}
                     />
-                    <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>
-                        {error && <InputError error={error} />}
+                    <Group justify="space-between" align="center" mt={4}>
+                        {footerStatus}
                         <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
                     </Group>
                 </Box>

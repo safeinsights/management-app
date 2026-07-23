@@ -55,6 +55,7 @@ const buildStubYjsForm = (): { yjsForm: StubYjsForm; sendStateless: Mock } => {
         provider: { sendStateless } as unknown as HocuspocusProvider,
         fieldsMap: null,
         isSynced: true,
+        editedKeys: new Set(),
         pushField: vi.fn(),
         pushPI: vi.fn(),
     }

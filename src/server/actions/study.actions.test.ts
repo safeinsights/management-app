@@ -31,6 +31,7 @@ import {
     submitCodeReviewDecisionAction,
     submitProposalReviewAction,
 } from './study.actions'
+import { finalizeStudySubmissionAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
 
@@ -143,7 +144,10 @@ describe('Study Actions', () => {
         })
     })
 
-    it('sends code-approved event and restores APPROVED status for previously approved study', async () => {
+    // Legacy code-phase stragglers (PENDING-REVIEW with approvedAt set, written by the retired
+    // code-submit status flip) must not be re-approvable as proposals; code decisions own that
+    // state via submitCodeReviewDecisionAction.
+    it('rejects proposal approval for an already-decided study', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -153,40 +157,20 @@ describe('Study Actions', () => {
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
 
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+        const result = await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
-        await waitFor(async () => {
-            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
-                eventType: 'APPROVED',
-                recordType: 'STUDY',
-                recordId: study.id,
-                userId: user.id,
-            })
-        })
-
-        await waitFor(() => {
-            expect(deliverMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    to: user.email,
-                    template: 'vb - code approved',
-                }),
-            )
-        })
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+        expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - code approved' }))
         expect(deliverMock).not.toHaveBeenCalledWith(
-            expect.objectContaining({
-                template: 'vb - research proposal approved',
-            }),
+            expect.objectContaining({ template: 'vb - research proposal approved' }),
         )
 
         const updatedStudy = await db
             .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .select(['status'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('APPROVED')
-        expect(updatedStudy.approvedAt).toBeTruthy()
-        expect(updatedStudy.rejectedAt).toBeNull()
-        expect(updatedStudy.reviewerId).toBe(user.id)
+        expect(updatedStudy.status).toBe('PENDING-REVIEW')
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
@@ -514,6 +498,92 @@ describe('Study Actions', () => {
             expect(result).toMatchObject({
                 error: expect.objectContaining({ permission_denied: expect.any(String) }),
             })
+        })
+    })
+
+    describe('unsubmitted drafts are private to the Research Lab (OTTER-596)', () => {
+        it('data-org (enclave) member cannot getStudyAction an unsubmitted draft by id', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-draft-enclave' })
+
+            // Switch to a member of the reviewing Data Organization (enclave) that owns study.orgId.
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await getStudyAction({ studyId })
+            expect(result).toMatchObject({
+                error: expect.objectContaining({ permission_denied: expect.any(String) }),
+            })
+        })
+
+        it('data-org member CAN getStudyAction once the study is submitted', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-submitted-enclave' })
+            await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            await expect(getStudyAction({ studyId })).resolves.toMatchObject({ id: studyId })
+        })
+
+        it('data-org member CAN getStudyAction a CHANGE-REQUESTED resubmission', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-changereq-enclave' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            await expect(getStudyAction({ studyId })).resolves.toMatchObject({ id: studyId })
+        })
+
+        it('lab teammate can still getStudyAction their own unsubmitted draft', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-labaccess-enclave' })
+
+            // A different member of the submitting lab.
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await expect(getStudyAction({ studyId })).resolves.toMatchObject({ id: studyId })
+        })
+
+        // Guards the status-flip bypass: without a server-side PENDING-REVIEW check, a DO reviewer
+        // could approve/reject a DRAFT to move it into a viewable status and then read it.
+        it('data-org member cannot approve an unsubmitted draft, and status stays DRAFT', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-approve-draft' })
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            const result = await approveStudyProposalAction({ studyId, orgSlug: enclave.slug })
+
+            expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('DRAFT')
+        })
+
+        it('data-org member cannot reject an unsubmitted draft, and status stays DRAFT', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-reject-draft' })
+
+            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            const result = await rejectStudyProposalAction({ studyId, orgSlug: enclave.slug })
+
+            expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('DRAFT')
+        })
+
+        // AC3: Research Lab collaboration is unaffected — a lab member can still submit their draft.
+        it('lab member can still submit their own draft (DRAFT to PENDING-REVIEW)', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-lab-submit' })
+
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await expect(finalizeStudySubmissionAction({ studyId })).resolves.toMatchObject({ studyId })
+
+            const row = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(row.status).toBe('PENDING-REVIEW')
         })
     })
 

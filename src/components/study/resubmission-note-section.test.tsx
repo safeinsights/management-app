@@ -32,8 +32,13 @@ const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}
 describe('ResubmissionNoteSection', () => {
     it('renders the section title and the data partner name in the secondary text', () => {
         renderSection()
-        expect(screen.getByRole('heading', { name: 'Resubmission Note' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /Resubmission Note/ })).toBeInTheDocument()
         expect(screen.getByText(/Rice University/)).toBeInTheDocument()
+    })
+
+    it('renders the resubmission note title only once (no duplicate field label)', () => {
+        renderSection()
+        expect(screen.getAllByRole('heading', { name: /Resubmission Note/ })).toHaveLength(1)
     })
 
     it('renders the placeholder guidance copy on the textarea', () => {
@@ -102,5 +107,11 @@ describe('ResubmissionNoteSection', () => {
         const status = screen.getByTestId('autosave-status')
         expect(status).toHaveTextContent('All changes saved')
         expect(status).not.toHaveTextContent(/\d/)
+    })
+
+    it('renders exactly one check icon in the saved state (OTTER-658)', () => {
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const section = screen.getByTestId('resubmission-note-section')
+        expect(section.querySelectorAll('svg')).toHaveLength(1)
     })
 })

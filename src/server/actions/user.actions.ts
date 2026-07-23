@@ -5,7 +5,6 @@ import { sessionFromClerk } from '../clerk'
 import { getUserPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, z } from './action'
-import { orgNeedsKey } from '@/lib/types'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
     // Force metadata sync on sign-in to ensure session has fresh data
@@ -14,11 +13,10 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
         throw new Error('Failed to establish session')
     }
     onUserLogIn({ userId: session.user.id })
-    if (Object.values(session.orgs).some(orgNeedsKey)) {
-        const publicKey = await getUserPublicKey(session.user.id)
-        if (!publicKey) {
-            return { redirectToKeyGeneration: true }
-        }
+    // Every user needs a key.
+    const publicKey = await getUserPublicKey(session.user.id)
+    if (!publicKey) {
+        return { redirectToKeyGeneration: true }
     }
     return {}
 })

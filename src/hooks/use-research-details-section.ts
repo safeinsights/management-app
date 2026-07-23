@@ -34,12 +34,21 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         validateInputOnBlur: true,
     })
 
+    // Seed the form from the persisted profile, decide the initial edit mode, and clear any
+    // stale interest draft, but never while the user is editing, so a background refetch
+    // (15-min interval / window focus) can never overwrite unsaved input. Seeding the form
+    // (an external Mantine store) and the coupled edit-mode / draft resets must run together
+    // in this effect: they have to happen in the same pass so the form is populated before it
+    // opens, and "not editing" is the only reliable divergence guard. form.isDirty() is not
+    // dependable here: committed interest edits go through Mantine list ops and an uncommitted
+    // draft is separate state, so neither reliably marks the form dirty.
     useEffect(() => {
         if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         if (data) {
             const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- initial edit mode is coupled to seeding the form from server data
             setIsEditing(!complete)
         }
         setInterestDraft('')
@@ -87,6 +96,18 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         })
     }
 
+    // Folds any interest the user typed but never committed with Enter into the form
+    // value before validating, so a visible-but-uncommitted interest is not silently
+    // dropped and does not leave the user with a permanently disabled Save button.
+    // insertListItem updates the ref synchronously, so form.validate/getValues below
+    // see the just-added interest even in controlled mode.
+    const submitWithDraft = () => {
+        addInterest()
+        const { hasErrors } = form.validate()
+        if (hasErrors) return
+        handleSubmit(form.getValues())
+    }
+
     return {
         form,
         isEditing,
@@ -98,5 +119,6 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         addInterest,
         removeInterest,
         handleSubmit,
+        submitWithDraft,
     }
 }

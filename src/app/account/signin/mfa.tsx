@@ -82,11 +82,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     }),
                                 )
 
+                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
                                 if (joinResult?.needsUserKey) {
-                                    redirectUrl = Routes.accountKeys as Route
+                                    // First-time key generation: return to the inviting org's dashboard after.
+                                    redirectUrl =
+                                        `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
                                 } else {
-                                    const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                    redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
+                                    redirectUrl = orgDashboard as Route
                                 }
 
                                 const email = signInAttempt?.identifier || 'your account'

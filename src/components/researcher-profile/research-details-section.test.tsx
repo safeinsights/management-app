@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import { screen, waitFor, fireEvent, act } from '@testing-library/react'
 import {
     renderWithProviders,
     userEvent,
@@ -233,9 +234,10 @@ describe('ResearchDetailsSection', () => {
             // Try to add duplicate with different case
             await userEvents.type(input, 'machine learning{Enter}')
 
-            // Should still only have one pill
+            // Should still only have one pill (ignore the aria-live status region, which mirrors
+            // the interest text for screen readers and would otherwise double the match count).
             await waitFor(() => {
-                const pills = screen.getAllByText(/machine learning/i)
+                const pills = screen.getAllByText(/machine learning/i).filter((el) => !el.closest('[role="status"]'))
                 expect(pills.length).toBe(1)
             })
         })
@@ -276,5 +278,281 @@ describe('ResearchDetailsSection', () => {
 
         expect(updated.researchInterests).toEqual(['AI Research'])
         expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
+    })
+
+    // OTTER-624: a research interest typed but never committed with Enter must still be
+    // saved on a single Save click, instead of leaving the button permanently disabled.
+    it('should save a research interest that was typed without pressing Enter', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        // Fill the URL first, then type the interest LAST and click Save without ever
+        // pressing Enter, so the draft is still uncommitted at submit time.
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'https://scholar.google.com/citations?user=abc123')
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Quantum Computing')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await userEvents.click(saveButton)
+
+        await waitFor(() => {
+            expect(refetch).toHaveBeenCalled()
+        })
+
+        const updated = await db
+            .selectFrom('researcherProfile')
+            .select(['researchInterests', 'detailedPublicationsUrl'])
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updated.researchInterests).toEqual(['Quantum Computing'])
+        expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
+    })
+
+    // A background refetch (15-min interval / window focus) that changes the persisted
+    // interests must not resync into an open edit session while the user has a typed-but-
+    // uncommitted interest draft. That draft is separate state form.isDirty() cannot see;
+    // resyncing would pull in the server interests and silently drop the draft on Save.
+    it('does not pull refetched interests into an open edit form with an uncommitted draft', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML', 'Data Science', 'NLP'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        // Deliver the refetch by mutating the harness state directly (not via a DOM click),
+        // so the interest input never blurs and the draft stays uncommitted.
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'Data Science', 'NLP', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        const editButton = screen.getByRole('button', { name: /edit/i })
+        await userEvents.click(editButton)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'MyDraftInterest')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The open edit session must not absorb the refetched interest, and the uncommitted
+        // draft must remain intact.
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+        expect((interestInput as HTMLInputElement).value).toBe('MyDraftInterest')
+    })
+
+    // A committed interest edit (added via Enter, so it went through form.insertListItem) must
+    // also survive a mid-edit refetch. Reproduces the exact reviewer scenario: commit a pill,
+    // then change and restore another field, then a background refetch changes the persisted
+    // interests. The edit-session guard must skip the resync without relying on Mantine's dirty
+    // tracking, which can miss this combination of list and scalar edits.
+    it('preserves a committed interest edit when a background refetch changes server data', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        await userEvents.click(screen.getByRole('button', { name: /edit/i }))
+
+        // Commit a new interest via Enter (goes through form.insertListItem).
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'KeepMe{Enter}')
+        await waitFor(() => expect(screen.getByText('KeepMe')).toBeDefined())
+
+        // Change another field and restore it, per the reviewer scenario.
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'X')
+        await userEvents.clear(urlInput)
+        await userEvents.type(urlInput, 'https://scholar.google.com/user')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The committed edit must survive and the refetched interest must not be pulled in.
+        expect(screen.getByText('KeepMe')).toBeDefined()
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+    })
+
+    it('should commit a typed interest to a pill when the field loses focus', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Bioinformatics')
+
+        // Move focus away without pressing Enter; the draft should become a pill.
+        await userEvents.tab()
+
+        await waitFor(() => {
+            expect(screen.getByText('Bioinformatics')).toBeDefined()
+        })
+    })
+
+    it('should surface a validation message for an invalid URL instead of silently disabling save', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'AI Research{Enter}')
+
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'not-a-valid-url')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await userEvents.click(saveButton)
+
+        await waitFor(() => {
+            expect(screen.getByText(/must start with http:\/\/ or https:\/\//i)).toBeDefined()
+        })
+        expect(refetch).not.toHaveBeenCalled()
+    })
+
+    // OTTER-624 follow-up: commit-on-blur must not create accidental pills. When focus leaves
+    // the page entirely (switching tabs/windows) relatedTarget is null, so the draft is kept in
+    // the field rather than turned into a committed interest.
+    it('should not commit a typed interest when focus leaves the page (relatedTarget null)', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Ephemeral Idea')
+
+        // A tab/window switch blurs the field with no next focused element.
+        fireEvent.blur(interestInput, { relatedTarget: null })
+
+        expect(screen.queryByText('Ephemeral Idea')).toBeNull()
+        expect((interestInput as HTMLInputElement).value).toBe('Ephemeral Idea')
+    })
+
+    // OTTER-624 follow-up: moving focus to a control inside the widget (e.g. clicking a pill's
+    // remove button) must not commit the pending draft as a new pill.
+    it('should not commit a typed interest when focus moves to a control inside the widget', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Uncommitted Draft')
+
+        // relatedTarget resolves to an element inside the PillsInput widget (the same place a
+        // pill's remove button lives), so the blur must be treated as intra-widget, not a commit.
+        const inWidgetControl = interestInput.parentElement as HTMLElement
+        fireEvent.blur(interestInput, { relatedTarget: inWidgetControl })
+
+        expect(screen.queryByText('Uncommitted Draft')).toBeNull()
+        expect((interestInput as HTMLInputElement).value).toBe('Uncommitted Draft')
+    })
+
+    // OTTER-624 follow-up: pill additions are announced in an aria-live region so screen-reader
+    // users get feedback even when a pill is created by moving focus rather than pressing Enter.
+    it('should announce added research interests in an aria-live region', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Genomics{Enter}')
+
+        await waitFor(() => {
+            const regions = screen.getAllByRole('status')
+            expect(regions.some((region) => region.textContent?.includes('Genomics'))).toBe(true)
+        })
     })
 })

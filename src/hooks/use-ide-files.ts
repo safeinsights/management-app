@@ -55,7 +55,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const router = useRouter()
 
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
-    const [viewingFile, setViewingFile] = useState<{ name: string; contents: string } | null>(null)
+    const [viewingFile, setViewingFile] = useState<{ name: string; contents: ArrayBuffer } | null>(null)
     // OTTER-558: tracks whether the user actually edited files THIS session (uploaded, deleted, or
     // picked a main file). The resubmit footer keys its Cancel-vs-Save-and-exit toggle on this, NOT
     // on `filesChanged` — the latter compares workspace mtimes to the last submission and is already

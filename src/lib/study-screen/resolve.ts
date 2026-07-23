@@ -17,12 +17,29 @@ const RESEARCHER_CODE_SCREENS: ReadonlyArray<ScreenId> = ['code-approved', 'code
 
 // The code screen for the read-only /view/code route, reusing the table's own predicates. undefined
 // when the study hasn't reached the code stage (route 404s), so a researcher can walk back to the
-// code step but never jump ahead. Marks the descriptor readOnlyCodeStep so the code screen keeps the
-// submitted code visible during enclave execution (OTTER-640) — a distinction this route owns, not the
-// live /view resolver.
+// code step but never jump ahead.
 export function resolveResearcherCodeScreen(state: StudyState): ScreenDescriptor | undefined {
     const screen = RESEARCHER_SCREEN_RULES.find(
         ([id, rule]) => RESEARCHER_CODE_SCREENS.includes(id) && rule.when(state),
+    )?.[0]
+    return screen ? { screen } : undefined
+}
+
+const REVIEWER_CODE_SCREENS: ReadonlyArray<ScreenId> = [
+    'reviewer-code-feedback',
+    'reviewer-agreements',
+    'reviewer-code-review',
+]
+
+// Reviewer counterpart to resolveResearcherCodeScreen, for the read-only /review/code route a DO walks
+// back to from the results screen. Excluding reviewer-study-results from the candidate set is the whole
+// point: a results study keeps codeDecision === 'CODE-APPROVED', so re-running the table's own predicates
+// over just the code-stage screens lands on reviewer-code-feedback instead of looping back to results
+// (which out-ranks everything in REVIEWER_SCREEN_RULES). undefined when the study hasn't reached code yet,
+// so the route 404s rather than jumping forward.
+export function resolveReviewerCodeScreen(state: StudyState): ScreenDescriptor | undefined {
+    const screen = REVIEWER_SCREEN_RULES.find(
+        ([id, rule]) => REVIEWER_CODE_SCREENS.includes(id) && rule.when(state),
     )?.[0]
     return screen ? { screen, readOnlyCodeStep: true } : undefined
 }

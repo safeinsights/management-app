@@ -17,7 +17,8 @@ import {
 } from './auth.ts'
 import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
 import { ResilientDbPool } from './db-pool.ts'
-import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical } from './lexical-seed.ts'
+import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
+import { mirrorProposalTitleToStudy } from './title-mirror.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
 // logging when authentication has already failed. Returns null on any error.
@@ -92,7 +93,7 @@ const server = new Server({
                 })
                 return result.rows[0]?.data ?? null
             },
-            store: async ({ documentName, state }) => {
+            store: async ({ documentName, state, document }) => {
                 const parsed = parseDocumentName(documentName)
                 if (!parsed) {
                     log('db.store.reject', { documentName, reason: 'unrecognized-name' })
@@ -113,6 +114,18 @@ const server = new Server({
                     [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
+
+                // Best-effort: Yjs is already persisted above; a mirror failure must not
+                // fail the store hook or roll back the canonical document write.
+                try {
+                    await mirrorProposalTitleToStudy(parsed, document, studyId, pool)
+                } catch (err) {
+                    log('db.store.titleMirror.fail', {
+                        documentName,
+                        studyId,
+                        message: err instanceof Error ? err.message : String(err),
+                    })
+                }
             },
         }),
     ],
@@ -162,34 +175,43 @@ const server = new Server({
     },
     async onLoadDocument({ documentName, document }) {
         log('loadDocument', { documentName })
-        // Server-side bootstrap of fresh proposal-text Y.Docs from the existing
-        // study column. Hocuspocus serializes `onLoadDocument` per document,
-        // so seeding runs exactly once even when two clients open the page at
-        // the same instant. This eliminates the client-side bootstrap race
-        // where both clients would seed and the CRDT-additive merge would
-        // produce duplicated content.
+        // Server-side bootstrap of fresh Y.Docs from the existing study columns.
+        // Hocuspocus serializes `onLoadDocument` per document, so seeding runs
+        // exactly once even when two clients open the page at the same instant.
+        // This eliminates the client-side bootstrap race where both clients
+        // would seed and the CRDT-additive merge would produce duplicated
+        // content.
         const parsed = parseDocumentName(documentName)
-        if (parsed?.kind !== 'proposal-text') return
+        if (parsed?.kind !== 'proposal-text' && parsed?.kind !== 'proposal-resubmission-note') return
         // The Database extension's `fetch` already populated `document` if a
         // yjs_document row exists. Seeding only applies to the cold case.
         if (document.share.size > 0) return
 
-        const column = SLUG_TO_STUDY_COLUMN[parsed.slug]
-        // Cast the jsonb column to text: pg parses a bare jsonb column into a JS
-        // object, but seedYDocFromLexical expects the serialized JSON string (it
-        // calls .trim()). Without the cast the seeder throws and is swallowed
-        // below, leaving the editor blank.
-        const row = await pool.query<{ value: string | null }>(
-            `SELECT ${column}::text AS value FROM study WHERE id = $1`,
-            [parsed.studyId],
-        )
-        const lexicalJson = row.rows[0]?.value
+        let lexicalJson: string | null = null
+        if (parsed.kind === 'proposal-text') {
+            const column = SLUG_TO_STUDY_COLUMN[parsed.slug]
+            // Cast the jsonb column to text: pg parses a bare jsonb column into a JS
+            // object, but seedYDocFromLexical expects the serialized JSON string (it
+            // calls .trim()). Without the cast the seeder throws and is swallowed
+            // below, leaving the editor blank.
+            const row = await pool.query<{ value: string | null }>(
+                `SELECT ${column}::text AS value FROM study WHERE id = $1`,
+                [parsed.studyId],
+            )
+            lexicalJson = row.rows[0]?.value ?? null
+        } else {
+            const row = await pool.query<{ value: string | null }>(
+                'SELECT proposal_resubmission_note_draft AS value FROM study WHERE id = $1',
+                [parsed.studyId],
+            )
+            lexicalJson = toLexicalJsonIfPlain(row.rows[0]?.value)
+        }
         if (!lexicalJson) return
 
         try {
             seedYDocFromLexical(document, lexicalJson)
         } catch (error) {
-            console.warn(`onLoadDocument: failed to seed ${documentName} from study.${column}`, error)
+            console.warn(`onLoadDocument: failed to seed ${documentName}`, error)
         }
     },
     async onStateless({ payload, documentName, document, connection }) {

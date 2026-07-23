@@ -1,4 +1,5 @@
-import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin, orgNeedsKey } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
+import type { StudyStatus } from '@/database/types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -9,6 +10,28 @@ import {
 } from './permission-types'
 
 export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
+
+// Which study statuses a Data Organization (enclave reviewer) may read: every status except DRAFT,
+// i.e. "has been submitted at least once". Unsubmitted drafts belong to the Research Lab only
+// (OTTER-596). Declared as a Record<StudyStatus, …> so adding a new StudyStatus is a TypeScript error
+// until someone makes an explicit visible/hidden decision here — the one constant the whole read
+// boundary hinges on.
+const ENCLAVE_VIEWABLE_STUDY_STATUS: Record<StudyStatus, boolean> = {
+    DRAFT: false,
+    'PENDING-REVIEW': true,
+    'CHANGE-REQUESTED': true,
+    APPROVED: true,
+    REJECTED: true,
+    ARCHIVED: true,
+}
+
+// Derived allowlist used as a positive `$in` condition. Positive on purpose — the ability subject is
+// assembled from middleware-returned fields, and a mongo `$in` fails CLOSED when `status` is absent
+// (denies), whereas `$ne: 'DRAFT'` would fail OPEN (grant): the safe direction for a fix about hiding
+// content.
+const SUBMITTED_STUDY_STATUSES = (Object.keys(ENCLAVE_VIEWABLE_STUDY_STATUS) as StudyStatus[]).filter(
+    (status) => ENCLAVE_VIEWABLE_STUDY_STATUS[status],
+)
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
@@ -43,8 +66,11 @@ export function defineAbilityFor(session: UserSession) {
     // researchers need to be able to view enclave orgs to create studies
     permit('view', 'Org')
 
-    permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds } })
-    permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds } })
+    // Enclave (Data Organization) reviewers may only view SUBMITTED studies/jobs. Unsubmitted drafts
+    // (proposal content + uploaded code) stay private to the submitting Research Lab, which retains
+    // access via the submittedByOrgId rules below (OTTER-596).
+    permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds }, status: { $in: SUBMITTED_STUDY_STATUSES } })
+    permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds }, status: { $in: SUBMITTED_STUDY_STATUSES } })
 
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
@@ -66,11 +92,9 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    // users who belong to any key-holding org (enclave or lab) can view/create/update their keys
-    if (orgs.some(orgNeedsKey)) {
-        permit('view', 'UserKey')
-        permit('update', 'UserKey')
-    }
+    // every user holds a key
+    permit('view', 'UserKey')
+    permit('update', 'UserKey')
 
     // allow review of studies for enclave orgs that the user belongs to
     permit('approve', 'Study', { orgId: { $in: usersReviewerOrgIds } })

@@ -79,7 +79,7 @@ export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId }
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { jobId } }) => {
@@ -121,7 +121,7 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // orgId is validated in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status } // orgId + status are validated in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => {
@@ -134,7 +134,7 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
         const studyJob = await latestJobForStudy(studyId)
-        return { studyJob, orgId: studyJob.orgId } // Return the job along with the orgId for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status } // Return the job along with the orgId + status for validation in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
@@ -143,7 +143,7 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId } }) => {
@@ -158,7 +158,7 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db }) => {
@@ -174,7 +174,7 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status } // Return the jobInfo along with the orgId + status for validation in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
 
@@ -201,7 +201,7 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
     .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob, params: { fileName } }) => {
@@ -210,8 +210,9 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         )
         if (!file) throw new ActionFailure({ file: `Code file "${fileName}" not found` })
 
+        // Raw bytes, not text: code submissions can include binary files like png plots (OTTER-516)
         const blob = await fetchFileContents(file.path)
-        const contents = await blob.text()
+        const contents = await blob.arrayBuffer()
         return { fileName: file.name, contents }
     })
 
@@ -225,7 +226,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         const studyJob = await getStudyJobInfo(jobId)
         // Include submittedByOrgId so 'view StudyJob' matches lab researchers, not just enclave
         // reviewers — researchers fetch their own re-wrapped result files here.
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId }
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
 

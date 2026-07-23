@@ -194,7 +194,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.language',
             ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study }) => {
@@ -208,10 +208,10 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId'])
+            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study, params: { studyId, role }, db, session }) => {
@@ -348,24 +348,32 @@ async function performStudyProposalApproval({
     useTestImage?: boolean
     sharedFiles?: SharedFile[]
 }) {
-    const isFirstApproval = study.status !== 'APPROVED' && !study.approvedAt
-    const isCodeReapproval = !isFirstApproval
+    // Proposal approval is strictly the first decision from PENDING-REVIEW; approving a later code
+    // (re)submission is submitCodeReviewDecisionAction's job. The PENDING-REVIEW + approvedAt IS NULL
+    // predicate is the server-side gate (mirrors claimInitialProposalReviewStudy): it blocks flipping
+    // a DRAFT (or any non-pending study) into a viewable status, which would otherwise let a DO
+    // reviewer read a draft it was never meant to see (OTTER-596). Atomic so it also settles the
+    // OTTER-471 race where two decisions land at once.
+    const claimed = await db
+        .updateTable('study')
+        .set({
+            status: 'APPROVED',
+            approvedAt: new Date(),
+            rejectedAt: null,
+            reviewerId: userId,
+            lastUpdatedAt: new Date(),
+        })
+        .where('id', '=', studyId)
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
 
-    if (isFirstApproval) {
-        await db
-            .updateTable('study')
-            .set({
-                status: 'APPROVED',
-                approvedAt: new Date(),
-                rejectedAt: null,
-                reviewerId: userId,
-                lastUpdatedAt: new Date(),
-            })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyApproved({ studyId, userId })
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
     }
+
+    onStudyApproved({ studyId, userId })
 
     const latestJob = await db
         .selectFrom('studyJob')
@@ -377,28 +385,16 @@ async function performStudyProposalApproval({
     if (!latestJob) return
 
     const job = await latestJobForStudy(studyId)
-    const latestJobStatus = job.statusChanges.at(0)?.status
-
-    if (isCodeReapproval) {
-        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') return
-    }
 
     await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
-
-    // Restore APPROVED status after code re-approval when study went back to PENDING-REVIEW
-    if (isCodeReapproval && study.status === 'PENDING-REVIEW') {
-        await db
-            .updateTable('study')
-            .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
-
-        onStudyCodeApproved({ studyId, userId })
-    }
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await db
+    // Same PENDING-REVIEW gate as approval: a proposal can only be rejected while it is under review,
+    // so a DO reviewer can't flip a DRAFT to REJECTED to make it readable (OTTER-596). Atomic for the
+    // OTTER-471 race. Code-stage rejection is a separate path (submitCodeReviewDecisionAction) and does
+    // not go through here.
+    const claimed = await db
         .updateTable('study')
         .set({
             status: 'REJECTED',
@@ -408,7 +404,14 @@ async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; stud
             lastUpdatedAt: new Date(),
         })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
+    }
 }
 
 async function performStudyProposalRejection({
@@ -528,6 +531,9 @@ async function claimInitialProposalReviewStudy({
         .set({ reviewerId: userId, lastUpdatedAt: new Date() })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
+        // approvedAt IS NULL excludes legacy/straggler rows left at PENDING-REVIEW
+        // by the retired code-submit status flip; those are code-stage, not
+        // proposal-stage, and must not be claimable for a proposal review.
         .where('approvedAt', 'is', null)
         .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
         .executeTakeFirst()
@@ -680,7 +686,7 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => {
         const { study, entries } = await getProposalFeedbackForStudy(studyId)
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, entries }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status, entries }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ entries }) => entries)
@@ -774,9 +780,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         // round gets its own decision row (OTTER-638). The round-1 decision is written before its
         // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
         // Load-bearing: codeSubmissionVersion counts CODE-CHANGES-REQUESTED/FILES-APPROVED/FILES-REJECTED
-        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not in
-        // CODE_RESUBMITTABLE_JOB_STATUSES) so no second decision can follow it. If reject ever becomes
-        // resubmittable, codeSubmissionVersion must count it too, or the round won't advance and the
+        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not resubmittable) so no
+        // second decision can follow it. If reject ever becomes resubmittable, codeSubmissionVersion
+        // must count it too (and canResearcherResubmitCode must allow it), or the round won't advance and the
         // next decision would collide on the round-scoped unique constraint.
         const round = await codeSubmissionVersion(studyId, db)
 
@@ -818,6 +824,11 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
+        // Each branch below re-asserts the APPROVED resting state. Code submission
+        // no longer flips study.status, so these writes are transitional
+        // self-healing for legacy rows (and old pods during a rolling deploy) that
+        // still sit at PENDING-REVIEW with approvedAt set; once those are gone they
+        // can shrink to { reviewerId, lastUpdatedAt }.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
             await db
@@ -843,11 +854,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             onStudyCodeRejected({ studyId, userId })
         } else {
             // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
-            // pill flips to "Change requested") and move the study back to
-            // APPROVED. The proposal was already approved (approvedAt set);
-            // we restore that resting state so claimInitialCodeReviewJob's
-            // PENDING-REVIEW check blocks any further code-review submissions
-            // on this job until the researcher resubmits.
+            // pill flips to "Change requested"). The proposal stays APPROVED;
+            // claimInitialCodeReviewJob's job-status gate blocks any further
+            // code-review submissions on this job until the researcher resubmits.
             await db
                 .insertInto('jobStatusChange')
                 .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
@@ -870,10 +879,10 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {

@@ -82,3 +82,34 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
     })
 })
+
+// OTTER-516 regression: viewFile must round-trip the file's exact bytes. Reading a png as
+// utf-8 corrupts it beyond rendering, so the action hands back an ArrayBuffer as stored.
+describe('useIDEFiles viewFile (OTTER-516)', () => {
+    beforeEach(() => {
+        delete process.env.CODER_FILES
+    })
+
+    afterEach(async () => {
+        await cleanupWorkspaceDirs(workspaceRoots)
+    })
+
+    it('returns binary files as their exact bytes', async () => {
+        const study = await setupResubmittableStudy()
+        const root = await createWorkspaceDir('use-ide-files-view')
+        workspaceRoots.push(root)
+        // PNG magic header followed by bytes that are not valid utf-8
+        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xc3, 0x28])
+        await writeWorkspaceFiles(root, study.id, { 'plot.png': pngBytes })
+
+        const { result } = renderIDEFiles(study.id)
+        await waitFor(() => expect(result.current.files).toContain('plot.png'))
+
+        await act(async () => {
+            await result.current.viewFile('plot.png')
+        })
+
+        expect(result.current.viewingFile?.name).toBe('plot.png')
+        expect(new Uint8Array(result.current.viewingFile!.contents)).toEqual(pngBytes)
+    })
+})

@@ -590,6 +590,7 @@ export const mockClerkSession = (values: MockSession | null) => {
                 }
             }),
             createUser: vi.fn(async () => ({ id: '1234' })),
+            deleteUser: vi.fn(async (clerkId: string) => ({ id: clerkId, deleted: true })),
             getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },
     }
@@ -741,7 +742,11 @@ export const createWorkspaceDir = async (prefix: string) => {
     return root
 }
 
-export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
+export const writeWorkspaceFiles = async (
+    root: string,
+    studyId: string,
+    files: Record<string, string | Uint8Array>,
+) => {
     const { CODER_DISABLED } = await import('@/server/config')
     const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
     await fs.promises.mkdir(workspaceDir, { recursive: true })

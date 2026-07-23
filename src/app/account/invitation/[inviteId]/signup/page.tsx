@@ -6,7 +6,7 @@ import {
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
 import { useMutation, useQuery, z, zodResolver } from '@/common'
-import { CLERK_ERROR_TITLES } from '@/components/clerk-errors'
+import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
+import { markOrgJoined } from '@/lib/joined-org'
 
 const formSchema = z
     .object({
@@ -87,6 +88,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                 if (attempt.status === 'complete') {
                     await setActive({ session: attempt.createdSessionId })
                     await onPendingUserLoginAction({ inviteId })
+                    markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
                     // A freshly-created account has no MFA factors enrolled, so a second-factor
@@ -112,6 +114,10 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
             }
         },
     })
+
+    const clerkErrorCopy = CLERK_ERROR_COPY[String(form.errors.code)]
+    const formErrorTitle = clerkErrorCopy?.title || 'Could not create account'
+    const formErrorBody = clerkErrorCopy?.message || form.errors.form
 
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
@@ -182,11 +188,11 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     {form.errors.form && (
                         <Alert
                             color="red"
-                            title={CLERK_ERROR_TITLES[String(form.errors.code)]?.title || 'Could not create account'}
+                            title={formErrorTitle}
                             withCloseButton
                             onClose={() => form.clearFieldError('form')}
                         >
-                            {form.errors.form}
+                            {formErrorBody}
                         </Alert>
                     )}
 

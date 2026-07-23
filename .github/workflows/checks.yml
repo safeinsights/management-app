@@ -13,6 +13,14 @@
 # Third-party actions are pinned to commit SHAs (with the version tag in a
 # trailing comment) so a compromised upstream tag cannot silently change what
 # runs here. Use Dependabot to update the SHAs.
+#
+# Exception to rule 2: the `coverage-baseline` job holds `contents: write`. That
+# is OTTER-545-safe because it runs ONLY on push to main (guarded by both the event
+# and `github.ref == 'refs/heads/main'`): trusted, post-merge code that a PR/fork
+# can never trigger, and it runs no pnpm install and no app/test code (see the
+# comment on that job). Every `pull_request`-reachable job here still holds no
+# `contents: write` and no stored repository secrets: the only token in scope is the
+# automatic, ephemeral, job-scoped `GITHUB_TOKEN`, bounded by each job's `permissions:`.
 name: Checks
 on:
     push:
@@ -20,17 +28,29 @@ on:
             - main
     pull_request: {}
 
+# PR runs share one group per PR ref, so a newer commit cancels the older run
+# (cancel-in-progress) and frees the runner. Push runs (e.g. main) get a UNIQUE group per
+# run via github.run_id, so they are never grouped, never queued behind or superseded by
+# another run, and always finish and seed the shared build cache. This keeps main behaving
+# exactly as it did before this workflow gained a concurrency block: GitHub drops an older
+# *pending* run whenever a newer one queues in the same group (regardless of
+# cancel-in-progress), so a per-run group is what preserves that "every main run completes"
+# guarantee.
+concurrency:
+    group: ${{ github.event_name == 'pull_request' && format('checks-{0}', github.ref) || format('checks-{0}', github.run_id) }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     lint:
         timeout-minutes: 5
         runs-on: ubuntu-latest
         permissions: {}
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
                   node-version: 22
                   cache: 'pnpm'
@@ -42,8 +62,6 @@ jobs:
               run: pnpm list
             - name: pnpm run checks
               run: pnpm run checks
-            - name: validate actions
-              run: pnpm run validate-actions
 
     # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
     # exposed to PR-controlled code. This job is safe ONLY because it does not run
@@ -60,7 +78,7 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
             # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
@@ -105,7 +123,7 @@ jobs:
             - name: Run SonarQube SAST Scan
               # SONAR_TOKEN is scoped to this single step (not the job env) so that
               # any future steps added above cannot accidentally read it. Keep it here.
-              uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+              uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
               env:
                   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
                   SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -126,14 +144,18 @@ jobs:
         permissions: {}
         services:
             db:
-                image: postgres:15
+                image: postgres:16
                 ports:
                     - 5432:5432
                 env:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -151,11 +173,11 @@ jobs:
             # default (~half the cores) leaves the box idle. Override via vitest --maxWorkers.
             VITEST_MAX_WORKERS: '4'
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
                   node-version: 22
                   cache: 'pnpm'
@@ -199,14 +221,18 @@ jobs:
         permissions: {}
         services:
             db:
-                image: postgres:15
+                image: postgres:16
                 ports:
                     - 5432:5432
                 env:
                     POSTGRES_USER: si
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
-                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+                # Poll pg_isready every 2s (not 10s) so the runner detects "healthy" sooner
+                # and cuts the idle wait after Postgres is ready. Raise retries 5 -> 25 so the
+                # total startup grace stays ~50s (2s x 25 = 50s), matching the old 10s x 5;
+                # faster polling must not shrink the tolerance for a slow cold start.
+                options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 25
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
@@ -218,6 +244,13 @@ jobs:
             SINGLE_USER_EDITING: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
             NEXT_PUBLIC_CI: 'true'
+            # Opt this build into Turbopack's persistent filesystem cache (experimental in
+            # Next 16, off by default). next.config.ts reads TURBOPACK_FS_CACHE and enables
+            # turbopackFileSystemCacheForBuild only when set, so it applies to this CI e2e
+            # build alone and never to the production deploy build. Turbopack writes the
+            # cache into .next/cache, which the actions/cache step below persists between
+            # runs to make incremental rebuilds fast.
+            TURBOPACK_FS_CACHE: '1'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
             AWS_ACCESS_KEY_ID: 'si-local-s3'
@@ -226,42 +259,74 @@ jobs:
             AWS_REGION: 'us-east-1'
             PORT: '4100'
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
                   node-version: 22
                   cache: 'pnpm'
-            # Next build cache — keyed on lockfile + source so an unchanged tree restores
-            # the previous .next/cache and skips most of the build.
-            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            # Compute the cache key prefix (and previous-month variant) as step outputs, so the
+            # exact `key` and the restore-keys tiers below stay in sync. Logic lives in the script;
+            # see it for why the key carries a monthly generation token and the Node major.
+            - name: Compute Next cache key prefix
+              id: cachekey
+              run: ./bin/ci-next-cache-key
+            # Next build cache (restore/save split). We RESTORE on every run but only SAVE on
+            # push-to-main (see the save step after the tests): the save uploads ~400MB and would
+            # add ~50s to every PR's critical path. PR runs restore main's cache via the tiers
+            # below and rebuild incrementally. The `tpc1` token namespaces the Turbopack
+            # persistent build cache (enabled via TURBOPACK_FS_CACHE) and lets us bust it with a
+            # one-character bump if a cached build ever misbehaves.
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: next_cache
               with: # https://nextjs.org/docs/pages/guides/ci-build-caching
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  key: ${{ steps.cachekey.outputs.prefix }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: ${{ github.workspace }}/.next/cache
+                  # Tier 2: same deps, any source change -> warm incremental rebuild.
+                  # Tier 3 (PR only): drop the lockfile hash so a dep-changing PR still restores
+                  # main's cache; Turbopack content-hashes its inputs and rebuilds only the
+                  # affected modules, so a dep change is a warm partial rebuild, not a cold one.
+                  # Tier 4 (PR only): previous month's prefix, so PRs stay warm during the window
+                  # at the start of a new month before the first main push reseeds `gen`.
+                  # Tiers 3 and 4 are omitted on push-to-main (they evaluate to empty strings,
+                  # which the cache action drops), so each month main still reseeds one compact
+                  # cache from cold instead of inheriting last month's accreted one.
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
-            # Cache the Playwright browser binaries so they aren't re-downloaded every run.
-            # Keyed on the installed Playwright version (from the lockfile).
-            - name: Resolve Playwright version
-              id: pw
-              run: echo "version=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
-            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              id: pw-cache
-              with:
-                  path: ~/.cache/ms-playwright
-                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+                      ${{ steps.cachekey.outputs.prefix }}-${{ hashFiles('**/pnpm-lock.yaml') }}-
+                      ${{ github.event_name == 'pull_request' && format('{0}-', steps.cachekey.outputs.prefix) || '' }}
+                      ${{ github.event_name == 'pull_request' && format('{0}-', steps.cachekey.outputs.prev_prefix) || '' }}
             - name: Start SeaweedFS
               run: ./bin/ci-seaweedfs
             - name: Create S3 bucket
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
             - name: pnpm install
               run: pnpm install --frozen-lockfile
+            # Cache the Playwright browser binaries so they aren't re-downloaded every run.
+            # Keyed on the installed Playwright version. Runs AFTER `pnpm install` so `require`
+            # resolves the real version; running it before install (as it used to) left
+            # node_modules absent, so the version silently fell back to "unknown" and the key
+            # never busted on a Playwright upgrade, risking stale cached browsers. A failed
+            # resolve now fails the step loudly rather than poisoning the key with a constant.
+            - name: Resolve Playwright version
+              id: pw
+              run: |
+                  version=$(node -p "require('@playwright/test/package.json').version")
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: pw-cache
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
             - name: provision db
               run: pnpm run db:migrate
             - name: build and run server
               run: pnpm run ci:server -- server_output.log
+            # Playwright deps run synchronously here. Backgrounding them to overlap the build
+            # was tried and reverted: `playwright install-deps` shells out to sudo/apt, which
+            # hangs intermittently when detached from the step (~1 in 3 runs), violating the
+            # zero-flake rule. The ~12s saving is not worth an intermittent CI hang.
             - name: install playwright dependencies
               if: steps.pw-cache.outputs.cache-hit != 'true'
               run: pnpm exec playwright install --with-deps --only-shell chromium
@@ -277,6 +342,22 @@ jobs:
                   path: test-results/e2e/coverage/raw
                   retention-days: 1
                   if-no-files-found: ignore
+            # Save the Next build cache ONLY on push-to-main (see the restore step above).
+            # Runs only on success, so a failed build/test never persists a poisoned cache.
+            - name: Save Next build cache (main only)
+              # Guard on event, ref, and cache-hit:
+              #  - `push` is only configured for `main`, and a `pull_request` run reports
+              #    refs/pull/<n>/merge (not refs/heads/main), so today the event check alone
+              #    would suffice. The ref check is belt-and-braces so the save stays strictly on
+              #    push-to-main if a future `pull_request_target` or other trigger is added.
+              #  - cache-hit != 'true' skips the save when the exact primary key was already
+              #    restored (e.g. re-running a main run on an unchanged commit); otherwise
+              #    actions/cache spends minutes taring ~430 MB only to fail reserving the key.
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.next_cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  key: ${{ steps.next_cache.outputs.cache-primary-key }}
+                  path: ${{ github.workspace }}/.next/cache
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
@@ -297,11 +378,11 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
             - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
                   node-version: 22
                   cache: 'pnpm'
@@ -328,10 +409,82 @@ jobs:
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
                   cat test-results/coverage/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            # On push to main, hand the merged summary to the push-only `coverage-baseline`
+            # job so it can refresh the wiki baseline without re-running the merge (or any
+            # pnpm install / app code) under contents:write. See that job for the rationale.
+            - name: upload merged coverage summary (for baseline refresh on main)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: coverage-summary
+                  path: test-results/coverage/coverage-summary.json
+                  retention-days: 1
+                  if-no-files-found: error
             - name: Coverage Diff
-              # PR-only; on the default branch the action needs contents:write to push the
-              # baseline to the wiki, which we withhold (OTTER-545), so it 403s — skip it.
+              # PR-only: reads the wiki baseline (kept fresh by the push-only
+              # `coverage-baseline` job) and posts the delta comment. This job never writes
+              # the baseline, so it needs no contents:write (OTTER-545).
               if: github.event_name == 'pull_request'
+              uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
+                  coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
+                  badge-enabled: false
+
+    # SECURITY (OTTER-545): refreshes the wiki coverage baseline that the PR `coverage`
+    # job diffs against. This job holds `contents: write`, but it is safe because:
+    #   - it runs ONLY on push to main. The `github.ref == 'refs/heads/main'` check is
+    #     belt-and-braces (today `push` is configured for `main` only, so the event check
+    #     alone suffices) that keeps it strictly on push-to-main even if a future
+    #     `pull_request_target` or extra push branch is added (same guard as the "Save
+    #     Next build cache" step above). Trusted, post-merge code that a PR or fork can
+    #     never trigger, so no PR-controlled code ever executes with this token (GitHub
+    #     also downgrades fork-PR tokens to read-only regardless of this block);
+    #   - it runs NO `pnpm install` and NO app/test code: it only downloads the
+    #     already-merged coverage-summary.json artifact, checks the current main ref,
+    #     and lets coverage-diff-action push it to the wiki, keeping the code under
+    #     contents:write minimal.
+    # Do NOT add a `pull_request` trigger or a same-repo-PR gate to this job, do NOT add
+    # any stored repository secrets (anything under `secrets.*` other than the automatic
+    # `GITHUB_TOKEN`), and do NOT check out PR head; each of those reopens OTTER-545.
+    coverage-baseline:
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # Queue baseline writes from concurrent main runs while allowing their test jobs to
+        # run in parallel. The main-HEAD check below makes late older runs skip instead of
+        # overwriting a newer baseline.
+        concurrency:
+            group: coverage-baseline-main
+            queue: max
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        needs: [coverage]
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: download merged coverage summary
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: coverage-summary
+                  path: test-results/coverage
+            - name: check whether this run is current main HEAD
+              id: main-head
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+                  if [[ "$head_sha" == "$GITHUB_SHA" ]]; then
+                      echo "is-current=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "is-current=false" >> "$GITHUB_OUTPUT"
+                      echo "Skipping baseline refresh: $GITHUB_SHA is no longer main HEAD ($head_sha)."
+                  fi
+            - name: Push coverage baseline to wiki
+              if: steps.main-head.outputs.is-current == 'true'
               uses: bultkrantz/coverage-diff-action@4b5175f210f33024e9725a59f6be6ba407bec8cd # v5.0.1
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}

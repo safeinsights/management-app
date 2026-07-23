@@ -251,7 +251,7 @@ pnpm exec tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to
 The scripts will use default values tailored for local development:
 
 - origin will default to http://localhost:4000
-- organization to `openstax`
+- organization to `openstax` and `openstax-lab`
 - key to `tests/support/private_key.pem` (local dev `openstax` defaults to using the public key pair of this)
 
 Examples:

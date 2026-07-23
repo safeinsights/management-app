@@ -1,14 +1,30 @@
 import { describe, expect, test, vi, type Mock } from 'vitest'
-import { db, insertTestStudyJobData, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    db,
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+    createTestProposalDraft,
+    setTestStudyStatus,
+} from '@/tests/unit.helpers'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
+    fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
 } from './study-job.actions'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
+import { fetchStudiesForOrgAction } from './study.actions'
+import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
+import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import { projectStudyState, resolvePillStatus } from '@/lib/study-screen'
+import logger from '@/lib/logger'
 
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
@@ -27,6 +43,52 @@ vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
     onStudyReviewRequested: vi.fn(),
 }))
+
+async function setupResultApprovalFixture() {
+    const { user: reviewer, org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const lab = await insertTestOrg({ slug: 'otter-635-lab', type: 'lab' })
+    const { user: researcher } = await insertTestUser({ org: lab })
+    const fingerprint = 'otter-635-researcher-key'
+
+    await db
+        .insertInto('userPublicKey')
+        .values({ userId: researcher.id, publicKey: Buffer.from('labPublicKey'), fingerprint })
+        .executeTakeFirstOrThrow()
+
+    const { job, study } = await insertTestStudyJobData({
+        org: enclave,
+        researcherId: researcher.id,
+        jobStatus: 'RUN-COMPLETE',
+    })
+    await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', study.id).execute()
+    const file = await db
+        .insertInto('studyJobFile')
+        .values({
+            path: 'results/encrypted-results.zip',
+            name: 'encrypted-results.zip',
+            studyJobId: job.id,
+            fileType: 'ENCRYPTED-RESULT',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return {
+        enclave,
+        file,
+        job,
+        lab,
+        researcher,
+        reviewer,
+        sharedFiles: [
+            {
+                studyJobFileId: file.id,
+                filePath: 'results.csv',
+                keys: [{ fingerprint, crypt: 'wrapped-for-researcher' }],
+            },
+        ],
+        study,
+    }
+}
 
 describe('Study Job Actions', () => {
     test('loadStudyJobAction', async () => {
@@ -133,7 +195,7 @@ describe('Study Job Actions', () => {
         expect(result).toHaveLength(0)
     })
 
-    describe('rejectStudyJobFilesAction', () => {
+    describe('result decision actions', () => {
         test('creates FILES-REJECTED status and sends rejection email', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
@@ -162,29 +224,44 @@ describe('Study Job Actions', () => {
             expect(updatedStudy.reviewerId).toBe(user.id)
         })
 
-        test('approveStudyJobFilesAction creates FILES-APPROVED status and stamps reviewerId', async () => {
-            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
+            const { enclave, file, job, lab, researcher, reviewer, sharedFiles, study } =
+                await setupResultApprovalFixture()
 
-            await approveStudyJobFilesAction({
-                orgSlug: org.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
-                sharedFiles: [],
-            })
-
-            const statusChanges = await db
-                .selectFrom('jobStatusChange')
-                .select('status')
-                .where('studyJobId', '=', job.id)
-                .execute()
-            expect(statusChanges.find((sc) => sc.status === 'FILES-APPROVED')).toBeTruthy()
+            actionResult(
+                await approveStudyJobFilesAction({
+                    orgSlug: enclave.slug,
+                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    sharedFiles,
+                }),
+            )
 
             const updatedStudy = await db
                 .selectFrom('study')
                 .select('reviewerId')
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(updatedStudy.reviewerId).toBe(user.id)
+            expect(updatedStudy.reviewerId).toBe(reviewer.id)
+
+            mockClerkSession({
+                clerkUserId: researcher.clerkId,
+                orgSlug: lab.slug,
+                userId: researcher.id,
+                orgId: lab.id,
+                orgType: 'lab',
+            })
+            const studies = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+            const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
+            const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
+            expect(state.resultsApproved).toBe(true)
+            expect(resolvePillStatus('researcher', state)).toMatchObject({ stage: 'Results', label: 'Ready' })
+
+            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+            expect(files).toHaveLength(1)
+            expect(files[0]).toMatchObject({
+                studyJobFileId: file.id,
+                recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
+            })
         })
 
         test('permission denied for non-enclave user', async () => {
@@ -239,5 +316,40 @@ describe('Study Job Actions', () => {
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
         })
+    })
+})
+
+describe('draft code files are private to the Research Lab (OTTER-596)', () => {
+    // Attach a code file to the draft's own studyJob so there is something to fetch.
+    const seedCodeFile = async (studyId: string) => {
+        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })
+            .execute()
+        return job.id
+    }
+
+    test('data-org member cannot fetch a code file for an unsubmitted draft', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-code-draft-enclave' })
+        const studyJobId = await seedCodeFile(studyId)
+
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' })
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
+    })
+
+    test('data-org member can fetch a code file once the study is submitted', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-code-submitted-enclave' })
+        const studyJobId = await seedCodeFile(studyId)
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        const result = actionResult(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' }))
+        expect(result).toMatchObject({ fileName: 'main.r' })
     })
 })

@@ -160,10 +160,10 @@ export const getResearcherProfileByUserIdAction = new Action('getResearcherProfi
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { userId }, db }) => {

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Center, Group, Image } from '@mantine/core'
+import { Group } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
+import { ImageViewer } from '@/components/file-viewers'
 
 type ImagePreviewModalProps = {
     isVisible: boolean
@@ -12,16 +12,6 @@ type ImagePreviewModalProps = {
 }
 
 export function ImagePreviewModal({ isVisible, name, contents, mime, onClose }: ImagePreviewModalProps) {
-    const [src, setSrc] = useState('')
-
-    useEffect(() => {
-        if (!mime) return
-        const url = URL.createObjectURL(new Blob([contents], { type: mime }))
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSrc(url)
-        return () => URL.revokeObjectURL(url)
-    }, [contents, mime])
-
     if (!isVisible || !mime) return null
 
     const title = (
@@ -33,7 +23,7 @@ export function ImagePreviewModal({ isVisible, name, contents, mime, onClose }: 
 
     return (
         <AppModal isOpen onClose={onClose} title={title} size="xl">
-            <Center>{src && <Image src={src} alt={name} fit="contain" mah={600} />}</Center>
+            <ImageViewer name={name} contents={contents} mime={mime} />
         </AppModal>
     )
 }

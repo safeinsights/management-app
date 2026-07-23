@@ -50,6 +50,15 @@ export const CODE_DECISION_JOB_STATUSES: readonly CodeDecisionStatus[] = [
 export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status is CodeDecisionStatus =>
     !!status && CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus)
 
+// A round CLOSES (and the next IDE launch / upload / submit opens a NEW studyJob) only after a
+// post-run results decision. Pre-run outcomes (CODE-CHANGES-REQUESTED) and a not-yet-reviewed errored
+// run (JOB-ERRORED, awaiting the reviewer's files decision) revise/continue the SAME job. CODE-REJECTED
+// is terminal. Consumed by getOrCreateCurrentRoundJob (mutations.ts) to decide reuse-vs-new-round.
+export const ROUND_CLOSING_JOB_STATUSES = [
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+] as const satisfies readonly StudyJobStatus[]
+
 // OTTER-552: "does the current round have a live code-review decision?"
 //
 // The obvious test — isCodeDecisionStatus(statusChanges[0]) — reads the *latest* status, but

@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -29,18 +30,30 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
         .execute()
 }
 
-const seedResultsStudy = async () => {
+// A CODE-APPROVED study with the given trailing job statuses appended (execution/results substatuses).
+const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-    const { study } = await insertTestStudyJobData({
+    const { study, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
         studyStatus: 'APPROVED',
         jobStatus: 'CODE-SUBMITTED',
     })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: job.id,
+            name: 'main.R',
+            path: `studies/${study.id}/${job.id}/main.R`,
+            fileType: 'MAIN-CODE',
+        })
+        .execute()
     await addJobStatus(study.id, 'CODE-APPROVED')
-    await addJobStatus(study.id, 'FILES-APPROVED')
-    return { org, study }
+    for (const status of statuses) await addJobStatus(study.id, status)
+    return { org, study, job }
 }
+
+const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
     it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
@@ -70,6 +83,52 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+    })
+
+    // OTTER-640: submitted code stays accessible behind the collapsed control while execution or an
+    // unreviewed error is presented as "Code approved".
+    it.each([
+        ['the code is provisioning', ['JOB-PROVISIONING']],
+        ['the code is packaging', ['JOB-PACKAGING']],
+        ['the code is ready for the enclave', ['JOB-READY']],
+        ['the code is running in the enclave', ['JOB-RUNNING']],
+        [
+            'the run errored after starting, before the reviewer recorded a files decision',
+            ['JOB-RUNNING', 'JOB-ERRORED'],
+        ],
+        ['the run errored before any enclave execution, before a files decision', ['JOB-ERRORED']],
+    ] as const)('shows the submitted-code control when %s', async (_description, statuses) => {
+        const { org, study } = await seedCodeStudy([...statuses])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(CodePostDecisionView)
+
+        renderWithProviders(page!)
+        const toggle = screen.getByTestId('study-code-toggle')
+        expect(toggle).toHaveTextContent('View submitted study code')
+        await userEvent.setup().click(toggle)
+        expect(await screen.findByTestId('submitted-code-table')).toBeInTheDocument()
+        expect(screen.getByText('main.R')).toBeInTheDocument()
+    })
+
+    it('shows a stable empty state when the submitted job has no code files', async () => {
+        const { org, study, job } = await seedCodeStudy(['JOB-RUNNING'])
+        await db.deleteFrom('studyJobFile').where('studyJobId', '=', job.id).execute()
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        renderWithProviders(page!)
+        await userEvent.setup().click(screen.getByTestId('study-code-toggle'))
+        expect(await screen.findByText('No code files were uploaded.')).toBeInTheDocument()
+        expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
+        expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {

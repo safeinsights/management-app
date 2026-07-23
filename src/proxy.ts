@@ -68,17 +68,23 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     } catch (error) {
         Sentry.captureException(error)
         log.error('Failed to marshal session:', error)
-        // Don't redirect if already on signin page to avoid redirect loop
-        if (isAnonRoute) {
-            return NextResponse.next()
+        // marshalSession only throws for a user Clerk still considers authenticated, so
+        // treat stale/broken metadata as recoverable: regenerate it from the live Clerk
+        // user instead of bouncing an authenticated user to signin.
+        try {
+            session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
+        } catch (retryError) {
+            Sentry.captureException(retryError)
+            log.error('Failed to marshal session after forced metadata re-sync:', retryError)
+            // session stays null; the branch below keeps authenticated users signed in
+            // with BLANK_SESSION rather than redirecting them to signin
         }
-        return NextResponse.redirect(new URL('/account/signin?error=session', req.url))
     }
 
     if (session) {
         setSentryFromSession(session)
     } else {
-        if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
+        if (isAnonRoute) {
             return NextResponse.next()
         }
         if (clerkUserId) {

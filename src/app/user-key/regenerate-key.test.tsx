@@ -1,49 +1,52 @@
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import router from 'next-router-mock'
-import { generateKeyPair } from 'si-encryption/util/keypair'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { RegenerateKey } from './regenerate-key'
 
-vi.mock('si-encryption/util/keypair', () => ({
-    generateKeyPair: vi.fn(),
-}))
+describe('Security key page', () => {
+    const renderPage = () => {
+        mockClerkSession({ clerkUserId: 'user-id', orgSlug: 'dev', userId: 'user-id' })
+        renderWithProviders(<RegenerateKey generatedOn="Jul 08, 2026" />)
+    }
 
-vi.mock('@/server/actions/user-keys.actions', () => ({
-    updateUserPublicKeyAction: vi.fn(),
-}))
-
-describe('Results Keypair regeneration', () => {
-    it('should regenerate a Results Key pair and update public key', async () => {
-        mockClerkSession({
-            clerkUserId: 'user-id',
-            orgSlug: 'dev',
-            userId: 'user-id',
-        })
-
-        const mockKeys = {
-            publicKeyString: 'mockPublicKey',
-            privateKeyString: 'mockPrivateKey',
-            fingerprint: 'mockFingerprint',
-            exportedPublicKey: new ArrayBuffer(8),
-        }
-        vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
-
-        renderWithProviders(<RegenerateKey />)
+    it('renders both sections with the generated date', async () => {
+        renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('Results Key', { selector: 'h1' })).toBeDefined()
+            expect(screen.getByText('Security key', { selector: 'h1' })).toBeDefined()
         })
+        expect(screen.getByText('Existing security key')).toBeDefined()
+        expect(screen.getByText('Lost access to your key?')).toBeDefined()
+        expect(screen.getByText(/You generated a security key on Jul 08, 2026\./)).toBeDefined()
+        expect(screen.getByText(/A new key cannot decrypt your current outputs\./).tagName).toBe('B')
+    })
 
-        // Open the modal requesting regeneration
-        fireEvent.click(screen.getByRole('button', { name: /lost key\? generate a new one/i }))
+    it('opens the confirm modal and cancelling leaves the page intact', async () => {
+        renderPage()
+
+        fireEvent.click(await screen.findByRole('button', { name: /generate new key/i }))
+
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText(/confirm key reset/i)).toBeDefined()
+        expect(within(dialog).getByText(/those outputs will be lost/i)).toBeDefined()
+
+        fireEvent.click(within(dialog).getByRole('button', { name: /cancel/i }))
 
         await waitFor(() => {
-            expect(screen.getByText(/confirm key reset/i)).toBeDefined()
+            expect(screen.queryByText(/confirm key reset/i)).toBeNull()
         })
-        fireEvent.click(screen.getByRole('button', { name: /generate new key/i }))
+        expect(router.asPath).not.toBe('/account/keys')
+    })
 
-        // Wait for navigation to /account/keys
+    it('confirming redirects to the key generation flow', async () => {
+        renderPage()
+
+        fireEvent.click(await screen.findByRole('button', { name: /generate new key/i }))
+
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.click(within(dialog).getByRole('button', { name: /generate new key/i }))
+
         await waitFor(() => {
             expect(router.asPath).toBe('/account/keys')
         })

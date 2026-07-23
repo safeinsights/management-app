@@ -28,6 +28,10 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
 
 export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
 
+// Y.Map name for the collab fields inside the proposal-fields doc. Shared so
+// the client hook and editor service agree on the key.
+export const PROPOSAL_FIELDS_MAP_NAME = 'fields'
+
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
     `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
 
@@ -39,13 +43,24 @@ export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalText
 export const reviewFeedbackDocNameForVersion = (studyId: string, version: number) =>
     `${REVIEW_FEEDBACK_PREFIX}${studyId}-v${version}`
 
+/**
+ * Versioned resubmission-note document name, for the same round-boundary
+ * reason as review feedback. `version` is the version the RESUBMISSION-NOTE
+ * comment will take on submit.
+ */
+export const proposalResubmissionNoteDocNameForVersion = (studyId: string, version: number) =>
+    `${PROPOSAL_PREFIX}${studyId}-resubmission-note-v${version}`
+
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
+
+export const RESUBMISSION_NOTE_SUFFIX_RE = /^resubmission-note-v([1-9]\d*)$/
 
 export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
+    | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'code-review-feedback'; jobId: string }
 
@@ -79,6 +94,9 @@ export const parseDocumentName = (name: string): ParsedDocumentName | null => {
     const suffix = remainder.slice(37)
 
     if (suffix === 'fields') return { kind: 'proposal-fields', studyId }
+
+    const noteMatch = RESUBMISSION_NOTE_SUFFIX_RE.exec(suffix)
+    if (noteMatch) return { kind: 'proposal-resubmission-note', studyId, version: Number(noteMatch[1]) }
 
     const fieldKey = SLUG_TO_FIELD[suffix]
     if (!fieldKey) return null

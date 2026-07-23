@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
-import { resolveScreen, resolveResearcherCodeScreen } from './resolve'
+import { resolveScreen, resolveResearcherCodeScreen, resolveReviewerCodeScreen } from './resolve'
 
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
@@ -137,7 +137,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasResults: true,
             resultsApproved: true,
         })
-        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved' })
     })
 
     it('picks the code screen by state: changes-requested → code-feedback', () => {
@@ -147,17 +147,15 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             hasSubmittedCode: true,
             codeDecision: 'CODE-CHANGES-REQUESTED',
         })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-feedback' })
     })
 
     it('awaiting decision → code-under-review', () => {
         const s = state({ status: 'APPROVED', isDraft: false, hasSubmittedCode: true, codeAwaitingDecision: true })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-under-review' })
     })
 
-    // OTTER-640: the read-only step marks readOnlyCodeStep so the code screen keeps the submitted code
-    // visible while the job runs in the enclave — unlike the live /view flow, which hides it.
-    it('marks readOnlyCodeStep for an executing study (code stays visible)', () => {
+    it('resolves an executing study to the approved-code screen', () => {
         const s = state({
             status: 'APPROVED',
             isDraft: false,
@@ -165,7 +163,7 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             codeDecision: 'CODE-APPROVED',
             isExecuting: true,
         })
-        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved', readOnlyCodeStep: true })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {
@@ -178,12 +176,76 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
     })
 })
 
-// Reviewer rules are deferred (spec §13): resolveScreen('reviewer', …) currently falls through to
-// the researcher table rather than erroring. This pins that contract — when reviewer rules land,
-// this test should be updated, not silently start passing for the wrong reason.
-describe('resolveScreen (reviewer fall-through, not yet implemented)', () => {
-    it('returns a defined descriptor for the reviewer role (researcher fallback for now)', () => {
-        const d = resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx)
-        expect(d.screen).toBeDefined()
+describe('resolveScreen (reviewer)', () => {
+    it('results present → reviewer-study-results (highest precedence)', () => {
+        expect(resolveScreen('reviewer', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe(
+            'reviewer-study-results',
+        )
+    })
+    it('pending review → reviewer-proposal-review', () => {
+        expect(resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx).screen).toBe(
+            'reviewer-proposal-review',
+        )
+    })
+})
+
+// OTTER-643: resolveReviewerCodeScreen backs the read-only /review/code route — the DO counterpart to
+// resolveResearcherCodeScreen. It returns the matching code screen (skipping reviewer-study-results so
+// a results study doesn't loop), or undefined when the study hasn't reached the code stage (route 404s).
+describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
+    it('results study → reviewer-code-feedback (results imply an approved code decision)', () => {
+        const resultsStudy = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            hasResults: true,
+            resultsApproved: true,
+        })
+        expect(resolveReviewerCodeScreen(resultsStudy)).toEqual({
+            screen: 'reviewer-code-feedback',
+            readOnlyCodeStep: true,
+        })
+    })
+
+    it('changes-requested decision → reviewer-code-feedback', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-CHANGES-REQUESTED',
+        })
+        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-feedback', readOnlyCodeStep: true })
+    })
+
+    it('awaiting decision, agreements acked → reviewer-code-review', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeAwaitingDecision: true,
+            reviewerAgreementsAcked: true,
+        })
+        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
+    })
+
+    it('awaiting decision, agreements NOT acked → reviewer-agreements', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeAwaitingDecision: true,
+            reviewerAgreementsAcked: false,
+        })
+        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-agreements', readOnlyCodeStep: true })
+    })
+
+    it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {
+        const s = state({ status: 'APPROVED', isDraft: false })
+        expect(resolveReviewerCodeScreen(s)).toBeUndefined()
+    })
+    it('cannot jump ahead: pending-review study → undefined (route 404s)', () => {
+        const s = state({ status: 'PENDING-REVIEW', isDraft: false })
+        expect(resolveReviewerCodeScreen(s)).toBeUndefined()
     })
 })
