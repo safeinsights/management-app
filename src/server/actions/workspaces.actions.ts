@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus, type WorkspaceLaunchStatus } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { getInfoForStudyId, getUserById, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
@@ -122,7 +122,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
                 workspace: { id: `dev-workspace-${studyId}` },
             }
         }
-        return await createUserAndWorkspace(studyId)
+        const sessionUser = await getUserById(session.user.id)
+        if (!sessionUser.email) throw new Error('Session user has no email')
+        return await createUserAndWorkspace(studyId, { email: sessionUser.email, fullName: sessionUser.fullName })
     })
 
 const cursorsSchema = z
@@ -158,7 +160,13 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }
         }
-        return await getCoderWorkspaceLaunchStatus(studyId, cursors)
+        const sessionUser = await getUserById(session.user.id)
+        if (!sessionUser.email) throw new Error('Session user has no email')
+        return await getCoderWorkspaceLaunchStatus(
+            studyId,
+            { email: sessionUser.email, fullName: sessionUser.fullName },
+            cursors,
+        )
     })
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})

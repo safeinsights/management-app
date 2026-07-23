@@ -128,10 +128,15 @@ export interface CoderUserQueryResponse {
 
 export interface CoderUser {
     username: CoderUsername
-    // id: string // unused
+    id: string
     // email: string // unused
     // name: string // unused
     // status: string // unused
+}
+
+export interface CoderSessionUser {
+    email: string
+    fullName: string
 }
 
 export interface CoderWorkspace {
