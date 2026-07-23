@@ -1,6 +1,6 @@
 import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { formatElapsed, OutputsStatusAlert } from './outputs-status-alert'
+import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
     const base = new Date('2026-07-20T10:00:00Z').getTime()
@@ -17,9 +17,29 @@ describe('formatElapsed', () => {
         expect(formatElapsed(base, at(60))).toBe('1 hour')
         expect(formatElapsed(base, at(120))).toBe('2 hours')
     })
-    it('keeps counting past 24h with uncapped hours', () =>
-        expect(formatElapsed(base, at(26 * 60 + 5))).toBe('26 hours and 5 minutes'))
     it('clamps a future/skewed start to "0 minutes"', () => expect(formatElapsed(base, at(-3))).toBe('0 minutes'))
+})
+
+describe('formatStartedWhen', () => {
+    const base = new Date('2026-07-20T10:00:00Z').getTime()
+    const at = (minutes: number) => base + minutes * 60_000
+
+    const absolute = (ms: number) => {
+        const d = new Date(ms)
+        const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        return `on ${date} at ${time}`
+    }
+
+    it('uses relative "ago" phrasing within 24 hours', () => {
+        expect(formatStartedWhen(base, at(5))).toBe('5 minutes ago')
+        expect(formatStartedWhen(base, at(23 * 60 + 59))).toBe('23 hours and 59 minutes ago')
+    })
+
+    it('switches to an absolute date/time at or past 24 hours', () => {
+        expect(formatStartedWhen(base, at(24 * 60))).toBe(absolute(base))
+        expect(formatStartedWhen(base, at(48 * 60 + 30))).toBe(absolute(base))
+    })
 })
 
 describe('OutputsStatusAlert', () => {

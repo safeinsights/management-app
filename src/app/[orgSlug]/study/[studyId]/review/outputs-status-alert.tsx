@@ -7,7 +7,9 @@ import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 
 const SAFE_INSIGHTS_SLACK_URL = 'https://openstax.slack.com/archives/C081BN1R8CE'
+const DAY_MINUTES = 24 * 60
 
+// relative ("5 minutes ago") within 24h
 export function formatElapsed(startedAtMs: number, nowMs: number): string {
     const totalMinutes = Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
     const hours = Math.floor(totalMinutes / 60)
@@ -18,6 +20,16 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
     return minutes === 0 ? hoursPart : `${hoursPart} and ${minutesPart}`
 }
 
+// absolute timestamp ("on Jul 20, 2026 at 10:00 AM") beyond 24h
+export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
+    const totalMinutes = Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
+    if (totalMinutes < DAY_MINUTES) return `${formatElapsed(startedAtMs, nowMs)} ago`
+    const date = new Date(startedAtMs)
+    const datePart = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return `on ${datePart} at ${timePart}`
+}
+
 const SlackLink = () => (
     <Anchor href={SAFE_INSIGHTS_SLACK_URL} target="_blank" rel="noopener noreferrer" c="blue.7" inherit>
         Slack
@@ -25,12 +37,12 @@ const SlackLink = () => (
     </Anchor>
 )
 
-type StageCopy = { variant: StatusAlertVariant; title: (elapsed: string) => string; body: ReactNode }
+type StageCopy = { variant: StatusAlertVariant; title: (when: string) => string; body: ReactNode }
 
 const STAGE_COPY = {
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (timeElapsed) => `Outputs not ready, code packaging started ${timeElapsed} ago`,
+        title: (when) => `Outputs not ready, code packaging started ${when}`,
         body: (
             <>
                 Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
@@ -40,17 +52,17 @@ const STAGE_COPY = {
     },
     'JOB-READY': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (timeElapsed) => `Outputs not ready, code queued ${timeElapsed} ago`,
+        title: (when) => `Outputs not ready, code queued ${when}`,
         body: 'The code is packaged and ready to be picked up by the secure enclave. If it stays in this status for over 1 hour, contact your organization admin.',
     },
     'JOB-PROVISIONING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (timeElapsed) => `Outputs not ready, code queued ${timeElapsed} ago`,
+        title: (when) => `Outputs not ready, code queued ${when}`,
         body: 'Preparing the secure enclave to run the code. If it stays in this status for over 1 hour, contact your organization admin.',
     },
     'JOB-RUNNING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (timeElapsed) => `Outputs not ready, code processing started ${timeElapsed} ago`,
+        title: (when) => `Outputs not ready, code processing started ${when}`,
         body: 'The code started running in the secure enclave. If it stays in this status for over 1 hour, contact your organization admin.',
     },
 } satisfies Record<string, StageCopy>
@@ -60,24 +72,23 @@ type OutputsStatusAlertProps = {
     startedAt: string | Date
 }
 
-// Elapsed time since `startedAt`, re-rendering each minute so the display never freezes.
-function useElapsed(startedAt: string | Date): string {
+function useStartedWhen(startedAt: string | Date): string {
     const startedAtMs = new Date(startedAt).getTime()
     const [nowMs, setNowMs] = useState(() => Date.now())
     useEffect(() => {
         const id = setInterval(() => setNowMs(Date.now()), 60_000)
         return () => clearInterval(id)
     }, [])
-    return formatElapsed(startedAtMs, nowMs)
+    return formatStartedWhen(startedAtMs, nowMs)
 }
 
 export function OutputsStatusAlert({ stageStatus, startedAt }: OutputsStatusAlertProps) {
-    const elapsed = useElapsed(startedAt)
+    const when = useStartedWhen(startedAt)
     const copy = STAGE_COPY[stageStatus as keyof typeof STAGE_COPY]
     if (!copy) return null
 
     return (
-        <StatusAlert variant={copy.variant} title={copy.title(elapsed)}>
+        <StatusAlert variant={copy.variant} title={copy.title(when)}>
             {copy.body}
         </StatusAlert>
     )
