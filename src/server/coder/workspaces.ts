@@ -2,6 +2,7 @@ import {
     coderWorkspaceAgentLogsPath,
     coderWorkspaceBuildByIdPath,
     coderWorkspaceBuildLogsPath,
+    coderWorkspaceBuildParametersPath,
     coderWorkspaceBuildPath,
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
@@ -17,6 +18,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
     WorkspaceStatus,
     CoderAgent,
+    CoderBuildParameter,
     CoderLog,
     CoderUsername,
     CoderWorkspace,
@@ -179,11 +181,14 @@ export async function getCoderWorkspaceLaunchStatus(
     }
 }
 
-async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
+// Every start build resends the mutable parameters so an existing workspace picks up
+// code-env changes (SHRMP-271). Parameters not in the list keep their stored values, so
+// the immutable study_id is deliberately omitted.
+async function startWorkspace(workspaceId: WorkspaceId, richParameterValues: CoderBuildParameter[]): Promise<void> {
     try {
         await coderFetch<unknown>(coderWorkspaceBuildPath(workspaceId), {
             method: 'POST',
-            body: { transition: 'start' },
+            body: { transition: 'start', rich_parameter_values: richParameterValues },
             errorMessage: 'Failed to start workspace',
         })
     } catch (error) {
@@ -237,60 +242,117 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
     return environment
 }
 
+// The mutable rich parameters a launch keeps in sync with the study's latest code env.
+async function mutableRichParameterValues(
+    codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>,
+): Promise<CoderBuildParameter[]> {
+    return [
+        { name: 'container_image', value: codeEnv.url },
+        { name: 'environment', value: JSON.stringify(await buildWorkspaceEnvironment(codeEnv)) },
+    ]
+}
+
+// Whether any parameter we manage differs from what the workspace's latest build ran with.
+function parametersStale(current: CoderBuildParameter[], desired: CoderBuildParameter[]): boolean {
+    return desired.some((d) => current.find((c) => c.name === d.name)?.value !== d.value)
+}
+
+const STOP_POLL_INTERVAL_MS = 3_000
+const STOP_POLL_MAX_ATTEMPTS = 100
+
+// Waits for a build's provisioner job to finish; throws if it fails or doesn't finish in time,
+// since proceeding would make the follow-up start build 409 against the in-progress one.
+async function waitForBuildCompletion(buildId: CoderWorkspaceBuild['id'], logCtx: string): Promise<void> {
+    for (let attempt = 0; attempt < STOP_POLL_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, STOP_POLL_INTERVAL_MS))
+        const build = await coderFetch<CoderWorkspaceBuild>(coderWorkspaceBuildByIdPath(buildId), {
+            errorMessage: 'Failed to get build',
+        })
+        const jobStatus = build.job?.status
+        if (jobStatus === 'succeeded') return
+        if (jobStatus === 'failed' || jobStatus === 'canceled') {
+            throw new Error(`${logCtx} build ${buildId} ${jobStatus}: ${build.job?.error ?? 'no error reported'}`)
+        }
+    }
+    throw new Error(`${logCtx} timed out waiting for build ${buildId} to complete`)
+}
+
+// Restarts a running workspace when its code-env parameters have changed since its last build,
+// so a relaunch never silently reuses stale env vars (SHRMP-271). A failure reading the current
+// parameters degrades to the old keep-running behavior rather than blocking the launch.
+async function restartWorkspaceIfParametersStale(
+    workspace: CoderWorkspace,
+    desired: CoderBuildParameter[],
+    logCtx: string,
+): Promise<void> {
+    const buildId = workspace.latest_build?.id
+    if (!buildId) return
+
+    let current: CoderBuildParameter[]
+    try {
+        current = await coderFetch<CoderBuildParameter[]>(coderWorkspaceBuildParametersPath(buildId), {
+            errorMessage: 'Failed to get build parameters',
+        })
+    } catch (error) {
+        logger.warn(`${logCtx} could not read build parameters, skipping staleness check:`, error)
+        return
+    }
+
+    if (!parametersStale(current, desired)) return
+
+    logger.info(`${logCtx} parameters changed since last build, restarting workspace ${workspace.id}`)
+    const stopBuild = await coderFetch<CoderWorkspaceBuild>(coderWorkspaceBuildPath(workspace.id), {
+        method: 'POST',
+        body: { transition: 'stop' },
+        errorMessage: 'Failed to stop workspace',
+    })
+    await waitForBuildCompletion(stopBuild.id, logCtx)
+    await startWorkspace(workspace.id, desired)
+}
+
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
+    const logCtx = `[coder-launch study=${studyId}]`
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
 
+    let workspaceData: CoderWorkspace
     try {
-        const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
+        workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
             errorMessage: 'Failed to get workspace',
         })
-
-        if (workspaceData.latest_build && workspaceData.latest_build.status === 'stopped') {
-            logger.warn(`Workspace was stopped`)
-            await startWorkspace(workspaceData.id)
-        }
-
-        return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
-            return await createCoderWorkspace({
-                studyId,
-                username: user.username,
-                containerImage: codeEnv.url,
-                environment: await buildWorkspaceEnvironment(codeEnv),
-            })
+            return await createCoderWorkspace({ studyId, username: user.username, codeEnv })
         }
         throw error
     }
+
+    const buildStatus = workspaceData.latest_build?.status
+    if (buildStatus === 'stopped') {
+        logger.warn(`Workspace was stopped`)
+        await startWorkspace(workspaceData.id, await mutableRichParameterValues(codeEnv))
+    } else if (buildStatus === 'running') {
+        await restartWorkspaceIfParametersStale(workspaceData, await mutableRichParameterValues(codeEnv), logCtx)
+    }
+
+    return workspaceData
 }
 
 interface CreateCoderWorkspaceOptions {
     studyId: string
     username: CoderUsername
-    containerImage: string
-    environment?: Array<{ name: string; value: string }>
+    codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username, environment = [] } = options
+    const { studyId, username, codeEnv } = options
     const workspaceName = generateWorkspaceName(studyId)
 
-    const richParameterValues: Array<{ name: string; value: string }> = [
-        {
-            name: 'study_id',
-            value: options.studyId,
-        },
-        {
-            name: 'container_image',
-            value: options.containerImage,
-        },
-        {
-            name: 'environment',
-            value: JSON.stringify(environment),
-        },
+    const richParameterValues: CoderBuildParameter[] = [
+        { name: 'study_id', value: studyId },
+        ...(await mutableRichParameterValues(codeEnv)),
     ]
 
     const data = {
