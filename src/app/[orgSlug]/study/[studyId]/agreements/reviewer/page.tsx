@@ -8,8 +8,9 @@ import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { AgreementsPage } from '../agreements-page'
 
 // Reviewer agreements step. Gated on the review ability, not org membership, so an SI admin (who can
@@ -45,9 +46,9 @@ export default async function ReviewerAgreementsRoute(props: {
     // /review would re-resolve to reviewer-code-review, whose own Previous comes back here — an
     // agreements ⇄ code-review loop.
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
-            <Title order={1}>Study request</Title>
+            <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer
                 studyId={studyId}

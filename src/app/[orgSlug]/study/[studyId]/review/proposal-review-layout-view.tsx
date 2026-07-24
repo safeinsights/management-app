@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Box, Stack, Title } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
 
@@ -37,7 +38,7 @@ export function ProposalReviewLayoutView({
     return (
         <Box bg="grey.10">
             {listener}
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs
                     crumbs={[
                         ['Dashboard', Routes.orgDashboard({ orgSlug })],
@@ -46,9 +47,7 @@ export function ProposalReviewLayoutView({
                     ]}
                 />
 
-                <Title order={1} fz={40} fw={700}>
-                    Review initial request
-                </Title>
+                <StudyPageHeader>Review initial request</StudyPageHeader>
 
                 {proposal}
                 {feedbackAndNotes}

@@ -24,6 +24,16 @@ export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = [
     'JOB-RUNNING',
 ]
 
+// The most recently recorded JOB-* running status, or null if none — drives the outputs view's stage alert.
+export function currentExecutionStage(
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+): { status: StudyJobStatus; startedAt: Date | string } | null {
+    const stages = statusChanges.filter((c) => STUDY_CODE_RUNNING_JOB_STATUSES.includes(c.status))
+    if (stages.length === 0) return null
+    const latest = stages.reduce((a, b) => (new Date(b.createdAt).getTime() > new Date(a.createdAt).getTime() ? b : a))
+    return { status: latest.status, startedAt: latest.createdAt }
+}
+
 // Code submitted and awaiting a review decision.
 export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 

@@ -9,6 +9,7 @@ import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { StudyCodeToggle, useExpandable } from './study-code-collapse'
@@ -258,9 +259,9 @@ export function CodePostDecisionView({
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <StepCard

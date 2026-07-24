@@ -86,8 +86,8 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            // A decision was just recorded; bare /review resolves to the code post-feedback screen
-            // (codeDecision !== null) via the reviewer state machine — no ?from= needed.
+            // A decision was just recorded; bare /review re-resolves via the reviewer state machine
+            // (outputs-pending once the approved code is executing, else code post-feedback) — no ?from= needed.
             router.push(Routes.studyReview({ orgSlug, studyId }))
         },
     })

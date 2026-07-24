@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
-import { latestCodeChangeIsSubmission, latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
+import {
+    currentExecutionStage,
+    latestCodeChangeIsSubmission,
+    latestSubmittedJobHasLiveCodeDecision,
+} from './study-job-status'
 
 const changes = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
 
@@ -90,5 +94,43 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
         expect(latestSubmittedJobHasLiveCodeDecision(changes('CODE-SUBMITTED', 'CODE-SCANNED', 'CODE-APPROVED'))).toBe(
             true,
         )
+    })
+})
+
+describe('currentExecutionStage', () => {
+    it('returns null when no execution stage has been recorded', () => {
+        expect(currentExecutionStage([])).toBeNull()
+        expect(currentExecutionStage([{ status: 'CODE-APPROVED', createdAt: new Date() }])).toBeNull()
+    })
+
+    it('returns the single execution stage and the time it started', () => {
+        const startedAt = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'CODE-APPROVED', createdAt: new Date('2026-07-20T09:00:00Z') },
+                { status: 'JOB-PACKAGING', createdAt: startedAt },
+            ]),
+        ).toEqual({ status: 'JOB-PACKAGING', startedAt })
+    })
+
+    it('returns the most recently started stage when several are present', () => {
+        const running = new Date('2026-07-20T12:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PROVISIONING', createdAt: new Date('2026-07-20T10:00:00Z') },
+                { status: 'JOB-PACKAGING', createdAt: new Date('2026-07-20T10:30:00Z') },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+                { status: 'JOB-RUNNING', createdAt: running },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
+    })
+
+    it('accepts ISO string timestamps', () => {
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PACKAGING', createdAt: '2026-07-20T10:00:00Z' },
+                { status: 'JOB-RUNNING', createdAt: '2026-07-20T11:00:00Z' },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: '2026-07-20T11:00:00Z' })
     })
 })

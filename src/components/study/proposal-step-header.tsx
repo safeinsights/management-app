@@ -39,7 +39,7 @@ export function ProposalStepHeader({
                     </Text>
                 )}
             </Group>
-            <Divider my="md" data-testid="proposal-header-divider" />
+            <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
             {banner}
             {children}
         </Paper>

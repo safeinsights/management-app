@@ -60,10 +60,10 @@ describe('CodeReview', () => {
     })
 
     describe('first submission (entries empty)', () => {
-        it('renders the H1 page title "Study Proposal"', async () => {
+        it('renders the H1 page title "Study proposal"', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
-            expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
         })
 
         it('renders all three breadcrumbs with the expected links', async () => {
