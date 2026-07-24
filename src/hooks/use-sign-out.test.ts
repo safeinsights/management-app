@@ -1,13 +1,17 @@
-import { renderHook, type Mock } from '@/tests/unit.helpers'
+import { renderHook, createTestQueryWrapper, type Mock } from '@/tests/unit.helpers'
 import { describe, it, expect, vi } from 'vitest'
 import { useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import { useSignOut } from './use-sign-out'
 
+// next-router-mock implements the pages-router surface; refresh() is app-router only.
+;(memoryRouter as unknown as { refresh: () => void }).refresh = vi.fn()
+
 const mockClerkSignOut = (signOut: Mock) => (useClerk as Mock).mockReturnValue({ signOut })
 
-const spyOnLocationAssign = () => vi.spyOn(window.location, 'assign').mockImplementation(() => {})
+const renderSignOut = (options?: { redirectAfterSignOut: string }) =>
+    renderHook(() => useSignOut(options), { wrapper: createTestQueryWrapper() })
 
 describe('useSignOut', () => {
     // OTTER-671: signing out must never capture the current page — the next
@@ -16,35 +20,33 @@ describe('useSignOut', () => {
         memoryRouter.setCurrentUrl('/openstax/study/123/review')
         const signOut = vi.fn().mockResolvedValue(undefined)
         mockClerkSignOut(signOut)
-        const assign = spyOnLocationAssign()
 
-        const { result } = renderHook(() => useSignOut())
+        const { result } = renderSignOut()
         await result.current()
 
-        expect(signOut).toHaveBeenCalled()
-        expect(assign).toHaveBeenCalledWith(Routes.accountSignin)
-        expect(assign.mock.calls[0][0]).not.toContain('redirect_url')
+        expect(signOut).toHaveBeenCalledWith({ redirectUrl: Routes.accountSignin })
+        expect(memoryRouter.asPath).toBe(Routes.accountSignin)
     })
 
     it('honors an explicit redirectAfterSignOut destination', async () => {
         const signOut = vi.fn().mockResolvedValue(undefined)
         mockClerkSignOut(signOut)
-        const assign = spyOnLocationAssign()
 
-        const { result } = renderHook(() => useSignOut({ redirectAfterSignOut: '/account/invitation/abc' }))
+        const { result } = renderSignOut({ redirectAfterSignOut: '/account/invitation/abc' })
         await result.current()
 
-        expect(assign).toHaveBeenCalledWith('/account/invitation/abc')
+        expect(signOut).toHaveBeenCalledWith({ redirectUrl: '/account/invitation/abc' })
+        expect(memoryRouter.asPath).toBe('/account/invitation/abc')
     })
 
     it('still redirects when Clerk signOut rejects', async () => {
+        memoryRouter.setCurrentUrl('/dashboard')
         const signOut = vi.fn().mockRejectedValue(new Error('clerk unavailable'))
         mockClerkSignOut(signOut)
-        const assign = spyOnLocationAssign()
 
-        const { result } = renderHook(() => useSignOut())
+        const { result } = renderSignOut()
         await result.current()
 
-        expect(assign).toHaveBeenCalledWith(Routes.accountSignin)
+        expect(memoryRouter.asPath).toBe(Routes.accountSignin)
     })
 })
