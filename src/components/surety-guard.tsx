@@ -6,8 +6,9 @@ import { FC, useState } from 'react'
 export const SuretyGuard: FC<{
     children?: React.ReactNode
     message?: string
+    label?: string
     onConfirmed: () => void | Promise<void>
-}> = ({ message, children, onConfirmed }) => {
+}> = ({ message, children, label, onConfirmed }) => {
     const [opened, { close, open }] = useDisclosure(false)
     const [pending, setPending] = useState(false)
 
@@ -21,7 +22,7 @@ export const SuretyGuard: FC<{
     return (
         <Popover width={300} trapFocus withArrow shadow="md" opened={opened} onChange={close} closeOnClickOutside>
             <Popover.Target>
-                <ActionIcon size="sm" variant="subtle" color="red" onClick={open} disabled={opened}>
+                <ActionIcon size="sm" variant="subtle" color="red" onClick={open} disabled={opened} aria-label={label}>
                     {children || <TrashIcon />}
                 </ActionIcon>
             </Popover.Target>
