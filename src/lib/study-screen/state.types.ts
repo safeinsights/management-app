@@ -31,6 +31,9 @@ export type RawStudyState = {
     reviewerAgreementsAckedAt: Date | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
+    // OTTER-636: non-null on a revision draft (a change-requested proposal whose first edit flipped it
+    // to DRAFT); points at the immutable snapshot being revised. Null for a fresh draft / submitted study.
+    proposalRevisionBaseSubmissionId: string | null
     jobs: ReadonlyArray<RawJob>
 } & DraftStep2Fields
 
@@ -39,6 +42,10 @@ export type RawStudyState = {
 export type StudyState = {
     status: StudyStatus
     isDraft: boolean
+    // OTTER-636: a revision draft — a change-requested proposal the researcher has begun editing (DRAFT
+    // with a base snapshot). Reviewers see it read-only ("Proposal Draft"); the researcher edits it on
+    // the resubmit flow. Distinct from a fresh draft (isDraft && !isProposalRevisionDraft).
+    isProposalRevisionDraft: boolean
     // A DRAFT that has reached Step 2 of the proposal wizard. Routes a "resume draft" entry to the
     // step the researcher last left off (OTTER-572) instead of always landing on the Step 1 picker.
     hasStep2Progress: boolean

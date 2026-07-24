@@ -11,6 +11,7 @@ import {
     type StudyRole,
 } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { overlaidWithLatestProposalSnapshot } from '@/server/db/proposal-snapshot'
 import { SCREEN_COMPONENTS } from './registry'
 
 type RenderArgs = {
@@ -44,7 +45,8 @@ export async function renderStudyScreen(
         studyId: args.studyId,
         returnTo: args.returnTo,
     })
-    return renderScreen(descriptor, args)
+    const study = await overlaidWithLatestProposalSnapshot(args.studyId, args.study)
+    return renderScreen(descriptor, { ...args, study })
 }
 
 // /view/code dispatch: the read-only code screen, even after the study advanced to results. 404s

@@ -51,20 +51,26 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName } }) => {
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)
 
+        // OTTER-636: locate the file first. Deleting a missing file is idempotent success and must NOT
+        // open a draft round (it is not a real edit). Deleting a real file IS a real edit, so open/reuse
+        // the current draft round, then unlink; if the unlink fails the surrounding transaction rolls
+        // back the round insert.
         try {
-            await fs.unlink(filePath)
+            await fs.access(filePath)
         } catch (e) {
             if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                // File already gone, that's fine
-            } else {
-                throw e
+                return { success: true }
             }
+            throw e
         }
+
+        await ensureRoundJobForUpload(db, studyId)
+        await fs.unlink(filePath)
 
         return { success: true }
     })

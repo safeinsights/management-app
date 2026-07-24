@@ -5,6 +5,7 @@ import { resolveDashboardAction } from './resolve'
 const dstate = (overrides: Partial<DashboardState>): DashboardState => ({
     status: 'DRAFT',
     isDraft: true,
+    isProposalRevisionDraft: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,
@@ -31,6 +32,18 @@ describe('resolveDashboardAction (researcher)', () => {
         expect(a.label).toBe('Edit')
         expect(a.secondaryAction).toBe('delete-draft')
         expect(a.href).toContain('/edit')
+    })
+    // OTTER-636: a revision draft resumes on the edit-and-resubmit flow and offers NO delete (it has
+    // submitted history). Must win over the plain-draft rules even though it is also isDraft.
+    it('revision draft → Edit + /edit-and-resubmit, no delete-draft', () => {
+        const a = resolveDashboardAction(
+            'researcher',
+            dstate({ status: 'DRAFT', isDraft: true, isProposalRevisionDraft: true, hasStep2Progress: true }),
+            ctx,
+        )
+        expect(a.label).toBe('Edit')
+        expect(a.secondaryAction).toBeUndefined()
+        expect(a.href).toContain('/edit-and-resubmit')
     })
     // OTTER-572: a draft that has reached Step 2 resumes on the proposal editor (Step 2), not the
     // Step 1 data-partner picker. Step 1 destination is /edit, Step 2 is /proposal.

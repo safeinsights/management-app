@@ -3,13 +3,13 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
-import { isSubmittedStudy, type Submitted } from '@/schema/study'
+import { isSubmittedStudy } from '@/schema/study'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 
 type ReviewerPageGuardResult =
-    | { ok: true; study: Submitted<SelectedStudy>; orgSlug: string; studyId: string }
+    | { ok: true; study: SelectedStudy; orgSlug: string; studyId: string }
     | { ok: false; render: React.ReactNode }
 
 // Shared access preamble for the reviewer entry points (/review and /review/proposal). Both pages
@@ -36,7 +36,11 @@ export async function reviewerPageGuard(orgSlug: string, studyId: string): Promi
         return { ok: false, render: <AccessDeniedAlert /> }
     }
 
-    if (!isSubmittedStudy(study)) return { ok: false, render: notFound }
+    // OTTER-636: a revision draft (a change-requested proposal the researcher is now editing) is not
+    // "submitted" (status DRAFT) but has submitted history to show read-only, so admit it alongside
+    // genuinely-submitted studies. A fresh draft (DRAFT, no base snapshot) stays not-found for reviewers.
+    const isRevisionDraft = study.status === 'DRAFT' && study.proposalRevisionBaseSubmissionId != null
+    if (!isSubmittedStudy(study) && !isRevisionDraft) return { ok: false, render: notFound }
 
     return { ok: true, study, orgSlug, studyId }
 }

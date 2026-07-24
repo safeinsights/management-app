@@ -16,6 +16,7 @@
 
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 
 // openstax is the canonical e2e org pair: the researcher submits from the lab
 // (openstax-lab) and the reviewer reviews in the enclave (openstax). Matches the
@@ -182,6 +183,14 @@ async function insertStudy(overrides: StudyOverrides) {
         })
         .returning(['id', 'orgId', 'submittedByOrgId', 'researcherId'])
         .executeTakeFirstOrThrow()
+
+    // OTTER-636: every submitted proposal has an immutable snapshot in production (finalize writes it;
+    // the backfill covers legacy rows). Mirror that invariant here so seeded non-fresh-draft studies
+    // (PENDING-REVIEW, CHANGE-REQUESTED, APPROVED, REJECTED) carry a snapshot — otherwise the first-edit
+    // revision flip and the reviewer's snapshot reads have no source. A fresh DRAFT correctly has none.
+    if (status !== 'DRAFT') {
+        await writeProposalSubmissionSnapshot(db, study.id, researcherId)
+    }
 
     return { study, enclave, lab, researcherId, reviewerId }
 }

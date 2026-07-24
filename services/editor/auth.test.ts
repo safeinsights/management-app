@@ -13,10 +13,12 @@ import {
     type AuthenticateDeps,
     type DbQuery,
     type StatelessSubmissionEvent,
+    type StudyStatus,
 } from './auth'
 
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 const JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390ff'
+const SUBMISSION_ID = '019ddb2a-5f38-74ea-b401-94fd7983a001'
 
 describe('parseDocumentName', () => {
     it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
@@ -544,46 +546,50 @@ describe('authenticate', () => {
 })
 
 describe('isDocumentEditable', () => {
+    const snap = (status: StudyStatus, base: string | null = null) => ({
+        status,
+        proposalRevisionBaseSubmissionId: base,
+    })
+
     it('allows proposal kinds while DRAFT or CHANGE-REQUESTED', () => {
         for (const status of ['DRAFT', 'CHANGE-REQUESTED'] as const) {
-            expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, { status })).toBe(true)
-            expect(isDocumentEditable({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' }, { status })).toBe(
+            expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, snap(status))).toBe(true)
+            expect(isDocumentEditable({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' }, snap(status))).toBe(
                 true,
             )
         }
     })
 
     it('blocks proposal kinds once submitted', () => {
-        expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, { status: 'PENDING-REVIEW' })).toBe(
-            false,
-        )
+        expect(isDocumentEditable({ kind: 'proposal-fields', studyId: STUDY_ID }, snap('PENDING-REVIEW'))).toBe(false)
     })
 
     it('allows review-feedback only while PENDING-REVIEW', () => {
         expect(
-            isDocumentEditable(
-                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                { status: 'PENDING-REVIEW' },
-            ),
+            isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, snap('PENDING-REVIEW')),
         ).toBe(true)
         for (const status of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
-            expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, { status })).toBe(
+            expect(isDocumentEditable({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, snap(status))).toBe(
                 false,
             )
         }
     })
 
-    it('allows the resubmission note only while CHANGE-REQUESTED (no note exists during DRAFT)', () => {
+    it('allows the resubmission note while CHANGE-REQUESTED or a revision draft, but not a fresh draft', () => {
         const parsed = { kind: 'proposal-resubmission-note', studyId: STUDY_ID, version: 2 } as const
-        expect(isDocumentEditable(parsed, { status: 'CHANGE-REQUESTED' })).toBe(true)
-        for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'REJECTED', 'ARCHIVED'] as const) {
-            expect(isDocumentEditable(parsed, { status })).toBe(false)
+        expect(isDocumentEditable(parsed, snap('CHANGE-REQUESTED'))).toBe(true)
+        // OTTER-636: a revision draft (DRAFT with a base snapshot) keeps the note editable.
+        expect(isDocumentEditable(parsed, snap('DRAFT', SUBMISSION_ID))).toBe(true)
+        // A fresh draft (DRAFT, no base) has no note.
+        expect(isDocumentEditable(parsed, snap('DRAFT'))).toBe(false)
+        for (const status of ['PENDING-REVIEW', 'APPROVED', 'REJECTED', 'ARCHIVED'] as const) {
+            expect(isDocumentEditable(parsed, snap(status))).toBe(false)
         }
     })
 
     it('always allows code-review-feedback regardless of study status (editor is not the enforcer)', () => {
         for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
-            expect(isDocumentEditable({ kind: 'code-review-feedback', jobId: JOB_ID }, { status })).toBe(true)
+            expect(isDocumentEditable({ kind: 'code-review-feedback', jobId: JOB_ID }, snap(status))).toBe(true)
         }
     })
 })
@@ -726,7 +732,9 @@ describe('assertStatelessEventConsistent', () => {
 })
 
 describe('shouldPersistDocument', () => {
-    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
+    const fakeDb = (
+        rows: Array<{ status: string; proposal_revision_base_submission_id?: string | null }>,
+    ): DbQuery => ({
         query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
     })
 
@@ -769,6 +777,24 @@ describe('shouldPersistDocument', () => {
                 shouldPersistDocument({ kind: 'review-feedback', studyId: STUDY_ID, version: 1 }, fakeDb([{ status }])),
             ).resolves.toBe(false)
         }
+    })
+
+    it('allows persistence for the resubmission note on a revision draft (DRAFT with a base snapshot)', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'proposal-resubmission-note', studyId: STUDY_ID, version: 2 },
+                fakeDb([{ status: 'DRAFT', proposal_revision_base_submission_id: SUBMISSION_ID }]),
+            ),
+        ).resolves.toBe(true)
+    })
+
+    it('blocks persistence for the resubmission note on a fresh draft (no base snapshot)', async () => {
+        await expect(
+            shouldPersistDocument(
+                { kind: 'proposal-resubmission-note', studyId: STUDY_ID, version: 2 },
+                fakeDb([{ status: 'DRAFT', proposal_revision_base_submission_id: null }]),
+            ),
+        ).resolves.toBe(false)
     })
 
     it('blocks persistence when the study row has been deleted', async () => {

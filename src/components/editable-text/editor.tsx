@@ -33,6 +33,8 @@ export type EditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** OTTER-636: fires on each local user edit (not Yjs hydration / remote updates). */
+    onLocalUserEdit?: () => void
     footerRight?: React.ReactNode
     onProviderReady?: (provider: HocuspocusProvider | null) => void
     /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
