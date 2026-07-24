@@ -383,7 +383,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug }, db, ...codeEnv }) => {
         if (!codeEnv.isTesting) {
-            const otherNonTesting = await db
+            const nonTesting = await db
                 .selectFrom('orgCodeEnv')
                 .select((eb) => [
                     'orgCodeEnv.id',
@@ -398,10 +398,12 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 .where('orgCodeEnv.orgId', '=', codeEnv.orgId)
                 .where('orgCodeEnv.language', '=', codeEnv.language)
                 .where('orgCodeEnv.isTesting', '=', false)
-                .where('orgCodeEnv.id', '!=', codeEnv.id)
                 .execute()
 
-            if (otherNonTesting.length === 0) {
+            const beingDeleted = nonTesting.find((env) => env.id === codeEnv.id)
+            const others = nonTesting.filter((env) => env.id !== codeEnv.id)
+
+            if (others.length === 0) {
                 throw new Error(
                     `Cannot delete the last non-testing ${codeEnv.language} code environment. At least one non-testing code environment must exist for each language.`,
                 )
@@ -410,16 +412,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             // OTTER-527: an env whose latest scan passed must not be deleted unless another
             // non-testing env for the language also passed, otherwise the language's default
             // image would fall back to one that failed (or never finished) scanning.
-            const latestScan = await db
-                .selectFrom('codeScan')
-                .select('status')
-                .where('codeEnvId', '=', codeEnv.id)
-                .orderBy('createdAt', 'desc')
-                .limit(1)
-                .executeTakeFirst()
-
-            const deletingPassedEnv = latestScan?.status === 'SCAN-COMPLETE'
-            const anotherPassedEnvExists = otherNonTesting.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
+            const deletingPassedEnv = beingDeleted?.latestScanStatus === 'SCAN-COMPLETE'
+            const anotherPassedEnvExists = others.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
 
             if (deletingPassedEnv && !anotherPassedEnvExists) {
                 throw new Error(
