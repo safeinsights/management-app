@@ -13,6 +13,7 @@ import {
 } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { Selectable } from 'kysely'
+import { db } from '@/database'
 import { CodeEnvs } from './code-envs'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
@@ -131,35 +132,88 @@ describe('CodeEnvs', async () => {
             expect(screen.getByText('Only Image')).toBeInTheDocument()
         })
 
-        const trashButtons = screen.getAllByRole('button', { name: '' }).filter((btn) => btn.querySelector('svg'))
-        const hasSuretyGuard = trashButtons.some((btn) => btn.closest('[data-variant="filled"]'))
-        expect(hasSuretyGuard).toBe(false)
+        expect(screen.queryByRole('button', { name: 'Delete Only Image' })).not.toBeInTheDocument()
     })
 
-    it('shows delete on all rows when there are multiple code environments', async () => {
+    it('hides delete on the last non-testing environment for a language even when other envs exist', async () => {
         await insertTestCodeEnv({
             orgId: org.id,
-            name: 'R Image',
+            name: 'Prod R',
             language: 'R',
             isTesting: false,
         })
 
         await insertTestCodeEnv({
             orgId: org.id,
-            name: 'Python Image',
-            language: 'PYTHON',
+            name: 'Test R',
+            language: 'R',
             isTesting: true,
         })
 
         renderWithProviders(<CodeEnvs />)
 
         await waitFor(() => {
-            expect(screen.getByText('R Image')).toBeInTheDocument()
-            expect(screen.getByText('Python Image')).toBeInTheDocument()
+            expect(screen.getByText('Prod R')).toBeInTheDocument()
+            expect(screen.getByText('Test R')).toBeInTheDocument()
         })
 
-        const actionIcons = screen.getAllByRole('button', { name: '' })
-        expect(actionIcons.length).toBeGreaterThanOrEqual(4)
+        expect(screen.queryByRole('button', { name: 'Delete Prod R' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Delete Test R' })).toBeInTheDocument()
+    })
+
+    it('shows delete when multiple non-testing environments exist for a language', async () => {
+        await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'R Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'R Image 2',
+            language: 'R',
+            isTesting: false,
+        })
+
+        renderWithProviders(<CodeEnvs />)
+
+        await waitFor(() => {
+            expect(screen.getByText('R Image 1')).toBeInTheDocument()
+            expect(screen.getByText('R Image 2')).toBeInTheDocument()
+        })
+
+        expect(screen.getByRole('button', { name: 'Delete R Image 1' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Delete R Image 2' })).toBeInTheDocument()
+    })
+
+    it('hides delete on the only environment that passed scanning', async () => {
+        const passed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const failed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Failed R',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+        renderWithProviders(<CodeEnvs />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Passed R')).toBeInTheDocument()
+            expect(screen.getByText('Failed R')).toBeInTheDocument()
+        })
+
+        expect(screen.queryByRole('button', { name: 'Delete Passed R' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Delete Failed R' })).toBeInTheDocument()
     })
 
     it('displays env vars as KEY=VALUE in table', async () => {
