@@ -514,6 +514,126 @@ describe('createUserAndWorkspace', () => {
     })
 })
 
+describe('workspace parameter refresh', () => {
+    const ORIGINAL_ENV = process.env
+
+    const codeEnvMock = {
+        id: 'env-123',
+        identifier: 'test_env',
+        slug: 'test-org',
+        url: 'test-image:latest',
+        settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
+        starterCodeFileNames: ['main.R'],
+        language: 'R',
+    }
+
+    const expectedEnvironment = () =>
+        JSON.stringify([
+            { name: 'VAR1', value: 'value1' },
+            { name: 'DATA_PATH', value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data` },
+            {
+                name: 'TEST_ENV_DATA_PATH',
+                value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+            },
+            { name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
+            { name: 'TEST_ENV_S3_BUCKET_PREFIX', value: 'code-env/test-org/env-123/sample-data' },
+            { name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' },
+        ])
+
+    // The mutable parameters a launch refreshes; study_id is immutable and must not be resent.
+    const refreshedParams = () => [
+        { name: 'container_image', value: 'test-image:latest' },
+        { name: 'environment', value: expectedEnvironment() },
+    ]
+
+    // Routes coder API calls for an existing workspace whose latest build is `latestBuild`,
+    // capturing every build POST body so tests can assert on transitions and parameters.
+    const routeExistingWorkspace = (opts: {
+        latestBuild: { id: string; status: string }
+        currentParams?: Array<{ name: string; value: string }>
+    }) => {
+        const buildPosts: Array<Record<string, unknown>> = []
+        const mock = (url: string, options?: { method?: string; body?: string }) => {
+            const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+            if (url.includes('/users?')) return ok(mockUsersEmailQueryResponse)
+            if (url.includes('/workspace/')) return ok({ id: 'ws-1', latest_build: opts.latestBuild })
+            if (url.includes('/builds') && options?.method === 'POST') {
+                const body = JSON.parse(options.body!)
+                buildPosts.push(body)
+                return ok({ id: `${body.transition}-build-1`, status: 'pending' })
+            }
+            if (url.includes('/parameters')) return ok(opts.currentParams ?? [])
+            if (url.includes('/workspacebuilds/')) return ok({ status: 'stopped', job: { status: 'succeeded' } })
+            return Promise.resolve({ ok: false, status: 404, text: vi.fn().mockResolvedValue('Not found') })
+        }
+        return { mock, buildPosts }
+    }
+
+    beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
+        // The computed environment includes the bucket region, which falls back to us-east-1
+        delete process.env.AWS_REGION
+        vi.resetAllMocks()
+        global.fetch = vi.fn()
+        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
+        getDataSourcesForOrgMock.mockResolvedValue([])
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
+            return Promise.resolve('https://api.coder.com')
+        })
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
+        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue(codeEnvMock)
+    })
+
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
+    })
+
+    it('starts a stopped workspace with freshly computed parameter values', async () => {
+        const { mock, buildPosts } = routeExistingWorkspace({ latestBuild: { id: 'build-0', status: 'stopped' } })
+        ;(global.fetch as unknown as Mock).mockImplementation(mock)
+
+        await createUserAndWorkspace('study123')
+
+        expect(buildPosts).toEqual([{ transition: 'start', rich_parameter_values: refreshedParams() }])
+    })
+
+    it('restarts a running workspace when its build parameters are stale', async () => {
+        const { mock, buildPosts } = routeExistingWorkspace({
+            latestBuild: { id: 'build-0', status: 'running' },
+            currentParams: [
+                { name: 'study_id', value: 'study123' },
+                { name: 'container_image', value: 'old-image:1' },
+                { name: 'environment', value: '[]' },
+            ],
+        })
+        ;(global.fetch as unknown as Mock).mockImplementation(mock)
+
+        await createUserAndWorkspace('study123')
+
+        expect(buildPosts).toEqual([
+            { transition: 'stop' },
+            { transition: 'start', rich_parameter_values: refreshedParams() },
+        ])
+    })
+
+    it('leaves a running workspace alone when its build parameters are current', async () => {
+        const { mock, buildPosts } = routeExistingWorkspace({
+            latestBuild: { id: 'build-0', status: 'running' },
+            currentParams: [{ name: 'study_id', value: 'study123' }, ...refreshedParams()],
+        })
+        ;(global.fetch as unknown as Mock).mockImplementation(mock)
+
+        await createUserAndWorkspace('study123')
+
+        expect(buildPosts).toEqual([])
+    })
+})
+
 describe('getCoderOrganization', () => {
     const ORIGINAL_ENV = process.env
 

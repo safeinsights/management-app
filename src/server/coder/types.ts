@@ -76,14 +76,21 @@ export interface CoderAgent {
 }
 
 export interface CoderWorkspaceBuild {
+    id: BuildId
     status: WorkspaceStatus
     job?: {
         status: JobStatus
         error?: string
     }
-    // id: BuildId // unused
     // transition?: BuildTransition // unused
     // resources?: CoderResource[] // unused
+}
+
+// A workspace-scoped rich parameter value, as sent on build creation and returned by
+// the build parameters endpoint.
+export interface CoderBuildParameter {
+    name: string
+    value: string
 }
 
 // Build (provisioner) and agent logs share the fields we read; the level key differs
@@ -137,6 +144,7 @@ export interface CoderUser {
 export interface CoderWorkspace {
     id: WorkspaceId
     latest_build?: {
+        id?: BuildId
         status: WorkspaceStatus
         // resources?: CoderResource[] // unused
     }

@@ -59,6 +59,7 @@ export const coderWorkspaceDataPath = (username: CoderUsername, workspaceName: s
     `/api/v2/users/${username}/workspace/${workspaceName}`
 export const coderWorkspaceBuildPath = (workspaceId: WorkspaceId) => `/api/v2/workspaces/${workspaceId}/builds`
 export const coderWorkspaceBuildByIdPath = (buildId: BuildId) => `/api/v2/workspacebuilds/${buildId}`
+export const coderWorkspaceBuildParametersPath = (buildId: BuildId) => `/api/v2/workspacebuilds/${buildId}/parameters`
 
 // Coder log endpoints accept an `after` log id to fetch only newer lines; omit it for the full log.
 const withAfter = (path: string, after?: number | null) => (after != null ? `${path}?after=${after}` : path)
