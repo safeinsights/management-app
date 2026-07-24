@@ -115,7 +115,7 @@ function AddTotpScreenContent({
             <Stack align="center" gap="xs">
                 {totp && displayFormat === 'qr' && (
                     <>
-                        <Box bg={rgba(theme.colors.grey[0], 0.3)} p={6}>
+                        <Box bg={rgba(theme.colors.gray[0], 0.3)} p={6}>
                             <QRCodeSVG value={totp?.uri || ''} size={150} />
                         </Box>
                         {secret && (
@@ -142,7 +142,7 @@ function AddTotpScreenContent({
                             </Group>
                         )}
                         <Text size="sm">
-                            <span style={{ color: theme.colors.grey[7] }}>Having trouble?</span>{' '}
+                            <span style={{ color: theme.colors.gray[7] }}>Having trouble?</span>{' '}
                             <Anchor
                                 component="button"
                                 c="blue.7"

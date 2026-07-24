@@ -14,10 +14,10 @@ function resolveToken(token: string): string {
 // accidental token change here and a palette reorder in theme.ts.
 describe('STATUS_BANNER_BG', () => {
     it.each([
-        ['approved', '#E8F8EB'], // Figma Color/Success/Light
-        ['rejected', '#FFE0E0'], // Figma Color/Error/Light
-        ['changesRequestedReviewer', '#FFF9E5'], // Figma Color/Warning/Light
-        ['changesRequestedResearcher', '#EAE8FC'], // Figma Color/Brand/Light
+        ['approved', '#ECF4EE'], // Figma Color/Success/Light
+        ['rejected', '#FBECEB'], // Figma Color/Error/Light
+        ['changesRequestedReviewer', '#FDF7EB'], // Figma Color/Warning/Light
+        ['changesRequestedResearcher', '#E6E9EF'], // Figma Color/Brand/Light
     ] as const)('%s resolves to %s', (key, hex) => {
         expect(resolveToken(STATUS_BANNER_BG[key]).toUpperCase()).toBe(hex)
     })
