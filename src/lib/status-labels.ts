@@ -30,8 +30,17 @@ const COLORS = {
 
 // Proposal -> Code -> Results
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    // note: there is no 'DRAFT' label here even though that status exists on studies
-    // BECAUSE a reviewer should never see a DRAFT study
+    // OTTER-636: a reviewer never sees a FRESH draft (a brand-new proposal, filtered out of reviewer
+    // listings), but they DO see a REVISION draft: a change-requested proposal the researcher has begun
+    // editing. It shows here as a non-actionable "Proposal Draft" while they revise; reviewer actions
+    // stay unavailable until they resubmit (→ PENDING-REVIEW).
+    DRAFT: {
+        stage: 'Proposal',
+        label: 'Proposal Draft',
+        tooltip:
+            'The researcher is revising this proposal after your change request. You’ll be notified once they resubmit.',
+        colors: COLORS.draft,
+    },
 
     // Proposal
     'PENDING-REVIEW': {

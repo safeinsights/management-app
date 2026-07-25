@@ -55,7 +55,9 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         expect(await jobsForStudy(study.id)).toHaveLength(1)
     })
 
-    it('reuses the job after CODE-CHANGES-REQUESTED (revise in place, no new round)', async () => {
+    // OTTER-636: a live CODE-CHANGES-REQUESTED is a revision entry state, so the next real edit opens a
+    // FRESH INITIATED round (was previously same-job in place), keeping the reviewed round immutable.
+    it('opens a new round after a live CODE-CHANGES-REQUESTED (fresh code-draft round)', async () => {
         const org = await insertTestOrg()
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -67,12 +69,14 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
 
         const result = await getOrCreateCurrentRoundJob(db, study.id)
 
-        expect(result.created).toBe(false)
-        expect(result.id).toBe(job.id)
-        expect(await jobsForStudy(study.id)).toHaveLength(1)
+        expect(result.created).toBe(true)
+        expect(result.id).not.toBe(job.id)
+        expect(await jobsForStudy(study.id)).toHaveLength(2)
     })
 
-    it('reuses the job after JOB-ERRORED (awaiting files review, no new round)', async () => {
+    // OTTER-636 (Finding 8): a bare JOB-ERRORED is a revision entry state; the next real edit opens a
+    // fresh round while the errored (reviewer-visible) round is preserved.
+    it('opens a new round after a bare JOB-ERRORED', async () => {
         const org = await insertTestOrg()
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -82,6 +86,42 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         await addFile(job.id)
         await addStatus(job.id, 'CODE-APPROVED')
         await addStatus(job.id, 'JOB-ERRORED')
+
+        const result = await getOrCreateCurrentRoundJob(db, study.id)
+
+        expect(result.created).toBe(true)
+        expect(result.id).not.toBe(job.id)
+        expect(await jobsForStudy(study.id)).toHaveLength(2)
+    })
+
+    it('reuses the fresh INITIATED round once one has been opened after a decision', async () => {
+        const org = await insertTestOrg()
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addFile(job.id)
+        await addStatus(job.id, 'CODE-CHANGES-REQUESTED')
+
+        const opened = await getOrCreateCurrentRoundJob(db, study.id)
+        const reused = await getOrCreateCurrentRoundJob(db, study.id)
+
+        expect(reused.created).toBe(false)
+        expect(reused.id).toBe(opened.id)
+        expect(await jobsForStudy(study.id)).toHaveLength(2)
+    })
+
+    it('does NOT open a new round for a normal CODE-APPROVED (provisioning/running)', async () => {
+        const org = await insertTestOrg()
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addFile(job.id)
+        await addStatus(job.id, 'CODE-APPROVED')
+        await addStatus(job.id, 'JOB-RUNNING')
 
         const result = await getOrCreateCurrentRoundJob(db, study.id)
 

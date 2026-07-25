@@ -17,7 +17,16 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         return notFound()
     }
 
-    if (result.status !== 'DRAFT' && result.status !== 'CHANGE-REQUESTED') {
+    // OTTER-636: /proposal is the FRESH-draft Step 2 editor. A change-requested proposal, and its
+    // in-progress revision draft (DRAFT with a base snapshot), are revised on the edit-and-resubmit
+    // flow (which requires a resubmission note), never here — this closes the /proposal path that
+    // previously submitted a change-requested proposal without a note (Finding 3).
+    const isRevisionDraft = result.status === 'DRAFT' && result.proposalRevisionBaseSubmissionId != null
+    if (result.status === 'CHANGE-REQUESTED' || isRevisionDraft) {
+        redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
+    }
+
+    if (result.status !== 'DRAFT') {
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 

@@ -85,7 +85,10 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
-        permit('load', 'IDE')
+        // OTTER-636: scope the lab IDE grant to studies the user's own lab submitted, so a member of an
+        // unrelated lab can't open another lab's workspace. The author retains access via the
+        // researcherId grant above (line ~36); either match allows the load.
+        permit('load', 'IDE', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     }
 
     // can view studies and jobs for all orgs that the user's org has submitted

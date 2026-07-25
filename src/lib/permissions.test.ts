@@ -105,6 +105,12 @@ test('researcher role', () => {
     expect(ability.can('delete', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: otherLabId }))).toBe(false)
 
+    // OTTER-636: loading the IDE is scoped to studies the researcher's own lab submitted, plus
+    // studies they authored — never another lab's studies.
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: ownLabId }))).toBe(true)
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId }))).toBe(false)
+    expect(ability.can('load', toRecord('IDE', { researcherId: session.user.id }))).toBe(true)
+
     // Researchers cannot invite users to their org (not admins)
     expect(ability.can('invite', toRecord('User', { orgId: ownLabId }))).toBe(false)
 

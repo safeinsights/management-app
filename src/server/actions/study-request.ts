@@ -17,8 +17,14 @@ import {
 } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import {
+    codeRoundStatusesForStudy,
+    codeSubmissionVersion,
+    getInfoForStudyId,
+    getOrgIdFromSlug,
+} from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -34,7 +40,12 @@ import {
     resubmissionNoteToLexicalJson,
     resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
+import {
+    canResearcherResubmitCode,
+    canResubmitProposal,
+    canSubmitInitialCode,
+    projectStudyState,
+} from '@/lib/study-screen'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -64,14 +75,15 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
 }
 
 /**
- * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
- * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
- * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in study-job-status.ts).
+ * Attach the submitted code to the study's current submission round, reusing the job the researcher's
+ * edits already opened at IDE launch / file upload instead of minting a new one (OTTER-601). Round
+ * identity and reuse-vs-new is decided by getOrCreateCurrentRoundJob: once a round has been reviewed
+ * (change-requested, bare errored, or a results decision) the next edit opens a FRESH round, so by
+ * resubmit time this attaches to that new round and reviewed rounds stay immutable (OTTER-636).
  *
- * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
- * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
- * prior attempt — in the DB and in S3.
+ * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within the same un-reviewed
+ * round reflects exactly the files now provided, with no leftovers from a prior attempt — in the DB and
+ * in S3.
  */
 async function attachCodeToRoundJob(
     db: Kysely<DB>,
@@ -134,10 +146,11 @@ async function attachCodeToRoundJob(
  * CODE-SUBMITTED" — that would swallow the new round's submission and leave the researcher's /view
  * stuck on the feedback screen and the reviewer never re-notified.
  *
- * Round-aware idempotency (order-independent — same counting the liveness/version logic uses): the
- * current round is already submitted iff submitted-count > change-requested-count on this job. A
- * re-submit within the same un-reviewed round (submitted > requested) is a no-op; the first submit
- * of a round (submitted == requested) appends.
+ * Round-aware idempotency (order-independent): the current round is already submitted iff
+ * submitted-count > change-requested-count on this job. A re-submit within the same un-reviewed round
+ * (submitted > requested) is a no-op; the first submit of a round (submitted == requested) appends. Note
+ * that under OTTER-636 a fresh round is opened per review decision, so a resubmit lands on a new job
+ * that appends its own CODE-SUBMITTED.
  */
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     const counts = await db
@@ -382,7 +395,11 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
             .where('id', '=', studyId)
-            .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
+            // OTTER-636: finalize is the FRESH-submit path only. A revision of a change-requested proposal
+            // goes through resubmitProposalAction (with a note); a revision draft (DRAFT + base snapshot)
+            // is excluded here so it can never be finalized without its note.
+            .where('status', '=', 'DRAFT')
+            .where('proposalRevisionBaseSubmissionId', 'is', null)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id', 'submittedByOrgId'])
             .executeTakeFirst()
@@ -390,6 +407,10 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         if (!claimed) {
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
+
+        // OTTER-636: record immutable submission snapshot v1 from the just-persisted proposal columns,
+        // so reviewers read this frozen version rather than the mutable row.
+        await writeProposalSubmissionSnapshot(db, studyId, userId)
 
         // The atomic UPDATE above is the canonical post-submit snapshot. Drop the
         // proposal-* yjs_document rows so a future CHANGE-REQUESTED reopen falls
@@ -465,6 +486,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.irbDocPath',
                 'study.agreementDocPath',
                 'study.status',
+                'study.proposalRevisionBaseSubmissionId',
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',
@@ -527,6 +549,17 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         if (!fileNames.includes(mainFileName)) {
             throw new Error('Main file not in file list')
+        }
+
+        // OTTER-636 (Finding 6): the initial code-submit path carries no resubmission note, so it is
+        // valid ONLY for a genuine first submission (an open INITIATED round, no prior submitted round).
+        // Once a round has been submitted/reviewed, a further submission must go through
+        // resubmitStudyCodeAction (which requires a note) — a positive gate here stops the initial path
+        // from ever overwriting reviewed code or bypassing the note.
+        if (!canSubmitInitialCode(await codeRoundStatusesForStudy(studyId, db))) {
+            throw new ActionFailure({
+                submission: 'This study must be resubmitted with a note; use the resubmit flow.',
+            })
         }
 
         const userId = session.user.id
@@ -610,6 +643,56 @@ const resubmissionNoteParam = z
 //
 // `performsMutations: true` runs this handler inside db.transaction().
 // Do not drop it: the study updates/inserts must commit or roll back together.
+// OTTER-636: the first real edit to a change-requested proposal transitions it to a literal revision
+// DRAFT that points at the immutable submitted snapshot it is revising. study.status becomes DRAFT so
+// the researcher sees "Proposal draft" and it leaves the reviewer's actionable queue, while reviewers
+// still read the frozen snapshot (Phase 4). Idempotent: an already-started revision draft, or a study
+// not in CHANGE-REQUESTED, is a no-op. Lab-scoped.
+export const startProposalRevisionAction = new Action('startProposalRevisionAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId }, session }) => {
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+        const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
+
+        const current = await db
+            .selectFrom('study')
+            .select(['status', 'proposalRevisionBaseSubmissionId'])
+            .where('id', '=', studyId)
+            .where('submittedByOrgId', 'in', labScope)
+            .executeTakeFirst()
+
+        if (!current) throw new ActionFailure({ submission: 'Study not found or access denied' })
+        // Already a revision draft, or not a change-requested proposal → nothing to do (idempotent).
+        if (current.status !== 'CHANGE-REQUESTED') return { studyId }
+
+        const latest = await db
+            .selectFrom('studyProposalSubmission')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('version', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+        // A change-requested proposal was submitted at least once, so finalize + the backfill migration
+        // guarantee it has an immutable snapshot. A missing one is a data-integrity error — surface it
+        // visibly (architecture invariant 10) rather than silently leaving the study un-flipped, which
+        // would let the researcher resubmit without ever becoming a revision draft.
+        if (!latest) throw new ActionFailure({ submission: 'Cannot start a revision: no submitted version exists' })
+
+        await db
+            .updateTable('study')
+            .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: latest.id, lastUpdatedAt: new Date() })
+            .where('id', '=', studyId)
+            .where('status', '=', 'CHANGE-REQUESTED')
+            .where('submittedByOrgId', 'in', labScope)
+            .execute()
+
+        return { studyId }
+    })
+
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -643,7 +726,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['study.id as id', 'study.status as status', 'org.name as orgName'])
+            .select([
+                'study.id as id',
+                'study.status as status',
+                'study.proposalRevisionBaseSubmissionId as revisionBase',
+                'org.name as orgName',
+            ])
             .where('study.id', '=', studyId)
             .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
@@ -651,8 +739,11 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
         // so the client receives a structured `{ error: { submission } }` it can show,
         // rather than a plain Error bubbling up as a generic unhandled exception.
+        // OTTER-636 (architecture §7): resubmit accepts ONLY a revision draft — a DRAFT with a non-null
+        // base snapshot. The researcher's first edit flips a change-requested proposal into that state
+        // (startProposalRevisionAction); resubmit never handles an un-flipped CHANGE-REQUESTED row.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
-        if (study.status !== 'CHANGE-REQUESTED') {
+        if (!canResubmitProposal({ status: study.status, proposalRevisionBaseSubmissionId: study.revisionBase })) {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
@@ -675,10 +766,15 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
                 ...updateValues,
                 status: 'PENDING-REVIEW',
                 proposalResubmissionNoteDraft: null,
+                // OTTER-636: the revision is now submitted; clear the base so it is no longer a draft.
+                proposalRevisionBaseSubmissionId: null,
                 lastUpdatedAt: resubmittedAt,
             })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
+            // Revision draft only (DRAFT with a base snapshot). submittedAt is left untouched; the
+            // studyProposalComment/snapshot carry the resubmission version.
+            .where('status', '=', 'DRAFT')
+            .where('proposalRevisionBaseSubmissionId', 'is not', null)
             .where('submittedByOrgId', 'in', labScope)
             .returning(['id'])
             .executeTakeFirst()
@@ -686,6 +782,10 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         if (!claimed) {
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
+
+        // OTTER-636: record the immutable snapshot for this resubmission (the next version) from the
+        // just-persisted proposal columns, so reviewers read this frozen version, not the mutable row.
+        await writeProposalSubmissionSnapshot(db, studyId, userId)
 
         await db
             .insertInto('studyProposalComment')
@@ -813,7 +913,14 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
             .updateTable('study')
             .set({ proposalResubmissionNoteDraft: note })
             .where('id', '=', studyId)
-            .where('status', '=', 'CHANGE-REQUESTED')
+            // OTTER-636: the note is editable while the study is CHANGE-REQUESTED and after its first
+            // edit flips it to a revision DRAFT (DRAFT with a base snapshot). A fresh DRAFT has no note.
+            .where((eb) =>
+                eb.or([
+                    eb('status', '=', 'CHANGE-REQUESTED'),
+                    eb.and([eb('status', '=', 'DRAFT'), eb('proposalRevisionBaseSubmissionId', 'is not', null)]),
+                ]),
+            )
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
             .executeTakeFirst()

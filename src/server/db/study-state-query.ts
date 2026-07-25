@@ -18,6 +18,8 @@ export async function rawStudyStateForStudy(
             'study.reviewerAgreementsAckedAt',
             'study.proposalResubmissionNoteDraft',
             'study.codeResubmissionNoteDraft',
+            // OTTER-636: distinguishes a revision draft from a fresh draft for reviewer routing/pill.
+            'study.proposalRevisionBaseSubmissionId',
             // Step 2 fields → hasStep2Progress (OTTER-572 draft resume).
             'study.piUserId',
             'study.datasets',

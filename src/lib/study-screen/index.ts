@@ -9,3 +9,5 @@ export {
 } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
 export { canResearcherResubmitCode } from './eligibility'
+export * from './proposal-predicates'
+export * from './code-predicates'

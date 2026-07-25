@@ -10,6 +10,7 @@ import {
     screen,
     type Mock,
 } from '@/tests/unit.helpers'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 import StudyEditPage from './page'
 
 const mockRedirect = vi.mocked(redirect)
@@ -50,6 +51,33 @@ describe('StudyEditPage', () => {
         // The Step 1 form's "Proceed to Step 2" footer button is the cheapest, most stable proof
         // that we rendered <StudyProposal /> (Step 1) rather than redirecting away.
         expect(screen.getByRole('button', { name: /Proceed to Step 2/i })).toBeInTheDocument()
+    })
+
+    // OTTER-636: a revision draft (DRAFT with a base snapshot) is edited on the lab-gated
+    // edit-and-resubmit flow, not this un-gated Step-1 route, so it must redirect there instead of
+    // rendering live revision content.
+    it('redirects a revision draft to the edit-and-resubmit flow', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+        await writeProposalSubmissionSnapshot(db, study.id, user.id)
+        const snap = await db
+            .selectFrom('studyProposalSubmission')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        await db
+            .updateTable('study')
+            .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: snap.id })
+            .where('id', '=', study.id)
+            .execute()
+
+        // redirect() is mocked to throw NEXT_REDIRECT (see beforeEach), so the route rejects.
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining(`/study/${study.id}/edit-and-resubmit`))
     })
 
     it('shows the not-found message for non-DRAFT studies', async () => {

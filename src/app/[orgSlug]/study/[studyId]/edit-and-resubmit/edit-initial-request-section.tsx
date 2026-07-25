@@ -13,6 +13,7 @@ import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import { useProposalRevision } from '@/hooks/use-start-proposal-revision'
 import { editableTextFields, type EditableTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
 import { CollaborativeProposalTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -58,6 +59,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     enclaveOrgSlug,
 }) => {
     const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
+    const { signalRealEdit } = useProposalRevision()
     const titleWordCount = countWords(form.values.title)
     const titleInputProps = form.getInputProps('title')
 
@@ -94,6 +96,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                             onChange={(event) => {
                                 titleInputProps.onChange?.(event)
                                 yjsForm.pushField('title', event.currentTarget.value)
+                                signalRealEdit()
                             }}
                             value={form.values.title ?? ''}
                             error={!!form.errors.title}
@@ -118,6 +121,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     onChange={(val) => {
                                         form.setFieldValue('datasets', val)
                                         yjsForm.pushField('datasets', val)
+                                        signalRealEdit()
                                     }}
                                     orgSlug={enclaveOrgSlug}
                                 />
@@ -172,6 +176,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     form.setFieldValue('piUserId', piUserId)
                                     form.setFieldValue('piName', piName)
                                     yjsForm.pushPI(piUserId, piName)
+                                    signalRealEdit()
                                 }}
                                 error={!!form.errors.piName}
                             />

@@ -9,12 +9,16 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { ProposalRevisionProvider } from '@/hooks/use-start-proposal-revision'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
 import { EditResubmitFooter } from './footer'
 
 // Change-requested proposals are co-editable by the whole lab; once any member
-// resubmits, the study leaves CHANGE-REQUESTED and the rest must be kicked out.
-const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED'] as const
+// resubmits, the study leaves this editing flow (→ PENDING-REVIEW) and the rest
+// must be kicked out. OTTER-636: the first edit flips CHANGE-REQUESTED → a revision
+// DRAFT, so DRAFT is editable here too. The page guard guarantees any DRAFT reaching
+// this form is a revision draft (a fresh draft is served by /proposal, never here).
+const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED', 'DRAFT'] as const
 
 interface EditResubmitFormProps {
     orgName: string
@@ -27,6 +31,11 @@ interface EditResubmitFormProps {
     noteVersion: number
     /** Persisted note draft; seeds the single-user editor. */
     initialNote: string
+    /**
+     * Server status at page load. CHANGE-REQUESTED means the first edit still needs to flip the study
+     * to a revision DRAFT; a revision DRAFT is already flipped (a page reload after the first edit).
+     */
+    initialStatus: 'CHANGE-REQUESTED' | 'DRAFT'
 }
 
 export const EditResubmitForm: FC<EditResubmitFormProps> = ({
@@ -38,6 +47,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     feedbackEntries,
     noteVersion,
     initialNote,
+    initialStatus,
 }) => {
     const { studyId, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
         useEditResubmit()
@@ -57,34 +67,36 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <Stack gap="xxl">
-                <Title order={1}>Edit Initial Request</Title>
+            <ProposalRevisionProvider studyId={studyId} enabled={initialStatus === 'CHANGE-REQUESTED'}>
+                <Stack gap="xxl">
+                    <Title order={1}>Edit Initial Request</Title>
 
-                <EditInitialRequestSection
-                    orgName={orgName}
-                    members={members}
-                    researcherName={researcherName}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
+                    <EditInitialRequestSection
+                        orgName={orgName}
+                        members={members}
+                        researcherName={researcherName}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                    />
 
-                <FeedbackAndNotesSection entries={feedbackEntries} />
+                    <FeedbackAndNotesSection entries={feedbackEntries} />
 
-                <CollaborativeResubmissionNoteSection
-                    studyId={studyId}
-                    noteVersion={noteVersion}
-                    noteForm={noteForm}
-                    orgName={orgName}
-                    initialNote={initialNote}
-                    websocketProvider={websocketProvider}
-                    autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
-                />
+                    <CollaborativeResubmissionNoteSection
+                        studyId={studyId}
+                        noteVersion={noteVersion}
+                        noteForm={noteForm}
+                        orgName={orgName}
+                        initialNote={initialNote}
+                        websocketProvider={websocketProvider}
+                        autosaveStatus={{ isSaving: isSavingNote, lastSavedAt: noteLastSavedAt }}
+                    />
 
-                <EditResubmitFooter
-                    researcherName={researcherName}
-                    researcherId={researcherId}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
-            </Stack>
+                    <EditResubmitFooter
+                        researcherName={researcherName}
+                        researcherId={researcherId}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                    />
+                </Stack>
+            </ProposalRevisionProvider>
         </StudyKickOutProvider>
     )
 }

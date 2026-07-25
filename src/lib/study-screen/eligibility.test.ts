@@ -16,6 +16,7 @@ const stateFor = (jobs: RawJob[]): RawStudyState => ({
     reviewerAgreementsAckedAt: null,
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
+    proposalRevisionBaseSubmissionId: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,

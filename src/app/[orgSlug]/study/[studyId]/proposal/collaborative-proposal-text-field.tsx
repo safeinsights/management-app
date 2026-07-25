@@ -8,6 +8,7 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
+import { useProposalRevision } from '@/hooks/use-start-proposal-revision'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
@@ -36,6 +37,7 @@ type ProposalEditorProps = {
     placeholder: string | undefined
     ariaLabel: string
     onTextChange: (json: string) => void
+    onLocalUserEdit?: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
 }
 
@@ -46,6 +48,7 @@ function ProposalTextEditor({
     placeholder,
     ariaLabel,
     onTextChange,
+    onLocalUserEdit,
     websocketProvider,
 }: ProposalEditorProps) {
     return (
@@ -58,6 +61,7 @@ function ProposalTextEditor({
             placeholder={placeholder}
             ariaLabel={ariaLabel}
             onChange={onTextChange}
+            onLocalUserEdit={onLocalUserEdit}
         />
     )
 }
@@ -72,6 +76,8 @@ export function CollaborativeProposalTextField({
 }: Props) {
     const [wordCount, setWordCount] = useState(() => countWordsFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
+    // No-op outside the edit-and-resubmit flow (no provider mounted on the fresh-draft form).
+    const { signalRealEdit } = useProposalRevision()
 
     const onTextChange = (json: string) => {
         onChange(json)
@@ -93,6 +99,7 @@ export function CollaborativeProposalTextField({
                         placeholder={field.placeholder}
                         ariaLabel={field.label}
                         onTextChange={onTextChange}
+                        onLocalUserEdit={signalRealEdit}
                         websocketProvider={websocketProvider}
                     />
                     <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>

@@ -5,6 +5,7 @@ import { resolveScreen, resolveResearcherCodeScreen, resolveReviewerCodeScreen }
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
     isDraft: true,
+    isProposalRevisionDraft: false,
     hasStep2Progress: false,
     researcherAgreementsAcked: false,
     reviewerAgreementsAcked: false,

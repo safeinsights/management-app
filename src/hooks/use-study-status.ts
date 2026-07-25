@@ -26,6 +26,9 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
         reviewerAgreementsAckedAt: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
+        // Not received here; a reviewer-visible DRAFT is always a revision draft and the DRAFT pill
+        // label ("Proposal Draft") resolves the same either way, so null is safe for the pill.
+        proposalRevisionBaseSubmissionId: null,
         piUserId: null,
         datasets: null,
         researchQuestions: null,

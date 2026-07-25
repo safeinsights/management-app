@@ -7,6 +7,7 @@ import { getConfigValue } from '@/server/config'
 import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
+import { latestProposalSnapshotForStudy } from '@/server/db/proposal-snapshot'
 
 // Written when the API key is missing, before content assembly. This means a
 // no-code-files study with a missing key gets the placeholder too — fine, since
@@ -68,6 +69,7 @@ async function assembleReviewContent(
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select([
             'studyJob.id as studyJobId',
+            'study.id as studyId',
             'study.orgId',
             'study.language',
             'study.projectSummary',
@@ -83,11 +85,17 @@ async function assembleReviewContent(
         return null
     }
 
+    // OTTER-636: review the immutable submitted proposal, not the mutable study row (which can hold a
+    // researcher's in-progress revision-draft edits). Fall back to the row only for a study with no
+    // snapshot yet (should not happen for a submitted job, but keeps the agent robust).
+    const latestProposal = await latestProposalSnapshotForStudy(job.studyId)
+    const proposalFields = latestProposal?.snapshot ?? job
+
     const proposalParts = [
-        lexicalFieldToText(job.projectSummary),
-        lexicalFieldToText(job.researchQuestions),
-        lexicalFieldToText(job.impact),
-        lexicalFieldToText(job.additionalNotes),
+        lexicalFieldToText(proposalFields.projectSummary),
+        lexicalFieldToText(proposalFields.researchQuestions),
+        lexicalFieldToText(proposalFields.impact),
+        lexicalFieldToText(proposalFields.additionalNotes),
     ].filter((part) => part.trim().length > 0)
 
     const codeFiles = await fetchCodeFiles(studyJobId)

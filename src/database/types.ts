@@ -235,6 +235,7 @@ export interface Study {
     piUserId: string | null
     projectSummary: Json | null
     proposalResubmissionNoteDraft: string | null
+    proposalRevisionBaseSubmissionId: string | null
     rejectedAt: Timestamp | null
     researcherAgreementsAckedAt: Timestamp | null
     researcherId: string
@@ -283,6 +284,16 @@ export interface StudyProposalComment {
     entryType: StudyProposalCommentEntryType
     id: Generated<string>
     studyId: string
+    version: number
+}
+
+export interface StudyProposalSubmission {
+    id: Generated<string>
+    schemaVersion: Generated<number>
+    snapshot: Json
+    studyId: string
+    submittedAt: Generated<Timestamp>
+    submittedByUserId: string
     version: number
 }
 
@@ -354,6 +365,7 @@ export interface DB {
     studyJobFile: StudyJobFile
     studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
+    studyProposalSubmission: StudyProposalSubmission
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment
     user: User

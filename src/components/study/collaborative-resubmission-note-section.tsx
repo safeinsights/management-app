@@ -9,6 +9,7 @@ import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
+import { useProposalRevision } from '@/hooks/use-start-proposal-revision'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
@@ -64,6 +65,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     autosaveStatus,
 }) => {
     const singleUserEditing = useSingleUserEditing()
+    const { signalRealEdit } = useProposalRevision()
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
     const wordCount = resubmissionNoteWordCount(value)
@@ -92,6 +94,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         placeholder={PLACEHOLDER_TEXT}
                         ariaLabel="Resubmission Note"
                         onChange={onNoteChange}
+                        onLocalUserEdit={signalRealEdit}
                         footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />

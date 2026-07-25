@@ -32,7 +32,25 @@ import {
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { writeProposalSubmissionSnapshot } from '@/server/db/proposal-snapshot'
 import { useResubmitProposal } from './use-resubmit-proposal'
+
+// OTTER-636: resubmit accepts only a revision draft. Put the study into that state directly: an
+// immutable snapshot plus a DRAFT row pointing at it as its base.
+const makeRevisionDraft = async (studyId: string, userId: string) => {
+    await writeProposalSubmissionSnapshot(db, studyId, userId)
+    const snap = await db
+        .selectFrom('studyProposalSubmission')
+        .select('id')
+        .where('studyId', '=', studyId)
+        .orderBy('version', 'desc')
+        .executeTakeFirstOrThrow()
+    await db
+        .updateTable('study')
+        .set({ status: 'DRAFT', proposalRevisionBaseSubmissionId: snap.id })
+        .where('id', '=', studyId)
+        .execute()
+}
 
 const buildValidProposalValues = (piUserId: string): ProposalFormValues => ({
     title: 'Resubmitted Title',
@@ -73,7 +91,7 @@ describe('useResubmitProposal', () => {
 
     it('successful resubmit broadcasts the proposal-submitted event and navigates', async () => {
         const { enclave, lab, studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-happy' })
-        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        await makeRevisionDraft(studyId, user.id)
         const { yjsForm, sendStateless } = buildStubYjsForm()
 
         const { result } = renderHook(

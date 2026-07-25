@@ -111,6 +111,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
             'study.proposalResubmissionNoteDraft',
+            'study.proposalRevisionBaseSubmissionId',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -132,8 +133,17 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            // Reviewer dashboards should not see draft studies
-            query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
+            // OTTER-636: reviewers see revision drafts (a change-requested proposal being edited) but
+            // not fresh drafts (a brand-new proposal). Exclude only the fresh-draft case: DRAFT with no
+            // base snapshot.
+            query = query
+                .where('study.orgId', '=', orgId)
+                .where((eb) =>
+                    eb.or([
+                        eb('study.status', '!=', 'DRAFT'),
+                        eb('study.proposalRevisionBaseSubmissionId', 'is not', null),
+                    ]),
+                )
         }
         if (orgType === 'lab') {
             // Lab dashboards: show every study submitted by the lab (including drafts and
@@ -169,12 +179,21 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         if (reviewerOrgIds.length === 0) {
             return []
         }
-        return fetchStudyQuery(db)
-            .where('study.orgId', 'in', reviewerOrgIds)
-            .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug'])
-            .execute()
+        return (
+            fetchStudyQuery(db)
+                .where('study.orgId', 'in', reviewerOrgIds)
+                // OTTER-636: hide fresh drafts only; a revision draft (DRAFT with a base snapshot) stays
+                // visible so the reviewer can see the change-requested proposal is being revised.
+                .where((eb) =>
+                    eb.or([
+                        eb('study.status', '!=', 'DRAFT'),
+                        eb('study.proposalRevisionBaseSubmissionId', 'is not', null),
+                    ]),
+                )
+                .innerJoin('org', 'org.id', 'study.orgId')
+                .select(['org.name as orgName', 'org.slug as orgSlug'])
+                .execute()
+        )
     })
 
 export const getStudyAction = new Action('getStudyAction')
@@ -245,7 +264,15 @@ export const softDeleteStudyAction = new Action('softDeleteStudyAction', { perfo
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .select([
+                'id',
+                'status',
+                'title',
+                'researcherId',
+                'orgId',
+                'submittedByOrgId',
+                'proposalRevisionBaseSubmissionId',
+            ])
             .where('id', '=', studyId)
             .where('deletedAt', 'is', null)
             .executeTakeFirstOrThrow(throwNotFound('study'))
@@ -255,6 +282,12 @@ export const softDeleteStudyAction = new Action('softDeleteStudyAction', { perfo
     .handler(async ({ db, study, params: { studyId }, session }) => {
         if (study.status !== 'DRAFT') {
             throw new ActionFailure({ study: 'only draft studies can be deleted' })
+        }
+        // OTTER-636: a revision draft (a change-requested proposal being edited) is also DRAFT, but it
+        // carries an immutable submitted-proposal snapshot. Deleting it would destroy that submitted
+        // history (the snapshot cascades on study delete), so only a FRESH draft may be deleted.
+        if (study.proposalRevisionBaseSubmissionId !== null) {
+            throw new ActionFailure({ study: 'a proposal being revised cannot be deleted' })
         }
         if (study.researcherId !== session.user.id) {
             throw new ActionFailure({ user: 'only the draft author can delete this proposal' })
