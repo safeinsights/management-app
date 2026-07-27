@@ -198,10 +198,11 @@ function CommandLinesSection({
     newExtProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
     newCmdProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
 }) {
+    // No early return on empty: onAdd flags the missing half, and bailing here meant the
+    // "+" button did nothing with no reason given (OTTER-647).
     const handleAdd = () => {
         const ext = (newExtProps.value as string).trim().toLowerCase().replace(/^\./, '')
         const cmd = (newCmdProps.value as string).trim()
-        if (!ext || !cmd) return
         onAdd(ext, cmd)
     }
 

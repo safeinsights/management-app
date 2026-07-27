@@ -220,28 +220,36 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
+            // Trim here rather than relying on the schema's transforms: Mantine's resolver
+            // validates transformed data, but this handler receives the raw form values, so
+            // 'FOO' paired with '   ' would otherwise read as complete and save the whitespace.
+            const envKey = newEnvKey.trim()
+            const envValue = newEnvValue.trim()
+            const cmdExt = newCmdExt.trim().toLowerCase().replace(/^\./, '')
+            const cmdValue = newCmdValue.trim()
+
             // A draft pair with only one half filled would otherwise be discarded here, so
             // the save appeared to succeed while losing the user's input (OTTER-647).
-            const halfEnvVar = Boolean(newEnvKey) !== Boolean(newEnvValue)
-            const halfCommand = Boolean(newCmdExt) !== Boolean(newCmdValue)
+            const halfEnvVar = Boolean(envKey) !== Boolean(envValue)
+            const halfCommand = Boolean(cmdExt) !== Boolean(cmdValue)
             if (halfEnvVar || halfCommand) {
                 if (halfEnvVar) {
-                    form.setFieldError(newEnvKey ? 'newEnvValue' : 'newEnvKey', 'Complete both fields or clear them')
+                    form.setFieldError(envKey ? 'newEnvValue' : 'newEnvKey', 'Complete both fields or clear them')
                 }
                 if (halfCommand) {
-                    form.setFieldError(newCmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
+                    form.setFieldError(cmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
                 }
                 return
             }
 
-            if (newEnvKey && newEnvValue) {
+            if (envKey && envValue) {
                 values.settings = {
                     ...values.settings,
-                    environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+                    environment: [...values.settings.environment, { name: envKey, value: envValue }],
                 }
             }
-            if (newCmdExt && newCmdValue) {
-                values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
+            if (cmdExt && cmdValue) {
+                values.commandLines = { ...values.commandLines, [cmdExt]: cmdValue }
             }
             saveCodeEnv(values as CreateFormValues | EditFormValues)
         },

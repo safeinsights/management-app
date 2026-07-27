@@ -9,7 +9,7 @@ import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
 import { Anchor, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
-import { isValidPhoneNumber } from 'react-phone-number-input'
+import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
@@ -38,9 +38,13 @@ export function AddSMSMFA() {
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
     // Previously had no validator at all, so an empty or malformed number only errored once
-    // Clerk rejected the submission (OTTER-647). Defers to the phone library's own check
-    // rather than a character/length regex, which accepted well-formed-looking but invalid
-    // numbers; it validates every country the input can produce, not just one.
+    // Clerk rejected the submission (OTTER-647). Uses the phone library rather than a
+    // character/length regex, so it covers every country the input can produce.
+    //
+    // isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks the number against real
+    // numbering plans, which rejects Clerk's reserved test range (+1 555 555 0100-0199) that
+    // the MFA e2e depends on. "Possible" still catches the actual defect here (too short, too
+    // long, wrong shape) and is the strongest claim a client can honestly make anyway.
     const phoneForm = useForm({
         initialValues: {
             phoneNumber: user?.phoneNumbers[0]?.toString() || '',
@@ -49,7 +53,7 @@ export function AddSMSMFA() {
             phoneNumber: (value: string) => {
                 const phone = value.trim()
                 if (!phone) return 'Phone number is required'
-                return isValidPhoneNumber(phone) ? null : 'Enter a valid phone number'
+                return isPossiblePhoneNumber(phone) ? null : 'Enter a valid phone number'
             },
         },
     })
