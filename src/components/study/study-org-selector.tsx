@@ -45,7 +45,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                 </Text>
                 <Grid align="center">
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Data Partner" inputId="studyOrg" />
+                        <FormFieldLabel label="Data Partner" required inputId="studyOrg" />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <Select

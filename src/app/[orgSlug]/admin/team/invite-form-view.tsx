@@ -12,6 +12,7 @@ export type InviteFormViewProps = {
     emailProps: Partial<ComponentPropsWithoutRef<typeof TextInput>>
     emailError?: ReactNode
     permissionProps: Partial<ComponentPropsWithoutRef<typeof Radio.Group>>
+    permissionError?: ReactNode
     isSubmitting: boolean
     isSubmitDisabled: boolean
 }
@@ -21,6 +22,7 @@ export function InviteFormView({
     emailProps,
     emailError,
     permissionProps,
+    permissionError,
     isSubmitting,
     isSubmitDisabled,
 }: InviteFormViewProps) {
@@ -36,12 +38,14 @@ export function InviteFormView({
                 error={emailError}
             />
 
-            <Flex mb="sm" fw="semibold">
+            <Flex mb="sm" fw="semibold" direction="column">
                 <Radio.Group
                     label="Assign Permissions"
+                    withAsterisk
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
                     name="permission"
                     {...permissionProps}
+                    error={permissionError}
                 >
                     <Flex gap="md" mt="xs" direction="column">
                         <Radio

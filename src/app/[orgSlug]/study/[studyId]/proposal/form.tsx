@@ -7,7 +7,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
-import { InputError } from '@/components/errors'
+import { FormField } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
@@ -47,6 +47,7 @@ const EditableTextFieldEntry: FC<{
     const value = form.values[field.id] as string
     const error = form.errors[field.id] as string | undefined
     const onChange = (val: string) => form.setFieldValue(field.id, val)
+    const onBlur = () => form.validateField(field.id)
 
     return (
         <CollaborativeProposalTextField
@@ -55,6 +56,7 @@ const EditableTextFieldEntry: FC<{
             initialValue={value}
             error={error}
             onChange={onChange}
+            onBlur={onBlur}
             websocketProvider={websocketProvider}
         />
     )
@@ -113,12 +115,14 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Text>
 
                     <Stack gap="xxl">
-                        <Box>
-                            <FormFieldLabel label="Study title" required inputId="title" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Give your study a short, clear title. This will help identify and reference your project
-                                on SafeInsights.
-                            </Text>
+                        <FormField
+                            inputId="title"
+                            label="Study title"
+                            required
+                            description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
+                            error={form.errors.title}
+                            footer={<WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />}
+                        >
                             <TextInput
                                 id="title"
                                 aria-label="Study Title"
@@ -131,21 +135,16 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 value={form.values.title ?? ''}
                                 error={!!form.errors.title}
                             />
-                            <Group justify="space-between" align="flex-start" mt={4}>
-                                <Stack gap={4}>
-                                    <InputError error={form.errors.title} />
-                                    <SaveStatusIndicator status={titleSaveStatus} />
-                                </Stack>
-                                <WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />
-                            </Group>
-                        </Box>
+                            <SaveStatusIndicator status={titleSaveStatus} />
+                        </FormField>
 
-                        <Box>
-                            <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
-                            <Text size="xs" mb="xs" c="charcoal.7">
-                                Select the dataset(s) you’d like to use for your research. You’ll find options based on
-                                the selected Data Partner in Step 1 and its data availability.
-                            </Text>
+                        <FormField
+                            inputId="datasets"
+                            label="Dataset(s) of interest"
+                            required
+                            description="Select the dataset(s) you’d like to use for your research. You’ll find options based on the selected Data Partner in Step 1 and its data availability."
+                            error={form.errors.datasets}
+                        >
                             <Group align="center" gap="xxl">
                                 <Box w="50%">
                                     <DatasetMultiSelect
@@ -155,6 +154,8 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                             form.setFieldValue('datasets', val)
                                             yjsForm.pushField('datasets', val)
                                         }}
+                                        onBlur={() => form.validateField('datasets')}
+                                        error={!!form.errors.datasets}
                                         orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
@@ -172,9 +173,8 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     </Group>
                                 </Anchor>
                             </Group>
-                            <InputError error={form.errors.datasets} />
                             <SaveStatusIndicator status={datasetsSaveStatus} />
-                        </Box>
+                        </FormField>
                     </Stack>
                 </Paper>
 
@@ -190,12 +190,17 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 
                 <Paper p="xxl">
                     <Stack gap="xxl">
-                        <Box>
-                            <FormFieldLabel label="Principal Investigator" required inputId="piName" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Select a Principal Investigator from your lab.
-                            </Text>
+                        <FormField
+                            inputId="piName"
+                            label="Principal Investigator"
+                            required
+                            description="Select a Principal Investigator from your lab."
+                            error={form.errors.piName}
+                        >
                             <Box w="30%">
+                                {/* Cannot spread getInputProps('piName'): this Select's value is the
+                                    piUserId while piName holds the label, so the composite handler
+                                    stays and blur validation is wired explicitly. */}
                                 <Select
                                     id="piName"
                                     aria-label="Principal Investigator"
@@ -210,11 +215,12 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         form.setFieldValue('piName', piName)
                                         yjsForm.pushPI(piUserId, piName)
                                     }}
+                                    onBlur={() => form.validateField('piName')}
                                     error={!!form.errors.piName}
                                 />
                             </Box>
                             <SaveStatusIndicator status={piSaveStatus} />
-                        </Box>
+                        </FormField>
 
                         <Box>
                             <FormFieldLabel label="Researcher" required inputId="researcher" />

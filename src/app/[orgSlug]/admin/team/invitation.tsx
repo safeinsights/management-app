@@ -68,7 +68,13 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             )}
             emailProps={studyProposalForm.getInputProps('email')}
             emailError={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
-            permissionProps={studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
+            // Default 'input' type, not 'checkbox': with 'checkbox' Mantine leaves withError at
+            // `type === 'input'` (false) and returns `checked` instead of `value`, so the
+            // permission error never reaches the Radio.Group (OTTER-647).
+            permissionProps={studyProposalForm.getInputProps('permission')}
+            permissionError={
+                studyProposalForm.errors.permission && <InputError error={studyProposalForm.errors.permission} />
+            }
             isSubmitting={isInviting}
             isSubmitDisabled={!studyProposalForm.isValid() || !isLoaded}
         />

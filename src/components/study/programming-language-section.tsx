@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
+import { widgetBlurHandler } from '@/components/form-field'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
@@ -61,12 +62,17 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
 
                 <Grid align="flex-start">
                     <Grid.Col span={12}>
+                        {/* Radio.Group's blur is a bubbled focusout, so tabbing between the radios
+                            would validate a still-empty group. widgetBlurHandler waits for focus to
+                            leave the group entirely (OTTER-647). */}
                         <Radio.Group
                             id="programming-language"
                             aria-labelledby="programming-language-title"
                             aria-describedby="programming-language-helper programming-language-status"
+                            aria-invalid={!!form.errors.language || undefined}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
+                            onBlur={widgetBlurHandler(() => form.validateField('language'))}
                         >
                             <Group gap="xl">
                                 {languages.map((opt) => (

@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 
-import { FormFieldLabel } from '@/components/form-field-label'
-import { InputError } from '@/components/errors'
+import { FormField, fieldDescribedBy } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -26,40 +25,8 @@ type Props = {
     initialValue: string
     error: string | undefined
     onChange: (val: string) => void
+    onBlur: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
-}
-
-type ProposalEditorProps = {
-    docName: string
-    studyId: string
-    initialValue: string
-    placeholder: string | undefined
-    ariaLabel: string
-    onTextChange: (json: string) => void
-    websocketProvider: HocuspocusProviderWebsocket | null
-}
-
-function ProposalTextEditor({
-    docName,
-    studyId,
-    initialValue,
-    placeholder,
-    ariaLabel,
-    onTextChange,
-    websocketProvider,
-}: ProposalEditorProps) {
-    return (
-        <Editor
-            id={docName}
-            studyId={studyId}
-            initialValue={initialValue}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            placeholder={placeholder}
-            ariaLabel={ariaLabel}
-            onChange={onTextChange}
-        />
-    )
 }
 
 export function CollaborativeProposalTextField({
@@ -68,10 +35,13 @@ export function CollaborativeProposalTextField({
     initialValue,
     error,
     onChange,
+    onBlur,
     websocketProvider,
 }: Props) {
     const [wordCount, setWordCount] = useState(() => countWordsFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
+    // The editor surface needs its own DOM id: `docName` is the Yjs document key.
+    const inputId = `proposal-field-${field.id}`
 
     const onTextChange = (json: string) => {
         onChange(json)
@@ -81,25 +51,32 @@ export function CollaborativeProposalTextField({
     return (
         <Paper p="xxl">
             <Stack gap="xxl">
-                <Box>
-                    <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
-                    <Text size="xs" c="charcoal.7" mb="xs">
-                        {field.description}
-                    </Text>
-                    <ProposalTextEditor
-                        docName={docName}
+                <FormField
+                    inputId={inputId}
+                    label={field.label}
+                    required={field.required}
+                    description={field.description}
+                    error={error}
+                    footer={<WordCounter wordCount={wordCount} maxWords={field.maxWords} />}
+                >
+                    <Editor
+                        id={docName}
+                        inputId={inputId}
                         studyId={studyId}
                         initialValue={initialValue}
+                        websocketProvider={websocketProvider}
+                        contentStyle={contentStyle}
                         placeholder={field.placeholder}
                         ariaLabel={field.label}
-                        onTextChange={onTextChange}
-                        websocketProvider={websocketProvider}
+                        onChange={onTextChange}
+                        onBlur={onBlur}
+                        error={error}
+                        ariaDescribedBy={fieldDescribedBy(inputId, {
+                            hasError: !!error,
+                            hasDescription: !!field.description,
+                        })}
                     />
-                    <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>
-                        {error && <InputError error={error} />}
-                        <WordCounter wordCount={wordCount} maxWords={field.maxWords} />
-                    </Group>
-                </Box>
+                </FormField>
             </Stack>
         </Paper>
     )

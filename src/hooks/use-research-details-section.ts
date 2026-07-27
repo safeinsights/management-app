@@ -69,7 +69,12 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
 
     const addInterest = () => {
         const v = interestDraft.trim()
-        if (!v) return
+        // Still validate on an empty draft: this runs from the input's blur, and skipping it
+        // meant leaving the required field untouched never surfaced an error (OTTER-647).
+        if (!v) {
+            form.validateField('researchInterests')
+            return
+        }
 
         const existing = form.values.researchInterests || []
         if (existing.length >= 5) return

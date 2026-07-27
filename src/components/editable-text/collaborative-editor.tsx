@@ -25,6 +25,7 @@ import { SaveStatusIndicator } from '@/components/save-status'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+import { widgetBlurHandler } from '@/components/form-field'
 
 function SaveStatus({ provider }: { provider: HocuspocusProvider | null }) {
     const status = useProviderSaveStatus(provider)
@@ -181,6 +182,14 @@ export type CollaborativeEditorProps = {
     ariaLabel?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
+    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    inputId?: string
+    /** Presence drives the red border and `aria-invalid`; the message itself is rendered by the caller. */
+    error?: React.ReactNode
+    /** Id(s) of the description/error nodes describing this editor. */
+    ariaDescribedBy?: string
+    /** Fires only when focus leaves the whole editor, toolbar included. */
+    onBlur?: () => void
     /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
      * again with null on teardown. Consumers (e.g. siblings that need to
@@ -236,6 +245,10 @@ export function CollaborativeEditor({
     ariaLabel,
     onChange,
     footerRight,
+    inputId,
+    error,
+    ariaDescribedBy,
+    onBlur,
     onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
@@ -344,11 +357,23 @@ export function CollaborativeEditor({
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
-                    style={{ overflow: 'hidden', position: 'relative' }}
+                    style={{
+                        overflow: 'hidden',
+                        position: 'relative',
+                        borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+                    }}
+                    onBlur={onBlur ? widgetBlurHandler(onBlur) : undefined}
                 >
                     <RichTextPlugin
                         contentEditable={
-                            <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                            <ContentEditable
+                                id={inputId}
+                                className={contentClassName}
+                                style={contentStyle}
+                                ariaLabel={ariaLabel}
+                                ariaDescribedBy={ariaDescribedBy}
+                                ariaInvalid={error ? true : undefined}
+                            />
                         }
                         placeholder={
                             placeholder ? (
