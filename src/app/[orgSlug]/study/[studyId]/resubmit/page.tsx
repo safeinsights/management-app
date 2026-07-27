@@ -1,6 +1,7 @@
-import { Box, Stack, Title } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
@@ -36,7 +37,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs
                     crumbs={[
                         ['Dashboard', Routes.dashboard],
@@ -45,7 +46,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                         ['Edit study code'],
                     ]}
                 />
-                <Title order={1}>Study proposal</Title>
+                <StudyPageHeader>Study proposal</StudyPageHeader>
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
                     <EditStudyCodeView
                         studyId={studyId}

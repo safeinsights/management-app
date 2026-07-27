@@ -10,6 +10,7 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -190,9 +191,9 @@ export function CodePostSubmissionView({
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <Paper p="xxl">

@@ -18,6 +18,7 @@ import StudyReviewPage from './page'
 import { ProposalReviewView } from './proposal-review-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { CodeReview } from './code-review'
+import { SecondaryAnalysisView } from './secondary-analysis-view'
 import { StudyDetailsReviewer } from './study-details-reviewer'
 
 const mockRedirect = vi.mocked(redirect)
@@ -69,11 +70,9 @@ describe('StudyReviewPage', () => {
     it('lets an SI admin review a study for an enclave org they do not belong to', async () => {
         const { user: siAdmin } = await mockSessionWithTestData({ isSiAdmin: true })
         const reviewingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        const { study } = await insertTestStudyJobData({
-            org: reviewingOrg,
-            researcherId: siAdmin.id,
-            studyStatus: 'PENDING-REVIEW',
-        })
+        // No job (insertTestStudyOnly): a proposal under review has no submitted code
+        const { study } = await insertTestStudyOnly({ org: reviewingOrg, researcherId: siAdmin.id })
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         const page = await callPage(reviewingOrg.slug, study.id)
 
@@ -179,6 +178,23 @@ describe('StudyReviewPage', () => {
         // the proposal-feedback variant (which would mean the code decision routed to the wrong screen).
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
+    })
+
+    it('renders the outputs-pending screen once the approved code is executing (no results yet)', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-APPROVED')
+        await addJobStatus(study.id, 'JOB-READY')
+
+        const page = await callPage(org.slug, study.id)
+
+        // The executing window out-ranks the code-approved feedback screen.
+        expect(page?.type).toBe(SecondaryAnalysisView)
     })
 
     it('renders StudyDetailsReviewer when results are present', async () => {

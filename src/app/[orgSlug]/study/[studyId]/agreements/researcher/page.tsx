@@ -8,7 +8,8 @@ import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { AgreementsPage } from '../agreements-page'
 
 // Researcher agreements step. A dual-role user (reviewer via the enclave, researcher via their own
@@ -54,9 +55,9 @@ export default async function ResearcherAgreementsRoute(props: {
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
-            <Title order={1}>Study request</Title>
+            <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer={false}
                 studyId={studyId}
