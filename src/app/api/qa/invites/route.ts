@@ -22,11 +22,14 @@ export const POST = async (req: Request) => {
         const invite = createInviteSchema.parse(await req.json())
         const result = await createQaInvite(db, invite, auth.user.id)
 
+        // Creating an invite destroys nothing and the invite id only exists once the call
+        // returns, so unlike the delete/update routes a single success row is the whole story.
         await auditQaInvocation({
             actorUserId: auth.user.id,
             eventType: 'INVITED',
             recordType: 'USER',
             recordId: result.inviteId,
+            outcome: 'succeeded',
             metadata: { email: result.email, orgSlug: result.orgSlug, alreadyInvited: result.alreadyInvited },
         })
 

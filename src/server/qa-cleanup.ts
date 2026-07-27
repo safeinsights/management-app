@@ -5,7 +5,7 @@
  *
  * These routes run in every environment, production included, so the only thing
  * standing between them and real customer data is `assertQaEmail`: every user
- * they touch must have a qa-prefixed email address. Deletion here is permanent
+ * they touch must have a "qa-" prefixed email address. Deletion here is permanent
  * and covers the DB rows, the S3 objects, and the Clerk account, so treat that
  * check as load-bearing — do not add a path that reaches these helpers without
  * it. Every invocation is written to the audit table.
@@ -34,13 +34,16 @@ export class QaForbiddenError extends Error {}
 
 /**
  * The QA routes operate on production, where a stray id would otherwise reach a real
- * account. Restrict them to addresses whose local part starts with "qa" (qa@, qa-bob@,
- * QATest@) — the convention QA fixtures follow — so a real user can never be the target.
+ * account. Restrict them to addresses whose local part starts with "qa-" (qa-bob@,
+ * QA-Test@) — the convention QA fixtures follow — so a real user can never be the target.
+ *
+ * The trailing dash is load-bearing: a bare "qa" prefix also matches real given names
+ * such as qasim@ and qadir@, which would classify an ordinary account as QA.
  */
 export function assertQaEmail(email: string | null, context: string) {
     const localPart = (email ?? '').split('@')[0]
-    if (!/^qa/i.test(localPart)) {
-        throw new QaForbiddenError(`${context} is not a QA account; expected an email starting with "qa"`)
+    if (!/^qa-/i.test(localPart)) {
+        throw new QaForbiddenError(`${context} is not a QA account; expected an email starting with "qa-"`)
     }
 }
 
@@ -141,14 +144,15 @@ export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, stu
 }
 
 /**
- * Look up a study (throwing QaCleanupNotFoundError if absent), resolve its org
- * slug for the S3 path, and delete it.
+ * Look up a study (throwing QaCleanupNotFoundError if absent) and apply the QA guard.
  *
- * A study has no email of its own, so the QA guard is applied to its researcher:
- * only studies owned by a qa-prefixed account can be deleted through this path.
- * The real user-facing delete goes through deleteStudyCompletely and is unaffected.
+ * A study has no email of its own, so the guard is applied to its researcher: only
+ * studies owned by a qa- prefixed account are eligible. Split from the delete itself so
+ * callers can reject an ineligible target before auditing an attempt against it.
  */
-export async function deleteStudyById(db: Kysely<DB>, studyId: string) {
+export async function findQaStudy(db: Kysely<DB>, studyId: string) {
+    if (!UUID_RE.test(studyId)) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
+
     const study = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -160,38 +164,49 @@ export async function deleteStudyById(db: Kysely<DB>, studyId: string) {
     if (!study) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
     assertQaEmail(study.researcherEmail, `study ${studyId} researcher`)
 
+    return study
+}
+
+/**
+ * Delete a QA-owned study and its S3 folder. The real user-facing delete goes through
+ * deleteStudyCompletely and is unaffected by the QA guard.
+ */
+export async function deleteStudyById(db: Kysely<DB>, studyId: string) {
+    const study = await findQaStudy(db, studyId)
     await deleteStudyCompletely(db, study.orgSlug, study.studyId)
 }
 
 /**
- * Fully delete a user: any studies they own (researcher/pi/reviewer FKs do not
- * cascade), their dependent rows, the user row, and the backing Clerk account.
- * Accepts a user id or an email address.
+ * Fully delete a user: the studies they own, their dependent rows, the user row, and the
+ * backing Clerk account. Accepts a user id or an email address.
+ *
+ * Ownership is researcher_id only. Studies where the account is merely PI or reviewer are
+ * detached, not deleted — those can belong to a real researcher.
  */
 export async function deleteUserById(db: Kysely<DB>, idOrEmail: string) {
     const user = await findQaUser(db, idOrEmail)
     const userId = user.id
 
-    // study.researcher_id / pi_user_id / reviewer_id reference user.id with no
-    // cascade, so any study the user is attached to must be removed first. Org
-    // slugs are captured up front for the post-commit S3 cleanup.
+    // study.researcher_id / pi_user_id / reviewer_id reference user.id with no cascade,
+    // so every reference has to be cleared before the user row goes. Only the studies the
+    // QA account *owns* (researcher_id, the non-nullable column) are deleted. A study
+    // merely reviewed or PI'd by a QA account can belong to a real researcher — deleting
+    // it would destroy that researcher's work — so those nullable references are detached
+    // instead. Org slugs are captured up front for the post-commit S3 cleanup.
     const studies = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
         .select(['study.id as studyId', 'org.slug as orgSlug'])
-        .where((eb) =>
-            eb.or([
-                eb('study.researcherId', '=', userId),
-                eb('study.piUserId', '=', userId),
-                eb('study.reviewerId', '=', userId),
-            ]),
-        )
+        .where('study.researcherId', '=', userId)
         .execute()
 
     await withTransaction(db, async (trx) => {
         for (const study of studies) {
             await deleteStudyRows(trx, study.studyId)
         }
+        // Studies owned by someone else outlive the QA account that was assigned to them.
+        await trx.updateTable('study').set({ piUserId: null }).where('piUserId', '=', userId).execute()
+        await trx.updateTable('study').set({ reviewerId: null }).where('reviewerId', '=', userId).execute()
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()

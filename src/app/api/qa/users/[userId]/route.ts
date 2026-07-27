@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/database'
-import { requireQaAdmin, deleteUserById } from '@/server/qa-cleanup'
+import { requireQaAdmin, deleteUserById, findQaUser } from '@/server/qa-cleanup'
 import { provisionQaUser } from '@/server/qa-provision'
 import { qaErrorResponse } from '../../responses'
-import { auditQaInvocation } from '../../audit'
+import { auditQaOperation } from '../../audit'
 
 // Every field is optional; an omitted field is left untouched. `orgs: []` is meaningful —
 // it removes every membership.
@@ -21,22 +21,24 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
     }
 
     const { userId } = await params
-    let deleted
     try {
-        deleted = await deleteUserById(db, userId)
+        // Resolved first so the attempt can be audited against the real user id — and so a
+        // 404/non-QA target is rejected before anything is written to the audit trail.
+        const target = await findQaUser(db, userId)
+
+        await auditQaOperation(
+            {
+                actorUserId: auth.user.id,
+                eventType: 'DELETED',
+                recordType: 'USER',
+                recordId: target.id,
+                metadata: { email: target.email },
+            },
+            () => deleteUserById(db, userId),
+        )
     } catch (error) {
         return qaErrorResponse(error)
     }
-
-    // Audited after the fact: the user row is gone, so this records what was removed
-    // against the admin who removed it.
-    await auditQaInvocation({
-        actorUserId: auth.user.id,
-        eventType: 'DELETED',
-        recordType: 'USER',
-        recordId: deleted.id,
-        metadata: { email: deleted.email },
-    })
 
     return NextResponse.json({ deleted: userId })
 }
@@ -51,20 +53,33 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ userId
     const { userId } = await params
     try {
         const update = updateUserSchema.parse(await req.json())
-        const result = await provisionQaUser(db, userId, update)
+        // Resolved up front so a bad body or a non-QA target never reaches the audit trail,
+        // and so the attempt row carries the real user id.
+        const target = await findQaUser(db, userId)
 
-        // Record which fields were touched, never the password itself.
-        await auditQaInvocation({
-            actorUserId: auth.user.id,
-            eventType: 'UPDATED',
-            recordType: 'USER',
-            recordId: result.userId,
-            metadata: {
-                orgs: update.orgs ? result.orgs : undefined,
-                publicKeyFingerprint: result.fingerprint ?? undefined,
-                passwordSet: result.passwordSet,
+        // Records which fields were requested, never the password itself. The success row
+        // adds what actually landed.
+        const result = await auditQaOperation(
+            {
+                actorUserId: auth.user.id,
+                eventType: 'UPDATED',
+                recordType: 'USER',
+                recordId: target.id,
+                metadata: {
+                    requested: {
+                        orgs: update.orgs?.map((org) => org.slug),
+                        publicKey: Boolean(update.publicKey),
+                        password: Boolean(update.password),
+                    },
+                },
             },
-        })
+            () => provisionQaUser(db, userId, update),
+            (provisioned) => ({
+                orgs: update.orgs ? provisioned.orgs : undefined,
+                publicKeyFingerprint: provisioned.fingerprint ?? undefined,
+                passwordSet: provisioned.passwordSet,
+            }),
+        )
 
         return NextResponse.json(result)
     } catch (error) {

@@ -1,8 +1,9 @@
-import { describe, it, expect, type Mock } from 'vitest'
+import { describe, it, expect, vi, type Mock } from 'vitest'
 import {
     db,
     insertTestOrg,
     insertTestUser,
+    insertTestStudyData,
     mockSessionWithTestData,
     readTestSupportFile,
     faker,
@@ -10,7 +11,14 @@ import {
 } from '@/tests/unit.helpers'
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
-import { PATCH, DELETE } from './route'
+import { deleteFolderContents } from '@/server/aws'
+
+vi.mock('@/server/aws', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/aws')>()
+    return { ...actual, deleteFolderContents: vi.fn(async () => {}) }
+})
+
+const { PATCH, DELETE } = await import('./route')
 
 async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdmin: true }) {
     const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
@@ -22,12 +30,22 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
 }
 
 // getAuditEntries omits metadata, which is the part that matters here.
-const auditRowFor = async (recordId: string) =>
+// Destructive routes write an `attempted` row before the work and a `succeeded`/`failed`
+// row after, so assertions have to name which outcome they mean.
+const auditRowsFor = async (recordId: string) =>
     await db
         .selectFrom('audit')
         .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata'])
         .where('recordId', '=', recordId)
-        .executeTakeFirstOrThrow()
+        .orderBy('createdAt')
+        .execute()
+
+const auditRowFor = async (recordId: string, outcome = 'succeeded') => {
+    const rows = await auditRowsFor(recordId)
+    const row = rows.find((entry) => (entry.metadata as { outcome?: string } | null)?.outcome === outcome)
+    if (!row) throw new Error(`no ${outcome} audit row for ${recordId}`)
+    return row
+}
 
 const patchUser = (idOrEmail: string, body: unknown) =>
     PATCH(
@@ -163,6 +181,40 @@ describe('QA account guard and audit trail', () => {
         const entry = await auditRowFor(user.id)
         expect(entry).toMatchObject({ eventType: 'DELETED', recordType: 'USER', userId: admin.id })
         expect(entry.metadata).toMatchObject({ email: user.email, via: 'qa-api' })
+    })
+
+    // The attempt row is what survives a crash between the DB commit and the S3/Clerk
+    // cleanup — without it a half-finished deletion leaves no trace at all.
+    it('records the attempt before the destructive work and the outcome after', async () => {
+        await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        await DELETE(new Request('http://localhost', { method: 'DELETE' }), {
+            params: Promise.resolve({ userId: user.id }),
+        })
+
+        const outcomes = (await auditRowsFor(user.id)).map((row) => (row.metadata as { outcome?: string }).outcome)
+        expect(outcomes).toEqual(['attempted', 'succeeded'])
+    })
+
+    it('records a failed outcome when cleanup fails after the DB commit', async () => {
+        await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        ;(deleteFolderContents as Mock).mockRejectedValueOnce(new Error('s3 is down'))
+        // A study forces the S3 cleanup path that is being made to fail.
+        await insertTestStudyData({ org, researcherId: user.id })
+
+        await expect(
+            DELETE(new Request('http://localhost', { method: 'DELETE' }), {
+                params: Promise.resolve({ userId: user.id }),
+            }),
+        ).rejects.toThrow('s3 is down')
+
+        const rows = await auditRowsFor(user.id)
+        expect(rows.map((row) => (row.metadata as { outcome?: string }).outcome)).toEqual(['attempted', 'failed'])
+        expect((rows[1].metadata as { error?: string }).error).toContain('s3 is down')
     })
 })
 

@@ -156,6 +156,22 @@ describe('provisionQaUser', () => {
         expect(updateClerkUserMetadata as Mock).toHaveBeenCalledWith(user.id)
     })
 
+    // A committed membership change plus a failed Clerk sync would leave the DB and the
+    // JWT granting different access. The change is rolled back instead.
+    it('restores the previous memberships when the Clerk metadata sync fails', async () => {
+        const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: orgA, isAdmin: true, email: qaEmail() })
+        const before = await orgSlugsFor(user.id)
+        ;(updateClerkUserMetadata as Mock).mockRejectedValueOnce(new Error('clerk is down'))
+
+        await expect(provisionQaUser(db, user.id, { orgs: [{ slug: orgB.slug, isAdmin: true }] })).rejects.toThrow(
+            'clerk is down',
+        )
+
+        expect(await orgSlugsFor(user.id)).toEqual(before)
+    })
+
     it('does not resync Clerk metadata when orgs are untouched', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
@@ -293,5 +309,18 @@ describe('QaInvalidRequestError', () => {
         await expect(
             provisionQaUser(db, user.id, { publicKey: '-----BEGIN PUBLIC KEY-----\n!!!\n-----END PUBLIC KEY-----' }),
         ).rejects.toBeInstanceOf(QaInvalidRequestError)
+    })
+
+    // Decodes cleanly but is an EC key, not the RSA-OAEP key results are wrapped to.
+    // Bad caller input, so it must not surface as a 500.
+    it('is raised for a decodable PEM holding an unsupported key type', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        const { publicKey } = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign'])
+        const spki = Buffer.from(await crypto.subtle.exportKey('spki', publicKey)).toString('base64')
+        const pem = `-----BEGIN PUBLIC KEY-----\n${spki}\n-----END PUBLIC KEY-----`
+
+        await expect(provisionQaUser(db, user.id, { publicKey: pem })).rejects.toBeInstanceOf(QaInvalidRequestError)
     })
 })

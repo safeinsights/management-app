@@ -10,10 +10,11 @@ import { type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
 import { clerkClient } from '@clerk/nextjs/server'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
-import { assertValidPublicKey } from '@/lib/public-key'
+import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { pathForInvitation } from '@/lib/paths'
 import { APP_BASE_URL } from '@/server/config'
 import { updateClerkUserMetadata } from '@/server/clerk'
+import logger from '@/lib/logger'
 import { findQaUser, withTransaction, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
 
 export class QaConflictError extends Error {}
@@ -80,6 +81,20 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
 }
 
 /**
+ * The user's memberships in the shape applyOrgMemberships consumes, so a failed Clerk
+ * sync can be compensated by replaying them.
+ */
+async function currentMemberships(db: Kysely<DB>, userId: string) {
+    const rows = await db
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .select(['orgUser.orgId', 'org.slug', 'orgUser.isAdmin'])
+        .where('orgUser.userId', '=', userId)
+        .execute()
+    return rows.map(({ orgId, slug, isAdmin }) => ({ orgId, slug, isAdmin }))
+}
+
+/**
  * Store a PEM public key for the user, replacing any existing one. The fingerprint is
  * derived here rather than accepted from the caller — a mismatched one would make every
  * sender wrap to a key the owner cannot unwrap.
@@ -91,7 +106,17 @@ async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
     } catch {
         throw new QaInvalidRequestError('publicKey is not a valid PEM encoded key')
     }
-    await assertValidPublicKey(keyData)
+
+    // A well-formed PEM can still carry a key type we cannot wrap to (EC, Ed25519, an
+    // RSA private key). That is bad caller input, not a fault, so it must read as a 400.
+    try {
+        await assertValidPublicKey(keyData)
+    } catch (error) {
+        if (error instanceof InvalidPublicKeyError) {
+            throw new QaInvalidRequestError(`publicKey ${error.message}`)
+        }
+        throw error
+    }
 
     const fingerprint = await fingerprintKeyData(keyData)
     const publicKey = Buffer.from(keyData)
@@ -117,6 +142,7 @@ async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
  * Omitted fields are left untouched; `orgs: []` is meaningful and removes every membership.
  *
  * DB writes run in one transaction; Clerk calls follow the commit, mirroring qa-cleanup.
+ * A failed Clerk metadata sync is compensated — see below.
  */
 export async function provisionQaUser(
     db: Kysely<DB>,
@@ -125,6 +151,9 @@ export async function provisionQaUser(
 ): Promise<QaProvisionResult> {
     const user = await findQaUser(db, idOrEmail)
     const resolvedOrgs = update.orgs ? await resolveOrgs(db, update.orgs) : null
+
+    // Captured before the write so a failed Clerk sync can be rolled back to it.
+    const priorOrgs = resolvedOrgs ? await currentMemberships(db, user.id) : null
 
     let fingerprint: string | null = null
     await withTransaction(db, async (trx) => {
@@ -138,8 +167,29 @@ export async function provisionQaUser(
 
     // Authorization reads org membership and isAdmin from the Clerk JWT's publicMetadata,
     // not the DB, so a membership change is invisible until the metadata is rewritten.
-    if (resolvedOrgs) {
-        await updateClerkUserMetadata(user.id)
+    //
+    // The transaction has already committed by this point (updateClerkUserMetadata reads
+    // the memberships back through the module-level db and so cannot see uncommitted
+    // rows). If Clerk is unavailable the two stores would disagree — the DB granting
+    // access the JWT does not, or worse still granting the old access — so restore the
+    // previous memberships and surface the failure. The endpoint is then a no-op rather
+    // than a request that split authorization state in half.
+    if (resolvedOrgs && priorOrgs) {
+        try {
+            await updateClerkUserMetadata(user.id)
+        } catch (error) {
+            // Compensation is best-effort: nothing it does may replace the original error,
+            // which is what tells the caller the request did not take effect. If the
+            // rollback itself fails the route's `failed` audit row records that production
+            // was left mid-change.
+            try {
+                await withTransaction(db, (trx) => applyOrgMemberships(trx, user.id, priorOrgs))
+                await updateClerkUserMetadata(user.id)
+            } catch (rollbackError) {
+                logger.error('QA provisioning rollback failed; memberships may be out of sync', rollbackError)
+            }
+            throw error
+        }
     }
 
     if (update.password) {

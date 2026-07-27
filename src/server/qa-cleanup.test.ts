@@ -108,11 +108,23 @@ describe('requireQaAdmin', () => {
 // The QA routes run on production, so this check is the only thing keeping them off
 // real accounts. Deletion is permanent (DB rows, S3 objects, Clerk account).
 describe('assertQaEmail', () => {
-    it.each(['qa@test.com', 'qa-reviewer@test.com', 'QATest@example.org', 'qa.bob@test.com'])('accepts %s', (email) => {
+    it.each(['qa-reviewer@test.com', 'QA-Test@example.org', 'qa-@test.com'])('accepts %s', (email) => {
         expect(() => assertQaEmail(email, 'user')).not.toThrow()
     })
 
-    it.each(['bob-qa@test.com', 'real.user@corp.com', 'quality@test.com', 'q@test.com', ''])('rejects %s', (email) => {
+    // The dash is what separates the QA convention from real given names.
+    it.each([
+        'qa@test.com',
+        'qa.bob@test.com',
+        'QATest@example.org',
+        'qasim@example.org',
+        'qadir@example.org',
+        'bob-qa@test.com',
+        'real.user@corp.com',
+        'quality@test.com',
+        'q@test.com',
+        '',
+    ])('rejects %s', (email) => {
         expect(() => assertQaEmail(email, 'user')).toThrow(QaForbiddenError)
     })
 
@@ -219,6 +231,31 @@ describe('deleteUserById', () => {
         expect(keys).toHaveLength(0)
 
         expect(client.users.deleteUser as Mock).toHaveBeenCalledWith(user.clerkId)
+    })
+
+    // Deleting a QA account must never take a real researcher's study with it just
+    // because the QA account was assigned to review it.
+    it('detaches, rather than deletes, studies the user only reviews or is PI on', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user: realResearcher } = await insertTestUser({ org })
+        const { user: qaUser } = await insertTestUser({ org, email: qaEmail() })
+        const { studyId } = await insertTestStudyData({ org, researcherId: realResearcher.id })
+        await db
+            .updateTable('study')
+            .set({ reviewerId: qaUser.id, piUserId: qaUser.id })
+            .where('id', '=', studyId)
+            .execute()
+
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await deleteUserById(db, qaUser.id)
+
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'researcherId', 'reviewerId', 'piUserId'])
+            .where('id', '=', studyId)
+            .executeTakeFirst()
+
+        expect(study).toMatchObject({ researcherId: realResearcher.id, reviewerId: null, piUserId: null })
     })
 
     it('tolerates a Clerk 404 as an already-deleted account', async () => {
