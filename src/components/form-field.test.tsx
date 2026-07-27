@@ -89,15 +89,30 @@ describe('widgetBlurHandler', () => {
         expect(onLeave).toHaveBeenCalledTimes(1)
     })
 
-    it('does not fire when focus leaves the page entirely', () => {
+    // A null relatedTarget is ambiguous, and the two cases must be told apart: clicking
+    // whitespace is the commonest way to leave a field, so treating it as "still inside"
+    // silently defeats the whole feature.
+    it('fires when focus goes to a non-focusable part of the page', () => {
         const onLeave = vi.fn()
         renderWithProviders(<WidgetProbe onLeave={onLeave} />)
 
-        // relatedTarget is null when the user switches tab or window; that is not the user
-        // moving to the next field, so it must not flag an incomplete value.
+        const widget = screen.getByTestId('widget')
+        widget.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
+
+        expect(onLeave).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not fire when the document itself loses focus', () => {
+        const onLeave = vi.fn()
+        const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+        renderWithProviders(<WidgetProbe onLeave={onLeave} />)
+
+        // Switching tab or window also yields a null relatedTarget, but the user has not
+        // moved to the next field, so it must not flag an incomplete value.
         const widget = screen.getByTestId('widget')
         widget.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
 
         expect(onLeave).not.toHaveBeenCalled()
+        hasFocus.mockRestore()
     })
 })

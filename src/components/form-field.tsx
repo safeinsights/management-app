@@ -23,9 +23,13 @@ import { Box, Group, Input, Text } from '@mantine/core'
  * it to `aria-describedby` for non-boolean values.
  */
 
-/** Matches the label typography the app used before `Input.Wrapper` (bold, small, red asterisk). */
+/**
+ * Matches the label and description spacing the app used before `Input.Wrapper` (bold small
+ * label, red asterisk, and a gap under the guidance text that Mantine does not add itself).
+ */
 export const formFieldLabelStyles = {
     labelProps: { fw: 600, fz: 'sm' },
+    styles: { description: { marginBottom: 'var(--mantine-spacing-xs)' } },
 } as const
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
@@ -102,13 +106,27 @@ export function revalidateOnBlur(form: ValidatableForm, path: string) {
  * Composite widgets (Lexical editor plus toolbar, pills plus their remove buttons, a radio
  * group's radios) emit blur as focus moves *between* their internal parts, because React's
  * `onBlur` is `focusout` and bubbles. Validating on those flashes an error mid-interaction.
- * A null `relatedTarget` means focus left the page entirely (tab or window switch), which is
- * also not the user leaving the field.
+ *
+ * A null `relatedTarget` is ambiguous and must not be treated as "still inside". It happens
+ * both when the user clicks a non-focusable part of the page (whitespace, a heading, body
+ * text), which IS them moving on and must validate, and when the tab or window loses focus,
+ * which is not. `document.hasFocus()` separates the two: it stays true for an in-page click
+ * and goes false when the document itself is no longer focused.
+ *
+ * Getting this wrong silently defeats the feature: clicking neutral space is the commonest way
+ * to leave a field, so skipping it means the required error never appears at all.
  */
 export function widgetBlurHandler(onLeave: (event: React.FocusEvent<HTMLElement>) => void) {
     return (event: React.FocusEvent<HTMLElement>) => {
         const next = event.relatedTarget as Node | null
-        if (!next || event.currentTarget.contains(next)) return
+
+        if (!next) {
+            if (typeof document !== 'undefined' && !document.hasFocus()) return
+            onLeave(event)
+            return
+        }
+
+        if (event.currentTarget.contains(next)) return
         onLeave(event)
     }
 }

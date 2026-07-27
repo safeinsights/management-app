@@ -187,6 +187,9 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         // Rendered as the input's description so Mantine owns the
                         // aria-describedby wiring; a hand-passed value is overwritten.
                         description={shouldShowRequirements ? <Requirements requirements={requirements} /> : undefined}
+                        // Description below the input, not Mantine's default position above it:
+                        // this is live validation feedback, and it sat under the field before.
+                        inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
 
                     <PasswordInput

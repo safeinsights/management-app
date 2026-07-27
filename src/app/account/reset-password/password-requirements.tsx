@@ -53,21 +53,28 @@ export function usePasswordRequirements(password: string, touched = false) {
     }
 }
 
+/**
+ * Rendered as the password inputs' `description` so Mantine owns the `aria-describedby`
+ * wiring. Mantine renders a description inside a `<p>`, so every element here is a `span`:
+ * a `div` or nested `p` would be invalid HTML and trigger a hydration error.
+ */
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()
     for (let i = 0; i < requirements.length; i += 2) {
         rows.push(
-            <Flex key={i} direction="row" gap="md">
+            <Flex key={i} component="span" direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
-                    <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
+                    <Flex key={i + index} component="span" align="center" gap="xs" style={{ flex: 1 }}>
                         {requirement.meets ? (
                             <CheckIcon size={14} color={theme.colors.green[9]} />
                         ) : (
                             <XCircleIcon size={14} color={theme.colors.red[7]} />
                         )}
 
-                        <Text size="sm">{requirement.label}</Text>
+                        <Text component="span" size="sm">
+                            {requirement.label}
+                        </Text>
                     </Flex>
                 ))}
             </Flex>,
@@ -75,7 +82,7 @@ export function Requirements({ requirements }: RequirementsProps) {
     }
 
     return (
-        <Flex direction="column" gap="xs">
+        <Flex component="span" direction="column" gap="xs">
             {rows}
         </Flex>
     )
