@@ -3,7 +3,7 @@ import { Select, TextInput } from '@mantine/core'
 import { z } from 'zod'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
-import { FormField, fieldAria } from '@/components/form-field'
+import { FormField, nativeFieldProps } from '@/components/form-field'
 
 // OTTER-647's acceptance criteria in its most reduced form: moving away from an incomplete
 // required field must raise its error. Mantine defaults `validateInputOnBlur` to false, so
@@ -24,22 +24,14 @@ function Harness() {
     return (
         <>
             <FormField inputId="title" label="Study title" required error={form.errors.title}>
-                <TextInput
-                    id="title"
-                    aria-label="Study title"
-                    {...form.getInputProps('title')}
-                    error={!!form.errors.title}
-                    {...fieldAria('title', { hasError: !!form.errors.title, hasDescription: false })}
-                />
+                <TextInput id="title" {...form.getInputProps('title')} {...nativeFieldProps(form.errors.title)} />
             </FormField>
             <FormField inputId="partner" label="Data Partner" required error={form.errors.partner}>
                 <Select
                     id="partner"
-                    aria-label="Data Partner"
                     data={[{ value: 'rice', label: 'Rice University' }]}
                     {...form.getInputProps('partner')}
-                    error={!!form.errors.partner}
-                    {...fieldAria('partner', { hasError: !!form.errors.partner, hasDescription: false })}
+                    {...nativeFieldProps(form.errors.partner)}
                 />
             </FormField>
             <button type="button">next</button>
@@ -59,7 +51,7 @@ describe('required-field blur validation', () => {
         const user = userEvent.setup()
         renderWithProviders(<Harness />)
 
-        await user.click(screen.getByLabelText('Study title'))
+        await user.click(screen.getByLabelText(/Study title/))
         await user.tab()
 
         expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
@@ -69,7 +61,7 @@ describe('required-field blur validation', () => {
         const user = userEvent.setup()
         renderWithProviders(<Harness />)
 
-        await user.click(screen.getByLabelText('Data Partner'))
+        await user.click(screen.getByLabelText(/Data Partner/))
         await user.click(screen.getByRole('button', { name: 'next' }))
 
         expect(await screen.findByText('Data Partner is required.')).toBeInTheDocument()
@@ -79,11 +71,11 @@ describe('required-field blur validation', () => {
         const user = userEvent.setup()
         renderWithProviders(<Harness />)
 
-        await user.click(screen.getByLabelText('Study title'))
+        await user.click(screen.getByLabelText(/Study title/))
         await user.tab()
         expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
 
-        await user.type(screen.getByLabelText('Study title'), 'A real title')
+        await user.type(screen.getByLabelText(/Study title/), 'A real title')
 
         expect(screen.queryByText('Study title is required.')).not.toBeInTheDocument()
     })
@@ -92,7 +84,7 @@ describe('required-field blur validation', () => {
         const user = userEvent.setup()
         renderWithProviders(<Harness />)
 
-        await user.type(screen.getByLabelText('Study title'), '   ')
+        await user.type(screen.getByLabelText(/Study title/), '   ')
         await user.tab()
 
         expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
@@ -102,11 +94,11 @@ describe('required-field blur validation', () => {
         const user = userEvent.setup()
         renderWithProviders(<Harness />)
 
-        await user.click(screen.getByLabelText('Study title'))
+        await user.click(screen.getByLabelText(/Study title/))
         await user.tab()
         await screen.findByText('Study title is required.')
 
-        const input = screen.getByLabelText('Study title')
+        const input = screen.getByLabelText(/Study title/)
         expect(input).toHaveAttribute('aria-invalid', 'true')
         expect(input.getAttribute('aria-describedby')).toContain('title-error')
         expect(document.getElementById('title-error')).toHaveTextContent('Study title is required.')

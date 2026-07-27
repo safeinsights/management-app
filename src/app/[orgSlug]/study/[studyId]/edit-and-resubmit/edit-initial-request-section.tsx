@@ -6,7 +6,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
-import { FormField, fieldAria } from '@/components/form-field'
+import { FormField, nativeFieldProps } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/lexical'
@@ -100,8 +100,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 yjsForm.pushField('title', event.currentTarget.value)
                             }}
                             value={form.values.title ?? ''}
-                            error={!!form.errors.title}
-                            {...fieldAria('title', { hasError: !!form.errors.title, hasDescription: true })}
+                            {...nativeFieldProps(form.errors.title)}
                         />
                     </FormField>
 
@@ -122,11 +121,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                         yjsForm.pushField('datasets', val)
                                     }}
                                     onBlur={() => form.validateField('datasets')}
-                                    error={!!form.errors.datasets}
-                                    aria={fieldAria('datasets', {
-                                        hasError: !!form.errors.datasets,
-                                        hasDescription: true,
-                                    })}
+                                    error={form.errors.datasets}
+                                    suppressOwnError
                                     orgSlug={enclaveOrgSlug}
                                 />
                             </Box>
@@ -186,8 +182,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     yjsForm.pushPI(piUserId, piName)
                                 }}
                                 onBlur={() => form.validateField('piName')}
-                                error={!!form.errors.piName}
-                                {...fieldAria('piName', { hasError: !!form.errors.piName, hasDescription: true })}
+                                {...nativeFieldProps(form.errors.piName)}
                             />
                         </Box>
                     </FormField>

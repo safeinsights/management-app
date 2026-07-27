@@ -16,7 +16,6 @@ import { Selectable } from 'kysely'
 import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import { within } from '@testing-library/react'
-import { notifications } from '@mantine/notifications'
 
 describe('DataSources', async () => {
     let org: Selectable<Org>
@@ -79,8 +78,8 @@ describe('DataSources', async () => {
 
         expect(modal).toHaveAttribute('aria-modal', 'true')
 
-        expect(modalQueries.getByLabelText(/name/i)).toBeInTheDocument()
-        expect(modalQueries.getByLabelText(/description/i)).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/^Name\b/i)).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/^Description$/i)).toBeInTheDocument()
         expect(modalQueries.getByRole('heading', { name: /data source URLs/i })).toBeInTheDocument()
         expect(modalQueries.getByPlaceholderText(/^URL$/i)).toBeInTheDocument()
         expect(modalQueries.getByPlaceholderText(/url description/i)).toBeInTheDocument()
@@ -97,8 +96,8 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/name/i), 'My data source')
-        await user.type(modalQueries.getByLabelText(/description/i), 'Description of my data source')
+        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'My data source')
+        await user.type(modalQueries.getByLabelText(/^Description$/i), 'Description of my data source')
 
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/url')
 
@@ -150,8 +149,8 @@ describe('DataSources', async () => {
         const modalQueries = within(modal)
 
         expect(modalQueries.getByRole('heading', { name: /edit data source/i })).toBeInTheDocument()
-        expect(modalQueries.getByLabelText(/name/i)).toHaveValue('Existing source')
-        expect(modalQueries.getByLabelText(/description/i)).toHaveValue('Existing desc')
+        expect(modalQueries.getByLabelText(/^Name\b/i)).toHaveValue('Existing source')
+        expect(modalQueries.getByLabelText(/^Description$/i)).toHaveValue('Existing desc')
         expect(modalQueries.getByDisplayValue('https://example.com/existing-url')).toBeInTheDocument()
         expect(modalQueries.getByDisplayValue('Existing url desc')).toBeInTheDocument()
         expect(modalQueries.getByRole('button', { name: /update data source/i })).toBeInTheDocument()
@@ -178,11 +177,11 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        const nameInput = modalQueries.getByLabelText(/name/i)
+        const nameInput = modalQueries.getByLabelText(/^Name\b/i)
         await user.clear(nameInput)
         await user.type(nameInput, 'Updated name')
 
-        const descInput = modalQueries.getByLabelText(/description/i)
+        const descInput = modalQueries.getByLabelText(/^Description$/i)
         await user.clear(descInput)
         await user.type(descInput, 'Updated desc')
 
@@ -249,7 +248,7 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/name/i), 'Implicit url source')
+        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'Implicit url source')
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/implicit')
         await user.type(modalQueries.getByPlaceholderText(/url description/i), 'Implicit url desc')
 
@@ -268,7 +267,10 @@ describe('DataSources', async () => {
         expect(urls).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit url desc' }])
     })
 
-    it('includes URL information if user does not click add URL on save but triggers notification and does not save when invalid', async () => {
+    // OTTER-647: an invalid draft URL is now rejected on the client, on the field the user
+    // typed in. It previously reached the server action and came back as a red notification,
+    // which told the user something failed but not which field or why.
+    it('rejects an invalid draft URL on the field itself and does not save', async () => {
         const user = userEvent.setup()
 
         renderWithProviders(<DataSources />)
@@ -278,20 +280,35 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/name/i), 'Invalid url source')
+        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'Invalid url source')
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'not-a-url')
 
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
 
-        await waitFor(() => {
-            expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'Failed to add data source', color: 'red' }),
-            )
-        })
+        expect(await modalQueries.findByText('Enter a valid URL')).toBeInTheDocument()
 
         expect(screen.getByRole('dialog')).toBeInTheDocument()
 
         const sources = await db.selectFrom('orgDataSource').where('orgId', '=', org.id).execute()
         expect(sources).toEqual([])
+    })
+
+    // Blur validation is per-field, so a cross-field rule surfaces on the field the issue is
+    // attached to, not on its partner: leaving the description empty flags the description.
+    it('flags a draft URL description left empty when the user moves on', async () => {
+        const user = userEvent.setup()
+
+        renderWithProviders(<DataSources />)
+
+        await user.click(screen.getByRole('button', { name: /add data source/i }))
+
+        const modal = await screen.findByRole('dialog')
+        const modalQueries = within(modal)
+
+        await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/url')
+        await user.click(modalQueries.getByPlaceholderText(/url description/i))
+        await user.tab()
+
+        expect(await modalQueries.findByText('URL description is required')).toBeInTheDocument()
     })
 })

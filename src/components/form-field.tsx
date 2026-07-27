@@ -43,16 +43,22 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
         .join(' ') || undefined
 
 /**
- * ARIA for a standard Mantine input rendered inside {@link FormField}.
+ * Props for a standard Mantine input rendered inside {@link FormField}.
  *
- * Required, not optional: `TextInput`, `Select`, `MultiSelect` and friends all resolve to
- * `InputBase`, which *always* renders its own `Input.Wrapper`. That inner wrapper shadows the
- * outer one's context, so the error id published by `FormField` never reaches the input's
- * `aria-describedby` on its own. Spreading this restores the link.
+ * `TextInput`, `Select`, `MultiSelect` and friends all resolve to `InputBase`, which always
+ * renders its own `Input.Wrapper`, and `Input` then applies `aria-describedby` from *that*
+ * wrapper's context — spread after the caller's props, so a hand-passed `aria-describedby` is
+ * silently overwritten. Passing the error node to the input instead lets its own wrapper
+ * compute the association, and `inputWrapperOrder` stops it rendering a second copy of the
+ * message, which {@link FormField} already shows beside the counter.
+ *
+ * The ids line up because the inner wrapper derives its error id from the same `id`:
+ * `${inputId}-error`, which is what `FormField` labels its message with.
  */
-export const fieldAria = (inputId: string, state: FieldState) => ({
-    'aria-describedby': fieldDescribedBy(inputId, state),
-    'aria-invalid': state.hasError || undefined,
+export const nativeFieldProps = (error: ReactNode) => ({
+    error,
+    // Mutable array: Mantine types this prop as mutable, so `as const` would not assign.
+    inputWrapperOrder: ['input'] as ('input' | 'error' | 'label' | 'description')[],
 })
 
 /**
@@ -64,8 +70,9 @@ export const fieldAria = (inputId: string, state: FieldState) => ({
  * {@link fieldDescribedBy} directly instead — they do not accept `aria-*` keys.
  */
 export const compositeFieldAria = (inputId: string, state: FieldState) => ({
-    ...fieldAria(inputId, state),
     'aria-labelledby': fieldLabelId(inputId),
+    'aria-describedby': fieldDescribedBy(inputId, state),
+    'aria-invalid': state.hasError || undefined,
 })
 
 /**
