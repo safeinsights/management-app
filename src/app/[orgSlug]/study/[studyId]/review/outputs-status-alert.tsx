@@ -28,7 +28,7 @@ export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
     return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`
 }
 
-const SlackLink = () => (
+const SlackDPSupportLink = () => (
     <Anchor href={SAFE_INSIGHTS_SLACK_URL} target="_blank" rel="noopener noreferrer" c="blue.7" inherit>
         Slack
         <ArrowSquareOutIcon size={16} style={{ marginLeft: 4, verticalAlign: 'text-bottom' }} />
@@ -44,7 +44,7 @@ const STAGE_COPY = {
         body: (
             <>
                 Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
-                SafeInsights via <SlackLink />
+                SafeInsights via <SlackDPSupportLink />
             </>
         ),
     },
