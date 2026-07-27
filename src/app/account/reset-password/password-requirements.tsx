@@ -24,9 +24,16 @@ export const PASSWORD_REQUIREMENTS = [
 ]
 
 /**
- * Helper function to check password requirements and determine if they should be displayed
+ * Checks password requirements and decides whether to display them.
+ *
+ * The password inputs suppress their own Mantine error in favour of this list, so it has to
+ * appear once the user has left an empty field. Hiding it on `password.length === 0`, as it
+ * previously did, meant blurring an empty password showed nothing at all (OTTER-647).
+ *
+ * @param password current field value
+ * @param touched whether the field has been blurred at least once
  */
-export function usePasswordRequirements(password: string) {
+export function usePasswordRequirements(password: string, touched = false) {
     const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
         ...req,
         meets: req.re.test(password),
@@ -36,9 +43,7 @@ export function usePasswordRequirements(password: string) {
 
     const shouldShowRequirements = () => {
         if (allRequirementsMet) return false
-
-        // Show requirements only if password field has content
-        return password.length > 0
+        return password.length > 0 || touched
     }
 
     return {

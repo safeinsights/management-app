@@ -19,7 +19,9 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
 
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
-    values: Record<string, string>
+    // Only the keys are read, so the value type is deliberately unconstrained: forms carry
+    // non-string fields too (booleans, files, arrays).
+    values: Record<string, unknown>
 }
 export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {

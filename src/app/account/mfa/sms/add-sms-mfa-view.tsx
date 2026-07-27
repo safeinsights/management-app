@@ -36,16 +36,20 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
             <Text fz="sm" fw={500}>
                 Enter phone number
             </Text>
+            {/* PhoneInput is a third-party control, so it cannot take getInputProps; blur
+                validation is wired by hand (OTTER-647). */}
             <PhoneInput
                 international
                 countryCallingCodeEditable={false}
                 defaultCountry="US"
                 value={form.values.phoneNumber}
                 onChange={(value) => form.setFieldValue('phoneNumber', value ?? '')}
+                onBlur={() => form.validateField('phoneNumber')}
                 placeholder="Enter phone number"
                 countries={['US']} // limited to US code
                 className={styles.phoneInput}
                 label="Phone Number"
+                aria-invalid={!!form.errors.phoneNumber || undefined}
             />
             {form.errors.phoneNumber && <InputError error={form.errors.phoneNumber} />}
             <Button

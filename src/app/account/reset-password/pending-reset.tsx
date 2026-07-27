@@ -154,7 +154,11 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
         resendCode()
     }
 
-    const { requirements, shouldShowRequirements } = usePasswordRequirements(verificationForm.values.password)
+    const [passwordTouched, setPasswordTouched] = useState(false)
+    const { requirements, shouldShowRequirements } = usePasswordRequirements(
+        verificationForm.values.password,
+        passwordTouched,
+    )
 
     if (needsMFA) return <RequestMFA mfa={needsMFA} />
 
@@ -194,11 +198,18 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                     <PasswordInput
                         key={verificationForm.key('password')}
                         {...verificationForm.getInputProps('password')}
+                        onBlur={(event) => {
+                            verificationForm.getInputProps('password').onBlur?.(event)
+                            setPasswordTouched(true)
+                        }}
                         label="Enter new password"
                         placeholder="********"
                         aria-label="New password"
                         mb="xs"
-                        error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
+                        // Error is suppressed in favour of the requirements list below, which
+                        // now also appears when the field is left empty.
+                        error={undefined}
+                        aria-invalid={!!verificationForm.errors.password || undefined}
                     />
 
                     {shouldShowRequirements && <Requirements requirements={requirements} />}

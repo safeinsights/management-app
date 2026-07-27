@@ -67,7 +67,11 @@ export const proposalFormSchema = z.object({
         .optional()
         .default(''),
     piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
-    piUserId: z.string().uuid({ message: REQUIRED_FIELD_ERROR }),
+    // Deliberately unvalidated here. It is set by the same Select that sets piName, and no
+    // field displays piUserId, so a rule on it could only ever produce an error the user
+    // cannot see or clear while still blocking submit (OTTER-647). Required-ness is enforced
+    // through piName above and the UUID check in studyProposalApiSchema server-side.
+    piUserId: z.string(),
 })
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>

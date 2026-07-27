@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
     Button,
     Checkbox,
@@ -37,21 +38,31 @@ interface EnvVarLineProps {
     onRemove: () => void
 }
 
+// Both halves are required, and both error only once the user has visited and left them.
+// Erroring on an untouched row (as the value input used to) flags a field the moment an
+// empty row is added, which is the inverse of what OTTER-647 asks for.
 function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
+    const [touched, setTouched] = useState<{ name: boolean; value: boolean }>({ name: false, value: false })
+
     return (
         <Group gap="xs" align="flex-start">
             <TextInput
                 value={envVar.name}
                 onChange={(e) => onNameChange(e.target.value)}
+                onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
                 style={{ flex: 1 }}
                 placeholder="Variable name"
+                aria-label="Variable name"
+                error={touched.name && !envVar.name.trim() ? 'Variable name is required' : null}
             />
             <TextInput
                 value={envVar.value}
                 onChange={(e) => onValueChange(e.target.value)}
+                onBlur={() => setTouched((prev) => ({ ...prev, value: true }))}
                 style={{ flex: 1 }}
                 placeholder="Value"
-                error={!envVar.value.trim() ? 'Value is required' : null}
+                aria-label="Variable value"
+                error={touched.value && !envVar.value.trim() ? 'Value is required' : null}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />
@@ -139,15 +150,19 @@ interface CommandLineRowProps {
 }
 
 function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
+    const [touched, setTouched] = useState(false)
+
     return (
         <Group gap="xs" align="flex-start">
-            <TextInput value={ext} readOnly style={{ flex: 1 }} />
+            <TextInput value={ext} readOnly style={{ flex: 1 }} aria-label="File extension" />
             <TextInput
                 value={cmd}
                 onChange={(e) => onCmdChange(e.target.value)}
+                onBlur={() => setTouched(true)}
                 style={{ flex: 2 }}
                 placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
-                error={!cmd.trim() ? 'Command is required' : null}
+                aria-label={`Command for .${ext} files`}
+                error={touched && !cmd.trim() ? 'Command is required' : null}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />

@@ -36,9 +36,17 @@ export function AddSMSMFA() {
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
+    // Previously had no validator at all, so an empty or malformed number only errored once
+    // Clerk rejected the submission (OTTER-647).
     const phoneForm = useForm({
         initialValues: {
             phoneNumber: user?.phoneNumbers[0]?.toString() || '',
+        },
+        validate: {
+            phoneNumber: (value: string) => {
+                if (!value.trim()) return 'Phone number is required'
+                return /^\+?[\d\s()-]{7,}$/.test(value.trim()) ? null : 'Enter a valid phone number'
+            },
         },
     })
 
