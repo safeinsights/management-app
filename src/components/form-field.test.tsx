@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TextInput } from '@mantine/core'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, compositeFieldAria, fieldDescribedBy, widgetBlurHandler } from './form-field'
+import { FormField, fieldDescribedBy, widgetBlurHandler } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -44,20 +44,6 @@ describe('fieldDescribedBy', () => {
         expect(fieldDescribedBy('f', { hasError: true, hasDescription: true })).toBe('f-error f-description')
         expect(fieldDescribedBy('f', { hasError: true, hasDescription: false })).toBe('f-error')
         expect(fieldDescribedBy('f', { hasError: false, hasDescription: false })).toBeUndefined()
-    })
-})
-
-describe('compositeFieldAria', () => {
-    it('points a composite widget at its generated label and error ids', () => {
-        expect(compositeFieldAria('f', { hasError: true, hasDescription: false })).toEqual({
-            'aria-labelledby': 'f-label',
-            'aria-describedby': 'f-error',
-            'aria-invalid': true,
-        })
-    })
-
-    it('omits aria-invalid when valid', () => {
-        expect(compositeFieldAria('f', { hasError: false, hasDescription: false })['aria-invalid']).toBeUndefined()
     })
 })
 

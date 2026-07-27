@@ -8,15 +8,16 @@ import { Box, Group, Input, Text } from '@mantine/core'
  *
  * Pick the pattern that matches the control (OTTER-647):
  *
- * - **Standard Mantine input** (`TextInput`, `Select`, `Textarea`, …). Do NOT use this.
- *   Those already own an `Input.Wrapper`; wrapping again nests two of them. Pass
- *   `label` / `description` / `withAsterisk` / `error` straight to the input, spreading
- *   {@link formFieldLabelStyles} to keep the shared look.
- * - **Raw control** that renders a single focusable element (`PinInput`, `MultiSelect`
- *   without built-in chrome). Wrap it here and give the control the same `inputId`.
- * - **Composite widget** whose focusable element is not the labelled node (Lexical
- *   editor, `PillsInput`, `Radio.Group`). Wrap it here and spread
- *   {@link compositeFieldAria} onto the focusable element.
+ * - **Standard Mantine input** (`TextInput`, `Select`, `MultiSelect`): wrap it here for the
+ *   label and description, and spread {@link nativeFieldProps} onto the input. Those controls
+ *   render their own `Input.Wrapper`, whose context shadows this one, so the error node has to
+ *   reach the input directly or its `aria-describedby` is lost.
+ * - **Composite widget** whose focusable element is not the labelled node (the Lexical
+ *   `Editor`): wrap it here and pass {@link fieldDescribedBy} to whatever prop the control
+ *   exposes for it. The `Editor` takes Lexical-style `ariaDescribedBy`, not `aria-*` keys.
+ * - **A control that already owns its chrome** (`Radio.Group`, `PillsInput`, `PinInput`): do
+ *   not wrap it. Pass `label` / `withAsterisk` / `error` straight through and let Mantine wire
+ *   the association itself.
  *
  * `error` must be a node, not a boolean: Mantine only renders the message and only adds
  * it to `aria-describedby` for non-boolean values.
@@ -29,7 +30,6 @@ export const formFieldLabelStyles = {
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
-export const fieldLabelId = (inputId: string) => `${inputId}-label`
 
 interface FieldState {
     hasError: boolean
@@ -71,20 +71,6 @@ export const nativeFieldProps = (
     'aria-required': required || undefined,
     // Mutable array: Mantine types this prop as mutable, so `as const` would not assign.
     inputWrapperOrder: ['input'] as ('input' | 'error' | 'label' | 'description')[],
-})
-
-/**
- * ARIA for a composite widget's focusable element. `Input.Wrapper` links its label with
- * `htmlFor`, which only reliably associates real form controls, so composite widgets point
- * back at the generated ids themselves.
- *
- * For controls taking Lexical-style camelCase aria props (the `Editor`), use
- * {@link fieldDescribedBy} directly instead, because they do not accept `aria-*` keys.
- */
-export const compositeFieldAria = (inputId: string, state: FieldState) => ({
-    'aria-labelledby': fieldLabelId(inputId),
-    'aria-describedby': fieldDescribedBy(inputId, state),
-    'aria-invalid': state.hasError || undefined,
 })
 
 interface ValidatableForm {
