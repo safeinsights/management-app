@@ -52,14 +52,15 @@ describe('LinkWithIcon', () => {
 
     it('merges a caller style over the base layout instead of replacing it', () => {
         renderWithProviders(
-            <LinkWithIcon href={'/x' as Route} icon={icon} data-testid="link" style={{ color: 'red' }}>
+            <LinkWithIcon href={'/x' as Route} icon={icon} data-testid="link" style={{ marginTop: 10, gap: 8 }}>
                 Label
             </LinkWithIcon>,
         )
 
         const link = screen.getByTestId('link')
-        expect(link).toHaveStyle({ color: 'rgb(255, 0, 0)' })
-        // The base flex layout survives the caller's override.
-        expect(link).toHaveStyle({ gap: '4px', whiteSpace: 'nowrap' })
+        // A caller-added key applies, and a caller override of a base key (gap) wins.
+        expect(link).toHaveStyle({ marginTop: '10px', gap: '8px' })
+        // An untouched base layout key survives the merge.
+        expect(link).toHaveStyle({ whiteSpace: 'nowrap' })
     })
 })
