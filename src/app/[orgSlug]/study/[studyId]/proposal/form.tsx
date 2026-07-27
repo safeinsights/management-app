@@ -133,7 +133,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     yjsForm.pushField('title', event.currentTarget.value)
                                 }}
                                 value={form.values.title ?? ''}
-                                {...nativeFieldProps(form.errors.title)}
+                                {...nativeFieldProps(form.errors.title, { required: true, description: true })}
                             />
                             <SaveStatusIndicator status={titleSaveStatus} />
                         </FormField>
@@ -157,6 +157,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         onBlur={() => form.validateField('datasets')}
                                         error={form.errors.datasets}
                                         suppressOwnError
+                                        required
                                         orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
@@ -217,7 +218,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         yjsForm.pushPI(piUserId, piName)
                                     }}
                                     onBlur={() => form.validateField('piName')}
-                                    {...nativeFieldProps(form.errors.piName)}
+                                    {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                                 />
                             </Box>
                             <SaveStatusIndicator status={piSaveStatus} />

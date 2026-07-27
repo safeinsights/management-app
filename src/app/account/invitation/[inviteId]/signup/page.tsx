@@ -2,6 +2,7 @@
 
 import {
     PASSWORD_REQUIREMENTS,
+    PASSWORD_REQUIREMENTS_ID,
     Requirements,
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
@@ -184,6 +185,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         // now also appears when the field is left empty.
                         error={undefined}
                         aria-invalid={!!form.errors.password || undefined}
+                        aria-describedby={shouldShowRequirements ? PASSWORD_REQUIREMENTS_ID : undefined}
                     />
 
                     {shouldShowRequirements && <Requirements requirements={requirements} />}
@@ -211,6 +213,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     <TermsCheckbox
                         checked={form.values.termsAccepted}
                         onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
+                        onBlur={() => form.validateField('termsAccepted')}
                         error={form.errors.termsAccepted}
                     />
 

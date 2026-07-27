@@ -13,7 +13,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
+import {
+    PASSWORD_REQUIREMENTS,
+    PASSWORD_REQUIREMENTS_ID,
+    Requirements,
+    usePasswordRequirements,
+} from './password-requirements'
 
 const verificationFormSchema = z
     .object({
@@ -210,6 +215,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                         // now also appears when the field is left empty.
                         error={undefined}
                         aria-invalid={!!verificationForm.errors.password || undefined}
+                        aria-describedby={shouldShowRequirements ? PASSWORD_REQUIREMENTS_ID : undefined}
                     />
 
                     {shouldShowRequirements && <Requirements requirements={requirements} />}

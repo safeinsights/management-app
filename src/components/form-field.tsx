@@ -55,8 +55,20 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
  * The ids line up because the inner wrapper derives its error id from the same `id`:
  * `${inputId}-error`, which is what `FormField` labels its message with.
  */
-export const nativeFieldProps = (error: ReactNode) => ({
+export const nativeFieldProps = (
+    error: ReactNode,
+    { required = false, description }: { required?: boolean; description?: ReactNode } = {},
+) => ({
     error,
+    // Passed only so the inner wrapper folds the description id into `describedBy`; it is not
+    // rendered (see inputWrapperOrder), and its generated id matches FormField's own because
+    // both derive from the same `id`. Without it the input announces the error but not the
+    // guidance text sitting right above it.
+    description,
+    // `withAsterisk` on FormField is visual only, so the required state has to reach the
+    // control itself. `aria-required` rather than `required`, to avoid native browser
+    // validation UI competing with Mantine's messages.
+    'aria-required': required || undefined,
     // Mutable array: Mantine types this prop as mutable, so `as const` would not assign.
     inputWrapperOrder: ['input'] as ('input' | 'error' | 'label' | 'description')[],
 })

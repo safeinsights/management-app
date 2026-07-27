@@ -40,11 +40,14 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         const urlValid = !form.validateField('newUrl').hasError
         const descriptionValid = !form.validateField('newUrlDescription').hasError
         if (!urlValid || !descriptionValid) return
-        if (!form.values.newUrl.trim() && !form.values.newUrlDescription.trim()) return
+
+        const url = form.values.newUrl.trim()
+        const description = form.values.newUrlDescription.trim()
+        if (!url && !description) return
 
         form.setValues({
             ...form.values,
-            urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
+            urls: [...form.values.urls, { url, description }],
             newUrl: '',
             newUrlDescription: '',
         })
@@ -84,10 +87,15 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
     })
 
     const onSubmit = form.onSubmit(({ newUrl, newUrlDescription, ...values }) => {
-        if (newUrl !== '' || newUrlDescription !== '') {
+        // Trim before deciding whether a draft pair exists. Comparing the raw strings against
+        // '' treated a whitespace-only draft as present, appending it as a URL row that the
+        // form schema had already judged absent, so it failed server-side instead (OTTER-647).
+        const draftUrl = newUrl.trim()
+        const draftDescription = newUrlDescription.trim()
+        if (draftUrl !== '' || draftDescription !== '') {
             values = {
                 ...values,
-                urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
+                urls: [...form.values.urls, { url: draftUrl, description: draftDescription }],
             }
         }
         save(values)

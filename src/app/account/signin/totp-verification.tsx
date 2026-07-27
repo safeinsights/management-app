@@ -19,7 +19,9 @@ export const TotpVerification = ({ form, isVerifyingCode, resetFlow }: TotpVerif
                 Enter your code
             </Title>
             <OtpInput form={form} />
-            <InputError error={form.errors.code} />
+            <span id="otp-code-error">
+                <InputError error={form.errors.code} />
+            </span>
             <Button
                 type="submit"
                 w="100%"

@@ -12,6 +12,7 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
+import { RESUBMIT_NOTE_MIN_WORDS, resubmissionNoteWordCount } from './schema'
 import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
 import { missingProposalFields } from '@/app/[orgSlug]/study/[studyId]/proposal/missing-fields'
 
@@ -39,7 +40,14 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
     const isFormValid = form.isValid() && noteForm.isValid()
-    const missingFields = [...missingProposalFields(form.values), ...(noteForm.isValid() ? [] : ['Resubmission Note'])]
+    const missingFields = [
+        ...missingProposalFields(form.values),
+        // Only an empty note is missing. An over-long one is present but invalid, and already
+        // shows its own word-limit message; calling it "required" contradicted that.
+        ...(resubmissionNoteWordCount(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS
+            ? ['Resubmission Note']
+            : []),
+    ]
 
     const handleBack = async () => {
         // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush

@@ -23,6 +23,7 @@ const OtpInput = ({ form }: { form: UseFormReturnType<{ code: string }> }) => {
                 data-testid="sms-pin-input"
                 aria-label="One time code"
                 aria-invalid={hasError || undefined}
+                aria-describedby={hasError ? 'otp-code-error' : undefined}
                 oneTimeCode
             />
         </div>

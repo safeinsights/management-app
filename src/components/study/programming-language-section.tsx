@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
 import { widgetBlurHandler } from '@/components/form-field'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
@@ -68,7 +69,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         <Radio.Group
                             id="programming-language"
                             aria-labelledby="programming-language-title"
-                            aria-describedby="programming-language-helper programming-language-status"
+                            // The loading-status node is gone once languages resolve, so it is
+                            // not referenced here; the error id is added only when it exists.
+                            aria-describedby={
+                                form.errors.language
+                                    ? 'programming-language-helper programming-language-error'
+                                    : 'programming-language-helper'
+                            }
+                            aria-required="true"
                             aria-invalid={!!form.errors.language || undefined}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
@@ -80,7 +88,11 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                                 ))}
                             </Group>
                         </Radio.Group>
-                        {form.errors.language && <InputError error={form.errors.language} />}
+                        {form.errors.language && (
+                            <span id="programming-language-error">
+                                <InputError error={form.errors.language} />
+                            </span>
+                        )}
                     </Grid.Col>
                 </Grid>
             </>
@@ -94,6 +106,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             </Text>
             <Title fz={20} id="programming-language-title" order={4} c="charcoal.9">
                 Programming language
+                <RequiredIndicator fz={20} fw={700} />
             </Title>
             <Divider my="md" />
             <Stack gap="lg">{body}</Stack>

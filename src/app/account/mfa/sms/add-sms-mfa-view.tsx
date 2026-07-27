@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Button, Group, Stack, Text, Title } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import PhoneInput from 'react-phone-number-input'
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
@@ -59,7 +59,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 size="md"
                 variant="primary"
                 radius="sm"
-                disabled={!/\d{6,}/.test(form.values.phoneNumber)}
+                disabled={!isValidPhoneNumber(form.values.phoneNumber.trim())}
             >
                 Send verification code
             </Button>

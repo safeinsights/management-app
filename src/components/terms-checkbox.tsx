@@ -37,14 +37,17 @@ export const TermsCheckboxLabel: FC = () => (
 type TermsCheckboxProps = {
     checked: boolean
     onChange: (checked: boolean) => void
+    /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
+    onBlur?: () => void
     error?: ReactNode
 }
 
-export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, error }) => (
+export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlur, error }) => (
     <Checkbox
         mt="md"
         checked={checked}
         onChange={(event) => onChange(event.currentTarget.checked)}
+        onBlur={onBlur}
         label={<TermsCheckboxLabel />}
         error={error}
     />

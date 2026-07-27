@@ -100,7 +100,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 yjsForm.pushField('title', event.currentTarget.value)
                             }}
                             value={form.values.title ?? ''}
-                            {...nativeFieldProps(form.errors.title)}
+                            {...nativeFieldProps(form.errors.title, { required: true, description: true })}
                         />
                     </FormField>
 
@@ -123,6 +123,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     onBlur={() => form.validateField('datasets')}
                                     error={form.errors.datasets}
                                     suppressOwnError
+                                    required
                                     orgSlug={enclaveOrgSlug}
                                 />
                             </Box>
@@ -182,7 +183,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                     yjsForm.pushPI(piUserId, piName)
                                 }}
                                 onBlur={() => form.validateField('piName')}
-                                {...nativeFieldProps(form.errors.piName)}
+                                {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                             />
                         </Box>
                     </FormField>

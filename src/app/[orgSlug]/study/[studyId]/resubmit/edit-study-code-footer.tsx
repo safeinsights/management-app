@@ -9,6 +9,8 @@ import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
+import { RESUBMIT_NOTE_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { countWords } from '@/lib/lexical'
 
 interface EditStudyCodeFooterProps {
     mainFileName: string
@@ -58,7 +60,8 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const missingFields = [
         ...(hasFiles ? [] : ['Study code files']),
         ...(hasFiles && mainFileName === '' ? ['A main file selection'] : []),
-        ...(noteForm.isValid() ? [] : ['Resubmission Note']),
+        // Empty only. A note over the word limit already shows that error on the field.
+        ...(countWords(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS ? ['Resubmission Note'] : []),
     ]
     const handleConfirmResubmit = () => {
         closeConfirm()

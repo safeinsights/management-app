@@ -87,7 +87,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     }
 
     const addCommandLine = (ext: string, cmd: string) => {
-        if (!ext || !cmd) return
+        if (!ext || !cmd) {
+            if (!ext) form.setFieldError('newCmdExt', 'File extension is required')
+            if (!cmd) form.setFieldError('newCmdValue', 'Command is required')
+            return
+        }
         form.setFieldValue('commandLines', { ...form.values.commandLines, [ext]: cmd })
         form.setFieldValue('newCmdExt', '')
         form.setFieldValue('newCmdValue', '')
@@ -102,8 +106,16 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         form.setFieldValue('commandLines', rest)
     }
 
+    // Both halves are required. Flagging the empty one beats returning silently, which left
+    // the user clicking "+" with nothing happening and no reason given (OTTER-647).
     const addEnvVar = () => {
-        if (!form.values.newEnvKey || !form.values.newEnvValue) return
+        const key = form.values.newEnvKey.trim()
+        const value = form.values.newEnvValue.trim()
+        if (!key || !value) {
+            if (!key) form.setFieldError('newEnvKey', 'Variable name is required')
+            if (!value) form.setFieldError('newEnvValue', 'Value is required')
+            return
+        }
 
         form.setValues({
             ...form.values,
@@ -208,6 +220,20 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
+            // A draft pair with only one half filled would otherwise be discarded here, so
+            // the save appeared to succeed while losing the user's input (OTTER-647).
+            const halfEnvVar = Boolean(newEnvKey) !== Boolean(newEnvValue)
+            const halfCommand = Boolean(newCmdExt) !== Boolean(newCmdValue)
+            if (halfEnvVar || halfCommand) {
+                if (halfEnvVar) {
+                    form.setFieldError(newEnvKey ? 'newEnvValue' : 'newEnvKey', 'Complete both fields or clear them')
+                }
+                if (halfCommand) {
+                    form.setFieldError(newCmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
+                }
+                return
+            }
+
             if (newEnvKey && newEnvValue) {
                 values.settings = {
                     ...values.settings,

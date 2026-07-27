@@ -9,6 +9,7 @@ import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
 import { Anchor, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
+import { isValidPhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
@@ -37,15 +38,18 @@ export function AddSMSMFA() {
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
     // Previously had no validator at all, so an empty or malformed number only errored once
-    // Clerk rejected the submission (OTTER-647).
+    // Clerk rejected the submission (OTTER-647). Defers to the phone library's own check
+    // rather than a character/length regex, which accepted well-formed-looking but invalid
+    // numbers; it validates every country the input can produce, not just one.
     const phoneForm = useForm({
         initialValues: {
             phoneNumber: user?.phoneNumbers[0]?.toString() || '',
         },
         validate: {
             phoneNumber: (value: string) => {
-                if (!value.trim()) return 'Phone number is required'
-                return /^\+?[\d\s()-]{7,}$/.test(value.trim()) ? null : 'Enter a valid phone number'
+                const phone = value.trim()
+                if (!phone) return 'Phone number is required'
+                return isValidPhoneNumber(phone) ? null : 'Enter a valid phone number'
             },
         },
     })
@@ -102,7 +106,7 @@ export function AddSMSMFA() {
             const errorMessage = errorToString(error)
 
             if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
-                phoneForm.setFieldError('phoneNumber', 'Please enter a valid US phone number.')
+                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
             } else {
                 phoneForm.setFieldError('phoneNumber', errorMessage)
             }
@@ -204,7 +208,9 @@ export function AddSMSMFA() {
                                             Enter your code
                                         </Title>
                                         <OtpInput form={otpForm} />
-                                        {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
+                                        <span id="otp-code-error">
+                                            {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
+                                        </span>
                                         <Button
                                             type="submit"
                                             w="100%"

@@ -39,7 +39,9 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                 Enter your code
             </Title>
             <OtpInput form={form} />
-            <InputError error={form.errors.code} />
+            <span id="otp-code-error">
+                <InputError error={form.errors.code} />
+            </span>
             <Button
                 type="submit"
                 w="100%"

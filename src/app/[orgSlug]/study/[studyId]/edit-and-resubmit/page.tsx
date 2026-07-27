@@ -52,7 +52,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 draftData={{
                     title: study.title ?? '',
                     piName: study.piName,
-                    piUserId: study.piUserId ?? undefined,
+                    piUserId: study.piUserId ?? '',
                     datasets: study.datasets ?? undefined,
                     researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
                     projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,

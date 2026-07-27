@@ -182,7 +182,9 @@ function AddTotpScreenContent({
                         Enter your code
                     </Title>
                     <OtpInput form={form} />
-                    <InputError error={form.errors.code} />
+                    <span id="otp-code-error">
+                        <InputError error={form.errors.code} />
+                    </span>
                     <Button
                         type="submit"
                         loading={isVerifying}

@@ -53,6 +53,9 @@ export function usePasswordRequirements(password: string, touched = false) {
     }
 }
 
+/** Id the password inputs reference, since they suppress Mantine's own error node. */
+export const PASSWORD_REQUIREMENTS_ID = 'password-requirements'
+
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()
@@ -75,7 +78,7 @@ export function Requirements({ requirements }: RequirementsProps) {
     }
 
     return (
-        <Flex direction="column" gap="xs">
+        <Flex id={PASSWORD_REQUIREMENTS_ID} direction="column" gap="xs">
             {rows}
         </Flex>
     )
