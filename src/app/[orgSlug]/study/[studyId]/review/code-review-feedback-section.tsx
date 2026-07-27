@@ -4,6 +4,8 @@ import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
+import { InputError } from '@/components/errors'
+import { fieldDescribedBy, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -34,6 +36,8 @@ type CodeReviewFeedbackSectionProps = {
     jobId: string
     decisionValue: Decision | null
     onDecisionChange: (next: Decision) => void
+    onDecisionBlur: () => void
+    decisionError: ReactNode
     labName: string
 }
 
@@ -63,10 +67,18 @@ function FeedbackEditor({
     return (
         <Editor
             id={codeReviewFeedbackDocName(jobId)}
+            inputId="code-review-feedback"
             studyId={studyId}
             websocketProvider={websocketProvider}
             contentStyle={contentStyle}
             onChange={feedback.onChange}
+            onBlur={feedback.onBlur}
+            error={feedback.error}
+            ariaLabel="Code review feedback"
+            ariaDescribedBy={fieldDescribedBy('code-review-feedback', {
+                hasError: !!feedback.error,
+                hasDescription: false,
+            })}
             placeholder={FEEDBACK_PLACEHOLDER}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
@@ -115,10 +127,14 @@ const RADIO_STYLES = {
 function DecisionRadioGroup({
     value,
     onChange,
+    onBlur,
+    error,
     labName,
 }: {
     value: Decision | null
     onChange: (next: Decision) => void
+    onBlur: () => void
+    error: ReactNode
     labName: string
 }) {
     const options = buildDecisionOptions(labName)
@@ -136,7 +152,17 @@ function DecisionRadioGroup({
     ))
 
     return (
-        <Radio.Group value={value ?? ''} onChange={handleChange} name="code-review-decision">
+        // Blur is a bubbled focusout, so moving between radios would validate a still-empty
+        // group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+        <Radio.Group
+            value={value ?? ''}
+            onChange={handleChange}
+            onBlur={widgetBlurHandler(onBlur)}
+            name="code-review-decision"
+            withAsterisk
+            error={error}
+            aria-invalid={!!error || undefined}
+        >
             <Stack gap="md">{radioOptions}</Stack>
         </Radio.Group>
     )
@@ -148,6 +174,8 @@ export function CodeReviewFeedbackSection({
     jobId,
     decisionValue,
     onDecisionChange,
+    onDecisionBlur,
+    decisionError,
     labName,
 }: CodeReviewFeedbackSectionProps) {
     return (
@@ -162,8 +190,17 @@ export function CodeReviewFeedbackSection({
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
+                <span id={fieldErrorId('code-review-feedback')}>
+                    <InputError error={feedback.error} />
+                </span>
                 <Divider />
-                <DecisionRadioGroup value={decisionValue} onChange={onDecisionChange} labName={labName} />
+                <DecisionRadioGroup
+                    value={decisionValue}
+                    onChange={onDecisionChange}
+                    onBlur={onDecisionBlur}
+                    error={decisionError}
+                    labName={labName}
+                />
             </Stack>
         </Paper>
     )

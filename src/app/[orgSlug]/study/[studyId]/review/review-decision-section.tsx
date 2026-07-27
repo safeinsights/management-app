@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
+import { widgetBlurHandler } from '@/components/form-field'
 import type { DecisionOption, StudyForReview } from './review-types'
 import { DECISION_OPTIONS } from './review-types'
 
@@ -65,7 +66,17 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
                 . If approved, the researcher will proceed to sign legal agreements and submit their code for your
                 review.
             </Text>
-            <Radio.Group value={decision.selected ?? ''} onChange={handleChange} name="review-decision">
+            {/* Blur is a bubbled focusout, so moving between radios would validate a still
+                empty group; widgetBlurHandler waits for focus to leave it (OTTER-647). */}
+            <Radio.Group
+                value={decision.selected ?? ''}
+                onChange={handleChange}
+                onBlur={widgetBlurHandler(decision.onBlur)}
+                name="review-decision"
+                withAsterisk
+                error={decision.error}
+                aria-invalid={!!decision.error || undefined}
+            >
                 <Stack gap="md" mt="xs">
                     {radioOptions}
                 </Stack>

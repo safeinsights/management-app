@@ -65,6 +65,8 @@ function useCodeReview({
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
+    // Each criterion is required. Without a validator the form could never produce an error,
+    // so an unanswered row only disabled Submit with no indication of which one (OTTER-647).
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
         initialValues: {
             criteria: {
@@ -73,6 +75,14 @@ function useCodeReview({
                 securityChecks: null,
                 privacyProtection: null,
             },
+        },
+        validate: {
+            criteria: Object.fromEntries(
+                CODE_REVIEW_CRITERIA_KEYS.map((key) => [
+                    key,
+                    (value: CodeReviewCriteriaDraft[typeof key]) => (value === null ? 'Select an option.' : null),
+                ]),
+            ),
         },
     })
 
@@ -154,6 +164,8 @@ function EditableBody({
                 jobId={job.id}
                 decisionValue={decision.selected}
                 onDecisionChange={onDecisionChange}
+                onDecisionBlur={decision.onBlur}
+                decisionError={decision.error}
                 labName={labName}
             />
             <Group justify="space-between">
