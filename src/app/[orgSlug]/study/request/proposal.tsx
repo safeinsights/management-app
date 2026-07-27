@@ -21,6 +21,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { form, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
     const [isProceeding, setIsProceeding] = useState(false)
 
+    const step1Values = form.getValues()
+    const missingFields = [
+        ...(step1Values.orgSlug ? [] : ['Data Partner']),
+        ...(step1Values.language ? [] : ['Programming language']),
+    ]
+
     useEffect(() => {
         // Only initialize if we have draft data to load
         // For new studies, the context is already fresh (no need to reset)
@@ -59,6 +65,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 onProceed={handleProceed}
                 onCancel={handleCancel}
                 proceedLabel="Proceed to Step 2"
+                missingFields={missingFields}
             />
         </Stack>
     )

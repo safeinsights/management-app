@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modals/app-modal'
@@ -12,6 +12,8 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
+import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
+import { missingProposalFields } from '@/app/[orgSlug]/study/[studyId]/proposal/missing-fields'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -37,6 +39,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
     const isFormValid = form.isValid() && noteForm.isValid()
+    const missingFields = [...missingProposalFields(form.values), ...(noteForm.isValid() ? [] : ['Resubmission Note'])]
 
     const handleBack = async () => {
         // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
@@ -65,19 +68,22 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 >
                     Back
                 </Button>
-                <Group>
+                <Group align="flex-end">
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
                     </Button>
-                    <Button
-                        size="md"
-                        variant="primary"
-                        disabled={!isFormValid || isBusy}
-                        loading={isSubmitting}
-                        onClick={openConfirm}
-                    >
-                        Resubmit initial request
-                    </Button>
+                    <Stack gap={4} align="flex-end">
+                        <Button
+                            size="md"
+                            variant="primary"
+                            disabled={!isFormValid || isBusy}
+                            loading={isSubmitting}
+                            onClick={openConfirm}
+                        >
+                            Resubmit initial request
+                        </Button>
+                        <IncompleteFieldsHint missing={missingFields} />
+                    </Stack>
                 </Group>
             </Group>
 

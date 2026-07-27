@@ -2,7 +2,8 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
+import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
@@ -54,6 +55,11 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     }
 
     const canResubmit = hasFiles && mainFileName !== '' && noteForm.isValid() && !isBusy
+    const missingFields = [
+        ...(hasFiles ? [] : ['Study code files']),
+        ...(hasFiles && mainFileName === '' ? ['A main file selection'] : []),
+        ...(noteForm.isValid() ? [] : ['Resubmission Note']),
+    ]
     const handleConfirmResubmit = () => {
         closeConfirm()
         resubmit({ mainFileName, fileNames })
@@ -73,17 +79,20 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     return (
         <>
-            <Group justify="flex-end" mt="xs">
+            <Group justify="flex-end" align="flex-end" mt="xs">
                 {exitButton}
-                <Button
-                    variant="primary"
-                    size="md"
-                    disabled={!canResubmit}
-                    loading={isSubmitting}
-                    onClick={openConfirm}
-                >
-                    Resubmit study code
-                </Button>
+                <Stack gap={4} align="flex-end">
+                    <Button
+                        variant="primary"
+                        size="md"
+                        disabled={!canResubmit}
+                        loading={isSubmitting}
+                        onClick={openConfirm}
+                    >
+                        Resubmit study code
+                    </Button>
+                    <IncompleteFieldsHint missing={missingFields} />
+                </Stack>
             </Group>
 
             <SubmitConfirmationModal
