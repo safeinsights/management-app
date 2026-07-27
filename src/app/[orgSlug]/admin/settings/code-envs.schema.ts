@@ -55,12 +55,12 @@ const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < 
 
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
-    name: z.string().nonempty(),
+    name: z.string().nonempty('Name is required'),
     identifier: z
         .string()
         .nonempty('Identifier is required')
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
-    commandLines: z.record(z.string(), z.string().nonempty()),
+    commandLines: z.record(z.string(), z.string().nonempty('Command is required')),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),

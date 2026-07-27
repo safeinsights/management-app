@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from '@/common'
+import { useForm, useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
 import { Link } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
@@ -22,7 +22,6 @@ import {
     Title,
     useMantineTheme,
 } from '@mantine/core'
-import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'

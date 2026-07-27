@@ -4,10 +4,6 @@ import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
-export function hasUserProvidedTitle(title: string | undefined | null): boolean {
-    return !!title?.trim()
-}
-
 export const WORD_LIMITS = {
     title: 20,
     researchQuestions: 500,
@@ -31,8 +27,11 @@ function maxWordsLexicalRefine(maxWords: number) {
 }
 
 export const proposalFormSchema = z.object({
+    // trim() before min(1) so a whitespace-only title fails here rather than passing schema
+    // validation while a separate trimmed check silently disables submit (OTTER-647).
     title: z
         .string()
+        .trim()
         .min(1, { message: REQUIRED_FIELD_ERROR })
         .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
     datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),

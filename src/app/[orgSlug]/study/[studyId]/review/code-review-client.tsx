@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Alert, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { useForm } from '@mantine/form'
+import { useForm } from '@/common'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'

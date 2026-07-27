@@ -12,7 +12,6 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
-import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -33,11 +32,11 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
     const isBusy = isSavingNote || isSaving || isSubmitting
 
-    const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
-    const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
+    const isFormValid = form.isValid() && noteForm.isValid()
 
     const handleBack = async () => {
         // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
