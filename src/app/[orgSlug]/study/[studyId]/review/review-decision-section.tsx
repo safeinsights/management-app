@@ -73,6 +73,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
                 onChange={handleChange}
                 onBlur={widgetBlurHandler(decision.onBlur)}
                 name="review-decision"
+                aria-label="Initial request decision"
                 withAsterisk
                 error={decision.error}
                 aria-invalid={!!decision.error || undefined}

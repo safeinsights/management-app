@@ -75,14 +75,12 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
         pushCriterion(key, value)
     }
 
-    const criteriaErrors = (form.errors.criteria ?? {}) as Partial<Record<CodeReviewCriteriaKey, ReactNode>>
-
     const criterionRows = CODE_REVIEW_CRITERIA.map((descriptor) => (
         <CriterionRow
             key={descriptor.key}
             descriptor={descriptor}
             value={criteriaValues[descriptor.key]}
-            error={form.errors[`criteria.${descriptor.key}`] ?? criteriaErrors[descriptor.key]}
+            error={form.errors[`criteria.${descriptor.key}`]}
             onChange={handleChange(descriptor.key)}
             onBlur={() => form.validateField(`criteria.${descriptor.key}`)}
         />

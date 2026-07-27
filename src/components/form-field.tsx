@@ -8,14 +8,14 @@ import { Box, Group, Input, Text } from '@mantine/core'
  *
  * Pick the pattern that matches the control (OTTER-647):
  *
- * - **Standard Mantine input** (`TextInput`, `Select`, `Textarea`, …) — do NOT use this.
+ * - **Standard Mantine input** (`TextInput`, `Select`, `Textarea`, …). Do NOT use this.
  *   Those already own an `Input.Wrapper`; wrapping again nests two of them. Pass
  *   `label` / `description` / `withAsterisk` / `error` straight to the input, spreading
  *   {@link formFieldLabelStyles} to keep the shared look.
  * - **Raw control** that renders a single focusable element (`PinInput`, `MultiSelect`
- *   without built-in chrome) — wrap it here and give the control the same `inputId`.
+ *   without built-in chrome). Wrap it here and give the control the same `inputId`.
  * - **Composite widget** whose focusable element is not the labelled node (Lexical
- *   editor, `PillsInput`, `Radio.Group`) — wrap it here and spread
+ *   editor, `PillsInput`, `Radio.Group`). Wrap it here and spread
  *   {@link compositeFieldAria} onto the focusable element.
  *
  * `error` must be a node, not a boolean: Mantine only renders the message and only adds
@@ -47,7 +47,7 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
  *
  * `TextInput`, `Select`, `MultiSelect` and friends all resolve to `InputBase`, which always
  * renders its own `Input.Wrapper`, and `Input` then applies `aria-describedby` from *that*
- * wrapper's context — spread after the caller's props, so a hand-passed `aria-describedby` is
+ * wrapper's context, spread after the caller's props, so a hand-passed `aria-describedby` is
  * silently overwritten. Passing the error node to the input instead lets its own wrapper
  * compute the association, and `inputWrapperOrder` stops it rendering a second copy of the
  * message, which {@link FormField} already shows beside the counter.
@@ -79,7 +79,7 @@ export const nativeFieldProps = (
  * back at the generated ids themselves.
  *
  * For controls taking Lexical-style camelCase aria props (the `Editor`), use
- * {@link fieldDescribedBy} directly instead — they do not accept `aria-*` keys.
+ * {@link fieldDescribedBy} directly instead, because they do not accept `aria-*` keys.
  */
 export const compositeFieldAria = (inputId: string, state: FieldState) => ({
     'aria-labelledby': fieldLabelId(inputId),
@@ -87,20 +87,43 @@ export const compositeFieldAria = (inputId: string, state: FieldState) => ({
     'aria-invalid': state.hasError || undefined,
 })
 
+interface ValidatableForm {
+    errors: Record<string, unknown>
+    validateField: (path: string) => unknown
+}
+
+/**
+ * Validates a field on blur, but never when an error is already showing.
+ *
+ * `validateField` clears the error when the client rule passes, which would erase a message
+ * the client cannot re-derive: a server rejection set with `setFieldError` (Clerk's "invalid
+ * code", "invalid phone number", a rate-limit notice). Re-reading that message and tabbing
+ * away would silently wipe it, leaving an unchanged value with no explanation.
+ *
+ * Skipping is safe because Mantine's `clearInputErrorOnChange` (on by default) drops the error
+ * as soon as the user edits the value, so the next blur validates a clean field again.
+ */
+export function revalidateOnBlur(form: ValidatableForm, path: string) {
+    return () => {
+        if (form.errors[path]) return
+        form.validateField(path)
+    }
+}
+
 /**
  * Wraps a blur callback so it fires only when focus leaves the whole widget.
  *
- * Composite widgets (Lexical editor + toolbar, pills + their remove buttons, a radio
- * group's radios) emit blur as focus moves *between* their internal parts, because
- * React's `onBlur` is `focusout` and bubbles. Validating on those flashes an error
- * mid-interaction. A null `relatedTarget` means focus left the page entirely (tab or
- * window switch), which is also not the user leaving the field.
+ * Composite widgets (Lexical editor plus toolbar, pills plus their remove buttons, a radio
+ * group's radios) emit blur as focus moves *between* their internal parts, because React's
+ * `onBlur` is `focusout` and bubbles. Validating on those flashes an error mid-interaction.
+ * A null `relatedTarget` means focus left the page entirely (tab or window switch), which is
+ * also not the user leaving the field.
  */
-export function widgetBlurHandler(onLeave: () => void) {
+export function widgetBlurHandler(onLeave: (event: React.FocusEvent<HTMLElement>) => void) {
     return (event: React.FocusEvent<HTMLElement>) => {
         const next = event.relatedTarget as Node | null
         if (!next || event.currentTarget.contains(next)) return
-        onLeave()
+        onLeave(event)
     }
 }
 
@@ -112,7 +135,7 @@ export interface FormFieldProps {
     description?: ReactNode
     error?: ReactNode
     /**
-     * Right-aligned slot beside the error message — word counters, save-status indicators.
+     * Right-aligned slot beside the error message: word counters, save-status indicators.
      * Shares a row with the error so a long message and the counter never collide.
      */
     footer?: ReactNode

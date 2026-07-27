@@ -8,10 +8,11 @@ const MAX_FILE_SIZE_STR = '10MB'
 
 // Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
+export const ENV_VAR_KEY_ERROR = 'Invalid variable name: must start with letter or underscore'
 
 // Schema for individual environment variable
 const envVarSchema = z.object({
-    name: z.string().regex(envVarKeyRegex, 'Invalid variable name: must start with letter or underscore'),
+    name: z.string().regex(envVarKeyRegex, ENV_VAR_KEY_ERROR),
     value: z.string().nonempty('Value is required'),
 })
 

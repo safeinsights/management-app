@@ -104,9 +104,9 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        <span id={fieldErrorId('resubmissionNote')}>
+                        <Box id={fieldErrorId('resubmissionNote')}>
                             <InputError error={error} />
-                        </span>
+                        </Box>
                         <SingleUserSaveStatus isVisible={singleUserEditing} autosaveStatus={autosaveStatus} />
                     </Group>
                 </Box>

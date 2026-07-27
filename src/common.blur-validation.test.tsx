@@ -39,6 +39,31 @@ function Harness() {
     )
 }
 
+// The description path is the fragile one: it depends on the inner and outer Input.Wrapper
+// deriving the same description id from the shared `id`.
+function HarnessWithDescription() {
+    const form = useForm({
+        initialValues: { title: '' },
+        validate: zodResolver(z.object({ title: z.string().trim().min(1, { message: 'Study title is required.' }) })),
+    })
+
+    return (
+        <FormField
+            inputId="described-title"
+            label="Study title"
+            required
+            description="Keep it short and clear."
+            error={form.errors.title}
+        >
+            <TextInput
+                id="described-title"
+                {...form.getInputProps('title')}
+                {...nativeFieldProps(form.errors.title, { required: true, description: true })}
+            />
+        </FormField>
+    )
+}
+
 describe('required-field blur validation', () => {
     it('surfaces no error on first paint, before the user interacts', () => {
         renderWithProviders(<Harness />)
@@ -88,6 +113,21 @@ describe('required-field blur validation', () => {
         await user.tab()
 
         expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
+    })
+
+    it('points the input at both its description and its error message', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<HarnessWithDescription />)
+
+        await user.click(screen.getByLabelText(/Study title/))
+        await user.tab()
+        await screen.findByText('Study title is required.')
+
+        const input = screen.getByLabelText(/Study title/)
+        const describedBy = input.getAttribute('aria-describedby') ?? ''
+        expect(describedBy).toContain('described-title-error')
+        expect(describedBy).toContain('described-title-description')
+        expect(document.getElementById('described-title-description')).toHaveTextContent('Keep it short and clear.')
     })
 
     it('points the input at its error message for assistive tech', async () => {

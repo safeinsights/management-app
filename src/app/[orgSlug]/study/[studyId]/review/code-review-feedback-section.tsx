@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
@@ -159,6 +159,7 @@ function DecisionRadioGroup({
             onChange={handleChange}
             onBlur={widgetBlurHandler(onBlur)}
             name="code-review-decision"
+            aria-label="Code review decision"
             withAsterisk
             error={error}
             aria-invalid={!!error || undefined}
@@ -190,9 +191,9 @@ export function CodeReviewFeedbackSection({
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
-                <span id={fieldErrorId('code-review-feedback')}>
+                <Box id={fieldErrorId('code-review-feedback')}>
                     <InputError error={feedback.error} />
-                </span>
+                </Box>
                 <Divider />
                 <DecisionRadioGroup
                     value={decisionValue}

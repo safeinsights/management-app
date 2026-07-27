@@ -181,10 +181,10 @@ function AddTotpScreenContent({
                     <Title order={4} ta="center" mt="xs">
                         Enter your code
                     </Title>
-                    <OtpInput form={form} />
-                    <span id="otp-code-error">
+                    <OtpInput form={form} errorId="add-app-mfa-code-error" />
+                    <Box id="add-app-mfa-code-error">
                         <InputError error={form.errors.code} />
-                    </span>
+                    </Box>
                     <Button
                         type="submit"
                         loading={isVerifying}

@@ -56,6 +56,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             placeholder="Select a Data Partner"
                             disabled={isExistingDraft || isLoading}
+                            aria-required="true"
                             {...form.getInputProps('orgSlug')}
                         />
                     </Grid.Col>

@@ -14,6 +14,8 @@ import {
     createAthenaTablesAction,
 } from './code-envs.actions'
 import {
+    ENV_VAR_KEY_ERROR,
+    envVarKeyRegex,
     createOrgCodeEnvSchema,
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
@@ -116,15 +118,16 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             if (!value) form.setFieldError('newEnvValue', 'Value is required')
             return
         }
+        if (!envVarKeyRegex.test(key)) {
+            form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
+            return
+        }
 
         form.setValues({
             ...form.values,
             settings: {
                 ...form.values.settings,
-                environment: [
-                    ...form.values.settings.environment,
-                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
-                ],
+                environment: [...form.values.settings.environment, { name: key, value }],
             },
             newEnvKey: '',
             newEnvValue: '',
@@ -239,6 +242,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
                 if (halfCommand) {
                     form.setFieldError(cmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
                 }
+                return
+            }
+
+            if (envKey && !envVarKeyRegex.test(envKey)) {
+                form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
                 return
             }
 

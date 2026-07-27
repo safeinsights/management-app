@@ -13,12 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import {
-    PASSWORD_REQUIREMENTS,
-    PASSWORD_REQUIREMENTS_ID,
-    Requirements,
-    usePasswordRequirements,
-} from './password-requirements'
+import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
 
 const verificationFormSchema = z
     .object({
@@ -211,14 +206,14 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                         placeholder="********"
                         aria-label="New password"
                         mb="xs"
-                        // Error is suppressed in favour of the requirements list below, which
+                        // Error is suppressed in favor of the requirements list below, which
                         // now also appears when the field is left empty.
                         error={undefined}
                         aria-invalid={!!verificationForm.errors.password || undefined}
-                        aria-describedby={shouldShowRequirements ? PASSWORD_REQUIREMENTS_ID : undefined}
+                        // Rendered as the input's description so Mantine owns the
+                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        description={shouldShowRequirements ? <Requirements requirements={requirements} /> : undefined}
                     />
-
-                    {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                     <PasswordInput
                         key={verificationForm.key('confirmPassword')}

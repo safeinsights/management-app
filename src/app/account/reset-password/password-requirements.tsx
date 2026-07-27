@@ -26,7 +26,7 @@ export const PASSWORD_REQUIREMENTS = [
 /**
  * Checks password requirements and decides whether to display them.
  *
- * The password inputs suppress their own Mantine error in favour of this list, so it has to
+ * The password inputs suppress their own Mantine error in favor of this list, so it has to
  * appear once the user has left an empty field. Hiding it on `password.length === 0`, as it
  * previously did, meant blurring an empty password showed nothing at all (OTTER-647).
  *
@@ -53,9 +53,6 @@ export function usePasswordRequirements(password: string, touched = false) {
     }
 }
 
-/** Id the password inputs reference, since they suppress Mantine's own error node. */
-export const PASSWORD_REQUIREMENTS_ID = 'password-requirements'
-
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()
@@ -78,7 +75,7 @@ export function Requirements({ requirements }: RequirementsProps) {
     }
 
     return (
-        <Flex id={PASSWORD_REQUIREMENTS_ID} direction="column" gap="xs">
+        <Flex direction="column" gap="xs">
             {rows}
         </Flex>
     )

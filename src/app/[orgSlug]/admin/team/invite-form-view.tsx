@@ -1,7 +1,9 @@
 'use client'
 
+import type React from 'react'
 import type { ComponentPropsWithoutRef, FormEventHandler, ReactNode } from 'react'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
+import { widgetBlurHandler } from '@/components/form-field'
 
 // Presentational layout for the "Invite People" form: email input + Contributor /
 // Administrator radios + "Send invitation" button. It owns no form state, mutation, or
@@ -39,12 +41,21 @@ export function InviteFormView({
             />
 
             <Flex mb="sm" fw="semibold" direction="column">
+                {/* Guarded blur: every radio is in the tab order until one is chosen, so
+                    Mantine's raw validating onBlur would flash the error while the user is
+                    still moving between options (OTTER-647). */}
                 <Radio.Group
                     label="Assign Permissions"
                     withAsterisk
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
                     name="permission"
                     {...permissionProps}
+                    onBlur={
+                        permissionProps.onBlur &&
+                        widgetBlurHandler((event) =>
+                            permissionProps.onBlur?.(event as React.FocusEvent<HTMLDivElement>),
+                        )
+                    }
                     error={permissionError}
                 >
                     <Flex gap="md" mt="xs" direction="column">

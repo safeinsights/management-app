@@ -43,7 +43,13 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
 
         const url = form.values.newUrl.trim()
         const description = form.values.newUrlDescription.trim()
-        if (!url && !description) return
+        // Both empty: say so rather than no-op. The pair schema only flags a *half*-filled
+        // draft, so without this the button silently did nothing (OTTER-647).
+        if (!url && !description) {
+            form.setFieldError('newUrl', 'Enter a URL to add')
+            form.setFieldError('newUrlDescription', 'URL description is required')
+            return
+        }
 
         form.setValues({
             ...form.values,

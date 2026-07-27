@@ -1,6 +1,6 @@
 import { InputError } from '@/components/errors'
 import OtpInput from '@/components/otp-input'
-import { Button, Group, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 
@@ -18,10 +18,10 @@ export const TotpVerification = ({ form, isVerifyingCode, resetFlow }: TotpVerif
             <Title order={4} ta="center" mt="xs" mb={'-0.5rem'}>
                 Enter your code
             </Title>
-            <OtpInput form={form} />
-            <span id="otp-code-error">
+            <OtpInput form={form} errorId="totp-code-error" />
+            <Box id="totp-code-error">
                 <InputError error={form.errors.code} />
-            </span>
+            </Box>
             <Button
                 type="submit"
                 w="100%"

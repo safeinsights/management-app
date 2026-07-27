@@ -38,31 +38,31 @@ interface EnvVarLineProps {
     onRemove: () => void
 }
 
-// Both halves are required, and both error only once the user has visited and left them.
-// Erroring on an untouched row (as the value input used to) flags a field the moment an
-// empty row is added, which is the inverse of what OTTER-647 asks for.
+// Errors are derived from the value, not from per-row `touched` state. These rows are keyed
+// by index, so state living in the row component transfers to whichever row slides into that
+// index when one is deleted, flagging a field the admin never visited and un-flagging the
+// broken one. Deriving keeps the message pinned to the offending row.
+//
+// This cannot fire on a freshly added row: `addEnvVar` now rejects an empty half rather than
+// inserting a blank pair, so any empty row on screen is genuinely invalid (OTTER-647).
 function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
-    const [touched, setTouched] = useState<{ name: boolean; value: boolean }>({ name: false, value: false })
-
     return (
         <Group gap="xs" align="flex-start">
             <TextInput
                 value={envVar.name}
                 onChange={(e) => onNameChange(e.target.value)}
-                onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
                 style={{ flex: 1 }}
                 placeholder="Variable name"
                 aria-label="Variable name"
-                error={touched.name && !envVar.name.trim() ? 'Variable name is required' : null}
+                error={!envVar.name.trim() ? 'Variable name is required' : null}
             />
             <TextInput
                 value={envVar.value}
                 onChange={(e) => onValueChange(e.target.value)}
-                onBlur={() => setTouched((prev) => ({ ...prev, value: true }))}
                 style={{ flex: 1 }}
                 placeholder="Value"
                 aria-label="Variable value"
-                error={touched.value && !envVar.value.trim() ? 'Value is required' : null}
+                error={!envVar.value.trim() ? 'Value is required' : null}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />
@@ -161,20 +161,19 @@ interface CommandLineRowProps {
     onRemove: () => void
 }
 
+// Value-derived for the same reason as EnvVarLine, and because a command row loaded from an
+// existing environment can arrive empty, which per-row touched state would never flag.
 function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
-    const [touched, setTouched] = useState(false)
-
     return (
         <Group gap="xs" align="flex-start">
             <TextInput value={ext} readOnly style={{ flex: 1 }} aria-label="File extension" />
             <TextInput
                 value={cmd}
                 onChange={(e) => onCmdChange(e.target.value)}
-                onBlur={() => setTouched(true)}
                 style={{ flex: 2 }}
                 placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
                 aria-label={`Command for .${ext} files`}
-                error={touched && !cmd.trim() ? 'Command is required' : null}
+                error={!cmd.trim() ? 'Command is required' : null}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />

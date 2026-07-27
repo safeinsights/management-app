@@ -1,6 +1,6 @@
 'use client'
 
-import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
+import { Box, Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
@@ -92,9 +92,9 @@ export function ReviewFeedbackSection({
                         research team.
                     </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
-                    <span id={fieldErrorId('review-feedback')}>
+                    <Box id={fieldErrorId('review-feedback')}>
                         <InputError error={feedback.error} />
-                    </span>
+                    </Box>
                 </Stack>
             </Stack>
         </Paper>

@@ -23,7 +23,7 @@ const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then(
  * for call-site parity and ignored in single-user mode.
  */
 export type EditorProps = {
-    /** Globally unique Yjs document name. NOT a DOM id — pass `inputId` for that. */
+    /** Globally unique Yjs document name. NOT a DOM id; pass `inputId` for that. */
     id: string
     studyId: string
     /** Serialized Lexical JSON used to seed the single-user editor. */

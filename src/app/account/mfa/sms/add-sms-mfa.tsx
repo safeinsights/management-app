@@ -7,7 +7,7 @@ import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
+import { Anchor, Box, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
@@ -211,10 +211,10 @@ export function AddSMSMFA() {
                                         <Title order={4} ta="center" mt="xs">
                                             Enter your code
                                         </Title>
-                                        <OtpInput form={otpForm} />
-                                        <span id="otp-code-error">
+                                        <OtpInput form={otpForm} errorId="add-sms-mfa-code-error" />
+                                        <Box id="add-sms-mfa-code-error">
                                             {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
-                                        </span>
+                                        </Box>
                                         <Button
                                             type="submit"
                                             w="100%"

@@ -108,7 +108,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    // OTTER-647: the main file is required but has no field to blur — it is a star toggle
+    // OTTER-647: the main file is required but has no field to blur, being a star toggle
     // whose value is derived from async workspace state (override, then single file, then the
     // server's suggestion). Routing it through useField would go stale on every workspace
     // refetch, so derivation stays here and the requirement is surfaced by naming what is

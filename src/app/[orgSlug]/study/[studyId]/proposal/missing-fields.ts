@@ -16,7 +16,7 @@ const FIELD_LABELS = {
  * fields the user has actually visited, so a never-touched field would otherwise leave the
  * button disabled with nothing on screen explaining why.
  *
- * `additionalNotes` is intentionally absent — it is optional.
+ * `additionalNotes` is intentionally absent because it is optional.
  */
 export function missingProposalFields(values: ProposalFormValues): string[] {
     const missing: string[] = []
