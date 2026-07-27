@@ -25,7 +25,7 @@ export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
     const showCancel = !!onCancel
 
     return (
-        <Group mt="xs" justify={showCancel ? 'space-between' : 'flex-end'} align="flex-end" w="100%">
+        <Group mt="xs" justify={showCancel ? 'space-between' : 'flex-end'} align="flex-start" w="100%">
             {showCancel && (
                 <Button type="button" variant="subtle" size="md" onClick={onCancel} disabled={isSaving}>
                     Cancel

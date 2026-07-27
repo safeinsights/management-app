@@ -82,7 +82,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     return (
         <>
-            <Group justify="flex-end" align="flex-end" mt="xs">
+            <Group justify="flex-end" align="flex-start" mt="xs">
                 {exitButton}
                 <Stack gap={4} align="flex-end">
                     <Button

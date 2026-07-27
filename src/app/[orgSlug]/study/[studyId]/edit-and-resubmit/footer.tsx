@@ -64,7 +64,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
     return (
         <>
-            <Group mt="xs" justify="space-between" w="100%">
+            <Group mt="xs" justify="space-between" align="flex-start" w="100%">
                 <Button
                     type="button"
                     variant="subtle"
@@ -76,7 +76,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 >
                     Back
                 </Button>
-                <Group align="flex-end">
+                <Group align="flex-start">
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
                     </Button>
