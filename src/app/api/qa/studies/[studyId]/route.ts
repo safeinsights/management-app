@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/database'
-import { requireQaAdmin, deleteStudyById, QaCleanupNotFoundError } from '@/server/qa-cleanup'
+import { requireQaAdmin, deleteStudyById } from '@/server/qa-cleanup'
+import { qaErrorResponse } from '../../responses'
+import { auditQaInvocation } from '../../audit'
 
 export const DELETE = async (_req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
     const auth = await requireQaAdmin()
@@ -12,11 +14,15 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ stud
     try {
         await deleteStudyById(db, studyId)
     } catch (error) {
-        if (error instanceof QaCleanupNotFoundError) {
-            return NextResponse.json({ error: error.message }, { status: 404 })
-        }
-        throw error
+        return qaErrorResponse(error)
     }
+
+    await auditQaInvocation({
+        actorUserId: auth.user.id,
+        eventType: 'DELETED',
+        recordType: 'STUDY',
+        recordId: studyId,
+    })
 
     return NextResponse.json({ deleted: studyId })
 }

@@ -205,14 +205,23 @@ export const insertTestStudyData = async ({
     }
 }
 
+/**
+ * A unique qa-prefixed address. The /api/qa routes only act on accounts whose email
+ * local part starts with "qa" (see assertQaEmail), since they run on production.
+ */
+export const qaEmail = () => `qa-${faker.string.alpha(10).toLowerCase()}@test.com`
+
 export const insertTestUser = async ({
     org,
     isAdmin = false,
     useRealKeys = false,
+    email,
 }: {
     org: MinimalTestOrg
     isAdmin?: boolean
     useRealKeys?: boolean
+    /** Override the generated address, e.g. to build a qa-prefixed account for the QA routes. */
+    email?: string
 }) => {
     const user = await db
         .insertInto('user')
@@ -220,7 +229,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: email ?? faker.internet.email({ provider: 'test.com' }),
         })
         .returningAll()
         .executeTakeFirstOrThrow()
