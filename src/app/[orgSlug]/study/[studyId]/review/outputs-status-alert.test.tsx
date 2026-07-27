@@ -91,6 +91,19 @@ describe('OutputsStatusAlert', () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent('started 1 hour and 5 minutes ago')
     })
 
+    it('switches to the absolute timestamp past 24 hours and tears down the timer', () => {
+        renderAt('JOB-RUNNING', 23 * 60 + 59)
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('started 23 hours and 59 minutes ago')
+
+        act(() => {
+            vi.advanceTimersByTime(60_000)
+        })
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            `on ${dayjs(new Date(STARTED)).format('MMM DD, YYYY [at] h:mm A')}`,
+        )
+        expect(vi.getTimerCount()).toBe(0)
+    })
+
     it('renders nothing for a status outside the four execution stages', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date(STARTED))

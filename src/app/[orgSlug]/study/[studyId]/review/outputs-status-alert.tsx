@@ -1,18 +1,21 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
 import { Anchor } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
+import { useTimer } from '@/components/timer'
 import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
 
 const DAY_MINUTES = 24 * 60
 
+const elapsedMinutes = (startedAtMs: number, nowMs: number) => Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
+
 // relative ("5 minutes ago") within 24h
 export function formatElapsed(startedAtMs: number, nowMs: number): string {
-    const totalMinutes = Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
+    const totalMinutes = elapsedMinutes(startedAtMs, nowMs)
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
     const minutesPart = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
@@ -23,8 +26,7 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
 
 // absolute timestamp ("on Jul 20, 2026 at 10:00 AM") beyond 24h
 export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
-    const totalMinutes = Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
-    if (totalMinutes < DAY_MINUTES) return `${formatElapsed(startedAtMs, nowMs)} ago`
+    if (elapsedMinutes(startedAtMs, nowMs) < DAY_MINUTES) return `${formatElapsed(startedAtMs, nowMs)} ago`
     return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`
 }
 
@@ -73,10 +75,12 @@ type OutputsStatusAlertProps = {
 function useStartedWhen(startedAt: string | Date): string {
     const startedAtMs = new Date(startedAt).getTime()
     const [nowMs, setNowMs] = useState(() => Date.now())
-    useEffect(() => {
-        const id = setInterval(() => setNowMs(Date.now()), 60_000)
-        return () => clearInterval(id)
-    }, [])
+    const tick = useCallback(() => setNowMs(Date.now()), [])
+    useTimer({
+        isEnabled: elapsedMinutes(startedAtMs, nowMs) < DAY_MINUTES,
+        every: { 1: 'minute' },
+        trigger: tick,
+    })
     return formatStartedWhen(startedAtMs, nowMs)
 }
 
