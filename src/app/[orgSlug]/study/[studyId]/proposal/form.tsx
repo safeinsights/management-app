@@ -7,7 +7,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
-import { FormField } from '@/components/form-field'
+import { FormField, fieldAria } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
@@ -134,6 +134,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 }}
                                 value={form.values.title ?? ''}
                                 error={!!form.errors.title}
+                                {...fieldAria('title', { hasError: !!form.errors.title, hasDescription: true })}
                             />
                             <SaveStatusIndicator status={titleSaveStatus} />
                         </FormField>
@@ -156,6 +157,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         }}
                                         onBlur={() => form.validateField('datasets')}
                                         error={!!form.errors.datasets}
+                                        aria={fieldAria('datasets', {
+                                            hasError: !!form.errors.datasets,
+                                            hasDescription: true,
+                                        })}
                                         orgSlug={enclaveOrgSlug}
                                     />
                                 </Box>
@@ -217,6 +222,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     }}
                                     onBlur={() => form.validateField('piName')}
                                     error={!!form.errors.piName}
+                                    {...fieldAria('piName', { hasError: !!form.errors.piName, hasDescription: true })}
                                 />
                             </Box>
                             <SaveStatusIndicator status={piSaveStatus} />

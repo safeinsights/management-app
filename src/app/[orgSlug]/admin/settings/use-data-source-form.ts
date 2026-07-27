@@ -33,7 +33,15 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         validate: zodResolver(dataSourceFormSchema),
     })
 
+    // Validate the draft pair before committing it. Appending unconditionally created a row
+    // that could only fail later, against the stricter row schema, on a field the user was no
+    // longer looking at (OTTER-647).
     const addUrl = () => {
+        const urlValid = !form.validateField('newUrl').hasError
+        const descriptionValid = !form.validateField('newUrlDescription').hasError
+        if (!urlValid || !descriptionValid) return
+        if (!form.values.newUrl.trim() && !form.values.newUrlDescription.trim()) return
+
         form.setValues({
             ...form.values,
             urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],

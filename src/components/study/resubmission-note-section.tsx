@@ -5,6 +5,7 @@ import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@manti
 import { type UseFormReturnType } from '@mantine/form'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
+import { fieldDescribedBy, fieldErrorId } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
 import { countWords } from '@/lib/lexical'
@@ -61,10 +62,17 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         value={value}
                         onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
                         onBlur={() => noteForm.validateField('resubmissionNote')}
+                        // Boolean keeps the red border while the message renders below beside
+                        // the counter; aria-describedby points at that message so the border is
+                        // not the only signal a screen reader gets.
                         error={!!error}
+                        aria-describedby={fieldDescribedBy('resubmissionNote', {
+                            hasError: !!error,
+                            hasDescription: false,
+                        })}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        {footerStatus}
+                        <span id={fieldErrorId('resubmissionNote')}>{footerStatus}</span>
                         <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
                     </Group>
                 </Box>

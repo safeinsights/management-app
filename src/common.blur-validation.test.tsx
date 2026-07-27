@@ -1,0 +1,114 @@
+import { describe, expect, it } from 'vitest'
+import { Select, TextInput } from '@mantine/core'
+import { z } from 'zod'
+import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { useForm, zodResolver } from '@/common'
+import { FormField, fieldAria } from '@/components/form-field'
+
+// OTTER-647's acceptance criteria in its most reduced form: moving away from an incomplete
+// required field must raise its error. Mantine defaults `validateInputOnBlur` to false, so
+// this exercises the project `useForm` wrapper in @/common that turns it on, and the
+// FormField wrapper that renders and associates the message.
+
+const schema = z.object({
+    title: z.string().trim().min(1, { message: 'Study title is required.' }),
+    partner: z.string().min(1, { message: 'Data Partner is required.' }),
+})
+
+function Harness() {
+    const form = useForm({
+        initialValues: { title: '', partner: '' },
+        validate: zodResolver(schema),
+    })
+
+    return (
+        <>
+            <FormField inputId="title" label="Study title" required error={form.errors.title}>
+                <TextInput
+                    id="title"
+                    aria-label="Study title"
+                    {...form.getInputProps('title')}
+                    error={!!form.errors.title}
+                    {...fieldAria('title', { hasError: !!form.errors.title, hasDescription: false })}
+                />
+            </FormField>
+            <FormField inputId="partner" label="Data Partner" required error={form.errors.partner}>
+                <Select
+                    id="partner"
+                    aria-label="Data Partner"
+                    data={[{ value: 'rice', label: 'Rice University' }]}
+                    {...form.getInputProps('partner')}
+                    error={!!form.errors.partner}
+                    {...fieldAria('partner', { hasError: !!form.errors.partner, hasDescription: false })}
+                />
+            </FormField>
+            <button type="button">next</button>
+        </>
+    )
+}
+
+describe('required-field blur validation', () => {
+    it('surfaces no error on first paint, before the user interacts', () => {
+        renderWithProviders(<Harness />)
+
+        expect(screen.queryByText('Study title is required.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Data Partner is required.')).not.toBeInTheDocument()
+    })
+
+    it('errors a text field left empty when the user moves to the next field', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.click(screen.getByLabelText('Study title'))
+        await user.tab()
+
+        expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
+    })
+
+    it('errors a select left empty when the user moves on', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.click(screen.getByLabelText('Data Partner'))
+        await user.click(screen.getByRole('button', { name: 'next' }))
+
+        expect(await screen.findByText('Data Partner is required.')).toBeInTheDocument()
+    })
+
+    it('clears the error once the user supplies a value', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.click(screen.getByLabelText('Study title'))
+        await user.tab()
+        expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText('Study title'), 'A real title')
+
+        expect(screen.queryByText('Study title is required.')).not.toBeInTheDocument()
+    })
+
+    it('treats a whitespace-only value as incomplete', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.type(screen.getByLabelText('Study title'), '   ')
+        await user.tab()
+
+        expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
+    })
+
+    it('points the input at its error message for assistive tech', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.click(screen.getByLabelText('Study title'))
+        await user.tab()
+        await screen.findByText('Study title is required.')
+
+        const input = screen.getByLabelText('Study title')
+        expect(input).toHaveAttribute('aria-invalid', 'true')
+        expect(input.getAttribute('aria-describedby')).toContain('title-error')
+        expect(document.getElementById('title-error')).toHaveTextContent('Study title is required.')
+    })
+})

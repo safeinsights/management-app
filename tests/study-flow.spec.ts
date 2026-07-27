@@ -769,3 +769,54 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
     })
 })
+
+// ============================================================================
+// Required-field blur validation (OTTER-647)
+// ============================================================================
+
+// Owns the blur-validation surface: leaving a required field incomplete must flag it
+// rather than silently disabling submit. Drives Step 1 and Step 2 live because the
+// behaviour is the interaction itself and cannot be seeded.
+test('Incomplete required fields are flagged when the researcher moves on', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('blur-validation')
+
+    await withRole(browser, 'researcher', async (page) => {
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+
+        const newStudyButton = page.getByTestId('new-study').first()
+        await newStudyButton.waitFor({ state: 'visible' })
+        await newStudyButton.click()
+        await page.waitForURL(/\/study\/request$/)
+
+        // Step 1: nothing is flagged before the researcher interacts, and Proceed names
+        // what is still outstanding rather than being inertly disabled.
+        await expect(page.getByText('Data Partner is required')).toBeHidden()
+        const proceed = page.getByRole('button', { name: /Proceed to Step 2/i })
+        await expect(proceed).toBeDisabled()
+        await expect(page.getByTestId('incomplete-fields-hint')).toContainText(/Data Partner/i)
+
+        await selectOrgAndLanguage(page)
+        await expect(proceed).toBeEnabled()
+        await proceed.click()
+        await page.waitForURL(/\/proposal$/)
+
+        // Step 2: focusing the title and leaving it empty raises its error.
+        const title = page.getByLabel('Study Title')
+        await expect(page.getByText('This field is required.')).toBeHidden()
+        await title.click()
+        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await expect(page.getByText('This field is required.').first()).toBeVisible()
+
+        // ...and supplying a value clears it.
+        await page.keyboard.press('Escape')
+        await title.fill(studyTitle)
+        await expect(title).toHaveValue(studyTitle)
+        await expect(page.getByText('This field is required.')).toBeHidden()
+
+        // A whitespace-only title counts as incomplete.
+        await title.fill('   ')
+        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await page.keyboard.press('Escape')
+        await expect(page.getByText('This field is required.').first()).toBeVisible()
+    })
+})

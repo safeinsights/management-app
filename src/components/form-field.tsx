@@ -43,6 +43,19 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
         .join(' ') || undefined
 
 /**
+ * ARIA for a standard Mantine input rendered inside {@link FormField}.
+ *
+ * Required, not optional: `TextInput`, `Select`, `MultiSelect` and friends all resolve to
+ * `InputBase`, which *always* renders its own `Input.Wrapper`. That inner wrapper shadows the
+ * outer one's context, so the error id published by `FormField` never reaches the input's
+ * `aria-describedby` on its own. Spreading this restores the link.
+ */
+export const fieldAria = (inputId: string, state: FieldState) => ({
+    'aria-describedby': fieldDescribedBy(inputId, state),
+    'aria-invalid': state.hasError || undefined,
+})
+
+/**
  * ARIA for a composite widget's focusable element. `Input.Wrapper` links its label with
  * `htmlFor`, which only reliably associates real form controls, so composite widgets point
  * back at the generated ids themselves.
@@ -51,9 +64,8 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
  * {@link fieldDescribedBy} directly instead — they do not accept `aria-*` keys.
  */
 export const compositeFieldAria = (inputId: string, state: FieldState) => ({
+    ...fieldAria(inputId, state),
     'aria-labelledby': fieldLabelId(inputId),
-    'aria-describedby': fieldDescribedBy(inputId, state),
-    'aria-invalid': state.hasError || undefined,
 })
 
 /**
@@ -116,8 +128,14 @@ export const FormField: FC<FormFieldProps> = ({
                 withAsterisk={required}
                 description={description}
                 descriptionProps={{ id: fieldDescriptionId(inputId) }}
-                // The error renders in FieldFooterRow instead, so it can share a row with
-                // the counter. Mantine keeps owning the label and description.
+                // `error` is passed for ARIA only: Input.Wrapper folds the error id into the
+                // `describedBy` it publishes on context, which nested Mantine inputs apply as
+                // `aria-describedby`. Without it those inputs would carry `aria-invalid` and
+                // no reachable message, which is the defect this component exists to remove.
+                // Omitting 'error' from inputWrapperOrder keeps Mantine from also rendering
+                // it, so the visible message stays in FieldFooterRow beside the counter.
+                error={error}
+                errorProps={{ id: fieldErrorId(inputId) }}
                 inputWrapperOrder={['label', 'description', 'input']}
                 {...formFieldLabelStyles}
             >

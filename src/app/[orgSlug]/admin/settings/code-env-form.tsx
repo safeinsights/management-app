@@ -86,6 +86,12 @@ function StarterCodeSection({
     removeStarterCode: (fileName: string) => void
     error?: string
 }) {
+    // Required on create. It has no input to blur, so "left incomplete" is modelled as
+    // visited-then-left-empty: the dropzone is focusable, and leaving it without files shows
+    // the requirement rather than waiting for submit (OTTER-647).
+    const [touched, setTouched] = useState(false)
+    const isMissing = !isEditMode && touched && starterCodes.length === 0
+
     const handleDrop = (files: File[]) => {
         const existingNames = new Set(starterCodes.map((f) => f.name))
         const newFiles = files.filter((f) => !existingNames.has(f.name))
@@ -103,7 +109,13 @@ function StarterCodeSection({
                     ? 'Upload new files to replace all existing starter code (optional)'
                     : 'Upload starter code files to assist Researchers with their coding experience.'}
             </Text>
-            <Dropzone onDrop={handleDrop} multiple p="md">
+            <Dropzone
+                onDrop={handleDrop}
+                multiple
+                p="md"
+                onBlur={() => setTouched(true)}
+                aria-invalid={isMissing || !!error || undefined}
+            >
                 <Group gap="xs" justify="center">
                     <Dropzone.Accept>
                         <UploadIcon size={24} />
@@ -116,9 +128,9 @@ function StarterCodeSection({
                     </Text>
                 </Group>
             </Dropzone>
-            {error && (
+            {(error || isMissing) && (
                 <Text size="sm" c="red" mt="xs">
-                    {error}
+                    {error ?? 'At least one starter code file is required.'}
                 </Text>
             )}
             {starterCodes.length > 0 && (

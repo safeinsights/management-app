@@ -13,6 +13,12 @@ interface DatasetMultiSelectProps {
     onChange: (value: string[]) => void
     onBlur?: FocusEventHandler<HTMLInputElement>
     error?: ReactNode
+    /**
+     * ARIA wiring from the surrounding `FormField`. Needed because `MultiSelect` renders its
+     * own `Input.Wrapper`, which shadows the outer wrapper's context, so the error id has to
+     * be applied directly. Use `fieldAria` to build it.
+     */
+    aria?: { 'aria-describedby'?: string; 'aria-invalid'?: boolean }
     placeholder?: string
     disabled?: boolean
     orgSlug?: string
@@ -24,6 +30,7 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
     onChange,
     onBlur,
     error,
+    aria,
     placeholder = 'Select dataset(s) of interest',
     disabled = false,
     orgSlug,
@@ -38,6 +45,7 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
             onChange={onChange}
             onBlur={onBlur}
             error={error}
+            {...aria}
             placeholder={value.length === 0 ? placeholder : undefined}
             disabled={disabled}
             searchable={false}
