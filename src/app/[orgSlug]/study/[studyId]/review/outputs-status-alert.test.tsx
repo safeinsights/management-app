@@ -1,6 +1,7 @@
 import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
+import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
@@ -56,7 +57,7 @@ describe('OutputsStatusAlert', () => {
         expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
         const slack = screen.getByRole('link', { name: /Slack/ })
         expect(slack).toHaveAttribute('target', '_blank')
-        expect(slack.getAttribute('href')).toBeTruthy()
+        expect(slack).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
     })
 
     it('shows the job-ready copy (queued, org-admin contact)', () => {

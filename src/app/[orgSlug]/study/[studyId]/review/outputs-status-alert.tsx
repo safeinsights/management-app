@@ -6,8 +6,8 @@ import { Anchor } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
+import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
 
-const SAFE_INSIGHTS_SLACK_URL = 'https://openstax.slack.com/archives/C081BN1R8CE'
 const DAY_MINUTES = 24 * 60
 
 // relative ("5 minutes ago") within 24h
