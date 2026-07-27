@@ -125,6 +125,17 @@ describe('currentExecutionStage', () => {
         ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
     })
 
+    it('picks the furthest pipeline stage when timestamps tie (out-of-order writes)', () => {
+        const sameMs = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PROVISIONING', createdAt: sameMs },
+                { status: 'JOB-RUNNING', createdAt: sameMs },
+                { status: 'JOB-READY', createdAt: sameMs },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: sameMs })
+    })
+
     it('accepts ISO string timestamps', () => {
         expect(
             currentExecutionStage([

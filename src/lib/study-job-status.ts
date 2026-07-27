@@ -17,20 +17,23 @@ export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolea
 // Execution window: the code has been approved and is being provisioned/packaged/run in
 // the secure enclave, but no results exist yet. These statuses map to the redesigned
 // Code-approved page until a results status appears.
-export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = [
-    'JOB-PROVISIONING',
-    'JOB-PACKAGING',
-    'JOB-READY',
-    'JOB-RUNNING',
-]
+// Pipeline order: earliest stage → latest stage
+const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
+
+export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = STAGE_PROGRESSION
+
+const STAGE_INDEX: ReadonlyMap<StudyJobStatus, number> = new Map(STAGE_PROGRESSION.map((s, i) => [s, i]))
 
 // The most recently recorded JOB-* running status, or null if none — drives the outputs view's stage alert.
+// Picks the latest stage by timestamp; when timestamps tie (e.g. several statuses written in the same
+// transaction), the stage furthest along the pipeline wins regardless of insertion order.
 export function currentExecutionStage(
     statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
 ): { status: StudyJobStatus; startedAt: Date | string } | null {
     const stages = statusChanges.filter((c) => STUDY_CODE_RUNNING_JOB_STATUSES.includes(c.status))
     if (stages.length === 0) return null
-    const latest = stages.reduce((a, b) => (new Date(b.createdAt).getTime() > new Date(a.createdAt).getTime() ? b : a))
+    const rank = (c: (typeof stages)[number]) => new Date(c.createdAt).getTime() * 10 + (STAGE_INDEX.get(c.status) ?? 0)
+    const latest = stages.reduce((a, b) => (rank(b) > rank(a) ? b : a))
     return { status: latest.status, startedAt: latest.createdAt }
 }
 
