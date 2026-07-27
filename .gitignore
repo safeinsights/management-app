@@ -30,6 +30,8 @@ playwright-report/
 monocart-report/
 # auto-created and updated by nextjs
 next-env.d.ts
+# css-in-js codegen output
+src/styles/generated/
 # clerk configuration (can include secrets)
 /.clerk/
 
