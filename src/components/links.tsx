@@ -24,14 +24,22 @@ export type LinkWithIconProps = AnchorProps &
         children: ReactNode
     }
 
-export const LinkWithIcon: FC<LinkWithIconProps> = ({ icon, iconPosition = 'trailing', children, ...anchorProps }) => (
+export const LinkWithIcon: FC<LinkWithIconProps> = ({
+    icon,
+    iconPosition = 'trailing',
+    children,
+    style,
+    ...anchorProps
+}) => (
     <MantineAnchor
         c="blue.7"
         fz="sm"
         fw={600}
         display="inline-flex"
-        style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
         {...anchorProps}
+        // Merge rather than replace: the icon+text layout depends on these, so a caller
+        // passing `style` overrides individual keys without dropping the flex layout.
+        style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0, ...style }}
     >
         {iconPosition === 'leading' && icon}
         {children}

@@ -49,4 +49,17 @@ describe('LinkWithIcon', () => {
         const link = screen.getByTestId('link')
         expect(link.firstElementChild).toBe(screen.getByTestId('icon'))
     })
+
+    it('merges a caller style over the base layout instead of replacing it', () => {
+        renderWithProviders(
+            <LinkWithIcon href={'/x' as Route} icon={icon} data-testid="link" style={{ color: 'red' }}>
+                Label
+            </LinkWithIcon>,
+        )
+
+        const link = screen.getByTestId('link')
+        expect(link).toHaveStyle({ color: 'rgb(255, 0, 0)' })
+        // The base flex layout survives the caller's override.
+        expect(link).toHaveStyle({ gap: '4px', whiteSpace: 'nowrap' })
+    })
 })
