@@ -5,7 +5,8 @@
  * Reaching a state like "results are back and awaiting review" normally requires a real
  * job run. QA needs to land on that state directly, so this writes the same rows the
  * real path does: a `study.status` update, an append to the `job_status_change` log, and
- * `study_job_file` rows backed by S3 objects.
+ * `study_job_file` rows backed by S3 objects. A study with no job yet gets one opened
+ * through the same round helper the IDE launch and upload paths use.
  *
  * Files arrive as plaintext and are encrypted here before storage. The real enclave
  * uploads ciphertext it produced itself; QA has no enclave, so the plaintext is wrapped
@@ -23,6 +24,7 @@ import { type Kysely } from 'kysely'
 import { type DB, type StudyJobStatus, type StudyStatus, type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { getOrgPublicKeys } from '@/server/db/queries'
+import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
@@ -44,26 +46,11 @@ export type QaStudyStateUpdate = {
 export type QaStudyStateResult = {
     studyId: string
     studyJobId: string | null
+    /** True when this call opened a round job because the study had none. */
+    jobCreated: boolean
     studyStatus: StudyStatus
     jobStatus: StudyJobStatus | null
     files: { key: QaFileKey; fileType: FileType; name: string }[]
-}
-
-/**
- * The job a QA-attached artifact belongs to: the study's most recent one.
- *
- * Ordered by created_at with the id as a tiebreaker — v7 uuids are time-ordered, so this
- * stays deterministic for jobs minted inside the same clock tick, which fixtures do.
- */
-async function latestJobId(db: Kysely<DB>, studyId: string) {
-    const job = await db
-        .selectFrom('studyJob')
-        .select(['id'])
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .orderBy('id', 'desc')
-        .executeTakeFirst()
-    return job?.id ?? null
 }
 
 /**
@@ -137,12 +124,19 @@ export async function setQaStudyState(
     if (!row) throw new QaCleanupNotFoundError(`study ${study.studyId} not found`)
 
     const requestedFiles = Object.entries(update.files ?? {}).filter(([, file]) => file) as [QaFileKey, File][]
-    const studyJobId = await latestJobId(db, study.studyId)
+    const needsJob = requestedFiles.length > 0 || Boolean(update.jobStatus)
 
-    // Both of these are job-scoped; without a job there is nothing to attach them to, and
-    // silently dropping them would report a success that did not happen.
-    if (!studyJobId && (requestedFiles.length > 0 || update.jobStatus)) {
-        throw new QaInvalidRequestError(`study ${study.studyId} has no job to attach a status or files to`)
+    // A study has no job until work begins (IDE launch or file upload), so a freshly created
+    // QA study legitimately has none. Open one on demand through the same helper the real
+    // launch/upload paths use, so the round bookkeeping (reuse vs. new round, the INITIATED
+    // row) matches what those paths would have produced. Only minted when there is actually
+    // something job-scoped to attach — a study-status-only call leaves the study job-less.
+    let studyJobId: string | null = null
+    let jobCreated = false
+    if (needsJob) {
+        const job = await getOrCreateCurrentRoundJob(db, study.studyId)
+        studyJobId = job.id
+        jobCreated = job.created
     }
 
     const files: QaStudyStateResult['files'] = []
@@ -179,6 +173,7 @@ export async function setQaStudyState(
     return {
         studyId: study.studyId,
         studyJobId,
+        jobCreated,
         studyStatus,
         jobStatus: update.jobStatus ?? null,
         files,

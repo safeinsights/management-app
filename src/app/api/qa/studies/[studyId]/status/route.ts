@@ -72,7 +72,9 @@ async function parseRequest(req: Request) {
 }
 
 /**
- * Set a study's status, its latest job's status, and/or attach result and log artifacts.
+ * Set a study's status, its current round job's status, and/or attach result and log
+ * artifacts. A study with no job yet gets one opened when there is something job-scoped
+ * to attach.
  *
  * Files are sent as plaintext under the `result` and `log` form keys and are encrypted
  * server-side for the reviewing org before storage.
@@ -108,6 +110,7 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ studyI
             () => setQaStudyState(db, study, update),
             (applied) => ({
                 studyJobId: applied.studyJobId ?? undefined,
+                jobCreated: applied.jobCreated,
                 studyStatus: applied.studyStatus,
                 files: applied.files.map((file) => file.fileType),
             }),

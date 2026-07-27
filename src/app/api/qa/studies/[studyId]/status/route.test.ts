@@ -199,16 +199,66 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect((await response.json()).error).toContain('public keys')
     })
 
-    it('returns 400 when a study has no job to attach files to', async () => {
+    // A study has no job until work begins, so a fresh QA study needs one opened before a
+    // job status or artifact has anywhere to live.
+    it('opens a round job when the study has none', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail(), useRealKeys: true })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-        const response = await patchStatus(study.id, formWith({ jobStatus: 'RUN-COMPLETE' }))
+        const response = await patchStatus(
+            study.id,
+            formWith({ jobStatus: 'RUN-COMPLETE', result: textFile('results.csv', 'a,b\n1,2\n') }),
+        )
+        const body = await response.json()
 
-        expect(response.status).toBe(400)
-        expect((await response.json()).error).toContain('no job')
+        expect(response.status).toBe(200)
+        expect(body).toMatchObject({ jobCreated: true })
+        expect(body.studyJobId).toBeTruthy()
+
+        const changes = await db
+            .selectFrom('jobStatusChange')
+            .select(['status'])
+            .where('studyJobId', '=', body.studyJobId)
+            .execute()
+        // INITIATED comes from opening the round; RUN-COMPLETE is what was requested.
+        expect(changes.map((c) => c.status)).toEqual(expect.arrayContaining(['INITIATED', 'RUN-COMPLETE']))
+
+        const file = await db
+            .selectFrom('studyJobFile')
+            .select(['fileType'])
+            .where('studyJobId', '=', body.studyJobId)
+            .executeTakeFirst()
+        expect(file?.fileType).toBe('ENCRYPTED-RESULT')
+    })
+
+    // Only mint a job when something actually needs one; a status-only call should leave
+    // the study job-less rather than fabricating an empty round.
+    it('does not open a job when only the study status is set', async () => {
+        await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail(), useRealKeys: true })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+        const body = await response.json()
+
+        expect(response.status).toBe(200)
+        expect(body).toMatchObject({ studyStatus: 'APPROVED', studyJobId: null, jobCreated: false })
+        const jobs = await db.selectFrom('studyJob').select(['id']).where('studyId', '=', study.id).execute()
+        expect(jobs).toHaveLength(0)
+    })
+
+    it('reuses the existing job rather than opening another', async () => {
+        await authenticateAsSiAdmin()
+        const { study, job } = await insertQaStudy()
+
+        const response = await patchStatus(study.id, formWith({ jobStatus: 'RUN-COMPLETE' }))
+        const body = await response.json()
+
+        expect(response.status).toBe(200)
+        expect(body).toMatchObject({ studyJobId: job.id, jobCreated: false })
     })
 
     it('returns 400 for an unknown status value', async () => {
