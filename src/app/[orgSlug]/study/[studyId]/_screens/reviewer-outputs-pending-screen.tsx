@@ -15,9 +15,18 @@ export async function ReviewerOutputsPendingScreen({
     }
 
     const job = await latestSubmittedJobForStudy(study.id)
-    const stage = job ? currentExecutionStage(job.statusChanges) : null
-    if (!stage) {
+    if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
+    }
+
+    const stage = currentExecutionStage(job.statusChanges)
+    if (!stage) {
+        return (
+            <AlertNotFound
+                title="Outputs not yet available"
+                message="Code has been approved but execution has not started yet. Please check back shortly."
+            />
+        )
     }
 
     return (
