@@ -60,7 +60,7 @@ export function StudyCodeEmptyView({
                         </Text>
                         <Box>
                             <LaunchIdeButton
-                                onClick={(event) => launchWorkspace({ sameWindow: event.ctrlKey })}
+                                onClick={(event) => launchWorkspace({ sameWindow: event.shiftKey })}
                                 isLaunching={isLaunching}
                                 launchError={launchError}
                                 variant="cta"
