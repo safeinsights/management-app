@@ -49,6 +49,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 className={styles.navLinkHover}
                 rightSection={null}
                 aria-haspopup="true"
+                aria-expanded={isAdminMenuOpen}
             >
                 <NavbarLink
                     isVisible
