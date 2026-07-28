@@ -60,6 +60,10 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
+    // ToS/PN/ROPA/DOPA/SLA. orgId/studyId carry the document's scope (both absent for the global
+    // ToS and PN) so a future rule can grant an org admin sight of their own org's agreements.
+    // Today only SI admins reach these actions, via their ('manage','all') wildcard.
+    | Ability<'LegalDocument', 'view' | 'create' | 'publish' | 'acknowledge', { orgId?: UUID; studyId?: UUID }>
     | Ability<'IDE', 'load', { researcherId: UUID }>
     | Ability<
           'AgentContext',

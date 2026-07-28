@@ -187,7 +187,7 @@ export async function down(db: Kysely<any>): Promise<void> {
 
 - [ ] `pathForLegalDocument = (type, documentId) => \`legal/${type}/${documentId}\``
 - [ ] `pathForLegalDocumentVersionFile = (type, documentId, versionId, fileName) =>
-  \`${pathForLegalDocument(type, documentId)}/${versionId}/${sanitizeFileName(fileName)}\``
+\`${pathForLegalDocument(type, documentId)}/${versionId}/${sanitizeFileName(fileName)}\``
 - [ ] Key on `versionId`, not `versionNumber` — drafts have no number yet
 
 ### 5. Server actions — `src/server/actions/legal-document.actions.ts`

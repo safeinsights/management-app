@@ -1,3 +1,4 @@
+import type { LegalDocumentType } from '@/database/types'
 import type { MinimalCodeEnvInfo, MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import type { AgentId, BuildId, CoderUsername, WorkspaceId } from '@/server/coder/types'
 import { sanitizeFileName } from './utils'
@@ -19,6 +20,20 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
+
+// Keyed by versionId rather than version number: a draft has no number yet, and the id keeps every
+// upload in its own prefix so re-uploading a replacement draft can never collide with a published
+// file. This is the prefix handed to createSignedUploadUrl, which appends the client's filename.
+export const pathForLegalDocumentVersion = (parts: {
+    type: LegalDocumentType
+    legalDocumentId: string
+    versionId: string
+}) => `legal/${parts.type}/${parts.legalDocumentId}/${parts.versionId}`
+
+export const pathForLegalDocumentVersionFile = (
+    parts: { type: LegalDocumentType; legalDocumentId: string; versionId: string },
+    fileName: string,
+) => `${pathForLegalDocumentVersion(parts)}/${sanitizeFileName(fileName)}`
 
 const pathForCodeEnv = (parts: MinimalCodeEnvInfo) => `code-env/${parts.orgSlug}/${parts.codeEnvId}`
 
