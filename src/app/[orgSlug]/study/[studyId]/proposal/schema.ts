@@ -28,6 +28,13 @@ function maxWordsLexicalRefine(maxWords: number) {
 
 const PI_UNLINKED_ERROR = 'Select a Principal Investigator from the list.'
 
+/**
+ * Whether a PI id links to a real user. Shared with `missingProposalFields` so the submit gate and
+ * the outstanding-fields hint cannot drift: a non-empty id that is not a UUID fails the schema, so
+ * a hint that only checked for non-emptiness would leave submit disabled with nothing named.
+ */
+export const isLinkedPiUserId = (piUserId: string | undefined) => z.uuid().safeParse(piUserId).success
+
 export const proposalFormSchema = z
     .object({
         // trim() before min(1) so a whitespace-only title fails here rather than passing schema
@@ -80,7 +87,7 @@ export const proposalFormSchema = z
     // is attached to `piName` because that is the path the Select displays, so the gate is
     // enforceable without being invisible.
     .superRefine((data, ctx) => {
-        if (data.piName && !z.string().uuid().safeParse(data.piUserId).success) {
+        if (data.piName && !isLinkedPiUserId(data.piUserId)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: PI_UNLINKED_ERROR, path: ['piName'] })
         }
     })

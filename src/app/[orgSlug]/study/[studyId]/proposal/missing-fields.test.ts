@@ -60,6 +60,12 @@ describe('missingProposalFields', () => {
         expect(missingProposalFields({ ...complete, piUserId: '' })).toEqual(['Principal Investigator'])
     })
 
+    // A non-empty id that is not a UUID still fails the submit gate, so a non-emptiness check here
+    // would drop the field out of the hint while submit stayed disabled with nothing named.
+    it('reports the Principal Investigator when the linked id is not a valid uuid', () => {
+        expect(missingProposalFields({ ...complete, piUserId: 'not-a-uuid' })).toEqual(['Principal Investigator'])
+    })
+
     // additionalNotes is optional, so it must never appear in the list.
     it('never reports additional notes', () => {
         expect(missingProposalFields({ ...complete, additionalNotes: '' })).toEqual([])

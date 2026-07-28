@@ -1,5 +1,5 @@
 import { hasLexicalContent } from '@/lib/lexical'
-import type { ProposalFormValues } from './schema'
+import { isLinkedPiUserId, type ProposalFormValues } from './schema'
 
 const FIELD_LABELS = {
     title: 'Study title',
@@ -28,7 +28,9 @@ export function missingProposalFields(values: ProposalFormValues): string[] {
     if (!hasLexicalContent(values.impact)) missing.push(FIELD_LABELS.impact)
     // Also missing when the name has no linked user: submission requires the id, but no field
     // displays it, so without this a legacy draft disabled submit while naming nothing (OTTER-647).
-    if (!values.piName?.trim() || !values.piUserId?.trim()) missing.push(FIELD_LABELS.piName)
+    // Uses the schema's own UUID check, so an id that is present but malformed is reported here
+    // rather than dropping out of the hint while still failing submit.
+    if (!values.piName?.trim() || !isLinkedPiUserId(values.piUserId)) missing.push(FIELD_LABELS.piName)
 
     return missing
 }

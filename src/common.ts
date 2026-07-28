@@ -23,6 +23,11 @@ export * from '@/hooks/query-wrappers'
  * (`validateInputOnBlur: ['name', `jobs.${FORM_INDEX}.title`]`). Import `useForm` from here
  * rather than from `@mantine/form`, otherwise the default is silently bypassed.
  *
+ * `enhanceGetInputProps` is the one exception to "caller options win", deliberately: it is set
+ * after the spread so the server-error guard below cannot be dropped by a caller passing its own
+ * enhancer. A caller's enhancer still runs, and its return value still wins on every key except
+ * the guarded `onBlur`, which wraps whatever onBlur the caller leaves in place.
+ *
  * Note this only reaches inputs that spread `form.getInputProps(path)`. Mantine builds the
  * validating `onBlur` there. Controls wired by hand need their own blur handler.
  */
