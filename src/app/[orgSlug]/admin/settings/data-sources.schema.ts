@@ -7,7 +7,7 @@ const dataSourceUrlSchema = z.object({
 })
 
 const dataSourceFieldsSchema = z.object({
-    name: z.string().nonempty('Name is required'),
+    name: z.string().trim().nonempty('Name is required'),
     description: z.string().optional().or(z.literal('')),
     urls: z.array(dataSourceUrlSchema),
 })

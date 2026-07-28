@@ -56,6 +56,7 @@ function FeedbackEditor({
             onBlur={feedback.onBlur}
             error={feedback.error}
             ariaLabel="Initial request review feedback"
+            ariaRequired
             ariaDescribedBy={fieldDescribedBy('review-feedback', {
                 hasError: !!feedback.error,
                 hasDescription: false,

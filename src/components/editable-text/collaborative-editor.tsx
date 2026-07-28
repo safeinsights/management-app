@@ -188,6 +188,8 @@ export type CollaborativeEditorProps = {
     error?: React.ReactNode
     /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
     /**
@@ -248,6 +250,7 @@ export function CollaborativeEditor({
     inputId,
     error,
     ariaDescribedBy,
+    ariaRequired,
     onBlur,
     onProviderReady,
 }: CollaborativeEditorProps) {
@@ -373,6 +376,7 @@ export function CollaborativeEditor({
                                 ariaLabel={ariaLabel}
                                 ariaDescribedBy={ariaDescribedBy}
                                 ariaInvalid={error ? true : undefined}
+                                ariaRequired={ariaRequired}
                             />
                         }
                         placeholder={

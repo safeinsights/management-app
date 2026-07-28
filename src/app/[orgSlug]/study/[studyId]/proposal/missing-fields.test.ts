@@ -54,6 +54,12 @@ describe('missingProposalFields', () => {
         expect(missingProposalFields({ ...complete, title: '   ' })).toEqual(['Study title'])
     })
 
+    // A legacy draft can carry a PI name with no linked user id. Submission requires the id, but
+    // no field displays it, so leaving it out of this list disabled submit while naming nothing.
+    it('reports the Principal Investigator when the name has no linked user', () => {
+        expect(missingProposalFields({ ...complete, piUserId: '' })).toEqual(['Principal Investigator'])
+    })
+
     // additionalNotes is optional, so it must never appear in the list.
     it('never reports additional notes', () => {
         expect(missingProposalFields({ ...complete, additionalNotes: '' })).toEqual([])

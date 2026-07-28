@@ -79,10 +79,11 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        error={undefined}
+                        // Handed to Mantine rather than rendered beside a suppressed error, so the
+                        // message lands in the input's `aria-describedby` instead of being visual only.
+                        error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />
-                    <InputError error={form.errors.code} />
                     <Button
                         type="submit"
                         fullWidth

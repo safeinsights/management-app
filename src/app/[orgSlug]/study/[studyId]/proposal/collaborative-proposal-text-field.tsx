@@ -71,6 +71,7 @@ export function CollaborativeProposalTextField({
                         onChange={onTextChange}
                         onBlur={onBlur}
                         error={error}
+                        ariaRequired
                         ariaDescribedBy={fieldDescribedBy(inputId, {
                             hasError: !!error,
                             hasDescription: !!field.description,

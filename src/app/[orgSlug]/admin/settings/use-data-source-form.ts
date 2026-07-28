@@ -71,11 +71,12 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         form.setFieldValue('urls', updated)
     }
 
+    // `removeListItem`, not a filtered `setFieldValue`: these rows read their errors from indexed
+    // paths (`urls.0.url`), and replacing the parent array leaves those keys untouched. Deleting an
+    // invalid first row therefore moved its error onto the valid row that slid into index 0.
+    // `removeListItem` shifts the nested error indices to match (OTTER-647).
     const removeUrl = (index: number) => {
-        form.setFieldValue(
-            'urls',
-            form.values.urls.filter((_, i) => i !== index),
-        )
+        form.removeListItem('urls', index)
     }
 
     const { mutate: save, isPending } = useMutation({

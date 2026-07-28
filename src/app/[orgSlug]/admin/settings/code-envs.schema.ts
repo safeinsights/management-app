@@ -13,7 +13,7 @@ export const ENV_VAR_KEY_ERROR = 'Invalid variable name: must start with letter 
 // Schema for individual environment variable
 const envVarSchema = z.object({
     name: z.string().regex(envVarKeyRegex, ENV_VAR_KEY_ERROR),
-    value: z.string().nonempty('Value is required'),
+    value: z.string().trim().nonempty('Value is required'),
 })
 
 const codeEnvSettingsSchema = z.object({
@@ -56,12 +56,14 @@ const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < 
 
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
-    name: z.string().nonempty('Name is required'),
+    name: z.string().trim().nonempty('Name is required'),
     identifier: z
         .string()
         .nonempty('Identifier is required')
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
-    commandLines: z.record(z.string(), z.string().nonempty('Command is required')),
+    // Trimmed, because the row UI derives "missing" from a trimmed value. Untrimmed, a command
+    // replaced with spaces showed "Command is required" and still saved (OTTER-647).
+    commandLines: z.record(z.string(), z.string().trim().nonempty('Command is required')),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),

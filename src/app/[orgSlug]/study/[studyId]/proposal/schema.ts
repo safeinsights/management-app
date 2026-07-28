@@ -89,7 +89,11 @@ export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 
 // The non-lexical proposal fields, synced individually through the Yjs fields map
 // (see useYjsFormMap). The lexical editor fields auto-save to Yjs continuously.
-export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piName', 'piUserId'] as const
+// `piUserId` before `piName`: the two are applied in this order when a Yjs document syncs, and
+// the cross-field rule below attaches its error to `piName`. Validating the name while the id
+// was still empty raised "Select a Principal Investigator from the list", and applying the id
+// afterwards only revalidated `piUserId`, leaving that error stranded beside a valid PI.
+export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piUserId', 'piName'] as const
 
 export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
 

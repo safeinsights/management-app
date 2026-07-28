@@ -144,3 +144,53 @@ describe('required-field blur validation', () => {
         expect(document.getElementById('title-error')).toHaveTextContent('Study title is required.')
     })
 })
+
+// Turning `validateInputOnBlur` on globally made Mantine revalidate on every blur, and Mantine
+// clears the error whenever the client rule passes. That silently erased messages installed with
+// `setFieldError` after a server rejection: a wrong password, a spent recovery code, a rejected
+// reset email, a failed key decryption. Re-reading the message and tabbing away wiped it, leaving
+// an unchanged value and no explanation. The wrapper now guards blur revalidation centrally.
+describe('server-set errors survive a blur', () => {
+    function ServerErrorHarness() {
+        const form = useForm({
+            initialValues: { email: '', password: '' },
+            validate: zodResolver(z.object({ email: z.string(), password: z.string() })),
+        })
+
+        return (
+            <>
+                <TextInput label="Email" {...form.getInputProps('email')} />
+                <TextInput label="Password" {...form.getInputProps('password')} />
+                <button type="button" onClick={() => form.setFieldError('password', 'Incorrect password.')}>
+                    reject
+                </button>
+            </>
+        )
+    }
+
+    it('keeps a server error when the field is re-read and left unchanged', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<ServerErrorHarness />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+        expect(await screen.findByText('Incorrect password.')).toBeInTheDocument()
+
+        // Re-focus and leave without editing, exactly what a user does to check what they typed.
+        await user.click(screen.getByLabelText('Password'))
+        await user.tab()
+
+        expect(screen.getByText('Incorrect password.')).toBeInTheDocument()
+    })
+
+    it('drops the server error once the user edits the value', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<ServerErrorHarness />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+        expect(await screen.findByText('Incorrect password.')).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText('Password'), 'x')
+
+        expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument()
+    })
+})

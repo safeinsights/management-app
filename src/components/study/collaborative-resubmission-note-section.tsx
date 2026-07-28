@@ -96,6 +96,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         onChange={onNoteChange}
                         onBlur={() => noteForm.validateField('resubmissionNote')}
                         error={error}
+                        ariaRequired
                         ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
                             hasError: !!error,
                             hasDescription: false,

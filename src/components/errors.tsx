@@ -95,8 +95,13 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     const theme = useMantineTheme()
     if (!error) return null
 
+    // `component="span"`, so this node stays valid wherever it is used as a Mantine `error`.
+    // Mantine renders an input's error inside a `<p>`, and a `<div>` there is invalid HTML that
+    // React reports as a nesting error. Rendering inline also lets call sites hand this straight
+    // to Mantine instead of suppressing the built-in error and rendering an unassociated copy,
+    // which left the message out of `aria-describedby`.
     return (
-        <Group gap="xs">
+        <Group component="span" gap="xs">
             <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />
             <Text c="red.7" size="sm" component="span">
                 {error}

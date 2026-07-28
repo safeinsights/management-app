@@ -26,7 +26,9 @@ export function missingProposalFields(values: ProposalFormValues): string[] {
     if (!hasLexicalContent(values.researchQuestions)) missing.push(FIELD_LABELS.researchQuestions)
     if (!hasLexicalContent(values.projectSummary)) missing.push(FIELD_LABELS.projectSummary)
     if (!hasLexicalContent(values.impact)) missing.push(FIELD_LABELS.impact)
-    if (!values.piName?.trim()) missing.push(FIELD_LABELS.piName)
+    // Also missing when the name has no linked user: submission requires the id, but no field
+    // displays it, so without this a legacy draft disabled submit while naming nothing (OTTER-647).
+    if (!values.piName?.trim() || !values.piUserId?.trim()) missing.push(FIELD_LABELS.piName)
 
     return missing
 }

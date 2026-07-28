@@ -45,6 +45,11 @@ export type EditorProps = {
     error?: React.ReactNode
     /** Id(s) of the nodes describing this editor, e.g. its description and error text. */
     ariaDescribedBy?: string
+    /**
+     * Marks the editor required to assistive tech. A required asterisk on the label is visual
+     * only, so without this the requirement never reaches a screen reader (OTTER-647).
+     */
+    ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
     onProviderReady?: (provider: HocuspocusProvider | null) => void

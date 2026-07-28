@@ -75,6 +75,7 @@ function FeedbackEditor({
             onBlur={feedback.onBlur}
             error={feedback.error}
             ariaLabel="Code review feedback"
+            ariaRequired
             ariaDescribedBy={fieldDescribedBy('code-review-feedback', {
                 hasError: !!feedback.error,
                 hasDescription: false,

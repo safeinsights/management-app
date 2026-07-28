@@ -43,6 +43,8 @@ export type SingleUserEditorProps = {
     error?: React.ReactNode
     /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
     /** Extra plugins/children rendered inside the Lexical composer context. */
@@ -90,6 +92,7 @@ export function SingleUserEditor({
     inputId,
     error,
     ariaDescribedBy,
+    ariaRequired,
     onBlur,
     children,
 }: SingleUserEditorProps) {
@@ -114,6 +117,7 @@ export function SingleUserEditor({
                             ariaLabel={ariaLabel}
                             ariaDescribedBy={ariaDescribedBy}
                             ariaInvalid={error ? true : undefined}
+                            ariaRequired={ariaRequired}
                         />
                     }
                     placeholder={
