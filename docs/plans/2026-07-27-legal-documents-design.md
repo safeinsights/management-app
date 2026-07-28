@@ -3,7 +3,9 @@
 **Date:** 2026-07-27
 **Project:** SafeInsights management-app
 **Epic:** [SHRMP-273 — Agreements and ToS/PN](https://openstax.atlassian.net/browse/SHRMP-273)
-**Status:** Design proposed, pending review. Implementation plan: `2026-07-27-legal-documents-plan.md`
+**Status:** Implemented as described — schema, server actions and tests are on
+`SHRMP-274/instantiate-legal-page`. Task-level detail, deviations and remaining work:
+`2026-07-27-legal-documents-plan.md`
 
 ---
 
@@ -103,7 +105,8 @@ content itself.
 
 **`legal_document_version`** is an actual uploaded file. A document accumulates versions over time.
 A version is a **draft** until published (`published_at IS NULL`); publishing stamps the date,
-the publisher, and the next version number.
+the publisher, and the next version number — all three together, which a CHECK constraint enforces so
+a half-published row cannot exist for read paths to trip over.
 
 **`legal_document_acknowledgement`** is one row per (person, version). Its existence _is_ the
 compliance evidence.
@@ -179,22 +182,25 @@ activity reporting.
 
 ---
 
-## 5. What this pass delivers
+## 5. What this pass delivered
 
 Foundation only — the database schema and the server-side operations, so UI work has a real API to
 build against.
 
-**In scope**
+**Delivered**
 
 - The three tables and the type enum.
 - Server actions: create a draft (with upload URL), publish a version, list versions with
   history/links, list users with their acknowledgement status, record an acknowledgement.
-- A `LegalDocument` permission subject, an S3 path builder, and unit tests.
+- A `LegalDocument` permission subject, S3 path builders, and 20 unit tests.
 
 **Deliberately deferred**
 
 - **The login enforcement modal** (SHRMP-275) — the acknowledgement _write_ exists; the flow that
   triggers it does not.
+- **Permission rules for non-SI-admins.** Only the `LegalDocument` _subject_ was added; SI admins
+  reach these actions through their existing `('manage','all')` wildcard. Granting ordinary users the
+  right to acknowledge is a change to `permissions.ts` itself and is needed before 275 can work.
 - **Wiring the signup checkbox** to actually persist. It is uncarded (ToS/PN Goal 3), touches a
   sensitive invitation flow, and is a no-op until a real ToS is published. Worth flagging to PMs:
   it is the cheapest way to make 274's audit list contain real data, since signup is the primary
