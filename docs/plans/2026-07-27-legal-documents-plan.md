@@ -25,7 +25,7 @@ subject, S3 path builders, 5 server actions, unit tests.
 
 **Out of scope (deferred):** the 275 login-enforcement modal and its "does this user owe an
 acknowledgement" check; wiring `terms-checkbox.tsx` at signup; any 276/277 UI. The acknowledgement
-*write* action ships, but nothing calls it yet.
+_write_ action ships, but nothing calls it yet.
 
 **Known consequence:** the audit list returns "none" for every user until 275 or the signup wiring
 lands. Expected.
@@ -34,9 +34,9 @@ lands. Expected.
 
 ## Approval gates (CLAUDE.md)
 
-- [ ] **Migration approved** by Chris — required before creating any migration file.
+- [x] **Migration approved** by Chris — required before creating any migration file.
 - [ ] **`src/lib/permission-types.ts` change approved** — adds a `LegalDocument` subject to the
-      `Abilities` union. Note this is *permission-types*, not `permissions.ts`: SI admins already
+      `Abilities` union. Note this is _permission-types_, not `permissions.ts`: SI admins already
       hold `('manage','all')` (`permissions.ts:117`), so **no rule changes are needed** — the union
       arm exists only so `.requireAbilityTo('create', 'LegalDocument')` type-checks.
 - [ ] Confirm working directly on KC's branch vs. a branch off it.
@@ -47,17 +47,18 @@ lands. Expected.
 
 ### 1. Migration
 
-- [ ] Create `src/database/migrations/<timestamp>_legal_documents.ts`
+- [x] Create `src/database/migrations/1780400000000_legal_documents.ts` — **done**. One addition
+      beyond this plan: a `legal_document_version_draft_or_published` CHECK asserting
+      `published_at`, `published_by` and `version_number` are all set or all null, since
+      "`published_by` NOT NULL on publish" cannot be expressed as a column constraint. Rules out
+      half-published rows that read paths would otherwise have to defend against.
 
 ```ts
 import { type Kysely, sql } from 'kysely'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function up(db: Kysely<any>): Promise<void> {
-    await db.schema
-        .createType('legal_document_type')
-        .asEnum(['tos', 'pn', 'ropa', 'dopa', 'sla'])
-        .execute()
+    await db.schema.createType('legal_document_type').asEnum(['tos', 'pn', 'ropa', 'dopa', 'sla']).execute()
 
     await db.schema
         .createTable('legal_document')
@@ -125,9 +126,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema
         .createTable('legal_document_acknowledgement')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))
-        .addColumn('legal_document_version_id', 'uuid', (col) =>
-            col.notNull().references('legal_document_version.id'),
-        )
+        .addColumn('legal_document_version_id', 'uuid', (col) => col.notNull().references('legal_document_version.id'))
         .addColumn('user_id', 'uuid', (col) => col.notNull().references('user.id'))
         .addColumn('acked_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .addUniqueConstraint('legal_document_acknowledgement_unique', ['legal_document_version_id', 'user_id'])
@@ -149,10 +148,22 @@ export async function down(db: Kysely<any>): Promise<void> {
 }
 ```
 
-- [ ] Run `pnpm db:migrate`
-- [ ] Run `pnpm update-db-types` → regenerates `src/database/types.ts` (do not hand-edit)
-- [ ] Verify the `DB` interface gained `legalDocument`, `legalDocumentVersion`,
-      `legalDocumentAcknowledgement`, and that `LegalDocumentType` is a union type
+- [x] Run `pnpm db:migrate` — **note:** must run inside the container
+      (`docker compose run --rm --no-deps mgmnt-app pnpm db:migrate`). Postgres publishes no host
+      port and `.env` has no `DATABASE_URL`, so running it from the host fails looking for
+      `DB_SECRET_ARN`. `db:migrate` also regenerates types, runs seeds and `seed-environment.ts`.
+- [x] Verify the `DB` interface gained `legalDocument`, `legalDocumentVersion`,
+      `legalDocumentAcknowledgement`, and that `LegalDocumentType` is a union type — all present.
+      `signed_at` generated as `Timestamp | null` (a JS `Date`), confirming the OID 1082 hazard
+      documented in the migration.
+- [x] Verified all constraints by attempting to violate each one (17 checks, rolled back): duplicate
+      global ToS, every bad scope combination, a second concurrent draft, half-published rows,
+      duplicate `version_number`, duplicate acknowledgement, and `signed_at` round-tripping as the
+      same calendar day.
+- [x] Verified `down()` drops all three tables plus the enum, and re-applying restores them with
+      constraints intact.
+- [x] `pnpm run lint:fix` and `pnpm run checks` (typecheck + eslint + prettier + validate-actions)
+      all pass.
 
 ### 2. Zod schemas — `src/schema/legal-document.ts`
 
@@ -176,7 +187,7 @@ export async function down(db: Kysely<any>): Promise<void> {
 
 - [ ] `pathForLegalDocument = (type, documentId) => \`legal/${type}/${documentId}\``
 - [ ] `pathForLegalDocumentVersionFile = (type, documentId, versionId, fileName) =>
-      \`${pathForLegalDocument(type, documentId)}/${versionId}/${sanitizeFileName(fileName)}\``
+  \`${pathForLegalDocument(type, documentId)}/${versionId}/${sanitizeFileName(fileName)}\``
 - [ ] Key on `versionId`, not `versionNumber` — drafts have no number yet
 
 ### 5. Server actions — `src/server/actions/legal-document.actions.ts`

@@ -37,6 +37,8 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
+export type LegalDocumentType = 'dopa' | 'pn' | 'ropa' | 'sla' | 'tos'
+
 export type OrgType = 'enclave' | 'lab'
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
@@ -119,6 +121,33 @@ export interface JobStatusChange {
     status: Generated<StudyJobStatus>
     studyJobId: string
     userId: string | null
+}
+
+export interface LegalDocument {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    orgId: string | null
+    studyId: string | null
+    type: LegalDocumentType
+}
+
+export interface LegalDocumentAcknowledgement {
+    ackedAt: Generated<Timestamp>
+    id: Generated<string>
+    legalDocumentVersionId: string
+    userId: string
+}
+
+export interface LegalDocumentVersion {
+    createdAt: Generated<Timestamp>
+    filePath: string
+    format: string
+    id: Generated<string>
+    legalDocumentId: string
+    publishedAt: Timestamp | null
+    publishedBy: string | null
+    signedAt: Timestamp | null
+    versionNumber: number | null
 }
 
 export interface Org {
@@ -340,6 +369,9 @@ export interface DB {
     audit: Audit
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
+    legalDocument: LegalDocument
+    legalDocumentAcknowledgement: LegalDocumentAcknowledgement
+    legalDocumentVersion: LegalDocumentVersion
     org: Org
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource

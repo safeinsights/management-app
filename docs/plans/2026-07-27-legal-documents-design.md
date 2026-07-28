@@ -10,28 +10,28 @@
 ## 1. What we're building and why
 
 SafeInsights needs to **house, version, present, and capture acknowledgement of** five kinds of
-legal document. We are explicitly *not* building signing — signatures happen outside the app
+legal document. We are explicitly _not_ building signing — signatures happen outside the app
 (Zoho Sign), facilitated manually by an SI admin.
 
-| Document | Who it covers | Scope | Format |
-| --- | --- | --- | --- |
-| **ToS** — Terms of Service | Everyone | Global | Markdown |
-| **PN** — Privacy Notice | Everyone | Global | Markdown |
-| **ROPA** — Research Org Participation Agreement | Members of one Research Lab | Per-org | PDF |
-| **DOPA** — Data Org Participation Agreement | Members of one Data Partner | Per-org | PDF |
-| **SLA** — Study Level Agreement | People who work on one study | Per-study | PDF |
+| Document                                        | Who it covers                | Scope     | Format   |
+| ----------------------------------------------- | ---------------------------- | --------- | -------- |
+| **ToS** — Terms of Service                      | Everyone                     | Global    | Markdown |
+| **PN** — Privacy Notice                         | Everyone                     | Global    | Markdown |
+| **ROPA** — Research Org Participation Agreement | Members of one Research Lab  | Per-org   | PDF      |
+| **DOPA** — Data Org Participation Agreement     | Members of one Data Partner  | Per-org   | PDF      |
+| **SLA** — Study Level Agreement                 | People who work on one study | Per-study | PDF      |
 
 The compliance requirement is the point: we must be able to **produce evidence** that a specific
 person agreed to a specific version of a specific document on a specific date.
 
 ### The four cards
 
-| Card | What | Depends on |
-| --- | --- | --- |
+| Card                                                         | What                                                                                                   | Depends on     |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | -------------- |
 | [SHRMP-274](https://openstax.atlassian.net/browse/SHRMP-274) | SI Admin **Legal page**: upload + publish ToS/PN, version history, per-user acknowledgement audit list | — (foundation) |
-| [SHRMP-275](https://openstax.atlassian.net/browse/SHRMP-275) | Login **enforcement modal** when ToS/PN is new or unacknowledged | 274 |
-| [SHRMP-276](https://openstax.atlassian.net/browse/SHRMP-276) | DOPA + ROPA tabs on the Legal page | 274 |
-| [SHRMP-277](https://openstax.atlassian.net/browse/SHRMP-277) | SLA tab on the Legal page | 274, 276 |
+| [SHRMP-275](https://openstax.atlassian.net/browse/SHRMP-275) | Login **enforcement modal** when ToS/PN is new or unacknowledged                                       | 274            |
+| [SHRMP-276](https://openstax.atlassian.net/browse/SHRMP-276) | DOPA + ROPA tabs on the Legal page                                                                     | 274            |
+| [SHRMP-277](https://openstax.atlassian.net/browse/SHRMP-277) | SLA tab on the Legal page                                                                              | 274, 276       |
 
 There is also a v1 hand-off doc with a broader set of goals (a user-facing "Legal" sidebar page,
 org-admin views, banners, Mailgun triggers). **The cards are the source of truth** — the doc is
@@ -49,14 +49,14 @@ anything. The closest thing is two timestamp columns on `study`
 the placeholder DUA/IRB/SOW page — a different document set, and marked "under construction".
 
 **The signup checkbox is not persisted.** `src/components/terms-checkbox.tsx` renders
-*"I agree to the Terms of Service and Privacy Notice"*, and
+_"I agree to the Terms of Service and Privacy Notice"_, and
 `src/app/account/invitation/[inviteId]/signup/page.tsx` holds the result in `useState` where it
 only enables the Submit button. Users are affirmatively agreeing today and **we keep no record of
 it.** That is precisely the gap this epic closes. (Upside: no legacy data to migrate.)
 
 **A study already knows both of its organizations.** This one is easy to get backwards:
 
-- `study.orgId` → the **enclave / Data Partner** (the *reviewing* org)
+- `study.orgId` → the **enclave / Data Partner** (the _reviewing_ org)
 - `study.submittedByOrgId` → the **lab / Research Lab** (NOT NULL)
 
 So an SLA needs to store only `study_id`; both orgs are one join away.
@@ -70,7 +70,7 @@ dependency. There is no PDF viewer — links will do, and that matches what the 
 
 ## 3. The model
 
-Three tables. The shape is the same for all five document types; only *scope* and *format* differ.
+Three tables. The shape is the same for all five document types; only _scope_ and _format_ differ.
 
 ```mermaid
 erDiagram
@@ -97,7 +97,7 @@ erDiagram
     }
 ```
 
-**`legal_document`** is the *logical* document — "the Terms of Service", "Acme Lab's ROPA",
+**`legal_document`** is the _logical_ document — "the Terms of Service", "Acme Lab's ROPA",
 "study X's SLA". There is exactly one per scope, enforced by a unique constraint. It holds no
 content itself.
 
@@ -105,7 +105,7 @@ content itself.
 A version is a **draft** until published (`published_at IS NULL`); publishing stamps the date,
 the publisher, and the next version number.
 
-**`legal_document_acknowledgement`** is one row per (person, version). Its existence *is* the
+**`legal_document_acknowledgement`** is one row per (person, version). Its existence _is_ the
 compliance evidence.
 
 ### How scope works
@@ -113,11 +113,11 @@ compliance evidence.
 A document's scope is expressed by which columns are set, with a database CHECK constraint per
 type so it cannot be recorded wrong:
 
-| Type | `org_id` | `study_id` |
-| --- | --- | --- |
-| `tos`, `pn` | null | null |
-| `ropa`, `dopa` | **required** | null |
-| `sla` | null | **required** |
+| Type           | `org_id`     | `study_id`   |
+| -------------- | ------------ | ------------ |
+| `tos`, `pn`    | null         | null         |
+| `ropa`, `dopa` | **required** | null         |
+| `sla`          | null         | **required** |
 
 ---
 
@@ -131,7 +131,7 @@ format. Building ToS/PN-only now would mean a painful reshape when 276/277 land.
 of generalising — a Postgres enum that is annoying to extend — is paid once, now.
 
 **Nothing is stored that can be derived.**
-The SLA table does *not* store the Research Lab or Data Partner: both live on `study` already, so
+The SLA table does _not_ store the Research Lab or Data Partner: both live on `study` already, so
 we join. A stored copy is a second source of truth that can drift. Same reasoning applies to
 "who is required to acknowledge this" — see below.
 
@@ -139,29 +139,29 @@ we join. A stored copy is a second source of truth that can drift. Same reasonin
 We do not materialise "pending acknowledgement" rows when a document is published. The audience is
 derived per type: ToS/PN → all users; ROPA/DOPA → that org's members via `orgUser`; SLA → members
 of the study's two orgs. This matters most for SLAs, where the hand-off doc says acknowledgement is
-triggered by *anyone who loads that study* — a set materialised at publish time would be wrong the
+triggered by _anyone who loads that study_ — a set materialised at publish time would be wrong the
 moment someone joins an org. Absence of an acknowledgement row means "pending".
 
 **Acknowledgements point at a version, not a document.**
-Card 274 requires showing *"the version of the ToS and PN they have agreed to"*. Pointing at an
+Card 274 requires showing _"the version of the ToS and PN they have agreed to"_. Pointing at an
 immutable version makes that an exact legal record.
 
 **Publishing is irreversible; drafts are replaceable.**
-The card's own copy is *"This cannot be undone."* A published version can never be edited, deleted,
+The card's own copy is _"This cannot be undone."_ A published version can never be edited, deleted,
 or unpublished — a mistake is fixed by publishing a corrected new version, and the history shows
 both. Everyone then re-acknowledges, which is the correct outcome. An unpublished draft, by
 contrast, can be freely replaced (wrong file uploaded → just upload again); only one draft may
 exist per document at a time. There is no retraction column; it can be added later if legal asks.
 
 **Content lives in S3, not the database.**
-Consistent with every other document in the app. Card 274 asks for a *"latest linked copy"* — a
+Consistent with every other document in the app. Card 274 asks for a _"latest linked copy"_ — a
 presigned S3 URL is literally that link. Because published versions are immutable, their content
 can be cached indefinitely.
 
 **Named `legal_document`, not `agreement`.**
 "Agreement" is already taken in this codebase by the unrelated DUA/IRB/SOW wizard concept
 (`study.agreementDocPath`, `/study/[studyId]/agreements/`), and reusing it would make two unrelated
-systems easy to confuse. "Legal document" is also more accurate: a Privacy *Notice* is not an
+systems easy to confuse. "Legal document" is also more accurate: a Privacy _Notice_ is not an
 agreement. It matches the UI too — the admin route is `/admin/safeinsights/legal`.
 
 **Two date fields that mean different things.**
@@ -172,7 +172,7 @@ time-of-day or timezone, and storing it as an instant would make it display as t
 viewers in western timezones.
 
 **No generic audit-log integration.**
-The app has an `audit` table, but these tables *are* the compliance record — `published_at` /
+The app has an `audit` table, but these tables _are_ the compliance record — `published_at` /
 `published_by` say who published what when, and acknowledgement rows are the evidence. Writing the
 same facts to a second place invites the two disagreeing. Can be added if PMs ask for unified
 activity reporting.
@@ -193,7 +193,7 @@ build against.
 
 **Deliberately deferred**
 
-- **The login enforcement modal** (SHRMP-275) — the acknowledgement *write* exists; the flow that
+- **The login enforcement modal** (SHRMP-275) — the acknowledgement _write_ exists; the flow that
   triggers it does not.
 - **Wiring the signup checkbox** to actually persist. It is uncarded (ToS/PN Goal 3), touches a
   sensitive invitation flow, and is a no-op until a real ToS is published. Worth flagging to PMs:
