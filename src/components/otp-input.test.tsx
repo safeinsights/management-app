@@ -31,7 +31,14 @@ describe('OtpInput', () => {
         renderWithProviders(<Harness />)
 
         const names = digits().map((d) => d.getAttribute('aria-label'))
-        expect(names).toEqual(['Digit 1 of 6', 'Digit 2 of 6', 'Digit 3 of 6', 'Digit 4 of 6', 'Digit 5 of 6', 'Digit 6 of 6'])
+        expect(names).toEqual([
+            'Digit 1 of 6',
+            'Digit 2 of 6',
+            'Digit 3 of 6',
+            'Digit 4 of 6',
+            'Digit 5 of 6',
+            'Digit 6 of 6',
+        ])
     })
 
     it('points every digit at the error message, not just the first', () => {
