@@ -78,8 +78,8 @@ describe('DataSources', async () => {
 
         expect(modal).toHaveAttribute('aria-modal', 'true')
 
-        expect(modalQueries.getByLabelText(/^Name\b/i)).toBeInTheDocument()
-        expect(modalQueries.getByLabelText(/^Description$/i)).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/name/i)).toBeInTheDocument()
+        expect(modalQueries.getByLabelText(/^description$/i)).toBeInTheDocument()
         expect(modalQueries.getByRole('heading', { name: /data source URLs/i })).toBeInTheDocument()
         expect(modalQueries.getByPlaceholderText(/^URL$/i)).toBeInTheDocument()
         expect(modalQueries.getByPlaceholderText(/url description/i)).toBeInTheDocument()
@@ -96,8 +96,8 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'My data source')
-        await user.type(modalQueries.getByLabelText(/^Description$/i), 'Description of my data source')
+        await user.type(modalQueries.getByLabelText(/name/i), 'My data source')
+        await user.type(modalQueries.getByLabelText(/^description$/i), 'Description of my data source')
 
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/url')
 
@@ -149,8 +149,8 @@ describe('DataSources', async () => {
         const modalQueries = within(modal)
 
         expect(modalQueries.getByRole('heading', { name: /edit data source/i })).toBeInTheDocument()
-        expect(modalQueries.getByLabelText(/^Name\b/i)).toHaveValue('Existing source')
-        expect(modalQueries.getByLabelText(/^Description$/i)).toHaveValue('Existing desc')
+        expect(modalQueries.getByLabelText(/name/i)).toHaveValue('Existing source')
+        expect(modalQueries.getByLabelText(/^description$/i)).toHaveValue('Existing desc')
         expect(modalQueries.getByDisplayValue('https://example.com/existing-url')).toBeInTheDocument()
         expect(modalQueries.getByDisplayValue('Existing url desc')).toBeInTheDocument()
         expect(modalQueries.getByRole('button', { name: /update data source/i })).toBeInTheDocument()
@@ -177,11 +177,11 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        const nameInput = modalQueries.getByLabelText(/^Name\b/i)
+        const nameInput = modalQueries.getByLabelText(/name/i)
         await user.clear(nameInput)
         await user.type(nameInput, 'Updated name')
 
-        const descInput = modalQueries.getByLabelText(/^Description$/i)
+        const descInput = modalQueries.getByLabelText(/^description$/i)
         await user.clear(descInput)
         await user.type(descInput, 'Updated desc')
 
@@ -248,7 +248,7 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'Implicit url source')
+        await user.type(modalQueries.getByLabelText(/name/i), 'Implicit url source')
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'https://example.com/implicit')
         await user.type(modalQueries.getByPlaceholderText(/url description/i), 'Implicit url desc')
 
@@ -280,7 +280,7 @@ describe('DataSources', async () => {
         const modal = await screen.findByRole('dialog')
         const modalQueries = within(modal)
 
-        await user.type(modalQueries.getByLabelText(/^Name\b/i), 'Invalid url source')
+        await user.type(modalQueries.getByLabelText(/name/i), 'Invalid url source')
         await user.type(modalQueries.getByPlaceholderText(/^URL$/i), 'not-a-url')
 
         await user.click(modalQueries.getByRole('button', { name: /save data source/i }))
