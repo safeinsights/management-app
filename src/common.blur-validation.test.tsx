@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Select, TextInput } from '@mantine/core'
+import { MultiSelect, Select, TextInput } from '@mantine/core'
 import { z } from 'zod'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
@@ -13,11 +13,12 @@ import { FormField, nativeFieldProps } from '@/components/form-field'
 const schema = z.object({
     title: z.string().trim().min(1, { message: 'Study title is required.' }),
     partner: z.string().min(1, { message: 'Data Partner is required.' }),
+    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
 })
 
 function Harness() {
     const form = useForm({
-        initialValues: { title: '', partner: '' },
+        initialValues: { title: '', partner: '', datasets: [] as string[] },
         validate: zodResolver(schema),
     })
 
@@ -32,6 +33,17 @@ function Harness() {
                     data={[{ value: 'rice', label: 'Rice University' }]}
                     {...form.getInputProps('partner')}
                     {...nativeFieldProps(form.errors.partner)}
+                />
+            </FormField>
+            {/* MultiSelect completes the nativeFieldProps matrix: it wraps its input in its own
+                Input.Wrapper like the others, but stores an array and renders pills, so the error
+                and description ids are worth asserting separately from TextInput and Select. */}
+            <FormField inputId="datasets" label="Dataset(s) of interest" required error={form.errors.datasets}>
+                <MultiSelect
+                    id="datasets"
+                    data={[{ value: 'ds-a', label: 'Dataset A' }]}
+                    {...form.getInputProps('datasets')}
+                    {...nativeFieldProps(form.errors.datasets as unknown as string)}
                 />
             </FormField>
             <button type="button">next</button>
@@ -80,6 +92,20 @@ describe('required-field blur validation', () => {
         await user.tab()
 
         expect(await screen.findByText('Study title is required.')).toBeInTheDocument()
+    })
+
+    it('errors a multi-select left empty when the user moves on, and reaches its message', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />)
+
+        await user.click(screen.getByLabelText(/Dataset\(s\) of interest/))
+        await user.tab()
+        await screen.findByText('Select at least one dataset.')
+
+        const input = screen.getByLabelText(/Dataset\(s\) of interest/)
+        expect(input).toHaveAttribute('aria-invalid', 'true')
+        expect(input.getAttribute('aria-describedby')).toContain('datasets-error')
+        expect(document.getElementById('datasets-error')).toHaveTextContent('Select at least one dataset.')
     })
 
     it('errors a select left empty when the user moves on', async () => {
