@@ -44,12 +44,6 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         }
     }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
-    // The loading-status node is gone once languages resolve, so it is not referenced here; the
-    // error id is added only when an error exists.
-    const languageDescribedBy = form.errors.language
-        ? 'programming-language-helper programming-language-error'
-        : 'programming-language-helper'
-
     let body: React.ReactNode = null
 
     if (!selectedOrgSlug) {
@@ -72,12 +66,19 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         {/* Radio.Group's blur is a bubbled focusout, so tabbing between the radios
                             would validate a still-empty group. widgetBlurHandler waits for focus to
                             leave the group entirely (OTTER-647). */}
+                        {/* Radio.Group puts role="radiogroup" on an inner element that takes its
+                            name from `labelProps.id` and its description from Mantine's own
+                            `description` / `error` props. Hand-passed aria-* attributes land on
+                            the outer wrapper, which has no role, so they were reaching nothing.
+                            `inputWrapperOrder` keeps Mantine from rendering a second copy of the
+                            helper text and message that this component already renders below. */}
                         <Radio.Group
                             id="programming-language"
-                            aria-labelledby="programming-language-title"
-                            aria-describedby={languageDescribedBy}
-                            aria-required="true"
-                            aria-invalid={!!form.errors.language || undefined}
+                            labelProps={{ id: 'programming-language-title' }}
+                            description={helperText}
+                            descriptionProps={{ id: 'programming-language-helper' }}
+                            error={form.errors.language}
+                            inputWrapperOrder={['input']}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
                             onBlur={widgetBlurHandler(() => form.validateField('language'))}

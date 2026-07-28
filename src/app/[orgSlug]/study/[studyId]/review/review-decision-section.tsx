@@ -68,14 +68,19 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still
                 empty group; widgetBlurHandler waits for focus to leave it (OTTER-647). */}
+            {/* A real `label`, not `aria-label`: Radio.Group names the element carrying
+                role="radiogroup" from its rendered label, and strands a hand-passed `aria-label`
+                on the roleless outer wrapper. Using the prop also makes `withAsterisk` render,
+                which is the group's only visible required marker. */}
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
                 onBlur={widgetBlurHandler(decision.onBlur)}
                 name="review-decision"
-                aria-label="Initial request decision"
+                label="Initial request decision"
+                labelProps={{ fw: 600 }}
+                withAsterisk
                 error={decision.error}
-                aria-invalid={!!decision.error || undefined}
             >
                 <Stack gap="md" mt="xs">
                     {radioOptions}

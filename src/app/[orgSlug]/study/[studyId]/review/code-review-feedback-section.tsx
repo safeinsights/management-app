@@ -154,14 +154,17 @@ function DecisionRadioGroup({
     return (
         // Blur is a bubbled focusout, so moving between radios would validate a still-empty
         // group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+        // A real `label`, not `aria-label`: see the note in review-decision-section. It names the
+        // role="radiogroup" element and makes `withAsterisk` render a visible required marker.
         <Radio.Group
             value={value ?? ''}
             onChange={handleChange}
             onBlur={widgetBlurHandler(onBlur)}
             name="code-review-decision"
-            aria-label="Code review decision"
+            label="Code review decision"
+            labelProps={{ fw: 600 }}
+            withAsterisk
             error={error}
-            aria-invalid={!!error || undefined}
         >
             <Stack gap="md">{radioOptions}</Stack>
         </Radio.Group>
