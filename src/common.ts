@@ -23,7 +23,7 @@ export * from '@/hooks/query-wrappers'
  * (`validateInputOnBlur: ['name', `jobs.${FORM_INDEX}.title`]`). Import `useForm` from here
  * rather than from `@mantine/form`, otherwise the default is silently bypassed.
  *
- * Note this only reaches inputs that spread `form.getInputProps(path)` — Mantine builds the
+ * Note this only reaches inputs that spread `form.getInputProps(path)`. Mantine builds the
  * validating `onBlur` there. Controls wired by hand need their own blur handler.
  */
 export function useForm<

@@ -779,7 +779,7 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
 
 // Owns the blur-validation surface: leaving a required field incomplete must flag it
 // rather than silently disabling submit. Drives Step 1 and Step 2 live because the
-// behaviour is the interaction itself and cannot be seeded.
+// behavior is the interaction itself and cannot be seeded.
 test('Incomplete required fields are flagged when the researcher moves on', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('blur-validation')
 

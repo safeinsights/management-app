@@ -59,7 +59,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const canResubmit = hasFiles && mainFileName !== '' && noteForm.isValid() && !isBusy
     const missingFields = [
         ...(hasFiles ? [] : ['Study code files']),
-        ...(hasFiles && mainFileName === '' ? ['A main file selection'] : []),
+        ...(hasFiles && mainFileName === '' ? ['Main file selection'] : []),
         // Empty only. A note over the word limit already shows that error on the field.
         ...(countWords(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS ? ['Resubmission Note'] : []),
     ]

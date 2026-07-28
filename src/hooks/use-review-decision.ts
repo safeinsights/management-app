@@ -7,9 +7,11 @@ import type { Decision } from '@/lib/review-decision'
  * (OTTER-647). `selected` / `onSelect` are unchanged for existing callers.
  */
 export function useReviewDecision() {
+    // No `validateOnBlur`: Mantine reads that option only inside `useField`'s own
+    // `getInputProps`, which this hook does not use. Blur validation is wired by the consumer
+    // through the exposed `onBlur`, so the option would imply wiring that does not exist.
     const field = useField<Decision | null>({
         initialValue: null,
-        validateOnBlur: true,
         validate: (value) => (value === null ? 'Select a decision to continue.' : null),
     })
 

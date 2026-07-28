@@ -44,6 +44,12 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         }
     }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
+    // The loading-status node is gone once languages resolve, so it is not referenced here; the
+    // error id is added only when an error exists.
+    const languageDescribedBy = form.errors.language
+        ? 'programming-language-helper programming-language-error'
+        : 'programming-language-helper'
+
     let body: React.ReactNode = null
 
     if (!selectedOrgSlug) {
@@ -69,13 +75,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         <Radio.Group
                             id="programming-language"
                             aria-labelledby="programming-language-title"
-                            // The loading-status node is gone once languages resolve, so it is
-                            // not referenced here; the error id is added only when it exists.
-                            aria-describedby={
-                                form.errors.language
-                                    ? 'programming-language-helper programming-language-error'
-                                    : 'programming-language-helper'
-                            }
+                            aria-describedby={languageDescribedBy}
                             aria-required="true"
                             aria-invalid={!!form.errors.language || undefined}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}

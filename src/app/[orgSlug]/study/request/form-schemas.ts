@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { WORD_LIMITS, maxWordsRefine } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 // The fields Step 1 actually collects. This is the resolver for the Step 1 form, so it
-// must stay in lockstep with what `StudyProposalForm` renders — anything required here
+// must stay in lockstep with what `StudyProposalForm` renders: anything required here
 // but not rendered produces an error the user can never see or clear (OTTER-647).
 export const step1FieldsSchema = z.object({
     orgSlug: z.string().min(1, { message: 'Data Partner is required' }),

@@ -14,9 +14,10 @@ type UseReviewFeedbackOptions = {
  * unchanged for the Yjs-backed editor and the review mutation hooks.
  */
 export function useReviewFeedback({ maxWords = FEEDBACK_MAX_WORDS }: UseReviewFeedbackOptions = {}) {
+    // No `validateOnBlur`: see the note in `use-review-decision`. This hook exposes `onBlur`
+    // rather than spreading `getInputProps`, which is the only place Mantine reads that option.
     const field = useField<string>({
         initialValue: '',
-        validateOnBlur: true,
         validate: (value) => {
             const words = countWordsFromLexical(value)
             if (words < FEEDBACK_MIN_WORDS) return 'Feedback is required.'

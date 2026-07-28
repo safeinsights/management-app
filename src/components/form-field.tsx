@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from 'react'
-import { Box, Group, Input, Text } from '@mantine/core'
+import { Box, Group, Input } from '@mantine/core'
 
 /**
  * Chrome (label / description / error) for controls that Mantine's own inputs cannot
@@ -27,7 +27,7 @@ import { Box, Group, Input, Text } from '@mantine/core'
  * Matches the label and description spacing the app used before `Input.Wrapper` (bold small
  * label, red asterisk, and a gap under the guidance text that Mantine does not add itself).
  */
-export const formFieldLabelStyles = {
+const formFieldLabelStyles = {
     labelProps: { fw: 600, fz: 'sm' },
     styles: { description: { marginBottom: 'var(--mantine-spacing-xs)' } },
 } as const
@@ -191,10 +191,3 @@ export const FormField: FC<FormFieldProps> = ({
         </Box>
     )
 }
-
-/** Standalone description text for controls rendering their own label. */
-export const FieldDescription: FC<{ inputId: string; children: ReactNode }> = ({ inputId, children }) => (
-    <Text id={fieldDescriptionId(inputId)} size="xs" c="charcoal.7" mb="xs">
-        {children}
-    </Text>
-)

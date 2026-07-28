@@ -43,7 +43,7 @@ export const dataSourceFormSchema = z
         if (hasDescription && !hasUrl) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid URL', path: ['newUrl'] })
         }
-        if (hasUrl && !z.string().url().safeParse(data.newUrl.trim()).success) {
+        if (hasUrl && !z.url().safeParse(data.newUrl.trim()).success) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid URL', path: ['newUrl'] })
         }
     })

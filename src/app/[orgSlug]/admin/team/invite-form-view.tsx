@@ -28,6 +28,13 @@ export function InviteFormView({
     isSubmitting,
     isSubmitDisabled,
 }: InviteFormViewProps) {
+    // Guarded blur: every radio is in the tab order until one is chosen, so Mantine's raw
+    // validating onBlur would flash the error while the user is still moving between options
+    // (OTTER-647). Left undefined when the caller passes no onBlur, so nothing is wired up.
+    const handlePermissionBlur =
+        permissionProps.onBlur &&
+        widgetBlurHandler((event) => permissionProps.onBlur?.(event as React.FocusEvent<HTMLDivElement>))
+
     return (
         <form onSubmit={onSubmit}>
             <TextInput
@@ -41,21 +48,13 @@ export function InviteFormView({
             />
 
             <Flex mb="sm" fw="semibold" direction="column">
-                {/* Guarded blur: every radio is in the tab order until one is chosen, so
-                    Mantine's raw validating onBlur would flash the error while the user is
-                    still moving between options (OTTER-647). */}
                 <Radio.Group
                     label="Assign Permissions"
                     withAsterisk
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
                     name="permission"
                     {...permissionProps}
-                    onBlur={
-                        permissionProps.onBlur &&
-                        widgetBlurHandler((event) =>
-                            permissionProps.onBlur?.(event as React.FocusEvent<HTMLDivElement>),
-                        )
-                    }
+                    onBlur={handlePermissionBlur}
                     error={permissionError}
                 >
                     <Flex gap="md" mt="xs" direction="column">

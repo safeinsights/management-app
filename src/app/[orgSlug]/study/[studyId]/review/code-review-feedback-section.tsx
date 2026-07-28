@@ -160,7 +160,6 @@ function DecisionRadioGroup({
             onBlur={widgetBlurHandler(onBlur)}
             name="code-review-decision"
             aria-label="Code review decision"
-            withAsterisk
             error={error}
             aria-invalid={!!error || undefined}
         >
