@@ -23,9 +23,7 @@ export type StudyRowViewProps = {
 
 export function StudyRowView({ study, audience, scope, status, isHighlighted, actionLink }: StudyRowViewProps) {
     const theme = useMantineTheme()
-    const highlightStyle = isHighlighted
-        ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
-        : undefined
+    const highlightStyle = isHighlighted ? { backgroundColor: `${theme.colors.navy[0]}80`, fontWeight: 600 } : undefined
 
     // Get the "Submitted To" value (researcher only)
     const submittedTo = study.reviewingEnclaveName || study.orgName || ''

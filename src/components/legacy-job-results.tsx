@@ -106,7 +106,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
             <span
                 style={{
                     height: 16,
-                    borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
+                    borderLeft: `1px solid ${theme.colors.gray[4]}`,
                 }}
             ></span>
             <DownloadBlobLink target="_blank" filename={file.path} fileContent={file.contents} />

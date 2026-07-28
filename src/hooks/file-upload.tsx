@@ -24,7 +24,7 @@ export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: Fi
 export const useFileUploadIcons = () => {
     const theme = useMantineTheme()
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
+        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.navy[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [
             [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
             [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],

@@ -137,9 +137,9 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         c="charcoal.9"
                         styles={{
                             input: {
-                                backgroundColor: theme.colors.charcoal[1],
-                                borderColor: theme.colors.charcoal[1],
-                                color: theme.colors.charcoal[9],
+                                backgroundColor: theme.colors.gray[1],
+                                borderColor: theme.colors.gray[1],
+                                color: theme.colors.gray[9],
                             },
                         }}
                     />
@@ -205,10 +205,10 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                             disabled={!form.isValid() || !termsAccepted}
                             w="100%"
                             size="lg"
-                            bg={!form.isValid() || !termsAccepted ? 'grey.1' : undefined}
+                            bg={!form.isValid() || !termsAccepted ? 'gray.3' : undefined}
                             styles={
                                 !form.isValid() || !termsAccepted
-                                    ? { label: { color: theme.colors.grey[7] } }
+                                    ? { label: { color: theme.colors.gray[5] } }
                                     : undefined
                             }
                         >

@@ -5,7 +5,7 @@ export function useFileTypeIcon(fileName?: string | null) {
     const theme = useMantineTheme()
 
     if (!fileName) {
-        return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
+        return <UploadSimpleIcon size={14} color={theme.colors.navy[5]} weight="fill" />
     }
 
     const color = theme.colors.blue[7]

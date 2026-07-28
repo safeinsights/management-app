@@ -75,7 +75,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                         block
                         style={{
                             maxHeight: 160,
-                            border: `1px solid ${theme.colors.grey[7]}`,
+                            border: `1px solid ${theme.colors.gray[7]}`,
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-all',
                         }}
