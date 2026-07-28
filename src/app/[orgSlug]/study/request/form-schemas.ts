@@ -1,67 +1,31 @@
-import { capitalize } from 'remeda'
 import { z } from 'zod'
 import { WORD_LIMITS, maxWordsRefine } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const MAX_FILE_SIZE_STR = '10MB'
+// The fields Step 1 actually collects. This is the resolver for the Step 1 form, so it
+// must stay in lockstep with what `StudyProposalForm` renders: anything required here
+// but not rendered produces an error the user can never see or clear (OTTER-647).
+export const step1FieldsSchema = z.object({
+    orgSlug: z.string().min(1, { message: 'Data Partner is required' }),
+    language: z
+        .enum(['R', 'PYTHON'])
+        .nullable()
+        .superRefine((val, ctx) => {
+            if (val === null) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Programming language is required' })
+            }
+        }),
+})
 
-const validateDocumentFile = (label: string) => {
-    return z
-        .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
-        .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
-        .refine((file) => file && file.size < MAX_FILE_SIZE, {
-            message: `${capitalize(label)} file size must be less than ${MAX_FILE_SIZE_STR}`,
-        })
-        .refine(
-            (file) =>
-                file &&
-                [
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/pdf',
-                    'text/plain',
-                ].includes(file.type),
-            {
-                message: `Only .doc, .docx, and .pdf files are allowed for ${label}`,
-            },
-        )
-}
-
-export const studyProposalFormSchema = z
-    .object({
-        orgSlug: z.string().min(1, { message: 'Data Partner is required' }),
-        language: z
-            .enum(['R', 'PYTHON'])
-            .nullable()
-            .superRefine((val, ctx) => {
-                if (val === null) {
-                    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Programming language is required' })
-                }
-            }),
-        title: z
-            .string()
-            .min(1, { message: 'Title is required' })
-            .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-        piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
-        description: z.string().optional(),
-        descriptionDocument: validateDocumentFile('description'),
-        irbDocument: validateDocumentFile('IRB'),
-        agreementDocument: validateDocumentFile('agreement'),
-    })
-    .superRefine((data, ctx) => {
-        const totalSize = [data.descriptionDocument, data.irbDocument, data.agreementDocument].reduce(
-            (sum, file) => sum + (file ? file.size : 0),
-            0,
-        )
-
-        if (totalSize > 10 * 1024 * 1024) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'The total size of all documents must not exceed 10 MB, please adjust your files accordingly.',
-                path: ['totalFileSize'],
-            })
-        }
-    })
+// Step 1 + the fields owned by the Step 2 editor. Not used as a form resolver: it exists
+// to carry the shape of `StudyProposalFormValues`.
+export const studyProposalFormSchema = step1FieldsSchema.extend({
+    title: z
+        .string()
+        .min(1, { message: 'Title is required' })
+        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+    piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
+    description: z.string().optional(),
+})
 
 export const codeFilesSchema = z
     .object({
@@ -112,16 +76,7 @@ export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,
-    | 'title'
-    | 'descriptionDocument'
-    | 'irbDocument'
-    | 'agreementDocument'
-    | 'piName'
-    | 'orgSlug'
-    | 'stepIndex'
-    | 'createdStudyId'
-    | 'ideMainFile'
-    | 'ideFiles'
+    'title' | 'piName' | 'orgSlug' | 'stepIndex' | 'createdStudyId' | 'ideMainFile' | 'ideFiles'
 >
 
 export const studyProposalApiSchema = z.object({
@@ -153,8 +108,3 @@ export const draftStudyApiSchema = studyProposalApiSchema
     .extend(step2ProposalApiSchema.shape)
     .partial()
     .extend({ title: z.string().nullable().optional() })
-
-export const step1ReadinessSchema = z.object({
-    orgSlug: z.string().min(1),
-    language: z.enum(['R', 'PYTHON']),
-})

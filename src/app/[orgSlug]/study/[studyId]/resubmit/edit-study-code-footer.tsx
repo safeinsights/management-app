@@ -2,12 +2,15 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
+import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
+import { RESUBMIT_NOTE_MIN_WORDS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { countWords } from '@/lib/lexical'
 
 interface EditStudyCodeFooterProps {
     mainFileName: string
@@ -54,6 +57,12 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     }
 
     const canResubmit = hasFiles && mainFileName !== '' && noteForm.isValid() && !isBusy
+    const missingFields = [
+        ...(hasFiles ? [] : ['Study code files']),
+        ...(hasFiles && mainFileName === '' ? ['Main file selection'] : []),
+        // Empty only. A note over the word limit already shows that error on the field.
+        ...(countWords(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS ? ['Resubmission Note'] : []),
+    ]
     const handleConfirmResubmit = () => {
         closeConfirm()
         resubmit({ mainFileName, fileNames })
@@ -73,17 +82,20 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
 
     return (
         <>
-            <Group justify="flex-end" mt="xs">
+            <Group justify="flex-end" align="flex-start" mt="xs">
                 {exitButton}
-                <Button
-                    variant="primary"
-                    size="md"
-                    disabled={!canResubmit}
-                    loading={isSubmitting}
-                    onClick={openConfirm}
-                >
-                    Resubmit study code
-                </Button>
+                <Stack gap={4} align="flex-end">
+                    <Button
+                        variant="primary"
+                        size="md"
+                        disabled={!canResubmit}
+                        loading={isSubmitting}
+                        onClick={openConfirm}
+                    >
+                        Resubmit study code
+                    </Button>
+                    <IncompleteFieldsHint missing={missingFields} />
+                </Stack>
             </Group>
 
             <SubmitConfirmationModal

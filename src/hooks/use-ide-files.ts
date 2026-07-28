@@ -108,8 +108,17 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    const submitDisabledReason =
-        !filesChanged && fileNames.length > 0 ? 'Modify a file or upload new ones before submitting' : null
+    // OTTER-647: the main file is required but has no field to blur, being a star toggle
+    // whose value is derived from async workspace state (override, then single file, then the
+    // server's suggestion). Routing it through useField would go stale on every workspace
+    // refetch, so derivation stays here and the requirement is surfaced by naming what is
+    // missing next to the disabled button instead.
+    const submitDisabledReason = (() => {
+        if (fileNames.length === 0) return null
+        if (mainFile === '') return 'Select a main file to submit'
+        if (!filesChanged) return 'Modify a file or upload new ones before submitting'
+        return null
+    })()
 
     const setMainFile = useCallback((fileName: string) => {
         setMainFileOverride(fileName)

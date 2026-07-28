@@ -5,7 +5,7 @@ import { useMutation } from '@/hooks/query-wrappers'
 import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
+import { useForm } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
@@ -79,10 +79,11 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        error={undefined}
+                        // Handed to Mantine rather than rendered beside a suppressed error, so the
+                        // message lands in the input's `aria-describedby` instead of being visual only.
+                        error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />
-                    <InputError error={form.errors.code} />
                     <Button
                         type="submit"
                         fullWidth

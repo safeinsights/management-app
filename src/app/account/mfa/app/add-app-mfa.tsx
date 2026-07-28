@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from '@/common'
+import { useForm, useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
 import { Link } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
@@ -22,7 +22,6 @@ import {
     Title,
     useMantineTheme,
 } from '@mantine/core'
-import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
@@ -182,8 +181,10 @@ function AddTotpScreenContent({
                     <Title order={4} ta="center" mt="xs">
                         Enter your code
                     </Title>
-                    <OtpInput form={form} />
-                    <InputError error={form.errors.code} />
+                    <OtpInput form={form} errorId="add-app-mfa-code-error" />
+                    <Box id="add-app-mfa-code-error">
+                        <InputError error={form.errors.code} />
+                    </Box>
                     <Button
                         type="submit"
                         loading={isVerifying}

@@ -38,7 +38,6 @@ function useStoryForm(initialValues: ResetFormValues) {
         validate: {
             email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
         },
-        validateInputOnChange: true,
     })
 }
 

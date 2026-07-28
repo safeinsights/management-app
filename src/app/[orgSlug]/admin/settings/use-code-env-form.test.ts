@@ -53,6 +53,91 @@ describe('useCodeEnvForm', () => {
         ;(getSampleDataUploadUrlAction as Mock).mockResolvedValue(mockPresignedUrl)
     })
 
+    // OTTER-647: a draft env-var pair used to be discarded on submit when only one half was
+    // filled, so the save appeared to succeed while losing the input. Whitespace counted as
+    // filled, because the checks read the raw form values while only the schema trimmed.
+    describe('draft env var and command pairs', () => {
+        const seedRequiredFields = (result: { current: ReturnType<typeof useCodeEnvForm> }) => {
+            act(() => {
+                result.current.form.setFieldValue('identifier', 'new_env')
+                result.current.form.setFieldValue('name', 'New Env')
+                result.current.form.setFieldValue('commandLines', { py: 'python %f' })
+                result.current.form.setFieldValue('url', 'python:3.11')
+                result.current.form.setFieldValue('starterCodes', [new File(['code'], 'main.py')])
+            })
+        }
+
+        it('blocks submit and flags the empty half of a draft env var', async () => {
+            const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+                wrapper: createTestQueryWrapper(),
+            })
+            seedRequiredFields(result)
+            act(() => result.current.form.setFieldValue('newEnvKey', 'FOO'))
+
+            act(() => result.current.onSubmit())
+
+            await waitFor(() => {
+                expect(result.current.form.errors.newEnvValue).toBe('Complete both fields or clear them')
+            })
+            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+        })
+
+        it('treats a whitespace-only half as empty rather than saving the whitespace', async () => {
+            const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+                wrapper: createTestQueryWrapper(),
+            })
+            seedRequiredFields(result)
+            act(() => {
+                result.current.form.setFieldValue('newEnvKey', 'FOO')
+                result.current.form.setFieldValue('newEnvValue', '   ')
+            })
+
+            act(() => result.current.onSubmit())
+
+            await waitFor(() => {
+                expect(result.current.form.errors.newEnvValue).toBe('Complete both fields or clear them')
+            })
+            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+        })
+
+        it('appends a complete draft pair, trimmed', async () => {
+            ;(createOrgCodeEnvAction as Mock).mockResolvedValue({ ...mockCodeEnv, id: 'new-id' })
+            const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+                wrapper: createTestQueryWrapper(),
+            })
+            seedRequiredFields(result)
+            act(() => {
+                result.current.form.setFieldValue('newEnvKey', '  FOO  ')
+                result.current.form.setFieldValue('newEnvValue', '  bar  ')
+            })
+
+            act(() => result.current.onSubmit())
+
+            await waitFor(() => {
+                expect(createOrgCodeEnvAction).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        settings: expect.objectContaining({ environment: [{ name: 'FOO', value: 'bar' }] }),
+                    }),
+                )
+            })
+        })
+
+        it('flags the empty half of a draft command line', async () => {
+            const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+                wrapper: createTestQueryWrapper(),
+            })
+            seedRequiredFields(result)
+            act(() => result.current.form.setFieldValue('newCmdValue', 'python %f'))
+
+            act(() => result.current.onSubmit())
+
+            await waitFor(() => {
+                expect(result.current.form.errors.newCmdExt).toBe('Complete both fields or clear them')
+            })
+            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+        })
+    })
+
     it('returns create mode when no image is provided', () => {
         const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
             wrapper: createTestQueryWrapper(),

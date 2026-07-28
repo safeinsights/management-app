@@ -1,11 +1,10 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
 import { errorToString } from '@/lib/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
-import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 
 type ContextProps = { name: ContextName; orgId: string | null }

@@ -485,10 +485,10 @@ describe('ResearchDetailsSection', () => {
         expect(refetch).not.toHaveBeenCalled()
     })
 
-    // OTTER-624 follow-up: commit-on-blur must not create accidental pills. When focus leaves
-    // the page entirely (switching tabs/windows) relatedTarget is null, so the draft is kept in
-    // the field rather than turned into a committed interest.
-    it('should not commit a typed interest when focus leaves the page (relatedTarget null)', async () => {
+    // OTTER-624 follow-up: commit-on-blur must not create accidental pills when the user
+    // switches tab or window. That is detected by the document losing focus, not by a null
+    // relatedTarget alone, which an ordinary in-page click also produces (see the next test).
+    it('should not commit a typed interest when the document loses focus', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
@@ -502,11 +502,35 @@ describe('ResearchDetailsSection', () => {
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Ephemeral Idea')
 
-        // A tab/window switch blurs the field with no next focused element.
+        const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
         fireEvent.blur(interestInput, { relatedTarget: null })
 
         expect(screen.queryByText('Ephemeral Idea')).toBeNull()
         expect((interestInput as HTMLInputElement).value).toBe('Ephemeral Idea')
+        hasFocus.mockRestore()
+    })
+
+    // OTTER-647: clicking a non-focusable part of the page also yields a null relatedTarget, but
+    // the user IS moving on, so the draft must commit and an empty field must be flagged. Before
+    // this, leaving the required field empty and clicking away raised no error at all.
+    it('commits the draft and flags an empty field when focus moves to a non-focusable target', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Committed Idea')
+
+        fireEvent.blur(interestInput, { relatedTarget: null })
+
+        expect(await screen.findByText('Committed Idea')).toBeInTheDocument()
+        expect((interestInput as HTMLInputElement).value).toBe('')
     })
 
     // OTTER-624 follow-up: moving focus to a control inside the widget (e.g. clicking a pill's
