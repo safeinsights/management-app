@@ -242,4 +242,44 @@ describe('CodeEnvs', async () => {
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
         expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
     })
+
+    describe('change history', () => {
+        it('shows recorded changes when the history icon is clicked', async () => {
+            const codeEnv = await insertTestCodeEnv({ orgId: org.id, name: 'Audited Env', language: 'R' })
+            const { user } = await mockSessionWithTestData({ isAdmin: true, orgSlug: org.slug })
+
+            await db
+                .insertInto('audit')
+                .values({
+                    userId: user.id,
+                    eventType: 'UPDATED',
+                    recordType: 'CODE_ENV',
+                    recordId: codeEnv.id,
+                    metadata: { changes: [{ field: 'url', before: 'repo/img:v1', after: 'repo/img:v2' }] },
+                })
+                .execute()
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Audited Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for audited env/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toBeInTheDocument()
+            })
+            expect(await screen.findByText(/repo\/img:v1/)).toBeInTheDocument()
+            expect(screen.getByText(/repo\/img:v2/)).toBeInTheDocument()
+        })
+
+        it('shows an empty state when nothing has been recorded', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Untouched Env', language: 'R' })
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Untouched Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for untouched env/i }))
+
+            expect(await screen.findByText(/no changes have been recorded/i)).toBeInTheDocument()
+        })
+    })
 })
