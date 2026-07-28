@@ -18,7 +18,21 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
         .executeTakeFirst()
 
-    if (alreadyReceived) return new NextResponse('job is already complete', { status: 422 })
+    // An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so the guard above
+    // never tripped for it: a retried error delivery appended a second JOB-ERRORED and re-sent the
+    // reviewer email (OTTER-642). Key the errored case on the run-log row, which only this route
+    // writes, rather than on a bare JOB-ERRORED status: the scan and packaging steps also record
+    // JOB-ERRORED (with their own log types), so a status check would let one of those wrongly block a
+    // legitimate results delivery for the same job. A QA-provisioned job carrying a run log is treated
+    // as finished here too, which is correct - those jobs are never run by the enclave.
+    const runLogStored = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
+        .executeTakeFirst()
+
+    if (alreadyReceived || runLogStored) return new NextResponse('job is already complete', { status: 422 })
 
     const formData = await req.formData()
     const logs = formData.get('log')

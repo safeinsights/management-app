@@ -1,4 +1,5 @@
-import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom, sql } from '@/database'
+import { type DedupableJobFile, dedupeJobArtifactFiles } from '@/lib/file-type-helpers'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -31,8 +32,25 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     } as SiUser
 }
 
+// Whether this artifact has been released to researchers, which is what `dedupeJobArtifactFiles`
+// needs to avoid collapsing away the row their wrapped keys hang off. Raw SQL so one definition can
+// be reused by both file-list subqueries below: a typed `eb.exists(...)` callback would have to be
+// written against each outer query's own table union. Column names are snake_case here because the
+// CamelCasePlugin does not rewrite raw fragments; the alias is transformed, matching the other columns.
+const hasRecipientKeys = sql<boolean>`exists (
+    select 1 from study_job_file_recipient_key k where k.study_job_file_id = study_job_file.id
+)`.as('hasRecipientKeys')
+
+// Duplicate artifact rows left behind by a re-delivered ingest webhook are still in the table
+// (OTTER-642 removes nothing), so every read that lists a job's files collapses them here. Keeping it
+// on the read side also means a future duplicate slipping past the write-side guard in
+// `storeJobFile` can never surface as a doubled log or result.
+function withDedupedFiles<F extends DedupableJobFile, T extends { files: F[] }>(job: T): T {
+    return { ...job, files: dedupeJobArtifactFiles(job.files) }
+}
+
 export async function getStudyJobInfo(studyJobId: string) {
-    return await Action.db
+    const job = await Action.db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
@@ -56,12 +74,15 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path', 'fileType'])
+                    .select(['id', 'name', 'path', 'fileType', 'createdAt'])
+                    .select(hasRecipientKeys)
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
+
+    return withDedupedFiles(job)
 }
 
 export const getUserPublicKey = async (userId: string) => {
@@ -97,6 +118,7 @@ function latestJobForStudyQuery(studyId: string) {
                 eb
                     .selectFrom('studyJobFile')
                     .select(['id', 'name', 'path', 'fileType', 'createdAt'])
+                    .select(hasRecipientKeys)
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -124,15 +146,18 @@ function latestSubmittedJobForStudyQuery(studyId: string) {
 }
 
 export const latestJobForStudy = async (studyId: string) => {
-    return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+    const job = await latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+    return withDedupedFiles(job)
 }
 
 export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
-    return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+    const job = await latestJobForStudyQuery(studyId).executeTakeFirst()
+    return job ? withDedupedFiles(job) : null
 }
 
 export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
-    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+    const job = await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()
+    return job ? withDedupedFiles(job) : null
 }
 
 // Submission version = 1 + the number of times a NEW submission round was opened across the whole

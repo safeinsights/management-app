@@ -85,6 +85,67 @@ test.skipIf(!s3Available)('rejects a second results upload once the job is alrea
     expect(rows).toHaveLength(1)
 })
 
+// An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so before OTTER-642 a
+// retried error delivery sailed past the completion guard: it stored a second log row, appended
+// another JOB-ERRORED, and re-sent the reviewer email.
+test.skipIf(!s3Available)('rejects a second log-only (errored) upload once the job already errored', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const post = () => {
+        const formData = new FormData()
+        formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+        return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+            params: Promise.resolve({ jobId }),
+        })
+    }
+
+    expect((await post()).ok).toBe(true)
+    expect((await post()).status).toBe(422)
+
+    const logRows = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
+        .execute()
+    expect(logRows).toHaveLength(1)
+
+    const erroredStatuses = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    expect(erroredStatuses).toHaveLength(1)
+})
+
+// The scan and packaging steps also record JOB-ERRORED, with their own log types. The guard keys on
+// the run log this route alone writes, so one of those must not block a real results delivery.
+test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
+
+    const formData = new FormData()
+    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .execute()
+    expect(runComplete).toHaveLength(1)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'

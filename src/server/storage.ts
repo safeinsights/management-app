@@ -3,6 +3,7 @@ import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types
 import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
 import { db } from '@/database'
 import { FileType } from '@/database/types'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export async function fetchFileContents(filePath: string) {
     const stream = await fetchS3File(filePath)
@@ -28,14 +29,65 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
     return urlForFile(pathForStudyDocumentFile(info, fileType, fileName))
 }
 
+// The round's own notion of "decided", mirroring getOrCreateCurrentRoundJob: an existence check, so it
+// stays independent of jobStatusChange ordering (a round-closing status is never followed by another
+// status on the same job).
+async function roundIsClosed(studyJobId: string): Promise<boolean> {
+    const closing = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', 'in', ROUND_CLOSING_JOB_STATUSES)
+        .executeTakeFirst()
+
+    return Boolean(closing)
+}
+
+/**
+ * Store one artifact against a job, idempotent per (job, storage path) (OTTER-642).
+ *
+ * `path` is derived from the job and the artifact type, so a re-delivered ingest webhook overwrites
+ * the same S3 object. Inserting unconditionally therefore produced a second row pointing at that same
+ * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
+ * instead, so a retry is a no-op rather than a duplicate.
+ */
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
-    // If the insert below fails (or the process dies between these two writes), the S3 object is
+    // Ordered newest-first to match the read-side preference in dedupeJobArtifactFiles, so an update
+    // lands on the row that is actually displayed. Rows left over from before this fix all point at
+    // the same object, so which one is picked only matters for determinism.
+    const existing = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', info.studyJobId)
+        .where('path', '=', path)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .executeTakeFirst()
+
+    // Once the round is decided the artifact has been released, and a late re-delivery is stale by
+    // definition. Overwriting the object would strand the researcher: their per-file keys were wrapped
+    // from the AES keys of the ciphertext being replaced, so an already-released file would stop
+    // decrypting. Ignore the delivery entirely. A first-ever arrival for a path is still stored -
+    // nothing was released for it, so there is nothing to protect and dropping it would lose data.
+    if (existing && (await roundIsClosed(info.studyJobId))) return existing
+
+    // If the write below fails (or the process dies between these two writes), the S3 object is
     // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
     await storeS3File(info, file.stream(), path)
+
+    if (existing) {
+        return await db
+            .updateTable('studyJobFile')
+            .set({ name: file.name, fileType, ...(sourceId ? { sourceId } : {}) })
+            .where('id', '=', existing.id)
+            .returning('id')
+            .executeTakeFirstOrThrow()
+    }
 
     return await db
         .insertInto('studyJobFile')
         .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
+        .returning('id')
         .executeTakeFirstOrThrow()
 }
 

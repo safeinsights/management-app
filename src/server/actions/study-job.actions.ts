@@ -263,34 +263,36 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
         // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
         // naturally gated). Build the {file_path -> crypt} map per artifact.
+        //
+        // Keyed by the artifact's storage path, not by row id: a job can still carry duplicate
+        // study_job_file rows for one artifact from before OTTER-642, and the keys may hang off a row
+        // that getStudyJobInfo's dedupe did not keep. Matching on path makes a researcher's access
+        // independent of which duplicate survived, so an already-released file never stops opening.
         const wrappedKeys = await db
             .selectFrom('studyJobFileRecipientKey')
-            .select(['studyJobFileId', 'filePath', 'crypt'])
-            .where(
-                'studyJobFileId',
-                'in',
-                encryptedFiles.map((f) => f.id),
-            )
-            .where('fingerprint', '=', userKey.fingerprint)
+            .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
+            .select(['studyJobFile.path', 'studyJobFileRecipientKey.filePath', 'studyJobFileRecipientKey.crypt'])
+            .where('studyJobFile.studyJobId', '=', studyJob.studyJobId)
+            .where('studyJobFileRecipientKey.fingerprint', '=', userKey.fingerprint)
             .execute()
         if (!wrappedKeys.length) return []
 
-        const keysByFileId = new Map<string, Record<string, string>>()
+        const keysByPath = new Map<string, Record<string, string>>()
         for (const key of wrappedKeys) {
-            const map = keysByFileId.get(key.studyJobFileId) ?? {}
+            const map = keysByPath.get(key.path) ?? {}
             map[key.filePath] = key.crypt
-            keysByFileId.set(key.studyJobFileId, map)
+            keysByPath.set(key.path, map)
         }
 
         return Promise.all(
             encryptedFiles
-                .filter((file) => keysByFileId.has(file.id))
+                .filter((file) => keysByPath.has(file.path))
                 .map(async (file) => ({
                     studyJobFileId: file.id,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    recipientKeys: keysByFileId.get(file.id)!,
+                    recipientKeys: keysByPath.get(file.path)!,
                 })),
         )
     })
