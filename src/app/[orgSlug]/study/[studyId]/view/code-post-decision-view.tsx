@@ -2,13 +2,14 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
+import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { StudyCodeToggle, useExpandable } from './study-code-collapse'
@@ -206,19 +207,15 @@ const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({ expanded, jobId, code
                 <Stack gap="md">
                     <Group justify="space-between" align="center" wrap="nowrap">
                         <Title order={5}>Submitted code</Title>
-                        <Anchor
+                        <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            size="sm"
-                            fw={700}
-                            display="inline-flex"
-                            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            icon={<ArrowSquareOutIcon size={14} />}
                             data-testid="view-approved-initial-request"
                         >
                             View approved initial request
-                            <ArrowSquareOutIcon size={14} />
-                        </Anchor>
+                        </LinkWithIcon>
                     </Group>
                     <Divider />
                     <Text>View the code files that you uploaded to run against the dataset.</Text>
@@ -258,9 +255,9 @@ export function CodePostDecisionView({
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <StepCard
