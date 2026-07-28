@@ -1,10 +1,6 @@
 'use client'
 
-import {
-    PASSWORD_REQUIREMENTS,
-    Requirements,
-    usePasswordRequirements,
-} from '@/app/account/reset-password/password-requirements'
+import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
 import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
@@ -72,7 +68,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     })
 
     const [passwordTouched, setPasswordTouched] = useState(false)
-    const { requirements, shouldShowRequirements } = usePasswordRequirements(form.values.password, passwordTouched)
+    const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: ({ termsAccepted: _termsAccepted, ...form }: FormValues) =>
@@ -186,7 +182,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         aria-invalid={!!form.errors.password || undefined}
                         // Rendered as the input's description so Mantine owns the
                         // aria-describedby wiring; a hand-passed value is overwritten.
-                        description={shouldShowRequirements ? <Requirements requirements={requirements} /> : undefined}
+                        description={requirementsDescription}
                         // Description below the input, not Mantine's default position above it:
                         // this is live validation feedback, and it sat under the field before.
                         inputWrapperOrder={['label', 'input', 'description', 'error']}

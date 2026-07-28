@@ -12,7 +12,7 @@ import { Box, Group, Input, Text } from '@mantine/core'
  *   label and description, and spread {@link nativeFieldProps} onto the input. Those controls
  *   render their own `Input.Wrapper`, whose context shadows this one, so the error node has to
  *   reach the input directly or its `aria-describedby` is lost.
- * - **Composite widget** whose focusable element is not the labelled node (the Lexical
+ * - **Composite widget** whose focusable element is not the labeled node (the Lexical
  *   `Editor`): wrap it here and pass {@link fieldDescribedBy} to whatever prop the control
  *   exposes for it. The `Editor` takes Lexical-style `ariaDescribedBy`, not `aria-*` keys.
  * - **A control that already owns its chrome** (`Radio.Group`, `PillsInput`, `PinInput`): do

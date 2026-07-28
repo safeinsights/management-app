@@ -46,10 +46,16 @@ export function usePasswordRequirements(password: string, touched = false) {
         return password.length > 0 || touched
     }
 
+    // `undefined` rather than a null-rendering element: Mantine decides whether to render the
+    // description wrapper from the prop's truthiness alone, so an element that renders nothing
+    // still emits an empty `<p>` and points `aria-describedby` at it.
+    const requirementsDescription = shouldShowRequirements() ? <Requirements requirements={requirements} /> : undefined
+
     return {
         requirements,
         allRequirementsMet,
         shouldShowRequirements: shouldShowRequirements(),
+        requirementsDescription,
     }
 }
 

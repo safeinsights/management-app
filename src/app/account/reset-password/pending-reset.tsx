@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
+import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
 
 const verificationFormSchema = z
     .object({
@@ -155,10 +155,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
     }
 
     const [passwordTouched, setPasswordTouched] = useState(false)
-    const { requirements, shouldShowRequirements } = usePasswordRequirements(
-        verificationForm.values.password,
-        passwordTouched,
-    )
+    const { requirementsDescription } = usePasswordRequirements(verificationForm.values.password, passwordTouched)
 
     if (needsMFA) return <RequestMFA mfa={needsMFA} />
 
@@ -212,7 +209,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                         aria-invalid={!!verificationForm.errors.password || undefined}
                         // Rendered as the input's description so Mantine owns the
                         // aria-describedby wiring; a hand-passed value is overwritten.
-                        description={shouldShowRequirements ? <Requirements requirements={requirements} /> : undefined}
+                        description={requirementsDescription}
                         // Description below the input, not Mantine's default position above it:
                         // this is live validation feedback, and it sat under the field before.
                         inputWrapperOrder={['label', 'input', 'description', 'error']}

@@ -86,7 +86,7 @@ function StarterCodeSection({
     removeStarterCode: (fileName: string) => void
     error?: string
 }) {
-    // Required on create. It has no input to blur, so "left incomplete" is modelled as
+    // Required on create. It has no input to blur, so "left incomplete" is modeled as
     // visited-then-left-empty: the dropzone is focusable, and leaving it without files shows
     // the requirement rather than waiting for submit (OTTER-647).
     const [touched, setTouched] = useState(false)
