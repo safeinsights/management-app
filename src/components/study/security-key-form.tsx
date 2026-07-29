@@ -1,8 +1,9 @@
 'use client'
 
-import { Button, Paper, Stack, Textarea } from '@mantine/core'
+import { Button, Paper, Stack } from '@mantine/core'
 import { FormSectionHeader } from '@/components/study/form-section-header'
 import { LostKeyPopover } from '@/components/study/lost-key-popover'
+import { SecurityKeyInput } from '@/components/study/security-key-input'
 
 export function SecurityKeyForm() {
     return (
@@ -13,12 +14,7 @@ export function SecurityKeyForm() {
                     description="This key is required to access the outputs. It was issued to you during sign-up."
                     required
                 />
-                <Textarea
-                    autoComplete="off"
-                    aria-required
-                    styles={{ input: { minHeight: 72, borderColor: 'var(--mantine-color-blue-7)' } }}
-                    maw={800}
-                />
+                <SecurityKeyInput />
                 <div>
                     <Button size="sm">View</Button>
                 </div>
