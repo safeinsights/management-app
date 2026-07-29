@@ -53,7 +53,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
 
     return (
         <Paper bg="white" p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
-            <Stack gap={24}>
+            <Stack gap="lg">
                 <Title order={3} fz={22}>
                     Security key
                 </Title>

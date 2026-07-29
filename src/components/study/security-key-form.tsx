@@ -1,24 +1,20 @@
 'use client'
 
-import { Anchor, Button, Divider, Group, Paper, Popover, Stack, Text, Textarea, Title } from '@mantine/core'
+import { Anchor, Button, Group, Paper, Popover, Stack, Text, Textarea } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
+import { FormSectionHeader } from '@/components/study/form-section-header'
 
 export function SecurityKeyForm() {
     return (
         <Paper p="xxl">
             <Stack gap="lg">
-                <Title fz="xl" fw={700} c="charcoal.9">
-                    Security key{' '}
-                    <Text component="span" c="red.10" inherit aria-label="required">
-                        *
-                    </Text>
-                </Title>
-                <Divider color="charcoal.1" />
-                <Text fz="md" c="charcoal.9">
-                    This key is required to access the outputs. It was issued to you during sign-up.
-                </Text>
+                <FormSectionHeader
+                    title="Security key"
+                    description="This key is required to access the outputs. It was issued to you during sign-up."
+                    required
+                />
                 <Textarea
                     autoComplete="off"
                     aria-required
