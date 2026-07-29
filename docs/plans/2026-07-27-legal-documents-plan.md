@@ -128,7 +128,7 @@ All use `new Action(...)` from `./action`. Mutating actions pass `{ performsMuta
       a `PresignedPost` for the existing `uploadFiles` hook.
 - [x] **`publishLegalDocumentVersionAction`** — `publish`, behind the `scopeFromVersionId` middleware.
       Asserts the version is still a draft, sets `published_at`/`published_by`/`version_number =
-  max+1`, plus `signed_at` when supplied. The update carries a `where('publishedAt','is',null)`
+max+1`, plus `signed_at` when supplied. The update carries a `where('publishedAt','is',null)`
       guard so a concurrent second publish claims zero rows and throws instead of overwriting.
 - [x] **`fetchLegalDocumentVersionsAction`** — `view`. Returns
       `{ legalDocumentId, current, history, draft }`, each version carrying `versionNumber`,

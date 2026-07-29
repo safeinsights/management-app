@@ -11,8 +11,7 @@ import {
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
-// These actions only hand the browser a presigned URL — the upload itself happens client-side — so
-// the AWS boundary is stubbed and every assertion below is about real database state.
+// The upload happens client-side, so only the AWS boundary is stubbed; the rest hits the real DB.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
@@ -40,8 +39,7 @@ describe('createLegalDocumentDraftAction', () => {
         expect(version.publishedAt).toBeNull()
         expect(version.versionNumber).toBeNull()
         expect(version.filePath).toBe(`legal/tos/${legalDocument.id}/${version.id}/terms.md`)
-        // The presigned prefix has to be the directory the stored file_path sits in, otherwise the
-        // upload lands somewhere the row does not point at.
+        // Must be the directory the stored file_path sits in, or uploads land where no row points.
         expect(vi.mocked(createSignedUploadUrl)).toHaveBeenCalledWith(`legal/tos/${legalDocument.id}/${version.id}`)
     })
 
@@ -138,9 +136,8 @@ describe('publishLegalDocumentVersionAction', () => {
 
         await publish(versionId, '2026-07-27')
 
-        // Cast in SQL rather than reading the parsed value: node-postgres turns a `date` into a JS
-        // Date at local midnight, so asserting through the driver would pass or fail depending on the
-        // machine's timezone. This checks what is actually stored.
+        // Cast in SQL: reading through the driver would pass or fail depending on the machine's
+        // timezone, which is the bug being guarded against.
         const row = await db
             .selectFrom('legalDocumentVersion')
             .select(sql<string>`signed_at::text`.as('signedAtText'))

@@ -16,9 +16,8 @@ import { Action, ActionFailure } from './action'
 
 type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
-// Resolves a version's document scope into the context so the ability check has something to match
-// on, and so a later rule can scope publishing/acknowledging to a single org or study without
-// touching the actions themselves.
+// Gives the ability check something to match on, so a later rule can scope these to one org or
+// study without touching the actions.
 const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { versionId: string }; db: DBExecutor }) => {
     const scope = await db
         .selectFrom('legalDocumentVersion')
@@ -30,8 +29,11 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     return { orgId: scope?.orgId ?? undefined, studyId: scope?.studyId ?? undefined }
 }
 
-// ToS/PN are global, so their scope columns are null rather than absent — `is null` matches the rows
-// the NULLS NOT DISTINCT unique constraint keeps to one per scope.
+// Admin-wide listings have no document to scope against. Needed because the all-optional ability
+// conditions are a TS weak type: params sharing none of those properties won't compile.
+const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
+
+// tos/pn are global, so their scope columns are null rather than absent.
 const findDocument = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
     db
         .selectFrom('legalDocument')
@@ -47,9 +49,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
     .handler(async ({ db, params: { type, orgId, studyId, fileName, format } }) => {
-        // The logical document is created on first upload rather than seeded, so there is nothing to
-        // keep in sync; the unique constraint guarantees at most one per scope. onConflict covers the
-        // case where a concurrent upload created it a moment ago.
+        // Created on first upload rather than seeded. onConflict covers a concurrent first upload.
         const legalDocument =
             (await db
                 .insertInto('legalDocument')
@@ -60,18 +60,15 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
 
         if (!legalDocument) throw new ActionFailure({ document: 'could not be created' })
 
-        // Only one unpublished draft may exist at a time (enforced by a partial unique index), so a
-        // fresh upload supersedes any pending one. The superseded draft's S3 object is left in place:
-        // deleting it here would be an un-rollbackable side effect inside this transaction, and it is
-        // unreachable anyway since every version uploads under its own id.
+        // A fresh upload supersedes any pending draft. The old S3 object is left orphaned — deleting
+        // it here couldn't roll back with the transaction, and it's unreachable anyway.
         await db
             .deleteFrom('legalDocumentVersion')
             .where('legalDocumentId', '=', legalDocument.id)
             .where('publishedAt', 'is', null)
             .execute()
 
-        // The id is generated here so the S3 prefix and the stored file_path agree without a second
-        // round-trip after the insert.
+        // Generated up front so the S3 prefix and stored file_path agree without a second round-trip.
         const versionId = uuidv7()
         const pathParts = { type, legalDocumentId: legalDocument.id, versionId }
 
@@ -89,8 +86,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
         return {
             legalDocument,
             version,
-            // createSignedUploadUrl takes a prefix and appends the uploaded file's name, which is why
-            // file_path above is built from the same fileName the client is about to upload.
+            // Takes a prefix and appends the client's filename, hence file_path built from the same one.
             upload: await createSignedUploadUrl(pathForLegalDocumentVersion(pathParts)),
         }
     })
@@ -118,9 +114,8 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('legalDocumentId', '=', version.legalDocumentId)
             .executeTakeFirstOrThrow()
 
-        // The `publishedAt is null` guard makes a concurrent second publish claim zero rows and throw
-        // rather than overwrite the first; the unique (legalDocumentId, versionNumber) constraint
-        // catches two different drafts racing for the same number.
+        // The publishedAt guard makes a concurrent second publish claim zero rows and throw rather
+        // than overwrite the first.
         return await db
             .updateTable('legalDocumentVersion')
             .set({
@@ -185,13 +180,12 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
             .where('id', '=', versionId)
             .executeTakeFirstOrThrow()
 
-        // A draft has not gone live, so agreeing to it would record consent to something no one was
-        // shown.
+        // Agreeing to a draft would record consent to something never shown.
         if (!version.publishedAt) {
             throw new ActionFailure({ version: 'is not published and cannot be acknowledged' })
         }
 
-        // Re-submitting keeps the original acked_at: the first agreement is the one that happened.
+        // Re-submitting keeps the original acked_at.
         await db
             .insertInto('legalDocumentAcknowledgement')
             .values({ legalDocumentVersionId: versionId, userId: session.user.id })
@@ -207,9 +201,8 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
     .handler(async ({ db, params: { type, orgId, studyId, sort } }) => {
         const legalDocument = await findDocument(db, { type, orgId, studyId })
 
-        // Who is *required* to acknowledge is derived, not stored. For ToS/PN that is every user; a
-        // missing acknowledgement row is what "has not agreed" looks like, which is also why this
-        // list legitimately reads as all-null until something is published and acknowledged.
+        // Audience is derived, not stored: for tos/pn that's every user, and a missing row means
+        // "has not agreed".
         const memberships = await db
             .selectFrom('user')
             .leftJoin('orgUser', 'orgUser.userId', 'user.id')
@@ -230,8 +223,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                       'legalDocumentAcknowledgement.ackedAt',
                       'legalDocumentVersion.versionNumber',
                   ])
-                  // Newest acknowledged version per user; distinctOn keeps the first row of each
-                  // userId group, matching the pattern in getUsersForOrgAction.
+                  // Newest acknowledged version per user.
                   .distinctOn('legalDocumentAcknowledgement.userId')
                   .orderBy('legalDocumentAcknowledgement.userId')
                   .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -240,8 +232,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         const latestByUser = new Map(acknowledgements.map((ack) => [ack.userId, ack]))
 
-        // A user can belong to several orgs, so memberships are collapsed into one row per user
-        // rather than repeating the person once per org.
+        // Collapsed to one row per user, since a user can belong to several orgs.
         const byUser = new Map<string, ReturnType<typeof buildRow>>()
         function buildRow(row: (typeof memberships)[number]) {
             const ack = latestByUser.get(row.id)
@@ -263,8 +254,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
             byUser.set(row.id, existing)
         }
 
-        // Sorted here rather than in SQL because the rows were collapsed per user above. Audiences
-        // are org-sized; revisit with SQL-side sort and pagination if that stops being true.
+        // Sorted here because the rows were collapsed above. Revisit if audiences outgrow org size.
         const users = [...byUser.values()]
         const { columnAccessor = 'fullName', direction = 'asc' } = sort ?? {}
         const flip = direction === 'asc' ? 1 : -1
@@ -276,4 +266,68 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         })
 
         return { legalDocumentId: legalDocument?.id ?? null, users }
+    })
+
+export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
+    .middleware(noDocumentScope)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db }) => {
+        const rows = await db
+            .selectFrom('legalDocument')
+            .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+            .innerJoin('study', 'study.id', 'legalDocument.studyId')
+            .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
+            .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
+            .select([
+                'legalDocument.id as legalDocumentId',
+                'legalDocumentVersion.id as versionId',
+                'legalDocumentVersion.versionNumber',
+                'legalDocumentVersion.filePath',
+                'legalDocumentVersion.signedAt',
+                'legalDocumentVersion.publishedAt',
+                'study.id as studyId',
+                'study.title as studyTitle',
+                'researchLab.name as researchLabName',
+                'dataPartner.name as dataPartnerName',
+            ])
+            .where('legalDocument.type', '=', 'sla')
+            .where('legalDocumentVersion.publishedAt', 'is not', null)
+            // Newest published agreement per study; the latest is all this table shows.
+            .distinctOn('legalDocument.id')
+            .orderBy('legalDocument.id')
+            .orderBy('legalDocumentVersion.versionNumber', 'desc')
+            .execute()
+
+        return await Promise.all(
+            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+        )
+    })
+
+export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSlaAction')
+    .middleware(noDocumentScope)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db }) => {
+        // Approved only: an SLA is drawn up after approval, so earlier studies have nothing signed.
+        return await db
+            .selectFrom('study')
+            .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
+            .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
+            .leftJoin('legalDocument', (join) =>
+                join.onRef('legalDocument.studyId', '=', 'study.id').on('legalDocument.type', '=', 'sla'),
+            )
+            .select([
+                'study.id as studyId',
+                'study.title as studyTitle',
+                'dataPartner.id as dataPartnerId',
+                'dataPartner.name as dataPartnerName',
+                'researchLab.id as researchLabId',
+                'researchLab.name as researchLabName',
+            ])
+            .where('study.status', '=', 'APPROVED')
+            .where('study.deletedAt', 'is', null)
+            .where('legalDocument.id', 'is', null)
+            .orderBy('dataPartner.name')
+            .orderBy('researchLab.name')
+            .orderBy('study.title')
+            .execute()
     })

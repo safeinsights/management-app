@@ -6,9 +6,7 @@ export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 
 export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])
 
-// ToS/PN are global, ROPA/DOPA belong to one org, and an SLA belongs to one study. The database
-// enforces this too (legal_document_scope_matches_type); validating here as well means a bad scope
-// comes back as a readable field error instead of an opaque constraint violation.
+// Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
 const scopeSchema = z.object({
     type: legalDocumentTypeSchema,
     orgId: z.string().optional(),
@@ -44,8 +42,7 @@ export const createLegalDocumentDraftSchema = scopeSchema
 
 export const publishLegalDocumentVersionSchema = z.object({
     versionId: z.string(),
-    // The day a signatory signed outside the app. Kept as a plain 'YYYY-MM-DD' string rather than a
-    // Date so it never passes through a timezone conversion on its way to a `date` column.
+    // Kept a plain string so it never hits a timezone conversion on the way to a `date` column.
     signedAt: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Signed date must be YYYY-MM-DD')

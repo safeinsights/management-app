@@ -21,9 +21,8 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
-// Keyed by versionId rather than version number: a draft has no number yet, and the id keeps every
-// upload in its own prefix so re-uploading a replacement draft can never collide with a published
-// file. This is the prefix handed to createSignedUploadUrl, which appends the client's filename.
+// Keyed by versionId: drafts have no number yet, and per-version prefixes stop a replacement draft
+// colliding with a published file. This is the prefix createSignedUploadUrl appends a filename to.
 export const pathForLegalDocumentVersion = (parts: {
     type: LegalDocumentType
     legalDocumentId: string
