@@ -19,14 +19,14 @@ const VARIANTS = {
     informative: {
         bg: 'purple.0',
         titleColor: 'purple.5',
-        titleWeight: 600,
+        titleWeight: 700,
         iconColor: 'var(--mantine-color-purple-5)',
         Icon: InfoIcon,
     },
     action: {
         bg: 'yellow.0',
         titleColor: 'yellow.10',
-        titleWeight: 600,
+        titleWeight: 700,
         iconColor: 'var(--mantine-color-yellow-10)',
         Icon: WarningCircleIcon,
     },

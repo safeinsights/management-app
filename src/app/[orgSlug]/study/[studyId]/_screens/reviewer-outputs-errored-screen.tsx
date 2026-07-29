@@ -1,12 +1,12 @@
 import dayjs from 'dayjs'
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { isSubmittedStudy } from '@/schema/study'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
@@ -30,10 +30,6 @@ export async function ReviewerOutputsErroredScreen({
     study,
     orgSlug,
 }: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
-    if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
-
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -51,9 +47,12 @@ export async function ReviewerOutputsErroredScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={study.title}
+                    studyTitle={study.title ?? ''}
                     banner={<ErroredBanner erroredAt={erroredAt} />}
                 />
+
+                <SecurityKeyForm />
+
                 <Group>
                     <ButtonLink
                         href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
