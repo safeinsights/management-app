@@ -5,9 +5,13 @@ import type { ScreenRuleEntry } from './screen-rules'
 // Transcribes the legacy review/page.tsx cascade with the ?from= cases removed (those are routing,
 // not screen-selection). See docs/plans/2026-06-23-reviewer-screen-state-machine-design.md §4.
 export const REVIEWER_SCREEN_RULES = [
-    // 1. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
-    //    (CODE-APPROVED is always present once results land), mirroring legacy
-    //    `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
+    // 1a. Job errored, no files decision yet → errored outputs view (OTTER-667). The reviewer
+    //     enters their security key to decrypt error logs before making a files decision.
+    ['reviewer-outputs-errored', { when: (s) => s.resultsErrored && !s.resultsApproved && !s.resultsRejected }],
+
+    // 1b. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
+    //     (CODE-APPROVED is always present once results land), mirroring legacy
+    //     `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
     ['reviewer-study-results', { when: (s) => s.hasResults }],
 
     // 2. Code approved and executing in the enclave, no results yet → the "Secondary
