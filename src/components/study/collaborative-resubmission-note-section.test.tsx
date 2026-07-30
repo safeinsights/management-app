@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { renderWithProviders, screen } from '@/tests/unit.helpers'
+import { render, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
     initialResubmitNoteValue,
@@ -11,13 +15,15 @@ import { CollaborativeResubmissionNoteSection } from './collaborative-resubmissi
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
-function Harness({ initialNote = '' }: { initialNote?: string }) {
+function Harness({ initialNote = '', initialError }: { initialNote?: string; initialError?: string }) {
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: {
             ...initialResubmitNoteValue,
             resubmissionNote: resubmissionNoteToLexicalJson(initialNote),
         },
+        // `initialErrors` rather than assigning to `form.errors`, which Mantine exposes as read-only.
+        initialErrors: initialError ? { resubmissionNote: initialError } : {},
         validateInputOnChange: true,
     })
 
@@ -43,6 +49,19 @@ function Harness({ initialNote = '' }: { initialNote?: string }) {
 const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     renderWithProviders(<Harness {...props} />)
 
+// renderWithProviders hard-codes collaborative mode; single-user mode needs its own tree
+// (same shape as editor.test.tsx).
+const renderSingleUserSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
+    render(
+        <MantineProvider theme={theme}>
+            <YjsWebsocketProvider singleUserEditing>
+                <ModalsProvider>
+                    <Harness {...props} />
+                </ModalsProvider>
+            </YjsWebsocketProvider>
+        </MantineProvider>,
+    )
+
 describe('CollaborativeResubmissionNoteSection', () => {
     it('renders the section title with the required indicator', () => {
         renderSection()
@@ -57,6 +76,17 @@ describe('CollaborativeResubmissionNoteSection', () => {
 
     it('does not render the section-level autosave indicator in collaborative mode', () => {
         renderSection()
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('renders the section-level autosave indicator in single-user mode once a draft has been saved', () => {
+        renderSingleUserSection()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+    })
+
+    it('hides the autosave indicator while a validation error is showing (OTTER-674)', () => {
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        expect(screen.getByText('A resubmission note is required.')).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 })

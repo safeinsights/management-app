@@ -27,9 +27,9 @@ import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
 
-function SaveStatus({ provider }: { provider: HocuspocusProvider | null }) {
+function SaveStatus({ provider, isVisible }: { provider: HocuspocusProvider | null; isVisible: boolean }) {
     const status = useProviderSaveStatus(provider)
-    return <SaveStatusIndicator status={status} />
+    return <SaveStatusIndicator status={status} isVisible={isVisible} />
 }
 
 type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
@@ -416,7 +416,9 @@ export function CollaborativeEditor({
                 </Paper>
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
-                        <SaveStatus provider={activeProvider} />
+                        {/* The caller renders the error message right below this row; hiding the
+                            indicator keeps the two from co-existing (OTTER-674). */}
+                        <SaveStatus provider={activeProvider} isVisible={!error} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />

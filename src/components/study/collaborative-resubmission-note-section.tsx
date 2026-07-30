@@ -46,7 +46,8 @@ interface CollaborativeResubmissionNoteSectionProps {
 }
 
 // In collaborative mode the editor renders its own provider-driven indicator;
-// showing this one too would double up.
+// showing this one too would double up. It also yields to a validation error —
+// the two must never co-exist (OTTER-674).
 const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: ResubmissionNoteAutosaveStatus }> = ({
     isVisible,
     autosaveStatus,
@@ -108,7 +109,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         <Box id={fieldErrorId('resubmissionNote')}>
                             <InputError error={error} />
                         </Box>
-                        <SingleUserSaveStatus isVisible={singleUserEditing} autosaveStatus={autosaveStatus} />
+                        <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
                     </Group>
                 </Box>
             </Stack>

@@ -29,4 +29,9 @@ describe('SaveStatusIndicator', () => {
         expect(checkmark).toBeInTheDocument()
         expect(checkmark).toHaveAttribute('fill', theme.colors!.green![9])
     })
+
+    it('renders nothing when hidden, even in the saved state (OTTER-674)', () => {
+        renderWithProviders(<SaveStatusIndicator status="saved" isVisible={false} />)
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
 })

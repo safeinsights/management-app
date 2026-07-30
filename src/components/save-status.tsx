@@ -27,12 +27,19 @@ const SavedLabel: FC = () => {
 
 interface SaveStatusIndicatorProps {
     status: SaveStatusValue
+    /**
+     * Callers pass false while a validation error is showing for the same field:
+     * "All changes saved" beside an empty-field error reads as contradictory, so
+     * the error must win the slot (OTTER-674).
+     */
+    isVisible?: boolean
 }
 
 // Single autosave indicator shared across every surface (collaborative editor,
 // proposal fields, resubmission note). Renders nothing until there is something
 // to report so it can be dropped under any field unconditionally.
-export const SaveStatusIndicator: FC<SaveStatusIndicatorProps> = ({ status }) => {
+export const SaveStatusIndicator: FC<SaveStatusIndicatorProps> = ({ status, isVisible = true }) => {
+    if (!isVisible) return null
     if (status === 'saving') return <SavingLabel />
     if (status === 'saved') return <SavedLabel />
     return null
