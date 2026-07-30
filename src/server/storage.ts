@@ -53,6 +53,9 @@ async function roundIsClosed(studyJobId: string): Promise<boolean> {
  * instead, so a retry is a no-op rather than a duplicate. Keyed on the path alone to match
  * `dedupeJobArtifactFiles`, since one path can only ever hold one object.
  *
+ * `isNew` reports whether this call added an artifact the job did not already have. Callers use it to
+ * tell a first delivery from a repeat, so a retry does not announce the run's outcome a second time.
+ *
  * Two races are accepted rather than closed. The check and the write here are separate statements,
  * not one atomic upsert, so two concurrent deliveries can both find no row and both insert; the read
  * side collapses that in `dedupeJobArtifactFiles`. And the round can close between the check below
@@ -62,9 +65,9 @@ async function roundIsClosed(studyJobId: string): Promise<boolean> {
  * the destructive migration this approach exists to avoid.
  */
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
-    // Ordered newest-first to match the read-side preference in dedupeJobArtifactFiles, so an update
-    // lands on the row that is actually displayed. Rows left over from before this fix all point at
-    // the same object, so which one is picked only matters for determinism.
+    // Newest-first for determinism. dedupeJobArtifactFiles prefers a row carrying recipient keys over
+    // the newest one, so on a job that already holds duplicates the update can land on a row the list
+    // does not show. Both rows point at the same object, so only the displayed row's name goes stale.
     const existing = await db
         .selectFrom('studyJobFile')
         .select('id')
@@ -86,7 +89,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         logger.warn(
             `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: the round is already decided and the stored copy has been released`,
         )
-        return existing
+        return { ...existing, isNew: false }
     }
 
     // If the write below fails (or the process dies between these two writes), the S3 object is
@@ -94,19 +97,23 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     await storeS3File(info, file.stream(), path)
 
     if (existing) {
-        return await db
+        const updated = await db
             .updateTable('studyJobFile')
             .set({ name: file.name, fileType })
             .where('id', '=', existing.id)
             .returning('id')
             .executeTakeFirstOrThrow()
+
+        return { ...updated, isNew: false }
     }
 
-    return await db
+    const inserted = await db
         .insertInto('studyJobFile')
         .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
         .returning('id')
         .executeTakeFirstOrThrow()
+
+    return { ...inserted, isNew: true }
 }
 
 export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {

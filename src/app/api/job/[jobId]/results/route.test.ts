@@ -88,8 +88,10 @@ test.skipIf(!s3Available)('rejects a second results upload once the job is alrea
 
 // An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so before OTTER-642 a
 // retried error delivery sailed past the completion guard: it stored a second log row, appended
-// another JOB-ERRORED, and re-sent the reviewer email.
-test.skipIf(!s3Available)('rejects a second log-only (errored) upload once the job already errored', async () => {
+// another JOB-ERRORED, and re-sent the reviewer email. The artifacts it carried were already on file,
+// so the repeat is absorbed: stored in place, announced once, and still answered with a success the
+// sender has nothing to retry against.
+test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery without announcing it twice', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
     const jobId = jobIds[0]
@@ -102,8 +104,10 @@ test.skipIf(!s3Available)('rejects a second log-only (errored) upload once the j
         })
     }
 
+    vi.mocked(sendResultsReadyForReviewEmail).mockClear()
+
     expect((await post()).ok).toBe(true)
-    expect((await post()).status).toBe(422)
+    expect((await post()).ok).toBe(true)
 
     const logRows = await db
         .selectFrom('studyJobFile')
@@ -120,10 +124,13 @@ test.skipIf(!s3Available)('rejects a second log-only (errored) upload once the j
         .where('status', '=', 'JOB-ERRORED')
         .execute()
     expect(erroredStatuses).toHaveLength(1)
+
+    expect(sendResultsReadyForReviewEmail).toHaveBeenCalledTimes(1)
 })
 
-// The scan and packaging steps also record JOB-ERRORED, with their own log types. The guard also
-// requires the run log this route alone writes, so one of those must not block a real delivery.
+// The scan and packaging steps also record JOB-ERRORED, with their own log types. A repeat is decided
+// by what this delivery carried, not by the job's status history, so one of those must not block a
+// real delivery.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
@@ -150,7 +157,7 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
 // The run log is this route's first write, so a delivery can leave one behind and still fail before
 // the status insert and the reviewer email (a transient S3 error on the results upload, or the
 // process dying in between). The TOA retries that, and the retry has to be able to finish the
-// delivery: keying the guard on the log alone would have lost the run's results permanently.
+// delivery: the results it carries are new to the job, so it is not a repeat and completes normally.
 test.skipIf(!s3Available)('completes a retried delivery whose log was already stored', async () => {
     const org = await insertTestOrg()
     const { studyId, jobIds } = await insertTestStudyData({ org })
@@ -164,52 +171,6 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
             path: `${jobPath}/results/encrypted-code-run-log.zip`,
             name: 'encrypted-code-run-log.zip',
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
-        })
-        .execute()
-
-    const formData = new FormData()
-    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
-    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
-    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
-        params: Promise.resolve({ jobId }),
-    })
-    expect(resp.status).toBe(200)
-
-    const files = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
-    expect(files.filter((f) => f.fileType === 'ENCRYPTED-CODE-RUN-LOG')).toHaveLength(1)
-    expect(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT')).toHaveLength(1)
-
-    const runComplete = await db
-        .selectFrom('jobStatusChange')
-        .select('id')
-        .where('studyJobId', '=', jobId)
-        .where('status', '=', 'RUN-COMPLETE')
-        .execute()
-    expect(runComplete).toHaveLength(1)
-})
-
-// The two signals combined are still ambiguous without their order: a packaging JOB-ERRORED recorded
-// BEFORE the run log belongs to an earlier step, not to a delivery this route finished. Requiring the
-// status to be no older than the log is what keeps that job's half-finished delivery retryable.
-test.skipIf(!s3Available)('completes a retried delivery when an unrelated JOB-ERRORED came first', async () => {
-    const org = await insertTestOrg()
-    const { studyId, jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
-
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: new Date('2026-01-01T00:00:00Z') })
-        .execute()
-
-    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
-    await db
-        .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            path: `${jobPath}/results/encrypted-code-run-log.zip`,
-            name: 'encrypted-code-run-log.zip',
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            createdAt: new Date('2026-01-02T00:00:00Z'),
         })
         .execute()
 
