@@ -27,11 +27,7 @@ const SavedLabel: FC = () => {
 
 interface SaveStatusIndicatorProps {
     status: SaveStatusValue
-    /**
-     * Callers pass false while a validation error is showing for the same field:
-     * "All changes saved" beside an empty-field error reads as contradictory, so
-     * the error must win the slot (OTTER-674).
-     */
+    /** False while the field's validation error is showing — the error takes the slot (OTTER-674). */
     isVisible?: boolean
 }
 

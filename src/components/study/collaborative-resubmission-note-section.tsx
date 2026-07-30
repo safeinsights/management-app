@@ -46,8 +46,7 @@ interface CollaborativeResubmissionNoteSectionProps {
 }
 
 // In collaborative mode the editor renders its own provider-driven indicator;
-// showing this one too would double up. It also yields to a validation error —
-// the two must never co-exist (OTTER-674).
+// showing this one too would double up.
 const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: ResubmissionNoteAutosaveStatus }> = ({
     isVisible,
     autosaveStatus,

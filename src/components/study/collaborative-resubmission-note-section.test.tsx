@@ -49,8 +49,7 @@ function Harness({ initialNote = '', initialError }: { initialNote?: string; ini
 const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     renderWithProviders(<Harness {...props} />)
 
-// renderWithProviders hard-codes collaborative mode; single-user mode needs its own tree
-// (same shape as editor.test.tsx).
+// renderWithProviders hard-codes collaborative mode; single-user mode needs its own provider tree.
 const renderSingleUserSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     render(
         <MantineProvider theme={theme}>

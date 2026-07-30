@@ -135,8 +135,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 value={form.values.title ?? ''}
                                 {...nativeFieldProps(form.errors.title, { required: true, description: true })}
                             />
-                            {/* Hidden while the field has a validation error: the error renders in the
-                                footer row below and the two must not co-exist (OTTER-674). */}
                             <SaveStatusIndicator status={titleSaveStatus} isVisible={!form.errors.title} />
                         </FormField>
 

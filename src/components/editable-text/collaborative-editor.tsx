@@ -416,8 +416,6 @@ export function CollaborativeEditor({
                 </Paper>
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
-                        {/* The caller renders the error message right below this row; hiding the
-                            indicator keeps the two from co-existing (OTTER-674). */}
                         <SaveStatus provider={activeProvider} isVisible={!error} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
