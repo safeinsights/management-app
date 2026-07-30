@@ -104,7 +104,7 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
         })
     }
 
-    vi.mocked(sendResultsReadyForReviewEmail).mockClear()
+    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
 
     expect((await post()).ok).toBe(true)
     expect((await post()).ok).toBe(true)
@@ -125,7 +125,7 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
         .execute()
     expect(erroredStatuses).toHaveLength(1)
 
-    expect(sendResultsReadyForReviewEmail).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
 })
 
 // The scan and packaging steps also record JOB-ERRORED, with their own log types. A repeat is decided
