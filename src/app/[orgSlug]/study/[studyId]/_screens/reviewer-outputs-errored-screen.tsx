@@ -51,7 +51,7 @@ export async function ReviewerOutputsErroredScreen({
                     banner={<ErroredBanner erroredAt={erroredAt} />}
                 />
 
-                <SecurityKeyForm />
+                <SecurityKeyForm job={job} />
 
                 <Group>
                     <ButtonLink
