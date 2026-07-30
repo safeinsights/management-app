@@ -329,21 +329,21 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(page.getByText('Security key accepted.')).toBeVisible()
 }
 
-async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
-    await visitAsRole(page, RESEARCHER_DASHBOARD)
-
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible()
-
-    await viewStudyDetails(page, studyTitle)
-
-    await expect(page.getByText(/The code errored/i)).toBeVisible()
-    await expect(page.getByText(/Job ID/i)).toBeVisible()
-
-    // Verify logs row exists in the results table (JobResults now renders EncryptedFilesPanel,
-    // which lists the log artifact by its file-type label before decryption).
-    await expect(page.getByText('Code Run Log')).toBeVisible()
-}
+// OTTER-675: restore once the reviewer approve flow is built — the researcher's
+// errored view is gated on file approval (isErroredResultHiddenFromResearcher).
+// async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+//     await visitAsRole(page, RESEARCHER_DASHBOARD)
+//
+//     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+//     await expect(studyRow.getByText(/Errored/i)).toBeVisible()
+//
+//     await viewStudyDetails(page, studyTitle)
+//
+//     await expect(page.getByText(/The code errored/i)).toBeVisible()
+//     await expect(page.getByText(/Job ID/i)).toBeVisible()
+//
+//     await expect(page.getByText('Code Run Log')).toBeVisible()
+// }
 
 // ============================================================================
 // Tests
@@ -456,8 +456,8 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer error-log decrypt+approve surface and the researcher
-// errored-status view. Seeds a JOB-READY job, uploads an encrypted error log.
+// OTTER-667: reviewer decrypts error logs on the new errored-outputs screen.
+// OTTER-675: uncomment the researcher step once the approve flow is built.
 test('Error log review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('error-log')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
@@ -467,9 +467,9 @@ test('Error log review', async ({ browser, studyFeatures }) => {
         await reviewerDecryptsErrorLogs(page, studyTitle)
     })
 
-    await withRole(browser, 'researcher', async (page) => {
-        await verifyFailedStatusDisplay(page, studyTitle)
-    })
+    // await withRole(browser, 'researcher', async (page) => {
+    //     await verifyFailedStatusDisplay(page, studyTitle)
+    // })
 })
 
 // Owns the reviewer reject-proposal surface + the researcher rejected-proposal view.
