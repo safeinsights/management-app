@@ -253,6 +253,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
                     studyJobFileId: file.id,
+                    path: file.path,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
@@ -274,6 +275,11 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             .select(['studyJobFile.path', 'studyJobFileRecipientKey.filePath', 'studyJobFileRecipientKey.crypt'])
             .where('studyJobFile.studyJobId', '=', studyJob.studyJobId)
             .where('studyJobFileRecipientKey.fingerprint', '=', userKey.fingerprint)
+            // Oldest first, so when duplicate rows carry a key for the same inner file the newest one
+            // wins the merge below. Without an ORDER BY the winner is whatever the planner returned
+            // last, which can leave a researcher decrypting on one page load and failing on the next.
+            .orderBy('studyJobFile.createdAt', 'asc')
+            .orderBy('studyJobFile.id', 'asc')
             .execute()
         if (!wrappedKeys.length) return []
 
@@ -289,6 +295,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                 .filter((file) => keysByPath.has(file.path))
                 .map(async (file) => ({
                     studyJobFileId: file.id,
+                    path: file.path,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),

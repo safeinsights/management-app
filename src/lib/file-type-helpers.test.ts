@@ -94,6 +94,19 @@ describe('dedupeJobArtifactFiles', () => {
         expect(dedupeJobArtifactFiles(files).map((f) => f.id)).toEqual(['scan', 'run', 'result'])
     })
 
+    // Run logs and results were both stored at results/encrypted-results.zip until mid-2025, so a job
+    // from that era holds two rows of different types on one path. Keying on the path alone would drop
+    // one of them from every list, taking its download and decrypt with it.
+    it('keeps a legacy log and result that share one storage path', () => {
+        const legacyPath = 'studies/org/study/jobs/job/results/encrypted-results.zip'
+        const files = [
+            runLog('log', { path: legacyPath }),
+            runLog('result', { path: legacyPath, fileType: 'ENCRYPTED-RESULT' }),
+        ]
+
+        expect(dedupeJobArtifactFiles(files).map((f) => f.id)).toEqual(['log', 'result'])
+    })
+
     it('never collapses code files, which are keyed by filename and out of scope', () => {
         const codeFile = (id: string, fileType: FileType) => ({
             id,

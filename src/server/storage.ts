@@ -4,6 +4,7 @@ import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } fr
 import { db } from '@/database'
 import { FileType } from '@/database/types'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import logger from '@/lib/logger'
 
 export async function fetchFileContents(filePath: string) {
     const stream = await fetchS3File(filePath)
@@ -44,21 +45,32 @@ async function roundIsClosed(studyJobId: string): Promise<boolean> {
 }
 
 /**
- * Store one artifact against a job, idempotent per (job, storage path) (OTTER-642).
+ * Store one artifact against a job, reusing the existing row for a (job, type, storage path)
+ * (OTTER-642).
  *
  * `path` is derived from the job and the artifact type, so a re-delivered ingest webhook overwrites
  * the same S3 object. Inserting unconditionally therefore produced a second row pointing at that same
  * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
  * instead, so a retry is a no-op rather than a duplicate.
+ *
+ * The check and the write are separate statements, not one atomic upsert, so this only covers
+ * deliveries that arrive one after another. Two concurrent deliveries can still both find no row and
+ * both insert; that is why the read side collapses duplicates in `dedupeJobArtifactFiles` rather than
+ * trusting this guard alone. Closing the race outright would need a unique index, which means a
+ * destructive migration over the duplicates already in the table.
  */
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
-    // Ordered newest-first to match the read-side preference in dedupeJobArtifactFiles, so an update
-    // lands on the row that is actually displayed. Rows left over from before this fix all point at
-    // the same object, so which one is picked only matters for determinism.
+    // Keyed the same way the read side dedupes (type + path), so a row this job holds for a DIFFERENT
+    // artifact is never repurposed: run logs and results shared results/encrypted-results.zip until
+    // mid-2025, and matching a legacy log row here would rewrite it into a result. Ordered
+    // newest-first to match dedupeJobArtifactFiles' preference, so an update lands on the row that is
+    // actually displayed; rows left over from before this fix all point at the same object, so which
+    // one is picked only matters for determinism.
     const existing = await db
         .selectFrom('studyJobFile')
         .select('id')
         .where('studyJobId', '=', info.studyJobId)
+        .where('fileType', '=', fileType)
         .where('path', '=', path)
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
@@ -69,7 +81,15 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     // from the AES keys of the ciphertext being replaced, so an already-released file would stop
     // decrypting. Ignore the delivery entirely. A first-ever arrival for a path is still stored -
     // nothing was released for it, so there is nothing to protect and dropping it would lose data.
-    if (existing && (await roundIsClosed(info.studyJobId))) return existing
+    //
+    // The sender gets a success response either way (it has nothing to do differently), so log the
+    // drop: without it, content that was accepted but never stored leaves no trace to diagnose from.
+    if (existing && (await roundIsClosed(info.studyJobId))) {
+        logger.warn(
+            `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: the round is already decided and the stored copy has been released`,
+        )
+        return existing
+    }
 
     // If the write below fails (or the process dies between these two writes), the S3 object is
     // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
@@ -78,7 +98,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     if (existing) {
         return await db
             .updateTable('studyJobFile')
-            .set({ name: file.name, fileType, ...(sourceId ? { sourceId } : {}) })
+            .set({ name: file.name })
             .where('id', '=', existing.id)
             .returning('id')
             .executeTakeFirstOrThrow()

@@ -5,6 +5,17 @@ import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 
+async function hasEncryptedRunLog(jobId: string) {
+    const runLog = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
+        .executeTakeFirst()
+
+    return Boolean(runLog)
+}
+
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
     const { jobId } = await params
@@ -12,27 +23,29 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const alreadyReceived = await db
+    const decisiveStatuses = await db
         .selectFrom('jobStatusChange')
+        .select('status')
         .where('jobStatusChange.studyJobId', '=', jobId)
-        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
-        .executeTakeFirst()
+        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE', 'JOB-ERRORED'])
+        .execute()
 
-    // An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so the guard above
-    // never tripped for it: a retried error delivery appended a second JOB-ERRORED and re-sent the
-    // reviewer email (OTTER-642). Key the errored case on the run-log row, which only this route
-    // writes, rather than on a bare JOB-ERRORED status: the scan and packaging steps also record
-    // JOB-ERRORED (with their own log types), so a status check would let one of those wrongly block a
-    // legitimate results delivery for the same job. A QA-provisioned job carrying a run log is treated
-    // as finished here too, which is correct - those jobs are never run by the enclave.
-    const runLogStored = await db
-        .selectFrom('studyJobFile')
-        .select('id')
-        .where('studyJobId', '=', jobId)
-        .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
-        .executeTakeFirst()
+    // An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so a completion check
+    // alone never tripped for it: a retried error delivery appended a second JOB-ERRORED and re-sent
+    // the reviewer email (OTTER-642). Closing that off needs BOTH signals, because either one on its
+    // own rejects a delivery that should go through:
+    //   - JOB-ERRORED alone: the scan and packaging steps record it too (with their own log types), so
+    //     one of those would wrongly block a legitimate results delivery for the same job.
+    //   - the run-log row alone: it is this route's FIRST write, so a delivery that stored the log and
+    //     then failed on the results upload or the status insert could never be retried, losing the
+    //     run's results outright. It also collides with a run log QA staged on the job, since
+    //     setQaStudyState reuses the study's open round job rather than minting its own.
+    // Retrying past this guard is safe: storeJobFile updates the existing row rather than duplicating.
+    const isComplete = decisiveStatuses.some(({ status }) => status === 'RUN-COMPLETE')
+    const isErroredDeliveryRetry =
+        decisiveStatuses.some(({ status }) => status === 'JOB-ERRORED') && (await hasEncryptedRunLog(jobId))
 
-    if (alreadyReceived || runLogStored) return new NextResponse('job is already complete', { status: 422 })
+    if (isComplete || isErroredDeliveryRetry) return new NextResponse('job is already complete', { status: 422 })
 
     const formData = await req.formData()
     const logs = formData.get('log')

@@ -3,6 +3,7 @@ import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
+import { pathForStudyJob } from '@/lib/paths'
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
 
@@ -121,8 +122,8 @@ test.skipIf(!s3Available)('rejects a second log-only (errored) upload once the j
     expect(erroredStatuses).toHaveLength(1)
 })
 
-// The scan and packaging steps also record JOB-ERRORED, with their own log types. The guard keys on
-// the run log this route alone writes, so one of those must not block a real results delivery.
+// The scan and packaging steps also record JOB-ERRORED, with their own log types. The guard also
+// requires the run log this route alone writes, so one of those must not block a real delivery.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
@@ -136,6 +137,47 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
         params: Promise.resolve({ jobId }),
     })
     expect(resp.status).toBe(200)
+
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .execute()
+    expect(runComplete).toHaveLength(1)
+})
+
+// The run log is this route's first write, so a delivery can leave one behind and still fail before
+// the status insert and the reviewer email (a transient S3 error on the results upload, or the
+// process dying in between). The TOA retries that, and the retry has to be able to finish the
+// delivery: keying the guard on the log alone would have lost the run's results permanently.
+test.skipIf(!s3Available)('completes a retried delivery whose log was already stored', async () => {
+    const org = await insertTestOrg()
+    const { studyId, jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            path: `${jobPath}/results/encrypted-code-run-log.zip`,
+            name: 'encrypted-code-run-log.zip',
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+        })
+        .execute()
+
+    const formData = new FormData()
+    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const files = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-CODE-RUN-LOG')).toHaveLength(1)
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT')).toHaveLength(1)
 
     const runComplete = await db
         .selectFrom('jobStatusChange')

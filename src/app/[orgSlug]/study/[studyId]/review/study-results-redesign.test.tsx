@@ -123,6 +123,7 @@ describe('StudyResultsRedesign', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
             {
                 studyJobFileId: row.id,
+                path,
                 fileType: 'ENCRYPTED-RESULT' as FileType,
                 name: 'test.data',
                 encryptedBody: await zip.arrayBuffer(),

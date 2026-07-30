@@ -76,14 +76,15 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
     // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
     // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.
     //
-    // Matched on fileType rather than row id: an encrypted artifact's storage path is derived from its
-    // type, so within a job the two are 1:1, and a job can still carry duplicate rows for one artifact
-    // from before OTTER-642. Comparing ids would hide a row whenever the action resolved the
-    // researcher's keys through a different duplicate than the one that survived dedupe.
-    const accessibleTypeSet = useMemo(() => new Set((encryptedFiles ?? []).map((f) => f.fileType)), [encryptedFiles])
+    // Matched on storage path rather than row id: the action resolves a researcher's keys by path, so
+    // it can answer through a different duplicate row than the one dedupe kept, and an id comparison
+    // would then hide an artifact they can actually open. Matching the fileType instead would be too
+    // wide, since a job can hold rows of one type at more than one path (the run-log path changed
+    // twice historically) and the ones with no keys would render as rows that never unlock.
+    const accessiblePathSet = useMemo(() => new Set((encryptedFiles ?? []).map((f) => f.path)), [encryptedFiles])
     const visibleRows = useMemo(
-        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessibleTypeSet.has(f.fileType))),
-        [isReviewer, encryptedRows, accessibleTypeSet],
+        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessiblePathSet.has(f.path))),
+        [isReviewer, encryptedRows, accessiblePathSet],
     )
 
     // Gate the decrypt form on what THIS user can actually decrypt: a researcher with no wrapped
