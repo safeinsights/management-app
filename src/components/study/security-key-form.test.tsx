@@ -105,19 +105,44 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('textbox')).toHaveFocus()
     })
 
-    it('shows the invalid-key error and keeps the input editable for a malformed key', async () => {
+    it('shows the invalid-key error and re-enables both input and button for correction', async () => {
         renderWithProviders(<SecurityKeyForm job={job} />)
 
-        // Wait for the encrypted-files query so submit is not blocked by isLoadingFiles.
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         enterKey('not-a-real-key')
         clickView()
 
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
-        const textbox = screen.getByRole('textbox')
-        expect(textbox).toBeEnabled()
-        await waitFor(() => expect(textbox).toHaveFocus())
+        expect(screen.getByRole('textbox')).toBeEnabled()
+        expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
+    })
+
+    it('disables the button and input on submit to prevent double submission', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey('not-a-real-key')
+        clickView()
+
+        expect(screen.getByRole('button', { name: /decrypting/i })).toBeDisabled()
+        expect(screen.getByRole('textbox')).toBeDisabled()
+    })
+
+    it('replaces the empty-field error with the invalid-key error on retry', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        clickView()
+        expect(await screen.findByText(EMPTY_ERROR)).toBeInTheDocument()
+
+        enterKey('not-a-real-key')
+        clickView()
+
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
     })
 
     it('shows a success message when the key decrypts the outputs', async () => {
