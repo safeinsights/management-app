@@ -66,7 +66,7 @@ services:
         entrypoint:
             - sh
             - -c
-            - '{ pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false || { echo "docker-test: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2; echo "docker-test: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2; exit 1; }; } && ([ -d src/styles/generated/css ] || pnpm exec panda codegen) && exec "$$0" "$$@"'
+            - '{ pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false || { echo "docker-test: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2; echo "docker-test: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2; exit 1; }; } && exec "$$0" "$$@"'
         command:
             - sh
             - -c
