@@ -37,7 +37,7 @@ export function AppModal({
             styles={{
                 header: {
                     padding: '0px 40px',
-                    backgroundColor: theme.colors.grey[10],
+                    backgroundColor: theme.colors.charcoal[0],
                     ...styles?.header,
                 },
                 body: {

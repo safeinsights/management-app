@@ -8,7 +8,7 @@
 // the app-canvas grey via `pageBackgroundArgTypes` on their meta, matching the AppShellMain area.
 
 const WHITE = '#ffffff'
-const APP_CANVAS = 'var(--mantine-color-grey-10)'
+const APP_CANVAS = 'var(--si-color-surface-canvas)'
 const NAVY = 'var(--mantine-color-purple-8)'
 
 const control = {
