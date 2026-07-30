@@ -72,9 +72,10 @@ test('still stores a first-time artifact after the round has been decided', asyn
 })
 
 // Run logs and results were both written to results/encrypted-results.zip until mid-2025, so a job
-// from that era can hold a log row on the path a result now uses. Matching the artifact type as well
-// as the path keeps a delivery from rewriting that row into something it is not.
-test('does not repurpose a legacy row of another type that shares the results path', async () => {
+// from that era can hold a log row on the path a result now uses. One path is one S3 object, and this
+// delivery is about to become that object, so the row is retyped to describe what is actually there
+// rather than left behind as a second row for the same bytes.
+test('retypes a legacy row of another type that shares the results path', async () => {
     const info = await setupJob()
     const legacyLogPath = `${pathForStudyJob(info)}/results/encrypted-results.zip`
     await db
@@ -95,7 +96,6 @@ test('does not repurpose a legacy row of another type that shares the results pa
         .where('studyJobId', '=', info.studyJobId)
         .where('path', '=', legacyLogPath)
         .execute()
-    expect(rows).toHaveLength(2)
-    expect(rows.find((r) => r.fileType === 'ENCRYPTED-CODE-RUN-LOG')?.name).toBe('encrypted-results.zip')
-    expect(rows.find((r) => r.fileType === 'ENCRYPTED-RESULT')?.name).toBe('results.zip')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ fileType: 'ENCRYPTED-RESULT', name: 'results.zip' })
 })

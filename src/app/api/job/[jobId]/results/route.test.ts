@@ -188,6 +188,52 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
     expect(runComplete).toHaveLength(1)
 })
 
+// The two signals combined are still ambiguous without their order: a packaging JOB-ERRORED recorded
+// BEFORE the run log belongs to an earlier step, not to a delivery this route finished. Requiring the
+// status to be no older than the log is what keeps that job's half-finished delivery retryable.
+test.skipIf(!s3Available)('completes a retried delivery when an unrelated JOB-ERRORED came first', async () => {
+    const org = await insertTestOrg()
+    const { studyId, jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: new Date('2026-01-01T00:00:00Z') })
+        .execute()
+
+    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            path: `${jobPath}/results/encrypted-code-run-log.zip`,
+            name: 'encrypted-code-run-log.zip',
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            createdAt: new Date('2026-01-02T00:00:00Z'),
+        })
+        .execute()
+
+    const formData = new FormData()
+    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const files = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-CODE-RUN-LOG')).toHaveLength(1)
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT')).toHaveLength(1)
+
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .execute()
+    expect(runComplete).toHaveLength(1)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'

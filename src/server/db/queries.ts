@@ -37,6 +37,8 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
 // be reused by both file-list subqueries below: a typed `eb.exists(...)` callback would have to be
 // written against each outer query's own table union. Column names are snake_case here because the
 // CamelCasePlugin does not rewrite raw fragments; the alias is transformed, matching the other columns.
+// The correlated `study_job_file.id` is the unaliased table name, so a subquery that ever selects
+// `studyJobFile as f` has to correlate this fragment itself rather than reuse it as-is.
 const hasRecipientKeys = sql<boolean>`exists (
     select 1 from study_job_file_recipient_key k where k.study_job_file_id = study_job_file.id
 )`.as('hasRecipientKeys')

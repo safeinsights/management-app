@@ -45,32 +45,30 @@ async function roundIsClosed(studyJobId: string): Promise<boolean> {
 }
 
 /**
- * Store one artifact against a job, reusing the existing row for a (job, type, storage path)
- * (OTTER-642).
+ * Store one artifact against a job, reusing the existing row for a (job, storage path) (OTTER-642).
  *
  * `path` is derived from the job and the artifact type, so a re-delivered ingest webhook overwrites
  * the same S3 object. Inserting unconditionally therefore produced a second row pointing at that same
  * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
- * instead, so a retry is a no-op rather than a duplicate.
+ * instead, so a retry is a no-op rather than a duplicate. Keyed on the path alone to match
+ * `dedupeJobArtifactFiles`, since one path can only ever hold one object.
  *
- * The check and the write are separate statements, not one atomic upsert, so this only covers
- * deliveries that arrive one after another. Two concurrent deliveries can still both find no row and
- * both insert; that is why the read side collapses duplicates in `dedupeJobArtifactFiles` rather than
- * trusting this guard alone. Closing the race outright would need a unique index, which means a
- * destructive migration over the duplicates already in the table.
+ * Two races are accepted rather than closed. The check and the write here are separate statements,
+ * not one atomic upsert, so two concurrent deliveries can both find no row and both insert; the read
+ * side collapses that in `dedupeJobArtifactFiles`. And the round can close between the check below
+ * and the upload, so a re-delivery landing in that window still replaces a just-released ciphertext.
+ * Both windows are narrow, both are strictly better than the unconditional overwrite this replaced,
+ * and closing them properly means a unique index plus row locks held across an S3 upload, which is
+ * the destructive migration this approach exists to avoid.
  */
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
-    // Keyed the same way the read side dedupes (type + path), so a row this job holds for a DIFFERENT
-    // artifact is never repurposed: run logs and results shared results/encrypted-results.zip until
-    // mid-2025, and matching a legacy log row here would rewrite it into a result. Ordered
-    // newest-first to match dedupeJobArtifactFiles' preference, so an update lands on the row that is
-    // actually displayed; rows left over from before this fix all point at the same object, so which
-    // one is picked only matters for determinism.
+    // Ordered newest-first to match the read-side preference in dedupeJobArtifactFiles, so an update
+    // lands on the row that is actually displayed. Rows left over from before this fix all point at
+    // the same object, so which one is picked only matters for determinism.
     const existing = await db
         .selectFrom('studyJobFile')
         .select('id')
         .where('studyJobId', '=', info.studyJobId)
-        .where('fileType', '=', fileType)
         .where('path', '=', path)
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
@@ -98,7 +96,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     if (existing) {
         return await db
             .updateTable('studyJobFile')
-            .set({ name: file.name })
+            .set({ name: file.name, fileType })
             .where('id', '=', existing.id)
             .returning('id')
             .executeTakeFirstOrThrow()

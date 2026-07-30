@@ -110,16 +110,8 @@ function preferredArtifact<T extends DedupableJobFile>(a: T, b: T): T {
     return a.id > b.id ? a : b
 }
 
-// Type as well as path, so two rows that happen to share a path are only collapsed when they are the
-// same artifact. Storage paths used to be less specific than they are now: run logs and results were
-// both written to `results/encrypted-results.zip` until mid-2025, so a job from that era can hold a
-// log row and a result row on one path, and keying on the path alone would drop one of them from
-// every list (and with it the ability to decrypt or download it). Under the current scheme the path
-// already implies the type, so this only changes what happens to those legacy rows.
-const dedupeKey = (file: DedupableJobFile) => `${file.fileType} ${file.path}`
-
 /**
- * Collapse a job's run/scan artifacts to one row per (artifact type, storage path) (OTTER-642).
+ * Collapse a job's run/scan artifacts to one row per storage path (OTTER-642).
  *
  * A re-delivered ingest webhook used to add a second `study_job_file` row for an artifact the job
  * already had, surfacing as a doubled log/result in the reviewer and researcher views. Every such row
@@ -128,18 +120,24 @@ const dedupeKey = (file: DedupableJobFile) => `${file.fileType} ${file.path}`
  * object in place. Collapsing them therefore hides no content that the surviving row doesn't already
  * carry.
  *
+ * The path alone is the key, deliberately, even though a job can hold rows of DIFFERENT types on one
+ * path: run logs and results were both written to `results/encrypted-results.zip` until mid-2025
+ * (commit e10c2cd7 split them). One path is one S3 object, so for those legacy jobs the second write
+ * overwrote the first and only one artifact survives no matter how many rows describe it. Keying on
+ * type as well would list that single object twice, which is the bug this function exists to fix.
+ *
  * Code files are left alone: their paths are keyed by filename rather than by artifact slot, two
  * genuinely different supplemental files are expected to coexist, and OTTER-642 scopes them out.
  *
  * Input order is preserved so callers' existing list ordering is unchanged.
  */
 export function dedupeJobArtifactFiles<T extends DedupableJobFile>(files: T[]): T[] {
-    const winners = new Map<string, T>()
+    const winnerByPath = new Map<string, T>()
     for (const file of files) {
         if (isCodeFileType(file.fileType)) continue
-        const current = winners.get(dedupeKey(file))
-        winners.set(dedupeKey(file), current ? preferredArtifact(current, file) : file)
+        const current = winnerByPath.get(file.path)
+        winnerByPath.set(file.path, current ? preferredArtifact(current, file) : file)
     }
 
-    return files.filter((file) => isCodeFileType(file.fileType) || winners.get(dedupeKey(file)) === file)
+    return files.filter((file) => isCodeFileType(file.fileType) || winnerByPath.get(file.path) === file)
 }

@@ -5,15 +5,49 @@ import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 
-async function hasEncryptedRunLog(jobId: string) {
-    const runLog = await db
-        .selectFrom('studyJobFile')
+/**
+ * Has this route already finished a delivery for the job?
+ *
+ * RUN-COMPLETE answers that directly: only this route writes it, and only after both artifacts are
+ * stored. An errored run instead ends at JOB-ERRORED, which is NOT this route's alone (the
+ * containerizer, the scanner and the TOA status endpoint all write it), so before OTTER-642 a retried
+ * error delivery sailed through: a second JOB-ERRORED row and a second reviewer email.
+ *
+ * Identifying an errored delivery therefore takes both of this route's writes, in order: the run log
+ * it stores first, and a JOB-ERRORED recorded no earlier than that log. Neither test works alone.
+ * Without the log row, a packaging or scan JOB-ERRORED blocks the legitimate results delivery that
+ * follows it. Without the ordering, the same earlier JOB-ERRORED combines with a half-finished
+ * delivery's log row to reject the retry that would complete it, and the run's results are lost for
+ * good. The log row's createdAt survives a retry (storeJobFile only updates the name), so it stays a
+ * stable marker of when this route first wrote for the job.
+ */
+async function completedDelivery(jobId: string): Promise<'complete' | 'errored' | null> {
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
         .select('id')
         .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .executeTakeFirst()
+    if (runComplete) return 'complete'
+
+    const runLog = await db
+        .selectFrom('studyJobFile')
+        .select('createdAt')
+        .where('studyJobId', '=', jobId)
         .where('fileType', '=', 'ENCRYPTED-CODE-RUN-LOG')
+        .orderBy('createdAt', 'asc')
+        .executeTakeFirst()
+    if (!runLog) return null
+
+    const erroredAfterRunLog = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .where('createdAt', '>=', runLog.createdAt)
         .executeTakeFirst()
 
-    return Boolean(runLog)
+    return erroredAfterRunLog ? 'errored' : null
 }
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
@@ -23,29 +57,11 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const decisiveStatuses = await db
-        .selectFrom('jobStatusChange')
-        .select('status')
-        .where('jobStatusChange.studyJobId', '=', jobId)
-        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE', 'JOB-ERRORED'])
-        .execute()
-
-    // An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so a completion check
-    // alone never tripped for it: a retried error delivery appended a second JOB-ERRORED and re-sent
-    // the reviewer email (OTTER-642). Closing that off needs BOTH signals, because either one on its
-    // own rejects a delivery that should go through:
-    //   - JOB-ERRORED alone: the scan and packaging steps record it too (with their own log types), so
-    //     one of those would wrongly block a legitimate results delivery for the same job.
-    //   - the run-log row alone: it is this route's FIRST write, so a delivery that stored the log and
-    //     then failed on the results upload or the status insert could never be retried, losing the
-    //     run's results outright. It also collides with a run log QA staged on the job, since
-    //     setQaStudyState reuses the study's open round job rather than minting its own.
-    // Retrying past this guard is safe: storeJobFile updates the existing row rather than duplicating.
-    const isComplete = decisiveStatuses.some(({ status }) => status === 'RUN-COMPLETE')
-    const isErroredDeliveryRetry =
-        decisiveStatuses.some(({ status }) => status === 'JOB-ERRORED') && (await hasEncryptedRunLog(jobId))
-
-    if (isComplete || isErroredDeliveryRetry) return new NextResponse('job is already complete', { status: 422 })
+    // Distinct bodies so a sender can tell a plain duplicate apart from a delivery blocked by an
+    // error this job already reported, which are different things to investigate.
+    const completed = await completedDelivery(jobId)
+    if (completed === 'complete') return new NextResponse('job is already complete', { status: 422 })
+    if (completed === 'errored') return new NextResponse('job already reported an errored run', { status: 422 })
 
     const formData = await req.formData()
     const logs = formData.get('log')

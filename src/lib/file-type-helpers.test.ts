@@ -95,16 +95,25 @@ describe('dedupeJobArtifactFiles', () => {
     })
 
     // Run logs and results were both stored at results/encrypted-results.zip until mid-2025, so a job
-    // from that era holds two rows of different types on one path. Keying on the path alone would drop
-    // one of them from every list, taking its download and decrypt with it.
-    it('keeps a legacy log and result that share one storage path', () => {
+    // from that era holds two rows of different types on one path. One path is one S3 object, so those
+    // rows describe a single surviving artifact and listing both would double it right back up.
+    it('collapses a legacy log and result that share one storage path', () => {
         const legacyPath = 'studies/org/study/jobs/job/results/encrypted-results.zip'
         const files = [
             runLog('log', { path: legacyPath }),
-            runLog('result', { path: legacyPath, fileType: 'ENCRYPTED-RESULT' }),
+            runLog('result', { path: legacyPath, fileType: 'ENCRYPTED-RESULT', createdAt: '2026-02-01' }),
         ]
 
-        expect(dedupeJobArtifactFiles(files).map((f) => f.id)).toEqual(['log', 'result'])
+        expect(dedupeJobArtifactFiles(files).map((f) => f.id)).toEqual(['result'])
+    })
+
+    // Both rows released: the keys check ties, so the newest wins and the id breaks a createdAt tie.
+    it('falls through to recency when both duplicates carry recipient keys', () => {
+        const older = runLog('a', { createdAt: '2026-01-01T00:00:00Z', hasRecipientKeys: true })
+        const newer = runLog('b', { createdAt: '2026-06-01T00:00:00Z', hasRecipientKeys: true })
+
+        expect(dedupeJobArtifactFiles([older, newer]).map((f) => f.id)).toEqual(['b'])
+        expect(dedupeJobArtifactFiles([newer, older]).map((f) => f.id)).toEqual(['b'])
     })
 
     it('never collapses code files, which are keyed by filename and out of scope', () => {

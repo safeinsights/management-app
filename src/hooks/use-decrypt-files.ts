@@ -13,6 +13,7 @@ import type { FileType } from '@/database/types'
 // Empty for enclave reviewers, who decrypt with their own key.
 export type EncryptedJobFile = {
     studyJobFileId: string
+    path: string
     fileType: FileType
     name: string
     encryptedBody: ArrayBuffer
