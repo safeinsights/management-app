@@ -4,6 +4,14 @@ export const legalDocumentTypeSchema = z.enum(['tos', 'pn', 'ropa', 'dopa', 'sla
 
 export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 
+export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
+    tos: 'Terms of Service',
+    pn: 'Privacy Notice',
+    sla: 'Study Level Agreement',
+    dopa: 'Data Partner Participation Agreement',
+    ropa: 'Research Partner Participation Agreement',
+}
+
 export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])
 
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
