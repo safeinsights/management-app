@@ -16,6 +16,7 @@ export type ScreenId =
     | 'reviewer-code-feedback'
     | 'reviewer-outputs-pending'
     | 'reviewer-outputs-errored'
+    | 'reviewer-outputs-available'
     | 'reviewer-study-results'
 
 // The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
