@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
+import { getPostHogClient } from '@/server/posthog'
 import { throwNotFound } from '@/lib/errors'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
@@ -438,6 +439,13 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         onStudyCreated({ userId, studyId })
+
+        const posthog = await getPostHogClient()
+        await posthog.captureImmediate({
+            distinctId: userId,
+            event: 'study_proposal_submitted',
+            properties: { study_id: studyId, org_slug: orgSlug },
+        })
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
