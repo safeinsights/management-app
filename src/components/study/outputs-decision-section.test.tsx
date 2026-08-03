@@ -5,7 +5,7 @@ import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { fieldDescriptionId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
-import { FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
+import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
 
 const LAB = 'Rice Lab'
 
@@ -67,10 +67,12 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(await screen.findByLabelText('Decision feedback')).toHaveAttribute('aria-required', 'true')
     })
 
-    it('renders the word counter against the errored-run cap of 300', () => {
+    // Figma renders the unit alongside the count ("0/300 words"), which is also the evidence the
+    // cap is counted in words rather than characters.
+    it('renders the word counter with its unit against the errored-run cap of 300', () => {
         renderSection({ wordCount: 12 })
 
-        expect(screen.getByText('12/300')).toBeInTheDocument()
+        expect(screen.getByText('12/300 words')).toBeInTheDocument()
     })
 
     it('associates the counter with the editor via aria-describedby', async () => {
@@ -78,7 +80,7 @@ describe('OutputsDecisionSection feedback field', () => {
 
         const editor = await screen.findByLabelText('Decision feedback')
         expect(editor.getAttribute('aria-describedby')).toContain(fieldDescriptionId(FEEDBACK_INPUT_ID))
-        expect(document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))).toHaveTextContent('12/300')
+        expect(document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))).toHaveTextContent('12/300 words')
     })
 
     it('marks the editor invalid and describes the error when over the limit', async () => {
@@ -112,7 +114,7 @@ describe('OutputsDecisionSection feedback field', () => {
 
         await screen.findByLabelText('Decision feedback')
         const counter = document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))!
-        expect(counter).toHaveTextContent('7/300')
+        expect(counter).toHaveTextContent('7/300 words')
         expect(counter.querySelector('[data-testid="autosave-status"]')).toBeNull()
 
         const section = screen.getByTestId('outputs-decision-section')
@@ -198,7 +200,18 @@ describe('OutputsDecisionSection radio buttons', () => {
         const group = screen.getByRole('radiogroup')
         expect(group).toBeInTheDocument()
         expect(within(group).getAllByRole('radio')).toHaveLength(2)
-        expect(screen.getByText('Sharing decision')).toBeInTheDocument()
+        expect(group).toHaveAccessibleName('Sharing decision')
+    })
+
+    // The submit-time focus jump resolves this id with document.getElementById, so it has to be on
+    // a real element that actually contains the radios. Mantine's Radio.Group swallows an `id` prop
+    // without rendering it, which made the jump a silent no-op until the id moved to a wrapper.
+    it('exposes a resolvable anchor element containing the radios', () => {
+        renderSection()
+
+        const anchor = document.getElementById(DECISION_GROUP_ID)
+        expect(anchor).not.toBeNull()
+        expect(anchor!.querySelector('input[type="radio"]')).not.toBeNull()
     })
 
     it('describes each option with its body text', () => {

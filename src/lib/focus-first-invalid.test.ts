@@ -35,6 +35,9 @@ describe('focusFirstInvalid', () => {
         expect(document.activeElement).toBe(invalid)
     })
 
+    // Returns the field name so callers can still report it, but focuses nothing. A component whose
+    // id never reaches the DOM lands here and loses the focus jump entirely, which is why
+    // OutputsDecisionSection anchors its radio group on an element it owns.
     it('reports the field even when it is not in the DOM', () => {
         expect(focusFirstInvalid(['missing'], () => true)).toBe('missing')
     })
