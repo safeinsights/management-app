@@ -330,7 +330,7 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
 }
 
 // OTTER-675: restore once the reviewer approve flow is built — the researcher's
-// errored view is gated on file approval (isErroredResultHiddenFromResearcher).
+// errored view is gated on file approval (awaitingFilesDecisionOnError).
 // async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
 //     await visitAsRole(page, RESEARCHER_DASHBOARD)
 //
