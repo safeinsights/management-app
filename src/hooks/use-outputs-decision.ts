@@ -2,11 +2,9 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { HocuspocusProvider } from '@hocuspocus/provider'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs-decision-section'
-import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { countWordsFromLexical } from '@/lib/lexical'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
@@ -42,14 +40,12 @@ export function useOutputsDecision({
 
     const [feedback, setFeedback] = useState('')
     const [selected, setSelected] = useState<OutputsDecision | null>(null)
-    const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
     // Errors surface only after the user has left a field or pressed Submit; a pristine form
     // must not open with everything flagged red.
     const [showFeedbackError, setShowFeedbackError] = useState(false)
     const [showDecisionError, setShowDecisionError] = useState(false)
     const [isOpen, setIsOpen] = useState(false)
 
-    const saveStatus = useProviderSaveStatus(provider)
     const wordCount = countWordsFromLexical(feedback)
     const isEmpty = wordCount < OUTPUTS_FEEDBACK_MIN_WORDS
     const isOverLimit = wordCount > maxWords
@@ -74,10 +70,9 @@ export function useOutputsDecision({
             return actionResult(
                 await submitOutputsDecisionAction({
                     orgSlug,
-                    jobInfo: { studyId, studyJobId: jobId, orgSlug },
+                    studyJobId: jobId,
                     decision,
                     feedback,
-                    maxWords,
                     sharedFiles,
                 }),
             )
@@ -86,9 +81,12 @@ export function useOutputsDecision({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
             setIsOpen(false)
-            // The decision is recorded, so bare /review re-resolves through the reviewer state
-            // machine to the post-decision screen.
+            // push() alone would be a no-op here: /review is already the current URL, so the
+            // decrypted review form would stay mounted with plaintext on screen even though the
+            // decision is final. refresh() is what re-runs the server components and lets the
+            // reviewer screen rules resolve to the post-decision screen.
             router.push(Routes.studyReview({ orgSlug, studyId }))
+            router.refresh()
         },
     })
 
@@ -125,10 +123,8 @@ export function useOutputsDecision({
         feedback,
         onFeedbackChange: setFeedback,
         onFeedbackBlur: () => setShowFeedbackError(true),
-        onProviderReady: setProvider,
         feedbackError,
         wordCount,
-        saveStatus,
         selected,
         onSelect,
         onDecisionBlur: () => setShowDecisionError(true),

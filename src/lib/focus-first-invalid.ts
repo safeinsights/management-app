@@ -16,6 +16,22 @@ export function focusFirstInvalid(fieldIds: string[], hasError: (fieldId: string
     if (!node) return target
 
     node.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    node.focus({ preventScroll: true })
+    focusable(node).focus({ preventScroll: true })
     return target
+}
+
+/**
+ * The element to actually put the caret on.
+ *
+ * A field's id may sit on a wrapper rather than a control: a Mantine `Radio.Group` renders its id
+ * on a non-focusable `<div>`, so calling focus() on it silently does nothing and leaves the user on
+ * the submit button with no idea which field failed. Descend to the first focusable descendant in
+ * that case.
+ */
+function focusable(node: HTMLElement): HTMLElement {
+    if (node.tabIndex >= 0) return node
+    const inner = node.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+    )
+    return inner ?? node
 }

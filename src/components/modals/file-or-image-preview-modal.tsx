@@ -9,7 +9,16 @@ type PreviewFile = {
 
 // Callers hand over raw bytes so binary files like png plots survive the trip intact;
 // decoding to utf-8 happens here and only for non-image files (OTTER-516).
-export function FileOrImagePreviewModal({ file, onClose }: { file: PreviewFile | null; onClose: () => void }) {
+export function FileOrImagePreviewModal({
+    file,
+    onClose,
+    onDownload,
+}: {
+    file: PreviewFile | null
+    onClose: () => void
+    /** Notified when the preview's own download link is used (OTTER-675 activity logging). */
+    onDownload?: () => void
+}) {
     if (!file) return null
 
     const mime = imageMimeType(file.name)
@@ -18,5 +27,5 @@ export function FileOrImagePreviewModal({ file, onClose }: { file: PreviewFile |
     }
 
     const textFile = { name: file.name, contents: file.contents === null ? null : decodeFileContents(file.contents) }
-    return <FilePreviewModal file={textFile} onClose={onClose} />
+    return <FilePreviewModal file={textFile} onClose={onClose} onDownload={onDownload} />
 }

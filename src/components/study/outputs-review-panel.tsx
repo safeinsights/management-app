@@ -179,10 +179,8 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 maxWords={maxWords}
                 wordCount={decision.wordCount}
                 feedbackError={decision.feedbackError}
-                saveStatus={decision.saveStatus}
                 onFeedbackChange={decision.onFeedbackChange}
                 onFeedbackBlur={decision.onFeedbackBlur}
-                onProviderReady={decision.onProviderReady}
                 selected={decision.selected}
                 onSelect={decision.onSelect}
                 onDecisionBlur={decision.onDecisionBlur}
@@ -208,7 +206,11 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}
             />
-            <FileOrImagePreviewModal file={previewFile} onClose={files.closeViewer} />
+            <FileOrImagePreviewModal
+                file={previewFile}
+                onClose={files.closeViewer}
+                onDownload={files.onViewerDownload}
+            />
         </>
     )
 }

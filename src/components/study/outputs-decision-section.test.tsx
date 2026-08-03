@@ -19,10 +19,8 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
         wordCount: 0,
         feedbackError: undefined,
-        saveStatus: 'idle' as const,
         onFeedbackChange: vi.fn(),
         onFeedbackBlur: vi.fn(),
-        onProviderReady: vi.fn(),
         selected: null,
         onSelect: vi.fn(),
         onDecisionBlur: vi.fn(),
@@ -105,19 +103,28 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(region).not.toHaveAttribute('aria-live', 'assertive')
     })
 
-    it('shows the autosave indicator when there is no error', () => {
-        renderSection({ saveStatus: 'saved' })
+    // The editor draws its own autosave indicator next to this counter; rendering a second one
+    // here would show the reviewer two "All changes saved" messages in collaborative mode.
+    it('renders exactly one autosave indicator, owned by the editor', async () => {
+        renderSection()
 
-        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+        await screen.findByLabelText('Decision feedback')
+        expect(screen.queryAllByTestId('autosave-status').length).toBeLessThanOrEqual(1)
     })
 
-    // An unresolved error outranks "All changes saved", which would otherwise read as
-    // "this is fine to submit".
-    it('replaces the autosave indicator with the error while one is showing', () => {
-        renderSection({ saveStatus: 'saved', feedbackError: 'Enter your feedback for Rice Lab before submitting.' })
+    it('shows the validation error beneath the field', () => {
+        renderSection({ feedbackError: 'Enter your feedback for Rice Lab before submitting.' })
 
-        expect(screen.queryByTestId('autosave-status')).toBeNull()
         expect(screen.getByText('Enter your feedback for Rice Lab before submitting.')).toBeInTheDocument()
+    })
+
+    // A real list, so a screen reader announces two items rather than one run-on sentence.
+    it('renders the guidance clauses as a list', () => {
+        renderSection()
+
+        const items = screen.getAllByRole('listitem')
+        expect(items).toHaveLength(2)
+        expect(items[1]).toHaveTextContent('If they do not, share the outputs along with your feedback.')
     })
 
     // Guards against an accidental keyboard trap: an unresolved error must not pin the caret in

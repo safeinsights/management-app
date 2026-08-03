@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { captureException } from '@sentry/nextjs'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import type { OutputFileRowData } from '@/components/study/outputs-file-row'
@@ -49,7 +50,11 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
                     action: variables.action,
                 }),
             ),
-        onError: reportMutationError('Failed to record file activity'),
+        // Deliberately not surfaced to the user. This is an audit side effect of an action that
+        // already succeeded: the file was viewed or downloaded either way, so a toast reading
+        // "Failed to record file activity" would report a failure the reviewer cannot act on and
+        // did not cause. Sentry still sees it.
+        onError: (error) => captureException(error),
         // Refetch rather than optimistically patch: the row shows the actor's name and the
         // server's timestamp, neither of which the client can produce accurately.
         onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId) }),
@@ -84,7 +89,15 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         [recordActivity],
     )
 
-    // "Download all" counts as a download of every file, so each row's Last activity updates —
+    // The reused preview modal carries its own download link, which does the transfer itself. Log
+    // it anyway, or a reviewer who opens a file and downloads it from there would keep showing as
+    // having only "Viewed" it.
+    const onViewerDownload = useCallback(() => {
+        if (!viewing) return
+        recordActivity({ files: [viewing], action: 'DOWNLOADED' })
+    }, [viewing, recordActivity])
+
+    // "Download all" counts as a download of every file, so each row's Last activity updates,
     // not just one aggregate row.
     const onDownloadAll = useCallback(async () => {
         if (!rows.length) return
@@ -93,6 +106,11 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
             const blob = await zipFiles(rows.map((row) => ({ name: row.name, contents: row.contents })))
             downloadBlob('outputs.zip', blob)
             recordActivity({ files: rows, action: 'DOWNLOADED' })
+        } catch (error) {
+            // Zipping happens in the browser over in-memory plaintext; a failure here (out of
+            // memory on a large result set) would otherwise surface as an unhandled rejection from
+            // the click handler and leave the user with no feedback at all.
+            reportMutationError('Failed to prepare the download')(error as Error)
         } finally {
             setIsPreparingZip(false)
         }
@@ -105,6 +123,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         isPreparingZip,
         onView,
         onDownload,
+        onViewerDownload,
         onDownloadAll,
     }
 }

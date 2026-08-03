@@ -1,12 +1,10 @@
 'use client'
 
 import { FC, type ReactNode } from 'react'
-import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
-import type { HocuspocusProvider } from '@hocuspocus/provider'
+import { Box, Divider, Group, List, Paper, Radio, Stack, Text } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
 import { WordCounter } from '@/components/word-counter'
 import { fieldDescribedBy, fieldDescriptionId, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -26,12 +24,18 @@ const contentStyle = {
     lineHeight: 1.6,
 } as const
 
+// A real <ul>, not "<br />•": the two clauses are a list, and a screen reader should announce them
+// as one ("list, 2 items") rather than as a single run-on sentence with stray bullet characters.
 const DecisionIntro: FC<{ labName: string }> = ({ labName }) => (
-    <Text fz={16} c="charcoal.9">
+    <Text component="div" fz={16} c="charcoal.9">
         Based on your review:
-        <br />• If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
-        your feedback so {labName} can revise the code.
-        <br />• If they do not, share the outputs along with your feedback.
+        <List spacing={4} size="md" pt={4}>
+            <List.Item>
+                If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
+                your feedback so {labName} can revise the code.
+            </List.Item>
+            <List.Item>If they do not, share the outputs along with your feedback.</List.Item>
+        </List>
     </Text>
 )
 
@@ -101,28 +105,22 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
     )
 }
 
-type FeedbackFooterProps = {
-    saveStatus: SaveStatusValue
-    error: ReactNode
-    wordCount: number
-    maxWords: number
-}
+// Carries the description id so the count reaches the editor's aria-describedby. Rendered through
+// the Editor's own `footerRight` slot, beside the save indicator the editor already draws — a
+// second SaveStatusIndicator here would show the user two "All changes saved" messages in
+// collaborative mode, and could contradict the error below when validation fails.
+const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (
+    <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
+        <WordCounter wordCount={wordCount} maxWords={maxWords} />
+    </Box>
+)
 
-// The autosave indicator and the validation error share the footer's left slot; an unresolved
-// error outranks "All changes saved", which would otherwise read as "this is fine to submit".
-//
-// Both halves are polite live regions: the over-limit error can fire on every keystroke past the
-// cap, and an assertive announcement there would interrupt the user mid-sentence.
-const FeedbackFooter: FC<FeedbackFooterProps> = ({ saveStatus, error, wordCount, maxWords }) => (
-    <Group justify="space-between" align="center">
-        <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
-            {error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />}
-        </Box>
-        {/* Carries the description id so the count reaches the editor's aria-describedby. */}
-        <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-            <WordCounter wordCount={wordCount} maxWords={maxWords} />
-        </Box>
-    </Group>
+// Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
+// assertive region would interrupt the user mid-sentence.
+const FeedbackError: FC<{ error: ReactNode }> = ({ error }) => (
+    <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
+        <InputError error={error} />
+    </Box>
 )
 
 export type OutputsDecisionSectionProps = {
@@ -132,10 +130,8 @@ export type OutputsDecisionSectionProps = {
     maxWords: number
     wordCount: number
     feedbackError: ReactNode
-    saveStatus: SaveStatusValue
     onFeedbackChange: (json: string) => void
     onFeedbackBlur: () => void
-    onProviderReady: (provider: HocuspocusProvider | null) => void
     selected: OutputsDecision | null
     onSelect: (next: OutputsDecision) => void
     onDecisionBlur: () => void
@@ -149,10 +145,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     maxWords,
     wordCount,
     feedbackError,
-    saveStatus,
     onFeedbackChange,
     onFeedbackBlur,
-    onProviderReady,
     selected,
     onSelect,
     onDecisionBlur,
@@ -186,15 +180,10 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasError: !!feedbackError,
                         hasDescription: true,
                     })}
-                    onProviderReady={onProviderReady}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                    footerRight={<FeedbackCounter wordCount={wordCount} maxWords={maxWords} />}
                 />
-                <FeedbackFooter
-                    saveStatus={saveStatus}
-                    error={feedbackError}
-                    wordCount={wordCount}
-                    maxWords={maxWords}
-                />
+                <FeedbackError error={feedbackError} />
                 <DecisionRadioGroup
                     value={selected}
                     onChange={onSelect}

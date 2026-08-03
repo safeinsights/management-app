@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, type Mock } from 'vitest'
+import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     buildFeedback,
@@ -12,7 +13,7 @@ import {
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
+import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS, ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
@@ -48,7 +49,7 @@ vi.mock('@/server/events', async (importOriginal) => ({
     onStudyReviewRequested: vi.fn(),
 }))
 
-async function setupResultApprovalFixture() {
+async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJobStatus } = {}) {
     const { user: reviewer, org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
     const lab = await insertTestOrg({ slug: 'otter-635-lab', type: 'lab' })
     const { user: researcher } = await insertTestUser({ org: lab })
@@ -62,7 +63,7 @@ async function setupResultApprovalFixture() {
     const { job, study } = await insertTestStudyJobData({
         org: enclave,
         researcherId: researcher.id,
-        jobStatus: 'RUN-COMPLETE',
+        jobStatus,
     })
     await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', study.id).execute()
     const file = await db
@@ -302,10 +303,9 @@ describe('Study Job Actions', () => {
             actionResult(
                 await submitOutputsDecisionAction({
                     orgSlug: enclave.slug,
-                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    studyJobId: job.id,
                     decision: 'share-outputs',
                     feedback: 'The outputs look clean and contain no PII.',
-                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                     sharedFiles,
                 }),
             )
@@ -335,10 +335,9 @@ describe('Study Job Actions', () => {
             actionResult(
                 await submitOutputsDecisionAction({
                     orgSlug: enclave.slug,
-                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    studyJobId: job.id,
                     decision: 'share-feedback-only',
                     feedback: 'The log leaks a participant identifier, please remove it.',
-                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                     sharedFiles: [],
                 }),
             )
@@ -359,10 +358,9 @@ describe('Study Job Actions', () => {
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                studyJobId: job.id,
                 decision: 'share-outputs',
                 feedback: '   ',
-                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                 sharedFiles: [],
             })
 
@@ -371,15 +369,50 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        test('rejects feedback over the cap', async () => {
-            const { enclave, job, study } = await setupResultApprovalFixture()
+        // The cap is derived from the job's own status, never from the request, so a caller cannot
+        // raise its own limit. These two tests are the pair that proves it: the same word count is
+        // rejected for an errored run and accepted for a completed one.
+        test('applies the 300-word errored cap regardless of what the caller asks for', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                studyJobId: job.id,
                 decision: 'share-feedback-only',
                 feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
-                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
+        test('allows the same length on a completed run, which carries the higher cap', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                    sharedFiles: [],
+                }),
+            )
+
+            expect((await jobStatuses(job.id)).map((s) => s.status)).toContain('FILES-REJECTED')
+            expect(await resultsComment(study.id)).toBeDefined()
+        })
+
+        test('rejects feedback over the completed cap', async () => {
+            const { enclave, job } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-feedback-only',
+                feedback: buildFeedback(COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
                 sharedFiles: [],
             })
 
@@ -387,16 +420,69 @@ describe('Study Job Actions', () => {
             expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
         })
 
+        // The study is derived from the job, so naming a job in an org the caller cannot review is
+        // refused. Trusting a caller-supplied studyId alongside the job id would let a reviewer
+        // authorized for their own study finalize someone else's.
+        test('permission denied when the job belongs to another org', async () => {
+            const { job } = await setupResultApprovalFixture()
+            const { org: otherEnclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: otherEnclave.slug,
+                studyJobId: job.id,
+                decision: 'share-feedback-only',
+                feedback: 'Not my study.',
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
+        })
+
+        // UI routing is not a server-side invariant: a direct caller must not be able to finalize a
+        // job that never produced outputs.
+        test('refuses a job that has not reached a terminal result', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture({ jobStatus: 'JOB-RUNNING' })
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-feedback-only',
+                feedback: 'Too early to decide.',
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ study: expect.stringContaining('no outputs') }) })
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
+        // Approving is a promise that the lab gets the files, so a request carrying no re-wrapped
+        // keys must not be able to record FILES-APPROVED.
+        test('refuses to approve while sharing no files', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-outputs',
+                feedback: 'Looks fine.',
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ files: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-APPROVED')
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
         // The (studyJobId, reviewKind, round) unique constraint is the race-loser guard; the
         // second reviewer must get a readable message, not a raw duplicate-key error.
         test('refuses a second decision on the same outputs', async () => {
-            const { enclave, job, study, sharedFiles } = await setupResultApprovalFixture()
+            const { enclave, job, sharedFiles } = await setupResultApprovalFixture()
             const params = {
                 orgSlug: enclave.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                studyJobId: job.id,
                 decision: 'share-outputs' as const,
                 feedback: 'Looks good to share.',
-                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                 sharedFiles,
             }
 
@@ -417,10 +503,9 @@ describe('Study Job Actions', () => {
             actionResult(
                 await submitOutputsDecisionAction({
                     orgSlug: enclave.slug,
-                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    studyJobId: job.id,
                     decision: 'share-outputs',
                     feedback: 'Ready to share.',
-                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                     sharedFiles,
                 }),
             )
@@ -435,14 +520,13 @@ describe('Study Job Actions', () => {
 
         test('permission denied for a lab user', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: org.slug,
-                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
+                studyJobId: job.id,
                 decision: 'share-feedback-only',
                 feedback: 'Not allowed.',
-                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                 sharedFiles: [],
             })
 

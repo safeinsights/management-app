@@ -61,6 +61,7 @@ async function seedArtifact(
 
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
+const UNAVAILABLE_ERROR = 'These outputs are not available to decrypt. Contact your organization admin.'
 
 const enterKey = (value: string) => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value } })
@@ -74,6 +75,16 @@ describe('SecurityKeyForm', () => {
     let org: Org
     let job: LatestJobForStudy
     let onDecrypted: Mock
+
+    // Most error paths need real ciphertext present: without it the form now stops at
+    // "nothing to decrypt" before a key is ever tested.
+    const seedDecryptableArtifact = async () => {
+        const artifact = await seedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'job started' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+    }
 
     beforeEach(async () => {
         const resp = await mockSessionWithTestData()
@@ -107,6 +118,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('shows the invalid-key error and re-enables both input and button for correction', async () => {
+        await seedDecryptableArtifact()
         renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -120,6 +132,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('disables the button and input on submit to prevent double submission', async () => {
+        await seedDecryptableArtifact()
         renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -132,6 +145,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('replaces the empty-field error with the invalid-key error on retry', async () => {
+        await seedDecryptableArtifact()
         renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -144,6 +158,33 @@ describe('SecurityKeyForm', () => {
 
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
         expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
+    })
+
+    // A key is only proven by ciphertext it actually opened. With nothing to decrypt, the parse
+    // step accepts any syntactically valid PEM, so reporting success here would unlock the review
+    // view for any well-formed key and show an empty table as a reviewed state.
+    it('refuses to unlock when there are no artifacts to decrypt', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(await readTestSupportFile('private_key.pem'))
+        clickView()
+
+        expect(await screen.findByText(UNAVAILABLE_ERROR)).toBeInTheDocument()
+        expect(onDecrypted).not.toHaveBeenCalled()
+    })
+
+    it('separates "nothing to decrypt" from a bad key', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey('not-a-real-key')
+        clickView()
+
+        expect(await screen.findByText(UNAVAILABLE_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(INVALID_ERROR)).toBeNull()
     })
 
     it('hands the decrypted files to the caller when the key is valid', async () => {

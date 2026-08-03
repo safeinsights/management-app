@@ -38,4 +38,37 @@ describe('focusFirstInvalid', () => {
     it('reports the field even when it is not in the DOM', () => {
         expect(focusFirstInvalid(['missing'], () => true)).toBe('missing')
     })
+
+    // A Mantine Radio.Group puts the field id on a plain <div>. Calling focus() on that is a
+    // silent no-op, which would leave the user on the submit button with nothing indicating which
+    // field failed, so the helper descends to the first focusable control inside.
+    it('focuses the first focusable control when the id sits on a non-focusable wrapper', () => {
+        const wrapper = document.createElement('div')
+        wrapper.id = 'radio-group'
+        wrapper.scrollIntoView = vi.fn()
+        const label = document.createElement('label')
+        const radio = document.createElement('input')
+        radio.type = 'radio'
+        label.appendChild(radio)
+        wrapper.appendChild(label)
+        document.body.appendChild(wrapper)
+
+        expect(focusFirstInvalid(['radio-group'], () => true)).toBe('radio-group')
+        expect(document.activeElement).toBe(radio)
+    })
+
+    it('skips disabled controls inside a wrapper', () => {
+        const wrapper = document.createElement('div')
+        wrapper.id = 'group-with-disabled'
+        wrapper.scrollIntoView = vi.fn()
+        const disabled = document.createElement('input')
+        disabled.disabled = true
+        const enabled = document.createElement('input')
+        wrapper.append(disabled, enabled)
+        document.body.appendChild(wrapper)
+
+        focusFirstInvalid(['group-with-disabled'], () => true)
+
+        expect(document.activeElement).toBe(enabled)
+    })
 })

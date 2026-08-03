@@ -128,6 +128,22 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
     })
 
+    // The default mock serves no artifacts, which is a legitimate state (no registered reviewer
+    // key, or a failed fetch). A well-formed key must not unlock the review view against nothing.
+    it('does not unlock the review view when there are no artifacts to decrypt', async () => {
+        const { org, study } = await setupErrored()
+        await renderScreen(study, org.slug)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        await unlock()
+
+        expect(
+            await screen.findByText('These outputs are not available to decrypt. Contact your organization admin.'),
+        ).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
+    })
+
     it('links Previous step to the read-only code page for this study', async () => {
         const { org, study } = await setupErrored()
         await renderScreen(study, org.slug)

@@ -1,4 +1,4 @@
-import type { ReviewDecision } from '@/database/types'
+import type { ReviewDecision, StudyJobStatus } from '@/database/types'
 
 // OTTER-675: the Data Partner's decision on a job's decrypted outputs.
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
@@ -24,6 +24,36 @@ export const OUTPUTS_FEEDBACK_MIN_WORDS = 1
  */
 export const ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS = 300
 export const COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS = 1500
+
+/** Job statuses whose outputs a reviewer may decide on: the run reached a terminal result. */
+export const OUTPUTS_REVIEWABLE_JOB_STATUSES: readonly StudyJobStatus[] = ['JOB-ERRORED', 'RUN-COMPLETE']
+
+const DECIDED_STATUSES: readonly StudyJobStatus[] = ['FILES-APPROVED', 'FILES-REJECTED']
+
+// These three read a job's status history, which arrives from queries whose select shape widens
+// the status type, so they take plain strings and compare against the typed constants above.
+const includesStatus = (jobStatuses: readonly string[], wanted: readonly StudyJobStatus[]) =>
+    jobStatuses.some((status) => (wanted as readonly string[]).includes(status))
+
+/** Whether the run has reached a terminal result, so its outputs can be decided on at all. */
+export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
+    includesStatus(jobStatuses, OUTPUTS_REVIEWABLE_JOB_STATUSES)
+
+/** Whether a files decision has already been recorded, making this job's outcome final. */
+export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
+    includesStatus(jobStatuses, DECIDED_STATUSES)
+
+/**
+ * The authoritative cap for a job, derived from its own status history rather than taken from the
+ * request. An errored run is capped shorter than a completed one; JOB-ERRORED wins when both
+ * statuses are present, matching the screen rules, which keep an errored run on the errored view
+ * even after a RUN-COMPLETE also landed.
+ */
+export function outputsFeedbackMaxWords(jobStatuses: readonly string[]): number {
+    return jobStatuses.includes('JOB-ERRORED')
+        ? ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS
+        : COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS
+}
 
 // File names are truncated in the table so a long name cannot push the other columns off screen.
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50

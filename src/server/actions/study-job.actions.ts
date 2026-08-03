@@ -1,10 +1,16 @@
 'use server'
 
-import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import { OUTPUTS_FEEDBACK_MIN_WORDS, toOutputsReviewDecision } from '@/lib/outputs-review'
+import {
+    hasOutputsDecision,
+    hasReviewableOutputs,
+    OUTPUTS_FEEDBACK_MIN_WORDS,
+    outputsFeedbackMaxWords,
+    toOutputsReviewDecision,
+} from '@/lib/outputs-review'
 import { JobFile, minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
 import {
     codeSubmissionVersion,
@@ -133,25 +139,51 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
     .params(
         z.object({
             orgSlug: z.string(),
-            jobInfo: minimalJobInfoSchema,
+            // Only the job id is trusted; the study and its org are derived from it in the
+            // middleware. Accepting a caller-supplied studyId alongside it would let a reviewer
+            // authorized for study A name a job belonging to study B and have the ability check
+            // pass against the wrong study.
+            studyJobId: z.string(),
             decision: z.enum(['share-outputs', 'share-feedback-only']),
             feedback: z.string(),
-            maxWords: z.number().int().positive(),
             // Empty for 'share-feedback-only': nothing is shared, so there are no keys to re-wrap.
             sharedFiles: z.array(sharedFileSchema),
         }),
     )
-    .middleware(async ({ params: { jobInfo }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select('orgId')
-            .where('id', '=', jobInfo.studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId }
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('review', 'Study')
-    .handler(async ({ params: { jobInfo: info, decision, feedback, maxWords, sharedFiles }, session, db }) => {
+    .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
+        const studyId = studyJob.studyId
+        const studyJobId = studyJob.studyJobId
+        const jobStatuses = studyJob.statusChanges.map((change) => change.status)
+
+        // Server-side state gate. UI routing decides which screen renders, but it is not an
+        // invariant a server action can lean on: without this, an authorized direct caller could
+        // finalize an INITIATED, still-running, or long-closed job.
+        if (!hasReviewableOutputs(jobStatuses)) {
+            throw new ActionFailure({ study: 'has no outputs ready for a decision' })
+        }
+
+        // A files decision is final, so refuse outright if one already exists. This cannot be left
+        // to the (studyJobId, reviewKind, round) unique constraint: FILES-APPROVED/FILES-REJECTED
+        // are themselves round-opening events, so once the first decision lands
+        // codeSubmissionVersion returns the NEXT round and a second attempt would slot in beside
+        // it rather than collide, writing a phantom decision for a round whose code was never
+        // resubmitted. The constraint still covers the genuine same-round race below, where two
+        // reviewers both read the pre-decision round before either commits.
+        if (hasOutputsDecision(jobStatuses)) {
+            throw new ActionFailure({
+                study: 'another reviewer has already submitted a decision for these outputs',
+            })
+        }
+
+        // The cap is a property of the run being reviewed, not of the request. Taking it from the
+        // client would let a caller raise its own limit to anything.
+        const maxWords = outputsFeedbackMaxWords(jobStatuses)
 
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
         if (wordCount < OUTPUTS_FEEDBACK_MIN_WORDS) {
@@ -163,35 +195,22 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
 
         const shareOutputs = decision === 'share-outputs'
 
-        // A files decision is final, so refuse outright if one already exists. This cannot be left
-        // to the (studyJobId, reviewKind, round) unique constraint: FILES-APPROVED/FILES-REJECTED
-        // are themselves round-opening events, so once the first decision lands
-        // codeSubmissionVersion returns the NEXT round and a second attempt would slot in beside
-        // it rather than collide — writing a phantom decision for a round whose code was never
-        // resubmitted. The constraint still covers the genuine same-round race below, where two
-        // reviewers both read the pre-decision round before either commits.
-        const existingDecision = await db
-            .selectFrom('jobStatusChange')
-            .select('id')
-            .where('studyJobId', '=', info.studyJobId)
-            .where('status', 'in', ['FILES-APPROVED', 'FILES-REJECTED'])
-            .executeTakeFirst()
-
-        if (existingDecision) {
-            throw new ActionFailure({
-                study: 'another reviewer has already submitted a decision for these outputs',
-            })
+        // Sharing nothing is not a way to approve: the decision means the lab gets the files, so a
+        // request that carries no re-wrapped keys is either a bug or a direct call trying to record
+        // FILES-APPROVED without granting access.
+        if (shareOutputs && !sharedFiles.length) {
+            throw new ActionFailure({ files: 'no files were prepared for sharing' })
         }
 
         // Read the round BEFORE writing the status below, for the same reason.
-        const round = await codeSubmissionVersion(info.studyId, db)
+        const round = await codeSubmissionVersion(studyId, db)
 
         try {
             await db
                 .insertInto('studyReviewComment')
                 .values({
-                    studyId: info.studyId,
-                    studyJobId: info.studyJobId,
+                    studyId,
+                    studyJobId,
                     authorId: userId,
                     reviewKind: 'RESULTS',
                     entryType: 'DECISION',
@@ -215,7 +234,7 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         if (shareOutputs) {
             // Re-wrap, not re-encrypt: only the wrapped keys the reviewer's browser produced are
             // persisted. Ciphertext untouched; the server never sees plaintext or a raw AES key.
-            await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
+            await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
         await db
@@ -223,24 +242,24 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             .values({
                 userId,
                 status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
-                studyJobId: info.studyJobId,
+                studyJobId,
             })
             .executeTakeFirstOrThrow()
 
         await db
             .updateTable('study')
             .set({ reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', info.studyId)
+            .where('id', '=', studyId)
             .execute()
 
         // The decision is final, so the collaborative draft has no further purpose; dropping it
         // also stops a stale tab from resurrecting text after submission.
-        await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(info.studyJobId)).execute()
+        await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(studyJobId)).execute()
 
         if (shareOutputs) {
-            onStudyResultsApproved({ studyId: info.studyId, userId })
+            onStudyResultsApproved({ studyId, userId })
         } else {
-            onStudyResultsRejected({ studyId: info.studyId, userId })
+            onStudyResultsRejected({ studyId, userId })
         }
     })
 
