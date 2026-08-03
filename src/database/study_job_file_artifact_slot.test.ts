@@ -114,7 +114,7 @@ describe('study_job_file artifact slots', () => {
                 'jobs/results/encrypted-results.zip',
                 ${name},
                 'ENCRYPTED-RESULT',
-                now() - (${minutesAgo} || ' minutes')::interval
+                now() - ${minutesAgo} * interval '1 minute'
             )
             RETURNING id
         `.execute(trx)
