@@ -167,8 +167,8 @@ test.skipIf(!s3Available)('does not duplicate log files when CODE-SCANNED is del
 })
 
 // One scan log is stored twice, encrypted for the researcher and plaintext for the reviewer's parsed
-// statuses. Once the encrypted half is shared its keys pin the ciphertext, so a re-delivery is refused
-// — and the plaintext half has to be refused with it. Replacing only the readable half would show the
+// statuses. Once the encrypted half is shared its keys pin the ciphertext, so a re-delivery is refused,
+// and the plaintext half has to be refused with it. Replacing only the readable half would show the
 // reviewer findings from a log the researcher cannot open.
 test.skipIf(!s3Available)('leaves the plaintext scan log alone when its encrypted half is refused', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })

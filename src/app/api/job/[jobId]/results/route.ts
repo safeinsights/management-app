@@ -45,7 +45,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
     }
 
-    const deliveries: { isNew: boolean; stored: boolean; createdAt: Date }[] = []
+    const deliveries: { stored: boolean; createdAt: Date }[] = []
 
     if (logs instanceof File) {
         deliveries.push(await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG'))

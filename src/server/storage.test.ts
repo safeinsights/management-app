@@ -50,7 +50,7 @@ test('ignores a repeat delivery once the round has been decided', async () => {
     const delivery = await storeStudyEncryptedLogFile(info, logFile('late-redelivery.zip'), 'ENCRYPTED-CODE-RUN-LOG')
 
     // `stored: false` is what lets the route say the artifacts were dropped rather than received.
-    expect(delivery).toMatchObject({ isNew: false, stored: false })
+    expect(delivery.stored).toBe(false)
     expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
     const rows = await jobLogRows(info.studyJobId)
     expect(rows).toHaveLength(1)
@@ -78,7 +78,7 @@ test('refuses to replace an artifact whose keys are already shared on an open ro
     const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
     const redelivery = await storeStudyEncryptedLogFile(info, logFile('rescanned.zip'), 'ENCRYPTED-SECURITY-SCAN-LOG')
 
-    expect(redelivery).toMatchObject({ isNew: false, stored: false })
+    expect(redelivery.stored).toBe(false)
     expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
 })
 
@@ -139,6 +139,5 @@ test('collapses two concurrent first deliveries into one row', async () => {
     ])
 
     expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
-    expect(results.filter((r) => r.isNew)).toHaveLength(1)
     expect(results.every((r) => r.stored)).toBe(true)
 })

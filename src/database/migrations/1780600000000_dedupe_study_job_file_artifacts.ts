@@ -32,11 +32,14 @@ type SlotInventory = {
 }
 
 // Read before writing, so the deploy log records what this migration is about to destroy. The
-// cross-type count is the one number that cannot be recovered afterwards: those rows are LEFT IN
-// PLACE (their file_type differs, so the index below permits them) and they are the only reason a job
-// can still display one S3 object twice. Pre-e10c2cd7 (2025-06-26) runs wrote logs and results both
-// to results/encrypted-results.zip, and approved logs and results both to results/approved/{name}.
-// If this count is above zero in a real environment, that display case needs its own card.
+// redundant-row count is the part that cannot be recomputed afterwards, because those rows are gone.
+//
+// The cross-type count is reported alongside it for a different reason: those rows are LEFT IN PLACE
+// (their file_type differs, so the index below permits them) and they are the only reason a job can
+// still display one S3 object twice. Pre-e10c2cd7 (2025-06-26) runs wrote logs and results both to
+// results/encrypted-results.zip, and approved logs and results both to results/approved/{name}. That
+// number stays queryable after this runs, which is why logging it is enough and why a non-zero count
+// is not a reason to fail the migration: nothing is being destroyed on its account.
 async function inventory(db: Kysely<unknown>): Promise<SlotInventory> {
     // Single-word aliases on purpose: CamelCasePlugin rewrites result column names, so a
     // `redundant_rows` alias would arrive as `redundantRows` and a snake_case read would silently
@@ -95,7 +98,13 @@ export async function collapseArtifactSlots(db: Kysely<unknown>): Promise<void> 
     // study_job_file_id, so deleting a row takes its per-recipient wrapped AES keys with it. Those
     // keys are a researcher's only way into an already-released file and exist nowhere else, so a
     // delete that ran first would silently revoke access to a file they had already been given.
-    // DO NOTHING covers the same inner file already granted to the same recipient on the survivor.
+    //
+    // Copying every loser's keys forward, rather than picking a survivor that already holds some, is
+    // what handles keys spread across more than one duplicate. DO NOTHING covers the same inner file
+    // already granted to the same recipient. Where two rows hold DIFFERENT crypt values for one
+    // (file_path, fingerprint) it keeps whichever lands first and drops the other, which is safe only
+    // because every duplicate describes the same S3 object: the AES key being wrapped is the same, so
+    // either wrapping opens it. That assumption is the reason a plain DO NOTHING is enough here.
     await sql`
         WITH ranked AS (${RANKED_SLOT_ROWS}),
         survivors AS (SELECT * FROM ranked WHERE rn = 1),

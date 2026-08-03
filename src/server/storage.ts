@@ -95,11 +95,10 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
  * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
  * instead, so a retry refreshes the artifact rather than duplicating it.
  *
- * `isNew` reports whether this call added an artifact the job did not already have. `stored` reports
- * whether the artifact this call carried actually landed, which is false only for a late delivery the
- * round-closed guard dropped. `createdAt` is when the job first had this artifact, which a caller
- * needs to tell its own already-recorded outcome from one an earlier pipeline stage happened to
- * record under the same status name.
+ * `stored` reports whether the artifact this call carried actually landed, which is false only when the
+ * guard below refused to replace shared or released content. `createdAt` is when the job first had this
+ * artifact, which a caller needs to tell its own already-recorded outcome from one an earlier pipeline
+ * stage happened to record under the same status name.
  *
  * The unique index closes the duplicate-ROW race: two concurrent first deliveries cannot both insert,
  * and the loser is recovered below as the repeat it effectively is. It does not make a delivery atomic,
@@ -135,7 +134,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         logger.warn(
             `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: ${unreplaceable}, so the stored copy has to stay decryptable`,
         )
-        return { ...existing, isNew: false, stored: false }
+        return { ...existing, stored: false }
     }
 
     // If the write below fails (or the process dies between these two writes), the S3 object is left
@@ -144,7 +143,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     // rather than run as a two-phase commit.
     await storeS3File(info, file.stream(), path)
 
-    if (existing) return { ...(await renameArtifactRow(existing.id, file.name)), isNew: false, stored: true }
+    if (existing) return { ...(await renameArtifactRow(existing.id, file.name)), stored: true }
 
     // DO NOTHING rather than letting the unique index raise: a raised violation aborts the surrounding
     // transaction, so the recovery below could not run if a caller ever wrapped this in one. Left
@@ -158,7 +157,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         .returning(['id', 'createdAt'])
         .executeTakeFirst()
 
-    if (inserted) return { ...inserted, isNew: true, stored: true }
+    if (inserted) return { ...inserted, stored: true }
 
     // A concurrent first delivery claimed the slot between the lookup and the insert. It is the same
     // artifact at the same path, so treat this call as the repeat it effectively is: refresh the
@@ -168,7 +167,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         throw new Error(`storing ${fileType} for job ${info.studyJobId} at ${path} conflicted with no visible row`)
     }
 
-    return { ...(await renameArtifactRow(winner.id, file.name)), isNew: false, stored: true }
+    return { ...(await renameArtifactRow(winner.id, file.name)), stored: true }
 }
 
 // Only the name can differ between deliveries to one slot: the job, path and type are the key, and
