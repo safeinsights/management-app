@@ -39,8 +39,12 @@ export type SingleUserEditorProps = {
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
-    /** Presence drives the red border and `aria-invalid`; the message itself is rendered by the caller. */
-    error?: React.ReactNode
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
     /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
     /** Marks the editor required to assistive tech; the label asterisk is visual only. */
