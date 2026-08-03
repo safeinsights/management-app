@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, ReactNode, useCallback, useRef, useState } from 'react'
+import { FC, ReactNode, useState } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
@@ -162,16 +162,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     const files = useOutputsFiles({ jobId: job.id, decryptedFiles })
     const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, maxWords, decryptedFiles })
     const previewFile = files.viewing ? { name: files.viewing.name, contents: files.viewing.contents } : null
-    const submitRef = useRef<HTMLButtonElement>(null)
-
-    // SubmitOutputsDecisionModal unmounts on close (to keep its body text fresh), which pre-empts
-    // Mantine's own focus-return effect and would otherwise drop focus onto <body>. Restoring it
-    // here covers all three dismissals: X, Cancel and Escape. rAF waits for the unmount, since the
-    // button cannot take focus while the modal still has it trapped.
-    const closeAndRestoreFocus = useCallback(() => {
-        decision.closeModal()
-        requestAnimationFrame(() => submitRef.current?.focus())
-    }, [decision])
 
     return (
         <>
@@ -201,7 +191,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 {/* Enabled from the start by design: pressing it is how the user learns what is
                     still missing, rather than being left with a dead button and no explanation. */}
                 <Button
-                    ref={submitRef}
                     onClick={decision.attemptSubmit}
                     disabled={decision.isSubmitting}
                     data-testid="outputs-submit-decision"
@@ -213,7 +202,7 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 decision={decision.confirming}
                 labName={labName}
                 isSubmitting={decision.isSubmitting}
-                onClose={closeAndRestoreFocus}
+                onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}
             />
             <FileOrImagePreviewModal

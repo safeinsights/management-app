@@ -49,8 +49,11 @@ describe('SubmitOutputsDecisionModal', () => {
     })
 
     // A null decision IS the closed state: there is no separate open flag to disagree with it.
-    it('stays closed until a decision has been picked', () => {
+    // The component stays mounted while closed (that is what keeps Mantine's focus return alive),
+    // so "closed" means no dialog is rendered, not that nothing is.
+    it('shows no dialog until a decision has been picked', () => {
         renderModal(null)
+        expect(screen.queryByRole('dialog')).toBeNull()
         expect(screen.queryByText('Submit your decision?')).toBeNull()
     })
 
@@ -86,9 +89,8 @@ describe('SubmitOutputsDecisionModal', () => {
         expect(screen.queryByText(SHARE_OUTPUTS_BODY)).toBeNull()
     })
 
-    // Focus restoration on close is the trigger owner's job (the modal unmounts itself, which
-    // pre-empts Mantine's focus-return effect), so it is asserted in
-    // reviewer-outputs-errored-screen.test.tsx where the real Submit decision button exists.
+    // Focus restoration is Mantine's own returnFocus, which works because this component stays
+    // mounted across close; the e2e covers it end to end against a real trigger.
     it('closes without submitting from Cancel', async () => {
         const { onClose, onConfirm } = renderModal('share-outputs')
 
