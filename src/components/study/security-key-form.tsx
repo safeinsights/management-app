@@ -18,7 +18,7 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
 
     return (
         <Paper p="xxl">
-            <Stack gap="lg">
+            <Stack gap={24}>
                 <FormSectionHeader
                     title="Security key"
                     description="This key is required to access the outputs. It was issued to you during sign-up."
