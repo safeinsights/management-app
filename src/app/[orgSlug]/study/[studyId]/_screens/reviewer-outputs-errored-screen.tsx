@@ -11,12 +11,6 @@ import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-function erroredTimestamp(
-    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>,
-): Date | string | null {
-    return statusChanges.find((c) => c.status === 'JOB-ERRORED')?.createdAt ?? null
-}
-
 const ErroredBanner = ({ erroredAt }: { erroredAt: Date | string }) => (
     <StatusAlert
         variant={STATUS_ALERT_VARIANT.action}
@@ -30,12 +24,16 @@ export async function ReviewerOutputsErroredScreen({
     study,
     orgSlug,
 }: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
+    // Uses the same "latest submitted job" anchor as the state machine's latestJob()
+    // so the job here always matches the one that set state.resultsErrored.
+    // The not-found guards below are unreachable via normal routing but protect against
+    // direct URL navigation that bypasses the state machine.
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const erroredAt = erroredTimestamp(job.statusChanges)
+    const erroredAt = job.statusChanges.find((c) => c.status === 'JOB-ERRORED')?.createdAt ?? null
     if (!erroredAt) {
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
