@@ -62,6 +62,31 @@ test('ignores a repeat delivery once the round has been decided', async () => {
     expect(rows[0].name).toBe('encrypted-logs.zip')
 })
 
+// Sharing does not wait for a round to close: a reviewer approving CODE re-wraps keys for researchers
+// alongside CODE-APPROVED, and the round stays open afterwards. So a round-status-only guard left a
+// scan log that had already been shared replaceable by a delayed scanner delivery, which would leave
+// the researcher holding keys wrapped against bytes that no longer exist.
+test('refuses to replace an artifact whose keys are already shared on an open round', async () => {
+    const info = await setupJob()
+    const stored = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
+    await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'CODE-APPROVED' }).execute()
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: stored.id,
+            filePath: 'scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
+    const redelivery = await storeStudyEncryptedLogFile(info, logFile('rescanned.zip'), 'ENCRYPTED-SECURITY-SCAN-LOG')
+
+    expect(redelivery).toMatchObject({ isNew: false, stored: false })
+    expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
+})
+
 // A closed round only protects artifacts it already has: dropping a never-seen one would lose data
 // with nothing released to protect.
 test('still stores a first-time artifact after the round has been decided', async () => {

@@ -48,6 +48,32 @@ export async function roundIsClosed(studyJobId: string, executor: DBExecutor = d
     return Boolean(closing)
 }
 
+// Whether anyone's wrapped AES keys already hang off this artifact. Those keys were wrapped from the
+// keys inside the ciphertext stored at this path RIGHT NOW, so replacing that object leaves them
+// unwrappable and the recipient loses a file that was already shared with them.
+async function artifactWasShared(studyJobFileId: string): Promise<boolean> {
+    const shared = await db
+        .selectFrom('studyJobFileRecipientKey')
+        .select('id')
+        .where('studyJobFileId', '=', studyJobFileId)
+        .executeTakeFirst()
+
+    return Boolean(shared)
+}
+
+// Why a re-delivery must not replace this artifact, or null when replacing it is safe.
+//
+// Sharing is checked first and separately from the round, because the two do not coincide: a reviewer
+// approving CODE can already re-wrap keys for researchers (approveJobCode persists them alongside
+// CODE-APPROVED), and that round stays open afterwards. A round-status-only guard therefore left every
+// artifact shared at code approval, scan logs included, replaceable by a delayed scanner or
+// containerizer delivery. Keys are the thing being protected, so key existence is the question to ask.
+async function unreplaceableReason(studyJobFileId: string, studyJobId: string): Promise<string | null> {
+    if (await artifactWasShared(studyJobFileId)) return 'its keys have already been wrapped for recipients'
+    if (await roundIsClosed(studyJobId)) return 'the round is already decided'
+    return null
+}
+
 // An artifact slot is one (job, storage path, file type), the same key the partial unique index added
 // in 1780500000000 enforces. Keeping the lookup, the constraint and the migration on one key is what
 // makes "one row per artifact" a single rule instead of three that can drift apart.
@@ -79,8 +105,8 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
  * and the loser is recovered below as the repeat it effectively is. It does not make a delivery atomic,
  * and nothing here holds a lock across the S3 upload, so three windows stay open:
  *
- *   - The round can close between the guard below and the upload, so a re-delivery landing inside it
- *     still replaces a just-released ciphertext.
+ *   - Keys can be wrapped, or the round closed, between the guard below and the upload, so a
+ *     re-delivery landing inside that window still replaces a just-shared ciphertext.
  *   - Both callers upload to the same key before either resolves its row, so S3 completion order need
  *     not match rename order: the row can end up naming one payload while holding the other's bytes.
  *     Same artifact in the same slot either way, so only the recorded name is affected.
@@ -95,18 +121,19 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType) {
     const existing = await artifactRowForSlot(info.studyJobId, path, fileType)
 
-    // Once the round is decided the artifact has been released, and a late re-delivery is stale by
-    // definition. Overwriting the object would strand the researcher: their per-file keys were wrapped
-    // from the AES keys of the ciphertext being replaced, so an already-released file would stop
-    // decrypting, and the bucket is unversioned so the replaced copy is gone for good. Ignore the
-    // delivery entirely. A first-ever arrival for a slot is still stored - nothing was released for
-    // it, so there is nothing to protect and dropping it would lose data.
+    // A re-delivery that would replace shared or released content is stale by definition, and
+    // overwriting it would strand the recipient: their per-file keys were wrapped from the AES keys of
+    // the ciphertext being replaced, so a file they can open today would stop decrypting, and the
+    // bucket is unversioned so the replaced copy is gone for good. Ignore the delivery entirely. A
+    // first-ever arrival for a slot is still stored - nothing was shared for it, so there is nothing to
+    // protect and dropping it would lose data.
     //
     // The sender gets a success response either way (it has nothing to do differently), so log the
     // drop: without it, content that was accepted but never stored leaves no trace to diagnose from.
-    if (existing && (await roundIsClosed(info.studyJobId))) {
+    const unreplaceable = existing ? await unreplaceableReason(existing.id, info.studyJobId) : null
+    if (existing && unreplaceable) {
         logger.warn(
-            `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: the round is already decided and the stored copy has been released`,
+            `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: ${unreplaceable}, so the stored copy has to stay decryptable`,
         )
         return { ...existing, isNew: false, stored: false }
     }

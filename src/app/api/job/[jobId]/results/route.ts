@@ -75,9 +75,15 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         await trx.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
 
         // Scoped to statuses recorded after this job already held these artifacts. JOB-ERRORED is
-        // shared with the scanner and the containerizer, so a bare status lookup would read one of
-        // theirs as proof that this callback finished and silently drop a run failure that never got
-        // announced. Anything recorded after the artifacts arrived can only be our own.
+        // shared with the scanner, the containerizer and the generic PUT /api/job/[jobId] route, so a
+        // bare status lookup would read one of theirs as proof that this callback finished and silently
+        // drop a run failure that never got announced.
+        //
+        // Ordering is a heuristic, not proof of ownership: a status one of those producers writes AFTER
+        // the artifacts arrived is still indistinguishable from ours, so a callback that stored its log
+        // and then died can still be masked by one. jobStatusChange records no producer, and the fix is
+        // to make the artifact write and the outcome write one transaction so presence implies
+        // announcement, rather than a fourth guess at whose status this is. Own card.
         const alreadyAnnounced = await trx
             .selectFrom('jobStatusChange')
             .select('id')
