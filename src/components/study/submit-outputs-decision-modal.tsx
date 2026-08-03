@@ -10,10 +10,13 @@ export const confirmationBody = (decision: OutputsDecision, labName: string): st
         : `You are sharing your feedback only. The output files will not be shared with ${labName}. You will not be able to make changes after submitting.`
 
 type SubmitOutputsDecisionModalProps = {
-    /** null keeps the modal closed; submit only opens it once an option is picked. */
+    /**
+     * The decision being confirmed, or null when the modal is closed. A single nullable value
+     * rather than an `isOpen` flag beside it: "open with no decision" is not a legal state, and
+     * spelling it that way is what stops it needing a guard.
+     */
     decision: OutputsDecision | null
     labName: string
-    isOpen: boolean
     isSubmitting: boolean
     onClose: () => void
     onConfirm: () => void
@@ -22,7 +25,6 @@ type SubmitOutputsDecisionModalProps = {
 export const SubmitOutputsDecisionModal: FC<SubmitOutputsDecisionModalProps> = ({
     decision,
     labName,
-    isOpen,
     isSubmitting,
     onClose,
     onConfirm,
@@ -30,7 +32,10 @@ export const SubmitOutputsDecisionModal: FC<SubmitOutputsDecisionModalProps> = (
     // Unmounting while closed is what keeps the body text honest: Mantine's Modal keeps its
     // children mounted, so a cached body from the previously chosen option would be what a
     // screen reader re-announces on the next open.
-    if (!isOpen || !decision) return null
+    //
+    // The unmount also pre-empts Mantine's own focus-return effect, so the caller has to restore
+    // focus to the trigger itself; see closeAndRestoreFocus in outputs-review-panel.
+    if (!decision) return null
 
     return (
         <SubmitConfirmationModal

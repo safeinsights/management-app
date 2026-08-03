@@ -44,7 +44,10 @@ export function useOutputsDecision({
     // must not open with everything flagged red.
     const [showFeedbackError, setShowFeedbackError] = useState(false)
     const [showDecisionError, setShowDecisionError] = useState(false)
-    const [isOpen, setIsOpen] = useState(false)
+    // The decision the confirmation modal is confirming; null means closed. One nullable value
+    // rather than an open flag beside the selection, so "open with nothing chosen" cannot be
+    // represented and needs no guard.
+    const [confirming, setConfirming] = useState<OutputsDecision | null>(null)
 
     const wordCount = countWordsFromLexical(feedback)
     const isEmpty = wordCount < OUTPUTS_FEEDBACK_MIN_WORDS
@@ -80,7 +83,7 @@ export function useOutputsDecision({
         onError: reportMutationError('Failed to submit your decision'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            setIsOpen(false)
+            setConfirming(null)
             // push() alone would be a no-op here: /review is already the current URL, so the
             // decrypted review form would stay mounted with plaintext on screen even though the
             // decision is final. refresh() is what re-runs the server components and lets the
@@ -91,7 +94,8 @@ export function useOutputsDecision({
     })
 
     // Flags every problem at once rather than stopping at the first: the user should see the
-    // full set on one click, even though focus can only land on one of them.
+    // full set on one click, even though focus can only land on one of them. focusFirstInvalid
+    // returns the field it moved to, so its own scan doubles as the "is anything invalid" test.
     const attemptSubmit = useCallback(() => {
         setShowFeedbackError(true)
         setShowDecisionError(true)
@@ -101,12 +105,9 @@ export function useOutputsDecision({
             [DECISION_GROUP_ID]: selected === null,
         }
 
-        if (FIELD_ORDER.some((fieldId) => invalid[fieldId])) {
-            focusFirstInvalid(FIELD_ORDER, (fieldId) => invalid[fieldId])
-            return
-        }
+        if (focusFirstInvalid(FIELD_ORDER, (fieldId) => invalid[fieldId])) return
 
-        setIsOpen(true)
+        setConfirming(selected)
     }, [isEmpty, isOverLimit, selected])
 
     const onSelect = useCallback((next: OutputsDecision) => {
@@ -114,10 +115,10 @@ export function useOutputsDecision({
         setShowDecisionError(false)
     }, [])
 
+    // No null guard needed: the modal only exists while `confirming` holds a decision.
     const confirmSubmit = useCallback(() => {
-        if (selected === null) return
-        submit(selected)
-    }, [selected, submit])
+        if (confirming) submit(confirming)
+    }, [confirming, submit])
 
     return {
         feedback,
@@ -129,8 +130,8 @@ export function useOutputsDecision({
         onSelect,
         onDecisionBlur: () => setShowDecisionError(true),
         decisionError,
-        isModalOpen: isOpen,
-        closeModal: () => setIsOpen(false),
+        confirming,
+        closeModal: () => setConfirming(null),
         attemptSubmit,
         confirmSubmit,
         isSubmitting: isPending,
