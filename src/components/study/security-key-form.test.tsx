@@ -83,8 +83,10 @@ describe('SecurityKeyForm', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
     })
 
-    it('renders the key-entry section with a required indicator and body copy', () => {
+    it('renders the key-entry section with a required indicator and body copy', async () => {
         renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await screen.findByRole('button', { name: 'View' })
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.getByLabelText('required')).toHaveTextContent('*')
@@ -98,6 +100,8 @@ describe('SecurityKeyForm', () => {
 
     it('shows the empty-field error and focuses the input when submitted blank', async () => {
         renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await screen.findByRole('button', { name: 'View' })
 
         clickView()
 
@@ -134,6 +138,7 @@ describe('SecurityKeyForm', () => {
         renderWithProviders(<SecurityKeyForm job={job} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument())
 
         clickView()
         expect(await screen.findByText(EMPTY_ERROR)).toBeInTheDocument()

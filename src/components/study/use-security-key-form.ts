@@ -3,10 +3,12 @@ import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import * as Sentry from '@sentry/nextjs'
 
 const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
+    fetchFailed: 'Failed to load encrypted outputs. Please try again later.',
 } as const
 
 const SUCCESS_MESSAGE = 'Security key accepted.'
@@ -19,7 +21,14 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
         queryKey: ['encrypted-files', job.id],
-        queryFn: () => fetchEncryptedJobFilesAction({ jobId: job.id }),
+        queryFn: async () => {
+            try {
+                return await fetchEncryptedJobFilesAction({ jobId: job.id })
+            } catch (error) {
+                Sentry.captureException(error)
+                throw error
+            }
+        },
     })
 
     const { decrypt, isPending } = useDecryptFiles({
@@ -48,10 +57,16 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
 
         if (isLoadingFiles) return
 
+        if (!encryptedFiles) {
+            setError(ERRORS.fetchFailed)
+            setSuccessMessage(undefined)
+            return
+        }
+
         setError(undefined)
         setSuccessMessage(undefined)
         decrypt(trimmed)
-    }, [isPending, isLoadingFiles, value, decrypt])
+    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
 
     return {
         value,
