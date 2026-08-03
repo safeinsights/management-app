@@ -60,6 +60,21 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
     return { study, dataPartner, researchLab }
 }
 
+// Scoped to one study's row: the table shows every SLA the suite has seeded.
+const openNewVersionFor = async (title: string) => {
+    await waitFor(() => expect(screen.getByText(title)).toBeDefined())
+    const row = screen.getByText(title).closest('tr')
+    if (!row) throw new Error(`no table row for ${title}`)
+    fireEvent.click(within(row).getByRole('button', { name: 'Upload new version' }))
+    await waitFor(() => expect(screen.getByText('Upload a new version')).toBeDefined())
+}
+
+// Mantine's FileInput hides the real input behind a button, so the file goes in directly.
+const chooseFile = (name: string) => {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['pdf bytes'], name, { type: 'application/pdf' })] } })
+}
+
 describe('StudyLevelAgreements', () => {
     it('shows a published agreement with its study, orgs and the signed date as stored', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
@@ -76,30 +91,53 @@ describe('StudyLevelAgreements', () => {
         expect(screen.getByText('2026-07-27')).toBeDefined()
     })
 
-    it('offers a new version for a study that already has an SLA, with the cascade skipped', async () => {
+    it('carries the study over when adding a version, collecting only a date and file', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const title = `SLA study ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
 
         renderWithProviders(<StudyLevelAgreements />)
 
-        // Scoped to this study's row: the table shows every SLA the suite has seeded.
-        await waitFor(() => expect(screen.getByText(title)).toBeDefined())
-        const row = screen.getByText(title).closest('tr')
-        if (!row) throw new Error(`no table row for ${title}`)
-        fireEvent.click(within(row).getByRole('button', { name: 'Upload new version' }))
+        await openNewVersionFor(title)
 
-        await waitFor(() => expect(screen.getByText('Upload a new version')).toBeDefined())
-        // The study is fixed, so there is nothing to pick — only a signing date.
+        // The study is fixed, so there is nothing to pick and no step to advance through.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
         expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
-        expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+        expect(screen.getByText('Signed agreement')).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).not.toBeDisabled())
+        chooseFile('signed-sla.pdf')
 
-        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-        await waitFor(() => expect(screen.getByText('Signed agreement')).toBeDefined())
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
+    })
+
+    it('lists the study, orgs, date and file in the publish confirmation', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const title = `SLA study ${faker.string.alpha(6)}`
+        const { dataPartner, researchLab } = await seedSignedSla({ signedAt: '2026-07-27', title })
+
+        renderWithProviders(<StudyLevelAgreements />)
+
+        await openNewVersionFor(title)
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+        chooseFile('signed-sla.pdf')
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+
+        // Both modals are open at once, so the assertions are scoped to the confirmation.
+        const confirmation = await waitFor(() => {
+            const dialog = screen.getAllByRole('dialog').find((el) => within(el).queryByText('Publish this file?'))
+            if (!dialog) throw new Error('confirmation modal did not open')
+            return dialog
+        })
+
+        expect(within(confirmation).getByText(title)).toBeDefined()
+        expect(within(confirmation).getByText(researchLab.name)).toBeDefined()
+        expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
+        expect(within(confirmation).getByText('2026-08-03')).toBeDefined()
+        expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
     })
 
     it('opens the upload modal and keeps Next disabled until a study and date are chosen', async () => {

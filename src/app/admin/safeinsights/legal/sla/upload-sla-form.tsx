@@ -2,29 +2,27 @@
 
 import { useMutation, useQuery, useQueryClient, type FC } from '@/common'
 import { reportError } from '@/components/errors'
+import { AppModal } from '@/components/modals/app-modal'
 import { uploadFiles } from '@/hooks/upload'
 import type { ActionSuccessType } from '@/lib/types'
+import { actionResult } from '@/lib/utils'
 import {
     createLegalDocumentDraftAction,
     fetchStudiesAwaitingSlaAction,
+    fetchStudyLevelAgreementsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { actionResult } from '@/lib/utils'
-import { Button, FileInput, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Button, FileInput, Group, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
 
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
+type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
 
-// A study that already has a published SLA, so the cascade is skipped and only a date is collected.
-export type SupersededSla = {
-    studyId: string
-    studyTitle: string | null
-    researchLabName: string
-    dataPartnerName: string
-    versionNumber: number | null
-}
+// What it takes to name the study being published against. A row from the table and a study picked
+// through the cascade both satisfy it, so the rest of the form does not care which one it has.
+type StudyDetails = Pick<Sla, 'studyId' | 'studyTitle' | 'researchLabName' | 'dataPartnerName'>
 
 const toOptions = (pairs: [string, string][]) =>
     R.pipe(
@@ -80,6 +78,8 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
         chooseDataPartner,
         chooseResearchLab,
         setStudyId,
+        // The chosen row already carries the names, so nothing has to be looked up to describe it.
+        selected: candidates.find((c: Candidate) => c.studyId === studyId),
     }
 }
 
@@ -112,18 +112,6 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
     })
 }
 
-// Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day early west of
-// the server.
-const SignedOnInput: FC<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => (
-    <TextInput
-        type="date"
-        label="Signed on"
-        description="The date the signatories signed the agreement"
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-    />
-)
-
 const ReadOnlyField: FC<{ label: string; value: string }> = ({ label, value }) => (
     <Stack gap={2}>
         <Text size="sm" fw={500}>
@@ -133,16 +121,20 @@ const ReadOnlyField: FC<{ label: string; value: string }> = ({ label, value }) =
     </Stack>
 )
 
-const CascadeStep: FC<{
+const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
+    <>
+        <ReadOnlyField label="Study" value={details.studyTitle || details.studyId} />
+        <ReadOnlyField label="Research Lab" value={details.researchLabName} />
+        <ReadOnlyField label="Data Partner" value={details.dataPartnerName} />
+    </>
+)
+
+const StudyStep: FC<{
     isVisible: boolean
     candidates: ReturnType<typeof useSlaCandidates>
-    signedAt: string
-    onSignedAtChange: (value: string) => void
     onNext: () => void
-}> = ({ isVisible, candidates, signedAt, onSignedAtChange, onNext }) => {
+}> = ({ isVisible, candidates, onNext }) => {
     if (!isVisible) return null
-
-    const canContinue = Boolean(candidates.studyId && signedAt)
 
     return (
         <Stack>
@@ -174,9 +166,8 @@ const CascadeStep: FC<{
                 disabled={!candidates.researchLabId}
                 searchable
             />
-            <SignedOnInput value={signedAt} onChange={onSignedAtChange} />
             <Group justify="flex-end">
-                <Button onClick={onNext} disabled={!canContinue}>
+                <Button onClick={onNext} disabled={!candidates.studyId}>
                     Next
                 </Button>
             </Group>
@@ -184,45 +175,54 @@ const CascadeStep: FC<{
     )
 }
 
-const SupersedeStep: FC<{
-    isVisible: boolean
-    sla: SupersededSla | undefined
-    signedAt: string
-    onSignedAtChange: (value: string) => void
-    onNext: () => void
-}> = ({ isVisible, sla, signedAt, onSignedAtChange, onNext }) => {
-    if (!isVisible || !sla) return null
+const VersionNote: FC<{ sla: Sla | undefined }> = ({ sla }) => {
+    if (!sla) return null
 
     return (
-        <Stack>
-            <ReadOnlyField label="Data Partner" value={sla.dataPartnerName} />
-            <ReadOnlyField label="Research Lab" value={sla.researchLabName} />
-            <ReadOnlyField label="Study" value={sla.studyTitle || sla.studyId} />
-            <Text size="sm" c="dimmed">
-                This study is on version {sla.versionNumber ?? 1}. Publishing makes the new file the current agreement;
-                earlier versions stay in the record.
-            </Text>
-            <SignedOnInput value={signedAt} onChange={onSignedAtChange} />
-            <Group justify="flex-end">
-                <Button onClick={onNext} disabled={!signedAt}>
-                    Next
-                </Button>
-            </Group>
-        </Stack>
+        <Text size="sm" c="dimmed">
+            This study is on version {sla.versionNumber ?? 1}. Publishing makes the new file the current agreement;
+            earlier versions stay in the record.
+        </Text>
     )
 }
 
-const UploadStep: FC<{
-    isVisible: boolean
-    file: File | null
-    onFileChange: (file: File | null) => void
-    onPublish: () => void
-    onBack: () => void
-}> = ({ isVisible, file, onFileChange, onPublish, onBack }) => {
+// There is nowhere to go back to when the study came from the table rather than the cascade.
+const BackButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
     if (!isVisible) return null
 
     return (
+        <Button variant="subtle" onClick={onClick}>
+            Back
+        </Button>
+    )
+}
+
+const AgreementStep: FC<{
+    isVisible: boolean
+    details: StudyDetails | undefined
+    sla: Sla | undefined
+    signedAt: string
+    file: File | null
+    onSignedAtChange: (value: string) => void
+    onFileChange: (file: File | null) => void
+    onPublish: () => void
+    onBack: () => void
+}> = ({ isVisible, details, sla, signedAt, file, onSignedAtChange, onFileChange, onPublish, onBack }) => {
+    if (!isVisible || !details) return null
+
+    return (
         <Stack>
+            <StudyFields details={details} />
+            <VersionNote sla={sla} />
+            {/* Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day
+                early west of the server. */}
+            <TextInput
+                type="date"
+                label="Signed on"
+                description="The date the signatories signed the agreement"
+                value={signedAt}
+                onChange={(event) => onSignedAtChange(event.currentTarget.value)}
+            />
             <FileInput
                 label="Signed agreement"
                 description="Upload the signed SLA as a PDF"
@@ -231,11 +231,9 @@ const UploadStep: FC<{
                 value={file}
                 onChange={onFileChange}
             />
-            <Group justify="space-between">
-                <Button variant="subtle" onClick={onBack}>
-                    Back
-                </Button>
-                <Button onClick={onPublish} disabled={!file}>
+            <Group justify="flex-end">
+                <BackButton isVisible={!sla} onClick={onBack} />
+                <Button onClick={onPublish} disabled={!signedAt || !file}>
                     Publish
                 </Button>
             </Group>
@@ -243,61 +241,79 @@ const UploadStep: FC<{
     )
 }
 
-export const UploadSlaForm: FC<{ onCompleteAction: () => void; supersedes?: SupersededSla }> = ({
-    onCompleteAction,
-    supersedes,
-}) => {
-    const candidates = useSlaCandidates({ enabled: !supersedes })
+// Publishing cannot be undone, so the confirmation repeats everything that is about to be written.
+const ConfirmPublishModal: FC<{
+    opened: boolean
+    details: StudyDetails | undefined
+    signedAt: string
+    file: File | null
+    isPending: boolean
+    onCancel: () => void
+    onConfirm: () => void
+}> = ({ opened, details, signedAt, file, isPending, onCancel, onConfirm }) => {
+    if (!details) return null
+
+    return (
+        <AppModal isOpen={opened} onClose={onCancel} title="Publish this file?" zIndex={400}>
+            <Stack>
+                <StudyFields details={details} />
+                <ReadOnlyField label="Signed on" value={signedAt} />
+                <ReadOnlyField label="File" value={file?.name ?? ''} />
+                <Text>Are you sure you want to publish this file? This cannot be undone.</Text>
+                <Group justify="flex-end">
+                    <Button variant="subtle" onClick={onCancel}>
+                        Cancel
+                    </Button>
+                    <Button onClick={onConfirm} loading={isPending}>
+                        Yes, publish
+                    </Button>
+                </Group>
+            </Stack>
+        </AppModal>
+    )
+}
+
+// Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
+// and only a new date and file are collected. Without one, the study is picked first.
+export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({ onCompleteAction, sla }) => {
+    const candidates = useSlaCandidates({ enabled: !sla })
     const [signedAt, setSignedAt] = useState('')
     const [file, setFile] = useState<File | null>(null)
-    const [step, setStep] = useState<'details' | 'upload'>('details')
+    const [step, setStep] = useState<'study' | 'agreement'>(sla ? 'agreement' : 'study')
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
     const { mutate: uploadSla, isPending } = useUploadSla({ onComplete: onCompleteAction })
 
-    const studyId = supersedes?.studyId ?? candidates.studyId
+    const details = sla ?? candidates.selected
 
     const publish = () => {
         stopConfirming()
-        if (!studyId || !file) return
-        uploadSla({ studyId, signedAt, file })
+        if (!details || !file) return
+        uploadSla({ studyId: details.studyId, signedAt, file })
     }
 
     return (
         <Stack>
-            <CascadeStep
-                isVisible={step === 'details' && !supersedes}
-                candidates={candidates}
+            <StudyStep isVisible={step === 'study'} candidates={candidates} onNext={() => setStep('agreement')} />
+            <AgreementStep
+                isVisible={step === 'agreement'}
+                details={details}
+                sla={sla}
                 signedAt={signedAt}
-                onSignedAtChange={setSignedAt}
-                onNext={() => setStep('upload')}
-            />
-            <SupersedeStep
-                isVisible={step === 'details'}
-                sla={supersedes}
-                signedAt={signedAt}
-                onSignedAtChange={setSignedAt}
-                onNext={() => setStep('upload')}
-            />
-            <UploadStep
-                isVisible={step === 'upload'}
                 file={file}
+                onSignedAtChange={setSignedAt}
                 onFileChange={setFile}
                 onPublish={askForConfirmation}
-                onBack={() => setStep('details')}
+                onBack={() => setStep('study')}
             />
-            <Modal opened={confirming} onClose={stopConfirming} title="Publish this file?" zIndex={400}>
-                <Stack>
-                    <Text>Are you sure you want to publish this file? This cannot be undone.</Text>
-                    <Group justify="flex-end">
-                        <Button variant="subtle" onClick={stopConfirming}>
-                            Cancel
-                        </Button>
-                        <Button onClick={publish} loading={isPending}>
-                            Yes, publish
-                        </Button>
-                    </Group>
-                </Stack>
-            </Modal>
+            <ConfirmPublishModal
+                opened={confirming}
+                details={details}
+                signedAt={signedAt}
+                file={file}
+                isPending={isPending}
+                onCancel={stopConfirming}
+                onConfirm={publish}
+            />
         </Stack>
     )
 }
