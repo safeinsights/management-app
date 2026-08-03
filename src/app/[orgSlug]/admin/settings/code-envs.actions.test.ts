@@ -16,7 +16,7 @@ import {
 } from './code-envs.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
-import { codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
+import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import { OrgCodeEnvSettings } from '@/database/types'
 
@@ -226,6 +226,113 @@ describe('Code Environment Actions', () => {
         })
 
         expect(isActionError(result)).toBe(true)
+    })
+
+    // A denied ability check stringifies the whole CASL subject — every middleware key —
+    // into the error it returns to the caller. Loading the prior row in middleware put
+    // its plaintext env var values in that message.
+    it('updateOrgCodeEnvAction does not leak env var values to a denied non-admin', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: org.id,
+                name: 'Holds a secret',
+                identifier: 'secret_holder',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: org.slug,
+            codeEnvId: codeEnv.id,
+            name: 'Attempted Update',
+            identifier: 'secret_holder',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: 'test-url',
+            isTesting: false,
+            settings: { environment: [] },
+            dataSourceIds: [],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('super-secret-value')
+    })
+
+    it('updateOrgCodeEnvAction does not leak another org env var values', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-env-leak' })
+
+        const otherEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: otherOrg.id,
+                name: 'Other org secret',
+                identifier: 'other_secret',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'DB_PASSWORD', value: 'other-org-secret-value' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        // An admin of their OWN org: the only thing standing between them and another
+        // org's row is the ability check, since the middleware looks the row up by the
+        // client-supplied orgSlug and codeEnvId.
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: otherOrg.slug,
+            codeEnvId: otherEnv.id,
+            name: 'Attempted Update',
+            identifier: 'other_secret',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: 'test-url',
+            isTesting: false,
+            settings: { environment: [] },
+            dataSourceIds: [],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('other-org-secret-value')
+    })
+
+    it('deleteOrgCodeEnvAction does not leak another org env var values', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-delete-leak' })
+
+        const otherEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: otherOrg.id,
+                name: 'Other org secret to delete',
+                identifier: 'other_delete_secret',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: true,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'API_KEY', value: 'other-org-delete-secret' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await deleteOrgCodeEnvAction({ orgSlug: otherOrg.slug, codeEnvId: otherEnv.id })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('other-org-delete-secret')
     })
 
     it('updateOrgCodeEnvAction allows SI admin to update even if not org admin', async () => {
@@ -813,7 +920,16 @@ describe('Code Environment audit logging', () => {
 
         const entries = await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')
         const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
-        expect(metadata.changes).toEqual([{ field: 'settings', before: { environment: [] }, after: settings }])
+        expect(metadata.changes).toEqual([
+            {
+                field: 'settings',
+                before: { environment: [] },
+                after: { environment: [{ name: 'API_KEY', value: REDACTED_ENV_VALUE }] },
+            },
+        ])
+        // The audit row is append-only and outlives any rotation, so the value must never
+        // reach it — only the name, which is what identifies the change.
+        expect(JSON.stringify(entries[0].metadata)).not.toContain('secret')
     })
 
     it('records nothing when a save changes nothing', async () => {

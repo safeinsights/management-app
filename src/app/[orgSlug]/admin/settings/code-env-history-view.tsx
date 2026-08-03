@@ -136,3 +136,11 @@ export const CodeEnvHistoryEmpty: React.FC<{ isVisible: boolean }> = ({ isVisibl
     if (!isVisible) return null
     return <Text c="dimmed">No changes have been recorded for this code environment yet.</Text>
 }
+
+// Distinct from the empty state on purpose: "nobody changed this" and "we could not tell you
+// who changed this" are opposite answers, and an investigation that trusts the former when
+// the latter is true reaches the wrong conclusion.
+export const CodeEnvHistoryError: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <Text c="red">Could not load the change history for this code environment. Please try again.</Text>
+}

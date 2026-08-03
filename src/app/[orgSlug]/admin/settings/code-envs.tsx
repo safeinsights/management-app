@@ -14,7 +14,7 @@ import {
     ClockCounterClockwiseIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
-import { CodeEnvHistoryEmpty, CodeEnvHistoryTable } from './code-env-history-view'
+import { CodeEnvHistoryEmpty, CodeEnvHistoryError, CodeEnvHistoryTable } from './code-env-history-view'
 import { useCodeEnvHistory } from './use-code-env-history'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
@@ -151,7 +151,11 @@ const CodeEnvRow: React.FC<{
 
     // Deferred until the modal opens so listing the environments does not also fetch
     // every row's history.
-    const { entries: history, isLoading: isLoadingHistory } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
+    const {
+        entries: history,
+        isLoading: isLoadingHistory,
+        isError: isHistoryError,
+    } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
 
     const handleEditComplete = () => {
         closeEditModal()
@@ -264,7 +268,8 @@ const CodeEnvRow: React.FC<{
             </AppModal>
             <AppModal isOpen={historyOpened} onClose={closeHistory} title={`History: ${image.name}`} size="xl">
                 <LoadingMessage message="Loading history..." isVisible={isLoadingHistory} />
-                <CodeEnvHistoryEmpty isVisible={!isLoadingHistory && history.length === 0} />
+                <CodeEnvHistoryError isVisible={!isLoadingHistory && isHistoryError} />
+                <CodeEnvHistoryEmpty isVisible={!isLoadingHistory && !isHistoryError && history.length === 0} />
                 <CodeEnvHistoryTable isVisible={!isLoadingHistory && history.length > 0} entries={history} />
             </AppModal>
         </>

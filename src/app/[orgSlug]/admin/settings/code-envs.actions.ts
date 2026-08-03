@@ -199,10 +199,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => {
         const { codeEnv, orgId } = await codeEnvFromOrgAndId(args)
-        // Namespaced rather than flattened: the handler already destructures several of
-        // these columns as prev*, and every middleware key is fed into the CASL subject.
-        const priorCodeEnv = await priorCodeEnvFor(args.db, codeEnv.id)
-        return { ...codeEnv, orgId, priorCodeEnv }
+        return { ...codeEnv, orgId }
     })
     .requireAbilityTo('update', 'Org')
     // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
@@ -216,7 +213,6 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             identifier: prevIdentifier,
             orgSlug: prevOrgSlug,
             orgId,
-            priorCodeEnv,
             db,
             session,
         }) => {
@@ -230,6 +226,12 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 dataSourceIds,
                 ...fieldValues
             } = params
+
+            // Loaded here rather than in middleware: every middleware key is fed into the
+            // CASL subject, and a failed ability check returns that subject to the caller
+            // JSON-stringified. In middleware this row's `settings.environment` — plaintext
+            // env var values — would leak to anyone the check then denies.
+            const priorCodeEnv = await priorCodeEnvFor(db, codeEnvId)
 
             if (dataSourceIds.length > 0) {
                 const matched = await db
@@ -414,13 +416,15 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .where('orgCodeEnv.id', '=', codeEnvId)
             .executeTakeFirstOrThrow()
 
-        // Captured before the row is destroyed so the audit entry records its final state.
-        const priorCodeEnv = await priorCodeEnvFor(db, codeEnv.id)
-
-        return { ...codeEnv, priorCodeEnv }
+        return { ...codeEnv }
     })
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params: { orgSlug }, db, priorCodeEnv, session, ...codeEnv }) => {
+    .handler(async ({ params: { orgSlug }, db, session, ...codeEnv }) => {
+        // Captured before the row is destroyed so the audit entry records its final state.
+        // Loaded here rather than in middleware for the same reason as the update action:
+        // middleware keys reach the caller in a denied ability check's error message.
+        const priorCodeEnv = await priorCodeEnvFor(db, codeEnv.id)
+
         if (!codeEnv.isTesting) {
             const nonTesting = await db
                 .selectFrom('orgCodeEnv')

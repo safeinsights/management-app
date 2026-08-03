@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { codeEnvAuditMetadataSchema, diffFields } from './audit-diff'
+import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema, diffFields } from './audit-diff'
 
 // Mirrors the shape of the audited orgCodeEnv columns. Declared explicitly so the
 // generic infers the full key set rather than narrowing to whichever keys a given
@@ -36,11 +36,35 @@ describe('diffFields', () => {
         expect(diffFields<Row>(before, after, FIELDS)).toEqual([])
     })
 
+    // The change is still detected even though neither value is recorded: comparison runs on
+    // the real values, redaction applies only to what gets written.
     it('detects a changed value inside settings.environment', () => {
         const before = { settings: { environment: [{ name: 'KEY', value: 'a' }] } }
         const after = { settings: { environment: [{ name: 'KEY', value: 'b' }] } }
         expect(diffFields<Row>(before, after, FIELDS)).toEqual([
-            { field: 'settings', before: before.settings, after: after.settings },
+            {
+                field: 'settings',
+                before: { environment: [{ name: 'KEY', value: REDACTED_ENV_VALUE }] },
+                after: { environment: [{ name: 'KEY', value: REDACTED_ENV_VALUE }] },
+            },
+        ])
+    })
+
+    it('keeps env var names but never records their values', () => {
+        const before = { settings: { environment: [] } }
+        const after = { settings: { environment: [{ name: 'DB_PASSWORD', value: 'hunter2' }] } }
+
+        const changes = diffFields<Row>(before, after, FIELDS)
+
+        expect(JSON.stringify(changes)).not.toContain('hunter2')
+        expect(JSON.stringify(changes)).toContain('DB_PASSWORD')
+    })
+
+    it('leaves non-settings fields untouched', () => {
+        const before = { commandLines: { r: 'old' } }
+        const after = { commandLines: { r: 'new' } }
+        expect(diffFields<Row>(before, after, FIELDS)).toEqual([
+            { field: 'commandLines', before: { r: 'old' }, after: { r: 'new' } },
         ])
     })
 
