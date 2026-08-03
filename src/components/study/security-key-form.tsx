@@ -26,6 +26,7 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
                 />
                 <SecurityKeyInput
                     ref={inputRef}
+                    placeholder="Enter your security key"
                     value={value}
                     onChange={(event) => setValue(event.currentTarget.value)}
                     error={error}
