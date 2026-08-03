@@ -66,4 +66,15 @@ describe('CodeEvaluationSection', () => {
         await user.click(noRadios[1])
         expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
     })
+
+    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper, so the group
+    // that screen readers actually see was left unnamed. Asserting on the accessible name rather
+    // than the attribute, since the attribute can be present and still reach nothing.
+    it('names every criterion radiogroup after its visible criterion text', () => {
+        renderSection()
+
+        for (const descriptor of CODE_REVIEW_CRITERIA) {
+            expect(screen.getByRole('radiogroup', { name: descriptor.label })).toBeInTheDocument()
+        }
+    })
 })

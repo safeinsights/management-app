@@ -336,7 +336,10 @@ const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
-        piUserId: z.string().nullable().optional(),
+        // Nullable/optional for drafts, but a supplied value must be a real user id: the
+        // client cannot validate this (no field displays it), so submit is the enforcement
+        // point (OTTER-647).
+        piUserId: z.string().uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),

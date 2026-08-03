@@ -25,10 +25,11 @@ import { SaveStatusIndicator } from '@/components/save-status'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+import { widgetBlurHandler } from '@/components/form-field'
 
-function SaveStatus({ provider }: { provider: HocuspocusProvider | null }) {
+function SaveStatus({ provider, isVisible }: { provider: HocuspocusProvider | null; isVisible: boolean }) {
     const status = useProviderSaveStatus(provider)
-    return <SaveStatusIndicator status={status} />
+    return <SaveStatusIndicator status={status} isVisible={isVisible} />
 }
 
 type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
@@ -181,6 +182,20 @@ export type CollaborativeEditorProps = {
     ariaLabel?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
+    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    inputId?: string
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
+    /** Id(s) of the description/error nodes describing this editor. */
+    ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
+    /** Fires only when focus leaves the whole editor, toolbar included. */
+    onBlur?: () => void
     /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
      * again with null on teardown. Consumers (e.g. siblings that need to
@@ -236,6 +251,11 @@ export function CollaborativeEditor({
     ariaLabel,
     onChange,
     footerRight,
+    inputId,
+    error,
+    ariaDescribedBy,
+    ariaRequired,
+    onBlur,
     onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
@@ -344,11 +364,24 @@ export function CollaborativeEditor({
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
-                    style={{ overflow: 'hidden', position: 'relative' }}
+                    style={{
+                        overflow: 'hidden',
+                        position: 'relative',
+                        borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+                    }}
+                    onBlur={onBlur ? widgetBlurHandler(onBlur) : undefined}
                 >
                     <RichTextPlugin
                         contentEditable={
-                            <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                            <ContentEditable
+                                id={inputId}
+                                className={contentClassName}
+                                style={contentStyle}
+                                ariaLabel={ariaLabel}
+                                ariaDescribedBy={ariaDescribedBy}
+                                ariaInvalid={error ? true : undefined}
+                                ariaRequired={ariaRequired}
+                            />
                         }
                         placeholder={
                             placeholder ? (
@@ -387,7 +420,7 @@ export function CollaborativeEditor({
                 </Paper>
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
-                        <SaveStatus provider={activeProvider} />
+                        <SaveStatus provider={activeProvider} isVisible={!error} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />

@@ -4,10 +4,6 @@ import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
-export function hasUserProvidedTitle(title: string | undefined | null): boolean {
-    return !!title?.trim()
-}
-
 export const WORD_LIMITS = {
     title: 20,
     researchQuestions: 500,
@@ -30,52 +26,81 @@ function maxWordsLexicalRefine(maxWords: number) {
     }
 }
 
-export const proposalFormSchema = z.object({
-    title: z
-        .string()
-        .min(1, { message: REQUIRED_FIELD_ERROR })
-        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
-    researchQuestions: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).message,
-        }),
-    projectSummary: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.projectSummary).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.projectSummary).message,
-        }),
-    impact: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.impact).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.impact).message,
-        }),
-    additionalNotes: z
-        .string()
-        .refine((val) => !val || countWordsFromLexical(val) <= WORD_LIMITS.additionalNotes, {
-            message: WORD_LIMIT_ERROR,
-        })
-        .optional()
-        .default(''),
-    piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
-    piUserId: z.string().uuid({ message: REQUIRED_FIELD_ERROR }),
-})
+const PI_UNLINKED_ERROR = 'Select a Principal Investigator from the list.'
+
+/**
+ * Whether a PI id links to a real user. Shared with `missingProposalFields` so the submit gate and
+ * the outstanding-fields hint cannot drift: a non-empty id that is not a UUID fails the schema, so
+ * a hint that only checked for non-emptiness would leave submit disabled with nothing named.
+ */
+export const isLinkedPiUserId = (piUserId: string | undefined) => z.uuid().safeParse(piUserId).success
+
+export const proposalFormSchema = z
+    .object({
+        // trim() before min(1) so a whitespace-only title fails here rather than passing schema
+        // validation while a separate trimmed check silently disables submit (OTTER-647).
+        title: z
+            .string()
+            .trim()
+            .min(1, { message: REQUIRED_FIELD_ERROR })
+            .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+        datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
+        researchQuestions: z
+            .string()
+            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+                message: REQUIRED_FIELD_ERROR,
+            })
+            .refine(maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).check, {
+                message: maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).message,
+            }),
+        projectSummary: z
+            .string()
+            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+                message: REQUIRED_FIELD_ERROR,
+            })
+            .refine(maxWordsLexicalRefine(WORD_LIMITS.projectSummary).check, {
+                message: maxWordsLexicalRefine(WORD_LIMITS.projectSummary).message,
+            }),
+        impact: z
+            .string()
+            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+                message: REQUIRED_FIELD_ERROR,
+            })
+            .refine(maxWordsLexicalRefine(WORD_LIMITS.impact).check, {
+                message: maxWordsLexicalRefine(WORD_LIMITS.impact).message,
+            }),
+        additionalNotes: z
+            .string()
+            .refine((val) => !val || countWordsFromLexical(val) <= WORD_LIMITS.additionalNotes, {
+                message: WORD_LIMIT_ERROR,
+            })
+            .optional()
+            .default(''),
+        piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
+        // No rule of its own: no field displays piUserId, so an error on this path is one the user
+        // cannot see or clear while it still blocks submit (OTTER-647). `default` also absorbs the
+        // `undefined` that hydrating a draft with no PI yields, which a bare `z.string()` rejects.
+        piUserId: z.string().default(''),
+    })
+    // The PI must be a linked user, not just a name: downstream reviewer views key off piUserId to
+    // show the researcher profile, and a name without an id renders a PI with no profile. The issue
+    // is attached to `piName` because that is the path the Select displays, so the gate is
+    // enforceable without being invisible.
+    .superRefine((data, ctx) => {
+        if (data.piName && !isLinkedPiUserId(data.piUserId)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: PI_UNLINKED_ERROR, path: ['piName'] })
+        }
+    })
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 
 // The non-lexical proposal fields, synced individually through the Yjs fields map
 // (see useYjsFormMap). The lexical editor fields auto-save to Yjs continuously.
-export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piName', 'piUserId'] as const
+// `piUserId` before `piName`: the two are applied in this order when a Yjs document syncs, and
+// the cross-field rule below attaches its error to `piName`. Validating the name while the id
+// was still empty raised "Select a Principal Investigator from the list", and applying the id
+// afterwards only revalidated `piUserId`, leaving that error stranded beside a valid PI.
+export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piUserId', 'piName'] as const
 
 export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
 

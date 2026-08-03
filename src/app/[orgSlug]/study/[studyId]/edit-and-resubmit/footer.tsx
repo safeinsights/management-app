@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modals/app-modal'
@@ -12,7 +12,9 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
-import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { RESUBMIT_NOTE_MIN_WORDS, resubmissionNoteWordCount } from './schema'
+import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
+import { missingProposalFields } from '@/app/[orgSlug]/study/[studyId]/proposal/missing-fields'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -33,11 +35,19 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
     const isBusy = isSavingNote || isSaving || isSubmitting
 
-    const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
-    const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
+    const isFormValid = form.isValid() && noteForm.isValid()
+    const missingFields = [
+        ...missingProposalFields(form.values),
+        // Only an empty note is missing. An over-long one is present but invalid, and already
+        // shows its own word-limit message; calling it "required" contradicted that.
+        ...(resubmissionNoteWordCount(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS
+            ? ['Resubmission Note']
+            : []),
+    ]
 
     const handleBack = async () => {
         // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
@@ -54,7 +64,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
 
     return (
         <>
-            <Group mt="xs" justify="space-between" w="100%">
+            <Group mt="xs" justify="space-between" align="flex-start" w="100%">
                 <Button
                     type="button"
                     variant="subtle"
@@ -66,19 +76,22 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 >
                     Back
                 </Button>
-                <Group>
+                <Group align="flex-start">
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
                         View as reviewer
                     </Button>
-                    <Button
-                        size="md"
-                        variant="primary"
-                        disabled={!isFormValid || isBusy}
-                        loading={isSubmitting}
-                        onClick={openConfirm}
-                    >
-                        Resubmit initial request
-                    </Button>
+                    <Stack gap={4} align="flex-end">
+                        <Button
+                            size="md"
+                            variant="primary"
+                            disabled={!isFormValid || isBusy}
+                            loading={isSubmitting}
+                            onClick={openConfirm}
+                        >
+                            Resubmit initial request
+                        </Button>
+                        <IncompleteFieldsHint missing={missingFields} />
+                    </Stack>
                 </Group>
             </Group>
 

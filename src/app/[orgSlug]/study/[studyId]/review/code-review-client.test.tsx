@@ -72,6 +72,8 @@ describe('CodeReviewClient decision selector', () => {
         mockUseReviewFeedback.mockReturnValue({
             value: 'sample feedback body',
             onChange: vi.fn(),
+            onBlur: vi.fn(),
+            error: null,
             wordCount: 100,
             minWords: 50,
             maxWords: 500,

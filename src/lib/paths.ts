@@ -51,6 +51,10 @@ export const pathForJobScanArtifacts = (parts: { studyJobId: string }) => `scan-
 export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
     `scan-artifacts/code-env/${parts.codeEnvId}`
 
+// The invite email and the QA provisioning API both hand out this link; keep it in one place
+// so they cannot drift. Callers prefix APP_BASE_URL to make it absolute.
+export const pathForInvitation = (inviteId: string) => `/account/invitation/${inviteId}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 

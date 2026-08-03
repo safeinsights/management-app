@@ -6,6 +6,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
+import { fieldDescribedBy, fieldErrorId } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
@@ -85,6 +86,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                     </Text>
                     <Editor
                         id={proposalResubmissionNoteDocNameForVersion(studyId, noteVersion)}
+                        inputId="resubmissionNote"
                         studyId={studyId}
                         initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
@@ -92,12 +94,21 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         placeholder={PLACEHOLDER_TEXT}
                         ariaLabel="Resubmission Note"
                         onChange={onNoteChange}
+                        onBlur={() => noteForm.validateField('resubmissionNote')}
+                        error={error}
+                        ariaRequired
+                        ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
+                            hasError: !!error,
+                            hasDescription: false,
+                        })}
                         footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        <InputError error={error} />
-                        <SingleUserSaveStatus isVisible={singleUserEditing} autosaveStatus={autosaveStatus} />
+                        <Box id={fieldErrorId('resubmissionNote')}>
+                            <InputError error={error} />
+                        </Box>
+                        <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
                     </Group>
                 </Box>
             </Stack>

@@ -96,7 +96,10 @@ describe('CodeEnvs', async () => {
         })
     })
 
-    it('surfaces malformed env var errors in the summary above submit', { timeout: 15000 }, async () => {
+    // OTTER-647: a malformed variable name is now rejected on the field the admin typed into
+    // when they click "+", instead of being accepted into the list and only surfacing later in
+    // the generic summary above Save, where nothing said which row was at fault.
+    it('rejects a malformed env var name on the field itself', { timeout: 15000 }, async () => {
         renderWithProviders(<CodeEnvs />)
 
         fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
@@ -105,17 +108,17 @@ describe('CodeEnvs', async () => {
             expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
         })
 
-        // Add an env var whose name is invalid (starts with a digit) into the list
+        // A name starting with a digit is invalid per envVarKeyRegex.
         await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
         await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
         await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
 
-        await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
-
-        await waitFor(() => {
-            expect(screen.getByText(/Please fix the following before saving/i)).toBeInTheDocument()
-            expect(screen.getByText(/Invalid variable name/i)).toBeInTheDocument()
-        })
+        // Rendered both inline on the field and in the summary above Save.
+        expect((await screen.findAllByText(/Invalid variable name/i)).length).toBeGreaterThan(0)
+        const nameInput = screen.getByPlaceholderText(/Variable name/i)
+        expect(nameInput).toHaveAttribute('aria-invalid', 'true')
+        // The row was not added, so the draft value is still in the input.
+        expect(nameInput).toHaveValue('1BAD')
     })
 
     it('hides delete when there is only one code environment', async () => {
@@ -241,5 +244,45 @@ describe('CodeEnvs', async () => {
         expect(screen.getAllByText('Env Vars').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
         expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
+    })
+
+    describe('change history', () => {
+        it('shows recorded changes when the history icon is clicked', async () => {
+            const codeEnv = await insertTestCodeEnv({ orgId: org.id, name: 'Audited Env', language: 'R' })
+            const { user } = await mockSessionWithTestData({ isAdmin: true, orgSlug: org.slug })
+
+            await db
+                .insertInto('audit')
+                .values({
+                    userId: user.id,
+                    eventType: 'UPDATED',
+                    recordType: 'CODE_ENV',
+                    recordId: codeEnv.id,
+                    metadata: { changes: [{ field: 'url', before: 'repo/img:v1', after: 'repo/img:v2' }] },
+                })
+                .execute()
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Audited Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for audited env/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toBeInTheDocument()
+            })
+            expect(await screen.findByText(/repo\/img:v1/)).toBeInTheDocument()
+            expect(screen.getByText(/repo\/img:v2/)).toBeInTheDocument()
+        })
+
+        it('shows an empty state when nothing has been recorded', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Untouched Env', language: 'R' })
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Untouched Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for untouched env/i }))
+
+            expect(await screen.findByText(/no changes have been recorded/i)).toBeInTheDocument()
+        })
     })
 })

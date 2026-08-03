@@ -18,7 +18,7 @@ export type AuditEventType =
     | 'RESET_PASSWORD'
     | 'UPDATED'
 
-export type AuditRecordType = 'STUDY' | 'USER'
+export type AuditRecordType = 'CODE_ENV' | 'STUDY' | 'USER'
 
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>

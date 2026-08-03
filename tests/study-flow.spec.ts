@@ -307,52 +307,43 @@ async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<
     await page.waitForURL('**/dashboard')
 }
 
-async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
+// OTTER-667: the errored screen now uses the SecurityKeyForm (decrypt only).
+// The post-decryption approve flow is OTTER-675; until then, verify decrypt succeeds.
+async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox')
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    // All-or-nothing: approving shares every decrypted artifact (results + logs) with the
-    // researcher — no per-file selection. Approve directly once decrypted.
-    const approveButton = page.getByRole('button', { name: /approve/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
-
-    // Full reload clears the Router Cache so the details re-fetch from the DB.
-    await goto(page, REVIEWER_DASHBOARD)
-    await viewStudyDetails(page, studyTitle)
-    await page.waitForURL(/\/review$/)
-    await expect(page.getByText(/Approved on/).last()).toBeVisible()
+    await expect(page.getByText('Security key accepted.')).toBeVisible()
 }
 
-async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
-    await visitAsRole(page, RESEARCHER_DASHBOARD)
-
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-    await expect(studyRow.getByText(/Errored/i)).toBeVisible()
-
-    await viewStudyDetails(page, studyTitle)
-
-    await expect(page.getByText(/The code errored/i)).toBeVisible()
-    await expect(page.getByText(/Job ID/i)).toBeVisible()
-
-    // Verify logs row exists in the results table (JobResults now renders EncryptedFilesPanel,
-    // which lists the log artifact by its file-type label before decryption).
-    await expect(page.getByText('Code Run Log')).toBeVisible()
-}
+// OTTER-675: restore once the reviewer approve flow is built — the researcher's
+// errored view is gated on file approval (awaitingFilesDecisionOnError).
+// async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+//     await visitAsRole(page, RESEARCHER_DASHBOARD)
+//
+//     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+//     await expect(studyRow.getByText(/Errored/i)).toBeVisible()
+//
+//     await viewStudyDetails(page, studyTitle)
+//
+//     await expect(page.getByText(/The code errored/i)).toBeVisible()
+//     await expect(page.getByText(/Job ID/i)).toBeVisible()
+//
+//     await expect(page.getByText('Code Run Log')).toBeVisible()
+// }
 
 // ============================================================================
 // Tests
@@ -465,20 +456,20 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer error-log decrypt+approve surface and the researcher
-// errored-status view. Seeds a JOB-READY job, uploads an encrypted error log.
+// OTTER-667: reviewer decrypts error logs on the new errored-outputs screen.
+// OTTER-675: uncomment the researcher step once the approve flow is built.
 test('Error log review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('error-log')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadErrorLogs(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesErrorLogs(page, studyTitle)
+        await reviewerDecryptsErrorLogs(page, studyTitle)
     })
 
-    await withRole(browser, 'researcher', async (page) => {
-        await verifyFailedStatusDisplay(page, studyTitle)
-    })
+    // await withRole(browser, 'researcher', async (page) => {
+    //     await verifyFailedStatusDisplay(page, studyTitle)
+    // })
 })
 
 // Owns the reviewer reject-proposal surface + the researcher rejected-proposal view.
@@ -770,5 +761,56 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
         await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
+    })
+})
+
+// ============================================================================
+// Required-field blur validation (OTTER-647)
+// ============================================================================
+
+// Owns the blur-validation surface: leaving a required field incomplete must flag it
+// rather than silently disabling submit. Drives Step 1 and Step 2 live because the
+// behavior is the interaction itself and cannot be seeded.
+test('Incomplete required fields are flagged when the researcher moves on', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('blur-validation')
+
+    await withRole(browser, 'researcher', async (page) => {
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+
+        const newStudyButton = page.getByTestId('new-study').first()
+        await newStudyButton.waitFor({ state: 'visible' })
+        await newStudyButton.click()
+        await page.waitForURL(/\/study\/request$/)
+
+        // Step 1: nothing is flagged before the researcher interacts, and Proceed names
+        // what is still outstanding rather than being inertly disabled.
+        await expect(page.getByText('Data Partner is required')).toBeHidden()
+        const proceed = page.getByRole('button', { name: /Proceed to Step 2/i })
+        await expect(proceed).toBeDisabled()
+        await expect(page.getByTestId('incomplete-fields-hint')).toContainText(/Data Partner/i)
+
+        await selectOrgAndLanguage(page)
+        await expect(proceed).toBeEnabled()
+        await proceed.click()
+        await page.waitForURL(/\/proposal$/)
+
+        // Step 2: focusing the title and leaving it empty raises its error.
+        const title = page.getByLabel('Study Title')
+        await expect(page.getByText('This field is required.')).toBeHidden()
+        await title.click()
+        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await expect(page.getByText('This field is required.').first()).toBeVisible()
+
+        // ...and supplying a value clears it.
+        await page.keyboard.press('Escape')
+        await title.fill(studyTitle)
+        await expect(title).toHaveValue(studyTitle)
+        await expect(page.getByText('This field is required.')).toBeHidden()
+
+        // A whitespace-only title counts as incomplete.
+        await title.fill('   ')
+        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await page.keyboard.press('Escape')
+        await expect(page.getByText('This field is required.').first()).toBeVisible()
     })
 })

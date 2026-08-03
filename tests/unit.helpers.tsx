@@ -55,6 +55,18 @@ export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =
         .where('recordType', '=', recordType)
         .execute()
 
+// Separate from getAuditEntries because that one is used with toContainEqual, whose
+// exact-object matching would break on an extra metadata key.
+export const getAuditEntriesWithMetadata = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata', 'createdAt'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .execute()
+
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
@@ -205,14 +217,23 @@ export const insertTestStudyData = async ({
     }
 }
 
+/**
+ * A unique qa-prefixed address. The /api/qa routes only act on accounts whose email
+ * local part starts with "qa" (see assertQaEmail), since they run on production.
+ */
+export const qaEmail = () => `qa-${faker.string.alpha(10).toLowerCase()}@test.com`
+
 export const insertTestUser = async ({
     org,
     isAdmin = false,
     useRealKeys = false,
+    email,
 }: {
     org: MinimalTestOrg
     isAdmin?: boolean
     useRealKeys?: boolean
+    /** Override the generated address, e.g. to build a qa-prefixed account for the QA routes. */
+    email?: string
 }) => {
     const user = await db
         .insertInto('user')
@@ -220,7 +241,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: email ?? faker.internet.email({ provider: 'test.com' }),
         })
         .returningAll()
         .executeTakeFirstOrThrow()

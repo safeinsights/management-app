@@ -45,7 +45,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                 </Text>
                 <Grid align="center">
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Data Partner" inputId="studyOrg" />
+                        <FormFieldLabel label="Data Partner" required inputId="studyOrg" />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <Select
@@ -56,6 +56,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             placeholder="Select a Data Partner"
                             disabled={isExistingDraft || isLoading}
+                            aria-required="true"
                             {...form.getInputProps('orgSlug')}
                         />
                     </Grid.Col>

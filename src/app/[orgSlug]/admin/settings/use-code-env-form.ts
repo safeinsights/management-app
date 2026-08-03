@@ -14,6 +14,8 @@ import {
     createAthenaTablesAction,
 } from './code-envs.actions'
 import {
+    ENV_VAR_KEY_ERROR,
+    envVarKeyRegex,
     createOrgCodeEnvSchema,
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
@@ -87,7 +89,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     }
 
     const addCommandLine = (ext: string, cmd: string) => {
-        if (!ext || !cmd) return
+        if (!ext || !cmd) {
+            if (!ext) form.setFieldError('newCmdExt', 'File extension is required')
+            if (!cmd) form.setFieldError('newCmdValue', 'Command is required')
+            return
+        }
         form.setFieldValue('commandLines', { ...form.values.commandLines, [ext]: cmd })
         form.setFieldValue('newCmdExt', '')
         form.setFieldValue('newCmdValue', '')
@@ -102,17 +108,26 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         form.setFieldValue('commandLines', rest)
     }
 
+    // Both halves are required. Flagging the empty one beats returning silently, which left
+    // the user clicking "+" with nothing happening and no reason given (OTTER-647).
     const addEnvVar = () => {
-        if (!form.values.newEnvKey || !form.values.newEnvValue) return
+        const key = form.values.newEnvKey.trim()
+        const value = form.values.newEnvValue.trim()
+        if (!key || !value) {
+            if (!key) form.setFieldError('newEnvKey', 'Variable name is required')
+            if (!value) form.setFieldError('newEnvValue', 'Value is required')
+            return
+        }
+        if (!envVarKeyRegex.test(key)) {
+            form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
+            return
+        }
 
         form.setValues({
             ...form.values,
             settings: {
                 ...form.values.settings,
-                environment: [
-                    ...form.values.settings.environment,
-                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
-                ],
+                environment: [...form.values.settings.environment, { name: key, value }],
             },
             newEnvKey: '',
             newEnvValue: '',
@@ -208,14 +223,41 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
-            if (newEnvKey && newEnvValue) {
+            // Trim here rather than relying on the schema's transforms: Mantine's resolver
+            // validates transformed data, but this handler receives the raw form values, so
+            // 'FOO' paired with '   ' would otherwise read as complete and save the whitespace.
+            const envKey = newEnvKey.trim()
+            const envValue = newEnvValue.trim()
+            const cmdExt = newCmdExt.trim().toLowerCase().replace(/^\./, '')
+            const cmdValue = newCmdValue.trim()
+
+            // A draft pair with only one half filled would otherwise be discarded here, so
+            // the save appeared to succeed while losing the user's input (OTTER-647).
+            const halfEnvVar = Boolean(envKey) !== Boolean(envValue)
+            const halfCommand = Boolean(cmdExt) !== Boolean(cmdValue)
+            if (halfEnvVar || halfCommand) {
+                if (halfEnvVar) {
+                    form.setFieldError(envKey ? 'newEnvValue' : 'newEnvKey', 'Complete both fields or clear them')
+                }
+                if (halfCommand) {
+                    form.setFieldError(cmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
+                }
+                return
+            }
+
+            if (envKey && !envVarKeyRegex.test(envKey)) {
+                form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
+                return
+            }
+
+            if (envKey && envValue) {
                 values.settings = {
                     ...values.settings,
-                    environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+                    environment: [...values.settings.environment, { name: envKey, value: envValue }],
                 }
             }
-            if (newCmdExt && newCmdValue) {
-                values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
+            if (cmdExt && cmdValue) {
+                values.commandLines = { ...values.commandLines, [cmdExt]: cmdValue }
             }
             saveCodeEnv(values as CreateFormValues | EditFormValues)
         },

@@ -7,8 +7,15 @@ import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modals/app-modal'
 import { CodeEnvForm } from './code-env-form'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
-import { TrashIcon, PencilIcon, FileMagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
+import {
+    TrashIcon,
+    PencilIcon,
+    FileMagnifyingGlassIcon,
+    ClockCounterClockwiseIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
+import { CodeEnvHistoryEmpty, CodeEnvHistoryError, CodeEnvHistoryTable } from './code-env-history-view'
+import { useCodeEnvHistory } from './use-code-env-history'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
@@ -126,6 +133,7 @@ const CodeEnvRow: React.FC<{
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
     const [scanResultsOpened, { open: openScanResults, close: closeScanResults }] = useDisclosure(false)
+    const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
     const [detailOpened, { toggle: toggleDetail }] = useDisclosure(false)
     const [starterCode, setStarterCode] = useState<{ content: string; fileName: string } | null>(null)
     const [isLoadingCode, setIsLoadingCode] = useState(false)
@@ -141,9 +149,18 @@ const CodeEnvRow: React.FC<{
         onError: reportMutationError('Failed to delete code environment'),
     })
 
+    // Deferred until the modal opens so listing the environments does not also fetch
+    // every row's history.
+    const {
+        entries: history,
+        isLoading: isLoadingHistory,
+        isError: isHistoryError,
+    } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
+
     const handleEditComplete = () => {
         closeEditModal()
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
     }
 
     const handleViewCode = async (fileName?: string) => {
@@ -186,8 +203,25 @@ const CodeEnvRow: React.FC<{
                 actions={
                     <>
                         <Tooltip label="Edit" withArrow>
-                            <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
+                            <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="green"
+                                onClick={openEditModal}
+                                aria-label={`Edit ${image.name}`}
+                            >
                                 <PencilIcon />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="History" withArrow>
+                            <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="blue"
+                                onClick={openHistory}
+                                aria-label={`History for ${image.name}`}
+                            >
+                                <ClockCounterClockwiseIcon />
                             </ActionIcon>
                         </Tooltip>
                         <DeleteCodeEnv
@@ -231,6 +265,12 @@ const CodeEnvRow: React.FC<{
                 styles={{ body: { padding: 0 } }}
             >
                 <FileViewer path="scan-results.txt" text={image.latestScanResults || 'No results available.'} />
+            </AppModal>
+            <AppModal isOpen={historyOpened} onClose={closeHistory} title={`History: ${image.name}`} size="xl">
+                <LoadingMessage message="Loading history..." isVisible={isLoadingHistory} />
+                <CodeEnvHistoryError isVisible={!isLoadingHistory && isHistoryError} />
+                <CodeEnvHistoryEmpty isVisible={!isLoadingHistory && !isHistoryError && history.length === 0} />
+                <CodeEnvHistoryTable isVisible={!isLoadingHistory && history.length > 0} entries={history} />
             </AppModal>
         </>
     )
