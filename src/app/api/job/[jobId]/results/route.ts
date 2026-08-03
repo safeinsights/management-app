@@ -44,14 +44,14 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
     }
 
-    const stored: { isNew: boolean }[] = []
+    const deliveries: { isNew: boolean; stored: boolean }[] = []
 
     if (logs instanceof File) {
-        stored.push(await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG'))
+        deliveries.push(await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG'))
     }
 
     if (results instanceof File) {
-        stored.push(await storeStudyEncryptedResultsFile(info, results))
+        deliveries.push(await storeStudyEncryptedResultsFile(info, results))
     }
 
     // OTTER-642: an errored run ends at JOB-ERRORED and never reaches the RUN-COMPLETE guard above, so
@@ -60,9 +60,15 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     // refreshed in place above, and the run's outcome is announced only once. A delivery carrying
     // anything the job did not have (including the retry that completes a half-stored one) is not a
     // repeat and still records its status and email, so no delivery is ever permanently rejected.
-    const isRepeatDelivery = stored.length > 0 && stored.every((artifact) => !artifact.isNew)
+    const isRepeatDelivery = deliveries.length > 0 && deliveries.every((artifact) => !artifact.isNew)
     if (isRepeatDelivery) {
-        return NextResponse.json({ status: 'success', detail: 'artifacts already received' }, { status: 200 })
+        // A repeat on a decided round was dropped rather than refreshed (the released copy has to stay
+        // decryptable), so say so: "already received" would read as a promise we did not keep, and the
+        // warning in storage.ts would be the only trace of the discarded content.
+        const wasDropped = deliveries.some((artifact) => !artifact.stored)
+        const detail = wasDropped ? 'artifacts dropped, this round is already decided' : 'artifacts already received'
+
+        return NextResponse.json({ status: 'success', detail }, { status: 200 })
     }
 
     await db

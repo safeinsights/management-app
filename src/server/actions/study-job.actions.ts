@@ -253,7 +253,6 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
                     studyJobFileId: file.id,
-                    path: file.path,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
@@ -264,42 +263,34 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
         // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
         // naturally gated). Build the {file_path -> crypt} map per artifact.
-        //
-        // Keyed by the artifact's storage path, not by row id: a job can still carry duplicate
-        // study_job_file rows for one artifact from before OTTER-642, and the keys may hang off a row
-        // that getStudyJobInfo's dedupe did not keep. Matching on path makes a researcher's access
-        // independent of which duplicate survived, so an already-released file never stops opening.
         const wrappedKeys = await db
             .selectFrom('studyJobFileRecipientKey')
-            .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
-            .select(['studyJobFile.path', 'studyJobFileRecipientKey.filePath', 'studyJobFileRecipientKey.crypt'])
-            .where('studyJobFile.studyJobId', '=', studyJob.studyJobId)
-            .where('studyJobFileRecipientKey.fingerprint', '=', userKey.fingerprint)
-            // Oldest first, so when duplicate rows carry a key for the same inner file the newest one
-            // wins the merge below. Without an ORDER BY the winner is whatever the planner returned
-            // last, which can leave a researcher decrypting on one page load and failing on the next.
-            .orderBy('studyJobFile.createdAt', 'asc')
-            .orderBy('studyJobFile.id', 'asc')
+            .select(['studyJobFileId', 'filePath', 'crypt'])
+            .where(
+                'studyJobFileId',
+                'in',
+                encryptedFiles.map((f) => f.id),
+            )
+            .where('fingerprint', '=', userKey.fingerprint)
             .execute()
         if (!wrappedKeys.length) return []
 
-        const keysByPath = new Map<string, Record<string, string>>()
+        const keysByFileId = new Map<string, Record<string, string>>()
         for (const key of wrappedKeys) {
-            const map = keysByPath.get(key.path) ?? {}
+            const map = keysByFileId.get(key.studyJobFileId) ?? {}
             map[key.filePath] = key.crypt
-            keysByPath.set(key.path, map)
+            keysByFileId.set(key.studyJobFileId, map)
         }
 
         return Promise.all(
             encryptedFiles
-                .filter((file) => keysByPath.has(file.path))
+                .filter((file) => keysByFileId.has(file.id))
                 .map(async (file) => ({
                     studyJobFileId: file.id,
-                    path: file.path,
                     fileType: file.fileType,
                     name: file.name,
                     encryptedBody: await (await fetchFileContents(file.path)).arrayBuffer(),
-                    recipientKeys: keysByPath.get(file.path)!,
+                    recipientKeys: keysByFileId.get(file.id)!,
                 })),
         )
     })

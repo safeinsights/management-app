@@ -27,7 +27,7 @@ async function insertJobFile(job: MinimalJob, { fileType, name }: { fileType: Fi
     return db
         .insertInto('studyJobFile')
         .values({ studyJobId: job.id, name, path: `test-org/${job.id}/results/${name}`, fileType })
-        .returning(['id', 'path'])
+        .returning('id')
         .executeTakeFirstOrThrow()
 }
 
@@ -69,7 +69,6 @@ describe('JobResults', () => {
         mockFetchEncrypted.mockResolvedValueOnce([
             {
                 studyJobFileId: row.id,
-                path: row.path,
                 fileType: 'ENCRYPTED-RESULT',
                 name: 'encrypted-results.zip',
                 encryptedBody: toArrayBuffer('ciphertext'),
@@ -96,7 +95,6 @@ describe('JobResults', () => {
         mockFetchEncrypted.mockResolvedValueOnce([
             {
                 studyJobFileId: row.id,
-                path: row.path,
                 fileType: 'ENCRYPTED-RESULT',
                 name: 'encrypted-results.zip',
                 encryptedBody: toArrayBuffer('ciphertext'),

@@ -52,8 +52,10 @@ test('ignores a repeat delivery once the round has been decided', async () => {
     await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'FILES-APPROVED' }).execute()
 
     const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
-    await storeStudyEncryptedLogFile(info, logFile('late-redelivery.zip'), 'ENCRYPTED-CODE-RUN-LOG')
+    const delivery = await storeStudyEncryptedLogFile(info, logFile('late-redelivery.zip'), 'ENCRYPTED-CODE-RUN-LOG')
 
+    // `stored: false` is what lets the route say the artifacts were dropped rather than received.
+    expect(delivery).toMatchObject({ isNew: false, stored: false })
     expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
     const rows = await jobLogRows(info.studyJobId)
     expect(rows).toHaveLength(1)
@@ -72,10 +74,11 @@ test('still stores a first-time artifact after the round has been decided', asyn
 })
 
 // Run logs and results were both written to results/encrypted-results.zip until mid-2025, so a job
-// from that era can hold a log row on the path a result now uses. One path is one S3 object, and this
-// delivery is about to become that object, so the row is retyped to describe what is actually there
-// rather than left behind as a second row for the same bytes.
-test('retypes a legacy row of another type that shares the results path', async () => {
+// from that era can hold a log row on the path a result now uses. A delivery claims its own slot
+// (job + path + type) and leaves the other row alone: retyping it in place would silently relabel a
+// different artifact, and the slot key is what the unique index enforces. Unreachable for jobs still
+// receiving deliveries, since those runs finished long before the paths were split.
+test('leaves a legacy row of another type on the results path alone', async () => {
     const info = await setupJob()
     const legacyLogPath = `${pathForStudyJob(info)}/results/encrypted-results.zip`
     await db
@@ -95,7 +98,27 @@ test('retypes a legacy row of another type that shares the results path', async 
         .select(['fileType', 'name'])
         .where('studyJobId', '=', info.studyJobId)
         .where('path', '=', legacyLogPath)
+        // By name, not fileType: ordering an enum column follows its declaration order, not alphabet.
+        .orderBy('name', 'asc')
         .execute()
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ fileType: 'ENCRYPTED-RESULT', name: 'results.zip' })
+    expect(rows).toEqual([
+        { fileType: 'ENCRYPTED-CODE-RUN-LOG', name: 'encrypted-results.zip' },
+        { fileType: 'ENCRYPTED-RESULT', name: 'results.zip' },
+    ])
+})
+
+// Two deliveries can pass the existing-row lookup before either inserts. The unique index turns the
+// loser's insert into a violation instead of a duplicate row, and it is recovered as the repeat it
+// effectively is: one row, and only one caller told the outcome was new.
+test('collapses two concurrent first deliveries into one row', async () => {
+    const info = await setupJob()
+
+    const results = await Promise.all([
+        storeStudyEncryptedLogFile(info, logFile('first.zip'), 'ENCRYPTED-CODE-RUN-LOG'),
+        storeStudyEncryptedLogFile(info, logFile('second.zip'), 'ENCRYPTED-CODE-RUN-LOG'),
+    ])
+
+    expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
+    expect(results.filter((r) => r.isNew)).toHaveLength(1)
+    expect(results.every((r) => r.stored)).toBe(true)
 })

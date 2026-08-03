@@ -75,16 +75,13 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
 
     // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
     // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.
-    //
-    // Matched on storage path rather than row id: the action resolves a researcher's keys by path, so
-    // it can answer through a different duplicate row than the one dedupe kept, and an id comparison
-    // would then hide an artifact they can actually open. Matching the fileType instead would be too
-    // wide, since a job can hold rows of one type at more than one path (the run-log path changed
-    // twice historically) and the ones with no keys would render as rows that never unlock.
-    const accessiblePathSet = useMemo(() => new Set((encryptedFiles ?? []).map((f) => f.path)), [encryptedFiles])
+    const accessibleIdSet = useMemo(
+        () => new Set((encryptedFiles ?? []).map((f) => f.studyJobFileId)),
+        [encryptedFiles],
+    )
     const visibleRows = useMemo(
-        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessiblePathSet.has(f.path))),
-        [isReviewer, encryptedRows, accessiblePathSet],
+        () => (isReviewer ? encryptedRows : encryptedRows.filter((f) => accessibleIdSet.has(f.id))),
+        [isReviewer, encryptedRows, accessibleIdSet],
     )
 
     // Gate the decrypt form on what THIS user can actually decrypt: a researcher with no wrapped

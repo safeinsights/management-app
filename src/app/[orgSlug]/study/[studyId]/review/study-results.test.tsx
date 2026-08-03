@@ -46,7 +46,6 @@ async function seedEncryptedFile(
 
     return {
         studyJobFileId: row.id,
-        path,
         fileType,
         name,
         encryptedBody: await zip.arrayBuffer(),

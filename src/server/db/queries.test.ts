@@ -21,8 +21,6 @@ import {
     studyInfoForStudyId,
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
-    getStudyJobInfo,
-    latestJobForStudy,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -512,78 +510,5 @@ describe('codeSubmissionVersion', () => {
             .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
             .execute()
         expect(await codeSubmissionVersion(study.id)).toBe(3)
-    })
-})
-
-// OTTER-642: a re-delivered ingest webhook left duplicate study_job_file rows behind, all pointing at
-// the same S3 object, and the reviewer and researcher saw the artifact listed twice. Nothing is
-// deleted, so every read that lists a job's files is what has to collapse them.
-describe('job artifact file dedupe', () => {
-    const runLogPath = (studyId: string, jobId: string) =>
-        `studies/test-org/${studyId}/jobs/${jobId}/results/encrypted-code-run-log.zip`
-
-    const insertRunLog = async (studyJobId: string, path: string, createdAt: Date) =>
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId,
-                path,
-                name: 'encrypted-logs.zip',
-                fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                createdAt,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-    it('lists an artifact delivered twice only once', async () => {
-        const { study, job } = await insertTestStudyJobData()
-        const path = runLogPath(study.id, job.id)
-        await insertRunLog(job.id, path, new Date('2026-01-01T00:00:00Z'))
-        const redelivered = await insertRunLog(job.id, path, new Date('2026-01-01T00:05:00Z'))
-
-        const latest = await latestJobForStudy(study.id)
-        expect(latest.files.map((f) => f.id)).toEqual([redelivered.id])
-
-        const info = await getStudyJobInfo(job.id)
-        expect(info.files.map((f) => f.id)).toEqual([redelivered.id])
-    })
-
-    // The researcher's wrapped keys hang off one specific row. Collapsing to the newest duplicate
-    // would revoke access to a file that was already released, so the released row has to win.
-    it('keeps the duplicate that already carries recipient keys', async () => {
-        const { study, job } = await insertTestStudyJobData()
-        const path = runLogPath(study.id, job.id)
-        const released = await insertRunLog(job.id, path, new Date('2026-01-01T00:00:00Z'))
-        await insertRunLog(job.id, path, new Date('2026-06-01T00:00:00Z'))
-        await db
-            .insertInto('studyJobFileRecipientKey')
-            .values({
-                studyJobFileId: released.id,
-                filePath: 'logs.txt',
-                fingerprint: 'test-fingerprint',
-                crypt: 'test-crypt',
-            })
-            .execute()
-
-        const latest = await latestJobForStudy(study.id)
-        expect(latest.files.map((f) => f.id)).toEqual([released.id])
-        expect(latest.files[0].hasRecipientKeys).toBe(true)
-    })
-
-    it('keeps distinct artifacts of the same job', async () => {
-        const { study, job } = await insertTestStudyJobData()
-        await insertRunLog(job.id, runLogPath(study.id, job.id), new Date('2026-01-01T00:00:00Z'))
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                path: `studies/test-org/${study.id}/jobs/${job.id}/results/encrypted-results.zip`,
-                name: 'encrypted-results.zip',
-                fileType: 'ENCRYPTED-RESULT',
-            })
-            .execute()
-
-        const latest = await latestJobForStudy(study.id)
-        expect(latest.files.map((f) => f.fileType).sort()).toEqual(['ENCRYPTED-CODE-RUN-LOG', 'ENCRYPTED-RESULT'])
     })
 })

@@ -49,7 +49,6 @@ async function seedArtifact(
 
     return {
         studyJobFileId: row.id,
-        path,
         fileType,
         name: 'encrypted-results.zip',
         encryptedBody: await zip.arrayBuffer(),
@@ -67,7 +66,7 @@ async function insertEncryptedRow(job: MinimalJob, { fileType, subdir }: { fileT
             path: `test-org/${job.id}/results/${subdir}/encrypted-results.zip`,
             fileType,
         })
-        .returning(['id', 'path'])
+        .returning('id')
         .executeTakeFirstOrThrow()
 }
 
@@ -128,87 +127,6 @@ describe('EncryptedFilesPanel', () => {
             expect(screen.getByText('Results')).toBeDefined()
             expect(screen.getByText('Security Scan Log')).toBeDefined()
         })
-    })
-
-    // OTTER-642: a re-delivered webhook left two study_job_file rows for one artifact, both pointing
-    // at the same S3 object, and the panel rendered a row for each.
-    it('lists an artifact that was delivered twice only once', async () => {
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-CODE-RUN-LOG', subdir: 'encrypted-logs' })
-        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-CODE-RUN-LOG', subdir: 'encrypted-logs' })
-
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel isReviewer job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => expect(screen.getAllByText('Code Run Log')).toHaveLength(1))
-    })
-
-    // A researcher's wrapped keys hang off whichever duplicate the approval referenced, which need not
-    // be the row that survived dedupe. The action resolves them by storage path, so matching rows on
-    // path keeps their released file listed no matter which duplicate answered.
-    it('keeps a researcher row visible when their keys resolved through another duplicate', async () => {
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-        const released = await insertEncryptedRow(job, {
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            subdir: 'encrypted-logs',
-        })
-        const redelivered = await insertEncryptedRow(job, {
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            subdir: 'encrypted-logs',
-        })
-        await db
-            .insertInto('studyJobFileRecipientKey')
-            .values({
-                studyJobFileId: released.id,
-                filePath: 'run.log',
-                fingerprint: 'test-fingerprint',
-                crypt: 'test-crypt',
-            })
-            .execute()
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                studyJobFileId: redelivered.id,
-                path: redelivered.path,
-                fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                name: 'encrypted-results.zip',
-                encryptedBody: new ArrayBuffer(0),
-                recipientKeys: { 'run.log': 'test-crypt' },
-            },
-        ])
-
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => expect(screen.getAllByText('Code Run Log')).toHaveLength(1))
-    })
-
-    // The run-log storage path changed twice over the years, so one job can hold rows of the same type
-    // at different paths. Only the one the researcher actually holds keys for may be listed: the other
-    // would render as a row that never unlocks.
-    it('hides a same-type artifact the researcher holds no keys for', async () => {
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-        const accessible = await insertEncryptedRow(job, {
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            subdir: 'encrypted-logs',
-        })
-        await insertEncryptedRow(job, { fileType: 'ENCRYPTED-CODE-RUN-LOG', subdir: 'legacy-logs' })
-
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            {
-                studyJobFileId: accessible.id,
-                path: accessible.path,
-                fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                name: 'encrypted-results.zip',
-                encryptedBody: new ArrayBuffer(0),
-                recipientKeys: { 'run.log': 'test-crypt' },
-            },
-        ])
-
-        const latestJob = await latestJobForStudy(study.id)
-        renderWithProviders(<EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />)
-
-        await waitFor(() => expect(screen.getAllByText('Code Run Log')).toHaveLength(1))
     })
 
     it('decrypts the artifact and shows its inner files with View and Download', async () => {

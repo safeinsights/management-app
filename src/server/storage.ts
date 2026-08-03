@@ -44,44 +44,46 @@ async function roundIsClosed(studyJobId: string): Promise<boolean> {
     return Boolean(closing)
 }
 
+// An artifact slot is one (job, storage path, file type), the same key the partial unique index added
+// in 1780500000000 enforces. Keeping the lookup, the constraint and the migration on one key is what
+// makes "one row per artifact" a single rule instead of three that can drift apart.
+async function artifactRowForSlot(studyJobId: string, path: string, fileType: FileType) {
+    return await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', studyJobId)
+        .where('path', '=', path)
+        .where('fileType', '=', fileType)
+        .executeTakeFirst()
+}
+
 /**
- * Store one artifact against a job, reusing the existing row for a (job, storage path) (OTTER-642).
+ * Store one artifact against a job, reusing the existing row for its slot (OTTER-642).
  *
  * `path` is derived from the job and the artifact type, so a re-delivered ingest webhook overwrites
  * the same S3 object. Inserting unconditionally therefore produced a second row pointing at that same
  * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
- * instead, so a retry is a no-op rather than a duplicate. Keyed on the path alone to match
- * `dedupeJobArtifactFiles`, since one path can only ever hold one object.
+ * instead, so a retry refreshes the artifact rather than duplicating it.
  *
- * `isNew` reports whether this call added an artifact the job did not already have. Callers use it to
- * tell a first delivery from a repeat, so a retry does not announce the run's outcome a second time.
+ * `isNew` reports whether this call added an artifact the job did not already have, so a retry does
+ * not announce the run's outcome a second time. `stored` reports whether the artifact this call
+ * carried actually landed, which is false only for a late delivery the round-closed guard dropped.
  *
- * Two races are accepted rather than closed. The check and the write here are separate statements,
- * not one atomic upsert, so two concurrent deliveries can both find no row and both insert; the read
- * side collapses that in `dedupeJobArtifactFiles`. And the round can close between the check below
- * and the upload, so a re-delivery landing in that window still replaces a just-released ciphertext.
- * Both windows are narrow, both are strictly better than the unconditional overwrite this replaced,
- * and closing them properly means a unique index plus row locks held across an S3 upload, which is
- * the destructive migration this approach exists to avoid.
+ * One window stays open: the round can close between the guard below and the upload, so a
+ * re-delivery landing inside it still replaces a just-released ciphertext. Closing it means holding a
+ * row lock across an S3 upload, which trades a rare narrow race for a slow transaction on every
+ * delivery. The concurrent-first-delivery race is closed by the unique index rather than by a lock:
+ * the loser's insert conflicts, and it is recovered below as the repeat it effectively is.
  */
-async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
-    // Newest-first for determinism. dedupeJobArtifactFiles prefers a row carrying recipient keys over
-    // the newest one, so on a job that already holds duplicates the update can land on a row the list
-    // does not show. Both rows point at the same object, so only the displayed row's name goes stale.
-    const existing = await db
-        .selectFrom('studyJobFile')
-        .select('id')
-        .where('studyJobId', '=', info.studyJobId)
-        .where('path', '=', path)
-        .orderBy('createdAt', 'desc')
-        .orderBy('id', 'desc')
-        .executeTakeFirst()
+async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType) {
+    const existing = await artifactRowForSlot(info.studyJobId, path, fileType)
 
     // Once the round is decided the artifact has been released, and a late re-delivery is stale by
     // definition. Overwriting the object would strand the researcher: their per-file keys were wrapped
     // from the AES keys of the ciphertext being replaced, so an already-released file would stop
-    // decrypting. Ignore the delivery entirely. A first-ever arrival for a path is still stored -
-    // nothing was released for it, so there is nothing to protect and dropping it would lose data.
+    // decrypting, and the bucket is unversioned so the replaced copy is gone for good. Ignore the
+    // delivery entirely. A first-ever arrival for a slot is still stored - nothing was released for
+    // it, so there is nothing to protect and dropping it would lose data.
     //
     // The sender gets a success response either way (it has nothing to do differently), so log the
     // drop: without it, content that was accepted but never stored leaves no trace to diagnose from.
@@ -89,31 +91,51 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         logger.warn(
             `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: the round is already decided and the stored copy has been released`,
         )
-        return { ...existing, isNew: false }
+        return { ...existing, isNew: false, stored: false }
     }
 
-    // If the write below fails (or the process dies between these two writes), the S3 object is
-    // orphaned with no row pointing at it. Left to an S3 lifecycle/sweeper rather than a 2-phase commit.
+    // If the write below fails (or the process dies between these two writes), the S3 object is left
+    // orphaned with no row pointing at it. Nothing reads it and nothing collects it: this bucket has
+    // no lifecycle rule (see iac/management-app/app-stack.ts), so it simply sits there. Accepted
+    // rather than run as a two-phase commit.
     await storeS3File(info, file.stream(), path)
 
-    if (existing) {
-        const updated = await db
-            .updateTable('studyJobFile')
-            .set({ name: file.name, fileType })
-            .where('id', '=', existing.id)
-            .returning('id')
-            .executeTakeFirstOrThrow()
+    if (existing) return { ...(await renameArtifactRow(existing.id, file.name)), isNew: false, stored: true }
 
-        return { ...updated, isNew: false }
-    }
-
+    // DO NOTHING rather than letting the unique index raise: a raised violation aborts the surrounding
+    // transaction, so the recovery below could not run if a caller ever wrapped this in one. Left
+    // untargeted because inferring a partial index as the arbiter means restating its predicate here,
+    // and a second place to keep in sync is exactly what this design is removing. The only other
+    // unique index on the table is the primary key, which a fresh v7uuid cannot collide with.
     const inserted = await db
         .insertInto('studyJobFile')
-        .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
+        .values({ path, name: file.name, studyJobId: info.studyJobId, fileType })
+        .onConflict((oc) => oc.doNothing())
+        .returning('id')
+        .executeTakeFirst()
+
+    if (inserted) return { ...inserted, isNew: true, stored: true }
+
+    // A concurrent first delivery claimed the slot between the lookup and the insert. It is the same
+    // artifact at the same path, so treat this call as the repeat it effectively is: refresh the
+    // winner's name and report it as not new, so only one delivery announces the run's outcome.
+    const winner = await artifactRowForSlot(info.studyJobId, path, fileType)
+    if (!winner) {
+        throw new Error(`storing ${fileType} for job ${info.studyJobId} at ${path} conflicted with no visible row`)
+    }
+
+    return { ...(await renameArtifactRow(winner.id, file.name)), isNew: false, stored: true }
+}
+
+// Only the name can differ between deliveries to one slot: the job, path and type are the key, and
+// nothing else on the row is derived from the payload.
+async function renameArtifactRow(id: string, name: string) {
+    return await db
+        .updateTable('studyJobFile')
+        .set({ name })
+        .where('id', '=', id)
         .returning('id')
         .executeTakeFirstOrThrow()
-
-    return { ...inserted, isNew: true }
 }
 
 export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File, fileType: FileType) {
