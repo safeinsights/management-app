@@ -504,8 +504,8 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 // Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
 // their key rows, so this never retroactively un-shares.
 // OTTER-675: the most recent view/download per output file, for the outputs table's
-// "Last activity" column. One row per file at most — the column reports the latest action,
-// not a history — so the DISTINCT ON collapses each file's rows to its newest.
+// "Last activity" column. One row per file at most, because the column reports the latest
+// action rather than a history, so the DISTINCT ON collapses each file's rows to its newest.
 export type JobFileActivity = {
     studyJobFileId: string
     filePath: string

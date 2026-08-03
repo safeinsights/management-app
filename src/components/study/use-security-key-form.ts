@@ -15,7 +15,7 @@ const ERRORS = {
 type UseSecurityKeyFormOptions = {
     job: LatestJobForStudy
     /**
-     * Handed the decrypted plaintext on a successful key. The caller owns it from here — the
+     * Handed the decrypted plaintext on a successful key. The caller owns it from here: the
      * files carry raw AES keys (see JobFileInfo) and must stay in memory, never persisted.
      */
     onDecrypted: (files: JobFileInfo[]) => void

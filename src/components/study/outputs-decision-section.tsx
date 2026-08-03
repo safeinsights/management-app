@@ -119,7 +119,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
 }
 
 // Carries the description id so the count reaches the editor's aria-describedby. Rendered through
-// the Editor's own `footerRight` slot, beside the save indicator the editor already draws — a
+// the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
 const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (

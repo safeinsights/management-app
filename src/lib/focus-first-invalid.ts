@@ -1,7 +1,7 @@
 /**
  * Scrolls to and focuses the first invalid field, reading the page top to bottom.
  *
- * `fieldIds` must be in visual/DOM order — that ordering IS the "first" the caller promises the
+ * `fieldIds` must be in visual/DOM order, because that ordering IS the "first" the caller promises the
  * user, and nothing else in the DOM recovers it (a Lexical contenteditable and a radio group
  * share no common wrapper to compare positions against).
  *

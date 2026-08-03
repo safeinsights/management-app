@@ -2,7 +2,7 @@ import { type Kysely, sql } from 'kysely'
 
 // OTTER-675: the Data Partner's decision on a job's OUTPUTS (share the files + feedback, or
 // share feedback only) is a third kind of review, alongside PROPOSAL and CODE. It carries the
-// same shape as a CODE decision — a job, a round, a decision, a Lexical body — so it reuses
+// same shape as a CODE decision (a job, a round, a decision, a Lexical body), so it reuses
 // study_review_comment rather than growing a parallel table. The existing
 // (study_job_id, review_kind, round) unique constraint then gives outputs decisions the same
 // one-per-round race guard code review relies on (OTTER-471).

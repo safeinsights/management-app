@@ -123,7 +123,7 @@ type UnlockedPhaseProps = {
     previousHref: Route
 }
 
-// Split from the panel so the hooks below run only once decryption has happened — mounting the
+// Split from the panel so the hooks below run only once decryption has happened: mounting the
 // collaborative editor (and its websocket) behind a still-locked key would be wasted work.
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     decryptedFiles,

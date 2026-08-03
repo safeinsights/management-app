@@ -33,7 +33,7 @@ const toArrayBuffer = (str: string): ArrayBuffer => {
 }
 
 // Encrypt an artifact the way the enclave would (whole-zip + embedded manifest) so the reviewer's
-// real key decrypts it — the phase flip is driven by genuine decryption, not a stubbed callback.
+// real key decrypts it, so the phase flip is driven by genuine decryption rather than a stub.
 async function seedArtifact(jobId: string, files: { name: string; content: string }[], fileType: FileType) {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     const fingerprint = await fingerprintKeyData(publicKey)

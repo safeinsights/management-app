@@ -308,7 +308,7 @@ async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<
 }
 
 // OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
-// the outputs table and Decision section without a navigation — decryption is client-side, so
+// the outputs table and Decision section without a navigation, because decryption is client-side, so
 // the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)

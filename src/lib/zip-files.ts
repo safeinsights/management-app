@@ -9,7 +9,7 @@ export type ZippableFile = {
  * Bundles decrypted output files into a single zip, in the browser.
  *
  * SECURITY: the inputs are plaintext. The archive is built client-side and handed straight to a
- * blob URL — it must never be uploaded, and the caller should revoke the URL once the download
+ * blob URL. It must never be uploaded, and the caller should revoke the URL once the download
  * starts so the plaintext isn't reachable from a stale object URL.
  *
  * Names are de-duplicated because the table can legitimately show two artifacts with the same

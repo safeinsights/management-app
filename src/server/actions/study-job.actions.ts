@@ -163,7 +163,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction',
 
 // OTTER-675: the Data Partner's single decision on a job's decrypted outputs. Feedback and the
 // files decision land together so the reviewer's rationale can never be orphaned from the status
-// that acted on it — the reason this exists instead of calling approve/reject plus a second write.
+// that acted on it. That is why this exists instead of calling approve/reject plus a second write.
 //
 // 'share-outputs' does exactly what approveStudyJobFilesAction does (persist the browser's
 // re-wrapped keys, then FILES-APPROVED); 'share-feedback-only' does what
