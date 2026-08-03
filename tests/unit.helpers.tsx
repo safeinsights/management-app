@@ -55,6 +55,18 @@ export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =
         .where('recordType', '=', recordType)
         .execute()
 
+// Separate from getAuditEntries because that one is used with toContainEqual, whose
+// exact-object matching would break on an extra metadata key.
+export const getAuditEntriesWithMetadata = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata', 'createdAt'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .execute()
+
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }

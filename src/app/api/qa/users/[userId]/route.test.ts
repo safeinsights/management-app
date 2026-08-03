@@ -38,6 +38,9 @@ const auditRowsFor = async (recordId: string) =>
         .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata'])
         .where('recordId', '=', recordId)
         .orderBy('createdAt')
+        // Both rows are written inside the same clock tick, so createdAt alone leaves
+        // their order undefined; v7 ids are time-ordered and break the tie.
+        .orderBy('id')
         .execute()
 
 const auditRowFor = async (recordId: string, outcome = 'succeeded') => {
