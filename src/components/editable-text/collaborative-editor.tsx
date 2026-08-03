@@ -27,9 +27,9 @@ import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
 
-function SaveStatus({ provider }: { provider: HocuspocusProvider | null }) {
+function SaveStatus({ provider, isVisible }: { provider: HocuspocusProvider | null; isVisible: boolean }) {
     const status = useProviderSaveStatus(provider)
-    return <SaveStatusIndicator status={status} />
+    return <SaveStatusIndicator status={status} isVisible={isVisible} />
 }
 
 type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
@@ -184,8 +184,12 @@ export type CollaborativeEditorProps = {
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
-    /** Presence drives the red border and `aria-invalid`; the message itself is rendered by the caller. */
-    error?: React.ReactNode
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
     /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
     /** Marks the editor required to assistive tech; the label asterisk is visual only. */
@@ -416,7 +420,7 @@ export function CollaborativeEditor({
                 </Paper>
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
-                        <SaveStatus provider={activeProvider} />
+                        <SaveStatus provider={activeProvider} isVisible={!error} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />

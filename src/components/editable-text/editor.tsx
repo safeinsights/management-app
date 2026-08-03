@@ -41,8 +41,12 @@ export type EditorProps = {
      * primary key, so reusing it as a DOM id couples persistence to markup.
      */
     inputId?: string
-    /** Presence drives the red border and `aria-invalid`; the caller renders the message. */
-    error?: React.ReactNode
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the caller
+     * renders the message. Typed `string`, not `ReactNode`, so presence stays a plain truthiness
+     * check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
     /** Id(s) of the nodes describing this editor, e.g. its description and error text. */
     ariaDescribedBy?: string
     /**
