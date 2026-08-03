@@ -1,14 +1,14 @@
 import type { ScreenRuleEntry } from './screen-rules'
-import { isErroredResultHiddenFromResearcher } from './state'
+import { awaitingFilesDecisionOnError } from './state'
 
 // Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each entry
 // pairs the screen it routes to with the condition that selects it; the leaf view owns its own
 // back/forward buttons.
 export const RESEARCHER_SCREEN_RULES = [
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
-    // records a FILES-* decision (isErroredResultHiddenFromResearcher) — until then the researcher
+    // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher
     // holds on the code-approved page below, matching the "Code approved" pill (OTTER-598, 43898).
-    ['study-results', { when: (s) => s.hasResults && !isErroredResultHiddenFromResearcher(s) }],
+    ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
     // Code approved (or actively running): the approved/executing code screen.
     ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting }],

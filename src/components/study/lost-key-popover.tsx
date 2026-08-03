@@ -1,6 +1,6 @@
 'use client'
 
-import { Anchor, Group, Popover, Stack, Text } from '@mantine/core'
+import { ActionIcon, Anchor, Group, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRef } from 'react'
@@ -8,7 +8,7 @@ import { Routes } from '@/lib/routes'
 
 export const LostKeyPopover = () => {
     const [opened, { toggle, close }] = useDisclosure(false)
-    const triggerRef = useRef<SVGSVGElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
 
     const closeAndRestoreFocus = () => {
         close()
@@ -22,27 +22,22 @@ export const LostKeyPopover = () => {
             </Text>
             <Popover opened={opened} onChange={close} width={360} position="right" withArrow>
                 <Popover.Target>
-                    <InfoIcon
+                    <ActionIcon
                         ref={triggerRef}
-                        size={16}
-                        weight="fill"
-                        color="var(--mantine-color-charcoal-4)"
+                        variant="transparent"
+                        color="charcoal.4"
+                        size={20}
                         onClick={toggle}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                toggle()
-                            }
                             if (e.key === 'Escape' && opened) {
                                 e.stopPropagation()
                                 closeAndRestoreFocus()
                             }
                         }}
-                        role="button"
-                        tabIndex={0}
-                        style={{ cursor: 'pointer' }}
                         aria-label="Lost your key? Click for help"
-                    />
+                    >
+                        <InfoIcon size={16} weight="fill" />
+                    </ActionIcon>
                 </Popover.Target>
                 <Popover.Dropdown
                     onKeyDown={(e) => {

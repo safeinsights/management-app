@@ -1,4 +1,5 @@
 import type { ScreenRuleEntry } from './screen-rules'
+import { awaitingFilesDecisionOnError } from './state'
 
 // Reviewer ("Data Partners" / DO) Tier-2 rules. Order = display precedence. First match wins.
 // Every `when` reads only StudyState, so the table is order-independent by construction.
@@ -7,7 +8,7 @@ import type { ScreenRuleEntry } from './screen-rules'
 export const REVIEWER_SCREEN_RULES = [
     // 1a. Job errored, no files decision yet → errored outputs view (OTTER-667). The reviewer
     //     enters their security key to decrypt error logs before making a files decision.
-    ['reviewer-outputs-errored', { when: (s) => s.resultsErrored && !s.resultsApproved && !s.resultsRejected }],
+    ['reviewer-outputs-errored', { when: (s) => awaitingFilesDecisionOnError(s) }],
 
     // 1b. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
     //     (CODE-APPROVED is always present once results land), mirroring legacy

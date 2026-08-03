@@ -367,8 +367,8 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
     await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
 }
 
-// The researcher's errored view is gated on the reviewer having shared the files, so this
-// runs only after reviewerSharesOutputs (OTTER-675).
+// The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
+// so this runs only after reviewerSharesOutputs (OTTER-675).
 async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 

@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import * as Sentry from '@sentry/nextjs'
 
 const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
-    unavailable: 'These outputs are not available to decrypt. Contact your organization admin.',
+    noFiles: 'No encrypted outputs available to decrypt.',
 } as const
 
 type UseSecurityKeyFormOptions = {
@@ -24,12 +25,17 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
-    // A key submitted while the artifact fetch was still in flight, replayed once it settles.
-    const pendingKeyRef = useRef<string | null>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
         queryKey: ['encrypted-files', job.id],
-        queryFn: () => fetchEncryptedJobFilesAction({ jobId: job.id }),
+        queryFn: async () => {
+            try {
+                return await fetchEncryptedJobFilesAction({ jobId: job.id })
+            } catch (error) {
+                Sentry.captureException(error)
+                throw error
+            }
+        },
     })
 
     const failInvalid = useCallback(() => {
@@ -41,9 +47,9 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
         encryptedFiles,
         onSuccess: (files) => {
             // A key is only proven by ciphertext it actually opened. useDecryptFiles resolves with
-            // [] when there is nothing to decrypt, and its parse step accepts any syntactically
-            // valid PEM, so treating that as success would unlock the review view for any
-            // well-formed key and present an empty table as a reviewed state.
+            // [] rather than throwing when it extracts nothing, and its parse step accepts any
+            // syntactically valid PEM, so treating that as success would hand the caller an empty
+            // set and present it as a reviewed state (OTTER-675).
             if (!files.length) {
                 failInvalid()
                 return
@@ -53,23 +59,6 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
         },
         onError: failInvalid,
     })
-
-    const submit = useCallback(
-        (rawKey: string) => {
-            // No artifacts to test the key against: either the query failed, this reviewer has no
-            // registered public key, or the job has no encrypted output. None of those is a bad
-            // key, so say so rather than reporting the key as invalid.
-            if (!encryptedFiles?.length) {
-                setError(ERRORS.unavailable)
-                inputRef.current?.focus()
-                return
-            }
-
-            setError(undefined)
-            decrypt(rawKey)
-        },
-        [encryptedFiles, decrypt],
-    )
 
     const handleSubmit = useCallback(() => {
         if (isPending) return
@@ -81,30 +70,27 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
             return
         }
 
-        // The artifact fetch starts on mount and normally finishes long before a PEM key has been
-        // pasted, but a click that lands first must not be dropped: remember it and let the effect
-        // below run it once the fetch settles. The button stays enabled either way (OTTER-667).
-        if (isLoadingFiles) {
-            pendingKeyRef.current = trimmed
+        // The button is already disabled while the artifacts load, so this only guards a
+        // programmatic call.
+        if (isLoadingFiles) return
+
+        // Nothing to test the key against: the query failed, this reviewer has no registered public
+        // key, or the job has no encrypted output. None of those is a bad key.
+        if (!encryptedFiles?.length) {
+            setError(ERRORS.noFiles)
             return
         }
 
-        submit(trimmed)
-    }, [isPending, isLoadingFiles, value, submit])
-
-    useEffect(() => {
-        if (isLoadingFiles) return
-        const queued = pendingKeyRef.current
-        if (!queued) return
-        pendingKeyRef.current = null
-        submit(queued)
-    }, [isLoadingFiles, submit])
+        setError(undefined)
+        decrypt(trimmed)
+    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
 
     return {
         value,
         setValue,
         error,
         isDecrypting: isPending,
+        isLoadingFiles,
         inputRef,
         handleSubmit,
     }

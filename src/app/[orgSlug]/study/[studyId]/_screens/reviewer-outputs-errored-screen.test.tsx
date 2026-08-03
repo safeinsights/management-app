@@ -137,9 +137,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
         await unlock()
 
-        expect(
-            await screen.findByText('These outputs are not available to decrypt. Contact your organization admin.'),
-        ).toBeInTheDocument()
+        expect(await screen.findByText('No encrypted outputs available to decrypt.')).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
