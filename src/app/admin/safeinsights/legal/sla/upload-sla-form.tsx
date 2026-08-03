@@ -17,6 +17,15 @@ import { useMemo, useState } from 'react'
 
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
 
+// A study that already has a published SLA, so the cascade is skipped and only a date is collected.
+export type SupersededSla = {
+    studyId: string
+    studyTitle: string | null
+    researchLabName: string
+    dataPartnerName: string
+    versionNumber: number | null
+}
+
 const toOptions = (pairs: [string, string][]) =>
     R.pipe(
         pairs,
@@ -25,10 +34,11 @@ const toOptions = (pairs: [string, string][]) =>
     )
 
 // Fetched once and narrowed in memory as the Data Partner > Research Lab > study cascade is used.
-const useSlaCandidates = () => {
+const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
         queryKey: ['studiesAwaitingSla'],
         queryFn: fetchStudiesAwaitingSlaAction,
+        enabled,
     })
     const [dataPartnerId, setDataPartnerId] = useState<string | null>(null)
     const [researchLabId, setResearchLabId] = useState<string | null>(null)
@@ -79,7 +89,8 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
     return useMutation({
         mutationFn: async ({ studyId, signedAt, file }: { studyId: string; signedAt: string; file: File }) => {
             // Publish last, so a failed upload leaves a replaceable draft rather than a live
-            // agreement with no file.
+            // agreement with no file. A study that already has an SLA gets a new version of it
+            // rather than a second document.
             const { version, upload } = actionResult(
                 await createLegalDocumentDraftAction({
                     type: 'sla',
@@ -101,7 +112,28 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
     })
 }
 
-const DetailsStep: FC<{
+// Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day early west of
+// the server.
+const SignedOnInput: FC<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => (
+    <TextInput
+        type="date"
+        label="Signed on"
+        description="The date the signatories signed the agreement"
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+    />
+)
+
+const ReadOnlyField: FC<{ label: string; value: string }> = ({ label, value }) => (
+    <Stack gap={2}>
+        <Text size="sm" fw={500}>
+            {label}
+        </Text>
+        <Text>{value}</Text>
+    </Stack>
+)
+
+const CascadeStep: FC<{
     isVisible: boolean
     candidates: ReturnType<typeof useSlaCandidates>
     signedAt: string
@@ -142,17 +174,37 @@ const DetailsStep: FC<{
                 disabled={!candidates.researchLabId}
                 searchable
             />
-            {/* Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day
-                early west of the server. */}
-            <TextInput
-                type="date"
-                label="Signed on"
-                description="The date the signatories signed the agreement"
-                value={signedAt}
-                onChange={(event) => onSignedAtChange(event.currentTarget.value)}
-            />
+            <SignedOnInput value={signedAt} onChange={onSignedAtChange} />
             <Group justify="flex-end">
                 <Button onClick={onNext} disabled={!canContinue}>
+                    Next
+                </Button>
+            </Group>
+        </Stack>
+    )
+}
+
+const SupersedeStep: FC<{
+    isVisible: boolean
+    sla: SupersededSla | undefined
+    signedAt: string
+    onSignedAtChange: (value: string) => void
+    onNext: () => void
+}> = ({ isVisible, sla, signedAt, onSignedAtChange, onNext }) => {
+    if (!isVisible || !sla) return null
+
+    return (
+        <Stack>
+            <ReadOnlyField label="Data Partner" value={sla.dataPartnerName} />
+            <ReadOnlyField label="Research Lab" value={sla.researchLabName} />
+            <ReadOnlyField label="Study" value={sla.studyTitle || sla.studyId} />
+            <Text size="sm" c="dimmed">
+                This study is on version {sla.versionNumber ?? 1}. Publishing makes the new file the current agreement;
+                earlier versions stay in the record.
+            </Text>
+            <SignedOnInput value={signedAt} onChange={onSignedAtChange} />
+            <Group justify="flex-end">
+                <Button onClick={onNext} disabled={!signedAt}>
                     Next
                 </Button>
             </Group>
@@ -191,25 +243,37 @@ const UploadStep: FC<{
     )
 }
 
-export const UploadSlaForm: FC<{ onCompleteAction: () => void }> = ({ onCompleteAction }) => {
-    const candidates = useSlaCandidates()
+export const UploadSlaForm: FC<{ onCompleteAction: () => void; supersedes?: SupersededSla }> = ({
+    onCompleteAction,
+    supersedes,
+}) => {
+    const candidates = useSlaCandidates({ enabled: !supersedes })
     const [signedAt, setSignedAt] = useState('')
     const [file, setFile] = useState<File | null>(null)
     const [step, setStep] = useState<'details' | 'upload'>('details')
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
     const { mutate: uploadSla, isPending } = useUploadSla({ onComplete: onCompleteAction })
 
+    const studyId = supersedes?.studyId ?? candidates.studyId
+
     const publish = () => {
         stopConfirming()
-        if (!candidates.studyId || !file) return
-        uploadSla({ studyId: candidates.studyId, signedAt, file })
+        if (!studyId || !file) return
+        uploadSla({ studyId, signedAt, file })
     }
 
     return (
         <Stack>
-            <DetailsStep
-                isVisible={step === 'details'}
+            <CascadeStep
+                isVisible={step === 'details' && !supersedes}
                 candidates={candidates}
+                signedAt={signedAt}
+                onSignedAtChange={setSignedAt}
+                onNext={() => setStep('upload')}
+            />
+            <SupersedeStep
+                isVisible={step === 'details'}
+                sla={supersedes}
                 signedAt={signedAt}
                 onSignedAtChange={setSignedAt}
                 onNext={() => setStep('upload')}

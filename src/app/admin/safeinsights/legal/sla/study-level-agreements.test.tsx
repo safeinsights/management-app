@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { db } from '@/database'
 import {
     actionResult,
@@ -74,6 +74,32 @@ describe('StudyLevelAgreements', () => {
         expect(screen.getByText(dataPartner.name)).toBeDefined()
         // Guards the off-by-one: the day entered must be the day rendered.
         expect(screen.getByText('2026-07-27')).toBeDefined()
+    })
+
+    it('offers a new version for a study that already has an SLA, with the cascade skipped', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const title = `SLA study ${faker.string.alpha(6)}`
+        await seedSignedSla({ signedAt: '2026-07-27', title })
+
+        renderWithProviders(<StudyLevelAgreements />)
+
+        // Scoped to this study's row: the table shows every SLA the suite has seeded.
+        await waitFor(() => expect(screen.getByText(title)).toBeDefined())
+        const row = screen.getByText(title).closest('tr')
+        if (!row) throw new Error(`no table row for ${title}`)
+        fireEvent.click(within(row).getByRole('button', { name: 'Upload new version' }))
+
+        await waitFor(() => expect(screen.getByText('Upload a new version')).toBeDefined())
+        // The study is fixed, so there is nothing to pick — only a signing date.
+        expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
+        expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).not.toBeDisabled())
+
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        await waitFor(() => expect(screen.getByText('Signed agreement')).toBeDefined())
     })
 
     it('opens the upload modal and keeps Next disabled until a study and date are chosen', async () => {

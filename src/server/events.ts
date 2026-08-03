@@ -51,6 +51,7 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+    // TODO: notify SI admin so they can draw up this study's SLA — see sendSlaPreparationEmail in mailer.ts
 })
 
 export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {
