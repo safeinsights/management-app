@@ -23,7 +23,16 @@ export function FileOrImagePreviewModal({
 
     const mime = imageMimeType(file.name)
     if (mime && file.contents) {
-        return <ImagePreviewModal isVisible name={file.name} contents={file.contents} mime={mime} onClose={onClose} />
+        return (
+            <ImagePreviewModal
+                isVisible
+                name={file.name}
+                contents={file.contents}
+                mime={mime}
+                onClose={onClose}
+                onDownload={onDownload}
+            />
+        )
     }
 
     const textFile = { name: file.name, contents: file.contents === null ? null : decodeFileContents(file.contents) }

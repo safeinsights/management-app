@@ -8,6 +8,7 @@ const buildRow = (name: string, overrides: Partial<OutputFileRowData> = {}): Out
     filePath: name,
     name,
     contents: new ArrayBuffer(4),
+    isActivityKnown: true,
     activity: null,
     ...overrides,
 })

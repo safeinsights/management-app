@@ -103,13 +103,22 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(region).not.toHaveAttribute('aria-live', 'assertive')
     })
 
-    // The editor draws its own autosave indicator next to this counter; rendering a second one
-    // here would show the reviewer two "All changes saved" messages in collaborative mode.
-    it('renders exactly one autosave indicator, owned by the editor', async () => {
-        renderSection()
+    // The editor owns the autosave indicator (it renders one next to this counter in
+    // collaborative mode), so this section must not draw a second. Asserting on the counter's own
+    // slot rather than a global count, because a global "at most one" also passes when there are
+    // none and would prove nothing.
+    it('puts the counter in the editor footer and adds no autosave indicator of its own', async () => {
+        renderSection({ wordCount: 7 })
 
         await screen.findByLabelText('Decision feedback')
-        expect(screen.queryAllByTestId('autosave-status').length).toBeLessThanOrEqual(1)
+        const counter = document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))!
+        expect(counter).toHaveTextContent('7/300')
+        expect(counter.querySelector('[data-testid="autosave-status"]')).toBeNull()
+
+        const section = screen.getByTestId('outputs-decision-section')
+        const errorSlot = document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))!
+        expect(errorSlot.querySelector('[data-testid="autosave-status"]')).toBeNull()
+        expect(section.contains(counter)).toBe(true)
     })
 
     it('shows the validation error beneath the field', () => {

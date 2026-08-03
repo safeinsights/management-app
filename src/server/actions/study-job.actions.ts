@@ -1,7 +1,7 @@
 'use server'
 
 import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
-import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
+import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
@@ -11,7 +11,8 @@ import {
     outputsFeedbackMaxWords,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
-import { JobFile, minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
+import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
+import type { FileType } from '@/database/types'
 import {
     codeSubmissionVersion,
     getLabPublicKeysForStudy,
@@ -26,24 +27,55 @@ import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 
+/**
+ * Guards what "share outputs" actually promises: the lab can open every encrypted artifact of
+ * this job.
+ *
+ * Three ways a request can fail that promise, none of which insertSharedFileKeys catches:
+ *  - no entries at all, so FILES-APPROVED is recorded while nothing is granted;
+ *  - entries whose `keys` array is empty, which insertSharedFileKeys turns into zero rows and
+ *    returns silently (this is also what buildSharedFiles produces when the lab has no
+ *    registered public keys, so it happens without anyone acting in bad faith);
+ *  - a subset: one valid artifact named while the job's other artifacts are omitted.
+ *
+ * Failing loudly is the point. Recording an approval the lab cannot act on is worse than
+ * refusing, because the study looks finished to everyone while the results stay unreadable.
+ */
+function assertSharesEveryArtifact(
+    jobFiles: ReadonlyArray<{ id: string; fileType: FileType }>,
+    sharedFiles: SharedFile[],
+): void {
+    const keyed = new Set(sharedFiles.filter((file) => file.keys.length > 0).map((file) => file.studyJobFileId))
+
+    if (!keyed.size) {
+        throw new ActionFailure({
+            files: 'no files could be shared with the lab. Confirm the lab has a registered security key.',
+        })
+    }
+
+    const unshared = jobFiles.filter((file) => isEncryptedArtifact(file.fileType) && !keyed.has(file.id))
+    if (unshared.length) {
+        throw new ActionFailure({ files: 'some outputs were not prepared for sharing' })
+    }
+}
+
+// The study is resolved from the job, not taken alongside it. Authorizing a caller-supplied
+// studyId while mutating a caller-supplied studyJobId lets a reviewer entitled to study A name a
+// job in study B and have the ability check pass against the wrong study.
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
-            jobInfo: minimalJobInfoSchema,
+            studyJobId: z.string(),
             sharedFiles: z.array(sharedFileSchema),
         }),
     )
-    .middleware(async ({ params: { jobInfo }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select('orgId')
-            .where('id', '=', jobInfo.studyId)
-            .executeTakeFirstOrThrow()
-        return { orgId: study.orgId }
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { jobInfo: info, sharedFiles }, session, db }) => {
+    .handler(async ({ params: { sharedFiles }, studyJob, session, db }) => {
         // Re-wrap, not re-encrypt: persist only the wrapped-key rows the reviewer's browser
         // produced. Ciphertext untouched; server never sees plaintext. The FILES-APPROVED status
         // below is the all-or-nothing approval fact.
@@ -51,24 +83,24 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         // No backfill for late joiners: keys are wrapped only for lab members with a registered key
         // at approval time. Registering a key later can't unlock already-approved results —
         // re-wrapping needs the raw AES key, which the browser no longer holds.
-        await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
+        await insertSharedFileKeys(db, studyJob.studyJobId, sharedFiles)
 
         await db
             .insertInto('jobStatusChange')
             .values({
                 userId: session.user.id,
                 status: 'FILES-APPROVED',
-                studyJobId: info.studyJobId,
+                studyJobId: studyJob.studyJobId,
             })
             .executeTakeFirstOrThrow()
 
         await db
             .updateTable('study')
             .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
-            .where('id', '=', info.studyId)
+            .where('id', '=', studyJob.studyId)
             .execute()
 
-        onStudyResultsApproved({ studyId: info.studyId, userId: session.user.id })
+        onStudyResultsApproved({ studyId: studyJob.studyId, userId: session.user.id })
     })
 
 // Lab (researcher) public keys the reviewer's browser re-wraps approved files for.
@@ -96,35 +128,37 @@ export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
         return await getSharedFileIdsForJob(jobId)
     })
 
+// Study resolved from the job, for the same reason as approveStudyJobFilesAction above.
 export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
-        minimalJobInfoSchema.extend({
+        z.object({
             orgSlug: z.string(),
+            studyJobId: z.string(),
         }),
     )
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
-        return { orgId: study.orgId }
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('reject', 'Study')
-    .handler(async ({ params: info, session, db }) => {
+    .handler(async ({ studyJob, session, db }) => {
         await db
             .insertInto('jobStatusChange')
             .values({
                 userId: session.user.id,
                 status: 'FILES-REJECTED',
-                studyJobId: info.studyJobId,
+                studyJobId: studyJob.studyJobId,
             })
             .executeTakeFirstOrThrow()
 
         await db
             .updateTable('study')
             .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
-            .where('id', '=', info.studyId)
+            .where('id', '=', studyJob.studyId)
             .execute()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
-        onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })
+        onStudyResultsRejected({ studyId: studyJob.studyId, userId: session.user.id })
     })
 
 // OTTER-675: the Data Partner's single decision on a job's decrypted outputs. Feedback and the
@@ -195,11 +229,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
 
         const shareOutputs = decision === 'share-outputs'
 
-        // Sharing nothing is not a way to approve: the decision means the lab gets the files, so a
-        // request that carries no re-wrapped keys is either a bug or a direct call trying to record
-        // FILES-APPROVED without granting access.
-        if (shareOutputs && !sharedFiles.length) {
-            throw new ActionFailure({ files: 'no files were prepared for sharing' })
+        if (shareOutputs) {
+            assertSharesEveryArtifact(studyJob.files, sharedFiles)
         }
 
         // Read the round BEFORE writing the status below, for the same reason.
@@ -252,8 +283,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             .where('id', '=', studyId)
             .execute()
 
-        // The decision is final, so the collaborative draft has no further purpose; dropping it
-        // also stops a stale tab from resurrecting text after submission.
+        // The decision is final, so the collaborative draft has no further purpose. Deleting it is
+        // only half the job: the editor service's persist gate refuses further writes to a decided
+        // job's document (shouldPersistDocument), which is what stops an already-connected tab from
+        // recreating the row a moment later.
         await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(studyJobId)).execute()
 
         if (shareOutputs) {

@@ -206,7 +206,6 @@ describe('Study Job Actions', () => {
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
             await rejectStudyJobFilesAction({
-                studyId: study.id,
                 studyJobId: job.id,
                 orgSlug: org.slug,
             })
@@ -236,7 +235,7 @@ describe('Study Job Actions', () => {
             actionResult(
                 await approveStudyJobFilesAction({
                     orgSlug: enclave.slug,
-                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    studyJobId: job.id,
                     sharedFiles,
                 }),
             )
@@ -271,10 +270,9 @@ describe('Study Job Actions', () => {
 
         test('permission denied for non-enclave user', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
             const result = await rejectStudyJobFilesAction({
-                studyId: study.id,
                 studyJobId: job.id,
                 orgSlug: org.slug,
             })
@@ -456,8 +454,8 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // Approving is a promise that the lab gets the files, so a request carrying no re-wrapped
-        // keys must not be able to record FILES-APPROVED.
+        // Approving promises the lab can open the files, so these three shapes must all be refused
+        // rather than recorded as an approval nobody can act on.
         test('refuses to approve while sharing no files', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
 
@@ -467,6 +465,52 @@ describe('Study Job Actions', () => {
                 decision: 'share-outputs',
                 feedback: 'Looks fine.',
                 sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ files: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-APPROVED')
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
+        // This is what buildSharedFiles produces when the lab has no registered public key, so it
+        // happens without anyone acting in bad faith: entries exist but wrap no keys, and
+        // insertSharedFileKeys would write nothing and return silently.
+        test('refuses to approve when the entries carry no usable keys', async () => {
+            const { enclave, file, job, study } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-outputs',
+                feedback: 'Looks fine.',
+                sharedFiles: [{ studyJobFileId: file.id, filePath: 'results.csv', keys: [] }],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ files: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-APPROVED')
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
+        test('refuses to approve when an artifact is left out', async () => {
+            const { enclave, job, study, sharedFiles } = await setupResultApprovalFixture()
+
+            // A second encrypted artifact nobody prepared keys for.
+            await db
+                .insertInto('studyJobFile')
+                .values({
+                    path: 'results/encrypted-logs.zip',
+                    name: 'encrypted-logs.zip',
+                    studyJobId: job.id,
+                    fileType: 'ENCRYPTED-CODE-RUN-LOG',
+                })
+                .executeTakeFirstOrThrow()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-outputs',
+                feedback: 'Sharing only part of it.',
+                sharedFiles,
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ files: expect.any(String) }) })

@@ -68,18 +68,22 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                     />
                 </Group>
                 <Divider color="charcoal.1" />
-                <Table verticalSpacing="md" data-testid="outputs-files-table">
-                    <Table.Thead bg="grey.10">
-                        <Table.Tr>
-                            <Table.Th scope="col">File name</Table.Th>
-                            <Table.Th scope="col">Last activity</Table.Th>
-                            <Table.Th scope="col" ta="right">
-                                Actions
-                            </Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>{fileRows}</Table.Tbody>
-                </Table>
+                {/* File names, actor names and timestamps are all unbounded; without this the
+                    Actions column is the first thing pushed off a narrow viewport. */}
+                <Table.ScrollContainer minWidth={520}>
+                    <Table verticalSpacing="md" data-testid="outputs-files-table">
+                        <Table.Thead bg="grey.10">
+                            <Table.Tr>
+                                <Table.Th scope="col">File name</Table.Th>
+                                <Table.Th scope="col">Last activity</Table.Th>
+                                <Table.Th scope="col" ta="right">
+                                    Actions
+                                </Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>{fileRows}</Table.Tbody>
+                    </Table>
+                </Table.ScrollContainer>
             </Stack>
         </Paper>
     )

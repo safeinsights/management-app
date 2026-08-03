@@ -128,9 +128,9 @@ export type StudyEditabilitySnapshot = {
 // is the single enforcer of code-review versioning (see
 // claimInitialCodeReviewJob in study.actions.ts), and per-document room
 // isolation in Hocuspocus prevents stale-round writes from polluting a
-// different round's persisted state. Outputs-review feedback takes the same
-// exemption for the same reason — its one-decision-per-round guard is the
-// study_review_comment unique constraint, not this gate.
+// different round's persisted state. Outputs-review feedback is exempt here too, but for a
+// narrower reason: what bounds it is the job's files decision, not the STUDY status this snapshot
+// carries, so the check lives in shouldPersistDocument where the job id is available.
 export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditabilitySnapshot): boolean {
     switch (parsed.kind) {
         case 'review-feedback':
@@ -152,9 +152,23 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
 // covers new and reconnecting clients, but already-connected clients keep
 // streaming Yjs updates between a status flip and their own kick-out. This
 // gate is the second line of defense so post-flip writes never land in
-// yjs_document. Job-keyed review docs are not gated here; see isDocumentEditable.
+// yjs_document.
+//
+// Code-review docs are exempt (see isDocumentEditable). Outputs-review docs are NOT: the decision
+// action deletes the draft on submit, and without a gate here an already-connected tab would
+// simply persist it again a moment later, resurrecting feedback for a decision that is final.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
-    if (isJobKeyed(parsed)) return true
+    if (parsed.kind === 'code-review-feedback') return true
+
+    if (parsed.kind === 'outputs-review-feedback') {
+        const decided = await db.query<{ exists: boolean }>(
+            `SELECT 1 FROM job_status_change
+              WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
+              LIMIT 1`,
+            [parsed.jobId],
+        )
+        return decided.rowCount === 0
+    }
 
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status

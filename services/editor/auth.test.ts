@@ -820,10 +820,18 @@ describe('shouldPersistDocument', () => {
         expect(query).not.toHaveBeenCalled()
     })
 
-    it('always allows outputs-review-feedback persistence without touching the DB', async () => {
-        const query = vi.fn()
-        const db: DbQuery = { query: query as unknown as DbQuery['query'] }
-        await expect(shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, db)).resolves.toBe(true)
-        expect(query).not.toHaveBeenCalled()
+    // Deleting the draft on submit is only half the guard: without this gate an already-connected
+    // tab would persist the document again a moment later and resurrect feedback for a decision
+    // that is final.
+    it('allows outputs-review-feedback persistence while the job has no files decision', async () => {
+        await expect(
+            shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, fakeDb([])),
+        ).resolves.toBe(true)
+    })
+
+    it('blocks outputs-review-feedback persistence once a files decision is recorded', async () => {
+        await expect(
+            shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, fakeDb([{ status: 'x' }])),
+        ).resolves.toBe(false)
     })
 })

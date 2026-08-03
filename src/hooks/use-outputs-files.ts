@@ -33,7 +33,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
     const [viewing, setViewing] = useState<OutputFileRowData | null>(null)
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
-    const { data: activity } = useQuery({
+    const { data: activity, isSuccess: isActivityLoaded } = useQuery({
         queryKey: activityQueryKey(jobId),
         queryFn: () => fetchJobFileActivityAction({ jobId }),
     })
@@ -68,10 +68,14 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
             filePath: file.path,
             name: displayName(file.path),
             contents: file.contents,
+            // Distinguishes "asked, nothing came back" from "haven't asked yet". Without it, a
+            // pending or failed query renders as a confident "No activity yet" on every row, which
+            // is a false statement about who has accessed the outputs.
+            isActivityKnown: isActivityLoaded,
             activity:
                 activityRows.find((row) => row.studyJobFileId === file.sourceId && row.filePath === file.path) ?? null,
         }))
-    }, [decryptedFiles, activity])
+    }, [decryptedFiles, activity, isActivityLoaded])
 
     const onView = useCallback(
         (row: OutputFileRowData) => {

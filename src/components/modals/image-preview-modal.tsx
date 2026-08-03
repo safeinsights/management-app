@@ -9,15 +9,17 @@ type ImagePreviewModalProps = {
     contents: ArrayBuffer
     mime: string | null
     onClose: () => void
+    /** Notified when this modal's own download link is used, so callers can log the download. */
+    onDownload?: () => void
 }
 
-export function ImagePreviewModal({ isVisible, name, contents, mime, onClose }: ImagePreviewModalProps) {
+export function ImagePreviewModal({ isVisible, name, contents, mime, onClose, onDownload }: ImagePreviewModalProps) {
     if (!isVisible || !mime) return null
 
     const title = (
         <Group gap="md" align="baseline">
             <span>{name}</span>
-            <DownloadBlobLink filename={name} fileContent={contents} size="sm" fw={400} />
+            <DownloadBlobLink filename={name} fileContent={contents} size="sm" fw={400} onClick={onDownload} />
         </Group>
     )
 

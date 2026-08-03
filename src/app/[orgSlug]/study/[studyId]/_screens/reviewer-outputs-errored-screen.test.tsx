@@ -225,7 +225,9 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
         expect(screen.getByRole('button', { name: 'run.log' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'results.csv' })).toBeInTheDocument()
-        expect(screen.getAllByText('No activity yet')).toHaveLength(2)
+        // Waits for the activity query: the cell stays blank until the answer is in, so it never
+        // claims "No activity yet" on the strength of an unresolved request.
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
     })
 
     it('offers Download all once two files are present', async () => {

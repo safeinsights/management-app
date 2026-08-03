@@ -15,6 +15,8 @@ export type OutputFileRowData = {
     filePath: string
     name: string
     contents: ArrayBuffer
+    /** False while the activity query is still in flight or has failed; see LastActivityCell. */
+    isActivityKnown: boolean
     activity: JobFileActivity | null
 }
 
@@ -28,7 +30,11 @@ export const formatActivityDate = (date: Date | string): string => dayjs(date).f
 // The middle dots are decorative. Read straight through, "Jessica Walters · Viewed · Apr 22"
 // announces as one run-on phrase, so each dot is paired with hidden connective text and hidden
 // from AT itself.
-const LastActivityCell: FC<{ activity: JobFileActivity | null }> = ({ activity }) => {
+const LastActivityCell: FC<{ activity: JobFileActivity | null; isKnown: boolean }> = ({ activity, isKnown }) => {
+    // "No activity yet" is a claim about who has accessed the file, so it waits until the answer is
+    // actually in. An unresolved or failed query leaves the cell blank instead of asserting it.
+    if (!isKnown) return null
+
     if (!activity) {
         return (
             <Text fz={14} c="charcoal.9">
@@ -81,7 +87,7 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                 </Tooltip>
             </Table.Td>
             <Table.Td>
-                <LastActivityCell activity={row.activity} />
+                <LastActivityCell activity={row.activity} isKnown={row.isActivityKnown} />
             </Table.Td>
             <Table.Td ta="right">
                 {/* The sole control for this row's download, so the icon carries the accessible

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
@@ -24,6 +24,8 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
+    // A key submitted while the artifact fetch was still in flight, replayed once it settles.
+    const pendingKeyRef = useRef<string | null>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
         queryKey: ['encrypted-files', job.id],
@@ -52,6 +54,23 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
         onError: failInvalid,
     })
 
+    const submit = useCallback(
+        (rawKey: string) => {
+            // No artifacts to test the key against: either the query failed, this reviewer has no
+            // registered public key, or the job has no encrypted output. None of those is a bad
+            // key, so say so rather than reporting the key as invalid.
+            if (!encryptedFiles?.length) {
+                setError(ERRORS.unavailable)
+                inputRef.current?.focus()
+                return
+            }
+
+            setError(undefined)
+            decrypt(rawKey)
+        },
+        [encryptedFiles, decrypt],
+    )
+
     const handleSubmit = useCallback(() => {
         if (isPending) return
 
@@ -62,20 +81,24 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
             return
         }
 
-        if (isLoadingFiles) return
-
-        // No artifacts to test the key against: either the query failed, this reviewer has no
-        // registered public key, or the job has no encrypted output. None of those is a bad key,
-        // so say so rather than reporting the key as invalid.
-        if (!encryptedFiles?.length) {
-            setError(ERRORS.unavailable)
-            inputRef.current?.focus()
+        // The artifact fetch starts on mount and normally finishes long before a PEM key has been
+        // pasted, but a click that lands first must not be dropped: remember it and let the effect
+        // below run it once the fetch settles. The button stays enabled either way (OTTER-667).
+        if (isLoadingFiles) {
+            pendingKeyRef.current = trimmed
             return
         }
 
-        setError(undefined)
-        decrypt(trimmed)
-    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
+        submit(trimmed)
+    }, [isPending, isLoadingFiles, value, submit])
+
+    useEffect(() => {
+        if (isLoadingFiles) return
+        const queued = pendingKeyRef.current
+        if (!queued) return
+        pendingKeyRef.current = null
+        submit(queued)
+    }, [isLoadingFiles, submit])
 
     return {
         value,

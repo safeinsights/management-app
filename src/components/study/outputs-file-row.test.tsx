@@ -9,6 +9,7 @@ const buildRow = (overrides: Partial<OutputFileRowData> = {}): OutputFileRowData
     filePath: 'run.log',
     name: 'run.log',
     contents: new ArrayBuffer(4),
+    isActivityKnown: true,
     activity: null,
     ...overrides,
 })
