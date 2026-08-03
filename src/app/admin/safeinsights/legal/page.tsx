@@ -1,12 +1,11 @@
 import { Stack, Title } from '@mantine/core'
-import LegalUpload from './legal-upload'
+import { LegalTabs } from './legal-tabs'
 
 export default async function SafeInsightsLegalPage() {
     return (
         <Stack gap="xl">
             <Title order={1}>SafeInsights Legal</Title>
-            <LegalUpload doctype="tos" />
-            <LegalUpload doctype="pn" />
+            <LegalTabs />
         </Stack>
     )
 }

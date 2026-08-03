@@ -4,7 +4,6 @@ import { useState } from '@/common'
 import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
@@ -16,7 +15,7 @@ import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-ico
 // and contains review + publish logic
 
 export default function DraftForm({ doctype }: { doctype: LegalDocumentType }) {
-    const [file, setFile] = useState<File | null>(false)
+    const [file, setFile] = useState<File | null>(null)
 
     const handleDrop = (files: File[]) => {
         // Expects that there is one file and its type is .md
@@ -24,6 +23,7 @@ export default function DraftForm({ doctype }: { doctype: LegalDocumentType }) {
         setFile(draftFile)
     }
     const saveDraft = async () => {
+        if (!file) return
         // Call Chris's save draft action
         const result = await createLegalDocumentDraftAction({
             type: doctype,
@@ -36,7 +36,6 @@ export default function DraftForm({ doctype }: { doctype: LegalDocumentType }) {
         // params: { type, orgId, studyId, fileName, format }
         // Upload file to S3
         await uploadFiles([[file, result.upload]])
-        console.log('file', file.name)
     }
     return (
         <Stack>
