@@ -65,8 +65,9 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
 export function useDecryptFiles(options: {
     encryptedFiles: EncryptedJobFile[] | undefined
     onSuccess: (files: JobFileInfo[]) => void
+    onError?: (err: Error) => void
 }) {
-    const { encryptedFiles, onSuccess } = options
+    const { encryptedFiles, onSuccess, onError } = options
 
     const form = useForm({
         mode: 'uncontrolled' as const,
@@ -81,7 +82,11 @@ export function useDecryptFiles(options: {
         if (err instanceof KeyParseError || err instanceof DecryptionError) {
             form.setFieldError('privateKey', err.message)
         }
-        reportMutationError('decryption failed')(err)
+        if (onError) {
+            onError(err)
+        } else {
+            reportMutationError('decryption failed')(err)
+        }
     }
 
     const { mutate, isPending } = useMutation({

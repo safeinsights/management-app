@@ -94,12 +94,12 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     // meaning "ever ran" (which kept showing the approved/will-run banner after the run). A bare
     // JOB-ERRORED stays hidden from the researcher (the reviewer triages it), so it must NOT end the
     // window: only a researcher-visible result (RUN-COMPLETE / FILES-APPROVED / FILES-REJECTED) does.
-    const erroredResultHidden = isErroredResultHiddenFromResearcher({
+    const erroredAwaitingDecision = awaitingFilesDecisionOnError({
         resultsErrored,
         resultsApproved,
         resultsRejected,
     })
-    const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredResultHidden)
+    const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
 
     // displayStatus: pick the highest-priority present status, but let a code decision through only when
     // it is the live one (see isStaleCodeDecision), so DISPLAY_STATUS_PRIORITY's ordering never picks
@@ -139,11 +139,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     }
 }
 
-// OTTER-598 follow-up: a JOB-ERRORED result stays hidden from the RESEARCHER until a reviewer records
-// a FILES-* decision (errored-result triage is the reviewer's). While hidden, the researcher's pill
-// reads "Code approved" (resolvePillStatus's hideErrored) and the /view screen must hold on the
-// code-approved page — NOT jump to the results/Study Details screen. Single source of truth shared by
-// the pill and RESEARCHER_SCREEN_RULES so the two can't drift (the mismatch QA re-reported in 43898).
-export const isErroredResultHiddenFromResearcher = (
+// OTTER-598 follow-up: the job errored but no FILES-* decision has been recorded yet.
+// Both screen-rule tables depend on this predicate: the reviewer table routes to the
+// errored-outputs triage screen, the researcher table holds on the code-approved page
+// (hiding the error until the reviewer records a decision). Also used by the pill
+// (resolvePillStatus's hideErrored). Single source of truth so the two roles can't drift.
+export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
