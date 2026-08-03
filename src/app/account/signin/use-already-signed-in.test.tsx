@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
+import posthog from 'posthog-js'
 import { useAlreadySignedIn } from './use-already-signed-in'
 
 const mockSignedInUser = (email: string | null = 'ada@example.com') =>
@@ -83,9 +84,10 @@ describe('useAlreadySignedIn', () => {
         expect(memoryRouter.asPath).toBe(Routes.dashboard)
     })
 
-    it('switchAccount signs out and then reveals the form', async () => {
+    it('switchAccount resets posthog, signs out, and reveals the form', async () => {
         const signOut = vi.fn().mockResolvedValue(undefined)
         ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
         mockSignedInUser()
 
         const { result } = renderHook(() => useAlreadySignedIn())
@@ -93,6 +95,7 @@ describe('useAlreadySignedIn', () => {
             await result.current.switchAccount()
         })
 
+        expect(resetPosthog).toHaveBeenCalledOnce()
         expect(signOut).toHaveBeenCalledOnce()
         expect(result.current.status).toBe('signed-out')
         expect(result.current.isSwitching).toBe(false)
