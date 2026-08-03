@@ -31,8 +31,12 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
 }
 
 // The round's own notion of "decided", mirroring getOrCreateCurrentRoundJob: an existence check, so it
-// stays independent of jobStatusChange ordering (a round-closing status is never followed by another
-// status on the same job, which the ingest routes enforce by consulting this before recording one).
+// stays independent of jobStatusChange ordering.
+//
+// Consulted before storing an artifact here, and before recording an outcome in the results route. The
+// scanner and containerizer routes do NOT consult it and still append their status after a decision,
+// which predates this change: they drop the artifact but leave the status, and JOB-ERRORED outranks
+// FILES-APPROVED on the dashboard. Making those two routes agree is its own card.
 export async function roundIsClosed(studyJobId: string, executor: DBExecutor = db): Promise<boolean> {
     const closing = await executor
         .selectFrom('jobStatusChange')
