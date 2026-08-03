@@ -345,11 +345,14 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
 
     await page.getByTestId('outputs-submit-decision').click()
 
-    // The confirmation modal names what is about to be shared before anything is written.
-    await expect(page.getByText('Submit your decision?')).toBeVisible()
-    await expect(page.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
+    // Scope to the dialog: the page's own trigger and the modal's confirm share the label
+    // "Submit decision", so an unscoped role query matches both once the modal is open.
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    // The modal names what is about to be shared before anything is written.
+    await expect(modal.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
 
-    await page.getByRole('button', { name: 'Submit decision' }).click()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
 
     // The decision re-resolves the reviewer screen; leaving the errored view is the signal.
     await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
@@ -361,7 +364,7 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
 
     await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
     await expect(page.getByText('Select an option before submitting')).toBeVisible()
-    await expect(page.getByText('Submit your decision?')).toBeHidden()
+    await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
 }
 
 // The researcher's errored view is gated on the reviewer having shared the files, so this
