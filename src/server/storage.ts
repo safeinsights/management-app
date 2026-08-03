@@ -1,7 +1,7 @@
 import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { FileType } from '@/database/types'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import logger from '@/lib/logger'
@@ -33,8 +33,8 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
 // The round's own notion of "decided", mirroring getOrCreateCurrentRoundJob: an existence check, so it
 // stays independent of jobStatusChange ordering (a round-closing status is never followed by another
 // status on the same job, which the ingest routes enforce by consulting this before recording one).
-export async function roundIsClosed(studyJobId: string): Promise<boolean> {
-    const closing = await db
+export async function roundIsClosed(studyJobId: string, executor: DBExecutor = db): Promise<boolean> {
+    const closing = await executor
         .selectFrom('jobStatusChange')
         .select('id')
         .where('studyJobId', '=', studyJobId)
@@ -50,7 +50,7 @@ export async function roundIsClosed(studyJobId: string): Promise<boolean> {
 async function artifactRowForSlot(studyJobId: string, path: string, fileType: FileType) {
     return await db
         .selectFrom('studyJobFile')
-        .select('id')
+        .select(['id', 'createdAt'])
         .where('studyJobId', '=', studyJobId)
         .where('path', '=', path)
         .where('fileType', '=', fileType)
@@ -65,9 +65,11 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
  * object, which the reviewer and researcher saw as the log/result listed twice. Update in place
  * instead, so a retry refreshes the artifact rather than duplicating it.
  *
- * `isNew` reports whether this call added an artifact the job did not already have, so a retry does
- * not announce the run's outcome a second time. `stored` reports whether the artifact this call
- * carried actually landed, which is false only for a late delivery the round-closed guard dropped.
+ * `isNew` reports whether this call added an artifact the job did not already have. `stored` reports
+ * whether the artifact this call carried actually landed, which is false only for a late delivery the
+ * round-closed guard dropped. `createdAt` is when the job first had this artifact, which a caller
+ * needs to tell its own already-recorded outcome from one an earlier pipeline stage happened to
+ * record under the same status name.
  *
  * The unique index closes the duplicate-ROW race: two concurrent first deliveries cannot both insert,
  * and the loser is recovered below as the repeat it effectively is. It does not make a delivery atomic,
@@ -122,7 +124,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         .insertInto('studyJobFile')
         .values({ path, name: file.name, studyJobId: info.studyJobId, fileType })
         .onConflict((oc) => oc.doNothing())
-        .returning('id')
+        .returning(['id', 'createdAt'])
         .executeTakeFirst()
 
     if (inserted) return { ...inserted, isNew: true, stored: true }
@@ -139,13 +141,15 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
 }
 
 // Only the name can differ between deliveries to one slot: the job, path and type are the key, and
-// nothing else on the row is derived from the payload.
+// nothing else on the row is derived from the payload. createdAt comes back untouched, which is what
+// makes it usable as "when this job first had this artifact" by the callers deciding whether their
+// outcome was already announced.
 async function renameArtifactRow(id: string, name: string) {
     return await db
         .updateTable('studyJobFile')
         .set({ name })
         .where('id', '=', id)
-        .returning('id')
+        .returning(['id', 'createdAt'])
         .executeTakeFirstOrThrow()
 }
 

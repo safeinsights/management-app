@@ -3,6 +3,7 @@ import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
+import { sql } from 'kysely'
 import { pathForStudyJob } from '@/lib/paths'
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
@@ -234,6 +235,53 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
     expect(errored).toHaveLength(1)
     expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
 })
+
+// JOB-ERRORED is shared with the scanner and the containerizer, so a bare status lookup would read
+// one of theirs as proof this callback already finished. The run's own failure would then be dropped
+// on the retry that was meant to complete it, leaving the job running with its log already stored.
+test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORED would have masked", async () => {
+    const org = await insertTestOrg()
+    const { studyId, jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    // Dated explicitly: the scan fails before the run produces a log, and a test runs inside one
+    // transaction, where now() is frozen and fixture rows would otherwise share a timestamp.
+    await db
+        .insertInto('jobStatusChange')
+        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 hour'` })
+        .execute()
+
+    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            path: `${jobPath}/results/encrypted-code-run-log.zip`,
+            name: 'encrypted-code-run-log.zip',
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+        })
+        .execute()
+
+    const formData = new FormData()
+    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const errored = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    expect(errored).toHaveLength(2)
+})
+
+// The row lock that makes outcome finalization safe against two simultaneous callbacks is deliberately
+// not unit-tested: pg-transactional-tests runs every test on a single connection inside one
+// transaction, so two requests cannot actually contend and the assertion would come down to whichever
+// order their queries happened to interleave in. Sequential repeats are covered above.
 
 // A late delivery can carry an artifact the job never had (an errored run stored only its log, the
 // reviewer decided on it, then a delayed callback arrives with the results too). The artifact is kept,
