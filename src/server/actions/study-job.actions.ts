@@ -1,9 +1,13 @@
 'use server'
 
-import { ActionFailure } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
+import { normalizeFeedbackToLexical } from '@/lib/lexical'
+import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { OUTPUTS_FEEDBACK_MIN_WORDS, toOutputsReviewDecision } from '@/lib/outputs-review'
 import { JobFile, minimalJobInfoSchema, sharedFileSchema } from '@/lib/types'
 import {
+    codeSubmissionVersion,
     getLabPublicKeysForStudy,
     getUserPublicKey,
     getSharedFileIdsForJob,
@@ -115,6 +119,129 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction',
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
         onStudyResultsRejected({ studyId: info.studyId, userId: session.user.id })
+    })
+
+// OTTER-675: the Data Partner's single decision on a job's decrypted outputs. Feedback and the
+// files decision land together so the reviewer's rationale can never be orphaned from the status
+// that acted on it — the reason this exists instead of calling approve/reject plus a second write.
+//
+// 'share-outputs' does exactly what approveStudyJobFilesAction does (persist the browser's
+// re-wrapped keys, then FILES-APPROVED); 'share-feedback-only' does what
+// rejectStudyJobFilesAction does (FILES-REJECTED, files stay unshared). Those two actions remain
+// for the older results screen.
+export const submitOutputsDecisionAction = new Action('submitOutputsDecisionAction', { performsMutations: true })
+    .params(
+        z.object({
+            orgSlug: z.string(),
+            jobInfo: minimalJobInfoSchema,
+            decision: z.enum(['share-outputs', 'share-feedback-only']),
+            feedback: z.string(),
+            maxWords: z.number().int().positive(),
+            // Empty for 'share-feedback-only': nothing is shared, so there are no keys to re-wrap.
+            sharedFiles: z.array(sharedFileSchema),
+        }),
+    )
+    .middleware(async ({ params: { jobInfo }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select('orgId')
+            .where('id', '=', jobInfo.studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId }
+    })
+    .requireAbilityTo('review', 'Study')
+    .handler(async ({ params: { jobInfo: info, decision, feedback, maxWords, sharedFiles }, session, db }) => {
+        const userId = session.user.id
+
+        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        if (wordCount < OUTPUTS_FEEDBACK_MIN_WORDS) {
+            throw new ActionFailure({ feedback: 'Feedback is required' })
+        }
+        if (wordCount > maxWords) {
+            throw new ActionFailure({ feedback: `Feedback must be ${maxWords} words or fewer (got ${wordCount})` })
+        }
+
+        const shareOutputs = decision === 'share-outputs'
+
+        // A files decision is final, so refuse outright if one already exists. This cannot be left
+        // to the (studyJobId, reviewKind, round) unique constraint: FILES-APPROVED/FILES-REJECTED
+        // are themselves round-opening events, so once the first decision lands
+        // codeSubmissionVersion returns the NEXT round and a second attempt would slot in beside
+        // it rather than collide — writing a phantom decision for a round whose code was never
+        // resubmitted. The constraint still covers the genuine same-round race below, where two
+        // reviewers both read the pre-decision round before either commits.
+        const existingDecision = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', info.studyJobId)
+            .where('status', 'in', ['FILES-APPROVED', 'FILES-REJECTED'])
+            .executeTakeFirst()
+
+        if (existingDecision) {
+            throw new ActionFailure({
+                study: 'another reviewer has already submitted a decision for these outputs',
+            })
+        }
+
+        // Read the round BEFORE writing the status below, for the same reason.
+        const round = await codeSubmissionVersion(info.studyId, db)
+
+        try {
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: info.studyId,
+                    studyJobId: info.studyJobId,
+                    authorId: userId,
+                    reviewKind: 'RESULTS',
+                    entryType: 'DECISION',
+                    decision: toOutputsReviewDecision(decision),
+                    body: JSON.parse(json),
+                    round,
+                })
+                .executeTakeFirstOrThrow()
+        } catch (err) {
+            // The (studyJobId, reviewKind, round) unique constraint fires when two reviewers submit
+            // a decision on the same outputs within the same round. The first write is already
+            // safe, so the loser gets a clean message rather than a duplicate-key error.
+            if (isPgUniqueViolation(err)) {
+                throw new ActionFailure({
+                    study: 'another reviewer has already submitted a decision for these outputs',
+                })
+            }
+            throw err
+        }
+
+        if (shareOutputs) {
+            // Re-wrap, not re-encrypt: only the wrapped keys the reviewer's browser produced are
+            // persisted. Ciphertext untouched; the server never sees plaintext or a raw AES key.
+            await insertSharedFileKeys(db, info.studyJobId, sharedFiles)
+        }
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId,
+                status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
+
+        await db
+            .updateTable('study')
+            .set({ reviewerId: userId, lastUpdatedAt: new Date() })
+            .where('id', '=', info.studyId)
+            .execute()
+
+        // The decision is final, so the collaborative draft has no further purpose; dropping it
+        // also stops a stale tab from resurrecting text after submission.
+        await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(info.studyJobId)).execute()
+
+        if (shareOutputs) {
+            onStudyResultsApproved({ studyId: info.studyId, userId })
+        } else {
+            onStudyResultsRejected({ studyId: info.studyId, userId })
+        }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')

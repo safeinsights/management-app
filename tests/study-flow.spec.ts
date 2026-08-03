@@ -307,8 +307,9 @@ async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<
     await page.waitForURL('**/dashboard')
 }
 
-// OTTER-667: the errored screen now uses the SecurityKeyForm (decrypt only).
-// The post-decryption approve flow is OTTER-675; until then, verify decrypt succeeds.
+// OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
+// the outputs table and Decision section without a navigation — decryption is client-side, so
+// the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
@@ -326,24 +327,58 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
-    await expect(page.getByText('Security key accepted.')).toBeVisible()
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
-// OTTER-675: restore once the reviewer approve flow is built — the researcher's
-// errored view is gated on file approval (isErroredResultHiddenFromResearcher).
-// async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
-//     await visitAsRole(page, RESEARCHER_DASHBOARD)
-//
-//     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-//     await expect(studyRow.getByText(/Errored/i)).toBeVisible()
-//
-//     await viewStudyDetails(page, studyTitle)
-//
-//     await expect(page.getByText(/The code errored/i)).toBeVisible()
-//     await expect(page.getByText(/Job ID/i)).toBeVisible()
-//
-//     await expect(page.getByText('Code Run Log')).toBeVisible()
-// }
+// OTTER-675: submitting the decision from the decrypted view. Shares the outputs so the
+// researcher-side assertions below have something to see.
+async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void> {
+    await expect(page.getByTestId('outputs-decision-section')).toBeVisible()
+
+    const editor = page.getByLabel('Decision feedback')
+    await expect(editor).toBeVisible()
+    await editor.click()
+    await editor.fill(feedback)
+
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    await page.getByTestId('outputs-submit-decision').click()
+
+    // The confirmation modal names what is about to be shared before anything is written.
+    await expect(page.getByText('Submit your decision?')).toBeVisible()
+    await expect(page.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Submit decision' }).click()
+
+    // The decision re-resolves the reviewer screen; leaving the errored view is the signal.
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+}
+
+// OTTER-675: blank submit must flag both fields and open no modal.
+async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
+    await page.getByTestId('outputs-submit-decision').click()
+
+    await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
+    await expect(page.getByText('Select an option before submitting')).toBeVisible()
+    await expect(page.getByText('Submit your decision?')).toBeHidden()
+}
+
+// The researcher's errored view is gated on the reviewer having shared the files, so this
+// runs only after reviewerSharesOutputs (OTTER-675).
+async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+    await visitAsRole(page, RESEARCHER_DASHBOARD)
+
+    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible()
+
+    await viewStudyDetails(page, studyTitle)
+
+    await expect(page.getByText(/The code errored/i)).toBeVisible()
+    await expect(page.getByText(/Job ID/i)).toBeVisible()
+
+    await expect(page.getByText('Code Run Log')).toBeVisible()
+}
 
 // ============================================================================
 // Tests
@@ -456,8 +491,8 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// OTTER-667: reviewer decrypts error logs on the new errored-outputs screen.
-// OTTER-675: uncomment the researcher step once the approve flow is built.
+// Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
+// validation gate, the confirmation modal, and the researcher's view of the shared logs.
 test('Error log review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('error-log')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
@@ -465,11 +500,13 @@ test('Error log review', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'reviewer', async (page) => {
         await reviewerDecryptsErrorLogs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'The run failed on a timeout; the logs contain no PII.')
     })
 
-    // await withRole(browser, 'researcher', async (page) => {
-    //     await verifyFailedStatusDisplay(page, studyTitle)
-    // })
+    await withRole(browser, 'researcher', async (page) => {
+        await verifyFailedStatusDisplay(page, studyTitle)
+    })
 })
 
 // Owns the reviewer reject-proposal surface + the researcher rejected-proposal view.

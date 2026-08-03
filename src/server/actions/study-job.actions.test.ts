@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, type Mock } from 'vitest'
 import {
     actionResult,
+    buildFeedback,
     db,
     insertTestOrg,
     insertTestStudyJobData,
@@ -10,6 +11,8 @@ import {
     createTestProposalDraft,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
+import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
@@ -17,6 +20,7 @@ import {
     loadStudyJobAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
+    submitOutputsDecisionAction,
 } from './study-job.actions'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
@@ -272,6 +276,174 @@ describe('Study Job Actions', () => {
                 studyId: study.id,
                 studyJobId: job.id,
                 orgSlug: org.slug,
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    // OTTER-675: the DP's single decision on decrypted outputs. Feedback and the files status are
+    // written together, so each test asserts both halves.
+    describe('submitOutputsDecisionAction', () => {
+        const jobStatuses = (jobId: string) =>
+            db.selectFrom('jobStatusChange').select('status').where('studyJobId', '=', jobId).execute()
+
+        const resultsComment = (studyId: string) =>
+            db
+                .selectFrom('studyReviewComment')
+                .selectAll('studyReviewComment')
+                .where('studyId', '=', studyId)
+                .where('reviewKind', '=', 'RESULTS')
+                .executeTakeFirst()
+
+        test('sharing the outputs approves the files, records the keys and stores the feedback', async () => {
+            const { enclave, file, job, reviewer, sharedFiles, study } = await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    decision: 'share-outputs',
+                    feedback: 'The outputs look clean and contain no PII.',
+                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                    sharedFiles,
+                }),
+            )
+
+            expect((await jobStatuses(job.id)).map((s) => s.status)).toContain('FILES-APPROVED')
+
+            const comment = await resultsComment(study.id)
+            expect(comment).toMatchObject({
+                decision: 'APPROVE',
+                entryType: 'DECISION',
+                studyJobId: job.id,
+                authorId: reviewer.id,
+            })
+            expect(JSON.stringify(comment!.body)).toContain('The outputs look clean and contain no PII.')
+
+            const keys = await db
+                .selectFrom('studyJobFileRecipientKey')
+                .selectAll('studyJobFileRecipientKey')
+                .where('studyJobFileId', '=', file.id)
+                .execute()
+            expect(keys).toHaveLength(1)
+        })
+
+        test('sharing feedback only rejects the files and shares no keys', async () => {
+            const { enclave, file, job, study } = await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    decision: 'share-feedback-only',
+                    feedback: 'The log leaks a participant identifier, please remove it.',
+                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                    sharedFiles: [],
+                }),
+            )
+
+            expect((await jobStatuses(job.id)).map((s) => s.status)).toContain('FILES-REJECTED')
+            expect(await resultsComment(study.id)).toMatchObject({ decision: 'NEEDS-CLARIFICATION' })
+
+            const keys = await db
+                .selectFrom('studyJobFileRecipientKey')
+                .selectAll('studyJobFileRecipientKey')
+                .where('studyJobFileId', '=', file.id)
+                .execute()
+            expect(keys).toHaveLength(0)
+        })
+
+        test('rejects empty feedback without touching the job status', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                decision: 'share-outputs',
+                feedback: '   ',
+                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-APPROVED')
+            expect(await resultsComment(study.id)).toBeUndefined()
+        })
+
+        test('rejects feedback over the cap', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                decision: 'share-feedback-only',
+                feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
+        })
+
+        // The (studyJobId, reviewKind, round) unique constraint is the race-loser guard; the
+        // second reviewer must get a readable message, not a raw duplicate-key error.
+        test('refuses a second decision on the same outputs', async () => {
+            const { enclave, job, study, sharedFiles } = await setupResultApprovalFixture()
+            const params = {
+                orgSlug: enclave.slug,
+                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                decision: 'share-outputs' as const,
+                feedback: 'Looks good to share.',
+                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                sharedFiles,
+            }
+
+            actionResult(await submitOutputsDecisionAction(params))
+            const second = await submitOutputsDecisionAction(params)
+
+            expect(second).toEqual({ error: expect.objectContaining({ study: expect.stringContaining('already') }) })
+        })
+
+        test('clears the collaborative feedback draft once submitted', async () => {
+            const { enclave, job, study, sharedFiles } = await setupResultApprovalFixture()
+            const docName = outputsReviewFeedbackDocName(job.id)
+            await db
+                .insertInto('yjsDocument')
+                .values({ name: docName, studyId: study.id, data: Buffer.from('draft-state') })
+                .execute()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: enclave.slug },
+                    decision: 'share-outputs',
+                    feedback: 'Ready to share.',
+                    maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                    sharedFiles,
+                }),
+            )
+
+            const draft = await db
+                .selectFrom('yjsDocument')
+                .select('name')
+                .where('name', '=', docName)
+                .executeTakeFirst()
+            expect(draft).toBeUndefined()
+        })
+
+        test('permission denied for a lab user', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: org.slug,
+                jobInfo: { studyId: study.id, studyJobId: job.id, orgSlug: org.slug },
+                decision: 'share-feedback-only',
+                feedback: 'Not allowed.',
+                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
+                sharedFiles: [],
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })

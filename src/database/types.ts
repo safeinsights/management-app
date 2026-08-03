@@ -43,6 +43,8 @@ export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
 
+export type StudyJobFileAction = 'DOWNLOADED' | 'VIEWED'
+
 export type StudyJobFileType =
     | 'APPROVED-CODE-RUN-LOG'
     | 'APPROVED-PACKAGING-ERROR-LOG'
@@ -79,7 +81,7 @@ export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEED
 
 export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
 
-export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL' | 'RESULTS'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
@@ -265,6 +267,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyJobFileActivity {
+    action: StudyJobFileAction
+    createdAt: Generated<Timestamp>
+    filePath: string
+    id: Generated<string>
+    studyJobFileId: string
+    userId: string
+}
+
 export interface StudyJobFileRecipientKey {
     createdAt: Generated<Timestamp>
     crypt: string
@@ -352,6 +363,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileActivity: StudyJobFileActivity
     studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview

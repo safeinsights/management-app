@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
@@ -9,12 +10,18 @@ const ERRORS = {
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
 } as const
 
-const SUCCESS_MESSAGE = 'Security key accepted.'
+type UseSecurityKeyFormOptions = {
+    job: LatestJobForStudy
+    /**
+     * Handed the decrypted plaintext on a successful key. The caller owns it from here — the
+     * files carry raw AES keys (see JobFileInfo) and must stay in memory, never persisted.
+     */
+    onDecrypted: (files: JobFileInfo[]) => void
+}
 
-export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
+export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptions) {
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
-    const [successMessage, setSuccessMessage] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
@@ -24,13 +31,12 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
-        onSuccess: () => {
+        onSuccess: (files) => {
             setError(undefined)
-            setSuccessMessage(SUCCESS_MESSAGE)
+            onDecrypted(files)
         },
         onError: () => {
             setError(ERRORS.invalid)
-            setSuccessMessage(undefined)
             requestAnimationFrame(() => inputRef.current?.focus())
         },
     })
@@ -41,7 +47,6 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
         const trimmed = value.trim()
         if (!trimmed) {
             setError(ERRORS.empty)
-            setSuccessMessage(undefined)
             inputRef.current?.focus()
             return
         }
@@ -49,7 +54,6 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
         if (isLoadingFiles) return
 
         setError(undefined)
-        setSuccessMessage(undefined)
         decrypt(trimmed)
     }, [isPending, isLoadingFiles, value, decrypt])
 
@@ -57,7 +61,6 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
         value,
         setValue,
         error,
-        successMessage,
         isDecrypting: isPending,
         inputRef,
         handleSubmit,

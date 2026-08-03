@@ -1,0 +1,208 @@
+'use client'
+
+import { FC, type ReactNode } from 'react'
+import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import type { HocuspocusProvider } from '@hocuspocus/provider'
+import { InputError } from '@/components/errors'
+import { Editor } from '@/components/editable-text/editor'
+import { RequiredIndicator } from '@/components/required-indicator'
+import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
+import { WordCounter } from '@/components/word-counter'
+import { fieldDescribedBy, fieldDescriptionId, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
+import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import type { OutputsDecision } from '@/lib/outputs-review'
+
+export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
+export const DECISION_GROUP_ID = 'outputs-decision-options'
+
+const EDITOR_SKELETON_HEIGHT = 260
+
+const contentStyle = {
+    minHeight: 260,
+    padding: '8px 16px',
+    outline: 'none',
+    fontSize: '14px',
+    lineHeight: 1.6,
+} as const
+
+const DecisionIntro: FC<{ labName: string }> = ({ labName }) => (
+    <Text fz={16} c="charcoal.9">
+        Based on your review:
+        <br />• If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
+        your feedback so {labName} can revise the code.
+        <br />• If they do not, share the outputs along with your feedback.
+    </Text>
+)
+
+type DecisionOption = { value: OutputsDecision; title: string; description: string }
+
+const buildDecisionOptions = (labName: string): DecisionOption[] => [
+    {
+        value: 'share-outputs',
+        title: 'Share outputs and feedback',
+        description: `Share the output files and your feedback with ${labName}.`,
+    },
+    {
+        value: 'share-feedback-only',
+        title: 'Share feedback only',
+        description:
+            'Share your feedback without sharing the output files. Choose this if the outputs contain sensitive or restricted information.',
+    },
+]
+
+const RADIO_STYLES = { label: { fontWeight: 600, fontSize: 16 }, description: { fontSize: 14 } }
+
+type DecisionRadioGroupProps = {
+    value: OutputsDecision | null
+    onChange: (next: OutputsDecision) => void
+    onBlur: () => void
+    error: ReactNode
+    labName: string
+}
+
+const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
+
+const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBlur, error, labName }) => {
+    // Mantine's Radio renders a native <input type="radio">; Radio.Group gives them a shared
+    // `name`, so mutual exclusivity and arrow-key navigation are the browser's, not simulated.
+    //
+    // The description is wrapped in an element we own so it can be referenced by
+    // `aria-describedby`: Mantine renders `description` for sighted users but never associates it
+    // with the input, so without this a screen reader announces only the title and the user never
+    // hears which option withholds the files.
+    const options = buildDecisionOptions(labName).map((option) => (
+        <Radio
+            key={option.value}
+            value={option.value}
+            label={option.title}
+            description={<span id={descriptionId(option.value)}>{option.description}</span>}
+            aria-describedby={descriptionId(option.value)}
+            styles={RADIO_STYLES}
+            data-testid={`outputs-decision-${option.value}`}
+        />
+    ))
+
+    return (
+        // Blur is a bubbled focusout, so moving between the two radios would validate a
+        // still-empty group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+        <Radio.Group
+            id={DECISION_GROUP_ID}
+            value={value ?? ''}
+            onChange={(next) => onChange(next as OutputsDecision)}
+            onBlur={widgetBlurHandler(onBlur)}
+            name="outputs-decision"
+            label="Sharing decision"
+            labelProps={{ fw: 600 }}
+            error={error}
+        >
+            <Stack gap="md">{options}</Stack>
+        </Radio.Group>
+    )
+}
+
+type FeedbackFooterProps = {
+    saveStatus: SaveStatusValue
+    error: ReactNode
+    wordCount: number
+    maxWords: number
+}
+
+// The autosave indicator and the validation error share the footer's left slot; an unresolved
+// error outranks "All changes saved", which would otherwise read as "this is fine to submit".
+//
+// Both halves are polite live regions: the over-limit error can fire on every keystroke past the
+// cap, and an assertive announcement there would interrupt the user mid-sentence.
+const FeedbackFooter: FC<FeedbackFooterProps> = ({ saveStatus, error, wordCount, maxWords }) => (
+    <Group justify="space-between" align="center">
+        <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
+            {error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />}
+        </Box>
+        {/* Carries the description id so the count reaches the editor's aria-describedby. */}
+        <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
+            <WordCounter wordCount={wordCount} maxWords={maxWords} />
+        </Box>
+    </Group>
+)
+
+export type OutputsDecisionSectionProps = {
+    jobId: string
+    studyId: string
+    labName: string
+    maxWords: number
+    wordCount: number
+    feedbackError: ReactNode
+    saveStatus: SaveStatusValue
+    onFeedbackChange: (json: string) => void
+    onFeedbackBlur: () => void
+    onProviderReady: (provider: HocuspocusProvider | null) => void
+    selected: OutputsDecision | null
+    onSelect: (next: OutputsDecision) => void
+    onDecisionBlur: () => void
+    decisionError: ReactNode
+}
+
+export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
+    jobId,
+    studyId,
+    labName,
+    maxWords,
+    wordCount,
+    feedbackError,
+    saveStatus,
+    onFeedbackChange,
+    onFeedbackBlur,
+    onProviderReady,
+    selected,
+    onSelect,
+    onDecisionBlur,
+    decisionError,
+}) => {
+    const websocketProvider = useYjsWebsocket()
+
+    return (
+        <Paper p="xxl" data-testid="outputs-decision-section">
+            <Stack gap="lg">
+                <Group gap={0} align="center">
+                    <Text fz={20} fw={700} c="charcoal.9">
+                        Decision
+                    </Text>
+                    <RequiredIndicator fz={20} fw={700} />
+                </Group>
+                <Divider color="charcoal.1" />
+                <DecisionIntro labName={labName} />
+                <Editor
+                    id={outputsReviewFeedbackDocName(jobId)}
+                    inputId={FEEDBACK_INPUT_ID}
+                    studyId={studyId}
+                    websocketProvider={websocketProvider}
+                    contentStyle={contentStyle}
+                    onChange={onFeedbackChange}
+                    onBlur={onFeedbackBlur}
+                    error={feedbackError}
+                    ariaLabel="Decision feedback"
+                    ariaRequired
+                    ariaDescribedBy={fieldDescribedBy(FEEDBACK_INPUT_ID, {
+                        hasError: !!feedbackError,
+                        hasDescription: true,
+                    })}
+                    onProviderReady={onProviderReady}
+                    skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                />
+                <FeedbackFooter
+                    saveStatus={saveStatus}
+                    error={feedbackError}
+                    wordCount={wordCount}
+                    maxWords={maxWords}
+                />
+                <DecisionRadioGroup
+                    value={selected}
+                    onChange={onSelect}
+                    onBlur={onDecisionBlur}
+                    error={decisionError}
+                    labName={labName}
+                />
+            </Stack>
+        </Paper>
+    )
+}

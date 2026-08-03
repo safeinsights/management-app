@@ -34,6 +34,13 @@ describe('parseDocumentName', () => {
         })
     })
 
+    it('parses outputs-review-feedback documents', () => {
+        expect(parseDocumentName(`outputs-review-feedback-${JOB_ID}`)).toEqual({
+            kind: 'outputs-review-feedback',
+            jobId: JOB_ID,
+        })
+    })
+
     it('parses proposal-fields documents', () => {
         expect(parseDocumentName(`proposal-${STUDY_ID}-fields`)).toEqual({
             kind: 'proposal-fields',
@@ -75,6 +82,7 @@ describe('parseDocumentName', () => {
         `review-feedback-${STUDY_ID}-v-1`,
         `review-feedback-${STUDY_ID}-v`,
         `code-review-feedback-not-a-uuid`,
+        `outputs-review-feedback-not-a-uuid`,
         `proposal-${STUDY_ID}-resubmission-note`,
         `proposal-${STUDY_ID}-resubmission-note-v0`,
         `proposal-${STUDY_ID}-resubmission-note-v01`,
@@ -96,6 +104,10 @@ describe('requiredOrgIdForDocument', () => {
 
     it('returns DO org for code-review-feedback', () => {
         expect(requiredOrgIdForDocument({ kind: 'code-review-feedback', jobId: JOB_ID }, study)).toBe('do-org')
+    })
+
+    it('returns DO org for outputs-review-feedback', () => {
+        expect(requiredOrgIdForDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, study)).toBe('do-org')
     })
 
     it('returns lab org for proposal-fields', () => {
@@ -457,6 +469,22 @@ describe('authenticate', () => {
         ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
     })
 
+    it('resolves the studyId through study_job for an outputs-review-feedback document', async () => {
+        const db = dbFromScripts(async (text) => {
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
+            if (text.includes('FROM study_job')) return { rows: [{ study_id: STUDY_ID }], rowCount: 1 }
+            if (text.includes('FROM study'))
+                return {
+                    rows: [{ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'APPROVED' }],
+                    rowCount: 1,
+                }
+            return { rows: [{}], rowCount: 1 }
+        })
+        await expect(
+            authenticate({ token: 'tok', documentName: `outputs-review-feedback-${JOB_ID}` }, baseDeps({ db })),
+        ).resolves.toEqual({ user: { id: 'do-user', clerkId: 'clerk-user-1' }, studyId: STUDY_ID })
+    })
+
     it('rejects a code-review-feedback connection when the study_job row does not exist', async () => {
         const db = dbFromScripts(async (text) => {
             if (text.includes('FROM "user"')) return { rows: [{ id: 'do-user' }], rowCount: 1 }
@@ -584,6 +612,14 @@ describe('isDocumentEditable', () => {
     it('always allows code-review-feedback regardless of study status (editor is not the enforcer)', () => {
         for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
             expect(isDocumentEditable({ kind: 'code-review-feedback', jobId: JOB_ID }, { status })).toBe(true)
+        }
+    })
+
+    // Same exemption, same reason: the one-decision-per-round guard for outputs feedback is the
+    // study_review_comment unique constraint, not this gate.
+    it('always allows outputs-review-feedback regardless of study status', () => {
+        for (const status of ['DRAFT', 'PENDING-REVIEW', 'APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
+            expect(isDocumentEditable({ kind: 'outputs-review-feedback', jobId: JOB_ID }, { status })).toBe(true)
         }
     })
 })
@@ -781,6 +817,13 @@ describe('shouldPersistDocument', () => {
         const query = vi.fn()
         const db: DbQuery = { query: query as unknown as DbQuery['query'] }
         await expect(shouldPersistDocument({ kind: 'code-review-feedback', jobId: JOB_ID }, db)).resolves.toBe(true)
+        expect(query).not.toHaveBeenCalled()
+    })
+
+    it('always allows outputs-review-feedback persistence without touching the DB', async () => {
+        const query = vi.fn()
+        const db: DbQuery = { query: query as unknown as DbQuery['query'] }
+        await expect(shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, db)).resolves.toBe(true)
         expect(query).not.toHaveBeenCalled()
     })
 })
