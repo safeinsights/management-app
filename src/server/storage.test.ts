@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import { db } from '@/database'
-import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
+import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
 import { pathForStudyJob } from '@/lib/paths'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from './storage'
 import { storeS3File } from './aws'
@@ -11,8 +11,7 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-const logFile = (name = 'encrypted-logs.zip') =>
-    new File([new TextEncoder().encode('boom')], name, { type: 'application/zip' })
+const logFile = (name = 'encrypted-logs.zip') => testUploadFile(name)
 
 async function jobLogRows(studyJobId: string) {
     return await db
@@ -23,11 +22,7 @@ async function jobLogRows(studyJobId: string) {
         .execute()
 }
 
-async function setupJob() {
-    const org = await insertTestOrg()
-    const { studyId, jobIds } = await insertTestStudyData({ org })
-    return { orgSlug: org.slug, studyId, studyJobId: jobIds[0] }
-}
+const setupJob = async () => (await insertTestJobInfo()).jobInfo
 
 // The storage path is derived from the job and the artifact type, so a re-delivered webhook
 // overwrites the same S3 object. Before OTTER-642 it also inserted a second row pointing at that

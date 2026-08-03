@@ -1,17 +1,13 @@
 import { type Kysely, sql } from 'kysely'
 import { describe, expect, it } from 'vitest'
-import { db, insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
-import { collapseArtifactSlots } from './migrations/1780500000000_dedupe_study_job_file_artifacts'
+import { db, insertTestJobInfo } from '@/tests/unit.helpers'
+import { collapseArtifactSlots } from './migrations/1780600000000_dedupe_study_job_file_artifacts'
 
 // Verifies the partial unique index and the backfill added in
-// 1780500000000_dedupe_study_job_file_artifacts.ts. An artifact slot is one
+// 1780600000000_dedupe_study_job_file_artifacts.ts. An artifact slot is one
 // (study_job_id, path, file_type); code file types are outside the index.
 describe('study_job_file artifact slots', () => {
-    async function setupJob() {
-        const org = await insertTestOrg()
-        const { jobIds } = await insertTestStudyData({ org })
-        return jobIds[0]
-    }
+    const setupJob = async () => (await insertTestJobInfo()).jobInfo.studyJobId
 
     function artifactRow(studyJobId: string, overrides: Partial<{ path: string; fileType: 'ENCRYPTED-RESULT' }> = {}) {
         return {

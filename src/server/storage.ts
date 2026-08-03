@@ -75,7 +75,7 @@ async function unreplaceableReason(studyJobFileId: string, studyJobId: string): 
 }
 
 // An artifact slot is one (job, storage path, file type), the same key the partial unique index added
-// in 1780500000000 enforces. Keeping the lookup, the constraint and the migration on one key is what
+// in 1780600000000 enforces. Keeping the lookup, the constraint and the migration on one key is what
 // makes "one row per artifact" a single rule instead of three that can drift apart.
 async function artifactRowForSlot(studyJobId: string, path: string, fileType: FileType) {
     return await db

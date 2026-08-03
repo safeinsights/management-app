@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
+import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sql } from 'kysely'
@@ -23,9 +23,10 @@ vi.mock('@/server/aws', () => ({
 // These exercise the real S3 round-trip (storeStudyEncrypted*/fetchFileContents),
 // so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('uploading results', async () => {
-    const org = await insertTestOrg()
+    const { jobInfo } = await insertTestJobInfo()
+    const studyJobId = jobInfo.studyJobId
 
-    const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
+    const file = testUploadFile('testfile.txt', 'text/plain')
 
     const formData = new FormData()
     formData.append('result', file)
@@ -35,16 +36,14 @@ test.skipIf(!s3Available)('uploading results', async () => {
         body: formData,
     })
 
-    const { jobIds } = await insertTestStudyData({ org })
-
-    const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
+    const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
     expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
 
     const sr = await db
         .selectFrom('studyJobFile')
         .select(['path', 'fileType'])
-        .where('studyJobFile.studyJobId', '=', jobIds[0])
+        .where('studyJobFile.studyJobId', '=', studyJobId)
         .executeTakeFirstOrThrow()
 
     expect(sr).toMatchObject({
@@ -60,13 +59,12 @@ test.skipIf(!s3Available)('uploading results', async () => {
 // AES keys the manifest/researcher rows are wrapped against) are frozen. A re-post must be
 // rejected rather than overwrite the blob under already-shared keys. Re-runs use a NEW job.
 test.skipIf(!s3Available)('rejects a second results upload once the job is already complete', async () => {
-    const org = await insertTestOrg()
-    const { jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
     const post = () => {
         const formData = new FormData()
-        formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+        formData.append('result', testUploadFile('r.txt', 'text/plain'))
         return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
             params: Promise.resolve({ jobId }),
         })
@@ -93,13 +91,12 @@ test.skipIf(!s3Available)('rejects a second results upload once the job is alrea
 // so the repeat is absorbed: stored in place, announced once, and still answered with a success the
 // sender has nothing to retry against.
 test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery without announcing it twice', async () => {
-    const org = await insertTestOrg()
-    const { jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
     const post = () => {
         const formData = new FormData()
-        formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+        formData.append('log', testUploadFile('log.txt', 'text/plain'))
         return apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
             params: Promise.resolve({ jobId }),
         })
@@ -133,14 +130,13 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
 // by what this delivery carried, not by the job's status history, so one of those must not block a
 // real delivery.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
-    const org = await insertTestOrg()
-    const { jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
 
     const formData = new FormData()
-    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    formData.append('result', testUploadFile('r.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
@@ -160,11 +156,10 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
 // process dying in between). The TOA retries that, and the retry has to be able to finish the
 // delivery: the results it carries are new to the job, so it is not a repeat and completes normally.
 test.skipIf(!s3Available)('completes a retried delivery whose log was already stored', async () => {
-    const org = await insertTestOrg()
-    const { studyId, jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
-    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    const jobPath = pathForStudyJob(jobInfo)
     await db
         .insertInto('studyJobFile')
         .values({
@@ -176,8 +171,8 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
         .execute()
 
     const formData = new FormData()
-    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
-    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    formData.append('log', testUploadFile('log.txt', 'text/plain'))
+    formData.append('result', testUploadFile('r.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
@@ -202,11 +197,10 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
 // with its error log already on disk. The outcome status has to be recorded for a delivery to count as
 // already handled.
 test.skipIf(!s3Available)('records a missing outcome when the retry carries nothing new', async () => {
-    const org = await insertTestOrg()
-    const { studyId, jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
-    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    const jobPath = pathForStudyJob(jobInfo)
     await db
         .insertInto('studyJobFile')
         .values({
@@ -220,7 +214,7 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
     const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
 
     const formData = new FormData()
-    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    formData.append('log', testUploadFile('log.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
@@ -240,9 +234,8 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
 // one of theirs as proof this callback already finished. The run's own failure would then be dropped
 // on the retry that was meant to complete it, leaving the job running with its log already stored.
 test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORED would have masked", async () => {
-    const org = await insertTestOrg()
-    const { studyId, jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
     // Dated explicitly: the scan fails before the run produces a log, and a test runs inside one
     // transaction, where now() is frozen and fixture rows would otherwise share a timestamp.
@@ -251,7 +244,7 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
         .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 hour'` })
         .execute()
 
-    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    const jobPath = pathForStudyJob(jobInfo)
     await db
         .insertInto('studyJobFile')
         .values({
@@ -263,7 +256,7 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
         .execute()
 
     const formData = new FormData()
-    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    formData.append('log', testUploadFile('log.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
@@ -288,9 +281,8 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
 // since nothing was released for that slot, but the outcome is stale: appending RUN-COMPLETE after
 // FILES-APPROVED would break the round-closing invariant and email the reviewer about a decided study.
 test.skipIf(!s3Available)('does not record an outcome once the round has been decided', async () => {
-    const org = await insertTestOrg()
-    const { jobIds } = await insertTestStudyData({ org })
-    const jobId = jobIds[0]
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
 
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'FILES-APPROVED' }).execute()
@@ -298,8 +290,8 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
     const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
 
     const formData = new FormData()
-    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
-    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    formData.append('log', testUploadFile('log.txt', 'text/plain'))
+    formData.append('result', testUploadFile('r.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
@@ -321,7 +313,8 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
 })
 
 test.skipIf(!s3Available)('uploading logs', async () => {
-    const org = await insertTestOrg()
+    const { jobInfo } = await insertTestJobInfo()
+    const studyJobId = jobInfo.studyJobId
     const logContents = 'long line one\nlog line two\n'
     const encoder = new TextEncoder()
     const file = new File([encoder.encode(logContents)], 'testfile.log', { type: 'text/plain' })
@@ -334,16 +327,14 @@ test.skipIf(!s3Available)('uploading logs', async () => {
         body: formData,
     })
 
-    const { jobIds } = await insertTestStudyData({ org })
-
-    const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
+    const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
     expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
 
     const sr = await db
         .selectFrom('studyJobFile')
         .select(['path', 'fileType'])
-        .where('studyJobFile.studyJobId', '=', jobIds[0])
+        .where('studyJobFile.studyJobId', '=', studyJobId)
         .executeTakeFirstOrThrow()
 
     expect(sr).toMatchObject({
