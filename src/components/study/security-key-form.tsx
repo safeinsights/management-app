@@ -14,7 +14,8 @@ interface SecurityKeyFormProps {
 }
 
 export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
-    const { value, setValue, error, successMessage, isDecrypting, inputRef, handleSubmit } = useSecurityKeyForm({ job })
+    const { value, setValue, error, successMessage, isDecrypting, isLoadingFiles, inputRef, handleSubmit } =
+        useSecurityKeyForm({ job })
 
     return (
         <Paper p="xxl">
@@ -32,7 +33,7 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
                     error={error}
                     disabled={isDecrypting}
                 />
-                <SecurityKeyViewButton isDecrypting={isDecrypting} onClick={handleSubmit} />
+                <SecurityKeyViewButton isDecrypting={isDecrypting} isLoading={isLoadingFiles} onClick={handleSubmit} />
                 <SuccessMessage message={successMessage} />
                 <LostKeyPopover />
             </Stack>

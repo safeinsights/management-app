@@ -59,6 +59,7 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
         error,
         successMessage,
         isDecrypting: isPending,
+        isLoadingFiles,
         inputRef,
         handleSubmit,
     }
