@@ -81,6 +81,16 @@ async function inventory(db: Kysely<unknown>): Promise<SlotInventory> {
  * The migration itself is the only production caller.
  */
 export async function collapseArtifactSlots(db: Kysely<unknown>): Promise<void> {
+    // Held until the transaction commits, so it also covers the index creation that follows.
+    //
+    // Without it the copy below and the delete further down are separate snapshots under READ
+    // COMMITTED: an approval committing a recipient key against a loser in between would be visible
+    // to the delete but not to the copy, so the cascade would take a key that was never carried
+    // forward and a researcher would lose a released file. SHARE ROW EXCLUSIVE blocks writers while
+    // still allowing plain reads, and both tables are named because the key insert is the write that
+    // has to be shut out. The table is small and this runs once, so the wait is momentary.
+    await sql`LOCK TABLE study_job_file, study_job_file_recipient_key IN SHARE ROW EXCLUSIVE MODE`.execute(db)
+
     // Keys move before the delete, not after: study_job_file_recipient_key cascades on
     // study_job_file_id, so deleting a row takes its per-recipient wrapped AES keys with it. Those
     // keys are a researcher's only way into an already-released file and exist nowhere else, so a
@@ -97,6 +107,24 @@ export async function collapseArtifactSlots(db: Kysely<unknown>): Promise<void> 
             ON s.study_job_id = l.study_job_id AND s.path = l.path AND s.file_type = l.file_type
           JOIN study_job_file_recipient_key k ON k.study_job_file_id = l.id
         ON CONFLICT (study_job_file_id, file_path, fingerprint) DO NOTHING
+    `.execute(db)
+
+    // study_job_file.source_id is a self-reference with no ON DELETE clause, so it defaults to NO
+    // ACTION and a referenced row cannot be deleted. Approval records the encrypted row an
+    // APPROVED-* row came from, and on a job that already held duplicates that reference can point at
+    // any of them, including one this backfill is about to drop. Repoint it at the survivor first, or
+    // the delete raises a foreign key violation and takes the whole migration down with it. Both rows
+    // described the same S3 object, so the provenance the reference records is unchanged.
+    await sql`
+        WITH ranked AS (${RANKED_SLOT_ROWS}),
+        survivors AS (SELECT * FROM ranked WHERE rn = 1),
+        losers AS (SELECT * FROM ranked WHERE rn > 1)
+        UPDATE study_job_file f
+           SET source_id = s.id
+          FROM losers l
+          JOIN survivors s
+            ON s.study_job_id = l.study_job_id AND s.path = l.path AND s.file_type = l.file_type
+         WHERE f.source_id = l.id
     `.execute(db)
 
     await sql`

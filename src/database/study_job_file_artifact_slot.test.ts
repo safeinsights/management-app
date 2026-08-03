@@ -78,6 +78,9 @@ describe('study_job_file artifact slots', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const raw = trx as any as Kysely<unknown>
 
+                // source_id mirrors the real column: a self-reference with no ON DELETE clause, so
+                // NO ACTION applies and a referenced row cannot be deleted. Without it here the
+                // backfill's foreign key hazard would not be reproducible.
                 await sql`
                     CREATE TEMPORARY TABLE study_job_file (
                         id uuid PRIMARY KEY DEFAULT v7uuid(),
@@ -85,6 +88,7 @@ describe('study_job_file artifact slots', () => {
                         path text NOT NULL,
                         name text NOT NULL,
                         file_type study_job_file_type NOT NULL,
+                        source_id uuid REFERENCES study_job_file (id),
                         created_at timestamptz NOT NULL DEFAULT now()
                     ) ON COMMIT DROP
                 `.execute(raw)
@@ -152,6 +156,38 @@ describe('study_job_file artifact slots', () => {
                          ORDER BY k.file_path
                     `.execute(trx)
                     expect(keys).toEqual([{ granted: 'results.csv' }, { granted: 'summary.csv' }])
+                },
+            )
+        })
+
+        // Approval records the encrypted row an APPROVED-* row came from. On a job that already held
+        // duplicates that reference can point at one this backfill drops, and source_id is NO ACTION,
+        // so a delete without repointing it first fails the whole migration.
+        it('repoints an approved row that referenced a deleted duplicate', async () => {
+            await withSeededDuplicates(
+                async (trx) => {
+                    const released = (await insertSlotRow(trx, 'released.zip', 30)).rows[0].id
+                    await insertSlotRow(trx, 'redelivered.zip', 10)
+
+                    await sql`
+                        INSERT INTO study_job_file (study_job_id, path, name, file_type, source_id)
+                        VALUES (
+                            '00000000-0000-0000-0000-0000000000aa',
+                            'jobs/results/approved/results.csv',
+                            'results.csv',
+                            'APPROVED-RESULT',
+                            ${released}
+                        )
+                    `.execute(trx)
+                },
+                async (trx) => {
+                    const { rows } = await sql<{ name: string; source: string | null }>`
+                        SELECT a.name, s.name AS source
+                          FROM study_job_file a
+                          LEFT JOIN study_job_file s ON s.id = a.source_id
+                         WHERE a.file_type = 'APPROVED-RESULT'
+                    `.execute(trx)
+                    expect(rows).toEqual([{ name: 'results.csv', source: 'redelivered.zip' }])
                 },
             )
         })

@@ -3,7 +3,8 @@ import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
-import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
+import { roundIsClosed, storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
+import logger from '@/lib/logger'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -54,14 +55,25 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         deliveries.push(await storeStudyEncryptedResultsFile(info, results))
     }
 
+    const outcome = logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE' // TODO: verify this is correct status
+
+    const outcomeRecorded = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', info.studyJobId)
+        .where('status', '=', outcome)
+        .executeTakeFirst()
+
     // OTTER-642: an errored run ends at JOB-ERRORED and never reaches the RUN-COMPLETE guard above, so
-    // a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer email. When
-    // every artifact this delivery carried was already on file it is a repeat: the artifacts were
-    // refreshed in place above, and the run's outcome is announced only once. A delivery carrying
-    // anything the job did not have (including the retry that completes a half-stored one) is not a
-    // repeat and still records its status and email, so no delivery is ever permanently rejected.
+    // a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer email. A
+    // delivery is only a repeat when the job already had every artifact it carried AND the outcome was
+    // already recorded. Both halves matter: stored artifacts alone are not proof the callback finished,
+    // since the status insert can fail (or the process can die) after the upload, and treating that as
+    // a repeat would strand the job in a running state with its error log sitting right there. Keying
+    // on both means a retry can still finish a half-completed callback, while a true repeat announces
+    // the outcome only once.
     const isRepeatDelivery = deliveries.length > 0 && deliveries.every((artifact) => !artifact.isNew)
-    if (isRepeatDelivery) {
+    if (isRepeatDelivery && outcomeRecorded) {
         // A repeat on a decided round was dropped rather than refreshed (the released copy has to stay
         // decryptable), so say so: "already received" would read as a promise we did not keep, and the
         // warning in storage.ts would be the only trace of the discarded content.
@@ -71,13 +83,19 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'success', detail }, { status: 200 })
     }
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            status: logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: verify this is correct status,
-            studyJobId: info.studyJobId,
-        })
-        .execute()
+    // A decided round takes no further status. storeJobFile still keeps a slot the job has never seen
+    // (dropping it would lose data with nothing released to protect), so a late delivery carrying one
+    // reaches here as "new" even though its round is over. Recording the outcome now would append
+    // RUN-COMPLETE after FILES-APPROVED and email the reviewer about a study they already decided.
+    if (await roundIsClosed(info.studyJobId)) {
+        logger.warn(
+            `not recording ${outcome} for job ${info.studyJobId}: the round is already decided, so this delivery's outcome is stale`,
+        )
+
+        return NextResponse.json({ status: 'success', detail: 'round already decided' }, { status: 200 })
+    }
+
+    await db.insertInto('jobStatusChange').values({ status: outcome, studyJobId: info.studyJobId }).execute()
 
     await sendResultsReadyForReviewEmail(info.studyId)
 

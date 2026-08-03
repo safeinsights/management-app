@@ -195,6 +195,83 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
     expect(runComplete).toHaveLength(1)
 })
 
+// The artifact is this route's first write, so a log-only delivery can store its log and still fail
+// before the status insert (or the process can die in between). The retry carries nothing new, so
+// artifact presence alone would read it as a repeat and the job would sit in a running state forever
+// with its error log already on disk. The outcome status has to be recorded for a delivery to count as
+// already handled.
+test.skipIf(!s3Available)('records a missing outcome when the retry carries nothing new', async () => {
+    const org = await insertTestOrg()
+    const { studyId, jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    const jobPath = pathForStudyJob({ orgSlug: org.slug, studyId, studyJobId: jobId })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            path: `${jobPath}/results/encrypted-code-run-log.zip`,
+            name: 'encrypted-code-run-log.zip',
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+        })
+        .execute()
+
+    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
+
+    const formData = new FormData()
+    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    const errored = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    expect(errored).toHaveLength(1)
+    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
+})
+
+// A late delivery can carry an artifact the job never had (an errored run stored only its log, the
+// reviewer decided on it, then a delayed callback arrives with the results too). The artifact is kept,
+// since nothing was released for that slot, but the outcome is stale: appending RUN-COMPLETE after
+// FILES-APPROVED would break the round-closing invariant and email the reviewer about a decided study.
+test.skipIf(!s3Available)('does not record an outcome once the round has been decided', async () => {
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
+    const jobId = jobIds[0]
+
+    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
+    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'FILES-APPROVED' }).execute()
+
+    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
+
+    const formData = new FormData()
+    formData.append('log', new File([new TextEncoder().encode('boom')], 'log.txt', { type: 'text/plain' }))
+    formData.append('result', new File([new Uint8Array([1, 2, 3])], 'r.txt', { type: 'text/plain' }))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.status).toBe(200)
+
+    // The never-seen results artifact is still stored: dropping it would lose data with nothing
+    // released for that slot to protect.
+    const files = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT')).toHaveLength(1)
+
+    const runComplete = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RUN-COMPLETE')
+        .execute()
+    expect(runComplete).toHaveLength(0)
+    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore)
+})
+
 test.skipIf(!s3Available)('uploading logs', async () => {
     const org = await insertTestOrg()
     const logContents = 'long line one\nlog line two\n'

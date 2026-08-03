@@ -32,8 +32,8 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
 
 // The round's own notion of "decided", mirroring getOrCreateCurrentRoundJob: an existence check, so it
 // stays independent of jobStatusChange ordering (a round-closing status is never followed by another
-// status on the same job).
-async function roundIsClosed(studyJobId: string): Promise<boolean> {
+// status on the same job, which the ingest routes enforce by consulting this before recording one).
+export async function roundIsClosed(studyJobId: string): Promise<boolean> {
     const closing = await db
         .selectFrom('jobStatusChange')
         .select('id')
@@ -69,11 +69,22 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
  * not announce the run's outcome a second time. `stored` reports whether the artifact this call
  * carried actually landed, which is false only for a late delivery the round-closed guard dropped.
  *
- * One window stays open: the round can close between the guard below and the upload, so a
- * re-delivery landing inside it still replaces a just-released ciphertext. Closing it means holding a
- * row lock across an S3 upload, which trades a rare narrow race for a slow transaction on every
- * delivery. The concurrent-first-delivery race is closed by the unique index rather than by a lock:
- * the loser's insert conflicts, and it is recovered below as the repeat it effectively is.
+ * The unique index closes the duplicate-ROW race: two concurrent first deliveries cannot both insert,
+ * and the loser is recovered below as the repeat it effectively is. It does not make a delivery atomic,
+ * and nothing here holds a lock across the S3 upload, so three windows stay open:
+ *
+ *   - The round can close between the guard below and the upload, so a re-delivery landing inside it
+ *     still replaces a just-released ciphertext.
+ *   - Both callers upload to the same key before either resolves its row, so S3 completion order need
+ *     not match rename order: the row can end up naming one payload while holding the other's bytes.
+ *     Same artifact in the same slot either way, so only the recorded name is affected.
+ *   - Repeat detection is per slot, so two concurrent deliveries carrying the same pair of artifacts
+ *     can split the wins (one takes the log, the other the result) and both look non-repeat to the
+ *     route, which then records the outcome twice. Telling those apart needs job-level atomicity
+ *     rather than an aggregate of per-slot answers.
+ *
+ * Closing any of them means a row lock held across an S3 upload, which trades rare narrow windows for
+ * a slow transaction on every delivery.
  */
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType) {
     const existing = await artifactRowForSlot(info.studyJobId, path, fileType)
