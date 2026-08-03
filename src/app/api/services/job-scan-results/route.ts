@@ -38,20 +38,26 @@ export const POST = createWebhookHandler({
 
         const logFileTypes = LOG_FILE_TYPES[body.status]
         if (logFileTypes && body.plaintextLog) {
-            await encryptAndStoreLog({
+            const encrypted = await encryptAndStoreLog({
                 route: '/api/services/job-scan-results',
                 plaintextLog: body.plaintextLog,
                 fileType: logFileTypes.encrypted,
                 job,
             })
-            const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
-                type: 'text/plain',
-            })
-            await storeStudyLogFile(
-                { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                file,
-                logFileTypes.plaintext,
-            )
+
+            // The two halves of one scan log move together. If the encrypted half was refused because
+            // its keys are already shared, replacing the plaintext half would leave the reviewer's
+            // parsed statuses reporting different findings than the log the researcher can decrypt.
+            if (!encrypted || encrypted.stored) {
+                const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
+                    type: 'text/plain',
+                })
+                await storeStudyLogFile(
+                    { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                    file,
+                    logFileTypes.plaintext,
+                )
+            }
         }
 
         // CODE-SUBMITTED is recorded by the submission action (markCodeSubmitted), not by the scanner:

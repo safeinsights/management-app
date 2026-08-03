@@ -31,18 +31,23 @@ export const POST = createWebhookHandler({
             .executeTakeFirstOrThrow(throwNotFound('job'))
 
         if (body.status === 'JOB-ERRORED' && body.plaintextLog) {
-            await encryptAndStoreLog({
+            const encrypted = await encryptAndStoreLog({
                 route: '/api/services/containerizer',
                 plaintextLog: body.plaintextLog,
                 fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG',
                 job,
             })
-            const file = new File([body.plaintextLog], 'packaging-error-log.txt', { type: 'text/plain' })
-            await storeStudyLogFile(
-                { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                file,
-                'PACKAGING-ERROR-LOG',
-            )
+
+            // Both halves of one log move together, or neither does: see the same guard in
+            // job-scan-results.
+            if (!encrypted || encrypted.stored) {
+                const file = new File([body.plaintextLog], 'packaging-error-log.txt', { type: 'text/plain' })
+                await storeStudyLogFile(
+                    { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                    file,
+                    'PACKAGING-ERROR-LOG',
+                )
+            }
         }
 
         const last = await db

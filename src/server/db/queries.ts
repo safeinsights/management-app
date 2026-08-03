@@ -501,8 +501,9 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
 }
 
 // IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
-// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
-// their key rows, so this never retroactively un-shares.
+// "Post-approval" means post-DECISION for results, but a reviewer approving CODE can share too
+// (approveJobCode persists keys alongside CODE-APPROVED), so rows can exist while the round is still
+// open. Removing a researcher from the lab leaves their key rows, so this never retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
         .selectFrom('studyJobFileRecipientKey')
