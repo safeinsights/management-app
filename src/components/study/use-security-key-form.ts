@@ -8,7 +8,7 @@ import * as Sentry from '@sentry/nextjs'
 const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
-    fetchFailed: 'Failed to load encrypted outputs. Please try again later.',
+    noFiles: 'No encrypted outputs available to decrypt.',
 } as const
 
 const SUCCESS_MESSAGE = 'Security key accepted.'
@@ -57,8 +57,8 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
 
         if (isLoadingFiles) return
 
-        if (!encryptedFiles) {
-            setError(ERRORS.fetchFailed)
+        if (!encryptedFiles?.length) {
+            setError(ERRORS.noFiles)
             setSuccessMessage(undefined)
             return
         }

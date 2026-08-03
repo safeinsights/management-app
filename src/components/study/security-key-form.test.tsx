@@ -61,6 +61,7 @@ async function seedArtifact(
 
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
+const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
 const SUCCESS_MESSAGE = 'Security key accepted.'
 
 const enterKey = (value: string) => {
@@ -80,7 +81,12 @@ describe('SecurityKeyForm', () => {
         org = resp.org
         const { study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
         job = await latestJobForStudy(study.id)
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+
+        const artifact = await seedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'log output' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     it('renders the key-entry section with a required indicator and body copy', async () => {
@@ -148,6 +154,34 @@ describe('SecurityKeyForm', () => {
 
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
         expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
+    })
+
+    it('shows a no-files error when the fetch returns an empty list', async () => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+
+        renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await screen.findByRole('button', { name: 'View' })
+
+        enterKey('some-key')
+        clickView()
+
+        expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(SUCCESS_MESSAGE)).toBeNull()
+    })
+
+    it('shows a no-files error when the fetch rejects', async () => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
+
+        renderWithProviders(<SecurityKeyForm job={job} />)
+
+        await screen.findByRole('button', { name: 'View' })
+
+        enterKey('some-key')
+        clickView()
+
+        expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(SUCCESS_MESSAGE)).toBeNull()
     })
 
     it('shows a success message when the key decrypts the outputs', async () => {
