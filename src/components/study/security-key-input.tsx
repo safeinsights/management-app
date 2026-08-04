@@ -4,23 +4,18 @@ import { forwardRef } from 'react'
 type SecurityKeyInputProps = Omit<TextareaProps, 'autoComplete' | 'aria-required'>
 
 export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInputProps>(
-    ({ error, disabled, ...props }, ref) => {
-        // Design specifies the focus-state border (blue-7) on page load
-        const borderColor = disabled ? undefined : error ? 'var(--mantine-color-red-7)' : 'var(--mantine-color-blue-7)'
-
-        return (
-            <Textarea
-                ref={ref}
-                autoComplete="off"
-                aria-required
-                disabled={disabled}
-                error={error ? <span role="alert">{error}</span> : undefined}
-                styles={{ input: { minHeight: 72, borderColor } }}
-                w="75%"
-                {...props}
-            />
-        )
-    },
+    ({ error, disabled, ...props }, ref) => (
+        <Textarea
+            ref={ref}
+            autoComplete="off"
+            aria-required
+            disabled={disabled}
+            error={error ? <span role="alert">{error}</span> : undefined}
+            styles={{ input: { minHeight: 72 } }}
+            w="75%"
+            {...props}
+        />
+    ),
 )
 
 SecurityKeyInput.displayName = 'SecurityKeyInput'

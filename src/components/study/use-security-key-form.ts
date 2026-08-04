@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
@@ -38,10 +38,11 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
         },
     })
 
-    const failInvalid = useCallback(() => {
-        setError(ERRORS.invalid)
-        requestAnimationFrame(() => inputRef.current?.focus())
+    useEffect(() => {
+        inputRef.current?.focus()
     }, [])
+
+    const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
@@ -59,6 +60,12 @@ export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptio
         },
         onError: failInvalid,
     })
+
+    useEffect(() => {
+        if (error && !isPending) {
+            inputRef.current?.focus()
+        }
+    }, [error, isPending])
 
     const handleSubmit = useCallback(() => {
         if (isPending) return

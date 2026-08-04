@@ -127,7 +127,7 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('textbox')).toHaveFocus()
     })
 
-    it('shows the invalid-key error and re-enables both input and button for correction', async () => {
+    it('shows the invalid-key error, re-enables controls, and returns focus to the input', async () => {
         renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
@@ -138,6 +138,7 @@ describe('SecurityKeyForm', () => {
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
         expect(screen.getByRole('textbox')).toBeEnabled()
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
+        await waitFor(() => expect(screen.getByRole('textbox')).toHaveFocus())
         expect(onDecrypted).not.toHaveBeenCalled()
     })
 
