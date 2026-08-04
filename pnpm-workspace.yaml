@@ -16,8 +16,10 @@ overrides:
     form-data: ^4.0.6
     minimatch: ^10.2.1
     picomatch: ^4.0.4
-    # postcss <8.5.18: GHSA-r28c-9q8g-f849 — path traversal via sourceMappingURL auto-loading.
-    postcss: ^8.5.18
+    # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
+    # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
+    # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
+    postcss: ^8.5.23
     vite: ^8.2.0
     ws: ^8.21.0
     # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
@@ -40,10 +42,13 @@ overrides:
     # the bump stays a patch/minor, never a breaking major.
     # axios <1.18.0: GHSA-gcfj-64vw-6mp9 — Node adapter can reuse an inherited proxy after config clone.
     'axios@>=1.0.0 <1.18.0': '>=1.18.0 <2'
-    # brace-expansion <5.0.8: CVE-2026-13149, then CVE-2026-14257 against 5.0.7 itself — DoS via
-    # exponential-time expansion. Range widened to carry past the version the earlier pin landed on.
-    'brace-expansion@>=5.0.0 <5.0.8': '>=5.0.8 <6'
-    # fast-uri <3.1.4: CVE-2026-13676 + CVE-2026-16221 — policy bypass via bad Unicode hostname canon.
-    'fast-uri@>=3.0.0 <3.1.4': '>=3.1.4 <4'
+    # brace-expansion <5.0.9: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, now CVE-2026-69152
+    # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation).
+    # Range widened again to carry past the version the earlier pin landed on.
+    'brace-expansion@>=5.0.0 <5.0.9': '>=5.0.9 <6'
+    # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
+    # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4: host confusion via a backslash authority
+    # introducer, so a crafted URI parses to an unintended host.
+    'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4'
     # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
     'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'
