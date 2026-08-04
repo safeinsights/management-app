@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { Routes } from '@/lib/routes'
-import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
+import { JobFileInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
@@ -36,21 +36,15 @@ export const JobReviewButtons = ({
         mutationFn: async ({ status }: { status: StudyJobStatus }) => {
             if (!decryptedResults?.length) return
 
-            const jobInfo: MinimalJobInfo = {
-                studyId: job.studyId,
-                studyJobId: job.id,
-                orgSlug: orgSlug,
-            }
-
             if (status === 'FILES-APPROVED') {
                 // Re-wrap each approved file's AES key for the lab researchers, client-side.
                 // Only the wrapped keys are sent — never the raw key or plaintext.
                 const sharedFiles = await buildSharedFiles(job.studyId, decryptedResults)
-                await approveStudyJobFilesAction({ orgSlug, jobInfo, sharedFiles })
+                await approveStudyJobFilesAction({ orgSlug, studyJobId: job.id, sharedFiles })
             }
 
             if (status === 'FILES-REJECTED') {
-                await rejectStudyJobFilesAction(jobInfo)
+                await rejectStudyJobFilesAction({ orgSlug, studyJobId: job.id })
             }
         },
         onError: reportMutationError('Failed to update study job status'),

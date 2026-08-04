@@ -1,0 +1,22 @@
+/* The row highlight and the file-name underline must appear on keyboard focus as well as
+   hover, so the two states are always declared together (OTTER-675 accessibility criteria). */
+
+.row:hover,
+.row:focus-within {
+    background-color: var(--mantine-color-grey-10);
+}
+
+.fileName {
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.fileName:hover,
+.fileName:focus-visible {
+    text-decoration: underline;
+}
+
+.fileName:focus-visible {
+    outline: 2px solid var(--mantine-color-blue-7);
+    outline-offset: 2px;
+}
