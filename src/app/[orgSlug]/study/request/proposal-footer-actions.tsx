@@ -1,8 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Group, Stack } from '@mantine/core'
-import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
+import { Button, Group } from '@mantine/core'
 
 interface ProposalFooterActionsProps {
     isSaving: boolean
@@ -10,8 +9,6 @@ interface ProposalFooterActionsProps {
     onProceed: () => void
     proceedLabel: string
     onCancel?: () => void
-    /** Labels of required fields still outstanding, named beside the disabled button. */
-    missingFields?: string[]
 }
 
 export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
@@ -20,7 +17,6 @@ export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
     onProceed,
     proceedLabel,
     onCancel,
-    missingFields = [],
 }) => {
     const showCancel = !!onCancel
 
@@ -31,19 +27,16 @@ export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
                     Cancel
                 </Button>
             )}
-            <Stack gap={4} align="flex-end">
-                <Button
-                    type="button"
-                    size="md"
-                    variant="primary"
-                    disabled={!isValid || isSaving}
-                    loading={isSaving}
-                    onClick={onProceed}
-                >
-                    {proceedLabel}
-                </Button>
-                <IncompleteFieldsHint missing={missingFields} />
-            </Stack>
+            <Button
+                type="button"
+                size="md"
+                variant="primary"
+                disabled={!isValid || isSaving}
+                loading={isSaving}
+                onClick={onProceed}
+            >
+                {proceedLabel}
+            </Button>
         </Group>
     )
 }
