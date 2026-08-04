@@ -45,6 +45,9 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
         decision.onSelect(value as Decision)
     }
 
+    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
+    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
+    // applies Mantine's error styling without adding a second message (OTTER-647).
     const radioOptions = DECISION_OPTIONS.map((option) => (
         <Radio
             key={option.value}
@@ -53,6 +56,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
             description={<OptionDescription option={option} />}
             disabled={option.disabled}
             styles={RADIO_STYLES}
+            error={!!decision.error}
         />
     ))
 

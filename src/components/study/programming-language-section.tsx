@@ -44,6 +44,13 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         }
     }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
+    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
+    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
+    // applies Mantine's error styling without adding a second message (OTTER-647).
+    const languageRadios = languages.map((opt) => (
+        <Radio key={opt.value} value={opt.value} label={opt.label} error={!!form.errors.language} />
+    ))
+
     let body: React.ReactNode = null
 
     if (!selectedOrgSlug) {
@@ -83,11 +90,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             onChange={(value) => form.setFieldValue('language', value as Language)}
                             onBlur={widgetBlurHandler(() => form.validateField('language'))}
                         >
-                            <Group gap="xl">
-                                {languages.map((opt) => (
-                                    <Radio key={opt.value} value={opt.value} label={opt.label} />
-                                ))}
-                            </Group>
+                            <Group gap="xl">{languageRadios}</Group>
                         </Radio.Group>
                         {form.errors.language && (
                             <span id="programming-language-error">
