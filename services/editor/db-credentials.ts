@@ -101,8 +101,7 @@ export class DbCredentials {
 // secret. Returns a `DATABASE_URL` source (static, no refresh) or a `secret`
 // source backed by DbCredentials (refreshable).
 export type DbSource =
-    | { kind: 'connectionString'; settings: DbPoolSettings }
-    | { kind: 'secret'; credentials: DbCredentials }
+    { kind: 'connectionString'; settings: DbPoolSettings } | { kind: 'secret'; credentials: DbCredentials }
 
 export async function resolveDbSource(
     env: { DATABASE_URL?: string; DB_SECRET_ARN?: string },

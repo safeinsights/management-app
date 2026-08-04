@@ -8,8 +8,7 @@ import { useUser } from '@clerk/nextjs'
 import { syncUserMetadataAction } from '@/server/actions/user.actions'
 
 export const useSession = ():
-    | { isLoaded: false; session: null }
-    | { isLoaded: true; session: UserSessionWithAbility } => {
+    { isLoaded: false; session: null } | { isLoaded: true; session: UserSessionWithAbility } => {
     const { user } = useUser()
 
     const [session, setSession] = useState<UserSessionWithAbility | null>(null)

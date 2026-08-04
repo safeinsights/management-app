@@ -208,10 +208,9 @@ describe('createQaInvite', () => {
     it('creates a pending invite and returns its url', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { client } = await mockSessionWithTestData({ isSiAdmin: true })
-        if (!client)
-            throw new Error('expected a mocked clerk client')
-            // The default mock resolves a clerk user for any email; an invite is for someone
-            // who is not yet a member, so return none.
+        if (!client) throw new Error('expected a mocked clerk client')
+        // The default mock resolves a clerk user for any email; an invite is for someone
+        // who is not yet a member, so return none.
         ;(client.users.getUserList as Mock).mockResolvedValue({ data: [], totalCount: 0 })
 
         const result = await createQaInvite(db, { email: 'QA-New@Test.com', orgSlug: org.slug, isAdmin: true }, null)

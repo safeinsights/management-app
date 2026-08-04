@@ -18,7 +18,7 @@ overrides:
     picomatch: ^4.0.4
     # postcss <8.5.18: GHSA-r28c-9q8g-f849 — path traversal via sourceMappingURL auto-loading.
     postcss: ^8.5.18
-    vite: ^8.0.16
+    vite: ^8.2.0
     ws: ^8.21.0
     # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
     # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
