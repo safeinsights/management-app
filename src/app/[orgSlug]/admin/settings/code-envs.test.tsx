@@ -121,6 +121,39 @@ describe('CodeEnvs', async () => {
         expect(nameInput).toHaveValue('1BAD')
     })
 
+    // OTTER-647: the form seeded starterCodes as undefined, so the create schema's array type
+    // check failed before `.min(1)` could run and Save surfaced Zod's internal
+    // "expected array, received undefined" instead of naming the requirement.
+    it('names the starter code requirement in plain language', { timeout: 15000 }, async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
+
+        expect((await screen.findAllByText(/At least one starter code file is required/i)).length).toBeGreaterThan(0)
+        expect(screen.queryByText(/expected array/i)).not.toBeInTheDocument()
+    })
+
+    it('flags the starter code dropzone once it has been visited and left empty', async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        expect(screen.queryByText(/At least one starter code file is required/i)).not.toBeInTheDocument()
+
+        // The dropzone has no input to blur, so "left incomplete" is visited-then-left-empty.
+        fireEvent.blur(screen.getByText(/Drop files or click to browse/i))
+
+        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+    })
+
     it('hides delete when there is only one code environment', async () => {
         await insertTestCodeEnv({
             orgId: org.id,

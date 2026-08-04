@@ -63,7 +63,10 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
-            starterCodes: undefined,
+            // `[]`, not undefined: the create schema's array type check fails before `.min(1)`
+            // runs, so an untouched dropzone reported Zod's "expected array, received undefined"
+            // instead of "At least one starter code file is required" (OTTER-647).
+            starterCodes: [],
             sampleDataPath: image?.sampleDataPath || '',
             dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
             dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
@@ -184,7 +187,10 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             orgSlug,
             codeEnvId: image!.id,
             ...rest,
-            starterCodeFileNames: starterCodes?.map((f) => f.name),
+            // Omitted rather than sent empty. The form seeds `starterCodes` as `[]` so the
+            // create schema can report its own requirement, and on edit an empty array would
+            // read as "the admin cleared the list" instead of "left the existing files alone".
+            starterCodeFileNames: starterCodeUploaded ? starterCodes?.map((f) => f.name) : undefined,
             starterCodeUploaded,
             sampleDataUploaded,
         })
