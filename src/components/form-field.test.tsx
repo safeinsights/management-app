@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TextInput } from '@mantine/core'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, fieldDescribedBy, widgetBlurHandler } from './form-field'
+import { FormField, fieldDescribedBy, widgetBlurHandler, __resetLastPointerDownForTests } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -50,12 +50,20 @@ describe('fieldDescribedBy', () => {
 // The guard is what keeps composite widgets (editor + toolbar, pills + remove buttons, radio
 // groups) from erroring while the user is still moving around inside them.
 describe('widgetBlurHandler', () => {
+    // The last press is module state, so a click from a previous case would otherwise decide
+    // the outcome of the next one.
+    beforeEach(__resetLastPointerDownForTests)
+
     const WidgetProbe = ({ onLeave }: { onLeave: () => void }) => (
         <div onBlur={widgetBlurHandler(onLeave)} data-testid="widget">
             <button type="button">inside a</button>
             <button type="button">inside b</button>
         </div>
     )
+
+    const press = (element: Element) => element.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    const leaveToNowhere = () =>
+        screen.getByTestId('widget').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
 
     it('does not fire when focus moves between elements inside the widget', async () => {
         const user = userEvent.setup()
@@ -114,5 +122,46 @@ describe('widgetBlurHandler', () => {
 
         expect(onLeave).not.toHaveBeenCalled()
         hasFocus.mockRestore()
+    })
+
+    // The third null-relatedTarget case, and the one that shipped broken: clicking the Lexical
+    // toolbar re-renders the surface holding the caret, so focus lands on <body> with no
+    // relatedTarget even though the user is still writing in the field.
+    it('does not fire when a press inside the widget drops focus to the body', () => {
+        const onLeave = vi.fn()
+        renderWithProviders(<WidgetProbe onLeave={onLeave} />)
+
+        press(screen.getByRole('button', { name: 'inside a' }))
+        leaveToNowhere()
+
+        expect(onLeave).not.toHaveBeenCalled()
+    })
+
+    it('fires when the press that preceded the blur was outside the widget', () => {
+        const onLeave = vi.fn()
+        renderWithProviders(
+            <>
+                <WidgetProbe onLeave={onLeave} />
+                <p>neutral space</p>
+            </>,
+        )
+
+        press(screen.getByText('neutral space'))
+        leaveToNowhere()
+
+        expect(onLeave).toHaveBeenCalledTimes(1)
+    })
+
+    // Escape blurs the editor by design. Without clearing the press on keydown, a stale in-widget
+    // click would keep suppressing validation for the rest of the field's life.
+    it('fires when a key is pressed after an in-widget press', () => {
+        const onLeave = vi.fn()
+        renderWithProviders(<WidgetProbe onLeave={onLeave} />)
+
+        press(screen.getByRole('button', { name: 'inside a' }))
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        leaveToNowhere()
+
+        expect(onLeave).toHaveBeenCalledTimes(1)
     })
 })

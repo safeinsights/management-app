@@ -101,32 +101,72 @@ export function revalidateOnBlur(form: ValidatableForm, path: string) {
 }
 
 /**
+ * Element the user last pressed on, with no key pressed since.
+ *
+ * {@link widgetBlurHandler} needs it because `relatedTarget` is null for two opposite cases and
+ * focus alone cannot tell them apart. The press target can: see the pointer branch there.
+ * Registered in the capture phase so a handler that stops propagation can't hide the press, and
+ * cleared on keydown so a keyboard-driven blur (Tab out of a widget, Escape) is never mistaken
+ * for a leftover click.
+ */
+let lastPointerDownTarget: Node | null = null
+
+if (typeof document !== 'undefined') {
+    document.addEventListener(
+        'pointerdown',
+        (event) => {
+            lastPointerDownTarget = event.target as Node | null
+        },
+        true,
+    )
+    document.addEventListener(
+        'keydown',
+        () => {
+            lastPointerDownTarget = null
+        },
+        true,
+    )
+}
+
+/** Test-only: drops the recorded press so one case can't leak into the next. */
+export function __resetLastPointerDownForTests(): void {
+    lastPointerDownTarget = null
+}
+
+/**
  * Wraps a blur callback so it fires only when focus leaves the whole widget.
  *
  * Composite widgets (Lexical editor plus toolbar, pills plus their remove buttons, a radio
  * group's radios) emit blur as focus moves *between* their internal parts, because React's
  * `onBlur` is `focusout` and bubbles. Validating on those flashes an error mid-interaction.
  *
- * A null `relatedTarget` is ambiguous and must not be treated as "still inside". It happens
- * both when the user clicks a non-focusable part of the page (whitespace, a heading, body
- * text), which IS them moving on and must validate, and when the tab or window loses focus,
- * which is not. `document.hasFocus()` separates the two: it stays true for an in-page click
- * and goes false when the document itself is no longer focused.
+ * A null `relatedTarget` is ambiguous and must not be treated as "still inside". Two checks
+ * disambiguate it, in order:
  *
- * Getting this wrong silently defeats the feature: clicking neutral space is the commonest way
- * to leave a field, so skipping it means the required error never appears at all.
+ * - `document.hasFocus()` separates an in-page click (stays true) from the tab or window losing
+ *   focus (goes false). Only the first is the user moving on.
+ * - The press target separates a click on neutral page space, which IS moving on, from a widget
+ *   that dropped focus to `<body>` while re-rendering its own internals, which is not. Clicking
+ *   the Lexical toolbar does the latter: Lexical re-renders the surface holding the caret, so
+ *   focus lands on `<body>` even though `mousedown` was prevented and the user is still writing
+ *   (OTTER-647). Treating that as leaving raised "Feedback is required." mid-sentence.
+ *
+ * Getting the first check wrong silently defeats the feature: clicking neutral space is the
+ * commonest way to leave a field, so skipping it means the required error never appears at all.
  */
 export function widgetBlurHandler(onLeave: (event: React.FocusEvent<HTMLElement>) => void) {
     return (event: React.FocusEvent<HTMLElement>) => {
+        const widget = event.currentTarget
         const next = event.relatedTarget as Node | null
 
-        if (!next) {
-            if (typeof document !== 'undefined' && !document.hasFocus()) return
+        if (next) {
+            if (widget.contains(next)) return
             onLeave(event)
             return
         }
 
-        if (event.currentTarget.contains(next)) return
+        if (typeof document !== 'undefined' && !document.hasFocus()) return
+        if (lastPointerDownTarget && widget.contains(lastPointerDownTarget)) return
         onLeave(event)
     }
 }
