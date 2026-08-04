@@ -432,6 +432,12 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             // key, so they need no re-wrapped keys. The manifest is encrypted to the enclave's
             // public keys, so asking for this path without one yields ciphertext that cannot be
             // opened — the encryption gates this, not the parameter.
+            //
+            // Note what that widens: any caller past the 'view StudyJob' gate can now request this
+            // path and receive raw ciphertext for every encrypted artifact on the job, where the
+            // old session.orgs check would have refused. Confidentiality now rests entirely on the
+            // encryption rather than on two independent gates. Deliberate, since the claim could
+            // not answer the role question, but it is one gate and not two.
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
                     studyJobFileId: file.id,

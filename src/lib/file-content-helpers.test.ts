@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFileContents, imageMimeType, parseCsv, parseLogMessages } from './file-content-helpers'
+import { decodeFileContents, formatJson, imageMimeType, parseCsv, parseLogMessages } from './file-content-helpers'
 
 describe('file-content-helpers', () => {
     describe('decodeFileContents', () => {
@@ -71,6 +71,44 @@ describe('file-content-helpers', () => {
         it('returns null when entries are missing required fields', () => {
             expect(parseLogMessages('[{"timestamp":1000}]')).toBeNull()
             expect(parseLogMessages('[{"message":"hello"}]')).toBeNull()
+        })
+
+        // This viewer is selected by sniffing content, so a log-shaped result file would otherwise
+        // render as a two-column table with its remaining fields silently dropped.
+        it('declines log-shaped entries carrying extra fields rather than dropping them', () => {
+            expect(parseLogMessages('[{"timestamp":1,"message":"ok","estimate":42}]')).toBeNull()
+        })
+    })
+
+    describe('formatJson', () => {
+        it('pretty-prints minified JSON', () => {
+            expect(formatJson('{"a":1,"b":[2,3]}')).toBe('{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}')
+        })
+
+        it('returns null for text that is not JSON', () => {
+            expect(formatJson('not json at all')).toBeNull()
+            expect(formatJson('{broken')).toBeNull()
+        })
+
+        // Reviewers judge disclosure safety off these numbers, so showing one that disagrees with
+        // the file is worse than showing an unformatted line.
+        it.each([
+            ['integers beyond MAX_SAFE_INTEGER', '{"n":9007199254740993}'],
+            ['high-precision floats', '{"m":0.1234567890123456789}'],
+            ['very large integers', '{"big":12345678901234567890}'],
+            ['trailing-zero decimals', '{"a":1.50}'],
+            ['exponent notation', '{"b":1e5}'],
+        ])('declines to reformat when %s would be altered', (_label, input) => {
+            expect(formatJson(input)).toBeNull()
+        })
+
+        it('still formats when whitespace is the only difference', () => {
+            expect(formatJson('{ "a" : 1 }')).toBe('{\n  "a": 1\n}')
+        })
+
+        it('does not mistake whitespace inside strings for formatting', () => {
+            expect(formatJson('{"a":"two  spaces"}')).toBe('{\n  "a": "two  spaces"\n}')
+            expect(formatJson('{"a":"has \\" quote"}')).toBe('{\n  "a": "has \\" quote"\n}')
         })
     })
 
