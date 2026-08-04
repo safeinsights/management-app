@@ -54,7 +54,11 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+        // errorPriority: the resolver assigns issues in order, so the LAST one wins by default.
+        // An empty email fails both `min(1)` and `email()`, and reported "Invalid email" when the
+        // field was simply blank. First-issue priority keeps each message on its own case
+        // (blank / malformed / too long) (OTTER-647).
+        validate: zodResolver(signInSchema, { errorPriority: 'first' }),
     })
 
     if (!signIn || mfa) return null
