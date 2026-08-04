@@ -104,7 +104,6 @@ services:
         command: >
             sh -c "corepack enable &&
             pnpm install --config.store-dir=/app/node_modules/.pnpm-store --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false &&
-            ([ -d src/styles/generated/css ] || pnpm exec panda codegen) &&
             pnpm exec kysely migrate:latest &&
             pnpm exec kysely seed:run &&
             pnpm exec tsx bin/seed-environment.ts"
