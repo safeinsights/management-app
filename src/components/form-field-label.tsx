@@ -43,11 +43,8 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
             </Title>
         )
     } else {
-        // 600, not `fw="semibold"`: that is not a valid CSS font-weight keyword, so it was dropped
-        // and the label fell back to the h5 default of 500. Fields already moved to `FormField`
-        // (`labelProps: { fw: 600 }`) then sat beside these at a different weight (OTTER-647).
         labelContent = (
-            <Title order={5} fw={600} style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
+            <Title order={5} fw="semibold" style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
                 {label}
                 <RequiredIndicator isVisible={required} />
             </Title>

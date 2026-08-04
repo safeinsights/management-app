@@ -6,7 +6,6 @@ import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Tit
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
-import { FormFieldLabel } from '@/components/form-field-label'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
@@ -224,11 +223,15 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             <SaveStatusIndicator status={piSaveStatus} isVisible={!form.errors.piName} />
                         </FormField>
 
-                        <Box>
-                            <FormFieldLabel label="Researcher" required inputId="researcher" />
-                            <Text size="xs" c="charcoal.7" mb="xs">
-                                Ensure that your profile is complete and updated.
-                            </Text>
+                        {/* FormField, not FormFieldLabel: the two render labels at different sizes
+                            and weights, which showed as a mismatch against Principal Investigator
+                            right above in this same panel (OTTER-647). */}
+                        <FormField
+                            inputId="researcher"
+                            label="Researcher"
+                            required
+                            description="Ensure that your profile is complete and updated."
+                        >
                             <Group align="center" gap="xxl">
                                 <Box w="30%">
                                     <TextInput
@@ -252,7 +255,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     </Group>
                                 </Anchor>
                             </Group>
-                        </Box>
+                        </FormField>
                     </Stack>
                 </Paper>
 
