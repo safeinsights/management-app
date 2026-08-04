@@ -3,6 +3,7 @@ import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
+import { fetchFileContents } from '@/server/storage'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -147,6 +148,67 @@ test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED',
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
     expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
+})
+
+// Before OTTER-642 the log files were stored on every call (only the status was deduped), so a
+// re-delivered CODE-SCANNED doubled the scan-log rows. storeJobFile now updates in place.
+test.skipIf(!s3Available)('does not duplicate log files when CODE-SCANNED is delivered twice', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const body = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toHaveLength(1)
+    expect(files.filter((f) => f.fileType === 'SECURITY-SCAN-LOG')).toHaveLength(1)
+})
+
+// One scan log is stored twice, encrypted for the researcher and plaintext for the reviewer's parsed
+// statuses. Once the encrypted half is shared its keys pin the ciphertext, so a re-delivery is refused,
+// and the plaintext half has to be refused with it. Replacing only the readable half would show the
+// reviewer findings from a log the researcher cannot open.
+test.skipIf(!s3Available)('leaves the plaintext scan log alone when its encrypted half is refused', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(first))).ok).toBe(true)
+
+    const encrypted = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .executeTakeFirstOrThrow()
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: encrypted.id,
+            filePath: 'security-scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const plaintext = await db
+        .selectFrom('studyJobFile')
+        .select('path')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'SECURITY-SCAN-LOG')
+        .executeTakeFirstOrThrow()
+
+    const rescan = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: 3 critical findings.' }
+    expect((await apiHandler.POST(authedRequest(rescan))).ok).toBe(true)
+
+    // Asserted on the stored bytes, not the row: both halves are updated in place, so a replaced
+    // plaintext log is invisible in the database and only its content gives it away.
+    const contents = await (await fetchFileContents(plaintext.path)).text()
+    expect(contents).toContain('no issues found')
+    expect(contents).not.toContain('3 critical findings')
 })
 
 // A stray CODE-SUBMITTED echo from an older scanner must never reach the status log — it would

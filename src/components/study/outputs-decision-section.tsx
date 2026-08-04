@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, type ReactNode } from 'react'
+import { FC } from 'react'
 import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
@@ -61,7 +61,7 @@ type DecisionRadioGroupProps = {
     value: OutputsDecision | null
     onChange: (next: OutputsDecision) => void
     onBlur: () => void
-    error: ReactNode
+    error: string | undefined
     labName: string
 }
 
@@ -130,7 +130,7 @@ const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCoun
 
 // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
 // assertive region would interrupt the user mid-sentence.
-const FeedbackError: FC<{ error: ReactNode }> = ({ error }) => (
+const FeedbackError: FC<{ error: string | undefined }> = ({ error }) => (
     <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
         <InputError error={error} />
     </Box>
@@ -142,13 +142,13 @@ export type OutputsDecisionSectionProps = {
     labName: string
     maxWords: number
     wordCount: number
-    feedbackError: ReactNode
+    feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
     onFeedbackBlur: () => void
     selected: OutputsDecision | null
     onSelect: (next: OutputsDecision) => void
     onDecisionBlur: () => void
-    decisionError: ReactNode
+    decisionError: string | undefined
 }
 
 export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({

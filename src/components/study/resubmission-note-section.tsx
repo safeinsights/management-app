@@ -37,9 +37,6 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const wordCount = countWords(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
-    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
-    const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
-
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
@@ -69,7 +66,10 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         {...nativeFieldProps(error, { required: true })}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        <Box id={fieldErrorId('resubmissionNote')}>{footerStatus}</Box>
+                        <Box id={fieldErrorId('resubmissionNote')}>
+                            <InputError error={error} />
+                            <SaveStatusIndicator status={saveStatus} isVisible={!error} />
+                        </Box>
                         <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
                     </Group>
                 </Box>

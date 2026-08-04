@@ -135,7 +135,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 value={form.values.title ?? ''}
                                 {...nativeFieldProps(form.errors.title, { required: true, description: true })}
                             />
-                            <SaveStatusIndicator status={titleSaveStatus} />
+                            <SaveStatusIndicator status={titleSaveStatus} isVisible={!form.errors.title} />
                         </FormField>
 
                         <FormField
@@ -175,7 +175,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     </Group>
                                 </Anchor>
                             </Group>
-                            <SaveStatusIndicator status={datasetsSaveStatus} />
+                            <SaveStatusIndicator status={datasetsSaveStatus} isVisible={!form.errors.datasets} />
                         </FormField>
                     </Stack>
                 </Paper>
@@ -221,7 +221,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                                 />
                             </Box>
-                            <SaveStatusIndicator status={piSaveStatus} />
+                            <SaveStatusIndicator status={piSaveStatus} isVisible={!form.errors.piName} />
                         </FormField>
 
                         <Box>
