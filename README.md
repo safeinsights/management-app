@@ -234,8 +234,13 @@ volumes), `--prune` (remove everything including volumes).
 
 Uses your own Postgres (default `localhost:5432`) and SeaweedFS (`8333`, e.g. via
 `pnpm run s3:local`). Creates the separate `si_mgmnt_test` database if missing, migrates and
-seeds it, then runs Playwright. Takes the same `-- <playwright args>`. Also available as
+seeds it, then runs Playwright. Playwright arguments are forwarded with or without a leading
+`--`, so `./bin/local-e2e --ui` and `./bin/local-e2e -- --ui` are equivalent. Also available as
 `pnpm run test:e2e:up`, kept for compatibility.
+
+Point it at a different database with `E2E_TEST_DB`, `PGHOST`, or `PGPORT`. If your Postgres
+needs a role or a password, set `E2E_DATABASE_URL` to the full URL instead: it is then used
+verbatim, and creating the database is left to you.
 
 Requires the Postgres client tools (`pg_isready`, `createdb`, `psql`) on your PATH; if you
 don't have them, use `./bin/docker-e2e` instead.
