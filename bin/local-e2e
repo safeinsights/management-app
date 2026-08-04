@@ -46,10 +46,11 @@ PGPORT="${PGPORT:-5432}"
 S3_HOST="${S3_HOST:-$PGHOST}"
 S3_PORT="${S3_PORT:-8333}"
 
-# Derived unconditionally rather than honoring an inherited DATABASE_URL: .env.test above may
-# well point at the dev database, and seeding that would break the isolation this script
-# promises. Override the pieces (E2E_TEST_DB / PGHOST / PGPORT) instead of the whole URL.
-export DATABASE_URL="postgres://${PGHOST}:${PGPORT}/${TEST_DB}"
+# Derived rather than honoring an inherited DATABASE_URL: .env.test above may well point at
+# the dev database, and seeding that would break the isolation this script promises. Override
+# the pieces (E2E_TEST_DB / PGHOST / PGPORT), or set E2E_DATABASE_URL to be explicit — needed
+# if your Postgres wants a role or password, since the derived URL carries no credentials.
+export DATABASE_URL="${E2E_DATABASE_URL:-postgres://${PGHOST}:${PGPORT}/${TEST_DB}}"
 # Exported because BOTH halves need it: the Playwright process talks to Postgres directly
 # (tests/e2e.seed.ts imports @/database to build per-test fixtures) and bin/app-test needs the
 # same endpoints for the app it serves.
@@ -57,28 +58,30 @@ export S3_ENDPOINT="${S3_ENDPOINT:-http://${S3_HOST}:${S3_PORT}}"
 
 usage() {
     cat <<EOF
-Usage: $0 [-- <playwright-args>]
+Usage: $0 [--] [<playwright-args>]
 
 Migrate + seed the local test database (${TEST_DB} on ${PGHOST}:${PGPORT}), then run
 Playwright on the host. For Docker-provided infra use ./bin/docker-e2e instead.
 
 Examples:
   $0                       # full suite (headless)
-  $0 -- --ui               # interactive Playwright UI
-  $0 -- --headed           # watch the browser
-  $0 -- tests/signin.spec.ts
+  $0 --ui                  # interactive Playwright UI
+  $0 -- --headed           # watch the browser (leading -- is optional)
+  $0 tests/signin.spec.ts
 EOF
     exit 0
 }
 
+# Everything that isn't --help is forwarded to Playwright verbatim, with or without a leading
+# `--`. This script has no flags of its own, and bin/test-e2e-up (which it replaces) ended in
+# `exec pnpm run test:e2e "$@"`, so `pnpm run test:e2e:up -- --ui` used to work without the
+# second `--`. Rejecting bare args here would silently break that.
 pw_args=()
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --help | -h) usage ;;
-        --) shift; pw_args=("$@"); break ;;
-        *) echo "Unknown option: $1" >&2; usage ;;
-    esac
-done
+case "${1:-}" in
+    --help | -h) usage ;;
+    --) shift; pw_args=("$@") ;;
+    *) pw_args=("$@") ;;
+esac
 
 note() { echo "[local-e2e] $*"; }
 
@@ -103,7 +106,11 @@ if ! nc -z -w 1 "$S3_HOST" "$S3_PORT" >/dev/null 2>&1; then
 fi
 note "SeaweedFS reachable on ${S3_HOST}:${S3_PORT}"
 
-if ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
+# Skipped when E2E_DATABASE_URL is set: that URL may name a database other than $TEST_DB, and
+# creating the wrong one while migrating another is worse than asking you to create your own.
+if [ -n "${E2E_DATABASE_URL:-}" ]; then
+    note "Using E2E_DATABASE_URL as given; not creating a database."
+elif ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
     note "Creating database ${TEST_DB}…"
     createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER:+-U "$PGUSER"} "$TEST_DB"
 fi
@@ -111,7 +118,7 @@ fi
 # The same chain bin/docker-e2e's seed service runs. Deliberately NOT `pnpm run db:migrate`:
 # that also regenerates src/database/types.ts via kysely-codegen, so an e2e run would rewrite
 # a tracked source file from the test database.
-note "Migrating + seeding ${TEST_DB} (faked Clerk — DB users/orgs only)…"
+note "Migrating + seeding ${DATABASE_URL} (faked Clerk — DB users/orgs only)…"
 pnpm exec kysely migrate:latest
 pnpm exec kysely seed:run
 pnpm exec tsx bin/seed-environment.ts
