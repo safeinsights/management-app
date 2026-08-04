@@ -32,6 +32,16 @@ cd "$repo_root"
 # process under test; that is deliberate and unaffected by this.
 unset CI
 
+# Playwright's own process talks to Postgres directly: the specs import @/database via
+# tests/e2e.seed.ts to build per-test fixtures. bin/app-test's copies of these only ever
+# reached the app server it spawns, so without them here databaseURL() finds no
+# DATABASE_URL and falls through to AWS Secrets Manager. Exporting them makes this the
+# single source of truth — Playwright inherits them, and bin/app-test's `${VAR:-…}`
+# fallbacks then resolve to these same values. S3_ENDPOINT matters too: tests/s3.helpers.ts
+# otherwise probes dev's 8333 instead of this stack's published port.
+export DATABASE_URL="${DATABASE_URL:-postgres://si:si@localhost:${E2E_PG_PORT:-5433}/si_test}"
+export S3_ENDPOINT="${S3_ENDPOINT:-http://localhost:${E2E_S3_PORT:-8334}}"
+
 COMPOSE_FILE="$repo_root/docker-compose.e2e.yml"
 # Fixed project name (single local e2e stack): this stack publishes host ports, so unlike
 # bin/docker-test it can't run several copies in parallel anyway.
