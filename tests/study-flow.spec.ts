@@ -353,10 +353,10 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
     // The modal names what is about to be shared before anything is written.
     await expect(modal.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
 
-    // Focus must come back to the trigger on every dismissal. The modal unmounts itself to keep
-    // its body text fresh, which pre-empts Mantine's own focus-return effect, so the panel does it
-    // explicitly. Checked here rather than in jsdom, where the Lexical editor this flow needs is
-    // not typeable. Escape first, then the X, then reopen for the real submit.
+    // Focus must come back to the trigger on every dismissal. The modal stays mounted while
+    // closed so Mantine's own returnFocus can do it; unmounting it would take useFocusReturn
+    // along with it. Checked here rather than in jsdom, where the Lexical editor this flow needs
+    // is not typeable. Escape first, then the X, then reopen for the real submit.
     await page.keyboard.press('Escape')
     await expect(modal).toBeHidden()
     await expect(trigger).toBeFocused()
