@@ -24,6 +24,14 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$repo_root"
 
+# This script is the LOCAL entrypoint only (CI runs `pnpm run test:e2e:run` instead), so a CI
+# variable inherited from the caller's shell is always wrong here. It would set IS_CI
+# (tests/common.helpers.ts), and playwright.config.ts then uses `webServer: []` — nothing would
+# ever serve the app on :4100 and every spec would fail against a dead port. It also swaps the
+# local timeouts for the slower CI ones. bin/app-test still exports its own CI=true for the app
+# process under test; that is deliberate and unaffected by this.
+unset CI
+
 COMPOSE_FILE="$repo_root/docker-compose.e2e.yml"
 # Fixed project name (single local e2e stack): this stack publishes host ports, so unlike
 # bin/docker-test it can't run several copies in parallel anyway.
