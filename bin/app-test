@@ -40,10 +40,11 @@ export ASSETS_PREFIX=/
 export CODER_FILES=./coder-files
 
 # --- Test DB + local S3 defaults (non-secret; .env is the base, these override) ----------
-# The host-run server connects to the dedicated e2e stack (docker-compose.e2e.yml), whose
-# Postgres + SeaweedFS are published on the host at E2E_PG_PORT (5433) / E2E_S3_PORT (8334) —
-# distinct from dev's 5432/8333. DATABASE_URL and S3_ENDPOINT MUST override .env here: .env
-# points at the dev DB and the in-container S3 DNS, neither of which is right for a host run.
+# Normally ./bin/docker-e2e or ./bin/local-e2e has already exported these, and the fallbacks
+# below are no-ops. They matter only for a bare `pnpm run test:e2e`, where they assume the
+# Docker stack: its Postgres + SeaweedFS are published at E2E_PG_PORT (5433) / E2E_S3_PORT
+# (8334), distinct from dev's 5432/8333. Either way these MUST override .env, which points at
+# the dev DB and the in-container S3 DNS, neither of which is right for a host run.
 export DATABASE_URL="${DATABASE_URL:-postgres://si:si@localhost:${E2E_PG_PORT:-5433}/si_test}"
 export S3_ENDPOINT="${S3_ENDPOINT:-http://localhost:${E2E_S3_PORT:-8334}}"
 export S3_BROWSER_ENDPOINT="${S3_BROWSER_ENDPOINT:-http://127.0.0.1:${E2E_S3_PORT:-8334}}"

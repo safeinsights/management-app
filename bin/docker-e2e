@@ -1,30 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# `pnpm run test:e2e` entrypoint.
+# `./bin/docker-e2e` entrypoint: run the e2e suite with Postgres + SeaweedFS provided by
+# Docker (docker-compose.e2e.yml). The counterpart is ./bin/local-e2e, for infra you run on
+# the host yourself. Pick whichever matches your setup; both then run the same host
+# Playwright, so interactive debugging works either way:
 #
-# Brings up the dedicated e2e infra (docker-compose.e2e.yml), migrates + seeds the isolated
-# test database INSIDE Docker, then runs Playwright ON THE HOST. Running Playwright locally
-# is what makes interactive debugging work:
+#   ./bin/docker-e2e                 # full suite (headless)
+#   ./bin/docker-e2e -- --ui         # Playwright UI (interactive)
+#   ./bin/docker-e2e -- --headed     # watch the browser
+#   ./bin/docker-e2e -- study-flow   # subset (any playwright args after --)
 #
-#   pnpm run test:e2e                 # full suite (headless)
-#   pnpm run test:e2e -- --ui        # Playwright UI (interactive)
-#   pnpm run test:e2e -- --headed    # watch the browser
-#   pnpm run test:e2e -- study-flow  # subset (any playwright args after --)
+# Migrates + seeds the isolated test database INSIDE Docker, so no host psql/kysely is
+# needed. The app under test is served on the host (port 4100) by Playwright's webServer
+# config (bin/app-test); it connects to the published test-DB / S3 ports of this stack.
 #
-# The app under test is served on the host (port 4100) by Playwright's webServer config
-# (bin/app-test); it connects to the published test-DB / S3 ports of this stack. Once the
-# stack is up + seeded you can also re-run Playwright directly for fast iteration:
-#   pnpm exec playwright test --ui
+# Named for its infra, like ./bin/docker-test (unit tests in Docker) and ./bin/local-seaweedfs.
 #
 # Isolation: a dedicated Postgres container (si_test) with its own volume; the dev DB
-# (mgmnt_dev) is never touched. For a fully-headless one-shot analogous to ./bin/docker-test,
-# just run `pnpm run test:e2e` (no extra flags).
+# (mgmnt_dev) is never touched.
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$repo_root"
 
-# This script is the LOCAL entrypoint only (CI runs `pnpm run test:e2e:run` instead), so a CI
+# This script is a developer entrypoint only (CI runs `pnpm run test:e2e` instead), so a CI
 # variable inherited from the caller's shell is always wrong here. It would set IS_CI
 # (tests/common.helpers.ts), and playwright.config.ts then uses `webServer: []` — nothing would
 # ever serve the app on :4100 and every spec would fail against a dead port. It also swaps the

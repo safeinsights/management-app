@@ -7,9 +7,10 @@
 #   2. It includes a one-shot `seed-e2e` service so migrate + seed happen INSIDE Docker
 #      (no host-level psql/kysely needed).
 #
-# Driven by ./bin/test-e2e (= `pnpm run test:e2e`), which brings this stack up, seeds it,
-# then runs Playwright on the host. Interactive debugging (`--ui` / `--headed`) works
-# because Playwright is local.
+# Driven by ./bin/docker-e2e, which brings this stack up, seeds it, then runs Playwright on
+# the host. Interactive debugging (`--ui` / `--headed`) works because Playwright is local.
+# Devs who run Postgres + SeaweedFS themselves use ./bin/local-e2e instead and never touch
+# this file.
 #
 # Isolation: a DEDICATED Postgres container (si_test) with its own volume — it never
 # touches the dev DB (mgmnt_dev on the main docker-compose.yml). Uses the same si/si/si_test

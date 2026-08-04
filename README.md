@@ -206,26 +206,47 @@ pnpm run test:unit
 
 ### E2E Testing with Playwright 🎭
 
-E2E tests use the dedicated stack in `docker-compose.e2e.yml`: an isolated test database and
-object storage run in Docker (and are migrated + seeded there), while Playwright and the app
-under test run on your host, so interactive debugging works. The dev database (`mgmnt_dev`)
-is never touched.
+Playwright and the app under test always run on your host, so interactive debugging works.
+Only the shared infra (Postgres + object storage) differs, so pick the entrypoint that matches
+how you run it. Either way an isolated test database is used and your dev database is never
+touched.
 
 One-time setup:
 
 - `pnpm install`
 - `pnpm exec playwright install`
 
-Run the suite (brings the stack up, seeds it in Docker, then runs Playwright on your host):
+**If Postgres + SeaweedFS run in Docker: `./bin/docker-e2e`**
 
-- `pnpm run test:e2e` — full suite (headless)
-- `pnpm run test:e2e -- --ui` — Playwright UI (interactive)
-- `pnpm run test:e2e -- --headed` — watch the browser run
-- `pnpm run test:e2e -- tests/signin.spec.ts` — a subset (any Playwright args after `--`)
+Brings up the dedicated stack in `docker-compose.e2e.yml` (its own Postgres on port 5433 and
+SeaweedFS on 8334, distinct from dev's), migrates and seeds it inside the container, then runs
+Playwright. No host `psql` needed.
 
-Once the stack is up and seeded you can re-run Playwright directly for fast iteration: `pnpm exec playwright test --ui`.
+- `./bin/docker-e2e` — full suite (headless)
+- `./bin/docker-e2e -- --ui` — Playwright UI (interactive)
+- `./bin/docker-e2e -- --headed` — watch the browser run
+- `./bin/docker-e2e -- tests/signin.spec.ts` — a subset (any Playwright args after `--`)
 
-Manage the stack via `./bin/test-e2e`: `--clean` (fresh DB + storage, reseed), `--down` (stop containers, keep volumes), `--prune` (remove everything including volumes).
+Stack management: `--clean` (fresh DB + storage, reseed), `--down` (stop containers, keep
+volumes), `--prune` (remove everything including volumes).
+
+**If you run Postgres + SeaweedFS yourself: `./bin/local-e2e`**
+
+Uses your own Postgres (default `localhost:5432`) and SeaweedFS (`8333`, e.g. via
+`pnpm run s3:local`). Creates the separate `si_mgmnt_test` database if missing, migrates and
+seeds it, then runs Playwright. Takes the same `-- <playwright args>`. Also available as
+`pnpm run test:e2e:up`, kept for compatibility.
+
+Requires the Postgres client tools (`pg_isready`, `createdb`, `psql`) on your PATH; if you
+don't have them, use `./bin/docker-e2e` instead.
+
+**Bare `pnpm run test:e2e`** is plain `playwright test`, used by CI. It assumes the infra is
+already up and seeded, and that `DATABASE_URL` / `S3_ENDPOINT` are in your environment: the
+specs open their own database connection to build fixtures (`tests/e2e.seed.ts`), so without
+those it fails even though the app itself would start. The two entrypoints above export them
+for you, which is why they are the recommended way to re-run a subset locally. If you would
+rather use bare Playwright, put those two values in a `.env.test`, which `playwright.config.ts`
+loads.
 
 If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
