@@ -1,21 +1,26 @@
 'use client'
 
-import { Paper, Stack, Text } from '@mantine/core'
+import { Paper, Stack } from '@mantine/core'
 import { FC } from 'react'
 import { FormSectionHeader } from '@/components/study/form-section-header'
 import { LostKeyPopover } from '@/components/study/lost-key-popover'
 import { SecurityKeyInput } from '@/components/study/security-key-input'
 import { SecurityKeyViewButton } from '@/components/study/security-key-view-button'
 import { useSecurityKeyForm } from '@/components/study/use-security-key-form'
+import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
 interface SecurityKeyFormProps {
     job: LatestJobForStudy
+    /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
+    onDecrypted: (files: JobFileInfo[]) => void
 }
 
-export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
-    const { value, setValue, error, successMessage, isDecrypting, isLoadingFiles, inputRef, handleSubmit } =
-        useSecurityKeyForm({ job })
+export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, onDecrypted }) => {
+    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
+        job,
+        onDecrypted,
+    })
 
     return (
         <Paper p="xxl">
@@ -34,19 +39,8 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job }) => {
                     disabled={isDecrypting}
                 />
                 <SecurityKeyViewButton isDecrypting={isDecrypting} isLoading={isLoadingFiles} onClick={handleSubmit} />
-                <SuccessMessage message={successMessage} />
                 <LostKeyPopover />
             </Stack>
         </Paper>
-    )
-}
-
-// TODO: remove this after 675 is implemented. this is temporary for testing.
-const SuccessMessage: FC<{ message?: string }> = ({ message }) => {
-    if (!message) return null
-    return (
-        <Text fz="md" c="green.9">
-            {message}
-        </Text>
     )
 }
