@@ -281,30 +281,28 @@ function uploadResults(jobId: string): void {
     )
 }
 
-// Reviewer results-review (StudyDetailsReviewer) for a successful run: decrypt then
-// approve. Result files auto-select on decrypt, so the job-level Approve enables
-// without ticking a checkbox.
-async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<void> {
+// OTTER-668: a successful run now lands on the outputs-available screen, which uses the
+// SecurityKeyForm (decrypt only). The post-decryption review+approve flow is OTTER-675;
+// until then, verify the banner renders and decrypt succeeds.
+async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox')
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    const approveButton = page.getByRole('button', { name: /^Approve$/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
+    await expect(page.getByText('Security key accepted.')).toBeVisible()
 }
 
 // OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
@@ -476,21 +474,17 @@ test('Reviewer approves submitted code', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer results decrypt+approve surface. Seeds a JOB-READY job, uploads
+// Owns the reviewer outputs-available decrypt surface. Seeds a JOB-READY job, uploads
 // an encrypted result via the debug script (no runner), then drives the UI.
+// OTTER-675: restore the approve step + researcher approved-results check once the
+// post-decryption review flow is built.
 test('Successful results review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('results')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadResults(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesResults(page, studyTitle)
-    })
-
-    await withRole(browser, 'researcher', async (page) => {
-        await visitAsRole(page, RESEARCHER_DASHBOARD)
-        await viewStudyDetails(page, studyTitle)
-        await expect(page.getByText(/results of your study have been approved/i)).toBeVisible()
+        await reviewerDecryptsAvailableOutputs(page, studyTitle)
     })
 })
 
