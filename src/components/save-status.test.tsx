@@ -34,4 +34,30 @@ describe('SaveStatusIndicator', () => {
         renderWithProviders(<SaveStatusIndicator status="saved" isVisible={false} />)
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
+
+    it('announces "All changes saved" from a polite live region (OTTER-675)', () => {
+        renderWithProviders(<SaveStatusIndicator status="saved" />)
+        const region = screen.getByRole('status')
+        expect(region).toHaveAttribute('aria-live', 'polite')
+        expect(region).toHaveAttribute('aria-atomic', 'true')
+        expect(region).toHaveTextContent('All changes saved')
+    })
+
+    it('keeps the live region mounted and empty while idle, so the save is announced (OTTER-675)', () => {
+        // A live region is only announced when content it already owns changes, so the region
+        // has to be in the DOM before the label lands in it.
+        renderWithProviders(<SaveStatusIndicator status="idle" />)
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('leaves the transient saving label out of the live region (OTTER-675)', () => {
+        renderWithProviders(<SaveStatusIndicator status="saving" />)
+        expect(screen.getByTestId('autosave-status').closest('[aria-live]')).toBeNull()
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('empties the live region when hidden by a validation error (OTTER-674)', () => {
+        renderWithProviders(<SaveStatusIndicator status="saved" isVisible={false} />)
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
 })
