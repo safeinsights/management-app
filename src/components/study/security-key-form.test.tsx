@@ -39,16 +39,27 @@ async function seedArtifact(
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
 
-    const row = await db
+    // One row per artifact slot (job + path + type), which the unique index enforces, so a test
+    // seeding its own content over the one beforeEach already made reuses that row rather than
+    // adding a second. Mirrors storeJobFile, where a repeat delivery replaces the object behind the
+    // row it already has.
+    const path = `test-org/${jobId}/results/encrypted-logs/encrypted-results.zip`
+    const inserted = await db
         .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            name: 'encrypted-results.zip',
-            path: `test-org/${jobId}/results/encrypted-logs/encrypted-results.zip`,
-            fileType,
-        })
+        .values({ studyJobId: jobId, name: 'encrypted-results.zip', path, fileType })
+        .onConflict((oc) => oc.doNothing())
         .returning('id')
-        .executeTakeFirstOrThrow()
+        .executeTakeFirst()
+
+    const row =
+        inserted ??
+        (await db
+            .selectFrom('studyJobFile')
+            .select('id')
+            .where('studyJobId', '=', jobId)
+            .where('path', '=', path)
+            .where('fileType', '=', fileType)
+            .executeTakeFirstOrThrow())
 
     return {
         studyJobFileId: row.id,
