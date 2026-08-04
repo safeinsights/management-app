@@ -9,7 +9,7 @@ interface FormSectionHeaderProps {
 
 export const FormSectionHeader: FC<FormSectionHeaderProps> = ({ title, description, required }) => (
     <Stack gap="md">
-        <Title fz="xl" fw={700} c="charcoal.9">
+        <Title fz="xl" fw={700} c="charcoal.9" order={3}>
             {title}
             {required && (
                 <>
