@@ -98,7 +98,10 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     if (!isVisible) return null
     return (
         <>
-            <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
+            {/* The reviewer decrypts via the zip's embedded manifest, which is encrypted to the
+                enclave keys; they hold no re-wrapped per-file keys, so the researcher key set
+                would come back empty. */}
+            <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
             <Group>
                 <PreviousStepLink previousHref={previousHref} />
             </Group>

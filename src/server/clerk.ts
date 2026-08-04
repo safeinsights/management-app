@@ -69,7 +69,10 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
 
-    await client.users.updateUserMetadata(clerkId, {
+    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges it. orgs is a
+    // slug-keyed map, so merging left a removed org's key in place forever — the JWT claim kept
+    // granting access long after the membership was revoked.
+    await client.users.updateUser(clerkId, {
         publicMetadata: metadata as unknown as UserPublicMetadata,
     })
 
