@@ -1,72 +1,182 @@
-import { vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { useParams } from 'next/navigation'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
 import dayjs from 'dayjs'
+import { ResultsWriter } from 'si-encryption/job-results/writer'
+import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import {
     actionResult,
-    describe,
-    expect,
+    createTestQueryClient,
+    db,
+    fireEvent,
     insertTestStudyJobData,
-    it,
-    type Mock,
     mockSessionWithTestData,
+    QueryClientProvider,
+    readTestSupportFile,
+    render,
     renderWithProviders,
     screen,
+    waitFor,
 } from '@/tests/unit.helpers'
-import { useParams } from 'next/navigation'
-import type { StudyJobStatus } from '@/database/types'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { theme } from '@/theme'
+import type { FileType, StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudy } from '@/server/db/queries'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import type { ScreenComponentProps } from './types'
 
-// The screen embeds SecurityKeyForm, whose file query hits job-file storage; serve no artifacts so
-// the static render under test stays hermetic (same approach as security-key-form.test.tsx).
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
+vi.mock('@/server/actions/study-job.actions', async () => {
+    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
+        '@/server/actions/study-job.actions',
+    )
+    return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
+})
+
+// Real in-browser RSA/AES decryption drives the phase flip in these tests, and on a loaded CI
+// runner (sharded workers + coverage instrumentation) that chain can outlast the default 5s
+// per-test budget. The waitFor timeouts below stay inside this ceiling.
+vi.setConfig({ testTimeout: 30_000 })
+
+const toArrayBuffer = (str: string): ArrayBuffer => {
+    const buf = Buffer.from(str, 'utf-8')
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+}
+
+// Encrypt an artifact the way the enclave would (whole-zip + embedded manifest) so the reviewer's
+// real key decrypts it — the phase flip is driven by genuine decryption, not a stubbed callback.
+// Results use ENCRYPTED-RESULT (not the errored screen's log type): this suite is also the proof
+// that a completed run's artifacts flow through the same panel.
+async function seedArtifact(jobId: string, files: { name: string; content: string }[]) {
+    const fileType: FileType = 'ENCRYPTED-RESULT'
+    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+    const fingerprint = await fingerprintKeyData(publicKey)
+    const writer = new ResultsWriter([{ publicKey, fingerprint }])
+    for (const file of files) await writer.addFile(file.name, toArrayBuffer(file.content))
+    const zip = await writer.generate()
+
+    const row = await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            name: 'encrypted-results.zip',
+            path: `test-org/${jobId}/results/encrypted-results.zip`,
+            fileType,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return {
+        studyJobFileId: row.id,
+        fileType,
+        name: 'encrypted-results.zip',
+        encryptedBody: await zip.arrayBuffer(),
+        recipientKeys: {} as Record<string, string>,
+    }
+}
+
+const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
+    const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+    const job = await latestJobForStudy(dbStudy.id)
+    ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+    return { org, study, job }
+}
 
 const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) =>
     renderWithProviders(await ReviewerOutputsAvailableScreen({ study, orgSlug }))
 
-const setupWithJobStatus = async (jobStatus: StudyJobStatus) => {
-    const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
-    const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-    ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, study }
+// Like renderWithProviders, but with single-user editing on so the feedback editor (and the
+// word counter in its footer) renders synchronously instead of holding a collaborative skeleton.
+const renderScreenSingleUser = async (study: ScreenComponentProps['study'], orgSlug: string) =>
+    render(
+        <QueryClientProvider client={createTestQueryClient()}>
+            <MantineProvider theme={theme}>
+                <YjsWebsocketProvider singleUserEditing>
+                    <ModalsProvider>{await ReviewerOutputsAvailableScreen({ study, orgSlug })}</ModalsProvider>
+                </YjsWebsocketProvider>
+            </MantineProvider>
+        </QueryClientProvider>,
+    )
+
+const unlock = async () => {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
 }
 
-describe('ReviewerOutputsAvailableScreen', () => {
-    it('renders the outputs-available banner with the date the run completed', async () => {
-        const { org, study } = await setupWithJobStatus('RUN-COMPLETE')
+// Generous asynchronous wait: CI shards run 4 workers with coverage instrumentation, and the
+// decrypt flow under test is CPU-bound, so the RTL default of 1s is far too tight there.
+const WAIT = { timeout: 15_000 }
+
+// Matches on an element's full textContent, so text split across child nodes (or differing
+// whitespace) can never produce a false negative the way an exact-string matcher can.
+const textIncludes = (needle: string) => (_: string, element: Element | null) =>
+    !!element && element.children.length === 0 && (element.textContent ?? '').includes(needle)
+
+describe('ReviewerOutputsAvailableScreen before decryption', () => {
+    beforeEach(() => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    })
+
+    it('renders the shared page and section headers', async () => {
+        const { org, study } = await setupAvailable()
         await renderScreen(study, org.slug)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
-        // The RUN-COMPLETE status row was just inserted, so the surfaced date is today.
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            `Outputs are available for review • ${dayjs().format('MMM DD, YYYY')}`,
-        )
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 
-    it('addresses the banner body to the submitting lab', async () => {
-        const { org, study } = await setupWithJobStatus('RUN-COMPLETE')
+    it('shows the outputs-available banner with the run-complete date, addressed to the lab', async () => {
+        const { org, study } = await setupAvailable()
         await renderScreen(study, org.slug)
 
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+        // The RUN-COMPLETE status row was just inserted, so the surfaced date is today.
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent(`Outputs are available for review • ${dayjs().format('MMM DD, YYYY')}`)
+        expect(alert).toHaveTextContent(
             `Enter your security key to decrypt the outputs, review them, and then share with ${study.submittingLabName}.`,
         )
     })
 
-    it('renders the reused security key form', async () => {
-        const { org, study } = await setupWithJobStatus('RUN-COMPLETE')
+    // The two-part gate: RUN-COMPLETE alone must not surface the outputs. Only a validated key
+    // does, which is why this screen is a client phase flip and not a route.
+    it('asks for the security key and hides the review view until a key validates', async () => {
+        const { org, study } = await setupAvailable()
         await renderScreen(study, org.slug)
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
-        expect(screen.getByRole('textbox')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
+        expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
     })
 
-    it('wires Previous step to the read-only code page', async () => {
-        const { org, study } = await setupWithJobStatus('RUN-COMPLETE')
+    // The empty-artifact refusal (a well-formed key with nothing to decrypt must not unlock) is
+    // owned by security-key-form.test.tsx — the same form instance this screen embeds. Screen-level
+    // gating is proven here by the wrong-key path below, which anchors on a visible error.
+    it('keeps the outputs hidden when the key is wrong', async () => {
+        const { org, study, job } = await setupAvailable()
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            await seedArtifact(job.id, [{ name: 'results.csv', content: 'a,b\n1,2' }]),
+        ])
+        await renderScreen(study, org.slug)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
+        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+
+        expect(
+            await screen.findByText(textIncludes('Invalid key. Check that you copied'), undefined, WAIT),
+        ).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+    })
+
+    it('links Previous step to the read-only code page for this study', async () => {
+        const { org, study } = await setupAvailable()
         await renderScreen(study, org.slug)
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
@@ -83,8 +193,111 @@ describe('ReviewerOutputsAvailableScreen', () => {
     })
 
     it('shows a not-found alert when the job has not completed a run', async () => {
-        const { org, study } = await setupWithJobStatus('JOB-RUNNING')
+        const { org, study } = await setupAvailable('JOB-RUNNING')
         await renderScreen(study, org.slug)
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
+    })
+})
+
+describe('ReviewerOutputsAvailableScreen after decryption', () => {
+    beforeEach(() => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    })
+
+    const setupDecrypted = async (
+        files: { name: string; content: string }[],
+        doRender: typeof renderScreen = renderScreen,
+    ) => {
+        const { org, study, job } = await setupAvailable()
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([await seedArtifact(job.id, files)])
+        await doRender(study, org.slug)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument(), WAIT)
+        // Quiesce: the files table fires the last-activity query on mount. Waiting for its answer
+        // here means no test ends with that DB query in flight — an in-flight query racing the
+        // per-test transaction rollback closes the shared client and poisons every later test
+        // (the deferred-callback race documented in tests/vitest.setup.ts, in query form).
+        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0), WAIT)
+        return { org, study, job }
+    }
+
+    it('swaps the key form for the outputs table, decision section and submit button', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+        expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
+        expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
+        expect(screen.getByTestId('outputs-submit-decision')).toBeInTheDocument()
+    })
+
+    it('replaces the available banner with the review-before-sharing warning', async () => {
+        const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Review the outputs before sharing')
+        expect(alert).not.toHaveTextContent('Outputs are available for review')
+        expect(alert).toHaveTextContent(
+            `As the reviewer, you are responsible for checking the outputs for sensitive or restricted information* before they are shared with ${labName}.`,
+        )
+        expect(alert).toHaveTextContent(
+            '*Sensitive data could cause harm if disclosed, such as personally identifiable information (PII). Restricted data is limited by a data use agreement or policy.',
+        )
+        expect(alert).toHaveAttribute('data-variant', 'action')
+    })
+
+    // The asterisk's meaning has to reach AT programmatically; visual proximity to the footnote
+    // conveys nothing to a screen reader.
+    it('associates the footnote with the asterisked sentence via aria-describedby', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        const described = screen
+            .getByTestId('status-alert')
+            .querySelector('[aria-describedby="outputs-sensitive-data-footnote"]')
+        expect(described).not.toBeNull()
+        expect(document.getElementById('outputs-sensitive-data-footnote')).toHaveTextContent(
+            /Sensitive data could cause harm if disclosed/,
+        )
+    })
+
+    it('lists every decrypted result file with an empty activity state', async () => {
+        await setupDecrypted([
+            { name: 'results.csv', content: 'a,b\n1,2' },
+            { name: 'summary.txt', content: 'all good' },
+        ])
+
+        expect(screen.getByRole('button', { name: 'results.csv' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'summary.txt' })).toBeInTheDocument()
+        // Waits for the activity query: the cell stays blank until the answer is in, so it never
+        // claims "No activity yet" on the strength of an unresolved request.
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2), { timeout: 15_000 })
+    })
+
+    it('keeps Submit decision enabled on arrival', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        expect(screen.getByTestId('outputs-submit-decision')).toBeEnabled()
+    })
+
+    it('flags both empty fields and opens no modal on a blank submit', async () => {
+        const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+
+        fireEvent.click(screen.getByTestId('outputs-submit-decision'))
+
+        expect(
+            await screen.findByText(textIncludes(`Enter your feedback for ${labName}`), undefined, WAIT),
+        ).toBeInTheDocument()
+        expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
+        expect(screen.queryByText('Submit your decision?')).toBeNull()
+    })
+
+    // OTTER-676: a completed run gets the 1500 cap, not the errored screen's 300. Rendered in
+    // single-user mode so the editor footer (where the counter lives) exists synchronously.
+    it('caps feedback at 1500 for a completed run', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }], renderScreenSingleUser)
+
+        await waitFor(() => expect(screen.getByText(textIncludes('0/1500'))).toBeInTheDocument(), WAIT)
     })
 })

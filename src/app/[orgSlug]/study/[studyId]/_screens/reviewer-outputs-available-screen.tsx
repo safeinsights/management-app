@@ -1,12 +1,9 @@
 import dayjs from 'dayjs'
-import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
-import { StudyPageHeader } from '@/components/study/study-page-header'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
+import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
-import { SecurityKeyForm } from '@/components/study/security-key-form'
+import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
@@ -22,12 +19,16 @@ function availableTimestamp(
 const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string; labName: string }) => (
     <StatusAlert
         variant={STATUS_ALERT_VARIANT.action}
-        title={`Outputs are available for review \u2022 ${dayjs(availableAt).format('MMM DD, YYYY')}`}
+        title={`Outputs are available for review • ${dayjs(availableAt).format('MMM DD, YYYY')}`}
     >
         Enter your security key to decrypt the outputs, review them, and then share with {labName}.
     </StatusAlert>
 )
 
+// OTTER-676: same two-phase panel as the errored screen (OTTER-675) — the security key gate,
+// then the decrypted outputs table, feedback and sharing decision. Only the locked banner copy
+// and the feedback cap differ: a completed run gets the longer limit (see outputsFeedbackMaxWords,
+// which the server derives independently from the job's own status history).
 export async function ReviewerOutputsAvailableScreen({
     study,
     orgSlug,
@@ -47,29 +48,19 @@ export async function ReviewerOutputsAvailableScreen({
         )
     }
 
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+
     return (
-        <Box bg="grey.10">
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
-                <ProposalStepHeader
-                    stepLabel="STEP 3"
-                    heading="Review outputs"
-                    studyTitle={study.title ?? ''}
-                    banner={<AvailableBanner availableAt={availableAt} labName={study.submittingLabName} />}
-                />
-
-                <SecurityKeyForm job={job} />
-
-                <Group>
-                    <ButtonLink
-                        href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
-                        variant="subtle"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous step
-                    </ButtonLink>
-                </Group>
-            </Stack>
-        </Box>
+        <OutputsReviewPanel
+            orgSlug={orgSlug}
+            studyId={study.id}
+            studyTitle={study.title ?? ''}
+            job={job}
+            labName={labName}
+            maxWords={COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS}
+            lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}
+            unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
+            previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+        />
     )
 }
