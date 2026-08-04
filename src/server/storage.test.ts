@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import { db } from '@/database'
-import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
+import { insertTestJobInfo, insertTestUser, testUploadFile } from '@/tests/unit.helpers'
 import { pathForStudyJob } from '@/lib/paths'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from './storage'
 import { storeS3File } from './aws'
@@ -80,6 +80,59 @@ test('refuses to replace an artifact whose keys are already shared on an open ro
 
     expect(redelivery.stored).toBe(false)
     expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
+})
+
+// Wrapped keys are written LAST, minutes after the reviewer's browser read the ciphertext and took
+// its AES keys into memory. A re-delivery inside that window passed both key and round guards, and the
+// wrap that followed described bytes that no longer existed, leaving the researcher with a key that
+// unwraps and decrypts to nothing. Having been opened is therefore reason enough to refuse.
+test('refuses to replace an artifact someone has already opened', async () => {
+    const { jobInfo: info, org } = await insertTestJobInfo()
+    const { user } = await insertTestUser({ org })
+    const stored = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
+    await db
+        .insertInto('studyJobFileActivity')
+        .values({ studyJobFileId: stored.id, filePath: 'logs.json', userId: user.id, action: 'VIEWED' })
+        .execute()
+
+    const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
+    const redelivery = await storeStudyEncryptedLogFile(info, logFile('re-delivered.zip'), 'ENCRYPTED-CODE-RUN-LOG')
+
+    expect(redelivery.stored).toBe(false)
+    expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
+    expect((await jobLogRows(info.studyJobId))[0].name).toBe('encrypted-logs.zip')
+})
+
+// An errored run is the exposed case: RUN-COMPLETE re-deliveries are turned away by the results route,
+// but JOB-ERRORED neither closes a round nor blocks the route, so the artifact stayed replaceable for
+// the whole review. Refuse from the announcement onward, which is before a reviewer can have opened it.
+test('refuses to replace an artifact once the run outcome has been announced', async () => {
+    const info = await setupJob()
+    await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
+    await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'JOB-ERRORED' }).execute()
+
+    const redelivery = await storeStudyEncryptedLogFile(info, logFile('re-delivered.zip'), 'ENCRYPTED-CODE-RUN-LOG')
+
+    expect(redelivery.stored).toBe(false)
+    expect((await jobLogRows(info.studyJobId))[0].name).toBe('encrypted-logs.zip')
+})
+
+// JOB-ERRORED is also written by the scanner, the containerizer and the generic status route, and one
+// of those can land BEFORE the run's own log arrives. Scoping the guard to statuses recorded after the
+// job already held the artifact is what keeps someone else's earlier failure from freezing an artifact
+// that nobody has reviewed yet - the same scoping the results route applies to its announcement check.
+test('still refreshes an artifact when the only announced outcome predates it', async () => {
+    const info = await setupJob()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ studyJobId: info.studyJobId, status: 'JOB-ERRORED', createdAt: new Date('2020-01-01') })
+        .execute()
+
+    await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
+    const redelivery = await storeStudyEncryptedLogFile(info, logFile('re-delivered.zip'), 'ENCRYPTED-CODE-RUN-LOG')
+
+    expect(redelivery.stored).toBe(true)
+    expect((await jobLogRows(info.studyJobId))[0].name).toBe('re-delivered.zip')
 })
 
 // A closed round only protects artifacts it already has: dropping a never-seen one would lose data

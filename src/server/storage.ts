@@ -4,6 +4,7 @@ import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } fr
 import { db, type DBExecutor } from '@/database'
 import { FileType } from '@/database/types'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
 import logger from '@/lib/logger'
 
 export async function fetchFileContents(filePath: string) {
@@ -61,6 +62,40 @@ async function artifactWasShared(studyJobFileId: string): Promise<boolean> {
     return Boolean(shared)
 }
 
+// Whether this artifact has already been opened by someone. A reader holds the AES keys of the
+// ciphertext they opened, in browser memory, for as long as their review session lasts, and the wrap
+// they later persist is a snapshot of those keys. Replacing the object under an open session is what
+// turns that snapshot stale.
+async function artifactWasRead(studyJobFileId: string): Promise<boolean> {
+    const read = await db
+        .selectFrom('studyJobFileActivity')
+        .select('id')
+        .where('studyJobFileId', '=', studyJobFileId)
+        .executeTakeFirst()
+
+    return Boolean(read)
+}
+
+// Whether the run's outcome was announced after this job already held the artifact, which is the
+// moment reviewers were told there is something to review.
+//
+// Scoped to statuses recorded at or after `heldSince` for the same reason the results route scopes its
+// announcement check: JOB-ERRORED is also written by the scanner, the containerizer and the generic
+// status route, and one of those can land BEFORE the run's own artifacts arrive. A bare status lookup
+// would therefore read someone else's earlier failure as proof this artifact is under review and
+// refuse its first genuine refresh.
+async function outcomeAnnouncedSince(studyJobId: string, heldSince: Date): Promise<boolean> {
+    const announced = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', 'in', OUTPUTS_REVIEWABLE_JOB_STATUSES)
+        .where('createdAt', '>=', heldSince)
+        .executeTakeFirst()
+
+    return Boolean(announced)
+}
+
 // Why a re-delivery must not replace this artifact, or null when replacing it is safe.
 //
 // Sharing is checked first and separately from the round, because the two do not coincide: a reviewer
@@ -68,9 +103,23 @@ async function artifactWasShared(studyJobFileId: string): Promise<boolean> {
 // CODE-APPROVED), and that round stays open afterwards. A round-status-only guard therefore left every
 // artifact shared at code approval, scan logs included, replaceable by a delayed scanner or
 // containerizer delivery. Keys are the thing being protected, so key existence is the question to ask.
-async function unreplaceableReason(studyJobFileId: string, studyJobId: string): Promise<string | null> {
-    if (await artifactWasShared(studyJobFileId)) return 'its keys have already been wrapped for recipients'
+//
+// Wrapped keys are not the whole story though, because they are written LAST. A reviewer decrypts the
+// artifact, spends minutes on the mandatory feedback, and only then does the browser wrap the AES keys
+// it has been holding since the fetch. A re-delivery inside that window passed both checks above,
+// replaced the ciphertext, and the wrap that followed described bytes that no longer exist: the
+// researcher then holds a key that unwraps fine and decrypts to nothing, reported to them as
+// "Private key is not valid for these results". Reading and being under review are therefore
+// unreplaceable too. An errored run is the exposed case, since RUN-COMPLETE deliveries are already
+// turned away by the results route and JOB-ERRORED does not close a round.
+async function unreplaceableReason(
+    existing: { id: string; createdAt: Date },
+    studyJobId: string,
+): Promise<string | null> {
+    if (await artifactWasShared(existing.id)) return 'its keys have already been wrapped for recipients'
     if (await roundIsClosed(studyJobId)) return 'the round is already decided'
+    if (await artifactWasRead(existing.id)) return 'it has already been opened, so a reader may hold its keys'
+    if (await outcomeAnnouncedSince(studyJobId, existing.createdAt)) return 'its outputs are already under review'
     return null
 }
 
@@ -104,8 +153,11 @@ async function artifactRowForSlot(studyJobId: string, path: string, fileType: Fi
  * and the loser is recovered below as the repeat it effectively is. It does not make a delivery atomic,
  * and nothing here holds a lock across the S3 upload, so three windows stay open:
  *
- *   - Keys can be wrapped, or the round closed, between the guard below and the upload, so a
- *     re-delivery landing inside that window still replaces a just-shared ciphertext.
+ *   - Any condition unreplaceableReason asks about can become true between the guard below and the
+ *     upload, so a re-delivery landing inside that window still replaces a ciphertext that someone
+ *     just read or shared. Narrower than it was: the guard now refuses from the announcement onward,
+ *     which is before a reviewer can have opened anything, so what remains is the millisecond between
+ *     the check and the upload rather than the whole review.
  *   - Both callers upload to the same key before either resolves its row, so S3 completion order need
  *     not match rename order: the row can end up naming one payload while holding the other's bytes.
  *     Same artifact in the same slot either way, so only the recorded name is affected.
@@ -129,7 +181,7 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
     //
     // The sender gets a success response either way (it has nothing to do differently), so log the
     // drop: without it, content that was accepted but never stored leaves no trace to diagnose from.
-    const unreplaceable = existing ? await unreplaceableReason(existing.id, info.studyJobId) : null
+    const unreplaceable = existing ? await unreplaceableReason(existing, info.studyJobId) : null
     if (existing && unreplaceable) {
         logger.warn(
             `ignoring re-delivered ${fileType} for job ${info.studyJobId} at ${path}: ${unreplaceable}, so the stored copy has to stay decryptable`,
