@@ -15,24 +15,30 @@ const ERRORS = {
 type UseSecurityKeyFormOptions = {
     job: LatestJobForStudy
     /**
+     * Which key set to ask the server for. It cannot be inferred here: this form serves both the
+     * reviewer's outputs step (manifest recipient, no wrapped keys) and the researcher reading
+     * shared outputs (wrapped keys only), and a dual-role user is legitimately both.
+     */
+    type: 'researcher' | 'reviewer'
+    /**
      * Handed the decrypted plaintext on a successful key. The caller owns it from here: the
      * files carry raw AES keys (see JobFileInfo) and must stay in memory, never persisted.
      */
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-export function useSecurityKeyForm({ job, onDecrypted }: UseSecurityKeyFormOptions) {
+export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFormOptions) {
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
-        // Researcher-only flow: the study author entering their key to read shared outputs. The role
-        // is part of the key so this never collides with the reviewer view's cache.
-        queryKey: ['encrypted-files', job.id, 'researcher'],
+        // The role is part of the key: the action returns a different key set per role, so a
+        // dual-role user switching views must not be served the other's cache.
+        queryKey: ['encrypted-files', job.id, type],
         queryFn: async () => {
             try {
-                return await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' })
+                return await fetchEncryptedJobFilesAction({ jobId: job.id, type })
             } catch (error) {
                 Sentry.captureException(error)
                 throw error
