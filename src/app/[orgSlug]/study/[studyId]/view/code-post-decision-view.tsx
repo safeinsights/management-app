@@ -34,10 +34,11 @@ interface CodePostDecisionViewProps {
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     /**
-     * Forward link to results (Step 5); set only once results exist. When set, the primary action
-     * reads "Proceed to step 5" instead of "Go to dashboard" (OTTER-614).
+     * Forward link to the next step of the flow; set only when /view resolves past this screen
+     * (OTTER-614, OTTER-687). When set, the primary action reads "Next step" instead of "Go to
+     * dashboard".
      */
-    resultsHref?: Route
+    nextStepHref?: Route
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
 }
@@ -104,7 +105,7 @@ type DecisionActionsProps = {
     previousHref: Route
     dashboardHref: Route
     resubmitHref: Route
-    resultsHref?: Route
+    nextStepHref?: Route
 }
 
 const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
@@ -122,11 +123,11 @@ const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, h
     )
 }
 
-const ProceedToResultsAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
+const NextStepAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
     if (!isVisible || !href) return null
     return (
-        <ButtonLink href={href} size="md" data-testid="cta-proceed-to-results">
-            Proceed to step 5
+        <ButtonLink href={href} size="md" data-testid="cta-next-step">
+            Next step
         </ButtonLink>
     )
 }
@@ -140,15 +141,16 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
     )
 }
 
-function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, resultsHref }: DecisionActionsProps) {
+function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, nextStepHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // Once results exist, continue forward to Step 5 instead of ending at the dashboard.
-    const showProceedToResults = !showResubmit && !!resultsHref
+    // When the flow continues past this screen, carry the user forward instead of ending at the
+    // dashboard. Resubmit outranks it: a change request is the flow, not a step to skip.
+    const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
             <PreviousStepLink href={previousHref} />
-            <ProceedToResultsAction isVisible={showProceedToResults} href={resultsHref} />
-            <DashboardAction isVisible={!showResubmit && !showProceedToResults} href={dashboardHref} />
+            <NextStepAction isVisible={showNextStep} href={nextStepHref} />
+            <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
         </Group>
     )
@@ -236,7 +238,7 @@ export function CodePostDecisionView({
     dashboardHref,
     returnTo,
     latestJobStatus,
-    resultsHref,
+    nextStepHref,
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
@@ -281,7 +283,7 @@ export function CodePostDecisionView({
                     previousHref={previousHref}
                     dashboardHref={dashboardHref}
                     resubmitHref={resubmitHref}
-                    resultsHref={resultsHref}
+                    nextStepHref={nextStepHref}
                 />
             </Stack>
         </Stack>

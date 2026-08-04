@@ -1,5 +1,6 @@
 'use client'
 
+import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -43,6 +44,12 @@ type PostFeedbackViewProps = {
      * only "Go to dashboard" (matching the live DO design, which hides Previous).
      */
     previousHref?: Route
+    /**
+     * Forward link to the next step of the flow; set only when /review resolves past this screen
+     * (OTTER-687). When set, the primary action reads "Next step" instead of "Go to dashboard".
+     * Never set by the proposal usages, whose flow ends here.
+     */
+    nextStepHref?: Route
 }
 
 type DecisionCopy = {
@@ -139,9 +146,10 @@ function DecisionBanner({ decision, kind }: { decision: ReviewDecision; kind: Po
     )
 }
 
-function GoToDashboardButton() {
+function GoToDashboardButton({ isVisible }: { isVisible: boolean }) {
     const router = useRouter()
     const handleClick = () => router.push(Routes.dashboard)
+    if (!isVisible) return null
     return (
         <Button onClick={handleClick} data-testid="go-to-dashboard">
             Go to dashboard
@@ -149,8 +157,18 @@ function GoToDashboardButton() {
     )
 }
 
-function PreviousButton({ href }: { href: Route }) {
+function NextStepButton({ href }: { href?: Route }) {
+    if (!href) return null
+    return (
+        <ButtonLink href={href} data-testid="cta-next-step">
+            Next step
+        </ButtonLink>
+    )
+}
+
+function PreviousButton({ href }: { href?: Route }) {
     const router = useRouter()
+    if (!href) return null
     return (
         <Button
             variant="subtle"
@@ -225,6 +243,7 @@ export function PostFeedbackView({
     scan = null,
     fallback,
     previousHref,
+    nextStepHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -270,8 +289,9 @@ export function PostFeedbackView({
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <Group justify={previousHref ? 'space-between' : 'flex-end'}>
-                    {previousHref && <PreviousButton href={previousHref} />}
-                    <GoToDashboardButton />
+                    <PreviousButton href={previousHref} />
+                    <NextStepButton href={nextStepHref} />
+                    <GoToDashboardButton isVisible={!nextStepHref} />
                 </Group>
             </Stack>
         </Box>

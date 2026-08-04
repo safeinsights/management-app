@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest'
+import { hasNextStepFromCode } from './next-step'
+import type { StudyState } from './state.types'
+
+const CTX = { orgSlug: 'org', studyId: 'study-id' }
+
+// An approved-code study that has not started running: the state both roles' code screens show.
+const state = (overrides: Partial<StudyState> = {}): StudyState => ({
+    status: 'APPROVED',
+    isDraft: false,
+    hasStep2Progress: true,
+    researcherAgreementsAcked: true,
+    reviewerAgreementsAcked: true,
+    hasAnyJob: true,
+    hasSubmittedCode: true,
+    codeDecision: 'CODE-APPROVED',
+    codeAwaitingDecision: false,
+    isExecuting: false,
+    hasResults: false,
+    resultsApproved: false,
+    resultsRejected: false,
+    resultsErrored: false,
+    resultsDisplayStatus: null,
+    submissionRound: 1,
+    hasSavedEdits: false,
+    hasSavedCodeEdits: false,
+    displayStatus: 'CODE-APPROVED',
+    latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED'],
+    ...overrides,
+})
+
+describe('hasNextStepFromCode', () => {
+    describe('researcher', () => {
+        it('is false while /view still resolves to the code screen', () => {
+            expect(hasNextStepFromCode('researcher', state(), 'code-approved', CTX)).toBe(false)
+        })
+
+        it('is true once results have landed and /view resolves to the results screen', () => {
+            expect(hasNextStepFromCode('researcher', state({ hasResults: true }), 'code-approved', CTX)).toBe(true)
+        })
+
+        // A bare JOB-ERRORED stays with the reviewer until they record a files decision, so the
+        // researcher holds on the code screen and must not be offered a step forward.
+        it('is false for an errored job with no files decision yet', () => {
+            const errored = state({ hasResults: true, resultsErrored: true })
+            expect(hasNextStepFromCode('researcher', errored, 'code-approved', CTX)).toBe(false)
+        })
+
+        it('is false for a decided-against study, which ends on the code screen', () => {
+            const rejected = state({ codeDecision: 'CODE-REJECTED' })
+            expect(hasNextStepFromCode('researcher', rejected, 'code-feedback', CTX)).toBe(false)
+        })
+    })
+
+    describe('reviewer', () => {
+        it('is false while /review still resolves to the code screen', () => {
+            expect(hasNextStepFromCode('reviewer', state(), 'reviewer-code-feedback', CTX)).toBe(false)
+        })
+
+        it('is true once the enclave is running the job and /review resolves to outputs', () => {
+            const executing = state({ isExecuting: true })
+            expect(hasNextStepFromCode('reviewer', executing, 'reviewer-code-feedback', CTX)).toBe(true)
+        })
+
+        it('is true when walking back to the code step from a results study', () => {
+            const withResults = state({ hasResults: true })
+            expect(hasNextStepFromCode('reviewer', withResults, 'reviewer-code-feedback', CTX)).toBe(true)
+        })
+
+        it('is false for a decided-against study, which ends on the code screen', () => {
+            const rejected = state({ codeDecision: 'CODE-REJECTED' })
+            expect(hasNextStepFromCode('reviewer', rejected, 'reviewer-code-feedback', CTX)).toBe(false)
+        })
+    })
+})

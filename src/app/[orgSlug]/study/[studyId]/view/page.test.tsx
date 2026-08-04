@@ -145,7 +145,7 @@ describe('StudyViewPage', () => {
         const toggle = screen.getByTestId('study-code-toggle')
         expect(toggle).toHaveTextContent('View submitted study code')
         expect(toggle).toHaveAttribute('aria-expanded', 'false')
-        expect(screen.queryByTestId('cta-proceed-to-results')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
 
         await userEvent.setup().click(toggle)
 
@@ -370,7 +370,7 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
+            expect(page?.props.nextStepHref).toBeUndefined()
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()
@@ -398,7 +398,7 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
+            expect(page?.props.nextStepHref).toBeUndefined()
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()

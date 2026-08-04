@@ -103,6 +103,7 @@ function renderView(
         dashboardHref?: Route
         reviewingOrgName?: string
         feedbackLoadError?: boolean
+        nextStepHref?: Route
     } = {},
 ) {
     renderWithProviders(
@@ -114,6 +115,7 @@ function renderView(
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
+            nextStepHref={overrides.nextStepHref}
             feedbackLoadError={overrides.feedbackLoadError}
         />,
     )
@@ -283,14 +285,39 @@ describe('CodePostDecisionView', () => {
             expect(href).not.toContain('from=')
         })
 
-        it('renders "Go to dashboard" for CODE-APPROVED', async () => {
+        it('renders "Go to dashboard" for CODE-APPROVED with no step forward', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const dashboard = screen.getByTestId('cta-go-to-dashboard')
             expect(dashboard).toHaveTextContent('Go to dashboard')
             expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
+            expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
             expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
+        })
+
+        // OTTER-687: the forward CTA replaces the dashboard one rather than sitting beside it, so
+        // the approved page ends on the flow instead of ending the flow.
+        it('renders "Next step" instead of the dashboard CTA when a step forward exists', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            const nextStepHref = Routes.studyView({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { nextStepHref })
+
+            const next = screen.getByTestId('cta-next-step')
+            expect(next).toHaveTextContent('Next step')
+            expect(next).toHaveAttribute('href', nextStepHref)
+            expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        })
+
+        // A change request is the next step, so it outranks the forward link even when one is passed.
+        it('keeps "Edit and resubmit" over "Next step" for CODE-CHANGES-REQUESTED', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
+            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus, {
+                nextStepHref: Routes.studyView({ orgSlug: ORG_SLUG, studyId: study.id }),
+            })
+
+            expect(screen.getByTestId('cta-edit-and-resubmit')).toBeInTheDocument()
+            expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
         })
 
         it('renders "Go to dashboard" for CODE-REJECTED', async () => {
