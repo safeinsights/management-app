@@ -43,6 +43,20 @@ export function parseLogMessages(text: string): LogEntry[] | null {
     }
 }
 
+// Results are frequently written as minified JSON, which renders as one enormous line. Re-indent it
+// for display. Returns null when the text isn't valid JSON, so callers fall back to the raw text
+// rather than showing nothing.
+export function formatJson(text: string): string | null {
+    const trimmed = text.trim()
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
+
+    try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2)
+    } catch {
+        return null
+    }
+}
+
 export function parseCsv(text: string): { headers: string[]; rows: string[][] } {
     const result = Papa.parse<string[]>(text, {
         header: false,

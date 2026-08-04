@@ -35,6 +35,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
 import 'highlight.js/styles/github.css'
 import { highlightLanguageForFile, type HighlightLanguage } from '@/lib/languages'
+import { formatJson } from '@/lib/file-content-helpers'
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('c', c)
@@ -73,6 +74,9 @@ interface CodeViewerProps {
     fileName?: string
     // Wraps the code display in an outline, matching the reviewer's submitted-code design.
     withBorder?: boolean
+    // Soft-wrap long lines instead of scrolling horizontally. Off by default: wrapping source code
+    // mid-statement hurts readability, but data formats like JSON have no meaningful line length.
+    wrapLines?: boolean
 }
 
 const OUTLINE_STYLE = {
@@ -81,7 +85,7 @@ const OUTLINE_STYLE = {
     overflow: 'hidden',
 } as const
 
-export function CodeViewer({ code, language, fileName, withBorder = false }: CodeViewerProps) {
+export function CodeViewer({ code, language, fileName, withBorder = false, wrapLines = false }: CodeViewerProps) {
     const highlightedCode = useMemo(() => {
         try {
             return hljs.highlight(code, { language }).value
@@ -101,6 +105,7 @@ export function CodeViewer({ code, language, fileName, withBorder = false }: Cod
                     borderRadius: '4px',
                     color: '#24292f',
                     fontSize: 'var(--mantine-font-size-sm)',
+                    ...(wrapLines ? { whiteSpace: 'pre-wrap', overflowWrap: 'break-word' } : null),
                 }}
             >
                 <code
@@ -127,5 +132,7 @@ export function CodeViewer({ code, language, fileName, withBorder = false }: Cod
 export function codeViewer(path: string, text: string): ReactNode | null {
     const language = highlightLanguageForFile(path)
     if (language === 'plaintext') return null
-    return <CodeViewer code={text} language={language} />
+    // Minified JSON is one long line; re-indent so it reads as a document rather than overflowing.
+    const code = (language === 'json' && formatJson(text)) || text
+    return <CodeViewer code={code} language={language} wrapLines={language === 'json'} />
 }

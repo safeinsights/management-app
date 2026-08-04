@@ -6,6 +6,7 @@ import {
     insertTestStudyJobData,
     insertTestUser,
     mockClerkSession,
+    mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
     setTestStudyStatus,
@@ -123,7 +124,7 @@ describe('Study Job Actions', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'reviewer' }))
 
         expect(result).toHaveLength(1)
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
@@ -165,7 +166,7 @@ describe('Study Job Actions', () => {
             })
             .executeTakeFirstOrThrow()
 
-        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
 
         expect(result).toHaveLength(1)
         expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-researcher' })
@@ -191,8 +192,132 @@ describe('Study Job Actions', () => {
             .executeTakeFirstOrThrow()
 
         // No study_job_file_recipient_key row for this researcher → nothing they can decrypt.
-        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
         expect(result).toHaveLength(0)
+    })
+
+    describe('dual-role and stale org claims', () => {
+        // A user who belongs to both the submitting lab and the reviewing enclave, on a study with
+        // the production split (enclave reviews, lab submitted). Mirrors the shape that broke on QA.
+        async function setupDualRoleFixture() {
+            const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+
+            await db
+                .insertInto('userPublicKey')
+                .values({
+                    userId: user.id,
+                    publicKey: Buffer.from('dualRolePublicKey'),
+                    fingerprint: 'dualRoleFingerprint',
+                })
+                .executeTakeFirstOrThrow()
+
+            const { job, study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
+            await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
+
+            const file = await db
+                .insertInto('studyJobFile')
+                .values({
+                    path: 'results/encrypted-results.zip',
+                    name: 'encrypted-results.zip',
+                    studyJobId: job.id,
+                    fileType: 'ENCRYPTED-RESULT',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+            return { enclaveOrg, file, job, labOrg, user }
+        }
+
+        // Regression: the reviewer/researcher split used to be inferred from session.orgs, so this
+        // user's enclave membership won and they were handed recipientKeys:{}. Their fingerprint is
+        // not in the zip's manifest, so decrypt failed as "private key is not valid for these
+        // results" even though their key rows were present and the ciphertext was intact.
+        test('fetchEncryptedJobFilesAction returns wrapped keys to a dual-role user asking as researcher', async () => {
+            const { file, job } = await setupDualRoleFixture()
+
+            await db
+                .insertInto('studyJobFileRecipientKey')
+                .values({
+                    studyJobFileId: file.id,
+                    filePath: 'results.csv',
+                    fingerprint: 'dualRoleFingerprint',
+                    crypt: 'wrapped-for-dual-role',
+                })
+                .executeTakeFirstOrThrow()
+
+            const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-dual-role' })
+        })
+
+        // The same user asking as a reviewer still gets the manifest path, so the fix does not cost
+        // dual-role users their review access.
+        test('fetchEncryptedJobFilesAction returns manifest artifacts to a dual-role user asking as reviewer', async () => {
+            const { file, job } = await setupDualRoleFixture()
+
+            const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'reviewer' }))
+
+            expect(result).toHaveLength(1)
+            expect(result[0].studyJobFileId).toBe(file.id)
+            expect(result[0].recipientKeys).toEqual({})
+        })
+
+        // The QA scenario: the enclave membership was revoked in the database long ago, but the
+        // slug survived in publicMetadata.orgs and so in the JWT. Nothing in this action reads that
+        // claim any more, so the researcher decrypts without the manual metadata cleanup QA needed.
+        test('fetchEncryptedJobFilesAction ignores a stale enclave claim when asked as researcher', async () => {
+            const { org: lab, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const enclave = await insertTestOrg({ slug: 'otter-stale-claim-enclave', type: 'enclave' })
+
+            const { job, study } = await insertTestStudyJobData({ org: enclave, researcherId: user.id })
+            await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', study.id).execute()
+
+            await db
+                .insertInto('userPublicKey')
+                .values({
+                    userId: user.id,
+                    publicKey: Buffer.from('labPublicKey'),
+                    fingerprint: 'staleClaimFingerprint',
+                })
+                .executeTakeFirstOrThrow()
+
+            const file = await db
+                .insertInto('studyJobFile')
+                .values({
+                    path: 'results/encrypted-results.zip',
+                    name: 'encrypted-results.zip',
+                    studyJobId: job.id,
+                    fileType: 'ENCRYPTED-RESULT',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+            await db
+                .insertInto('studyJobFileRecipientKey')
+                .values({
+                    studyJobFileId: file.id,
+                    filePath: 'results.csv',
+                    fingerprint: 'staleClaimFingerprint',
+                    crypt: 'wrapped-for-stale-claim-user',
+                })
+                .executeTakeFirstOrThrow()
+
+            // The claim names the reviewing enclave; the database has no org_user row for it.
+            mockClerkSession({
+                clerkUserId: user.clerkId,
+                userId: user.id,
+                orgSlug: lab.slug,
+                orgId: lab.id,
+                orgType: 'lab',
+                extraOrgs: [{ slug: enclave.slug, id: enclave.id, type: 'enclave' }],
+            })
+
+            const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-stale-claim-user' })
+        })
     })
 
     describe('result decision actions', () => {
@@ -256,7 +381,7 @@ describe('Study Job Actions', () => {
             expect(state.resultsApproved).toBe(true)
             expect(resolvePillStatus('researcher', state)).toMatchObject({ stage: 'Results', label: 'Ready' })
 
-            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id }))
+            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
             expect(files).toHaveLength(1)
             expect(files[0]).toMatchObject({
                 studyJobFileId: file.id,

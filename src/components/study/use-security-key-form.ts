@@ -20,10 +20,12 @@ export function useSecurityKeyForm({ job }: { job: LatestJobForStudy }) {
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
-        queryKey: ['encrypted-files', job.id],
+        // Researcher-only flow: the study author entering their key to read shared outputs. The role
+        // is part of the key so this never collides with the reviewer view's cache.
+        queryKey: ['encrypted-files', job.id, 'researcher'],
         queryFn: async () => {
             try {
-                return await fetchEncryptedJobFilesAction({ jobId: job.id })
+                return await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' })
             } catch (error) {
                 Sentry.captureException(error)
                 throw error
