@@ -117,4 +117,12 @@ describe('ReviewDecisionSection', () => {
 
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
+
+    // An aria-label on Radio.Group lands on the roleless outer wrapper, leaving the
+    // role="radiogroup" element unnamed. A rendered label is what actually names it.
+    it('gives the decision radiogroup an accessible name', () => {
+        renderWithProviders(<Wrapper study={study} />)
+
+        expect(screen.getByRole('radiogroup', { name: /Initial request decision/i })).toBeInTheDocument()
+    })
 })

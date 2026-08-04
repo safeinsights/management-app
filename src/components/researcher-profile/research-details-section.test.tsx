@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { useState } from 'react'
+import { screen, waitFor, fireEvent, act } from '@testing-library/react'
 import {
     renderWithProviders,
     userEvent,
@@ -317,6 +318,125 @@ describe('ResearchDetailsSection', () => {
         expect(updated.detailedPublicationsUrl).toBe('https://scholar.google.com/citations?user=abc123')
     })
 
+    // A background refetch (15-min interval / window focus) that changes the persisted
+    // interests must not resync into an open edit session while the user has a typed-but-
+    // uncommitted interest draft. That draft is separate state form.isDirty() cannot see;
+    // resyncing would pull in the server interests and silently drop the draft on Save.
+    it('does not pull refetched interests into an open edit form with an uncommitted draft', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML', 'Data Science', 'NLP'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        // Deliver the refetch by mutating the harness state directly (not via a DOM click),
+        // so the interest input never blurs and the draft stays uncommitted.
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'Data Science', 'NLP', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        const editButton = screen.getByRole('button', { name: /edit/i })
+        await userEvents.click(editButton)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'MyDraftInterest')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The open edit session must not absorb the refetched interest, and the uncommitted
+        // draft must remain intact.
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+        expect((interestInput as HTMLInputElement).value).toBe('MyDraftInterest')
+    })
+
+    // A committed interest edit (added via Enter, so it went through form.insertListItem) must
+    // also survive a mid-edit refetch. Reproduces the exact reviewer scenario: commit a pill,
+    // then change and restore another field, then a background refetch changes the persisted
+    // interests. The edit-session guard must skip the resync without relying on Mantine's dirty
+    // tracking, which can miss this combination of list and scalar edits.
+    it('preserves a committed interest edit when a background refetch changes server data', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            researchDetails: {
+                interests: ['AI', 'ML'],
+                detailedPublicationsUrl: 'https://scholar.google.com/user',
+            },
+        })
+
+        const initialData = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        let deliverRefetch: () => void = () => {}
+        const Harness = () => {
+            const [data, setData] = useState(initialData)
+            deliverRefetch = () =>
+                setData((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              profile: {
+                                  ...prev.profile,
+                                  researchInterests: ['AI', 'ML', 'ServerAddedInterest'],
+                              },
+                          }
+                        : prev,
+                )
+            return <ResearchDetailsSection data={data} refetch={refetch} />
+        }
+
+        renderWithProviders(<Harness />)
+
+        await userEvents.click(screen.getByRole('button', { name: /edit/i }))
+
+        // Commit a new interest via Enter (goes through form.insertListItem).
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'KeepMe{Enter}')
+        await waitFor(() => expect(screen.getByText('KeepMe')).toBeDefined())
+
+        // Change another field and restore it, per the reviewer scenario.
+        const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
+        await userEvents.type(urlInput, 'X')
+        await userEvents.clear(urlInput)
+        await userEvents.type(urlInput, 'https://scholar.google.com/user')
+
+        await act(async () => {
+            deliverRefetch()
+        })
+
+        // The committed edit must survive and the refetched interest must not be pulled in.
+        expect(screen.getByText('KeepMe')).toBeDefined()
+        expect(screen.queryByText('ServerAddedInterest')).toBeNull()
+    })
+
     it('should commit a typed interest to a pill when the field loses focus', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -365,10 +485,10 @@ describe('ResearchDetailsSection', () => {
         expect(refetch).not.toHaveBeenCalled()
     })
 
-    // OTTER-624 follow-up: commit-on-blur must not create accidental pills. When focus leaves
-    // the page entirely (switching tabs/windows) relatedTarget is null, so the draft is kept in
-    // the field rather than turned into a committed interest.
-    it('should not commit a typed interest when focus leaves the page (relatedTarget null)', async () => {
+    // OTTER-624 follow-up: commit-on-blur must not create accidental pills when the user
+    // switches tab or window. That is detected by the document losing focus, not by a null
+    // relatedTarget alone, which an ordinary in-page click also produces (see the next test).
+    it('should not commit a typed interest when the document loses focus', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
@@ -382,11 +502,35 @@ describe('ResearchDetailsSection', () => {
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Ephemeral Idea')
 
-        // A tab/window switch blurs the field with no next focused element.
+        const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
         fireEvent.blur(interestInput, { relatedTarget: null })
 
         expect(screen.queryByText('Ephemeral Idea')).toBeNull()
         expect((interestInput as HTMLInputElement).value).toBe('Ephemeral Idea')
+        hasFocus.mockRestore()
+    })
+
+    // OTTER-647: clicking a non-focusable part of the page also yields a null relatedTarget, but
+    // the user IS moving on, so the draft must commit and an empty field must be flagged. Before
+    // this, leaving the required field empty and clicking away raised no error at all.
+    it('commits the draft and flags an empty field when focus moves to a non-focusable target', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+        const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
+        await userEvents.type(interestInput, 'Committed Idea')
+
+        fireEvent.blur(interestInput, { relatedTarget: null })
+
+        expect(await screen.findByText('Committed Idea')).toBeInTheDocument()
+        expect((interestInput as HTMLInputElement).value).toBe('')
     })
 
     // OTTER-624 follow-up: moving focus to a control inside the widget (e.g. clicking a pill's

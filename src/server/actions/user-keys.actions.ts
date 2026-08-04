@@ -5,10 +5,11 @@ import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
 import { fingerprintKeyData } from 'si-encryption/util'
+import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { Action, ActionFailure, z } from './action'
 
 // Pages that render the user's key state — bust both after a key write so presence/fingerprint
-// don't read stale. Both reviewers and researchers use the same key now (orgNeedsKey).
+// don't read stale.
 function revalidateKeyPages(): void {
     revalidatePath(Routes.accountKeys)
     revalidatePath(Routes.userKey)
@@ -36,15 +37,15 @@ const setOrgUserPublicKeySchema = z.object({
     publicKey: z.instanceof(ArrayBuffer),
 })
 
-// Reject keys that aren't importable RSA SPKI DER. A single malformed key in an org breaks
-// encryption for every sender wrapping to that org's recipients (TOA results upload, the
-// reviewer's approve/re-wrap), so catch it at storage time. Import params mirror si-encryption's
-// wrapAesKey.
-async function assertValidPublicKey(publicKey: ArrayBuffer): Promise<void> {
+// Surface the shared SPKI validation as a field error so the key form can render it.
+async function validatePublicKeyParam(publicKey: ArrayBuffer): Promise<void> {
     try {
-        await crypto.subtle.importKey('spki', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
-    } catch {
-        throw new ActionFailure({ publicKey: 'is not a valid RSA public key' })
+        await assertValidPublicKey(publicKey)
+    } catch (error) {
+        if (error instanceof InvalidPublicKeyError) {
+            throw new ActionFailure({ publicKey: error.message })
+        }
+        throw error
     }
 }
 
@@ -54,7 +55,7 @@ export const setUserPublicKeyAction = new Action('setUserPublicKeyAction')
     .handler(async ({ params: { publicKey }, session, db }) => {
         const userId = session.user.id
 
-        await assertValidPublicKey(publicKey)
+        await validatePublicKeyParam(publicKey)
         const fingerprint = await fingerprintKeyData(publicKey)
 
         await db
@@ -76,13 +77,10 @@ export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
     .handler(async ({ params: { publicKey }, session, db }) => {
         const userId = session.user.id
 
-        await assertValidPublicKey(publicKey)
+        await validatePublicKeyParam(publicKey)
         const fingerprint = await fingerprintKeyData(publicKey)
 
-        // Rotation swaps the fingerprint, orphaning study_job_file_recipient_key rows wrapped to the
-        // old one — the researcher loses access to already-approved results. Recovery is the renewal
-        // re-wrap flow (a teammate re-wraps for the new key); until that ships, self-rotate is not
-        // surfaced to researchers. See renewal follow-up.
+        // Rotation swaps the fingerprint, orphaning outputs wrapped to the old key; the loss is confirmed in the reset modal.
         await db
             .updateTable('userPublicKey')
             .set({

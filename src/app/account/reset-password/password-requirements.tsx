@@ -24,9 +24,16 @@ export const PASSWORD_REQUIREMENTS = [
 ]
 
 /**
- * Helper function to check password requirements and determine if they should be displayed
+ * Checks password requirements and decides whether to display them.
+ *
+ * The password inputs suppress their own Mantine error in favor of this list, so it has to
+ * appear once the user has left an empty field. Hiding it on `password.length === 0`, as it
+ * previously did, meant blurring an empty password showed nothing at all (OTTER-647).
+ *
+ * @param password current field value
+ * @param touched whether the field has been blurred at least once
  */
-export function usePasswordRequirements(password: string) {
+export function usePasswordRequirements(password: string, touched = false) {
     const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
         ...req,
         meets: req.re.test(password),
@@ -36,33 +43,44 @@ export function usePasswordRequirements(password: string) {
 
     const shouldShowRequirements = () => {
         if (allRequirementsMet) return false
-
-        // Show requirements only if password field has content
-        return password.length > 0
+        return password.length > 0 || touched
     }
+
+    // `undefined` rather than a null-rendering element: Mantine decides whether to render the
+    // description wrapper from the prop's truthiness alone, so an element that renders nothing
+    // still emits an empty `<p>` and points `aria-describedby` at it.
+    const requirementsDescription = shouldShowRequirements() ? <Requirements requirements={requirements} /> : undefined
 
     return {
         requirements,
         allRequirementsMet,
         shouldShowRequirements: shouldShowRequirements(),
+        requirementsDescription,
     }
 }
 
+/**
+ * Rendered as the password inputs' `description` so Mantine owns the `aria-describedby`
+ * wiring. Mantine renders a description inside a `<p>`, so every element here is a `span`:
+ * a `div` or nested `p` would be invalid HTML and trigger a hydration error.
+ */
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()
     for (let i = 0; i < requirements.length; i += 2) {
         rows.push(
-            <Flex key={i} direction="row" gap="md">
+            <Flex key={i} component="span" direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
-                    <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
+                    <Flex key={i + index} component="span" align="center" gap="xs" style={{ flex: 1 }}>
                         {requirement.meets ? (
                             <CheckIcon size={14} color={theme.colors.green[9]} />
                         ) : (
                             <XCircleIcon size={14} color={theme.colors.red[7]} />
                         )}
 
-                        <Text size="sm">{requirement.label}</Text>
+                        <Text component="span" size="sm">
+                            {requirement.label}
+                        </Text>
                     </Flex>
                 ))}
             </Flex>,
@@ -70,7 +88,7 @@ export function Requirements({ requirements }: RequirementsProps) {
     }
 
     return (
-        <Flex direction="column" gap="xs">
+        <Flex component="span" direction="column" gap="xs">
             {rows}
         </Flex>
     )

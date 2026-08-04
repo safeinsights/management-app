@@ -25,9 +25,8 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            // Wait for successful login to load dashboard. Note that for some roles
-            // the reviewer key page is actually what loads but that also works since it contains the word 'dashboard'
-            await expect(page.locator('text=dashboard').first()).toBeVisible({ timeout: E2E_TIMEOUT })
+            // Success = a dashboard, or the security-key page for keyless roles.
+            await expect(page.getByText(/dashboard|security key/i).first()).toBeVisible({ timeout: E2E_TIMEOUT })
         })
     }
 })

@@ -1,13 +1,14 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
 
 // study-overview: the generic Study Details layout — a draft-no-job study, or any unmapped state.
 export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenComponentProps) {
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId: study.id,
@@ -16,7 +17,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
                     dashboardHref,
                 }}
             />
-            <Title order={1}>Study Details</Title>
+            <StudyPageHeader>Study Details</StudyPageHeader>
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">

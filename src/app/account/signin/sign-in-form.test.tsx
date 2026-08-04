@@ -30,6 +30,22 @@ describe('SignInForm', () => {
         await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
     })
 
+    // OTTER-671: with no redirect_url present, the post-signin landing is the dashboard.
+    it('falls back to the dashboard when no redirect_url is present', async () => {
+        memoryRouter.setCurrentUrl('/account/signin')
+        const create = vi.fn().mockRejectedValue({
+            errors: [
+                { code: 'session_exists', message: 'Session already exists', longMessage: "You're already signed in." },
+            ],
+        })
+        mockSignInCreate(create)
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+    })
+
     it('shows a field error for incorrect credentials', async () => {
         memoryRouter.setCurrentUrl('/account/signin')
         const create = vi.fn().mockRejectedValue({

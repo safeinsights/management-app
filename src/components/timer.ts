@@ -58,7 +58,6 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
                 clearInterval(intervalRef.current)
                 intervalRef.current = null
             }
-            setTimeRemaining(0)
         }
 
         return () => {
@@ -71,5 +70,8 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
         }
     }, [isEnabled, totalMS, resolvedUpdateInterval, trigger])
 
-    return timeRemaining
+    // When disabled the interval is torn down and the countdown is meaningless, so
+    // derive 0 here instead of writing it back into state from the effect (which
+    // would be a cascading set-state-in-effect).
+    return isEnabled ? timeRemaining : 0
 }

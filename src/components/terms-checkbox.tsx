@@ -37,15 +37,27 @@ export const TermsCheckboxLabel: FC = () => (
 type TermsCheckboxProps = {
     checked: boolean
     onChange: (checked: boolean) => void
+    /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
+    onBlur?: () => void
     error?: ReactNode
 }
 
-export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, error }) => (
+const TERMS_ERROR_ID = 'terms-accepted-error'
+
+// A standalone Mantine `Checkbox` uses `error` for styling only: it renders the message but adds
+// neither `aria-invalid` nor `aria-describedby`, unlike the inputs built on `Input.Wrapper`. Both
+// are wired by hand here so the requirement is not conveyed by red text alone.
+export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlur, error }) => (
     <Checkbox
         mt="md"
         checked={checked}
         onChange={(event) => onChange(event.currentTarget.checked)}
+        onBlur={onBlur}
         label={<TermsCheckboxLabel />}
-        error={error}
+        // The id rides on this span rather than an `errorProps`, which a standalone Checkbox does
+        // not accept. A span, because Mantine renders the error inside a `<p>`.
+        error={error ? <span id={TERMS_ERROR_ID}>{error}</span> : undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? TERMS_ERROR_ID : undefined}
     />
 )

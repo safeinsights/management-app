@@ -1,7 +1,12 @@
 import { describe, it, expect, test, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
-import { insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    insertTestOrg,
+    insertTestUser,
+    mockDualRoleSessionWithTestData,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
 import { onUserResetPWAction, onUserSignInAction, syncUserMetadataAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
@@ -53,6 +58,29 @@ describe('User Actions', () => {
 
         const result = await onUserSignInAction()
         expect(result).toEqual({ redirectToKeyGeneration: true })
+    })
+
+    test('onUserSignInAction prompts a multi-org account without a key, evaluated at the account level', async () => {
+        // Account belongs to BOTH a lab and an enclave org. Enforcement keys off the account,
+        // not any single org membership, so a keyless account is prompted exactly once.
+        const { user } = await mockDualRoleSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({ redirectToKeyGeneration: true })
+    })
+
+    test('onUserSignInAction does not prompt a multi-org account holding a single account-level key', async () => {
+        // One key at the account level satisfies enforcement across every org the account joins.
+        const { user } = await mockDualRoleSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('account-key'), fingerprint: 'account-fingerprint' })
+            .execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({})
     })
 
     test('syncUserMetadataAction should sync metadata', async () => {

@@ -5,6 +5,7 @@ import { logViewer } from './log-viewer'
 import { textViewer } from './text-viewer'
 
 export { CodeViewer } from './code-viewer'
+export { ImageViewer } from './image-viewer'
 
 const viewers = [codeViewer, csvViewer, logViewer, textViewer]
 

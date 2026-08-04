@@ -4,22 +4,18 @@ import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
+import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 import { type Submitted } from '@/schema/study'
-import { Box, Button, Collapse, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
-import { useCallback, useRef, type ReactNode, type RefObject } from 'react'
+import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
-import { SubmittedCodeSection } from './submitted-code-section'
-import {
-    FULL_STUDY_CODE_TOGGLE_LABELS,
-    StudyCodeToggle,
-    useExpandable,
-} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
+import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -65,7 +61,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     APPROVE: {
         timestampLabel: 'Approved on',
         banner: {
-            bg: 'green.1',
+            bg: STATUS_BANNER_BG.approved,
             testId: 'decision-banner-approved',
             copy: "This initial request has been approved. You'll receive email notifications when the researcher proceeds to the next step.",
         },
@@ -73,7 +69,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     'NEEDS-CLARIFICATION': {
         timestampLabel: 'Clarification requested on',
         banner: {
-            bg: 'yellow.1',
+            bg: STATUS_BANNER_BG.changesRequestedReviewer,
             testId: 'decision-banner-clarification',
             copy: 'You have requested clarification. The researcher has been notified, and we will inform you once they resubmit.',
         },
@@ -81,7 +77,7 @@ const PROPOSAL_DECISION_COPY: Record<ReviewDecision, DecisionCopy> = {
     REJECT: {
         timestampLabel: 'Rejected on',
         banner: {
-            bg: 'red.1',
+            bg: STATUS_BANNER_BG.rejected,
             testId: 'decision-banner-rejected',
             copy: 'This initial request has been rejected. No further action is required at this time.',
         },
@@ -92,7 +88,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     APPROVE: {
         timestampLabel: 'Approved on',
         banner: {
-            bg: 'green.1',
+            bg: STATUS_BANNER_BG.approved,
             testId: 'decision-banner-code-approved',
             copy: 'This study code has been approved. You will be notified when the study results are available for review.',
         },
@@ -100,7 +96,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     'NEEDS-CLARIFICATION': {
         timestampLabel: 'Change requested on',
         banner: {
-            bg: 'yellow.1',
+            bg: STATUS_BANNER_BG.changesRequestedReviewer,
             testId: 'decision-banner-code-change-requested',
             copy: 'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
         },
@@ -108,7 +104,7 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
     REJECT: {
         timestampLabel: 'Rejected on',
         banner: {
-            bg: 'red.1',
+            bg: STATUS_BANNER_BG.rejected,
             testId: 'decision-banner-code-rejected',
             copy: 'This study code was rejected and the study was ended. No further action is required at this time.',
         },
@@ -164,124 +160,6 @@ function PreviousButton({ href }: { href: Route }) {
         >
             Previous
         </Button>
-    )
-}
-
-type SubmittedCodePanelProps = {
-    orgSlug: string
-    study: Submitted<SelectedStudy>
-    job: LatestJobForStudy | null
-    review: StudyReviewWithMeta | null
-    scan: JobScanResult | null
-    expanded: boolean
-    onCollapse: () => void
-    panelRef: RefObject<HTMLDivElement | null>
-}
-
-// The full "Submitted code" section (datasets, AI summary, security scan log, code viewer) is the
-// same one shown during active review. Per OTTER-613 the entire card is collapsed behind the
-// "View full study code" toggle in the step card, preserving its state between expansions.
-function SubmittedCodePanel({
-    orgSlug,
-    study,
-    job,
-    review,
-    scan,
-    expanded,
-    onCollapse,
-    panelRef,
-}: SubmittedCodePanelProps) {
-    // scan-presence is coupled to job-presence: the caller fetches both together and
-    // jobScanResultForJob never returns null (it falls back to {status:'IN-PROGRESS', logFile:null}),
-    // so scan is null exactly when job is null. The !scan check is the type-narrowing that lets us
-    // pass a non-null scan to SubmittedCodeSection; in practice it only fires on the null-job branch.
-    if (!job || !scan) return null
-    return (
-        <Collapse in={expanded} keepMounted>
-            <Box ref={panelRef} tabIndex={-1}>
-                <SubmittedCodeSection
-                    orgSlug={orgSlug}
-                    study={study}
-                    job={job}
-                    review={review}
-                    scan={scan}
-                    onCollapse={onCollapse}
-                />
-            </Box>
-        </Collapse>
-    )
-}
-
-type CodeSectionProps = {
-    isVisible: boolean
-    orgSlug: string
-    study: Submitted<SelectedStudy>
-    job: LatestJobForStudy | null
-    review: StudyReviewWithMeta | null
-    scan: JobScanResult | null
-    kindCopy: KindCopy
-    timestampLabel: string
-    timestampDate: Date | string | null
-    banner: ReactNode
-}
-
-function CodeSection({
-    isVisible,
-    orgSlug,
-    study,
-    job,
-    review,
-    scan,
-    kindCopy,
-    timestampLabel,
-    timestampDate,
-    banner,
-}: CodeSectionProps) {
-    const { expanded, toggle, collapse } = useExpandable()
-    const openerRef = useRef<HTMLButtonElement>(null)
-    const panelRef = useRef<HTMLDivElement>(null)
-    const onCollapse = useCallback(() => {
-        collapse()
-        requestAnimationFrame(() => openerRef.current?.focus())
-    }, [collapse])
-    const onExpand = useCallback(() => {
-        toggle()
-        requestAnimationFrame(() => panelRef.current?.focus())
-    }, [toggle])
-    if (!isVisible) return null
-    // Only offer the opener when there is a Submitted code panel behind it. SubmittedCodePanel
-    // returns null without a job/scan (e.g. the fallback auto-approved page), so an unconditional
-    // opener would otherwise expand to an empty card with no way back.
-    const hasSubmittedCode = Boolean(job && scan)
-    return (
-        <>
-            <ProposalStepHeader
-                stepLabel={kindCopy.stepLabel}
-                heading={kindCopy.heading}
-                studyTitle={study.title}
-                timestampDate={timestampDate}
-                timestampLabel={timestampLabel}
-                banner={banner}
-            >
-                <StudyCodeToggle
-                    ref={openerRef}
-                    isVisible={!expanded && hasSubmittedCode}
-                    expanded={false}
-                    onClick={onExpand}
-                    labels={FULL_STUDY_CODE_TOGGLE_LABELS}
-                />
-            </ProposalStepHeader>
-            <SubmittedCodePanel
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                review={review}
-                scan={scan}
-                expanded={expanded}
-                onCollapse={onCollapse}
-                panelRef={panelRef}
-            />
-        </>
     )
 }
 
@@ -365,19 +243,18 @@ export function PostFeedbackView({
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs crumbs={crumbs} />
-                <Title order={1} fz={40} fw={700}>
-                    Study proposal
-                </Title>
-                <CodeSection
+                <StudyPageHeader>Study proposal</StudyPageHeader>
+                <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
                     review={review}
                     scan={scan}
-                    kindCopy={kindCopy}
+                    stepLabel={kindCopy.stepLabel}
+                    heading={kindCopy.heading}
                     timestampLabel={timestampLabel}
                     timestampDate={timestampDate}
                     banner={banner}

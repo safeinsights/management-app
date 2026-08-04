@@ -1,5 +1,5 @@
 'use client'
-import { useMutation } from '@/common'
+import { useForm, useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
@@ -7,7 +7,7 @@ import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
+import { isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -82,11 +82,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     }),
                                 )
 
+                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
                                 if (joinResult?.needsUserKey) {
-                                    redirectUrl = Routes.accountKeys as Route
+                                    // First-time key generation: return to the inviting org's dashboard after.
+                                    redirectUrl =
+                                        `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
                                 } else {
-                                    const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                    redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
+                                    redirectUrl = orgDashboard as Route
                                 }
 
                                 const email = signInAttempt?.identifier || 'your account'
@@ -108,7 +111,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
+                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

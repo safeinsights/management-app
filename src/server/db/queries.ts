@@ -4,7 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType } from '@/database/types'
+import { FileType, StudyJobFileAction } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -41,6 +41,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
+            'study.status',
             'org.id as orgId',
             'org.slug as orgSlug',
             'study.submittedByOrgId',
@@ -68,7 +69,7 @@ export const getUserPublicKey = async (userId: string) => {
     // (migration 1742320602314), so there's at most one row per user. Rotation updates it in place.
     const result = await Action.db
         .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
+        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey', 'userPublicKey.updatedAt'])
         .where('userPublicKey.userId', '=', userId)
         .executeTakeFirst()
 
@@ -82,7 +83,7 @@ function latestJobForStudyQuery(studyId: string) {
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
+        .select(['study.orgId', 'study.language', 'study.status'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -168,6 +169,7 @@ export const jobInfoForJobId = async (jobId: string) => {
             'org.slug as orgSlug',
             'org.id as orgId',
             'study.submittedByOrgId',
+            'study.status',
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
@@ -207,7 +209,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study')),
         Action.db
@@ -242,6 +244,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
             'org.slug as orgSlug',
             'study.submittedByOrgId',
             'study.language',
+            'study.status',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -333,7 +336,13 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId', 'study.submittedByOrgId'])
+        .select([
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.id as studyId',
+            'study.submittedByOrgId',
+            'study.status',
+        ])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
@@ -491,9 +500,42 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
     return getOrgPublicKeys(submittedByOrgId)
 }
 
+// OTTER-675: the most recent view/download per output file, for the outputs table's
+// "Last activity" column. One row per file at most, because the column reports the latest
+// action rather than a history, so the DISTINCT ON collapses each file's rows to its newest.
+export type JobFileActivity = {
+    studyJobFileId: string
+    filePath: string
+    action: StudyJobFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerJobFile(jobId: string): Promise<JobFileActivity[]> {
+    return await Action.db
+        .selectFrom('studyJobFileActivity')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+        .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select([
+            'studyJobFileActivity.studyJobFileId',
+            'studyJobFileActivity.filePath',
+            'studyJobFileActivity.action',
+            'studyJobFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['studyJobFileActivity.studyJobFileId', 'studyJobFileActivity.filePath'])
+        .orderBy('studyJobFileActivity.studyJobFileId')
+        .orderBy('studyJobFileActivity.filePath')
+        .orderBy('studyJobFileActivity.createdAt', 'desc')
+        .orderBy('studyJobFileActivity.id', 'desc')
+        .execute()
+}
+
 // IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
-// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
-// their key rows, so this never retroactively un-shares.
+// "Post-approval" means post-DECISION for results, but a reviewer approving CODE can share too
+// (approveJobCode persists keys alongside CODE-APPROVED), so rows can exist while the round is still
+// open. Removing a researcher from the lab leaves their key rows, so this never retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
         .selectFrom('studyJobFileRecipientKey')

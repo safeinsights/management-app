@@ -46,6 +46,11 @@ describe('Create Account Actions', () => {
                     ],
                 })),
             },
+            // Merge path adds the invite email to the existing Clerk account and auto-verifies it.
+            emailAddresses: {
+                createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
+                updateEmailAddress: vi.fn(async () => ({})),
+            },
         })
     })
 
@@ -248,6 +253,54 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsUserKey).toBe(true)
+    })
+
+    it('onJoinTeamAccountAction merges a second email into a key-holding account without re-prompting', async () => {
+        // Existing enclave-org account already holds a key. It accepts an invite addressed to a
+        // DIFFERENT email (the merge case) while logged in under its own email.
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id, loggedInEmail: user.email! }))
+
+        // Same account (not the invite email), and the combined key status suppresses the prompt.
+        expect(result.id).toEqual(user.id)
+        expect(result.needsUserKey).toBe(false)
+    })
+
+    it('onJoinTeamAccountAction merging into a keyless account reflects combined status and prompts once', async () => {
+        // Account seeded via a lab org → keyless. Merging a second email must re-evaluate key status
+        // at the account level immediately (no re-login) and still prompt for a key.
+        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: labOrg })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id, loggedInEmail: user.email! }))
+
+        expect(result.id).toEqual(user.id)
         expect(result.needsUserKey).toBe(true)
     })
 

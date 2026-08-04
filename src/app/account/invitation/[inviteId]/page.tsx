@@ -9,12 +9,8 @@ import { Flex, Paper, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
-    const session = await sessionFromClerk()
-    if (session) {
-        return <SignOutPanel />
-    }
-
     const { inviteId } = await params
+    const session = await sessionFromClerk()
 
     const pendingInvite = await db
         .selectFrom('pendingUser')
@@ -46,7 +42,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .executeTakeFirst()
 
     if (claimedInvite || !pendingInvite) {
-        // redirect to the signin page with a flag, shows error message
+        if (session) return <InvalidInvitePanel />
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
@@ -70,9 +66,19 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         }
     }
 
+    const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
+
+    if (session) {
+        // The invitee is already signed in — accept directly, no need to sign out and back in.
+        if (matchingUser && session.user.id === matchingUser) {
+            redirect(joinTeamUrl, RedirectType.replace)
+        }
+        // Signed in as another user: must sign out before accepting.
+        return <SignOutPanel />
+    }
+
     if (matchingUser) {
         // redirect to the join team page after signing in
-        const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 
@@ -117,3 +123,20 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         </Paper>
     )
 }
+
+const InvalidInvitePanel = () => (
+    <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
+            <Title order={3} ta="center" c="red.8">
+                This invitation is no longer valid
+            </Title>
+            <Text size="md">
+                It may have already been accepted or expired. If you think this is a mistake, contact the person who
+                invited you for a new invitation.
+            </Text>
+            <ButtonLink variant="filled" size="lg" href={Routes.dashboard} fullWidth>
+                Go to your dashboard
+            </ButtonLink>
+        </Flex>
+    </Paper>
+)

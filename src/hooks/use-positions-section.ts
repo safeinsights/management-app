@@ -11,6 +11,7 @@ const emptyPosition: PositionValues = { affiliation: '', position: '', profileUr
 
 export function usePositionsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null)
+    const [autoOpenKey, setAutoOpenKey] = useState<string | null>(null)
 
     const defaults: PositionsValues = useMemo(() => {
         const positions = (data?.positions ?? [])
@@ -30,22 +31,26 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         validateInputOnBlur: true,
     })
 
+    const positionsKey = JSON.stringify(defaults.positions)
+
     useEffect(() => {
         if (editingIndex !== null) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [JSON.stringify(defaults.positions)])
+    }, [positionsKey])
 
     const hasExistingPositions = defaults.positions.some((p) => p.affiliation || p.position)
 
-    // Auto-open form when there are no existing positions (only after data loads)
-    useEffect(() => {
-        if (data && !hasExistingPositions && editingIndex === null) {
+    // Auto-open the form when there are no existing positions yet. Derived during
+    // render (keyed on the persisted positions) instead of in an effect to avoid a
+    // cascading set-state-in-effect.
+    if (data && positionsKey !== autoOpenKey) {
+        setAutoOpenKey(positionsKey)
+        if (!hasExistingPositions && editingIndex === null) {
             setEditingIndex(0)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when data or hasExistingPositions changes, not editingIndex
-    }, [data, hasExistingPositions])
+    }
 
     const saveMutation = useMutation({
         mutationFn: async (positions: PositionValues[]) => updatePositionsAction({ positions }),

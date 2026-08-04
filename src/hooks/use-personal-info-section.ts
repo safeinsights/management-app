@@ -25,12 +25,19 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
         validateInputOnBlur: true,
     })
 
+    // Seed the form from the persisted profile and decide the initial edit mode, but never
+    // while the user is editing, so a background refetch (15-min interval / window focus)
+    // can never overwrite unsaved input. Seeding the form (an external Mantine store) and the
+    // coupled edit-mode decision must run together in this effect: they have to happen in the
+    // same pass so the form is populated before it opens, and "not editing" is the only
+    // reliable divergence guard (form.isDirty() is not dependable, e.g. after list edits).
     useEffect(() => {
         if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         if (data) {
             const complete = Boolean(defaults.firstName) && Boolean(defaults.lastName)
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- initial edit mode is coupled to seeding the form from server data
             setIsEditing(!complete)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults

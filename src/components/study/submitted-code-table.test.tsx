@@ -29,13 +29,15 @@ const buildFile = (overrides: Partial<LatestJobForStudy['files'][number]>): Late
     ...overrides,
 })
 
+const bytes = (text: string) => new TextEncoder().encode(text).buffer
+
 describe('SubmittedCodeTable', () => {
     beforeEach(() => {
         mockFetch.mockReset()
     })
 
     it('opens the preview modal with a loader while contents are fetching, then renders the code', async () => {
-        let resolveFetch: (v: { fileName: string; contents: string }) => void = () => {}
+        let resolveFetch: (v: { fileName: string; contents: ArrayBuffer }) => void = () => {}
         mockFetch.mockReturnValue(
             new Promise((resolve) => {
                 resolveFetch = resolve
@@ -50,7 +52,7 @@ describe('SubmittedCodeTable', () => {
 
         expect(await screen.findByTestId('file-preview-loading')).toBeInTheDocument()
 
-        resolveFetch({ fileName: 'main.py', contents: 'print("hi")' })
+        resolveFetch({ fileName: 'main.py', contents: bytes('print("hi")') })
 
         await waitFor(() => {
             expect(screen.queryByTestId('file-preview-loading')).not.toBeInTheDocument()
@@ -73,8 +75,20 @@ describe('SubmittedCodeTable', () => {
         expect(helper).toHaveAttribute('href', '/dl/study-code/job-1/helper.py')
     })
 
+    it('opens an image preview for a png file (OTTER-516)', async () => {
+        mockFetch.mockResolvedValue({ fileName: 'plot.png', contents: bytes('fake-png-bytes') })
+
+        const files = [buildFile({ name: 'plot.png', fileType: 'SUPPLEMENTAL-CODE' })]
+        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={files} />)
+
+        const interact = userEvent.setup()
+        await interact.click(screen.getByRole('button', { name: 'View plot.png' }))
+
+        expect(await screen.findByAltText('plot.png')).toBeInTheDocument()
+    })
+
     it('closes the modal when onClose is fired', async () => {
-        mockFetch.mockResolvedValue({ fileName: 'main.py', contents: 'x = 1' })
+        mockFetch.mockResolvedValue({ fileName: 'main.py', contents: bytes('x = 1') })
 
         renderWithProviders(<SubmittedCodeTable jobId="job-1" files={[buildFile({ name: 'main.py' })]} />)
 

@@ -5,10 +5,10 @@ import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
+import { markOrgJoined } from '@/lib/joined-org'
 import { actionResult } from '@/lib/utils'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
@@ -52,18 +52,17 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             // forces Clerk to regenerate the JWT session token with the latest user metadata
             await auth.getToken({ skipCache: true })
 
-            notifications.show({
-                color: 'green',
-                message: `You have successfully joined ${org!.name}!`,
-            })
-
             // short delay to ensure the token is propagated before navigation
             await new Promise((resolve) => setTimeout(resolve, 500))
 
+            markOrgJoined(org!.name)
+
+            const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
-                router.push(Routes.accountKeys)
+                // First-time key generation: land them on the inviting org's dashboard afterwards.
+                router.push(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route)
             } else {
-                router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
+                router.push(orgDashboard)
             }
         },
         onError: (error) => {

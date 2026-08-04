@@ -1,6 +1,7 @@
 import { MongoAbility } from '@casl/ability'
 import { UUID } from './types'
 import { ContextName } from './agent-context'
+import type { StudyStatus } from '@/database/types'
 
 // eslint-disable-next-line  @typescript-eslint/no-explicit-any
 type Ability<Kind extends string, Actions extends string, Properties extends Record<string, any>> = [
@@ -43,12 +44,17 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
     | Ability<'Studies', 'view', object>
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
-    | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
-    // Renamed from 'ReviewerKey' — the same encryption key is now held by both enclave reviewers
-    // AND lab researchers (orgNeedsKey), so the old name was misleading. Route + UI copy match:
-    // /user-key (Routes.userKey), "Results Key" in copy.
+    | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }>
+    | Ability<
+          'Study',
+          'review' | 'approve' | 'reject' | 'update' | 'delete',
+          // `status` is unused by these actions but must appear in every 'Study' ability arm so the
+          // CASL MongoQuery/subject union accepts a `status` condition on the view rule.
+          { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }
+      >
+    | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }>
+    // Renamed from 'ReviewerKey' — every user holds this key now, not just reviewers, so the old
+    // name was misleading. Route + UI copy: /user-key (Routes.userKey), "Security key".
     | Ability<'UserKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>

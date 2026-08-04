@@ -4,7 +4,7 @@ import { useState, type FC } from 'react'
 import { useQuery } from '@/common'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { FilePreviewModal } from '@/components/modals/file-preview-modal'
+import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { SubmittedCodeTableView } from './submitted-code-table-view'
 
 interface SubmittedCodeTableProps {
@@ -29,7 +29,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
     return (
         <>
             <SubmittedCodeTableView jobId={jobId} files={files} onPreview={(file) => setPreviewFileName(file.name)} />
-            {!!files?.length && <FilePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />}
+            {!!files?.length && <FileOrImagePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />}
         </>
     )
 }

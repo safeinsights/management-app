@@ -42,8 +42,9 @@ export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)
-        const contents = await fs.readFile(filePath, 'utf-8')
-        return { fileName: sanitized, contents }
+        // Raw bytes, not utf-8: workspace files include binary artifacts like png plots (OTTER-516)
+        const contents = await fs.readFile(filePath)
+        return { fileName: sanitized, contents: new Uint8Array(contents).buffer }
     })
 
 export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction', { performsMutations: true })

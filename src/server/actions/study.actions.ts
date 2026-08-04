@@ -5,7 +5,7 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
-import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
+import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -194,7 +194,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.language',
             ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study }) => {
@@ -208,10 +208,10 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId'])
+            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study, params: { studyId, role }, db, session }) => {
@@ -348,13 +348,13 @@ async function performStudyProposalApproval({
     useTestImage?: boolean
     sharedFiles?: SharedFile[]
 }) {
-    // Proposal approval is strictly the first decision; approving a later code
-    // (re)submission is submitCodeReviewDecisionAction's job.
-    if (study.status === 'APPROVED' || study.approvedAt) {
-        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
-    }
-
-    await db
+    // Proposal approval is strictly the first decision from PENDING-REVIEW; approving a later code
+    // (re)submission is submitCodeReviewDecisionAction's job. The PENDING-REVIEW + approvedAt IS NULL
+    // predicate is the server-side gate (mirrors claimInitialProposalReviewStudy): it blocks flipping
+    // a DRAFT (or any non-pending study) into a viewable status, which would otherwise let a DO
+    // reviewer read a draft it was never meant to see (OTTER-596). Atomic so it also settles the
+    // OTTER-471 race where two decisions land at once.
+    const claimed = await db
         .updateTable('study')
         .set({
             status: 'APPROVED',
@@ -364,7 +364,14 @@ async function performStudyProposalApproval({
             lastUpdatedAt: new Date(),
         })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
+    }
 
     onStudyApproved({ studyId, userId })
 
@@ -383,7 +390,11 @@ async function performStudyProposalApproval({
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await db
+    // Same PENDING-REVIEW gate as approval: a proposal can only be rejected while it is under review,
+    // so a DO reviewer can't flip a DRAFT to REJECTED to make it readable (OTTER-596). Atomic for the
+    // OTTER-471 race. Code-stage rejection is a separate path (submitCodeReviewDecisionAction) and does
+    // not go through here.
+    const claimed = await db
         .updateTable('study')
         .set({
             status: 'REJECTED',
@@ -393,7 +404,14 @@ async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; stud
             lastUpdatedAt: new Date(),
         })
         .where('id', '=', studyId)
-        .execute()
+        .where('status', '=', 'PENDING-REVIEW')
+        .where('approvedAt', 'is', null)
+        .returning('id')
+        .executeTakeFirst()
+
+    if (!claimed) {
+        throw new ActionFailure({ study: 'has already been decided. Refresh to see the updated status.' })
+    }
 }
 
 async function performStudyProposalRejection({
@@ -479,25 +497,6 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     .handler(async ({ params: { studyId }, session, db }) => {
         await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
-
-function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(raw)
-    } catch {
-        parsed = null
-    }
-
-    // Loose check: non-Lexical JSON that passes will yield 0 words and fail min-word validation below.
-    const looksLikeLexicalRoot =
-        parsed != null &&
-        typeof parsed === 'object' &&
-        'root' in (parsed as Record<string, unknown>) &&
-        typeof (parsed as { root: unknown }).root === 'object'
-
-    const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
-    return { json, wordCount: countWordsFromLexical(json) }
-}
 
 async function claimInitialProposalReviewStudy({
     db,
@@ -668,7 +667,7 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => {
         const { study, entries } = await getProposalFeedbackForStudy(studyId)
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, entries }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status, entries }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ entries }) => entries)
@@ -861,10 +860,10 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {

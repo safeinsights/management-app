@@ -8,6 +8,7 @@ import {
     faker,
     userEvent,
     mockPathname,
+    act,
 } from '@/tests/unit.helpers'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
@@ -74,6 +75,35 @@ describe('OrgAdminDashboardLink', () => {
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
         expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible()
+    })
+
+    it('re-syncs the submenu open state when the route changes', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'enclave' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData()
+        mockPathname('/')
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+
+        // Closed while off an admin route
+        expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
+
+        // Navigating into an admin route opens the submenu
+        await act(async () => {
+            mockPathname(`/admin/team/${orgSlug}`)
+        })
+        expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
+
+        // Navigating back out closes it again
+        await act(async () => {
+            mockPathname('/')
+        })
+        expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
     })
 
     it('toggles the submenu on click', async () => {

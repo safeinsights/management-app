@@ -55,6 +55,18 @@ export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =
         .where('recordType', '=', recordType)
         .execute()
 
+// Separate from getAuditEntries because that one is used with toContainEqual, whose
+// exact-object matching would break on an extra metadata key.
+export const getAuditEntriesWithMetadata = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata', 'createdAt'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .execute()
+
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
@@ -205,14 +217,47 @@ export const insertTestStudyData = async ({
     }
 }
 
+/**
+ * An org, study and job in the shape the storage and ingest layers take (`MinimalJobInfo`), which is
+ * what every test of those paths needs and what none of the fixtures above return. `studyJobId` is the
+ * first of the three jobs `insertTestStudyData` creates.
+ *
+ * `jobInfo` is nested rather than spread alongside `org` because `storeS3File` tags the uploaded
+ * object with every property of the info it is handed (`objectToAWSTags` runs each value through
+ * `strToAscii`), so anything but the three string fields throws. Callers wanting a path can hand
+ * `jobInfo` straight to `pathForStudyJob`.
+ */
+export const insertTestJobInfo = async ({ org }: { org?: MinimalTestOrg } = {}) => {
+    const testOrg = org ?? (await insertTestOrg())
+    const { studyId, jobIds } = await insertTestStudyData({ org: testOrg })
+
+    return { jobInfo: { orgSlug: testOrg.slug, studyId, studyJobId: jobIds[0] }, org: testOrg }
+}
+
+/**
+ * A throwaway upload payload. The bytes are deliberately arbitrary: the ingest routes and
+ * `storeJobFile` never read them, so a test only needs a `File` to arrive with the right name.
+ */
+export const testUploadFile = (name: string, type = 'application/zip') =>
+    new File([new TextEncoder().encode('boom')], name, { type })
+
+/**
+ * A unique qa-prefixed address. The /api/qa routes only act on accounts whose email
+ * local part starts with "qa" (see assertQaEmail), since they run on production.
+ */
+export const qaEmail = () => `qa-${faker.string.alpha(10).toLowerCase()}@test.com`
+
 export const insertTestUser = async ({
     org,
     isAdmin = false,
     useRealKeys = false,
+    email,
 }: {
     org: MinimalTestOrg
     isAdmin?: boolean
     useRealKeys?: boolean
+    /** Override the generated address, e.g. to build a qa-prefixed account for the QA routes. */
+    email?: string
 }) => {
     const user = await db
         .insertInto('user')
@@ -220,7 +265,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: email ?? faker.internet.email({ provider: 'test.com' }),
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -742,7 +787,11 @@ export const createWorkspaceDir = async (prefix: string) => {
     return root
 }
 
-export const writeWorkspaceFiles = async (root: string, studyId: string, files: Record<string, string>) => {
+export const writeWorkspaceFiles = async (
+    root: string,
+    studyId: string,
+    files: Record<string, string | Uint8Array>,
+) => {
     const { CODER_DISABLED } = await import('@/server/config')
     const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
     await fs.promises.mkdir(workspaceDir, { recursive: true })

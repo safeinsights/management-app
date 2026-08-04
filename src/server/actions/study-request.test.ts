@@ -31,6 +31,7 @@ import {
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
+import { getStudyReviewForJob } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
@@ -1189,6 +1190,49 @@ describe('Request Study Actions', () => {
                 .where('id', '=', result.studyJobId)
                 .executeTakeFirstOrThrow()
             expect(newJob.resubmissionNote).not.toBeNull()
+        })
+
+        it('clears the stale AI review so a fresh one is generated for the resubmitted code (SHRMP-263)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+            const staleExplanation = 'Summary of the previously submitted code'
+            await db
+                .insertInto('studyReview')
+                .values({
+                    studyJobId: job.id,
+                    report: {
+                        proposalSummary: 'old proposal summary',
+                        codeExplanation: staleExplanation,
+                        alignmentCheck: { isAligned: true, findings: [] },
+                        complianceCheck: { isCompliant: true, findings: [] },
+                    },
+                })
+                .execute()
+
+            const root = await createWorkspaceDir('resubmit-regen-review')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("new code")' })
+
+            const result = actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: wordsString(10),
+                }),
+            )
+            // A change-requested round is revised in place: same job, new files.
+            expect(result.studyJobId).toBe(job.id)
+
+            await flushDeferred()
+
+            const review = await getStudyReviewForJob(result.studyJobId)
+            expect(review?.report?.codeExplanation).not.toBe(staleExplanation)
         })
 
         it('rejects an empty note', async () => {

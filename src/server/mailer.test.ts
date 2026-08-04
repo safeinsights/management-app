@@ -2,7 +2,7 @@ import { db } from '@/database'
 import * as mailgun from '@/server/mailer'
 import { insertTestOrgStudyJobUsers } from '@/tests/unit.helpers'
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { deliver } from './mailgun'
+import { deliver, SI_EMAIL } from './mailgun'
 
 vi.mock('./mailgun')
 
@@ -28,7 +28,7 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyProposalEmails calls deliver for reviewers', async () => {
+    it('sendStudyProposalEmails sends all org members in Bcc, not To (OTTER-651)', async () => {
         const { study, org, user1 } = await insertTestOrgStudyJobUsers()
 
         const researcher = await getUser(study.researcherId)
@@ -37,7 +37,7 @@ describe('mailgun email functions', () => {
 
         expect(deliver).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || researcher.email || ''),
+                to: SI_EMAIL,
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
@@ -51,7 +51,7 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyCodeSubmittedEmail calls deliver for reviewers', async () => {
+    it('sendStudyCodeSubmittedEmail sends all org members in Bcc, not To (OTTER-651)', async () => {
         const { study, user1 } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)
 
@@ -59,7 +59,7 @@ describe('mailgun email functions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || researcher.email || ''),
+                to: SI_EMAIL,
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: 'Study code submitted for review',
                 template: 'vb - new code submission',
@@ -112,6 +112,37 @@ describe('mailgun email functions', () => {
                 }),
             }),
         )
+    })
+
+    it('mass emails never put recipient addresses in To (OTTER-651 regression)', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+
+        const orgMembers = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .distinctOn('user.id')
+            .select(['user.email'])
+            .where('orgUser.orgId', '=', study.orgId)
+            .execute()
+        const allEmails = orgMembers.map((m) => m.email).filter(Boolean)
+
+        expect(allEmails.length).toBeGreaterThan(1)
+
+        await mailgun.sendStudyProposalEmails(study.id)
+        const proposalCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
+        expect(proposalCall.to).toBe(SI_EMAIL)
+        for (const email of allEmails) {
+            expect(proposalCall.to).not.toContain(email)
+            expect(proposalCall.bcc).toContain(email)
+        }
+
+        await mailgun.sendStudyCodeSubmittedEmail(study.id)
+        const codeCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
+        expect(codeCall.to).toBe(SI_EMAIL)
+        for (const email of allEmails) {
+            expect(codeCall.to).not.toContain(email)
+            expect(codeCall.bcc).toContain(email)
+        }
     })
 
     it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {

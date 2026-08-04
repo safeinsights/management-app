@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
@@ -37,24 +37,38 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
 
     const [status, setStatus] = useState<AlreadySignedInStatus>('loading')
     const [isSwitching, setIsSwitching] = useState(false)
+    const [redirectTarget, setRedirectTarget] = useState<Route | null>(null)
+    const hasRedirectedRef = useRef(false)
 
-    useEffect(() => {
-        if (!isLoaded || status !== 'loading') return
-
+    // Resolve the one-time landing status as soon as Clerk finishes loading. Done
+    // during render (rather than in an effect) so it doesn't trigger a cascading
+    // re-render; the `status === 'loading'` guard latches it, and switchAccount
+    // overrides it afterward. The redirect target is captured here so the navigation
+    // effect below fires exactly once and does not re-read the (post-navigation)
+    // search params.
+    if (isLoaded && status === 'loading') {
         if (!isSignedIn) {
             setStatus('signed-out')
-            return
+        } else {
+            const target = trustedRedirectTarget(searchParams)
+            if (target) {
+                setRedirectTarget(target)
+                setStatus('redirecting')
+            } else {
+                setStatus('signed-in')
+            }
         }
+    }
 
-        const target = trustedRedirectTarget(searchParams)
-        if (target) {
-            setStatus('redirecting')
-            router.replace(target)
-            return
-        }
-
-        setStatus('signed-in')
-    }, [isLoaded, isSignedIn, status, router, searchParams])
+    // Perform the actual navigation once we've latched into the redirecting state.
+    // The ref makes this fire exactly once: the effect can re-run on unrelated
+    // re-renders (e.g. an unstable router reference), and repeatedly calling
+    // router.replace while status stays 'redirecting' would loop.
+    useEffect(() => {
+        if (status !== 'redirecting' || !redirectTarget || hasRedirectedRef.current) return
+        hasRedirectedRef.current = true
+        router.replace(redirectTarget)
+    }, [status, redirectTarget, router])
 
     const continueToApp = useCallback(() => {
         router.replace(trustedRedirectTarget(searchParams) ?? Routes.dashboard)

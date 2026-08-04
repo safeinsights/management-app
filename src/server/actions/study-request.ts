@@ -92,6 +92,10 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
+        // The AI review describes the code files just deleted. Drop it too, or
+        // generateAndStoreStudyReview's already-exists short-circuit keeps the
+        // stale summary for the resubmitted code (SHRMP-263).
+        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
     }
 
     await db
@@ -332,7 +336,10 @@ const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
-        piUserId: z.string().nullable().optional(),
+        // Nullable/optional for drafts, but a supplied value must be a real user id: the
+        // client cannot validate this (no field displays it), so submit is the enforcement
+        // point (OTTER-647).
+        piUserId: z.string().uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),
@@ -476,7 +483,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.id', '=', studyId)
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, study }) => {

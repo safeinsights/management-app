@@ -75,6 +75,63 @@ describe('resolveScreen(reviewer)', () => {
         }
     })
 
+    it('code approved and executing in the enclave, no results → reviewer-outputs-pending', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    isExecuting: true,
+                }),
+            ),
+        ).toBe('reviewer-outputs-pending')
+    })
+
+    it('job errored, no files decision → reviewer-outputs-errored (not study-results)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                }),
+            ),
+        ).toBe('reviewer-outputs-errored')
+    })
+
+    it('job errored then files-rejected → reviewer-study-results (errored no longer intercepted)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsRejected: true,
+                }),
+            ),
+        ).toBe('reviewer-study-results')
+    })
+
+    it('results out-rank the executing window → reviewer-study-results (not outputs-pending)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    isExecuting: true,
+                    hasResults: true,
+                    resultsApproved: true,
+                }),
+            ),
+        ).toBe('reviewer-study-results')
+    })
+
     it('results out-rank a present code decision → reviewer-study-results', () => {
         expect(
             screen(

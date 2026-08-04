@@ -18,6 +18,7 @@ import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+import { widgetBlurHandler } from '@/components/form-field'
 
 /**
  * Non-collaborative editor used when NEXT_PUBLIC_SINGLE_USER_EDITING is set.
@@ -36,6 +37,20 @@ export type SingleUserEditorProps = {
     ariaLabel?: string
     onChange?: (json: string) => void
     footerRight?: React.ReactNode
+    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    inputId?: string
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
+    /** Id(s) of the description/error nodes describing this editor. */
+    ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
+    /** Fires only when focus leaves the whole editor, toolbar included. */
+    onBlur?: () => void
     /** Extra plugins/children rendered inside the Lexical composer context. */
     children?: React.ReactNode
 }
@@ -78,6 +93,11 @@ export function SingleUserEditor({
     ariaLabel,
     onChange,
     footerRight,
+    inputId,
+    error,
+    ariaDescribedBy,
+    ariaRequired,
+    onBlur,
     children,
 }: SingleUserEditorProps) {
     return (
@@ -85,11 +105,24 @@ export function SingleUserEditor({
             <Paper
                 p={0}
                 className="collaborative-editor-container"
-                style={{ overflow: 'hidden', position: 'relative' }}
+                style={{
+                    overflow: 'hidden',
+                    position: 'relative',
+                    borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+                }}
+                onBlur={onBlur ? widgetBlurHandler(onBlur) : undefined}
             >
                 <RichTextPlugin
                     contentEditable={
-                        <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                        <ContentEditable
+                            id={inputId}
+                            className={contentClassName}
+                            style={contentStyle}
+                            ariaLabel={ariaLabel}
+                            ariaDescribedBy={ariaDescribedBy}
+                            ariaInvalid={error ? true : undefined}
+                            ariaRequired={ariaRequired}
+                        />
                     }
                     placeholder={
                         placeholder ? (

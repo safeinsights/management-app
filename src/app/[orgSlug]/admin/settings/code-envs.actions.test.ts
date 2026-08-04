@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
     mockSessionWithTestData,
     actionResult,
+    getAuditEntriesWithMetadata,
     insertTestCodeEnv,
     insertTestDataSource,
     insertTestOrg,
@@ -9,12 +10,20 @@ import {
 import {
     createOrgCodeEnvAction,
     deleteOrgCodeEnvAction,
+    fetchCodeEnvHistoryAction,
     fetchOrgCodeEnvsAction,
     updateOrgCodeEnvAction,
 } from './code-envs.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
+import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import { OrgCodeEnvSettings } from '@/database/types'
+
+vi.mock('@/server/actions/simulate-scan', async () => {
+    const actual = await vi.importActual('@/server/actions/simulate-scan')
+    return { ...actual, insertFakeCodeScan: vi.fn(actual.insertFakeCodeScan as never) }
+})
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -219,6 +228,113 @@ describe('Code Environment Actions', () => {
         expect(isActionError(result)).toBe(true)
     })
 
+    // A denied ability check stringifies the whole CASL subject — every middleware key —
+    // into the error it returns to the caller. Loading the prior row in middleware put
+    // its plaintext env var values in that message.
+    it('updateOrgCodeEnvAction does not leak env var values to a denied non-admin', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: org.id,
+                name: 'Holds a secret',
+                identifier: 'secret_holder',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: org.slug,
+            codeEnvId: codeEnv.id,
+            name: 'Attempted Update',
+            identifier: 'secret_holder',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: 'test-url',
+            isTesting: false,
+            settings: { environment: [] },
+            dataSourceIds: [],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('super-secret-value')
+    })
+
+    it('updateOrgCodeEnvAction does not leak another org env var values', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-env-leak' })
+
+        const otherEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: otherOrg.id,
+                name: 'Other org secret',
+                identifier: 'other_secret',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'DB_PASSWORD', value: 'other-org-secret-value' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        // An admin of their OWN org: the only thing standing between them and another
+        // org's row is the ability check, since the middleware looks the row up by the
+        // client-supplied orgSlug and codeEnvId.
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: otherOrg.slug,
+            codeEnvId: otherEnv.id,
+            name: 'Attempted Update',
+            identifier: 'other_secret',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: 'test-url',
+            isTesting: false,
+            settings: { environment: [] },
+            dataSourceIds: [],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('other-org-secret-value')
+    })
+
+    it('deleteOrgCodeEnvAction does not leak another org env var values', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-delete-leak' })
+
+        const otherEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: otherOrg.id,
+                name: 'Other org secret to delete',
+                identifier: 'other_delete_secret',
+                commandLines: { r: 'test command' },
+                language: 'R',
+                url: 'test-url',
+                isTesting: true,
+                starterCodeFileNames: ['starter.R'],
+                settings: { environment: [{ name: 'API_KEY', value: 'other-org-delete-secret' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await deleteOrgCodeEnvAction({ orgSlug: otherOrg.slug, codeEnvId: otherEnv.id })
+
+        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).not.toContain('other-org-delete-secret')
+    })
+
     it('updateOrgCodeEnvAction allows SI admin to update even if not org admin', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false, isSiAdmin: true })
 
@@ -331,6 +447,89 @@ describe('Code Environment Actions', () => {
         await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: testingImage.id })
 
         const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', testingImage.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
+    it('deleteOrgCodeEnvAction prevents deleting the only scan-passed code environment for a language', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const failed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Failed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+        const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: passed.id })
+
+        expect(isActionError(result)).toBe(true)
+        if (isActionError(result)) {
+            expect(result.error).toContain('passed scanning')
+        }
+
+        const stillExists = await db.selectFrom('orgCodeEnv').where('id', '=', passed.id).executeTakeFirst()
+        expect(stillExists).toBeDefined()
+    })
+
+    it('deleteOrgCodeEnvAction allows deleting a scan-failed code environment when a passed one remains', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const failed = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Failed R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: failed.id })
+
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', failed.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
+    it('deleteOrgCodeEnvAction allows deleting a scan-passed code environment when another passed one exists', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const passed1 = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const passed2 = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Passed R Image 2',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await db.insertInto('codeScan').values({ codeEnvId: passed1.id, status: 'SCAN-COMPLETE' }).execute()
+        await db.insertInto('codeScan').values({ codeEnvId: passed2.id, status: 'SCAN-COMPLETE' }).execute()
+
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: passed1.id })
+
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', passed1.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
     })
 
@@ -626,5 +825,248 @@ describe('Code Environment Actions', () => {
         expect(result).toHaveLength(1)
         expect(result[0].dataSources).toHaveLength(1)
         expect(result[0].dataSources[0].name).toEqual('Linked DS')
+    })
+})
+
+// These audit writes are inline rather than deferred, so the rows are committed by the
+// time the action resolves — no waitFor needed, unlike the study/user audit tests.
+describe('Code Environment audit logging', () => {
+    const baseEnv = (orgId: string) => ({
+        orgId,
+        name: 'Audited Env',
+        identifier: 'audited_env',
+        commandLines: { r: 'Rscript main.r' },
+        language: 'R' as const,
+        url: 'repo/img:v1',
+        isTesting: false,
+        starterCodeFileNames: ['main.r'],
+    })
+
+    const updateParams = (orgSlug: string, codeEnvId: string, overrides = {}) => ({
+        orgSlug,
+        codeEnvId,
+        name: 'Audited Env',
+        identifier: 'audited_env',
+        commandLines: { r: 'Rscript main.r' },
+        language: 'R' as const,
+        url: 'repo/img:v1',
+        isTesting: false,
+        settings: { environment: [] },
+        dataSourceIds: [],
+        ...overrides,
+    })
+
+    it('records a CREATED entry with every field and the acting user', async () => {
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true })
+
+        const created = actionResult(
+            await createOrgCodeEnvAction({
+                orgSlug: org.slug,
+                name: 'Audited Env',
+                identifier: 'audited_env',
+                commandLines: { r: 'Rscript main.r' },
+                language: 'R',
+                url: 'repo/img:v1',
+                starterCodeFileNames: ['main.r'],
+                isTesting: false,
+                settings: { environment: [] },
+                dataSourceIds: [],
+            }),
+        )
+
+        const entries = await getAuditEntriesWithMetadata(created.id, 'CODE_ENV')
+        expect(entries).toHaveLength(1)
+        expect(entries[0].eventType).toEqual('CREATED')
+        expect(entries[0].userId).toEqual(user.id)
+
+        const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
+        expect(metadata.starterCodeReplaced).toBe(true)
+        expect(metadata.name).toEqual('Audited Env')
+        expect(metadata.changes.find((c) => c.field === 'url')).toEqual({
+            field: 'url',
+            before: null,
+            after: 'repo/img:v1',
+        })
+    })
+
+    it('records only the field that changed on update', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id, { url: 'repo/img:v2' }))
+
+        const entries = await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')
+        expect(entries).toHaveLength(1)
+        expect(entries[0].eventType).toEqual('UPDATED')
+
+        const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
+        expect(metadata.changes).toEqual([{ field: 'url', before: 'repo/img:v1', after: 'repo/img:v2' }])
+    })
+
+    it('records changes to environment variables', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const settings = { environment: [{ name: 'API_KEY', value: 'secret' }] }
+        await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id, { settings }))
+
+        const entries = await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')
+        const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
+        expect(metadata.changes).toEqual([
+            {
+                field: 'settings',
+                before: { environment: [] },
+                after: { environment: [{ name: 'API_KEY', value: REDACTED_ENV_VALUE }] },
+            },
+        ])
+        // The audit row is append-only and outlives any rotation, so the value must never
+        // reach it — only the name, which is what identifies the change.
+        expect(JSON.stringify(entries[0].metadata)).not.toContain('secret')
+    })
+
+    it('records nothing when a save changes nothing', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id))
+
+        expect(await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')).toHaveLength(0)
+    })
+
+    it('flags a starter code replacement even when the file names are unchanged', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await updateOrgCodeEnvAction(
+            updateParams(org.slug, codeEnv.id, {
+                starterCodeFileNames: ['main.r'],
+                starterCodeUploaded: true,
+            }),
+        )
+
+        const entries = await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')
+        expect(entries).toHaveLength(1)
+
+        const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
+        expect(metadata.starterCodeReplaced).toBe(true)
+        expect(metadata.changes.some((c) => c.field === 'starterCodeFileNames')).toBe(false)
+    })
+
+    it('records both the flag and the diff when starter code file names change', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await updateOrgCodeEnvAction(
+            updateParams(org.slug, codeEnv.id, {
+                starterCodeFileNames: ['main.r', 'helpers.r'],
+                starterCodeUploaded: true,
+            }),
+        )
+
+        const metadata = codeEnvAuditMetadataSchema.parse(
+            (await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV'))[0].metadata,
+        )
+        expect(metadata.starterCodeReplaced).toBe(true)
+        expect(metadata.changes).toEqual([
+            { field: 'starterCodeFileNames', before: ['main.r'], after: ['main.r', 'helpers.r'] },
+        ])
+    })
+
+    it('records a DELETED entry that outlives the code environment', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+        // A second env of the same language keeps the "last non-testing env" guard happy.
+        await insertTestCodeEnv({ orgId: org.id, language: 'R' })
+
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: codeEnv.id })
+
+        expect(await db.selectFrom('orgCodeEnv').where('id', '=', codeEnv.id).executeTakeFirst()).toBeUndefined()
+
+        const entries = await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')
+        expect(entries).toHaveLength(1)
+        expect(entries[0].eventType).toEqual('DELETED')
+
+        const metadata = codeEnvAuditMetadataSchema.parse(entries[0].metadata)
+        expect(metadata.name).toEqual('Audited Env')
+        expect(metadata.changes.every((c) => c.after === null)).toBe(true)
+    })
+
+    // The reason these audit writes are inline rather than deferred: a deferred write
+    // would land even though the transaction rolled back, claiming a change that never
+    // happened. deleteFolderContents runs after the update and after the audit write, so
+    // failing it exercises exactly that window.
+    it('writes no audit row when the mutation rolls back', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        vi.mocked(insertFakeCodeScan).mockRejectedValueOnce(new Error('simulated post-update failure'))
+
+        const result = await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id, { url: 'repo/img:v2' }))
+
+        expect(isActionError(result)).toBe(true)
+        expect(await getAuditEntriesWithMetadata(codeEnv.id, 'CODE_ENV')).toHaveLength(0)
+
+        const unchanged = await db
+            .selectFrom('orgCodeEnv')
+            .select('url')
+            .where('id', '=', codeEnv.id)
+            .executeTakeFirst()
+        expect(unchanged?.url).toEqual('repo/img:v1')
+    })
+
+    it('fetchCodeEnvHistoryAction returns entries newest first with the actor name', async () => {
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values(baseEnv(org.id))
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id, { url: 'repo/img:v2' }))
+        await updateOrgCodeEnvAction(updateParams(org.slug, codeEnv.id, { url: 'repo/img:v3', name: 'Renamed' }))
+
+        const history = actionResult(await fetchCodeEnvHistoryAction({ orgSlug: org.slug, codeEnvId: codeEnv.id }))
+        expect(history).toHaveLength(2)
+        expect(history[0].userFullName).toEqual(user.fullName)
+
+        const newest = codeEnvAuditMetadataSchema.parse(history[0].metadata)
+        expect(newest.changes.map((c) => c.field)).toContain('name')
+    })
+
+    it('fetchCodeEnvHistoryAction does not expose another org history', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-history' })
+        const otherEnv = await insertTestCodeEnv({ orgId: otherOrg.id, language: 'R' })
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await fetchCodeEnvHistoryAction({ orgSlug: org.slug, codeEnvId: otherEnv.id })
+        expect(isActionError(result)).toBe(true)
     })
 })
