@@ -19,8 +19,10 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        signedUrlForFile: vi.fn().mockResolvedValue('https://mock-signed-url.example.com/file'),
-        createSignedUploadUrl: vi.fn().mockResolvedValue({ url: 'https://mock-s3.example.com', fields: { key: 'k' } }),
+        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
+        // with mockReset, which restores the implementation given here but wipes a value set after.
+        signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
+        createSignedUploadUrl: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
 

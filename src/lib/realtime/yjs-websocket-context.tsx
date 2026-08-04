@@ -120,7 +120,7 @@ export const YjsWebsocketProvider: FC<Props> = ({
         // Intentional: deferring socket creation to this effect (rather than the
         // useState initializer) is what keeps the first client render matching the
         // server-rendered skeleton. The one-time cascading render is the fix.
-
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSocket(getOrCreateSharedSocket())
         const onSocketReplaced = (next: HocuspocusProviderWebsocket) => {
             setSocket(next)
@@ -184,7 +184,7 @@ export const YjsWebsocketProvider: FC<Props> = ({
         // seeding we'd stay at 'initial' until the next status emit.
         if (socket.status === WebSocketStatus.Connected) {
             hasEverConnected = true
-
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setPhase('connected')
         } else {
             onStatus({ status: socket.status })

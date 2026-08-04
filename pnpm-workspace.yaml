@@ -20,7 +20,7 @@ overrides:
     # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
     # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
     postcss: ^8.5.23
-    vite: ^8.2.0
+    vite: ^8.0.16
     ws: ^8.21.0
     # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
     # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.

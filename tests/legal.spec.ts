@@ -1,10 +1,12 @@
 import { authFileFor, expect, path, test, visitAsRole } from './e2e.helpers'
 import { fileURLToPath } from 'url'
-import { Routes } from '@/lib/routes'
 
 // The Legal page is SI-admin only; the `admin` role is a member of the safe-insights org.
 test.use({ storageState: authFileFor('admin') })
 
+// Spelled out rather than imported from Routes: that barrel pulls in next/navigation, which
+// Playwright's loader cannot resolve, and importing it fails the whole suite at collection.
+const LEGAL_PAGE = '/admin/safeinsights/legal'
 const SIGNATORY = 'Single-Lang R Enclave'
 const SIGNED_ON = '2026-08-03'
 
@@ -17,7 +19,7 @@ test.describe('SafeInsights Legal', () => {
     // Publishing is irreversible and orgs are seeded rather than created per test, so this asserts
     // that a version was added — never that it is version 1, which only holds on a clean database.
     test('an SI admin can publish a signed DOPA for a Data Partner', async ({ page }) => {
-        await visitAsRole(page, Routes.adminSafeinsightsLegal)
+        await visitAsRole(page, LEGAL_PAGE)
 
         await page.getByRole('tab', { name: 'DOPA' }).click()
 

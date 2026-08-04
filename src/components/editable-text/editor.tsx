@@ -70,7 +70,7 @@ export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: Ed
     // Without this, the server skeleton vs. the client's dynamic <Suspense>
     // produces a hydration mismatch (the websocket singleton is client-only).
     const [mounted, setMounted] = useState(false)
-
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration flip
     useEffect(() => setMounted(true), [])
 
     if (singleUserEditing) {
