@@ -4,38 +4,64 @@ import { useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
-import { Anchor, Button, Flex, Stack, Title } from '@mantine/core'
+import { Anchor, Button, Flex, Stack, Table, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { FileTextIcon } from '@phosphor-icons/react/dist/ssr'
-import { DataTable } from 'mantine-datatable'
 import { UploadSlaForm } from './upload-sla-form'
+import { VersionHistoryModal } from '../version-history-modal'
 
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
 
-// signed_at parses as a Date at local midnight, so format in UTC to get the day actually stored.
-const formatSignedOn = (signedAt: Sla['signedAt']) => (signedAt ? new Date(signedAt).toISOString().slice(0, 10) : '—')
-
-const AgreementLink: FC<{ sla: Sla }> = ({ sla }) => (
-    <Anchor href={sla.downloadUrl} target="_blank" rel="noreferrer">
-        View PDF
-    </Anchor>
+const AgreementRow: FC<{
+    sla: Sla
+    onNewVersion: (sla: Sla) => void
+    onViewHistory: (sla: Sla) => void
+}> = ({ sla, onNewVersion, onViewHistory }) => (
+    <Table.Tr>
+        <Table.Td>{sla.studyId}</Table.Td>
+        <Table.Td>{sla.studyTitle}</Table.Td>
+        <Table.Td>{sla.researchLabName}</Table.Td>
+        <Table.Td>{sla.dataPartnerName}</Table.Td>
+        <Table.Td>{sla.versionNumber}</Table.Td>
+        <Table.Td>{sla.signedAt ?? '—'}</Table.Td>
+        <Table.Td>
+            <Anchor href={sla.downloadUrl} target="_blank" rel="noreferrer">
+                View PDF
+            </Anchor>
+        </Table.Td>
+        <Table.Td>
+            <Anchor component="button" type="button" onClick={() => onViewHistory(sla)}>
+                Version History
+            </Anchor>
+        </Table.Td>
+        <Table.Td>
+            <Button variant="subtle" size="compact-sm" onClick={() => onNewVersion(sla)}>
+                Upload new version
+            </Button>
+        </Table.Td>
+    </Table.Tr>
 )
 
-const NewVersionButton: FC<{ sla: Sla; onClick: (sla: Sla) => void }> = ({ sla, onClick }) => (
-    <Button variant="subtle" size="compact-sm" onClick={() => onClick(sla)}>
-        Upload new version
-    </Button>
-)
+const EmptyState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <Text c="dimmed">No signed SLAs have been uploaded yet</Text>
+}
+
+const LoadingState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <Text c="dimmed">Loading agreements…</Text>
+}
 
 export const StudyLevelAgreements: FC = () => {
     const [uploadOpened, { open: openUpload, close: closeUpload }] = useDisclosure(false)
     const [newVersionFor, setNewVersionFor] = useState<Sla | null>(null)
-    const { data = [], isLoading } = useQuery({
+    const [historyFor, setHistoryFor] = useState<Sla | null>(null)
+    const { data: agreements = [], isLoading } = useQuery({
         queryKey: ['studyLevelAgreements'],
         queryFn: fetchStudyLevelAgreementsAction,
     })
 
     const closeNewVersion = () => setNewVersionFor(null)
+    const closeHistory = () => setHistoryFor(null)
 
     return (
         <Stack>
@@ -64,29 +90,39 @@ export const StudyLevelAgreements: FC = () => {
                     sla={newVersionFor ?? undefined}
                 />
             </AppModal>
-            <DataTable
-                fetching={isLoading}
-                withTableBorder
-                withColumnBorders
-                idAccessor="legalDocumentId"
-                noRecordsText="No signed SLAs have been uploaded yet"
-                noRecordsIcon={<FileTextIcon />}
-                records={data as Sla[]}
-                columns={[
-                    { accessor: 'studyId', title: 'Study ID' },
-                    { accessor: 'studyTitle', title: 'Study' },
-                    { accessor: 'researchLabName', title: 'Research Lab' },
-                    { accessor: 'dataPartnerName', title: 'Data Partner' },
-                    { accessor: 'versionNumber', title: 'Version', textAlign: 'center' },
-                    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatSignedOn(sla.signedAt) },
-                    { accessor: 'downloadUrl', title: 'Agreement', render: (sla) => <AgreementLink sla={sla} /> },
-                    {
-                        accessor: 'actions',
-                        title: '',
-                        render: (sla) => <NewVersionButton sla={sla} onClick={setNewVersionFor} />,
-                    },
-                ]}
+            <VersionHistoryModal
+                isOpen={Boolean(historyFor)}
+                onClose={closeHistory}
+                title={`${historyFor?.studyTitle ?? ''} — version history`}
+                scope={{ type: 'sla', studyId: historyFor?.studyId }}
             />
+            <LoadingState isVisible={isLoading} />
+            <EmptyState isVisible={!isLoading && agreements.length === 0} />
+            <Table withTableBorder withRowBorders horizontalSpacing="md" verticalSpacing="sm">
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th>Study ID</Table.Th>
+                        <Table.Th>Study</Table.Th>
+                        <Table.Th>Research Lab</Table.Th>
+                        <Table.Th>Data Partner</Table.Th>
+                        <Table.Th>Version</Table.Th>
+                        <Table.Th>Signed on</Table.Th>
+                        <Table.Th>Agreement</Table.Th>
+                        <Table.Th>History</Table.Th>
+                        <Table.Th />
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {agreements.map((sla: Sla) => (
+                        <AgreementRow
+                            key={sla.legalDocumentId}
+                            sla={sla}
+                            onNewVersion={setNewVersionFor}
+                            onViewHistory={setHistoryFor}
+                        />
+                    ))}
+                </Table.Tbody>
+            </Table>
         </Stack>
     )
 }

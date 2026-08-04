@@ -48,12 +48,7 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
         .executeTakeFirstOrThrow()
 
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({
-            type: 'sla',
-            studyId: study.id,
-            fileName: 'sla.pdf',
-            format: 'pdf',
-        }),
+        await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
@@ -100,9 +95,8 @@ describe('StudyLevelAgreements', () => {
 
         await openNewVersionFor(title)
 
-        // The study is fixed, so there is nothing to pick and no step to advance through.
+        // The study is fixed, so there is nothing to pick.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
-        expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
         expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
         expect(screen.getByText('Signed agreement')).toBeDefined()
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
@@ -140,7 +134,7 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
     })
 
-    it('opens the upload modal and keeps Next disabled until a study and date are chosen', async () => {
+    it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<StudyLevelAgreements />)
@@ -148,8 +142,31 @@ describe('StudyLevelAgreements', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Upload signed SLA' }))
 
         await waitFor(() => expect(screen.getByText('Upload a signed SLA')).toBeDefined())
-        expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+        expect(screen.getByLabelText('Signed on')).toBeDefined()
+        expect(screen.getByText('Signed agreement')).toBeDefined()
         // Queried by placeholder because "Research Lab" also names a column in the table behind.
         expect(screen.getByPlaceholderText('Select a Research Lab')).toBeDisabled()
+    })
+
+    it('opens the version history for a study without loading it up front', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const title = `SLA study ${faker.string.alpha(6)}`
+        await seedSignedSla({ signedAt: '2026-07-27', title })
+
+        renderWithProviders(<StudyLevelAgreements />)
+
+        await waitFor(() => expect(screen.getByText(title)).toBeDefined())
+        const row = screen.getByText(title).closest('tr')
+        if (!row) throw new Error(`no table row for ${title}`)
+        fireEvent.click(within(row).getByRole('button', { name: 'Version History' }))
+
+        const history = await waitFor(() => {
+            const dialog = screen.getAllByRole('dialog').find((el) => within(el).queryByText('Published by'))
+            if (!dialog) throw new Error('version history did not open')
+            return dialog
+        })
+
+        expect(within(history).getByText('2026-07-27')).toBeDefined()
     })
 })

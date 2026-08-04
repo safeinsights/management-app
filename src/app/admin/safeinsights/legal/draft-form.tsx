@@ -25,11 +25,7 @@ export default function DraftForm({ doctype }: { doctype: LegalDocumentType }) {
     const saveDraft = async () => {
         if (!file) return
         // Call Chris's save draft action
-        const result = await createLegalDocumentDraftAction({
-            type: doctype,
-            fileName: file.name,
-            format: 'markdown',
-        })
+        const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
         if (isActionError(result)) {
             throw new Error('Failed to create draft: ' + result)
         }

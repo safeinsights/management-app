@@ -49,9 +49,7 @@ const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus,
 }
 
 const uploadAndPublishSla = async (studyId: string, signedAt: string, fileName = 'sla.pdf') => {
-    const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'sla', studyId, fileName, format: 'pdf' }),
-    )
+    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId, fileName }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -113,6 +111,8 @@ describe('fetchStudyLevelAgreementsAction', () => {
         expect(row?.researchLabName).toBe(researchLab.name)
         expect(row?.dataPartnerName).toBe(dataPartner.name)
         expect(row?.versionNumber).toBe(1)
+        // Read back as text, so the day entered survives whatever zone the reader is in.
+        expect(row?.signedAt).toBe('2026-07-27')
         // Must be signed from this row's own key, not another version's.
         expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
     })
@@ -120,14 +120,7 @@ describe('fetchStudyLevelAgreementsAction', () => {
     it('leaves out an SLA that has only been drafted, not published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(
-            await createLegalDocumentDraftAction({
-                type: 'sla',
-                studyId: study.id,
-                fileName: 'sla.pdf',
-                format: 'pdf',
-            }),
-        )
+        actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }))
 
         const rows = actionResult(await fetchStudyLevelAgreementsAction())
 

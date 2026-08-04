@@ -1,18 +1,31 @@
 'use server'
 
+import { sql } from 'kysely'
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion, pathForLegalDocumentVersionFile } from '@/lib/paths'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
     fetchLegalDocumentAcknowledgementsSchema,
+    fetchParticipationAgreementsSchema,
+    legalDocumentFormats,
     legalDocumentScopeSchema,
+    participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
 import { createSignedUploadUrl, signedUrlForFile } from '../aws'
 import { Action, ActionFailure } from './action'
+
+// A signature day has no instant, so the column is a `date`. node-postgres would otherwise read it
+// back as a Date at server-local midnight, which renders a day early or late once the server and
+// the browser disagree about their zone.
+const signedAtAsText = sql<string | null>`legal_document_version.signed_at::text`
+
+// Only these carry an out-of-app signature; tos/pn are published, not signed.
+const requiresSignedAt = (type: LegalDocumentType) => type !== 'tos' && type !== 'pn'
 
 type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
@@ -48,7 +61,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
 })
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
-    .handler(async ({ db, params: { type, orgId, studyId, fileName, format } }) => {
+    .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
         // Created on first upload rather than seeded. onConflict covers a concurrent first upload.
         const legalDocument =
             (await db
@@ -78,7 +91,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
                 id: versionId,
                 legalDocumentId: legalDocument.id,
                 filePath: pathForLegalDocumentVersionFile(pathParts, fileName),
-                format,
+                format: legalDocumentFormats[type],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -100,12 +113,24 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
     .handler(async ({ db, params: { versionId, signedAt }, session }) => {
         const version = await db
             .selectFrom('legalDocumentVersion')
+            .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
             .selectAll('legalDocumentVersion')
-            .where('id', '=', versionId)
+            .select('legalDocument.type as type')
+            .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
         if (version.publishedAt) {
             throw new ActionFailure({ version: 'has already been published and cannot be republished' })
+        }
+
+        // Checked here rather than in the schema because publish only receives a version id, so the
+        // type is not known until the row is loaded. Publishing cannot be undone, so a signed
+        // agreement missing the date it was signed would be permanent.
+        if (requiresSignedAt(version.type) && !signedAt) {
+            throw new ActionFailure({ signedAt: 'is required to publish a signed agreement' })
+        }
+        if (!requiresSignedAt(version.type) && signedAt) {
+            throw new ActionFailure({ signedAt: `does not apply to a ${version.type}` })
         }
 
         const { maxVersion } = await db
@@ -146,9 +171,9 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
-                'legalDocumentVersion.signedAt',
                 'legalDocumentVersion.createdAt',
                 'user.fullName as publishedByName',
+                signedAtAsText.as('signedAt'),
             ])
             .where('legalDocumentId', '=', legalDocument.id)
             .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -268,6 +293,58 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         return { legalDocumentId: legalDocument?.id ?? null, users }
     })
 
+// Every org that could sign this agreement, whether it has yet or not: the gap is what an SI admin
+// is auditing for, and it is also where an upload starts from.
+export const fetchParticipationAgreementsAction = new Action('fetchParticipationAgreementsAction')
+    .params(fetchParticipationAgreementsSchema)
+    .middleware(noDocumentScope)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db, params: { type } }) => {
+        const latestPublished = db
+            .selectFrom('legalDocumentVersion')
+            .select([
+                'legalDocumentVersion.legalDocumentId',
+                'legalDocumentVersion.id as versionId',
+                'legalDocumentVersion.versionNumber',
+                'legalDocumentVersion.filePath',
+                'legalDocumentVersion.publishedAt',
+                signedAtAsText.as('signedAt'),
+            ])
+            .where('legalDocumentVersion.publishedAt', 'is not', null)
+            .distinctOn('legalDocumentVersion.legalDocumentId')
+            .orderBy('legalDocumentVersion.legalDocumentId')
+            .orderBy('legalDocumentVersion.versionNumber', 'desc')
+            .as('latest')
+
+        const rows = await db
+            .selectFrom('org')
+            .leftJoin('legalDocument', (join) =>
+                join.onRef('legalDocument.orgId', '=', 'org.id').on('legalDocument.type', '=', type),
+            )
+            .leftJoin(latestPublished, (join) => join.onRef('latest.legalDocumentId', '=', 'legalDocument.id'))
+            .select([
+                'org.id as orgId',
+                'org.name as orgName',
+                'legalDocument.id as legalDocumentId',
+                'latest.versionId',
+                'latest.versionNumber',
+                'latest.filePath',
+                'latest.signedAt',
+            ])
+            .where('org.type', '=', participationAgreementOrgTypes[type])
+            // SafeInsights is the counterparty to every one of these, so it never signs one itself.
+            .where('org.slug', '!=', CLERK_ADMIN_ORG_SLUG)
+            .orderBy('org.name')
+            .execute()
+
+        return await Promise.all(
+            rows.map(async (row) => ({
+                ...row,
+                downloadUrl: row.filePath ? await signedUrlForFile(row.filePath) : null,
+            })),
+        )
+    })
+
 export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
@@ -283,8 +360,8 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
-                'legalDocumentVersion.signedAt',
                 'legalDocumentVersion.publishedAt',
+                signedAtAsText.as('signedAt'),
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'researchLab.name as researchLabName',

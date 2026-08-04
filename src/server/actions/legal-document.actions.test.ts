@@ -22,7 +22,13 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 const createDraft = async (fileName = 'terms.md') =>
-    actionResult(await createLegalDocumentDraftAction({ type: 'tos', fileName, format: 'markdown' }))
+    actionResult(await createLegalDocumentDraftAction({ type: 'tos', fileName }))
+
+const createOrgAgreementDraft = async (type: 'ropa' | 'dopa', fileName = 'agreement.pdf') => {
+    const org = await insertTestOrg({ slug: faker.string.alpha(10), type: type === 'ropa' ? 'lab' : 'enclave' })
+    const draft = actionResult(await createLegalDocumentDraftAction({ type, orgId: org.id, fileName }))
+    return { ...draft, org }
+}
 
 const publish = async (versionId: string, signedAt?: string) =>
     actionResult(await publishLegalDocumentVersionAction({ versionId, signedAt }))
@@ -80,12 +86,7 @@ describe('createLegalDocumentDraftAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10) })
 
-        const result = await createLegalDocumentDraftAction({
-            type: 'tos',
-            orgId: org.id,
-            fileName: 'terms.md',
-            format: 'markdown',
-        })
+        const result = await createLegalDocumentDraftAction({ type: 'tos', orgId: org.id, fileName: 'terms.md' })
 
         expect(result).toHaveProperty('error')
     })
@@ -93,15 +94,26 @@ describe('createLegalDocumentDraftAction', () => {
     it('rejects an org-scoped agreement with no organization', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        const result = await createLegalDocumentDraftAction({ type: 'ropa', fileName: 'ropa.pdf', format: 'pdf' })
+        const result = await createLegalDocumentDraftAction({ type: 'ropa', fileName: 'ropa.pdf' })
 
         expect(result).toHaveProperty('error')
+    })
+
+    // Derived rather than accepted, so a document cannot be stored in a format its viewer cannot read.
+    it('stores the format its type is published in, whatever the file is called', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const terms = await createDraft('terms.pdf')
+        const { version: agreement } = await createOrgAgreementDraft('dopa', 'dopa.md')
+
+        expect(terms.version.format).toBe('markdown')
+        expect(agreement.format).toBe('pdf')
     })
 
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        const result = await createLegalDocumentDraftAction({ type: 'tos', fileName: 'terms.md', format: 'markdown' })
+        const result = await createLegalDocumentDraftAction({ type: 'tos', fileName: 'terms.md' })
 
         expect(result).toHaveProperty('error')
     })
@@ -132,19 +144,42 @@ describe('publishLegalDocumentVersionAction', () => {
 
     it('stores the signed date as the same calendar day it was given', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const versionId = (await createDraft('ropa.pdf')).version.id
+        const { version, org } = await createOrgAgreementDraft('ropa')
 
-        await publish(versionId, '2026-07-27')
+        await publish(version.id, '2026-07-27')
 
         // Cast in SQL: reading through the driver would pass or fail depending on the machine's
         // timezone, which is the bug being guarded against.
         const row = await db
             .selectFrom('legalDocumentVersion')
             .select(sql<string>`signed_at::text`.as('signedAtText'))
-            .where('id', '=', versionId)
+            .where('id', '=', version.id)
             .executeTakeFirstOrThrow()
 
         expect(row.signedAtText).toBe('2026-07-27')
+
+        // And the same day again on the way back out, where the driver would otherwise shift it.
+        const { current } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'ropa', orgId: org.id }))
+        expect(current?.signedAt).toBe('2026-07-27')
+    })
+
+    // Publishing cannot be undone, so a signed agreement with no signature date would be permanent.
+    it('refuses to publish a signed agreement without the date it was signed', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('dopa')
+
+        const result = await publishLegalDocumentVersionAction({ versionId: version.id })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('refuses a signed date on a document that is published rather than signed', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const versionId = (await createDraft()).version.id
+
+        const result = await publishLegalDocumentVersionAction({ versionId, signedAt: '2026-07-27' })
+
+        expect(result).toHaveProperty('error')
     })
 
     it('denies a user who is not an SI admin', async () => {

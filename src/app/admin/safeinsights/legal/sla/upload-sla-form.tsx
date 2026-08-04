@@ -16,6 +16,7 @@ import { Button, FileInput, Group, Select, Stack, Text, TextInput } from '@manti
 import { useDisclosure } from '@mantine/hooks'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
+import { ReadOnlyField } from '../read-only-field'
 
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
@@ -92,12 +93,7 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
             // agreement with no file. A study that already has an SLA gets a new version of it
             // rather than a second document.
             const { version, upload } = actionResult(
-                await createLegalDocumentDraftAction({
-                    type: 'sla',
-                    studyId,
-                    fileName: file.name,
-                    format: 'pdf',
-                }),
+                await createLegalDocumentDraftAction({ type: 'sla', studyId, fileName: file.name }),
             )
             await uploadFiles([[file, upload]])
             return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
@@ -107,19 +103,11 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['studyLevelAgreements'] })
             await queryClient.invalidateQueries({ queryKey: ['studiesAwaitingSla'] })
+            await queryClient.invalidateQueries({ queryKey: ['legalDocumentVersions', 'sla'] })
             onComplete()
         },
     })
 }
-
-const ReadOnlyField: FC<{ label: string; value: string }> = ({ label, value }) => (
-    <Stack gap={2}>
-        <Text size="sm" fw={500}>
-            {label}
-        </Text>
-        <Text>{value}</Text>
-    </Stack>
-)
 
 const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     <>
@@ -129,15 +117,15 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     </>
 )
 
-const StudyStep: FC<{
+// Only shown when the study is not already fixed by the row that opened the form.
+const StudySelect: FC<{
     isVisible: boolean
     candidates: ReturnType<typeof useSlaCandidates>
-    onNext: () => void
-}> = ({ isVisible, candidates, onNext }) => {
+}> = ({ isVisible, candidates }) => {
     if (!isVisible) return null
 
     return (
-        <Stack>
+        <>
             <Select
                 label="Data Partner"
                 placeholder="Select a Data Partner"
@@ -166,12 +154,7 @@ const StudyStep: FC<{
                 disabled={!candidates.researchLabId}
                 searchable
             />
-            <Group justify="flex-end">
-                <Button onClick={onNext} disabled={!candidates.studyId}>
-                    Next
-                </Button>
-            </Group>
-        </Stack>
+        </>
     )
 }
 
@@ -186,59 +169,10 @@ const VersionNote: FC<{ sla: Sla | undefined }> = ({ sla }) => {
     )
 }
 
-// There is nowhere to go back to when the study came from the table rather than the cascade.
-const BackButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
-    if (!isVisible) return null
-
-    return (
-        <Button variant="subtle" onClick={onClick}>
-            Back
-        </Button>
-    )
-}
-
-const AgreementStep: FC<{
-    isVisible: boolean
-    details: StudyDetails | undefined
-    sla: Sla | undefined
-    signedAt: string
-    file: File | null
-    onSignedAtChange: (value: string) => void
-    onFileChange: (file: File | null) => void
-    onPublish: () => void
-    onBack: () => void
-}> = ({ isVisible, details, sla, signedAt, file, onSignedAtChange, onFileChange, onPublish, onBack }) => {
-    if (!isVisible || !details) return null
-
-    return (
-        <Stack>
-            <StudyFields details={details} />
-            <VersionNote sla={sla} />
-            {/* Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day
-                early west of the server. */}
-            <TextInput
-                type="date"
-                label="Signed on"
-                description="The date the signatories signed the agreement"
-                value={signedAt}
-                onChange={(event) => onSignedAtChange(event.currentTarget.value)}
-            />
-            <FileInput
-                label="Signed agreement"
-                description="Upload the signed SLA as a PDF"
-                placeholder="Select a PDF"
-                accept="application/pdf"
-                value={file}
-                onChange={onFileChange}
-            />
-            <Group justify="flex-end">
-                <BackButton isVisible={!sla} onClick={onBack} />
-                <Button onClick={onPublish} disabled={!signedAt || !file}>
-                    Publish
-                </Button>
-            </Group>
-        </Stack>
-    )
+// Read back only for a study that came from the table; the cascade above already names the chosen one.
+const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details }) => {
+    if (!details) return null
+    return <StudyFields details={details} />
 }
 
 // Publishing cannot be undone, so the confirmation repeats everything that is about to be written.
@@ -274,12 +208,11 @@ const ConfirmPublishModal: FC<{
 }
 
 // Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
-// and only a new date and file are collected. Without one, the study is picked first.
+// and only a new date and file are collected. Without one, the study is picked from the cascade.
 export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({ onCompleteAction, sla }) => {
     const candidates = useSlaCandidates({ enabled: !sla })
     const [signedAt, setSignedAt] = useState('')
     const [file, setFile] = useState<File | null>(null)
-    const [step, setStep] = useState<'study' | 'agreement'>(sla ? 'agreement' : 'study')
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
     const { mutate: uploadSla, isPending } = useUploadSla({ onComplete: onCompleteAction })
 
@@ -293,18 +226,31 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
 
     return (
         <Stack>
-            <StudyStep isVisible={step === 'study'} candidates={candidates} onNext={() => setStep('agreement')} />
-            <AgreementStep
-                isVisible={step === 'agreement'}
-                details={details}
-                sla={sla}
-                signedAt={signedAt}
-                file={file}
-                onSignedAtChange={setSignedAt}
-                onFileChange={setFile}
-                onPublish={askForConfirmation}
-                onBack={() => setStep('study')}
+            <StudySelect isVisible={!sla} candidates={candidates} />
+            <ChosenStudyFields details={sla} />
+            <VersionNote sla={sla} />
+            {/* Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day
+                early west of the server. */}
+            <TextInput
+                type="date"
+                label="Signed on"
+                description="The date the signatories signed the agreement"
+                value={signedAt}
+                onChange={(event) => setSignedAt(event.currentTarget.value)}
             />
+            <FileInput
+                label="Signed agreement"
+                description="Upload the signed SLA as a PDF"
+                placeholder="Select a PDF"
+                accept="application/pdf"
+                value={file}
+                onChange={setFile}
+            />
+            <Group justify="flex-end">
+                <Button onClick={askForConfirmation} disabled={!details || !signedAt || !file}>
+                    Publish
+                </Button>
+            </Group>
             <ConfirmPublishModal
                 opened={confirming}
                 details={details}

@@ -4,6 +4,7 @@ import type { FC } from '@/common'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Tabs } from '@mantine/core'
 import LegalUpload from './legal-upload'
+import { ParticipationAgreements } from './participation/participation-agreements'
 import { StudyLevelAgreements } from './sla/study-level-agreements'
 
 // keepMounted={false} so a tab's queries only run once its panel is opened.
@@ -12,6 +13,8 @@ export const LegalTabs: FC = () => (
         <Tabs.List>
             <Tabs.Tab value="tos">{legalDocumentTypeLabels.tos}</Tabs.Tab>
             <Tabs.Tab value="pn">{legalDocumentTypeLabels.pn}</Tabs.Tab>
+            <Tabs.Tab value="dopa">DOPA</Tabs.Tab>
+            <Tabs.Tab value="ropa">ROPA</Tabs.Tab>
             <Tabs.Tab value="sla">Study Level Agreements</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="tos" pt="md">
@@ -19,6 +22,12 @@ export const LegalTabs: FC = () => (
         </Tabs.Panel>
         <Tabs.Panel value="pn" pt="md">
             <LegalUpload doctype="pn" />
+        </Tabs.Panel>
+        <Tabs.Panel value="dopa" pt="md">
+            <ParticipationAgreements type="dopa" />
+        </Tabs.Panel>
+        <Tabs.Panel value="ropa" pt="md">
+            <ParticipationAgreements type="ropa" />
         </Tabs.Panel>
         <Tabs.Panel value="sla" pt="md">
             <StudyLevelAgreements />
