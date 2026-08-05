@@ -181,6 +181,8 @@ export type CollaborativeEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** Left slot of the footer row, rendered before the save indicator; see EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
@@ -250,6 +252,7 @@ export function CollaborativeEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
     inputId,
     error,
@@ -420,6 +423,7 @@ export function CollaborativeEditor({
                 </Paper>
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
+                        {footerLeft}
                         <SaveStatus provider={activeProvider} isVisible={!error} />
                         {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>

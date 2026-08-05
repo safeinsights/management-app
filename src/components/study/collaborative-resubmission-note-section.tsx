@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -55,6 +55,17 @@ const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: Resubmissio
     return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} />
 }
 
+// Carries the id `aria-describedby` points at; renders nothing without an error so the
+// save indicator keeps the left edge of the footer row.
+const NoteFieldError: FC<{ error?: string }> = ({ error }) => {
+    if (!error) return null
+    return (
+        <Box id={fieldErrorId('resubmissionNote')}>
+            <InputError error={error} />
+        </Box>
+    )
+}
+
 export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionNoteSectionProps> = ({
     studyId,
     noteVersion,
@@ -71,6 +82,16 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
+
+    // Both live in the editor's footer-left slot — the row directly under the input — so the
+    // error lands exactly where 'All changes saved' vacates instead of one row below the word
+    // counter, and the two can never co-exist (OTTER-674, QA round 2).
+    const footerLeft = (
+        <>
+            <NoteFieldError error={error} />
+            <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
+        </>
+    )
 
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
@@ -101,15 +122,10 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                             hasError: !!error,
                             hasDescription: false,
                         })}
+                        footerLeft={footerLeft}
                         footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
-                    <Group justify="space-between" align="center" mt={4}>
-                        <Box id={fieldErrorId('resubmissionNote')}>
-                            <InputError error={error} />
-                        </Box>
-                        <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
-                    </Group>
                 </Box>
             </Stack>
         </Paper>

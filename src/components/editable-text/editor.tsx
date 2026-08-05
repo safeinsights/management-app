@@ -34,6 +34,12 @@ export type EditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /**
+     * Left slot of the footer row directly under the input — the slot the save indicator
+     * occupies/vacates. Callers put the field's error message here so it can never render
+     * a row below the counter, and never beside a save label (OTTER-674).
+     */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /**
      * DOM id of the editable surface, for label/`aria-describedby` pairing. Must be

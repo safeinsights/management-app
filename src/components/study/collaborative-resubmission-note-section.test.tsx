@@ -3,6 +3,7 @@ import { render, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
@@ -87,5 +88,20 @@ describe('CollaborativeResubmissionNoteSection', () => {
         renderSingleUserSection({ initialError: 'A resubmission note is required.' })
         expect(screen.getByText('A resubmission note is required.')).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    // QA round 2: the error must sit in the footer row directly under the input — the slot the
+    // save indicator vacates — not in a row below the word counter.
+    it('renders the error in the same footer row as the word counter (OTTER-674)', () => {
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        const errorBox = document.getElementById(fieldErrorId('resubmissionNote'))
+        expect(errorBox).toHaveTextContent('A resubmission note is required.')
+        expect(errorBox?.parentElement).toContainElement(screen.getByText('0/300'))
+    })
+
+    it('renders the single-user autosave indicator in the same footer row as the word counter', () => {
+        renderSingleUserSection()
+        const indicator = screen.getByTestId('autosave-status')
+        expect(indicator.parentElement).toContainElement(screen.getByText('0/300'))
     })
 })
