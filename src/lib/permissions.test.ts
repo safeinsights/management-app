@@ -176,6 +176,11 @@ test('SI admin (manage/all) grants every action across subjects', () => {
     expect(ability.can('delete', toRecord('Org', { orgId: someOrg }))).toBe(true)
     expect(ability.can('invite', toRecord('User', { orgId: someOrg }))).toBe(true)
     expect(ability.can('view', 'OrgStudies')).toBe(true)
+
+    // The wildcard covers the OTTER-720 verbs too, for orgs the SI admin does not belong to —
+    // they are deliberately absent from the enumerated admin grants.
+    expect(ability.can('manageRole', toRecord('User', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: someOrg }))).toBe(true)
 })
 
 test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {
@@ -186,4 +191,6 @@ test('non-SI-admin is still bounded (manage/all does not leak to regular users)'
     expect(ability.can('review', toRecord('Study', { orgId: otherOrgId }))).toBe(false)
     expect(ability.can('delete', toRecord('Org', { orgId: otherOrgId }))).toBe(false)
     expect(ability.can('create', 'Org')).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { orgId: otherOrgId }))).toBe(false)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: otherOrgId }))).toBe(false)
 })
