@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { isHttpUrl } from '@/schema/url'
 
 const dataSourceUrlSchema = z.object({
     id: z.uuid().optional(),
-    url: z.url('Enter a valid URL'),
+    url: z.url('Enter a valid URL').refine(isHttpUrl, { message: 'URL must start with http:// or https://' }),
     description: z.string().trim().nonempty('URL description is required'),
 })
 
@@ -45,5 +46,11 @@ export const dataSourceFormSchema = z
         }
         if (hasUrl && !z.url().safeParse(data.newUrl.trim()).success) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid URL', path: ['newUrl'] })
+        } else if (hasUrl && !isHttpUrl(data.newUrl.trim())) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'URL must start with http:// or https://',
+                path: ['newUrl'],
+            })
         }
     })
