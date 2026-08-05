@@ -11,8 +11,11 @@ import { extractOrgSlugFromPath } from '@/lib/paths'
 import * as Sentry from '@sentry/nextjs'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
-const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
-const isOrgRoute = createRouteMatcher(['/[orgSlug]'])
+// createRouteMatcher compiles with path-to-regexp, NOT the Next.js filesystem convention.
+// `/[orgSlug]/admin/(.*)` looks right but treats the brackets as literal characters, so it
+// matched nothing and failed silently — Clerk's bundled path-to-regexp fork does not throw
+// where the standalone v8 does. The colon form is the one that actually captures a segment.
+const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin/(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = [
@@ -111,12 +114,17 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         return redirectToDashboard(req, 'researcher', session)
     }
 
-    if (isOrgAdminRoute(req) && !isAdmin && currentOrgSlug) {
-        return redirectToDashboard(req, 'org-admin', session)
-    }
+    // extractOrgSlugFromPath already returns null for every non-org top-level prefix, so it —
+    // not a route matcher — is what distinguishes `/acme/...` from `/dashboard`. A `/:orgSlug/(.*)`
+    // matcher would match those too and is therefore not a usable guard on its own.
+    if (currentOrgSlug) {
+        if (!session.orgs[currentOrgSlug] && !session.user.isSiAdmin) {
+            return redirectToDashboard(req, 'org-member', session)
+        }
 
-    if (isOrgRoute(req) && (!currentOrgSlug || !session.orgs[currentOrgSlug])) {
-        return redirectToDashboard(req, 'org-member', session)
+        if (isOrgAdminRoute(req) && !isAdmin && !session.user.isSiAdmin) {
+            return redirectToDashboard(req, 'org-admin', session)
+        }
     }
 
     return NextResponse.next()
