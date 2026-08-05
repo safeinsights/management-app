@@ -6,8 +6,8 @@ import { awaitingFilesDecisionOnError } from './state'
 // back/forward buttons.
 export const RESEARCHER_SCREEN_RULES = [
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
-    // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher
-    // holds on the code-approved page below, matching the "Code approved" pill (OTTER-598, 43898).
+    // records a FILES-* decision (awaitingFilesDecisionOnError) — until then isExecuting stays true and
+    // the researcher holds on the outputs-pending page below, which discloses no error (OTTER-598, 43898).
     ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
     // Code approved and executing in the enclave: researcher outputs-pending screen (OTTER-686).
