@@ -31,13 +31,9 @@ export async function CodeDecisionScreen({
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
     // OTTER-614 / OTTER-687: the code page forwards to plain /view instead of ending at the
-    // dashboard, but only when /view resolves past this screen — otherwise the button would point
-    // at the page it sits on.
-    const nextStepHref = hasNextStepFromCode('researcher', state, descriptor.screen, {
-        orgSlug,
-        studyId: study.id,
-        returnTo,
-    })
+    // dashboard, but only when /view resolves past this screen. Otherwise the button would point at
+    // the page it sits on.
+    const nextStepHref = hasNextStepFromCode('researcher', state, descriptor.screen)
         ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
         : undefined
 

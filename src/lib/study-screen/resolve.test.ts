@@ -1,30 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen, resolveResearcherCodeScreen, resolveReviewerCodeScreen } from './resolve'
+import { studyState } from './state.fixture'
 
-const state = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'DRAFT',
-    isDraft: true,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: false,
-    hasSubmittedCode: false,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 0,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
-    ...overrides,
-})
+const state = (overrides: Partial<StudyState>): StudyState => studyState(overrides)
 
 const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
 

@@ -259,6 +259,9 @@ export function PostFeedbackView({
     const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
     const isCode = kind === 'CODE'
+    // The row splits only when there is a left button: the forward link and the dashboard button are
+    // mutually exclusive and both sit on the right, so a lone one right-aligns either way.
+    const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (
         <Box bg="grey.10">
@@ -288,7 +291,7 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
+                <Group justify={buttonRowJustify}>
                     <PreviousButton href={previousHref} />
                     <NextStepButton href={nextStepHref} />
                     <GoToDashboardButton isVisible={!nextStepHref} />

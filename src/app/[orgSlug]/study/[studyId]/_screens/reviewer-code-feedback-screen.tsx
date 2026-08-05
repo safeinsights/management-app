@@ -24,8 +24,14 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     // OTTER-687: forward to the DP outputs screen, which lives at bare /review. Suppressed while
     // /review still resolves to this screen (code approved, enclave not started yet), where the
     // button would only point back at the page it sits on.
+    //
+    // On the walk-back route the two resolvers deliberately disagree, and the forward link is the
+    // point of that: resolveReviewerCodeScreen restricts its candidates to the code screens so a
+    // results study lands here instead of looping to results, while hasNextStepFromCode asks the full
+    // table and still answers "results". So a reviewer who walked back from results gets Previous and
+    // Next step, with Next returning them to the screen they came from.
     const state = projectStudyState(raw)
-    const nextStepHref = hasNextStepFromCode('reviewer', state, descriptor.screen, { orgSlug, studyId: study.id })
+    const nextStepHref = hasNextStepFromCode('reviewer', state, descriptor.screen)
         ? Routes.studyReview({ orgSlug, studyId: study.id })
         : undefined
 
