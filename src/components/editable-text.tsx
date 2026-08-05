@@ -9,6 +9,7 @@ import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useEffect, useState } from 'react'
@@ -18,7 +19,7 @@ import { countWords, isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './editable-text/config'
 
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
@@ -188,7 +189,10 @@ export const EditableText: FC<EditableTextProps> = ({
                         <ListPlugin />
                         <TabIndentationPlugin />
                         <EscapeFocusPlugin />
-                        <LinkPlugin validateUrl={isValidUrl} />
+                        <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
+                        {/* While editing, a click should land the caret in the link text rather
+                            than launch a tab. Read-only renders open the URL in a new tab. */}
+                        <ClickableLinkPlugin newTab disabled={isEditable} />
                         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                         {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     </Box>

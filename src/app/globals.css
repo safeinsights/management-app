@@ -28,6 +28,10 @@
 }
 
 /* EditableText (Lexical) formatting classes */
+.editable-text-paragraph {
+    margin: 0;
+}
+
 .editable-text-bold {
     font-weight: bold;
 }

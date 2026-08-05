@@ -4,6 +4,7 @@ import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin'
 import { lexicalTheme, lexicalNodes } from '@/components/editable-text/config'
 import type { JsonValue } from '@/database/types'
 import { isValidLexicalState } from '@/lib/lexical'
@@ -36,6 +37,9 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
                 placeholder={null}
                 ErrorBoundary={LexicalErrorBoundary}
             />
+            {/* newTab forces _blank even for links stored before target was set,
+                and preventing the default click keeps us from unloading the app. */}
+            <ClickableLinkPlugin newTab />
         </LexicalComposer>
     )
 }
