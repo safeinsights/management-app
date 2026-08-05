@@ -172,6 +172,47 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 onDownload={files.onDownload}
                 onDownloadAll={files.onDownloadAll}
             />
+            <DecisionControls
+                isVisible={!decision.isSubmitted}
+                decision={decision}
+                job={job}
+                studyId={studyId}
+                labName={labName}
+                maxWords={maxWords}
+                previousHref={previousHref}
+            />
+            <FileOrImagePreviewModal
+                file={previewFile}
+                onClose={files.closeViewer}
+                onDownload={files.onViewerDownload}
+            />
+        </>
+    )
+}
+
+type DecisionControlsProps = {
+    isVisible: boolean
+    decision: ReturnType<typeof useOutputsDecision>
+    job: NonNullable<LatestJobForStudy>
+    studyId: string
+    labName: string
+    maxWords: number
+    previousHref: Route
+}
+
+const DecisionControls: FC<DecisionControlsProps> = ({
+    isVisible,
+    decision,
+    job,
+    studyId,
+    labName,
+    maxWords,
+    previousHref,
+}) => {
+    if (!isVisible) return null
+
+    return (
+        <>
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}
@@ -204,11 +245,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 isSubmitting={decision.isSubmitting}
                 onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}
-            />
-            <FileOrImagePreviewModal
-                file={previewFile}
-                onClose={files.closeViewer}
-                onDownload={files.onViewerDownload}
             />
         </>
     )

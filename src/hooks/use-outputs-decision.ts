@@ -43,6 +43,8 @@ export function useOutputsDecision({
     // must not open with everything flagged red.
     const [showFeedbackError, setShowFeedbackError] = useState(false)
     const [showDecisionError, setShowDecisionError] = useState(false)
+    // The server refresh can finish later under load, so remove controls as soon as the action succeeds.
+    const [isSubmitted, setIsSubmitted] = useState(false)
     // The decision the confirmation modal is confirming; null means closed. One nullable value
     // rather than an open flag beside the selection, so "open with nothing chosen" cannot be
     // represented and needs no guard.
@@ -82,6 +84,7 @@ export function useOutputsDecision({
         onError: reportMutationError('Failed to submit your decision'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            setIsSubmitted(true)
             setConfirming(null)
             // The current URL is already /review. A same-URL push can race this refresh and leave
             // the decrypted form mounted after the decision commits.
@@ -131,5 +134,6 @@ export function useOutputsDecision({
         attemptSubmit,
         confirmSubmit,
         isSubmitting: isPending,
+        isSubmitted,
     }
 }
