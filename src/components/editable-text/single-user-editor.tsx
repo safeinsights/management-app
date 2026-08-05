@@ -146,8 +146,9 @@ export function SingleUserEditor({
                 <HistoryPlugin />
                 <ListPlugin />
                 {/* No TabIndentationPlugin: it cancels the Tab keydown, so focus never leaves the
-                    editor and Tab types a literal tab instead. Indentation lives on the toolbar's
-                    Indent / Outdent buttons, which are themselves reachable by Tab. */}
+                    editor and Tab types a literal tab instead. Nothing is lost, because that plugin
+                    only indented inside a list, which the toolbar's Indent / Outdent buttons still
+                    do (they enable exactly there, and Tab can now reach them). */}
                 <EscapeFocusPlugin />
                 <LinkPlugin validateUrl={isValidUrl} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}

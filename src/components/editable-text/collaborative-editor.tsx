@@ -413,8 +413,9 @@ export function CollaborativeEditor({
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
                     {/* No TabIndentationPlugin: it cancels the Tab keydown, so focus never leaves
-                        the editor and Tab types a literal tab instead. Indentation lives on the
-                        toolbar's Indent / Outdent buttons, reachable by Tab themselves. */}
+                        the editor and Tab types a literal tab instead. Nothing is lost, because that
+                        plugin only indented inside a list, which the toolbar's Indent / Outdent
+                        buttons still do (they enable exactly there). */}
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />

@@ -401,8 +401,12 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
     await editor.fill(typed)
     await page.keyboard.press('Tab')
     await expect(editor).not.toBeFocused()
+    // textContent(), not toHaveText: the latter normalizes whitespace, so it would pass on the very
+    // tab character this asserts is absent.
     await expect(async () => {
-        expect(await editor.textContent()).toBe(typed)
+        const text = await editor.textContent()
+        expect(text).toContain(typed)
+        expect(text).not.toContain('\t')
     }).toPass()
 
     // Tabs until the radio is reached rather than assuming a count: the editor's formatting
