@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, insertTestCodeEnv, insertTestDataSource } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    insertTestCodeEnv,
+    insertTestDataSource,
+    insertTestOrg,
+} from '@/tests/unit.helpers'
 import {
     createOrgDataSourceAction,
     deleteOrgDataSourceAction,
@@ -265,5 +271,24 @@ describe('Data Source Actions', () => {
 
         const stillExists = await db.selectFrom('orgCodeEnv').where('id', '=', codeEnv1.id).executeTakeFirst()
         expect(stillExists).toBeDefined()
+    })
+
+    // Pins the flow that made `view Org` unconditioned in the first place (97c118b1): on the
+    // study-proposal page a lab researcher picks a dataset from an ENCLAVE org they do not belong
+    // to. OTTER-724 moved the credential-bearing reads off `view Org`; this one must stay put.
+    it('stays readable cross-org: proposal dataset picker (97c118b1)', async () => {
+        const enclaveOrg = await insertTestOrg({ slug: 'unrelated-enclave-catalog', type: 'enclave' })
+        await insertTestDataSource({
+            orgId: enclaveOrg.id,
+            name: 'Advertised Enclave Dataset',
+            description: 'Listed in the proposal dataset picker',
+        })
+
+        await mockSessionWithTestData({ orgType: 'lab', isAdmin: false })
+
+        const result = actionResult(await fetchOrgDataSourcesAction({ orgSlug: enclaveOrg.slug }))
+        expect(result).toEqual(
+            expect.arrayContaining([expect.objectContaining({ name: 'Advertised Enclave Dataset' })]),
+        )
     })
 })

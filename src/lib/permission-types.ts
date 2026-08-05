@@ -64,6 +64,11 @@ type Abilities =
     // name was misleading. Route + UI copy: /user-key (Routes.userKey), "Security key".
     | Ability<'UserKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
+    // Split out from 'Org' because `view Org` must stay cross-org for the public catalog (a lab
+    // researcher picks datasets from an enclave they don't belong to). Configuration reads —
+    // code-env settings, starter code — carry secrets and belong to that org's admins only
+    // (OTTER-724 / MA-6).
+    | Ability<'OrgConfig', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
