@@ -47,12 +47,18 @@ interface CollaborativeResubmissionNoteSectionProps {
 
 // In collaborative mode the editor renders its own provider-driven indicator;
 // showing this one too would double up.
-const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: ResubmissionNoteAutosaveStatus }> = ({
-    isVisible,
-    autosaveStatus,
-}) => {
+//
+// The error case goes through the indicator's own `isVisible` rather than unmounting here. A live
+// region is only announced when content it already owns changes, so unmounting on error and
+// mounting again once it clears would hand the region back with "All changes saved" already
+// inside it, and the save would never be announced (OTTER-675).
+const SingleUserSaveStatus: FC<{
+    isVisible: boolean
+    hasError: boolean
+    autosaveStatus: ResubmissionNoteAutosaveStatus
+}> = ({ isVisible, hasError, autosaveStatus }) => {
     if (!isVisible) return null
-    return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} />
+    return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} isVisible={!hasError} />
 }
 
 // Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the row's left edge.
@@ -86,7 +92,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const footerLeft = (
         <>
             <NoteFieldError error={error} />
-            <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
+            <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
         </>
     )
 
