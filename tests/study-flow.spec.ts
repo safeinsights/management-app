@@ -307,7 +307,7 @@ async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string):
 }
 
 // OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
-// the outputs table and Decision section without a navigation — decryption is client-side, so
+// the outputs table and Decision section without a navigation, because decryption is client-side, so
 // the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
@@ -342,7 +342,8 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
 
     await page.getByTestId('outputs-decision-share-outputs').check()
 
-    await page.getByTestId('outputs-submit-decision').click()
+    const trigger = page.getByTestId('outputs-submit-decision')
+    await trigger.click()
 
     // Scope to the dialog: the page's own trigger and the modal's confirm share the label
     // "Submit decision", so an unscoped role query matches both once the modal is open.
@@ -351,6 +352,22 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
     // The modal names what is about to be shared before anything is written.
     await expect(modal.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
 
+    // Focus must come back to the trigger on every dismissal. The modal stays mounted while
+    // closed so Mantine's own returnFocus can do it; unmounting it would take useFocusReturn
+    // along with it. Checked here rather than in jsdom, where the Lexical editor this flow needs
+    // is not typeable. Escape first, then the X, then reopen for the real submit.
+    await page.keyboard.press('Escape')
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Close' }).click()
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
     await modal.getByRole('button', { name: 'Submit decision' }).click()
 
     // The decision re-resolves the reviewer screen; leaving the errored view is the signal.
@@ -366,8 +383,8 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
     await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
 }
 
-// The researcher's errored view is gated on the reviewer having shared the files, so this
-// runs only after reviewerSharesOutputs (OTTER-675).
+// The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
+// so this runs only after reviewerSharesOutputs (OTTER-675).
 async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 

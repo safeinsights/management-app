@@ -40,7 +40,9 @@ export function useReviewFeedback({ maxWords = FEEDBACK_MAX_WORDS }: UseReviewFe
         value,
         onChange,
         onBlur: field.validate,
-        error: field.error,
+        // Mantine types `field.error` as ReactNode, but this hook's `validate` only ever returns
+        // strings, and the editors' `error` prop is narrowed to `string` (see `EditorProps.error`).
+        error: field.error as string | null,
         wordCount,
         minWords: FEEDBACK_MIN_WORDS,
         maxWords,

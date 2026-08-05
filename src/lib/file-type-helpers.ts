@@ -14,6 +14,8 @@ export const APPROVED_LOG_TYPES: FileType[] = [
 
 export const PLAINTEXT_LOG_TYPES: FileType[] = ['SECURITY-SCAN-LOG', 'PACKAGING-ERROR-LOG']
 
+export const CODE_FILE_TYPES: FileType[] = ['MAIN-CODE', 'SUPPLEMENTAL-CODE']
+
 export const ENCRYPTED_TO_APPROVED: Record<string, FileType> = {
     'ENCRYPTED-RESULT': 'APPROVED-RESULT',
     'ENCRYPTED-CODE-RUN-LOG': 'APPROVED-CODE-RUN-LOG',
@@ -46,6 +48,10 @@ export function isPlaintextLogType(fileType: FileType): boolean {
 
 export function isResultFile(f: { fileType: FileType }): boolean {
     return ['ENCRYPTED-RESULT', 'APPROVED-RESULT'].includes(f.fileType)
+}
+
+export function isCodeFileType(fileType: FileType): boolean {
+    return CODE_FILE_TYPES.includes(fileType)
 }
 
 export function isLogType(fileType: FileType): boolean {

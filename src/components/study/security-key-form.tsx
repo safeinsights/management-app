@@ -12,16 +12,22 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 
 interface SecurityKeyFormProps {
     job: LatestJobForStudy
+    /** Which role's key set to decrypt against; see useSecurityKeyForm. */
+    type: 'researcher' | 'reviewer'
     /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, onDecrypted }) => {
-    const { value, setValue, error, isDecrypting, inputRef, handleSubmit } = useSecurityKeyForm({ job, onDecrypted })
+export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypted }) => {
+    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
+        job,
+        type,
+        onDecrypted,
+    })
 
     return (
         <Paper p="xxl">
-            <Stack gap="lg">
+            <Stack gap={24}>
                 <FormSectionHeader
                     title="Security key"
                     description="This key is required to access the outputs. It was issued to you during sign-up."
@@ -29,12 +35,13 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, onDecrypted }) 
                 />
                 <SecurityKeyInput
                     ref={inputRef}
+                    placeholder="Enter your security key"
                     value={value}
                     onChange={(event) => setValue(event.currentTarget.value)}
                     error={error}
                     disabled={isDecrypting}
                 />
-                <SecurityKeyViewButton isDecrypting={isDecrypting} onClick={handleSubmit} />
+                <SecurityKeyViewButton isDecrypting={isDecrypting} isLoading={isLoadingFiles} onClick={handleSubmit} />
                 <LostKeyPopover />
             </Stack>
         </Paper>

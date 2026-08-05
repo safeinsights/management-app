@@ -1,7 +1,7 @@
 'use client'
 
-import { FC, type ReactNode } from 'react'
-import { Box, Divider, Group, List, Paper, Radio, Stack, Text } from '@mantine/core'
+import { FC } from 'react'
+import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -61,7 +61,7 @@ type DecisionRadioGroupProps = {
     value: OutputsDecision | null
     onChange: (next: OutputsDecision) => void
     onBlur: () => void
-    error: ReactNode
+    error: string | undefined
     labName: string
 }
 
@@ -87,37 +87,50 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
         />
     ))
 
+    // Guarded rather than passed unconditionally: InputError renders null for a falsy error, but
+    // the element itself is truthy, and Mantine treats any error node as "this field is invalid".
+    const errorNode = error ? <InputError error={error} /> : undefined
+
     return (
-        // Blur is a bubbled focusout, so moving between the two radios would validate a
-        // still-empty group; widgetBlurHandler waits for focus to leave it (OTTER-647).
-        <Radio.Group
-            id={DECISION_GROUP_ID}
-            value={value ?? ''}
-            onChange={(next) => onChange(next as OutputsDecision)}
-            onBlur={widgetBlurHandler(onBlur)}
-            name="outputs-decision"
-            label="Sharing decision"
-            labelProps={{ fw: 600 }}
-            error={error}
-        >
-            <Stack gap="md">{options}</Stack>
-        </Radio.Group>
+        // The id lives on this wrapper, not on Radio.Group: Mantine consumes an `id` prop to derive
+        // its internal label/error ids and never renders it on an element, so
+        // document.getElementById would find nothing and the submit-time focus jump would silently
+        // do nothing (see focusFirstInvalid).
+        <Box id={DECISION_GROUP_ID}>
+            {/* Blur is a bubbled focusout, so moving between the two radios would validate a
+                still-empty group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+                The group's name is required by AT but is not drawn in the design, so the label is
+                visually hidden rather than dropped.
+                inputWrapperOrder moves the message above the options, where the design puts it;
+                Mantine's default order would render it under the last description. */}
+            <Radio.Group
+                value={value ?? ''}
+                onChange={(next) => onChange(next as OutputsDecision)}
+                onBlur={widgetBlurHandler(onBlur)}
+                name="outputs-decision"
+                label={<VisuallyHidden>Sharing decision</VisuallyHidden>}
+                error={errorNode}
+                inputWrapperOrder={['label', 'description', 'error', 'input']}
+            >
+                <Stack gap="md">{options}</Stack>
+            </Radio.Group>
+        </Box>
     )
 }
 
 // Carries the description id so the count reaches the editor's aria-describedby. Rendered through
-// the Editor's own `footerRight` slot, beside the save indicator the editor already draws — a
+// the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
 const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (
     <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-        <WordCounter wordCount={wordCount} maxWords={maxWords} />
+        <WordCounter wordCount={wordCount} maxWords={maxWords} unit="words" />
     </Box>
 )
 
 // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
 // assertive region would interrupt the user mid-sentence.
-const FeedbackError: FC<{ error: ReactNode }> = ({ error }) => (
+const FeedbackError: FC<{ error: string | undefined }> = ({ error }) => (
     <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
         <InputError error={error} />
     </Box>
@@ -129,13 +142,13 @@ export type OutputsDecisionSectionProps = {
     labName: string
     maxWords: number
     wordCount: number
-    feedbackError: ReactNode
+    feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
     onFeedbackBlur: () => void
     selected: OutputsDecision | null
     onSelect: (next: OutputsDecision) => void
     onDecisionBlur: () => void
-    decisionError: ReactNode
+    decisionError: string | undefined
 }
 
 export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({

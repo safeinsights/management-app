@@ -2,7 +2,7 @@
  * Triggers a browser download for in-memory bytes.
  *
  * A programmatic download rather than a `<a download>` element because the click has to do two
- * things at once — record the internal "downloaded" event and hand over the file — and an anchor
+ * things at once, record the internal "downloaded" event and hand over the file, and an anchor
  * only does the second.
  *
  * The object URL is revoked on the next tick: revoking synchronously races the browser's own

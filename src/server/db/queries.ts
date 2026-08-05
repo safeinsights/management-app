@@ -500,12 +500,9 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
     return getOrgPublicKeys(submittedByOrgId)
 }
 
-// IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
-// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
-// their key rows, so this never retroactively un-shares.
 // OTTER-675: the most recent view/download per output file, for the outputs table's
-// "Last activity" column. One row per file at most — the column reports the latest action,
-// not a history — so the DISTINCT ON collapses each file's rows to its newest.
+// "Last activity" column. One row per file at most, because the column reports the latest
+// action rather than a history, so the DISTINCT ON collapses each file's rows to its newest.
 export type JobFileActivity = {
     studyJobFileId: string
     filePath: string
@@ -535,6 +532,10 @@ export async function latestActivityPerJobFile(jobId: string): Promise<JobFileAc
         .execute()
 }
 
+// IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
+// "Post-approval" means post-DECISION for results, but a reviewer approving CODE can share too
+// (approveJobCode persists keys alongside CODE-APPROVED), so rows can exist while the round is still
+// open. Removing a researcher from the lab leaves their key rows, so this never retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
         .selectFrom('studyJobFileRecipientKey')

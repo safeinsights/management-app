@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from '@/tests/unit.helpers'
 import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
 
 type ProxyHandler = (auth: Mock, req: NextRequest) => Promise<Response>
@@ -60,9 +61,9 @@ describe('proxy session marshaling failures', () => {
             sessionClaims: { userMetadata: null, unsafeMetadata: {} },
         })
 
-    const mockClerkGetUser = (getUser: Mock, updateUserMetadata: Mock = vi.fn()) =>
+    const mockClerkGetUser = (getUser: Mock) =>
         (clerkClient as unknown as Mock).mockResolvedValue({
-            users: { getUser, updateUserMetadata },
+            users: { getUser },
         })
 
     it('recovers by re-syncing metadata when the first marshal attempt fails', async () => {
@@ -78,8 +79,7 @@ describe('proxy session marshaling failures', () => {
                 emailAddresses: [{ emailAddress: email }],
                 publicMetadata: {},
             })
-        const updateUserMetadata = vi.fn()
-        mockClerkGetUser(getUser, updateUserMetadata)
+        mockClerkGetUser(getUser)
 
         const { proxy } = await import('./proxy')
         const req = new NextRequest('https://app.staging.safeinsights.org/dashboard')
@@ -87,8 +87,9 @@ describe('proxy session marshaling failures', () => {
         const res = await (proxy as unknown as ProxyHandler)(authenticatedAuth(), req)
 
         expect(getUser).toHaveBeenCalledTimes(2)
-        // metadata was regenerated from the live Clerk user, proving the forced re-sync ran to completion
-        expect(updateUserMetadata).toHaveBeenCalledTimes(1)
+        // The metadata rewrite is the last step of the re-sync, so reaching it proves the retry ran
+        // to completion. vitest.setup.ts stubs the export, hence asserting on it rather than the SDK.
+        expect(updateClerkUserMetadata).toHaveBeenCalledTimes(1)
         expect(res.headers.get('location')).toBeNull()
     })
 

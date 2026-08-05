@@ -108,7 +108,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         <Box id={fieldErrorId('resubmissionNote')}>
                             <InputError error={error} />
                         </Box>
-                        <SingleUserSaveStatus isVisible={singleUserEditing} autosaveStatus={autosaveStatus} />
+                        <SingleUserSaveStatus isVisible={singleUserEditing && !error} autosaveStatus={autosaveStatus} />
                     </Group>
                 </Box>
             </Stack>

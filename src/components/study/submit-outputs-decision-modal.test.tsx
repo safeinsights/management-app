@@ -14,7 +14,6 @@ const renderModal = (decision: OutputsDecision | null, overrides: Record<string,
     const props = {
         decision,
         labName: LAB,
-        isOpen: true,
         isSubmitting: false,
         onClose: vi.fn(),
         onConfirm: vi.fn(),
@@ -49,13 +48,12 @@ describe('SubmitOutputsDecisionModal', () => {
         expect(confirmationBody('share-feedback-only', 'Acme Lab')).toContain('Acme Lab')
     })
 
-    it('stays closed until a decision has been picked', () => {
+    // A null decision IS the closed state: there is no separate open flag to disagree with it.
+    // The component stays mounted while closed (that is what keeps Mantine's focus return alive),
+    // so "closed" means no dialog is rendered, not that nothing is.
+    it('shows no dialog until a decision has been picked', () => {
         renderModal(null)
-        expect(screen.queryByText('Submit your decision?')).toBeNull()
-    })
-
-    it('stays closed when isOpen is false', () => {
-        renderModal('share-outputs', { isOpen: false })
+        expect(screen.queryByRole('dialog')).toBeNull()
         expect(screen.queryByText('Submit your decision?')).toBeNull()
     })
 
@@ -65,25 +63,16 @@ describe('SubmitOutputsDecisionModal', () => {
     // survive precisely that sequence.
     it('shows the updated body after the decision changes between opens', async () => {
         const Harness = () => {
-            const [decision, setDecision] = useState<OutputsDecision>('share-outputs')
-            const [isOpen, setIsOpen] = useState(true)
+            const [confirming, setConfirming] = useState<OutputsDecision | null>('share-outputs')
             return (
                 <>
-                    <button onClick={() => setIsOpen(false)}>close it</button>
-                    <button
-                        onClick={() => {
-                            setDecision('share-feedback-only')
-                            setIsOpen(true)
-                        }}
-                    >
-                        reopen with feedback only
-                    </button>
+                    <button onClick={() => setConfirming(null)}>close it</button>
+                    <button onClick={() => setConfirming('share-feedback-only')}>reopen with feedback only</button>
                     <SubmitOutputsDecisionModal
-                        decision={decision}
+                        decision={confirming}
                         labName={LAB}
-                        isOpen={isOpen}
                         isSubmitting={false}
-                        onClose={() => setIsOpen(false)}
+                        onClose={() => setConfirming(null)}
                         onConfirm={vi.fn()}
                     />
                 </>
@@ -100,6 +89,8 @@ describe('SubmitOutputsDecisionModal', () => {
         expect(screen.queryByText(SHARE_OUTPUTS_BODY)).toBeNull()
     })
 
+    // Focus restoration is Mantine's own returnFocus, which works because this component stays
+    // mounted across close; the e2e covers it end to end against a real trigger.
     it('closes without submitting from Cancel', async () => {
         const { onClose, onConfirm } = renderModal('share-outputs')
 

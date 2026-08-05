@@ -98,7 +98,10 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     if (!isVisible) return null
     return (
         <>
-            <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
+            {/* The reviewer decrypts via the zip's embedded manifest, which is encrypted to the
+                enclave keys; they hold no re-wrapped per-file keys, so the researcher key set
+                would come back empty. */}
+            <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
             <Group>
                 <PreviousStepLink previousHref={previousHref} />
             </Group>
@@ -123,7 +126,7 @@ type UnlockedPhaseProps = {
     previousHref: Route
 }
 
-// Split from the panel so the hooks below run only once decryption has happened — mounting the
+// Split from the panel so the hooks below run only once decryption has happened: mounting the
 // collaborative editor (and its websocket) behind a still-locked key would be wasted work.
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     decryptedFiles,
@@ -199,9 +202,8 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 </Button>
             </Group>
             <SubmitOutputsDecisionModal
-                decision={decision.selected}
+                decision={decision.confirming}
                 labName={labName}
-                isOpen={decision.isModalOpen}
                 isSubmitting={decision.isSubmitting}
                 onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}

@@ -111,7 +111,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
+                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
