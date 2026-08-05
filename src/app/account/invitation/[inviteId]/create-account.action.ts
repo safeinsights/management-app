@@ -8,6 +8,9 @@ import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
 
+// `claim PendingUser` is unconditioned in permissions.ts, so it grants every signed-in user the
+// verb on every invite. The `claimedByUserId is null` guard is what stops one user burning an
+// invite that belongs to (or was already accepted by) somebody else.
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
     .requireAbilityTo('claim', 'PendingUser')
@@ -16,9 +19,17 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             .updateTable('pendingUser')
             .set({ claimedByUserId: session.user.id })
             .where('id', '=', inviteId)
-            .executeTakeFirstOrThrow()
+            .where('claimedByUserId', 'is', null)
+            // returning() so an update that matched nothing yields no row and raises, rather than
+            // an UpdateResult that looks like success regardless of how many rows were touched.
+            .returning('id')
+            .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
     })
 
+// Deliberately callable without a session: the invite link is opened before the recipient has an
+// account, and the signup page needs the org name and invited email to render. Exposure is limited
+// by the query rather than by an ability rule — only an unclaimed invite resolves, so a link that
+// has already been accepted stops disclosing the invitee's email and the inviting user's name.
 export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
     .params(
         z.object({
@@ -40,6 +51,7 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
                 'invitingUser.lastName as invitingUserLastName',
             ])
             .where('pendingUser.id', '=', inviteId)
+            .where('pendingUser.claimedByUserId', 'is', null)
             .executeTakeFirstOrThrow()
     })
 
@@ -80,47 +92,63 @@ export const onRevokeInviteAction = new Action('onRevokeInviteAction')
         await db.deleteFrom('pendingUser').where('id', '=', invite.id).executeTakeFirstOrThrow()
     })
 
-const callerOwnsEmail = async (clerkUserId: string, email: string) => {
+const callerEmails = async (clerkUserId: string) => {
     const clerk = await clerkClient()
     const clerkUser = await clerk.users.getUser(clerkUserId)
-    return clerkUser.emailAddresses.some((ea) => ea.emailAddress.toLowerCase() === email.toLowerCase())
+    return clerkUser.emailAddresses
 }
 
+const callerOwnsEmail = async (clerkUserId: string, email: string) => {
+    const emails = await callerEmails(clerkUserId)
+    return emails.some((ea) => ea.emailAddress.toLowerCase() === email.toLowerCase())
+}
+
+// Clerk returns unverified addresses too, and anyone can add an arbitrary address to their own
+// account. Only a verified address proves the caller controls that mailbox, which is the whole
+// basis for accepting an invite addressed to it.
+const callerOwnsVerifiedEmail = async (clerkUserId: string, email: string) => {
+    const emails = await callerEmails(clerkUserId)
+    return emails.some(
+        (ea) => ea.emailAddress.toLowerCase() === email.toLowerCase() && ea.verification?.status === 'verified',
+    )
+}
+
+// Accepting an invite grants org membership (possibly as admin), so the acting identity must come
+// from the session, never from a parameter. The previous version took a `loggedInEmail` param and
+// granted membership to whichever account owned it, then created and force-verified the invite
+// email on that account — an unauthenticated account-takeover primitive (OTTER-724 / MA-9).
+//
+// There is no ability rule to gate this on: the invitee is by definition not yet a member of the
+// inviting org, so authorization is "the session already owns the invited address", checked below.
 export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(
         z.object({
             inviteId: z.string(),
-            loggedInEmail: z.string().optional(), // provide if merging team invite to existing user account
         }),
     )
 
-    .handler(async function ({ params: { inviteId, loggedInEmail }, db }) {
+    .handler(async function ({ params: { inviteId }, db, session }) {
+        // Without requireAbilityTo the handler is reached with a null session, so require one here.
+        if (!session) {
+            throw new ActionFailure({ permission_denied: 'cannot accept this invite' })
+        }
+
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
             .where('id', '=', inviteId)
+            .where('claimedByUserId', 'is', null)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        let user = await db
+        if (!(await callerOwnsVerifiedEmail(session.user.clerkUserId, invite.email))) {
+            throw new ActionFailure({ permission_denied: 'cannot accept this invite' })
+        }
+
+        const user = await db
             .selectFrom('user')
             .select(['id', 'email', 'clerkId'])
-            .where('email', '=', loggedInEmail ? loggedInEmail : invite.email)
+            .where('id', '=', session.user.id)
             .executeTakeFirst()
-
-        // If user not found by email, check if email belongs to any existing Clerk user (handles merged emails)
-        if (!user) {
-            const clerk = await clerkClient()
-            const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
-
-            if (clerkUsers.data.length > 0) {
-                // Check if this Clerk user has a corresponding user in the DB
-                user = await db
-                    .selectFrom('user')
-                    .select(['id', 'email', 'clerkId'])
-                    .where('clerkId', '=', clerkUsers.data[0].id)
-                    .executeTakeFirst()
-            }
-        }
 
         if (!user) {
             throw new ActionFailure({ user: 'does not exist' })
@@ -135,8 +163,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .executeTakeFirst()
 
             // If the user is already a member, we simply return the user so the
-            // rest of the handler can continue (adding the invite email to the
-            // account, marking the invite as claimed, etc.).
+            // rest of the handler can continue (marking the invite as claimed, etc.).
             if (orgUser) {
                 return user
             }
@@ -153,19 +180,6 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
 
             return user
         })
-
-        if (loggedInEmail) {
-            // add the invite email to the existing user's email addresses in clerk
-            const clerk = await clerkClient()
-
-            const emailAddress = await clerk.emailAddresses.createEmailAddress({
-                userId: user.clerkId,
-                emailAddress: invite.email,
-            })
-
-            // auto-verify email (the user has already followed the email invite link)
-            await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
-        }
 
         await updateClerkUserMetadata(siUser.id)
         onUserAcceptInvite(siUser.id)
@@ -193,16 +207,19 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 firstName: z.string(),
                 lastName: z.string(),
                 password: z.string(),
-                confirmPassword: z.string(),
             }),
         }),
     )
 
     .handler(async function ({ params: { inviteId, form }, db }) {
+        // Unauthenticated by necessity — this is what creates the account the invite is for — so
+        // the invite id is the only credential. A claimed invite is spent and must not create a
+        // second account or re-grant membership.
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
             .where('id', '=', inviteId)
+            .where('claimedByUserId', 'is', null)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
         const clerk = await clerkClient()

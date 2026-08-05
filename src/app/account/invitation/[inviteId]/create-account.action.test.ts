@@ -1,5 +1,12 @@
 import { db } from '@/database'
-import { actionResult, faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -60,7 +67,6 @@ describe('Create Account Actions', () => {
             firstName: 'Test',
             lastName: 'User',
             password: 'password',
-            confirmPassword: 'password',
         }
 
         const invite = await db
@@ -85,7 +91,6 @@ describe('Create Account Actions', () => {
             firstName: 'Test',
             lastName: 'User',
             password: 'password',
-            confirmPassword: 'password',
         }
 
         const result = await onCreateAccountAction({ inviteId: v7(), form })
@@ -128,7 +133,6 @@ describe('Create Account Actions', () => {
             firstName: 'Test',
             lastName: 'User',
             password: 'hunter2',
-            confirmPassword: 'hunter2',
         }
 
         const result = await onCreateAccountAction({ inviteId: invite.id, form })
@@ -158,11 +162,36 @@ describe('Create Account Actions', () => {
             firstName: 'Test',
             lastName: 'User',
             password: 'password',
-            confirmPassword: 'password',
         }
         const result = await onCreateAccountAction({ inviteId: invite.id, form })
         expect(result).toEqual({ error: expect.objectContaining({ user: 'already has account' }) })
     })
+
+    // Signs in the given DB user and reports `verifiedEmails` as their verified Clerk addresses,
+    // which is what onJoinTeamAccountAction now authorizes against.
+    const signInAs = async (
+        user: { id: string; clerkId: string; email: string | null },
+        orgSlug: string,
+        verifiedEmails: string[] = [user.email!],
+    ) => {
+        // Non-null: mockClerkSession only returns undefined for a null (signed-out) argument.
+        const mocks = mockClerkSession({
+            userId: user.id,
+            clerkUserId: user.clerkId,
+            email: user.email ?? undefined,
+            orgSlug,
+        })!
+
+        mocks.client.users.getUser = vi.fn(async () => ({
+            id: user.clerkId,
+            emailAddresses: verifiedEmails.map((emailAddress) => ({
+                emailAddress,
+                verification: { status: 'verified' },
+            })),
+        })) as unknown as typeof mocks.client.users.getUser
+
+        return mocks
+    }
 
     it('onJoinTeamAccountAction adds to existing user', async () => {
         const { user } = await insertTestUser({ org })
@@ -180,6 +209,8 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
+        await signInAs(user, org.slug)
+
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         const userId = result.id
         expect(userId).toEqual(user.id)
@@ -191,6 +222,120 @@ describe('Create Account Actions', () => {
                 expect.objectContaining({ orgId: newOrg.id }),
             ]),
         )
+    })
+
+    it('onJoinTeamAccountAction accepts an invite addressed to a secondary verified address', async () => {
+        // The merge case: the account signs in under its primary address but the invite was sent to
+        // another address it has already verified on the same Clerk account.
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const secondaryEmail = faker.internet.email({ provider: 'test.com' })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: secondaryEmail,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await signInAs(user, org.slug, [user.email!, secondaryEmail])
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.id).toEqual(user.id)
+
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(orgUsers).toEqual(expect.arrayContaining([expect.objectContaining({ orgId: newOrg.id })]))
+    })
+
+    it('onJoinTeamAccountAction refuses an invite the session has not verified', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        // The attacker's own signed-in account. The invite belongs to somebody else entirely; the
+        // pre-fix action would have granted membership based on a client-supplied email.
+        const { user: attacker } = await insertTestUser({ org })
+        const targetOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: targetOrg.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: true,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await signInAs(attacker, org.slug)
+
+        const result = await onJoinTeamAccountAction({
+            inviteId: invite.id,
+            // Third-party identity claim that used to be honoured.
+            loggedInEmail: attacker.email!,
+        } as { inviteId: string })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', attacker.id).execute()
+        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
+
+        const untouched = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(untouched.claimedByUserId).toBeNull()
+    })
+
+    it('onJoinTeamAccountAction refuses an unauthenticated caller', async () => {
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
+    })
+
+    it('onJoinTeamAccountAction refuses an already-claimed invite', async () => {
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await signInAs(user, org.slug)
+
+        const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
     })
 
     it('onJoinTeamAccountAction returns needsUserKey true for enclave org without existing key', async () => {
@@ -209,6 +354,8 @@ describe('Create Account Actions', () => {
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        await signInAs(user, labOrg.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         expect(result.needsUserKey).toBe(true)
@@ -229,6 +376,8 @@ describe('Create Account Actions', () => {
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        await signInAs(user, org.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         expect(result.needsUserKey).toBe(false)
@@ -253,55 +402,9 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
+        await signInAs(user, existingLabOrg.slug)
+
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.needsUserKey).toBe(true)
-    })
-
-    it('onJoinTeamAccountAction merges a second email into a key-holding account without re-prompting', async () => {
-        // Existing enclave-org account already holds a key. It accepts an invite addressed to a
-        // DIFFERENT email (the merge case) while logged in under its own email.
-        const { user } = await insertTestUser({ org })
-        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-
-        const invite = await db
-            .insertInto('pendingUser')
-            .values({
-                orgId: newOrg.id,
-                email: faker.internet.email({ provider: 'test.com' }),
-                isAdmin: false,
-                invitedByUserId: invitingUser.user.id,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id, loggedInEmail: user.email! }))
-
-        // Same account (not the invite email), and the combined key status suppresses the prompt.
-        expect(result.id).toEqual(user.id)
-        expect(result.needsUserKey).toBe(false)
-    })
-
-    it('onJoinTeamAccountAction merging into a keyless account reflects combined status and prompts once', async () => {
-        // Account seeded via a lab org → keyless. Merging a second email must re-evaluate key status
-        // at the account level immediately (no re-login) and still prompt for a key.
-        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user } = await insertTestUser({ org: labOrg })
-        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-
-        const invite = await db
-            .insertInto('pendingUser')
-            .values({
-                orgId: newOrg.id,
-                email: faker.internet.email({ provider: 'test.com' }),
-                isAdmin: false,
-                invitedByUserId: invitingUser.user.id,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id, loggedInEmail: user.email! }))
-
-        expect(result.id).toEqual(user.id)
         expect(result.needsUserKey).toBe(true)
     })
 
@@ -418,6 +521,33 @@ describe('Create Account Actions', () => {
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
     })
 
+    it('onPendingUserLoginAction cannot re-claim an invite another user already claimed', async () => {
+        await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onPendingUserLoginAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+
+        const unchanged = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.claimedByUserId).toBe(invitingUser.user.id)
+    })
+
     it('getOrgInfoForInviteAction returns org information for valid invite', async () => {
         const invite = await db
             .insertInto('pendingUser')
@@ -443,5 +573,45 @@ describe('Create Account Actions', () => {
     it('getOrgInfoForInviteAction throws error for invalid invite', async () => {
         const result = await getOrgInfoForInviteAction({ inviteId: v7() })
         expect(result).toEqual({ error: expect.stringContaining('no result') })
+    })
+
+    it('getOrgInfoForInviteAction discloses nothing for an already-claimed invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await getOrgInfoForInviteAction({ inviteId: invite.id })
+        expect(result).toEqual({ error: expect.stringContaining('no result') })
+    })
+
+    it('onCreateAccountAction refuses an already-claimed invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onCreateAccountAction({
+            inviteId: invite.id,
+            form: { firstName: 'Test', lastName: 'User', password: 'password' },
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        const created = await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()
+        expect(created).toBeUndefined()
     })
 })

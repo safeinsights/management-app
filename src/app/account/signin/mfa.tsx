@@ -75,14 +75,11 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
-                                const joinResult = actionResult(
-                                    await onJoinTeamAccountAction({
-                                        inviteId,
-                                        loggedInEmail: signInAttempt?.identifier || undefined,
-                                    }),
-                                )
+                                // Read the org before joining: accepting marks the invite claimed,
+                                // and the lookup only resolves unclaimed invites.
+                                const { slug, name } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                const joinResult = actionResult(await onJoinTeamAccountAction({ inviteId }))
 
-                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
                                 const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
                                 if (joinResult?.needsUserKey) {
                                     // First-time key generation: return to the inviting org's dashboard after.
@@ -92,16 +89,15 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     redirectUrl = orgDashboard as Route
                                 }
 
-                                const email = signInAttempt?.identifier || 'your account'
                                 notifications.show({
                                     color: 'green',
-                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
+                                    message: `You've successfully joined ${name}.`,
                                 })
                                 await auth.getToken({ skipCache: true })
                             } catch {
                                 notifications.show({
                                     color: 'red',
-                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                    message: `Failed to accept your invitation. Please try again.`,
                                 })
                             }
                         }

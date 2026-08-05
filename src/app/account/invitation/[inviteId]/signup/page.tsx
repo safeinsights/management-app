@@ -71,8 +71,10 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        mutationFn: ({ termsAccepted: _termsAccepted, ...form }: FormValues) =>
-            onCreateAccountAction({ inviteId, form }),
+        // confirmPassword and termsAccepted are client-side concerns; the action's schema has
+        // neither, so only the fields it actually uses are sent.
+        mutationFn: ({ firstName, lastName, password }: FormValues) =>
+            onCreateAccountAction({ inviteId, form: { firstName, lastName, password } }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
             if (!signIn || !setActive) {
