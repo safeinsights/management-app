@@ -5,7 +5,7 @@ import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
-import { getOrgBySlug, isLabOrg, StudyDocumentType, type UserSession } from '@/lib/types'
+import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import {
@@ -161,30 +161,20 @@ const onSaveDraftStudyActionArgsSchema = z.object({
     studyInfo: draftStudyApiSchema,
 })
 
-// OTTER-719: `submittingOrgSlug` arrives as a client param and `getOrgIdFromSlug` resolves any slug,
-// so without this a caller could stamp another lab's id onto a new study — which would then grant that
-// lab IDE access to it under the submittedByOrgId-scoped `load IDE` rule. `create Study` is
-// unconditioned by design (a new draft has no submittedByOrgId yet), making this the only place the
-// submitting lab can be checked. SI admins hold `manage all` and are exempt.
-function requireSubmittingLabMembership(session: UserSession, submittingOrgSlug: string) {
-    if (session.user.isSiAdmin) return
-
-    const org = getOrgBySlug(session, submittingOrgSlug)
-    if (!org || !isLabOrg(org)) {
-        throw new ActionFailure({
-            permission_denied: `is not a member of research lab ${submittingOrgSlug}`,
-        })
-    }
-}
-
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
     .params(onSaveDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    // OTTER-719: `submittingOrgSlug` is a client param and `getOrgIdFromSlug` resolves any slug, so a
+    // caller could otherwise stamp another lab's id onto a new study and gain IDE access to it under
+    // the submittedByOrgId-scoped `load IDE` rule. Resolving the slug to `submittedByOrgId` here puts
+    // it in the ability subject, so `create Study` enforces lab membership through the same CASL rule
+    // as update/delete rather than a hand-rolled check in the handler that authz review would miss.
+    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await getOrgIdFromSlug({ orgSlug })),
+        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    }))
     .requireAbilityTo('create', 'Study')
-    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+    .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
         const userId = session.user.id
-        requireSubmittingLabMembership(session, submittingOrgSlug)
-        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
@@ -201,7 +191,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 agreementDocPath: studyInfo.agreementDocPath || null,
                 orgId,
                 researcherId: userId,
-                submittedByOrgId: submittingLab.orgId,
+                submittedByOrgId,
                 containerLocation,
                 status: 'DRAFT',
             })

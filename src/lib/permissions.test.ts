@@ -93,17 +93,21 @@ test('researcher role', () => {
         ability.can('approve', toRecord('Study', { orgId: ownLabId })),
     ).toBe(false)
 
-    expect(ability.can('create', 'Study')).toBe(true)
-
-    // update/delete are scoped to studies the researcher's own lab submitted
+    // create/update/delete are scoped to studies the researcher's own lab submitted
+    expect(ability.can('create', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('update', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('delete', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: ownLabId }))).toBe(true)
 
     // ...but not studies submitted by a different lab
+    expect(ability.can('create', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('update', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('delete', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: otherLabId }))).toBe(false)
+
+    // Fail-closed: creating with no submitting lab in the subject is denied, so a caller cannot
+    // slip past the scope by omitting the field (OTTER-719).
+    expect(ability.can('create', toRecord('Study', {}))).toBe(false)
 
     // Researchers cannot invite users to their org (not admins)
     expect(ability.can('invite', toRecord('User', { orgId: ownLabId }))).toBe(false)

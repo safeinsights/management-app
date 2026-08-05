@@ -75,15 +75,13 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any research orgs can create studies for ANY org.
-    // create is unconditioned: a new draft has no submittedByOrgId yet — the
-    // submitting lab is chosen in the handler and validated against the user's
-    // own lab orgs there (onSaveDraftStudyAction), since the slug arrives as a
-    // client param. update, delete, job mutations, and IDE access are scoped to
-    // studies the user's lab submitted, so a lab member can't reach another
-    // lab's study by guessing its id.
+    // users who belong to any research orgs can create studies for ANY enclave org, but only ON
+    // BEHALF OF one of their own labs: onSaveDraftStudyAction's middleware resolves the requested
+    // submitting-lab slug into submittedByOrgId, so create is scoped here exactly like update and
+    // delete (OTTER-719). A lab member can neither reach another lab's study by guessing its id nor
+    // create one attributed to a lab they don't belong to.
     if (usersResearcherOrgIds.length) {
-        permit('create', 'Study')
+        permit('create', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
