@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
@@ -44,6 +44,8 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         }
     }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
+    const widgetBlur = useWidgetBlur(() => form.validateField('language'))
+
     // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
     // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
     // applies Mantine's error styling without adding a second message (OTTER-647).
@@ -71,7 +73,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                 <Grid align="flex-start">
                     <Grid.Col span={12}>
                         {/* Radio.Group's blur is a bubbled focusout, so tabbing between the radios
-                            would validate a still-empty group. widgetBlurHandler waits for focus to
+                            would validate a still-empty group. useWidgetBlur waits for the user to
                             leave the group entirely (OTTER-647). */}
                         {/* Radio.Group puts role="radiogroup" on an inner element that takes its
                             name from `labelProps.id` and its description from Mantine's own
@@ -88,7 +90,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             inputWrapperOrder={['input']}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
-                            onBlur={widgetBlurHandler(() => form.validateField('language'))}
+                            {...widgetBlur}
                         >
                             <Group gap="xl">{languageRadios}</Group>
                         </Radio.Group>

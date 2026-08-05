@@ -6,7 +6,7 @@ import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { WordCounter } from '@/components/word-counter'
-import { fieldDescribedBy, fieldDescriptionId, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
+import { fieldDescribedBy, fieldDescriptionId, fieldErrorId, useWidgetBlur } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { OutputsDecision } from '@/lib/outputs-review'
@@ -68,6 +68,8 @@ type DecisionRadioGroupProps = {
 const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
 
 const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBlur, error, labName }) => {
+    const widgetBlur = useWidgetBlur(onBlur)
+
     // Mantine's Radio renders a native <input type="radio">; Radio.Group gives them a shared
     // `name`, so mutual exclusivity and arrow-key navigation are the browser's, not simulated.
     //
@@ -98,7 +100,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
         // do nothing (see focusFirstInvalid).
         <Box id={DECISION_GROUP_ID}>
             {/* Blur is a bubbled focusout, so moving between the two radios would validate a
-                still-empty group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+                still-empty group; useWidgetBlur waits for the user to leave it (OTTER-647).
                 The group's name is required by AT but is not drawn in the design, so the label is
                 visually hidden rather than dropped.
                 inputWrapperOrder moves the message above the options, where the design puts it;
@@ -106,7 +108,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
             <Radio.Group
                 value={value ?? ''}
                 onChange={(next) => onChange(next as OutputsDecision)}
-                onBlur={widgetBlurHandler(onBlur)}
+                {...widgetBlur}
                 name="outputs-decision"
                 label={<VisuallyHidden>Sharing decision</VisuallyHidden>}
                 error={errorNode}

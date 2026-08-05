@@ -124,7 +124,7 @@ describe('CodeEnvs', async () => {
     // OTTER-647: the form seeded starterCodes as undefined, so the create schema's array type
     // check failed before `.min(1)` could run and Save surfaced Zod's internal
     // "expected array, received undefined" instead of naming the requirement.
-    it('names the starter code requirement in plain language', { timeout: 15000 }, async () => {
+    it('names the starter code requirement in plain language', async () => {
         renderWithProviders(<CodeEnvs />)
 
         fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
@@ -149,9 +149,45 @@ describe('CodeEnvs', async () => {
         expect(screen.queryByText(/At least one starter code file is required/i)).not.toBeInTheDocument()
 
         // The dropzone has no input to blur, so "left incomplete" is visited-then-left-empty.
-        fireEvent.blur(screen.getByText(/Drop files or click to browse/i))
+        fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
         expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+    })
+
+    // The `[]` seeding above is what lets the create schema report its own requirement, but it
+    // also reaches the edit path, where the file list is optional and an empty one would read as
+    // "the admin cleared the starter code" rather than "left the existing files alone".
+    it('saves an edit with an untouched dropzone and keeps the existing starter code', async () => {
+        const codeEnv = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Editable Env',
+            language: 'R',
+            starterCodeFileNames: ['existing.R'],
+        })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => expect(screen.getByText('Editable Env')).toBeInTheDocument())
+
+        fireEvent.click(screen.getByRole('button', { name: /edit editable env/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Edit Code Environment/i })).toBeInTheDocument()
+        })
+
+        const nameInput = screen.getByLabelText(/Name/i)
+        await userEvent.clear(nameInput)
+        await userEvent.type(nameInput, 'Renamed Env')
+        await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
+
+        await waitFor(() => expect(screen.getByText('Renamed Env')).toBeInTheDocument())
+
+        const saved = await db
+            .selectFrom('orgCodeEnv')
+            .select(['name', 'starterCodeFileNames'])
+            .where('id', '=', codeEnv.id)
+            .executeTakeFirstOrThrow()
+
+        expect(saved.name).toBe('Renamed Env')
+        expect(saved.starterCodeFileNames).toEqual(['existing.R'])
     })
 
     it('hides delete when there is only one code environment', async () => {

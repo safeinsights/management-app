@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 import type { DecisionOption, StudyForReview } from './review-types'
 import { DECISION_OPTIONS } from './review-types'
 
@@ -37,9 +37,21 @@ const RADIO_STYLES = {
 }
 
 export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisionSectionProps) {
-    if (isSubmittedProposalReviewStatus(study.status)) {
-        return null
-    }
+    return (
+        <DecisionPanel
+            decision={decision}
+            labName={labName}
+            isVisible={!isSubmittedProposalReviewStatus(study.status)}
+        />
+    )
+}
+
+type DecisionPanelProps = Omit<ReviewDecisionSectionProps, 'study'> & { isVisible: boolean }
+
+function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
+    const widgetBlur = useWidgetBlur(decision.onBlur)
+
+    if (!isVisible) return null
 
     const handleChange = (value: string) => {
         decision.onSelect(value as Decision)
@@ -71,7 +83,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
                 review.
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still
-                empty group; widgetBlurHandler waits for focus to leave it (OTTER-647). */}
+                empty group; useWidgetBlur waits for the user to leave it (OTTER-647). */}
             {/* A real `label`, not `aria-label`: Radio.Group names the element carrying
                 role="radiogroup" from its rendered label, and strands a hand-passed `aria-label`
                 on the roleless outer wrapper. Using the prop also makes `withAsterisk` render,
@@ -79,7 +91,7 @@ export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisi
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
-                onBlur={widgetBlurHandler(decision.onBlur)}
+                {...widgetBlur}
                 name="review-decision"
                 label="Initial request decision"
                 labelProps={{ fw: 600 }}

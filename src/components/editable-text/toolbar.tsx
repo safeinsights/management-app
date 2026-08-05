@@ -141,21 +141,28 @@ export const Toolbar = () => {
         runOnEditor(() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format))
     }
 
+    // The decision is read out of the editor state, but the dispatch happens after the read
+    // closes: unlinking has to go through runOnEditor like every other command, or it leaves the
+    // caret wherever Lexical dropped it and the field reads the toolbar click as "left incomplete"
+    // (OTTER-647). Opening the link editor is the one command that should move focus, so it does
+    // not restore it.
     const toggleLink = () => {
-        editor.getEditorState().read(() => {
+        const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()
-            if (!$isRangeSelection(selection)) return
+            if (!$isRangeSelection(selection)) return null
 
             const node = selection.anchor.getNode()
             const parent = node.getParent()
-            const existingUrl = $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null
-
-            if (existingUrl) {
-                editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
-            } else {
-                linkEditor.openLinkEditor(null)
-            }
+            return { existingUrl: $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null }
         })
+
+        if (!selected) return
+
+        if (selected.existingUrl) {
+            runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
+        } else {
+            linkEditor.openLinkEditor(null)
+        }
     }
 
     const toggleList = (type: 'bullet' | 'number') => {

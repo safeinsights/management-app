@@ -1,5 +1,6 @@
-import { type FC, type ReactNode } from 'react'
+import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
 import { Box, Group, Input } from '@mantine/core'
+import { useClickOutside } from '@mantine/hooks'
 
 /**
  * Chrome (label / description / error) for controls that Mantine's own inputs cannot
@@ -100,74 +101,60 @@ export function revalidateOnBlur(form: ValidatableForm, path: string) {
     }
 }
 
-/**
- * Element the user last pressed on, with no key pressed since.
- *
- * {@link widgetBlurHandler} needs it because `relatedTarget` is null for two opposite cases and
- * focus alone cannot tell them apart. The press target can: see the pointer branch there.
- * Registered in the capture phase so a handler that stops propagation can't hide the press, and
- * cleared on keydown so a keyboard-driven blur (Tab out of a widget, Escape) is never mistaken
- * for a leftover click.
- */
-let lastPointerDownTarget: Node | null = null
-
-if (typeof document !== 'undefined') {
-    document.addEventListener(
-        'pointerdown',
-        (event) => {
-            lastPointerDownTarget = event.target as Node | null
-        },
-        true,
-    )
-    document.addEventListener(
-        'keydown',
-        () => {
-            lastPointerDownTarget = null
-        },
-        true,
-    )
-}
-
-/** Test-only: drops the recorded press so one case can't leak into the next. */
-export function __resetLastPointerDownForTests(): void {
-    lastPointerDownTarget = null
+export interface WidgetBlurProps<T extends HTMLElement> {
+    /** Attach to the widget root. Scopes the click-outside listener to it. */
+    ref: React.RefObject<T | null>
+    onFocus: () => void
+    onBlur: (event: FocusEvent<T>) => void
 }
 
 /**
- * Wraps a blur callback so it fires only when focus leaves the whole widget.
+ * Fires `onLeave` once the user has visited a composite widget and then moved on.
  *
  * Composite widgets (Lexical editor plus toolbar, pills plus their remove buttons, a radio
  * group's radios) emit blur as focus moves *between* their internal parts, because React's
- * `onBlur` is `focusout` and bubbles. Validating on those flashes an error mid-interaction.
+ * `onBlur` is `focusout` and bubbles. Validating on those flashes an error mid-interaction, so
+ * "moved on" has to be read from two separate signals rather than from blur alone:
  *
- * A null `relatedTarget` is ambiguous and must not be treated as "still inside". Two checks
- * disambiguate it, in order:
+ * - **Pointer.** `useClickOutside` listens on `mousedown` / `touchstart` scoped to {@link
+ *   WidgetBlurProps.ref}, so the press target decides. A press inside the widget never reaches
+ *   the handler, which is what fixes the toolbar case (OTTER-647): Lexical re-renders the surface
+ *   holding the caret, dropping focus to `<body>` with a null `relatedTarget` even though the
+ *   user is still writing. Reading that off the focus event is guesswork; reading it off the
+ *   press is not.
+ * - **Keyboard.** `onBlur` handles Tab, which produces no press at all. A non-null
+ *   `relatedTarget` outside the widget is unambiguous, so that is the only case it acts on.
+ *   A null `relatedTarget` is left to the pointer signal, which also means switching tab or
+ *   window no longer needs a `document.hasFocus()` probe: no press, no validation.
  *
- * - `document.hasFocus()` separates an in-page click (stays true) from the tab or window losing
- *   focus (goes false). Only the first is the user moving on.
- * - The press target separates a click on neutral page space, which IS moving on, from a widget
- *   that dropped focus to `<body>` while re-rendering its own internals, which is not. Clicking
- *   the Lexical toolbar does the latter: Lexical re-renders the surface holding the caret, so
- *   focus lands on `<body>` even though `mousedown` was prevented and the user is still writing
- *   (OTTER-647). Treating that as leaving raised "Feedback is required." mid-sentence.
+ * `onFocus` gates both. Without it an outside press would validate every widget on the page,
+ * including ones the user has not reached yet, and the required error would appear on the first
+ * click anywhere.
  *
- * Getting the first check wrong silently defeats the feature: clicking neutral space is the
- * commonest way to leave a field, so skipping it means the required error never appears at all.
+ * Deliberately not `useFocusWithin`: its containment check treats a null `relatedTarget` as
+ * having left, which is the exact bug above.
  */
-export function widgetBlurHandler(onLeave: (event: React.FocusEvent<HTMLElement>) => void) {
-    return (event: React.FocusEvent<HTMLElement>) => {
-        const widget = event.currentTarget
-        const next = event.relatedTarget as Node | null
+export function useWidgetBlur<T extends HTMLElement = HTMLDivElement>(onLeave?: () => void): WidgetBlurProps<T> {
+    const visited = useRef(false)
 
-        if (next) {
-            if (widget.contains(next)) return
-            onLeave(event)
-            return
-        }
+    const leave = () => {
+        if (!visited.current) return
+        visited.current = false
+        onLeave?.()
+    }
 
-        if (typeof document !== 'undefined' && !document.hasFocus()) return
-        if (lastPointerDownTarget && widget.contains(lastPointerDownTarget)) return
-        onLeave(event)
+    const ref = useClickOutside<T>(leave)
+
+    return {
+        ref,
+        onFocus: () => {
+            visited.current = true
+        },
+        onBlur: (event: FocusEvent<T>) => {
+            const next = event.relatedTarget
+            if (!next || event.currentTarget.contains(next)) return
+            leave()
+        },
     }
 }
 

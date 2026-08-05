@@ -179,7 +179,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const handleEdit = async (values: EditFormValues) => {
         const { starterCodes, ...rest } = values
-        const starterCodeUploaded = !!starterCodes?.length
+        const newStarterCodes = starterCodes?.length ? starterCodes : null
 
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
@@ -190,8 +190,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             // Omitted rather than sent empty. The form seeds `starterCodes` as `[]` so the
             // create schema can report its own requirement, and on edit an empty array would
             // read as "the admin cleared the list" instead of "left the existing files alone".
-            starterCodeFileNames: starterCodeUploaded ? starterCodes?.map((f) => f.name) : undefined,
-            starterCodeUploaded,
+            starterCodeFileNames: newStarterCodes?.map((f) => f.name),
+            starterCodeUploaded: !!newStarterCodes,
             sampleDataUploaded,
         })
         if (isActionError(result)) throw result
@@ -200,8 +200,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             await createAthenaTablesAction({ codeEnvId: image!.id })
         }
 
-        if (starterCodes?.length) {
-            await uploadStarterCodes(orgSlug, image!.id, starterCodes)
+        if (newStarterCodes) {
+            await uploadStarterCodes(orgSlug, image!.id, newStarterCodes)
         }
 
         return result

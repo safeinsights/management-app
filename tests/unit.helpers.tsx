@@ -120,14 +120,23 @@ export const createTestQueryWrapper = () => {
     return Wrapper
 }
 
-export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
+/**
+ * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, so the
+ * editable node is in the DOM instead of held behind a skeleton waiting on a live websocket. It
+ * belongs here rather than in a per-test provider stack: a hand-rolled wrapper silently opts out
+ * of the query client, modals and spy mode, and drifts as this helper gains providers.
+ */
+export function renderWithProviders(
+    ui: ReactElement,
+    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean },
+) {
     const testQueryClient = createTestQueryClient()
 
     return render(
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
                 <SpyModeProvider>
-                    <YjsWebsocketProvider>
+                    <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
                         <ModalsProvider>{ui}</ModalsProvider>
                     </YjsWebsocketProvider>
                 </SpyModeProvider>

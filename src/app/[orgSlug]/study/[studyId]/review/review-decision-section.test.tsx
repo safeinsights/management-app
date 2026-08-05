@@ -12,15 +12,33 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ReviewDecisionSection } from './review-decision-section'
 
-function Wrapper({ study, labName = 'Rice University' }: { study: Submitted<SelectedStudy>; labName?: string }) {
+// `withLeaveButton` is opt-in so the cases that only read the rendered options keep the DOM they
+// have always had; a control present in every case would widen what any broad query here sees.
+function Wrapper({
+    study,
+    labName = 'Rice University',
+    withLeaveButton = false,
+}: {
+    study: Submitted<SelectedStudy>
+    labName?: string
+    withLeaveButton?: boolean
+}) {
     const decision = useReviewDecision()
     return (
         <>
             <ReviewDecisionSection decision={decision} study={study} labName={labName} />
-            <button type="button" onClick={() => decision.onBlur()}>
-                leave the group
-            </button>
+            <LeaveGroupButton isVisible={withLeaveButton} onLeave={decision.onBlur} />
         </>
+    )
+}
+
+// Drives the error state through the component's own blur path rather than reaching into the form.
+function LeaveGroupButton({ isVisible, onLeave }: { isVisible: boolean; onLeave: () => void }) {
+    if (!isVisible) return null
+    return (
+        <button type="button" onClick={onLeave}>
+            leave the group
+        </button>
     )
 }
 
@@ -129,7 +147,7 @@ describe('ReviewDecisionSection', () => {
     // while the circles stayed grey and the invalid options were unmarked (OTTER-647).
     it('marks the radio circles invalid, not just the message', async () => {
         const user = userEvent.setup()
-        renderWithProviders(<Wrapper study={study} />)
+        renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
         expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
 
@@ -142,7 +160,7 @@ describe('ReviewDecisionSection', () => {
 
     it('clears the circles once a decision is picked', async () => {
         const user = userEvent.setup()
-        renderWithProviders(<Wrapper study={study} />)
+        renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
         await user.click(screen.getByRole('button', { name: 'leave the group' }))
         await screen.findByText('Select a decision to continue.')

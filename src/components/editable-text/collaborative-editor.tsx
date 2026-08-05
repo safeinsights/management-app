@@ -25,7 +25,7 @@ import { SaveStatusIndicator } from '@/components/save-status'
 import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 
 function SaveStatus({ provider, isVisible }: { provider: HocuspocusProvider | null; isVisible: boolean }) {
     const status = useProviderSaveStatus(provider)
@@ -260,6 +260,7 @@ export function CollaborativeEditor({
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
+    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
     const providerRef = useRef<HocuspocusProvider | null>(null)
     // State mirror of providerRef — the ref is needed for synchronous access in
     // the factory callback; state is needed so the cleanup effect can depend on
@@ -369,7 +370,7 @@ export function CollaborativeEditor({
                         position: 'relative',
                         borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
                     }}
-                    onBlur={onBlur ? widgetBlurHandler(onBlur) : undefined}
+                    {...widgetBlur}
                 >
                     <RichTextPlugin
                         contentEditable={
