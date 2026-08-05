@@ -6,6 +6,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import { connection } from 'next/server'
+import { getCspNonce } from '@/lib/csp'
 
 // this page must be dynamically rendered
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
     }
 
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} nonce={await getCspNonce()}>
             <SentryUserProvider />
             <AppShell>{children}</AppShell>
         </ClerkProvider>

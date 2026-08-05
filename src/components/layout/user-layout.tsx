@@ -9,6 +9,7 @@ import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
 import { connection } from 'next/server'
+import { getCspNonce } from '@/lib/csp'
 
 type Props = {
     children: ReactNode
@@ -29,7 +30,7 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
     }
 
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} nonce={await getCspNonce()}>
             <SentryUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
         </ClerkProvider>

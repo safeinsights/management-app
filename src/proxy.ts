@@ -8,6 +8,7 @@ import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
+import { CSP_HEADER, CSP_NONCE_HEADER, cspHeaderValue, generateNonce, isCspEnabled } from '@/lib/csp'
 import * as Sentry from '@sentry/nextjs'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
@@ -53,6 +54,23 @@ function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
     return NextResponse.redirect(cleanUrl)
 }
 
+// Every path that renders a document goes through here rather than NextResponse.next() directly, so
+// the nonce cannot be missed on one branch. The anon-route return is the easy one to overlook, and
+// it serves /account/signin — the Clerk page that must not break.
+function continueWithNonce(req: NextRequest): NextResponse {
+    if (!isCspEnabled()) return NextResponse.next()
+
+    const nonce = generateNonce()
+    // Next reads the nonce off the request headers to stamp its own inline scripts; server
+    // components read the same header to hand it to ClerkProvider.
+    const headers = new Headers(req.headers)
+    headers.set(CSP_NONCE_HEADER, nonce)
+
+    const res = NextResponse.next({ request: { headers } })
+    res.headers.set(CSP_HEADER, cspHeaderValue(nonce))
+    return res
+}
+
 export const proxy = clerkMiddleware(async (auth, req) => {
     const redirectSanitized = sanitizeRedirectParam(req)
     if (redirectSanitized) return redirectSanitized
@@ -85,7 +103,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         setSentryFromSession(session)
     } else {
         if (isAnonRoute) {
-            return NextResponse.next()
+            return continueWithNonce(req)
         }
         if (clerkUserId) {
             session = BLANK_SESSION
@@ -119,7 +137,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         return redirectToDashboard(req, 'org-member', session)
     }
 
-    return NextResponse.next()
+    return continueWithNonce(req)
 })
 
 export const config = {
