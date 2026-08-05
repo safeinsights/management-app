@@ -1,3 +1,5 @@
+'use client'
+
 import { PinInput } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { revalidateOnBlur, useWidgetBlur } from '@/components/form-field'

@@ -1,3 +1,5 @@
+'use client'
+
 import { Paper, Radio, Stack, Text } from '@mantine/core'
 import type { ReactNode } from 'react'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
