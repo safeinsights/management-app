@@ -28,9 +28,11 @@ cd "$(dirname "$0")/.."
 # every spec would fail against a dead port. Same reasoning as bin/docker-e2e.
 unset CI
 
-# Optional local override. Every value this script needs has a default below, so .env.test is
-# NOT required.
+# Match main's local e2e behavior when .env.test exists: its values are the test environment.
+# Without the optional file, use the standalone defaults below.
+has_test_env=false
 if [ -f .env.test ]; then
+    has_test_env=true
     set -a
     # shellcheck disable=SC1091
     . ./.env.test
@@ -46,11 +48,11 @@ PGPORT="${PGPORT:-5432}"
 S3_HOST="${S3_HOST:-$PGHOST}"
 S3_PORT="${S3_PORT:-8333}"
 
-# Derived rather than honoring an inherited DATABASE_URL: .env.test above may well point at
-# the dev database, and seeding that would break the isolation this script promises. Override
-# the pieces (E2E_TEST_DB / PGHOST / PGPORT), or set E2E_DATABASE_URL to be explicit — needed
-# if your Postgres wants a role or password, since the derived URL carries no credentials.
-export DATABASE_URL="${E2E_DATABASE_URL:-postgres://${PGHOST}:${PGPORT}/${TEST_DB}}"
+# When .env.test is absent, derive an isolated database URL from the local-infra settings.
+# E2E_DATABASE_URL supports Postgres installations that require a role or password.
+if [ "$has_test_env" = false ]; then
+    export DATABASE_URL="${E2E_DATABASE_URL:-postgres://${PGHOST}:${PGPORT}/${TEST_DB}}"
+fi
 # Exported because BOTH halves need it: the Playwright process talks to Postgres directly
 # (tests/e2e.seed.ts imports @/database to build per-test fixtures) and bin/app-test needs the
 # same endpoints for the app it serves.
