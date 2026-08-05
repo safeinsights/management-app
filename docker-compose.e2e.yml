@@ -14,8 +14,8 @@
 #
 # Isolation: a DEDICATED Postgres container (si_test) with its own volume — it never
 # touches the dev DB (mgmnt_dev on the main docker-compose.yml). Uses the same si/si/si_test
-# identity as the unit-test stack. `.env` is loaded as the base (env_file); only the values
-# that MUST differ for an isolated host run (DATABASE_URL) are overridden.
+# identity as the unit-test stack. `.env.test` overrides `.env` when present; explicit service
+# values remain authoritative for the isolated database and fake-auth seed process.
 services:
     db-e2e:
         image: 'postgres:16'
@@ -87,12 +87,17 @@ services:
             dockerfile: Dockerfile.dev
         working_dir: /app
         env_file:
-            - .env
+            - path: .env
+              required: false
+            - path: .env.test
+              required: false
         environment:
             # Override .env's dev DATABASE_URL to target the isolated test DB by service DNS.
             - DATABASE_URL=postgres://si:si@db-e2e:5432/si_test
             - E2E_FAKE_CLERK=1
             - NODE_ENV=test
+            # A local override must never disable the fixed users required by the e2e suite.
+            - NO_TESTING_DATA=
             # Drop any AWS_PROFILE from .env so the SDK never blocks on expired SSO.
             - AWS_PROFILE=
             # Corepack provisions pnpm at runtime; cache it inside the node_modules volume

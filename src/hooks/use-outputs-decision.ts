@@ -8,7 +8,6 @@ import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs
 import { countWordsFromLexical } from '@/lib/lexical'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
-import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MIN_WORDS, type OutputsDecision } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
@@ -84,11 +83,8 @@ export function useOutputsDecision({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
             setConfirming(null)
-            // push() alone would be a no-op here: /review is already the current URL, so the
-            // decrypted review form would stay mounted with plaintext on screen even though the
-            // decision is final. refresh() is what re-runs the server components and lets the
-            // reviewer screen rules resolve to the post-decision screen.
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            // The current URL is already /review. A same-URL push can race this refresh and leave
+            // the decrypted form mounted after the decision commits.
             router.refresh()
         },
     })

@@ -3,11 +3,11 @@ import dotenv from 'dotenv'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
 import { IS_CI, E2E_TIMEOUT, E2E_TIMEOUT_LONG, E2E_EXPECT_TIMEOUT } from './tests/e2e.helpers'
 
-// Load the isolated test env (test port + separate DB). Keeps the suite independent of
-// local dev (.env / port 4000 / real Clerk). On CI the equivalent values are provided as
-// job env, so a missing file here is fine. Auth is faked in-app via E2E_FAKE_CLERK
-// (src/lib/clerk-fake) — no external Clerk server is involved.
-dotenv.config({ path: '.env.test' })
+const IS_DOCKER_E2E = process.env.E2E_MODE === 'docker'
+
+// Docker e2e arrives with .env + .env.test already merged and its infrastructure values
+// applied. Every other path retains main's optional .env.test loading behavior.
+if (!IS_DOCKER_E2E) dotenv.config({ path: '.env.test' })
 
 // The Playwright-owned app instance runs on this port (dev stays on 4000).
 const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4100'
@@ -85,20 +85,20 @@ export default defineConfig({
     // (with E2E_FAKE_CLERK so Clerk is faked in-process — no external auth server) and
     // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
     // compilation is slow and unstable under the suite. The shared infra (Postgres +
-    // SeaweedFS + the test DB) is brought up first by ./bin/docker-e2e or ./bin/local-e2e,
-    // whichever matches how you run that infra. Those also export DATABASE_URL / S3_ENDPOINT
-    // for this process, which the specs need directly (tests/e2e.seed.ts). On CI the app is
-    // built+started by bin/ci-server, so no webServer is managed here. The timeout covers a
-    // full `next build`; `reuseExistingServer` lets you keep a manually-started server
-    // (./bin/app-test, or ./bin/app-test --no-build) running across iterations.
+    // SeaweedFS + the test DB) is brought up first by ./bin/docker-e2e or ./bin/local-e2e.
+    // Docker uses an authoritative merged environment and a dedicated app wrapper; local
+    // retains main's app-test behavior. On CI the app is built+started by bin/ci-server, so
+    // no webServer is managed here. Docker never reuses an existing server because that could
+    // connect Playwright to an app configured for another database.
     webServer: IS_CI
         ? []
         : [
               {
-                  command: 'pnpm run app:test',
+                  command: IS_DOCKER_E2E ? './bin/docker-e2e-app' : 'pnpm run app:test',
                   url: E2E_BASE_URL,
-                  reuseExistingServer: true,
+                  reuseExistingServer: !IS_DOCKER_E2E,
                   timeout: 300_000,
+                  ...(IS_DOCKER_E2E ? { env: { E2E_MODE: 'docker' } } : {}),
               },
           ],
 

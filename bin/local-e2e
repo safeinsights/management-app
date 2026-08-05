@@ -28,11 +28,10 @@ cd "$(dirname "$0")/.."
 # every spec would fail against a dead port. Same reasoning as bin/docker-e2e.
 unset CI
 
-# Match main's local e2e behavior when .env.test exists: its values are the test environment.
-# Without the optional file, use the standalone defaults below.
-has_test_env=false
+# Match main's local e2e environment loading. The migration target is configured separately
+# below; Playwright and app-test inherit .env.test when it exists and otherwise retain main's
+# normal environment loading behavior.
 if [ -f .env.test ]; then
-    has_test_env=true
     set -a
     # shellcheck disable=SC1091
     . ./.env.test
@@ -41,22 +40,13 @@ fi
 
 # Auth is faked, so bin/seed-environment.ts seeds orgs only and skips Clerk provisioning.
 export E2E_FAKE_CLERK=1
+export E2E_MODE=local
 
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5432}"
-S3_HOST="${S3_HOST:-$PGHOST}"
+TEST_DATABASE_URL="postgres://${PGHOST}:${PGPORT}/${TEST_DB}"
 S3_PORT="${S3_PORT:-8333}"
-
-# When .env.test is absent, derive an isolated database URL from the local-infra settings.
-# E2E_DATABASE_URL supports Postgres installations that require a role or password.
-if [ "$has_test_env" = false ]; then
-    export DATABASE_URL="${E2E_DATABASE_URL:-postgres://${PGHOST}:${PGPORT}/${TEST_DB}}"
-fi
-# Exported because BOTH halves need it: the Playwright process talks to Postgres directly
-# (tests/e2e.seed.ts imports @/database to build per-test fixtures) and bin/app-test needs the
-# same endpoints for the app it serves.
-export S3_ENDPOINT="${S3_ENDPOINT:-http://${S3_HOST}:${S3_PORT}}"
 
 usage() {
     cat <<EOF
@@ -103,16 +93,12 @@ if ! pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; then
 fi
 note "Postgres reachable on ${PGHOST}:${PGPORT}"
 
-if ! nc -z -w 1 "$S3_HOST" "$S3_PORT" >/dev/null 2>&1; then
-    die_local_infra "SeaweedFS not reachable on ${S3_HOST}:${S3_PORT} (try 'pnpm run s3:local')."
+if ! nc -z -w 1 "$PGHOST" "$S3_PORT" >/dev/null 2>&1; then
+    die_local_infra "SeaweedFS not reachable on ${PGHOST}:${S3_PORT} (try 'pnpm run s3:local')."
 fi
-note "SeaweedFS reachable on ${S3_HOST}:${S3_PORT}"
+note "SeaweedFS reachable on ${PGHOST}:${S3_PORT}"
 
-# Skipped when E2E_DATABASE_URL is set: that URL may name a database other than $TEST_DB, and
-# creating the wrong one while migrating another is worse than asking you to create your own.
-if [ -n "${E2E_DATABASE_URL:-}" ]; then
-    note "Using E2E_DATABASE_URL as given; not creating a database."
-elif ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
+if ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
     note "Creating database ${TEST_DB}…"
     createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER:+-U "$PGUSER"} "$TEST_DB"
 fi
@@ -120,12 +106,15 @@ fi
 # The same chain bin/docker-e2e's seed service runs. Deliberately NOT `pnpm run db:migrate`:
 # that also regenerates src/database/types.ts via kysely-codegen, so an e2e run would rewrite
 # a tracked source file from the test database.
-note "Migrating + seeding ${DATABASE_URL} (faked Clerk — DB users/orgs only)…"
-pnpm exec kysely migrate:latest
-pnpm exec kysely seed:run
-pnpm exec tsx bin/seed-environment.ts
+note "Migrating + seeding ${TEST_DATABASE_URL} (faked Clerk — DB users/orgs only)…"
+(
+    export DATABASE_URL="$TEST_DATABASE_URL"
+    pnpm exec kysely migrate:latest
+    pnpm exec kysely seed:run
+    pnpm exec tsx bin/seed-environment.ts
+)
 
-note "Infra ready. Running Playwright on the host against ${DATABASE_URL}"
+note "Infra ready. Running Playwright on the host with main-compatible environment loading."
 if [ ${#pw_args[@]} -gt 0 ]; then
     exec pnpm exec playwright test "${pw_args[@]}"
 else
