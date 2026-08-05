@@ -88,4 +88,16 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.getByText('A resubmission note is required.')).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
+
+    it('keeps the live region mounted through a validation error, so a later save is announced (OTTER-675)', () => {
+        // The error must empty the region rather than unmount it: a region handed back with its
+        // text already inside is silent in most AT/browser pairs.
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        expect(screen.getByTestId('autosave-live-region')).toBeEmptyDOMElement()
+    })
+
+    it('mounts no live region at all in collaborative mode, where the editor owns one', () => {
+        renderSection()
+        expect(screen.queryByTestId('autosave-live-region')).not.toBeInTheDocument()
+    })
 })

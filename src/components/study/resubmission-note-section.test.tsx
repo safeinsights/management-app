@@ -127,4 +127,13 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText(/resubmission note is required/i)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
+
+    it('keeps the live region out of the textarea description (OTTER-675)', () => {
+        // The textarea's aria-describedby points at the error node. A live region inside it would
+        // fold "All changes saved" into the field's description and re-read it on every refocus.
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const errorNode = document.getElementById('resubmissionNote-error')
+        expect(errorNode).toBeInTheDocument()
+        expect(errorNode!.querySelector('[aria-live]')).toBeNull()
+    })
 })
