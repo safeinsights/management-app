@@ -91,6 +91,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# One run per checkout at a time. Concurrent runs share this project's database,
+# node_modules volume and storage, and every db-prep path below (stopping the db
+# container, removing its volume, wiping node_modules) would pull the ground out
+# from under a suite already in flight. The in-flight run's own test-runner
+# container is the lock: it lives for the whole suite and disappears with it, so
+# there is no host lock file to leak or go stale. `|| true` keeps `set -e` from
+# aborting when no daemon is reachable; the real docker calls below then report
+# that themselves instead of it being reported as a concurrent run. Checked after
+# arg parsing so --help and --print-project-name still work with docker down.
+#
+# Not airtight: a second run started before the first creates its container (the
+# migration-mismatch check runs first) still slips through. Parallel runs from
+# separate clones are unaffected, they get their own project name.
+active_run=$(docker ps -q \
+    --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
+    --filter "label=com.docker.compose.service=test-runner" 2>/dev/null || true)
+if [ -n "$active_run" ]; then
+    echo "Error: a ./bin/docker-test run is already active for this checkout." >&2
+    echo "       Wait for it to finish, or run the tests from a separate clone." >&2
+    exit 1
+fi
+
 if [ "$down" = true ]; then
     # Manual "I'm done testing for now" teardown. By design the postgres and
     # seaweedfs helper containers stay running between test runs (they're marked
