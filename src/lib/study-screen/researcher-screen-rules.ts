@@ -10,8 +10,10 @@ export const RESEARCHER_SCREEN_RULES = [
     // holds on the code-approved page below, matching the "Code approved" pill (OTTER-598, 43898).
     ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
-    // Code approved (or actively running): the approved/executing code screen.
-    ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting }],
+    // Code approved and executing in the enclave: researcher outputs-pending screen (OTTER-686).
+    ['outputs-pending', { when: (s) => s.codeDecision === 'CODE-APPROVED' && s.isExecuting }],
+    // Code approved but not yet executing: the approved code screen.
+    ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
     // Code rejected or changes requested: read-only code feedback.
     [
         'code-feedback',

@@ -5,7 +5,7 @@ import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -14,7 +14,7 @@ import type { ScreenComponentProps } from './types'
 const ErroredBanner = ({ erroredAt }: { erroredAt: Date | string }) => (
     <StatusAlert
         variant={STATUS_ALERT_VARIANT.action}
-        title={`Code errored \u2022 ${dayjs(erroredAt).format('MMM DD, YYYY')}`}
+        title={`Code errored ${STATUS_ALERT_SEPARATOR} ${dayjs(erroredAt).format('MMM DD, YYYY')}`}
     >
         Enter your security key below to access the outputs and see what went wrong.
     </StatusAlert>
