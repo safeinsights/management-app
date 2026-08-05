@@ -48,8 +48,7 @@ export async function OutputsPendingScreen({
         )
     }
 
-    const approvedAt =
-        job.statusChanges.find((c) => c.status === 'CODE-APPROVED')?.createdAt ?? stage.startedAt
+    const approvedAt = job.statusChanges.find((c) => c.status === 'CODE-APPROVED')?.createdAt ?? stage.startedAt
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
 
     return (
@@ -66,7 +65,7 @@ export async function OutputsPendingScreen({
                     <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
                         Previous step
                     </ButtonLink>
-                    <ButtonLink href={dashboardHref as Route} size="md">
+                    <ButtonLink href={dashboardHref as Route} variant="filled" size="md">
                         Back to my studies
                     </ButtonLink>
                 </Group>
