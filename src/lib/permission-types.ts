@@ -39,8 +39,15 @@ type Abilities =
     // Reserved for SI admins (see defineAbilityFor). 'manage' and 'all' are CASL's built-in
     // wildcard tokens, not real domain actions/subjects.
     | Ability<'all', 'manage', object>
-    | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
-    | Ability<'PendingUser', 'claim', object>
+    // 'manageRole' is deliberately separate from 'update': the self-profile rule
+    // (`update User` where id === session.user.id) must never be able to authorize a role
+    // change, or any member could promote themselves to org admin (OTTER-720).
+    | Ability<'User', 'invite' | 'update' | 'view' | 'manageRole', { id?: UUID; orgId?: UUID; orgSlug?: string }>
+    // `orgId` appears on both arms so the CASL subject union accepts an orgId condition on the
+    // 'revoke' rule (same reason the 'Study' arms all repeat `status`). It stays optional because
+    // 'claim' is unconditioned and its action supplies only an inviteId.
+    | Ability<'PendingUser', 'claim', { orgId?: UUID; inviteId?: string }>
+    | Ability<'PendingUser', 'revoke', { orgId?: UUID; inviteId?: string }>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
     | Ability<'Studies', 'view', object>
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>

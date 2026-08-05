@@ -107,6 +107,13 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
 
+    // Role changes use their own verb rather than reusing `update User`. The self-profile rule
+    // above (line ~51) grants every user `update User` on their own id, so gating role changes
+    // on `update` let any member promote themselves to admin (OTTER-720). There is deliberately
+    // no id-keyed `manageRole` rule; changing your own role is refused in the action handler.
+    permit('manageRole', 'User', { orgId: { $in: usersAdminOrgIds } })
+    permit('revoke', 'PendingUser', { orgId: { $in: usersAdminOrgIds } })
+
     permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
 

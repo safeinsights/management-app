@@ -5,6 +5,7 @@ import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
+import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
@@ -42,15 +43,48 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             .executeTakeFirstOrThrow()
     })
 
+// Two legitimate callers with different rights: an org admin revoking an invite, and the invitee
+// declining it. The invitee may not be a member of the org at all, so no single ability rule covers
+// both — authorization is an explicit either/or below. Previously this action had no check of any
+// kind, letting any caller delete any invite by id.
 export const onRevokeInviteAction = new Action('onRevokeInviteAction')
     .params(
         z.object({
             inviteId: z.string(),
         }),
     )
-    .handler(async function ({ params: { inviteId }, db }) {
-        await db.deleteFrom('pendingUser').where('id', '=', inviteId).executeTakeFirstOrThrow()
+    .handler(async function ({ params: { inviteId }, db, session }) {
+        // This action has no requireAbilityTo, so an unauthenticated caller still reaches the
+        // handler with a null session; both branches below require an identity.
+        if (!session) {
+            throw new ActionFailure({ permission_denied: 'cannot revoke this invite' })
+        }
+
+        const invite = await db
+            .selectFrom('pendingUser')
+            .select(['id', 'orgId', 'email'])
+            .where('id', '=', inviteId)
+            .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
+
+        const isOrgAdmin = session.ability.can('revoke', toRecord('PendingUser', { orgId: invite.orgId }))
+
+        // The invitee is identified by email rather than claimedByUserId, which is only set on the
+        // signup path and stays null when an existing user opens the invite (join-team page).
+        // Checked against all Clerk addresses so merged/secondary emails match, as the UI does.
+        const isInvitee = await callerOwnsEmail(session.user.clerkUserId, invite.email)
+
+        if (!isOrgAdmin && !isInvitee) {
+            throw new ActionFailure({ permission_denied: 'cannot revoke this invite' })
+        }
+
+        await db.deleteFrom('pendingUser').where('id', '=', invite.id).executeTakeFirstOrThrow()
     })
+
+const callerOwnsEmail = async (clerkUserId: string, email: string) => {
+    const clerk = await clerkClient()
+    const clerkUser = await clerk.users.getUser(clerkUserId)
+    return clerkUser.emailAddresses.some((ea) => ea.emailAddress.toLowerCase() === email.toLowerCase())
+}
 
 export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(

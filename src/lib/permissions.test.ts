@@ -113,6 +113,37 @@ test('researcher role', () => {
     expect(ability.can('update', 'UserKey')).toBe(true)
 })
 
+test('manageRole is never granted by the self-update rule (OTTER-720)', () => {
+    const { ability, session } = createAbilty({ isAdmin: false })
+
+    // The defect: role changes were gated on `update User`, which every user holds for their own
+    // id, so passing your own userId satisfied the check and promoted you to admin.
+    expect(ability.can('manageRole', toRecord('User', { id: session.user.id }))).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { orgId: session.orgs.test.id }))).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { id: session.user.id, orgId: session.orgs.test.id }))).toBe(
+        false,
+    )
+
+    // The self-profile rule itself must survive — onUserResetPWAction depends on it.
+    expect(ability.can('update', toRecord('User', { id: session.user.id }))).toBe(true)
+
+    // Revoking an invite is likewise admin-only now.
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: session.orgs.test.id }))).toBe(false)
+})
+
+test('org admin holds manageRole and revoke, scoped to their own org (OTTER-720)', () => {
+    const { ability, session } = createAbilty({ isAdmin: true })
+    const otherOrgId = faker.string.uuid()
+
+    expect(ability.can('manageRole', toRecord('User', { orgId: session.orgs.test.id }))).toBe(true)
+    expect(ability.can('manageRole', toRecord('User', { orgId: otherOrgId }))).toBe(false)
+    // Fail-closed when the subject carries no orgId at all.
+    expect(ability.can('manageRole', toRecord('User', {}))).toBe(false)
+
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: session.orgs.test.id }))).toBe(true)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: otherOrgId }))).toBe(false)
+})
+
 test('admin role', () => {
     const { ability, session } = createAbilty({ isAdmin: true })
     expect(ability.can('approve', 'Study')).toBeTruthy()
