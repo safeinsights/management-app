@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { theme } from '@/theme'
-import { SaveStatusIndicator } from './save-status'
+import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from './save-status'
 
 describe('SaveStatusIndicator', () => {
     it('renders nothing while idle', () => {
@@ -59,5 +59,48 @@ describe('SaveStatusIndicator', () => {
     it('empties the live region when hidden by a validation error (OTTER-674)', () => {
         renderWithProviders(<SaveStatusIndicator status="saved" isVisible={false} />)
         expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('leaves the live region unnamed, so the name is not spoken ahead of the save (OTTER-675)', () => {
+        // Several screen readers read a live region's accessible name before its content, which
+        // would turn each save into "<name>, All changes saved". Tests select the region by
+        // data-testid instead.
+        renderWithProviders(<SaveStatusIndicator status="saved" />)
+        const region = screen.getByTestId('autosave-live-region')
+        expect(region).not.toHaveAttribute('aria-label')
+        expect(region).not.toHaveAttribute('aria-labelledby')
+    })
+
+    it('drops its own live region when announce is false, keeping the visible label (OTTER-675)', () => {
+        renderWithProviders(<SaveStatusIndicator status="saved" announce={false} />)
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+        expect(screen.getByTestId('autosave-status').closest('[aria-live]')).toBeNull()
+    })
+})
+
+describe('SaveStatusAnnouncer', () => {
+    it('announces the save from a polite, atomic region', () => {
+        renderWithProviders(<SaveStatusAnnouncer status="saved" />)
+        const region = screen.getByRole('status')
+        expect(region).toHaveAttribute('aria-live', 'polite')
+        expect(region).toHaveAttribute('aria-atomic', 'true')
+        expect(region).toHaveTextContent('All changes saved')
+    })
+
+    it('stays mounted and empty until a save lands', () => {
+        renderWithProviders(<SaveStatusAnnouncer status="saving" />)
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+})
+
+describe('announcedSaveStatus', () => {
+    it('announces once when any field of a shared save source is saved', () => {
+        expect(announcedSaveStatus(['idle', 'saved', 'idle'])).toBe('saved')
+    })
+
+    it('stays idle while no field is showing a save', () => {
+        expect(announcedSaveStatus(['idle', 'saving', 'idle'])).toBe('idle')
+        expect(announcedSaveStatus([])).toBe('idle')
     })
 })
