@@ -23,6 +23,8 @@ export COMPOSE_PROJECT_NAME="mgmt-app-test-${project_hash}"
 
 COMPOSE_FILE="$repo_root/docker-compose.testunit.yml"
 
+# $1 is the exit code, defaulting to 0 for an explicit --help. The error path
+# passes 1 so a typo'd flag can't report success after running no tests.
 usage() {
     echo "Usage: $0 [--clean | --down | --prune] [-- <vitest-args>]"
     echo ""
@@ -46,7 +48,7 @@ usage() {
     echo "Note: Database is automatically rebuilt when an applied migration is missing"
     echo "      from the codebase (e.g. after a branch switch / rollback). New migrations"
     echo "      not yet applied are handled by 'kysely migrate:latest' on each run instead."
-    exit 0
+    exit "${1:-0}"
 }
 
 clean_all=false
@@ -83,8 +85,8 @@ while [[ $# -gt 0 ]]; do
             break
             ;;
         *)
-            echo "Unknown option: $1"
-            usage
+            echo "Unknown option: $1" >&2
+            usage 1
             ;;
     esac
 done
