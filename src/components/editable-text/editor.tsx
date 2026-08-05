@@ -35,9 +35,8 @@ export type EditorProps = {
     ariaLabel?: string
     onChange?: (json: string) => void
     /**
-     * Left slot of the footer row directly under the input — the slot the save indicator
-     * occupies/vacates. Callers put the field's error message here so it can never render
-     * a row below the counter, and never beside a save label (OTTER-674).
+     * Left slot of the footer row, directly under the input. The field's error message goes
+     * here so it takes the slot the save indicator vacates, not a row below it (OTTER-674).
      */
     footerLeft?: React.ReactNode
     footerRight?: React.ReactNode

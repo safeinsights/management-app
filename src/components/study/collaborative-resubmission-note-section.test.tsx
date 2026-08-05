@@ -90,8 +90,6 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 
-    // QA round 2: the error must sit in the footer row directly under the input — the slot the
-    // save indicator vacates — not in a row below the word counter.
     it('renders the error in the same footer row as the word counter (OTTER-674)', () => {
         renderSingleUserSection({ initialError: 'A resubmission note is required.' })
         const errorBox = document.getElementById(fieldErrorId('resubmissionNote'))

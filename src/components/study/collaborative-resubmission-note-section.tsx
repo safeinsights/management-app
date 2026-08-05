@@ -55,8 +55,7 @@ const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: Resubmissio
     return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} />
 }
 
-// Carries the id `aria-describedby` points at; renders nothing without an error so the
-// save indicator keeps the left edge of the footer row.
+// Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the row's left edge.
 const NoteFieldError: FC<{ error?: string }> = ({ error }) => {
     if (!error) return null
     return (
@@ -83,9 +82,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
 
-    // Both live in the editor's footer-left slot — the row directly under the input — so the
-    // error lands exactly where 'All changes saved' vacates instead of one row below the word
-    // counter, and the two can never co-exist (OTTER-674, QA round 2).
+    // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
     const footerLeft = (
         <>
             <NoteFieldError error={error} />

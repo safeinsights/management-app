@@ -36,7 +36,7 @@ export type SingleUserEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
-    /** Left slot of the footer row directly under the input; see EditorProps.footerLeft. */
+    /** See EditorProps.footerLeft. */
     footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
