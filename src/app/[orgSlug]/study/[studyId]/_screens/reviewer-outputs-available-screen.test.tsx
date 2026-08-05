@@ -36,11 +36,6 @@ vi.mock('@/server/actions/study-job.actions', async () => {
     return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
 })
 
-// Real in-browser RSA/AES decryption drives the phase flip in these tests, and on a loaded CI
-// runner (sharded workers + coverage instrumentation) that chain can outlast the default 5s
-// per-test budget. The waitFor timeouts below stay inside this ceiling.
-vi.setConfig({ testTimeout: 30_000 })
-
 const toArrayBuffer = (str: string): ArrayBuffer => {
     const buf = Buffer.from(str, 'utf-8')
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
@@ -108,10 +103,6 @@ const unlock = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
 }
 
-// Generous asynchronous wait: CI shards run 4 workers with coverage instrumentation, and the
-// decrypt flow under test is CPU-bound, so the RTL default of 1s is far too tight there.
-const WAIT = { timeout: 15_000 }
-
 // Matches on an element's full textContent, so text split across child nodes (or differing
 // whitespace) can never produce a false negative the way an exact-string matcher can.
 const textIncludes = (needle: string) => (_: string, element: Element | null) =>
@@ -169,9 +160,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
 
-        expect(
-            await screen.findByText(textIncludes('Invalid key. Check that you copied'), undefined, WAIT),
-        ).toBeInTheDocument()
+        expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
     })
 
@@ -185,6 +174,10 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         )
     })
 
+    // This test and the next are defensive-only: reviewer-screen-rules (rule 1b) routes this
+    // screen solely for a RUN-COMPLETE job with no files decision, so neither state can reach it
+    // through the resolved flow. Rendering the component directly is what makes them reachable
+    // here — they pin the guards, not a reviewer-visible state.
     it('shows a not-found alert when the study has no submitted job', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave', createJob: false })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -213,12 +206,12 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         await doRender(study, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument(), WAIT)
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         // Quiesce: the files table fires the last-activity query on mount. Waiting for its answer
         // here means no test ends with that DB query in flight — an in-flight query racing the
         // per-test transaction rollback closes the shared client and poisons every later test
         // (the deferred-callback race documented in tests/vitest.setup.ts, in query form).
-        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0), WAIT)
+        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
         return { org, study, job }
     }
 
@@ -271,7 +264,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         expect(screen.getByRole('button', { name: 'summary.txt' })).toBeInTheDocument()
         // Waits for the activity query: the cell stays blank until the answer is in, so it never
         // claims "No activity yet" on the strength of an unresolved request.
-        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2), { timeout: 15_000 })
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
     })
 
     it('keeps Submit decision enabled on arrival', async () => {
@@ -286,9 +279,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
         fireEvent.click(screen.getByTestId('outputs-submit-decision'))
 
-        expect(
-            await screen.findByText(textIncludes(`Enter your feedback for ${labName}`), undefined, WAIT),
-        ).toBeInTheDocument()
+        expect(await screen.findByText(textIncludes(`Enter your feedback for ${labName}`))).toBeInTheDocument()
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
         expect(screen.queryByText('Submit your decision?')).toBeNull()
     })
@@ -298,6 +289,6 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     it('caps feedback at 1500 for a completed run', async () => {
         await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }], renderScreenSingleUser)
 
-        await waitFor(() => expect(screen.getByText(textIncludes('0/1500'))).toBeInTheDocument(), WAIT)
+        await waitFor(() => expect(screen.getByText(textIncludes('0/1500'))).toBeInTheDocument())
     })
 })

@@ -294,7 +294,7 @@ async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string):
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -318,7 +318,7 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -478,7 +478,8 @@ test('Reviewer approves submitted code', async ({ browser, studyFeatures }) => {
 // Owns the outputs-available surface end to end (OTTER-668 + OTTER-676): decrypt, the
 // validation gate, and sharing the outputs through the confirmation modal. Seeds a
 // JOB-READY job, uploads an encrypted result via the debug script (no runner), then
-// drives the UI. Researcher's approved-results view is owned by its own card.
+// drives the UI, then ends on the researcher's side: sharing records FILES-APPROVED, which is
+// what surfaces the approved-results message on their study view.
 test('Successful results review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('results')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
@@ -488,6 +489,12 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
         await reviewerDecryptsAvailableOutputs(page, studyTitle)
         await reviewerSeesValidationOnBlankSubmit(page)
         await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
+    })
+
+    await withRole(browser, 'researcher', async (page) => {
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+        await viewStudyDetails(page, studyTitle)
+        await expect(page.getByText(/results of your study have been approved/i)).toBeVisible()
     })
 })
 

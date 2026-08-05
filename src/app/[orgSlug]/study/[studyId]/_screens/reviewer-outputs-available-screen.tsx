@@ -33,6 +33,9 @@ export async function ReviewerOutputsAvailableScreen({
     study,
     orgSlug,
 }: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
+    // Both not-found branches below are defensive: reviewer-screen-rules (rule 1b) routes here
+    // only when a RUN-COMPLETE landed with no files decision, so a routed render always has a
+    // submitted job with a completed run. They guard direct renders, not a reachable state.
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />

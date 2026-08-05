@@ -1,7 +1,7 @@
 import { Textarea, type TextareaProps } from '@mantine/core'
 import { forwardRef } from 'react'
 
-type SecurityKeyInputProps = Omit<TextareaProps, 'autoComplete' | 'aria-required'>
+type SecurityKeyInputProps = Omit<TextareaProps, 'autoComplete' | 'aria-required' | 'aria-label'>
 
 export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInputProps>(
     ({ error, disabled, ...props }, ref) => {
@@ -12,6 +12,9 @@ export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInput
                 ref={ref}
                 autoComplete="off"
                 aria-required
+                // The visible "Security key" section heading is not programmatically associated
+                // with the textarea, so without this the required field has no accessible name.
+                aria-label="Security key"
                 disabled={disabled}
                 error={error ? <span role="alert">{error}</span> : undefined}
                 styles={{ input: { minHeight: 72, borderColor } }}
