@@ -9,58 +9,43 @@ import {
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
 import { fetchParticipationAgreementsAction } from '@/server/actions/legal-document.actions'
-import { Anchor, Button, Stack, Table, Text, Title } from '@mantine/core'
+import { Anchor, Button, Flex, Stack, Table, Text, Title } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
-const AgreementLink: FC<{ agreement: Agreement }> = ({ agreement }) => {
-    if (!agreement.downloadUrl) return <Text c="dimmed">—</Text>
-
-    return (
-        <Anchor href={agreement.downloadUrl} target="_blank" rel="noreferrer">
-            View PDF
-        </Anchor>
-    )
-}
-
-const HistoryLink: FC<{ agreement: Agreement; onClick: (agreement: Agreement) => void }> = ({ agreement, onClick }) => {
-    if (!agreement.legalDocumentId) return <Text c="dimmed">—</Text>
-
-    return (
-        <Anchor component="button" type="button" onClick={() => onClick(agreement)}>
-            Version History
-        </Anchor>
-    )
-}
-
 const AgreementRow: FC<{
     agreement: Agreement
-    onUpload: (agreement: Agreement) => void
+    onNewVersion: (agreement: Agreement) => void
     onViewHistory: (agreement: Agreement) => void
-}> = ({ agreement, onUpload, onViewHistory }) => (
+}> = ({ agreement, onNewVersion, onViewHistory }) => (
     <Table.Tr>
         <Table.Td>{agreement.orgName}</Table.Td>
-        <Table.Td>{agreement.versionNumber ?? '—'}</Table.Td>
+        <Table.Td>{agreement.versionNumber}</Table.Td>
         <Table.Td>{agreement.signedAt ?? '—'}</Table.Td>
         <Table.Td>
-            <AgreementLink agreement={agreement} />
+            <Anchor href={agreement.downloadUrl} target="_blank" rel="noreferrer">
+                View PDF
+            </Anchor>
         </Table.Td>
         <Table.Td>
-            <HistoryLink agreement={agreement} onClick={onViewHistory} />
+            <Anchor component="button" type="button" onClick={() => onViewHistory(agreement)}>
+                Version History
+            </Anchor>
         </Table.Td>
         <Table.Td>
-            <Button variant="subtle" size="compact-sm" onClick={() => onUpload(agreement)}>
-                {agreement.versionNumber ? 'Upload new version' : 'Upload'}
+            <Button variant="subtle" size="compact-sm" onClick={() => onNewVersion(agreement)}>
+                Upload new version
             </Button>
         </Table.Td>
     </Table.Tr>
 )
 
-const EmptyState: FC<{ isVisible: boolean; orgLabel: string }> = ({ isVisible, orgLabel }) => {
+const EmptyState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    return <Text c="dimmed">There are no {orgLabel}s to sign this agreement with yet.</Text>
+    return <Text c="dimmed">No agreements to show</Text>
 }
 
 const LoadingState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -69,22 +54,59 @@ const LoadingState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 }
 
 export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> = ({ type }) => {
-    const [uploadFor, setUploadFor] = useState<Agreement | null>(null)
+    const [uploadOpened, { open: openUpload, close: closeUpload }] = useDisclosure(false)
+    const [newVersionFor, setNewVersionFor] = useState<Agreement | null>(null)
     const [historyFor, setHistoryFor] = useState<Agreement | null>(null)
     const { data: agreements = [], isLoading } = useQuery({
         queryKey: ['participationAgreements', type],
         queryFn: () => fetchParticipationAgreementsAction({ type }),
     })
 
+    const label = legalDocumentTypeLabels[type]
     const orgLabel = participationAgreementOrgLabels[type]
-    const closeUpload = () => setUploadFor(null)
+    const closeNewVersion = () => setNewVersionFor(null)
     const closeHistory = () => setHistoryFor(null)
 
     return (
         <Stack>
-            <Title order={2}>{legalDocumentTypeLabels[type]}</Title>
+            <Flex justify="space-between" align="center">
+                <Title order={2}>{label}s</Title>
+                <Button onClick={openUpload}>Upload</Button>
+            </Flex>
+            <AppModal
+                isOpen={uploadOpened}
+                onClose={closeUpload}
+                title={`Upload a signed ${label}`}
+                closeOnClickOutside={false}
+            >
+                <UploadParticipationAgreementForm type={type} onCompleteAction={closeUpload} />
+            </AppModal>
+            <AppModal
+                isOpen={Boolean(newVersionFor)}
+                onClose={closeNewVersion}
+                title="Upload a new version"
+                closeOnClickOutside={false}
+            >
+                {/* Keyed by org so a second row opens a fresh form rather than the last one's file. */}
+                <UploadParticipationAgreementForm
+                    key={newVersionFor?.orgId}
+                    type={type}
+                    signatory={{
+                        orgId: newVersionFor?.orgId ?? '',
+                        orgName: newVersionFor?.orgName ?? '',
+                        versionNumber: newVersionFor?.versionNumber ?? null,
+                    }}
+                    onCompleteAction={closeNewVersion}
+                />
+            </AppModal>
+            <VersionHistoryModal
+                isOpen={Boolean(historyFor)}
+                onClose={closeHistory}
+                title={`${historyFor?.orgName ?? ''} — version history`}
+                scope={{ type, orgId: historyFor?.orgId }}
+            />
             <LoadingState isVisible={isLoading} />
-            <EmptyState isVisible={!isLoading && agreements.length === 0} orgLabel={orgLabel} />
+            <EmptyState isVisible={!isLoading && agreements.length === 0} />
             <Table withTableBorder withRowBorders horizontalSpacing="md" verticalSpacing="sm">
                 <Table.Thead>
                     <Table.Tr>
@@ -99,38 +121,14 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
                 <Table.Tbody>
                     {agreements.map((agreement: Agreement) => (
                         <AgreementRow
-                            key={agreement.orgId}
+                            key={agreement.legalDocumentId}
                             agreement={agreement}
-                            onUpload={setUploadFor}
+                            onNewVersion={setNewVersionFor}
                             onViewHistory={setHistoryFor}
                         />
                     ))}
                 </Table.Tbody>
             </Table>
-            <AppModal
-                isOpen={Boolean(uploadFor)}
-                onClose={closeUpload}
-                title={`Upload a signed ${legalDocumentTypeLabels[type]}`}
-                closeOnClickOutside={false}
-            >
-                {/* Keyed by org so a second row opens a fresh form rather than the last one's file. */}
-                <UploadParticipationAgreementForm
-                    key={uploadFor?.orgId}
-                    type={type}
-                    signatory={{
-                        orgId: uploadFor?.orgId ?? '',
-                        orgName: uploadFor?.orgName ?? '',
-                        versionNumber: uploadFor?.versionNumber ?? null,
-                    }}
-                    onCompleteAction={closeUpload}
-                />
-            </AppModal>
-            <VersionHistoryModal
-                isOpen={Boolean(historyFor)}
-                onClose={closeHistory}
-                title={`${historyFor?.orgName ?? ''} — version history`}
-                scope={{ type, orgId: historyFor?.orgId }}
-            />
         </Stack>
     )
 }

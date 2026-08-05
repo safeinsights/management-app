@@ -5,6 +5,7 @@ import { actionResult, faker, insertTestOrg, mockSessionWithTestData } from '@/t
 import {
     createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
+    fetchParticipationSignatoriesAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 import type { ParticipationAgreementType } from '@/schema/legal-document'
@@ -39,19 +40,6 @@ const rowFor = async (type: ParticipationAgreementType, orgId: string) => {
 }
 
 describe('fetchParticipationAgreementsAction', () => {
-    it('lists an org that has not signed yet, since the gap is what the table is for', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
-
-        const row = await rowFor('dopa', org.id)
-
-        expect(row?.orgName).toBe(org.name)
-        expect(row?.legalDocumentId).toBeNull()
-        expect(row?.versionNumber).toBeNull()
-        expect(row?.signedAt).toBeNull()
-        expect(row?.downloadUrl).toBeNull()
-    })
-
     it('reports the signed date and a link once an agreement is published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('dopa')
@@ -59,10 +47,20 @@ describe('fetchParticipationAgreementsAction', () => {
 
         const row = await rowFor('dopa', org.id)
 
+        expect(row?.orgName).toBe(org.name)
         expect(row?.versionNumber).toBe(1)
         // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
         expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
+    })
+
+    // The table is a list of the agreements we hold; orgs that owe us one are reached through the
+    // upload modal instead.
+    it('leaves an org that has not signed out of the table', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertSignatory('dopa')
+
+        expect(await rowFor('dopa', org.id)).toBeUndefined()
     })
 
     it('shows only the newest published version for an org', async () => {
@@ -79,40 +77,13 @@ describe('fetchParticipationAgreementsAction', () => {
         expect(forOrg[0]!.signedAt).toBe('2026-07-27')
     })
 
-    it('leaves a drafted agreement out of the current row', async () => {
+    it('leaves an org whose only version is a draft out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('dopa')
         actionResult(await createLegalDocumentDraftAction({ type: 'dopa', orgId: org.id, fileName: 'dopa.pdf' }))
 
-        const row = await rowFor('dopa', org.id)
-
-        // The document exists, but nothing has been published against it yet.
-        expect(row?.legalDocumentId).not.toBeNull()
-        expect(row?.versionNumber).toBeNull()
-    })
-
-    it('offers Data Partners to a dopa and Research Labs to a ropa, never the other way round', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const dataPartner = await insertSignatory('dopa')
-        const researchLab = await insertSignatory('ropa')
-
-        const dopaRows = actionResult(await fetchParticipationAgreementsAction({ type: 'dopa' }))
-        const ropaRows = actionResult(await fetchParticipationAgreementsAction({ type: 'ropa' }))
-
-        expect(dopaRows.some((row) => row.orgId === dataPartner.id)).toBe(true)
-        expect(dopaRows.some((row) => row.orgId === researchLab.id)).toBe(false)
-        expect(ropaRows.some((row) => row.orgId === researchLab.id)).toBe(true)
-        expect(ropaRows.some((row) => row.orgId === dataPartner.id)).toBe(false)
-    })
-
-    // SafeInsights is the counterparty to every one of these, and publishing cannot be undone.
-    it('never offers SafeInsights itself as a signatory', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const safeInsights = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
-
-        const rows = actionResult(await fetchParticipationAgreementsAction({ type: 'dopa' }))
-
-        expect(rows.some((row) => row.orgId === safeInsights.id)).toBe(false)
+        // The document row exists, but nothing has been published against it yet.
+        expect(await rowFor('dopa', org.id)).toBeUndefined()
     })
 
     it("does not let an org's agreement show up under the other type", async () => {
@@ -129,5 +100,49 @@ describe('fetchParticipationAgreementsAction', () => {
         await mockSessionWithTestData()
 
         expect(await fetchParticipationAgreementsAction({ type: 'dopa' })).toHaveProperty('error')
+    })
+})
+
+describe('fetchParticipationSignatoriesAction', () => {
+    it('offers Data Partners to a dopa and Research Labs to a ropa, never the other way round', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const dataPartner = await insertSignatory('dopa')
+        const researchLab = await insertSignatory('ropa')
+
+        const forDopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
+        const forRopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'ropa' }))
+
+        expect(forDopa.some((org) => org.orgId === dataPartner.id)).toBe(true)
+        expect(forDopa.some((org) => org.orgId === researchLab.id)).toBe(false)
+        expect(forRopa.some((org) => org.orgId === researchLab.id)).toBe(true)
+        expect(forRopa.some((org) => org.orgId === dataPartner.id)).toBe(false)
+    })
+
+    // Renewing is a new version of the same document, so signing once does not take an org off the
+    // list the way it does for a study's SLA.
+    it('keeps offering an org that has already signed', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertSignatory('dopa')
+        await uploadAndPublish('dopa', org.id, '2026-07-27')
+
+        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
+
+        expect(signatories.some((signatory) => signatory.orgId === org.id)).toBe(true)
+    })
+
+    // SafeInsights is the counterparty to every one of these, and publishing cannot be undone.
+    it('never offers SafeInsights itself as a signatory', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const safeInsights = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
+
+        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
+
+        expect(signatories.some((signatory) => signatory.orgId === safeInsights.id)).toBe(false)
+    })
+
+    it('denies a user who is not an SI admin', async () => {
+        await mockSessionWithTestData()
+
+        expect(await fetchParticipationSignatoriesAction({ type: 'dopa' })).toHaveProperty('error')
     })
 })

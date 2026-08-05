@@ -17,21 +17,19 @@ const pdfFixture = () => {
 
 test.describe('SafeInsights Legal', () => {
     // Publishing is irreversible and orgs are seeded rather than created per test, so this asserts
-    // that a version was added — never that it is version 1, which only holds on a clean database.
+    // that the agreement is present afterwards — never that it is version 1, which only holds on a
+    // clean database.
     test('an SI admin can publish a signed DOPA for a Data Partner', async ({ page }) => {
         await visitAsRole(page, LEGAL_PAGE)
 
         await page.getByRole('tab', { name: 'DOPA' }).click()
 
-        const row = page.getByRole('row', { name: new RegExp(SIGNATORY) })
-        await expect(row).toBeVisible()
+        // The table lists agreements, not orgs, so the org is chosen in the upload modal.
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
 
-        const versionCell = row.getByRole('cell').nth(1)
-        const versionBefore = ((await versionCell.textContent()) ?? '').trim()
+        await page.getByPlaceholder('Select a Data Partner').click()
+        await page.getByRole('option', { name: SIGNATORY }).click()
 
-        await row.getByRole('button', { name: /^upload/i }).click()
-
-        await expect(page.getByLabel('Signed on')).toBeVisible()
         await page.getByLabel('Signed on').fill(SIGNED_ON)
         await page.locator('input[type="file"]').setInputFiles(pdfFixture())
 
@@ -41,9 +39,12 @@ test.describe('SafeInsights Legal', () => {
         const confirmation = page.getByRole('dialog').filter({ hasText: 'Publish this file?' })
         await expect(confirmation).toBeVisible()
         await expect(confirmation.getByText(SIGNATORY)).toBeVisible()
+        // Publishing obligates people, so the confirmation has to say who.
+        await expect(confirmation.getByText(/requires each of them to acknowledge it/)).toBeVisible()
         await confirmation.getByRole('button', { name: 'Yes, publish' }).click()
 
-        await expect(versionCell).not.toHaveText(versionBefore)
+        const row = page.getByRole('row', { name: new RegExp(SIGNATORY) })
+        await expect(row).toBeVisible()
         await expect(row.getByText(SIGNED_ON)).toBeVisible()
         await expect(row.getByRole('link', { name: 'View PDF' })).toBeVisible()
 

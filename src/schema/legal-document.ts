@@ -8,7 +8,9 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     tos: 'Terms of Service',
     pn: 'Privacy Notice',
     sla: 'Study Level Agreement',
-    dopa: 'Data Partner Participation Agreement',
+    // "Organization" is the wording on the executed documents themselves, so an admin matching a
+    // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
+    dopa: 'Data Organization Participation Agreement',
     ropa: 'Research Organization Participation Agreement',
 }
 

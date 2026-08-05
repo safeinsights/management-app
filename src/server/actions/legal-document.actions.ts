@@ -293,57 +293,58 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         return { legalDocumentId: legalDocument?.id ?? null, users }
     })
 
-// Every org that could sign this agreement, whether it has yet or not: the gap is what an SI admin
-// is auditing for, and it is also where an upload starts from.
+// One row per agreement we hold — an org's latest published version. Orgs that have not signed are
+// absent: they are reached through the picker below, not by listing every org here.
 export const fetchParticipationAgreementsAction = new Action('fetchParticipationAgreementsAction')
     .params(fetchParticipationAgreementsSchema)
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db, params: { type } }) => {
-        const latestPublished = db
-            .selectFrom('legalDocumentVersion')
+        const rows = await db
+            .selectFrom('legalDocument')
+            .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+            .innerJoin('org', 'org.id', 'legalDocument.orgId')
             .select([
-                'legalDocumentVersion.legalDocumentId',
+                'legalDocument.id as legalDocumentId',
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.publishedAt',
                 signedAtAsText.as('signedAt'),
-            ])
-            .where('legalDocumentVersion.publishedAt', 'is not', null)
-            .distinctOn('legalDocumentVersion.legalDocumentId')
-            .orderBy('legalDocumentVersion.legalDocumentId')
-            .orderBy('legalDocumentVersion.versionNumber', 'desc')
-            .as('latest')
-
-        const rows = await db
-            .selectFrom('org')
-            .leftJoin('legalDocument', (join) =>
-                join.onRef('legalDocument.orgId', '=', 'org.id').on('legalDocument.type', '=', type),
-            )
-            .leftJoin(latestPublished, (join) => join.onRef('latest.legalDocumentId', '=', 'legalDocument.id'))
-            .select([
                 'org.id as orgId',
                 'org.name as orgName',
-                'legalDocument.id as legalDocumentId',
-                'latest.versionId',
-                'latest.versionNumber',
-                'latest.filePath',
-                'latest.signedAt',
             ])
+            .where('legalDocument.type', '=', type)
+            .where('legalDocumentVersion.publishedAt', 'is not', null)
+            .distinctOn('legalDocument.id')
+            .orderBy('legalDocument.id')
+            .orderBy('legalDocumentVersion.versionNumber', 'desc')
+            .execute()
+
+        // distinctOn dictates the ORDER BY above, so the display order is applied after the fact.
+        rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
+
+        return await Promise.all(
+            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+        )
+    })
+
+// Drives the org picker in the upload modal. An org that has already signed stays selectable — a
+// renewal is a new version of the same document, not a second one.
+export const fetchParticipationSignatoriesAction = new Action('fetchParticipationSignatoriesAction')
+    .params(fetchParticipationAgreementsSchema)
+    .middleware(noDocumentScope)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(({ db, params: { type } }) =>
+        db
+            .selectFrom('org')
+            .select(['org.id as orgId', 'org.name as orgName'])
             .where('org.type', '=', participationAgreementOrgTypes[type])
             // SafeInsights is the counterparty to every one of these, so it never signs one itself.
             .where('org.slug', '!=', CLERK_ADMIN_ORG_SLUG)
             .orderBy('org.name')
-            .execute()
-
-        return await Promise.all(
-            rows.map(async (row) => ({
-                ...row,
-                downloadUrl: row.filePath ? await signedUrlForFile(row.filePath) : null,
-            })),
-        )
-    })
+            .execute(),
+    )
 
 export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
     .middleware(noDocumentScope)

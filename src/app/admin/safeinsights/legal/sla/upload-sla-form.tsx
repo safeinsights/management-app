@@ -12,10 +12,11 @@ import {
     fetchStudyLevelAgreementsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { Button, FileInput, Group, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Button, Group, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
+import { PdfDropzone } from '../pdf-dropzone'
 import { ReadOnlyField } from '../read-only-field'
 
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
@@ -175,16 +176,31 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
     return <StudyFields details={details} />
 }
 
-// Publishing cannot be undone, so the confirmation repeats everything that is about to be written.
+// A new version supersedes the one people already acknowledged, so everyone on the study is asked
+// again — and a researcher mid-submission is gated until they do.
+const ReplacesAcknowledgementsNote: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return (
+        <Text c="red.8">
+            Acknowledgements of the current version do not carry over. Everyone on this study will be asked to
+            acknowledge again, and researchers cannot submit code until they do.
+        </Text>
+    )
+}
+
+// Publishing cannot be undone and it obligates people, so the confirmation repeats everything about
+// to be written and names who will be asked to acknowledge it.
 const ConfirmPublishModal: FC<{
     opened: boolean
     details: StudyDetails | undefined
+    isNewVersion: boolean
     signedAt: string
     file: File | null
     isPending: boolean
     onCancel: () => void
     onConfirm: () => void
-}> = ({ opened, details, signedAt, file, isPending, onCancel, onConfirm }) => {
+}> = ({ opened, details, isNewVersion, signedAt, file, isPending, onCancel, onConfirm }) => {
     if (!details) return null
 
     return (
@@ -193,7 +209,12 @@ const ConfirmPublishModal: FC<{
                 <StudyFields details={details} />
                 <ReadOnlyField label="Signed on" value={signedAt} />
                 <ReadOnlyField label="File" value={file?.name ?? ''} />
-                <Text>Are you sure you want to publish this file? This cannot be undone.</Text>
+                <Text>
+                    Publishing sends this to everyone at {details.researchLabName} and {details.dataPartnerName} who
+                    works on this study, and requires each of them to acknowledge it before continuing. This cannot be
+                    undone.
+                </Text>
+                <ReplacesAcknowledgementsNote isVisible={isNewVersion} />
                 <Group justify="flex-end">
                     <Button variant="subtle" onClick={onCancel}>
                         Cancel
@@ -238,14 +259,7 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
                 value={signedAt}
                 onChange={(event) => setSignedAt(event.currentTarget.value)}
             />
-            <FileInput
-                label="Signed agreement"
-                description="Upload the signed SLA as a PDF"
-                placeholder="Select a PDF"
-                accept="application/pdf"
-                value={file}
-                onChange={setFile}
-            />
+            <PdfDropzone label="Signed Study Level Agreement" file={file} onChange={setFile} />
             <Group justify="flex-end">
                 <Button onClick={askForConfirmation} disabled={!details || !signedAt || !file}>
                     Publish
@@ -254,6 +268,7 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <ConfirmPublishModal
                 opened={confirming}
                 details={details}
+                isNewVersion={Boolean(sla)}
                 signedAt={signedAt}
                 file={file}
                 isPending={isPending}

@@ -66,7 +66,7 @@ const openNewVersionFor = async (title: string) => {
     await waitFor(() => expect(screen.getByText('Upload a new version')).toBeDefined())
 }
 
-// Mantine's FileInput hides the real input behind a button, so the file goes in directly.
+// The dropzone keeps a real file input behind it, so the file goes in directly.
 const chooseFile = (name: string) => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [new File(['pdf bytes'], name, { type: 'application/pdf' })] } })
@@ -100,7 +100,7 @@ describe('StudyLevelAgreements', () => {
         // The study is fixed, so there is nothing to pick.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
         expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
-        expect(screen.getByText('Signed agreement')).toBeDefined()
+        expect(screen.getByText('Signed Study Level Agreement')).toBeDefined()
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
@@ -134,6 +134,10 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
         expect(within(confirmation).getByText('2026-08-03')).toBeDefined()
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
+        // A version 2 resets everyone's acknowledgement, which the admin has to be told before sending.
+        expect(
+            within(confirmation).getByText(/Acknowledgements of the current version do not carry over/),
+        ).toBeDefined()
     })
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
@@ -146,7 +150,7 @@ describe('StudyLevelAgreements', () => {
         await waitFor(() => expect(screen.getByText('Upload a signed SLA')).toBeDefined())
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
-        expect(screen.getByText('Signed agreement')).toBeDefined()
+        expect(screen.getByText('Signed Study Level Agreement')).toBeDefined()
         // Queried by placeholder because "Research Lab" also names a column in the table behind.
         expect(screen.getByPlaceholderText('Select a Research Lab')).toBeDisabled()
     })

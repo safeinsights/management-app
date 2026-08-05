@@ -23,12 +23,16 @@ legal document. We are explicitly _not_ building signing — signatures happen o
 | **DOPA** — Data Org Participation Agreement     | Members of one Data Partner  | Per-org   | PDF      |
 | **SLA** — Study Level Agreement                 | People who work on one study | Per-study | PDF      |
 
-> **On "O" in ROPA/DOPA.** The acronyms expand with **O**rganization — the historic name for what
-> we now call a Partner. We are keeping the `ropa`/`dopa` enum values (and the acronyms themselves)
-> because RPPA/DPPA is less fun to say, but the naming is migrating to "Partner". User-facing text
-> should therefore use the current language: the labels in `legalDocumentTypeLabels`
-> (`src/schema/legal-document.ts`) read **"Research/Data Partner Participation Agreement"**, not
-> "Organization". The acronym and the label diverge on purpose.
+> **On "O" in ROPA/DOPA.** The acronyms expand with **O**rganization, which is also the historic
+> name for what the app now calls a Partner. An earlier draft of this doc argued for renaming the
+> agreements to "Partner" to match the rest of the product; that was reversed. The executed PDFs
+> carry "Organization" on their cover, and an SI admin matching a signed file to a tab is better
+> served by the document's own name than by our internal noun. So `legalDocumentTypeLabels`
+> (`src/schema/legal-document.ts`) reads **"Research/Data Organization Participation Agreement"**.
+>
+> The distinction that survives: the _agreement_ is named after the Organization, the _org_ is
+> still a Data Partner or Research Lab. That is why `participationAgreementOrgLabels` is a separate
+> map — it labels the table column and the picker, where the app's current noun is correct.
 
 The compliance requirement is the point: we must be able to **produce evidence** that a specific
 person agreed to a specific version of a specific document on a specific date.
