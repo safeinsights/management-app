@@ -92,7 +92,10 @@ fi
 dc() { docker compose -f "$COMPOSE_FILE" "$@"; }
 
 cleanup_app() {
-    dc rm -fsv app-e2e >/dev/null 2>&1 || true
+    # The app and its anonymous .next volume are disposable. Waiting through Docker's graceful
+    # stop timeout adds ten seconds after every run without preserving any state.
+    dc kill app-e2e >/dev/null 2>&1 || true
+    dc rm -fv app-e2e >/dev/null 2>&1 || true
 }
 
 if [ "$down" = true ]; then
