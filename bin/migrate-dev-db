@@ -13,8 +13,11 @@ pnpm exec kysely-codegen \
   --overrides='{"columns":{"org_code_env.settings":"Generated<OrgCodeEnvSettings>","org_code_env.command_lines":"CommandLines"}}' \
   --custom-imports='{"OrgCodeEnvSettings":"./types-manual#OrgCodeEnvSettings","CommandLines":"./types-manual#CommandLines"}'
 
-# run seeds after generating types above so the seed files see the updated DB state
-pnpm exec kysely seed:run
+# run seeds after generating types above so the seed files see the updated DB state.
+# ALLOW_TESTING_DATA is the seed's opt-in: seeds no-op without it, so that a deployed
+# environment that never sets it cannot be seeded with test fixtures. Scoped to this
+# command rather than exported, to keep it off the migration and seed-environment steps.
+ALLOW_TESTING_DATA=1 pnpm exec kysely seed:run
 
 # Add manual type import (kysely-codegen always regenerates the file, so this must run every time)
 # inspiration from https://github.com/RobinBlomberg/kysely-codegen/issues/273
@@ -39,7 +42,7 @@ fi
 pnpm exec prettier --write $TYPES
 pnpm exec eslint --fix $TYPES
 
-pnpm exec tsx bin/seed-environment.ts
+ALLOW_TESTING_DATA=1 pnpm exec tsx bin/seed-environment.ts
 
 if [ -e "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then
