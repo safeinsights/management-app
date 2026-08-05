@@ -1,9 +1,10 @@
 'use server'
 
-import { Action, z } from '@/server/actions/action'
+import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserName } from '@/server/clerk'
 import { positionSchema, educationSchema, personalInfoSchema, researchDetailsSchema } from '@/schema/researcher-profile'
 import { throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
 
 export const getResearcherProfileAction = new Action('getResearcherProfileAction')
     .middleware(async ({ session }) => ({ id: session?.user.id }))
@@ -157,12 +158,22 @@ export const updateResearchDetailsAction = new Action('updateResearchDetailsActi
 
 export const getResearcherProfileByUserIdAction = new Action('getResearcherProfileByUserIdAction')
     .params(z.object({ userId: z.string(), studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
+    .middleware(async ({ params: { studyId, userId }, db }) => {
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
+            .select(['orgId', 'submittedByOrgId', 'status', 'researcherId', 'piUserId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('Study'))
+
+        // The study's view ability says nothing about whose profile is being requested, so without
+        // this anyone able to view any single study could read every user's email and PII by
+        // editing the userId in the URL. Only the two people the study actually names are exposed.
+        if (userId !== study.researcherId && userId !== study.piUserId) {
+            const msg = `getResearcherProfileByUserIdAction: user ${userId} is not associated with study ${studyId}`
+            logger.error(msg)
+            throw new ActionFailure({ permission_denied: msg })
+        }
+
         return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')

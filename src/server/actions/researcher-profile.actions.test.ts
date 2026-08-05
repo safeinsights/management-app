@@ -99,16 +99,69 @@ describe('researcher-profile.actions', () => {
             })
         })
 
-        it('returns null when user does not exist', async () => {
+        it('denies an unknown userId instead of confirming the account does not exist', async () => {
             const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const result = await getResearcherProfileByUserIdAction({
                 userId: faker.string.uuid(),
                 studyId: study.id,
             })
 
-            expect(result).toBeNull()
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        it('denies a userId that is unrelated to the study', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            const { user: unrelatedUser } = await insertTestUser({ org: otherOrg })
+            await insertTestResearcherProfile({
+                userId: unrelatedUser.id,
+                education: { institution: 'Stanford', degree: 'Ph.D.', fieldOfStudy: 'Physics' },
+            })
+
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const result = await getResearcherProfileByUserIdAction({
+                userId: unrelatedUser.id,
+                studyId: study.id,
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        it('denies a member of the submitting org who is not named on the study', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const { user: labMate } = await insertTestUser({ org })
+
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const result = await getResearcherProfileByUserIdAction({ userId: labMate.id, studyId: study.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        it('allows the study principal investigator', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const { user: piUser } = await insertTestUser({ org })
+            await db.updateTable('study').set({ piUserId: piUser.id }).where('id', '=', study.id).execute()
+            await insertTestResearcherProfile({
+                userId: piUser.id,
+                education: { institution: 'Rice', degree: 'Ph.D.', fieldOfStudy: 'Statistics' },
+            })
+
+            const result = await getResearcherProfileByUserIdAction({ userId: piUser.id, studyId: study.id })
+
+            expect(isActionError(result)).toBe(false)
+            expect(result).toMatchObject({
+                user: { id: piUser.id, email: piUser.email },
+                profile: { educationInstitution: 'Rice' },
+            })
         })
 
         it('returns user with null profile when profile does not exist', async () => {
