@@ -9,7 +9,6 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import type { EditorState } from 'lexical'
 
@@ -146,7 +145,9 @@ export function SingleUserEditor({
                 />
                 <HistoryPlugin />
                 <ListPlugin />
-                <TabIndentationPlugin />
+                {/* No TabIndentationPlugin: it cancels the Tab keydown, so focus never leaves the
+                    editor and Tab types a literal tab instead. Indentation lives on the toolbar's
+                    Indent / Outdent buttons, which are themselves reachable by Tab. */}
                 <EscapeFocusPlugin />
                 <LinkPlugin validateUrl={isValidUrl} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}

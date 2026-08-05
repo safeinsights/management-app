@@ -11,7 +11,6 @@ import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
@@ -413,7 +412,9 @@ export function CollaborativeEditor({
                     />
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
-                    <TabIndentationPlugin />
+                    {/* No TabIndentationPlugin: it cancels the Tab keydown, so focus never leaves
+                        the editor and Tab types a literal tab instead. Indentation lives on the
+                        toolbar's Indent / Outdent buttons, reachable by Tab themselves. */}
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />
