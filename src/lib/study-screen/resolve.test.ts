@@ -179,9 +179,18 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
 })
 
 describe('resolveScreen (reviewer)', () => {
-    it('results present → reviewer-study-results (highest precedence)', () => {
+    it('decided results → reviewer-study-results (highest precedence)', () => {
+        expect(
+            resolveScreen(
+                'reviewer',
+                state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
+                ctx,
+            ).screen,
+        ).toBe('reviewer-study-results')
+    })
+    it('undecided results → reviewer-outputs-available (decrypt-before-review, OTTER-668)', () => {
         expect(resolveScreen('reviewer', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe(
-            'reviewer-study-results',
+            'reviewer-outputs-available',
         )
     })
     it('pending review → reviewer-proposal-review', () => {
