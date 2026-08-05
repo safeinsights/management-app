@@ -77,15 +77,19 @@ export function defineAbilityFor(session: UserSession) {
 
     // users who belong to any research orgs can create studies for ANY org.
     // create is unconditioned: a new draft has no submittedByOrgId yet — the
-    // submitting lab is chosen in the handler from the user's own orgs. update,
-    // delete, and job mutations are scoped to studies the user's lab submitted,
-    // so a lab member can't mutate another lab's study by guessing its id.
+    // submitting lab is chosen in the handler and validated against the user's
+    // own lab orgs there (onSaveDraftStudyAction), since the slug arrives as a
+    // client param. update, delete, job mutations, and IDE access are scoped to
+    // studies the user's lab submitted, so a lab member can't reach another
+    // lab's study by guessing its id.
     if (usersResearcherOrgIds.length) {
         permit('create', 'Study')
         permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
-        permit('load', 'IDE')
+        // OTTER-719: previously unconditioned, which granted every lab member read/write/delete
+        // on every study's workspace files. A `$in` fails closed when the field is missing.
+        permit('load', 'IDE', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     }
 
     // can view studies and jobs for all orgs that the user's org has submitted

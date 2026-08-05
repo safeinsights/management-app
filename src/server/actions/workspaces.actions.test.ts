@@ -1,9 +1,13 @@
 import {
     mockSessionWithTestData,
     actionResult,
+    createTestProposalDraft,
     insertTestBaselineJob,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
+    insertTestUser,
+    mockClerkSession,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
@@ -294,6 +298,82 @@ describe('Workspace Actions', () => {
             actionResult(await ensureWorkspaceAction({ studyId: study.id }))
 
             expect((await jobCreatedAt(job.id)).getTime()).toBeGreaterThan(backdated.getTime())
+        })
+    })
+
+    // OTTER-719: the `load IDE` grant used to be unconditioned, so any member of any lab org could
+    // read, overwrite, or delete another lab's in-progress code just by supplying its studyId. These
+    // exercise the RPC endpoints themselves, not just the ability object.
+    describe('cross-lab workspace access', () => {
+        const setupOtherLabStudy = async () => {
+            const { studyId } = await createTestProposalDraft({ enclaveSlug: 'otter719-enclave' })
+
+            // Switch to a member of an unrelated lab. orgType defaults to 'enclave', and the rule
+            // under test only applies to lab members, so 'lab' must be explicit here.
+            const otherLab = await insertTestOrg({ slug: 'otter719-other-lab', type: 'lab' })
+            const { user: intruder } = await insertTestUser({ org: otherLab })
+            mockClerkSession({
+                clerkUserId: intruder.clerkId,
+                orgSlug: otherLab.slug,
+                userId: intruder.id,
+                orgId: otherLab.id,
+                orgType: 'lab',
+            })
+
+            // No logger spy here: this suite's beforeEach calls vi.resetModules(), so the
+            // dynamically-imported action binds a fresh logger instance a spy would not cover.
+            // The denial messages in stderr are the expected, deliberate audit log.
+            return { studyId }
+        }
+
+        const expectDenied = (result: unknown) =>
+            expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        test('a lab member cannot list another lab study workspace files', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const { listWorkspaceFilesAction } = await import('./workspaces.actions')
+
+            expectDenied(await listWorkspaceFilesAction({ studyId }))
+        })
+
+        test('a lab member cannot read or delete another lab study workspace files', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const studyDir = path.join(TEST_CODER_FILES, studyId)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'main.r'), 'print("secret")')
+
+            const { readWorkspaceFileAction, deleteWorkspaceFileAction } = await import('./workspace-files.actions')
+
+            expectDenied(await readWorkspaceFileAction({ studyId, fileName: 'main.r' }))
+            expectDenied(await deleteWorkspaceFileAction({ studyId, fileName: 'main.r' }))
+
+            // The denial must actually protect the bytes on disk, not merely return an error.
+            await expect(fs.readFile(path.join(studyDir, 'main.r'), 'utf8')).resolves.toBe('print("secret")')
+        })
+
+        test('a lab member cannot launch a workspace for another lab study', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const { ensureWorkspaceAction, getLastSubmissionInfoAction } = await import('./workspaces.actions')
+
+            expectDenied(await ensureWorkspaceAction({ studyId }))
+            expectDenied(await getLastSubmissionInfoAction({ studyId }))
+        })
+
+        test('the submitting lab still reaches its own study workspace', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+
+            // Regression guard: the fix must not break the legitimate path.
+            const { studyId } = await createTestProposalDraft({ enclaveSlug: 'otter719-owner-enclave' })
+
+            const { listWorkspaceFilesAction } = await import('./workspaces.actions')
+
+            expect(actionResult(await listWorkspaceFilesAction({ studyId }))).toMatchObject({ files: [] })
         })
     })
 })

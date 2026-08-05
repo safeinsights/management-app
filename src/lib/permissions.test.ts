@@ -113,6 +113,38 @@ test('researcher role', () => {
     expect(ability.can('update', 'UserKey')).toBe(true)
 })
 
+test('load IDE is scoped to the submitting lab (OTTER-719)', () => {
+    const { ability, session } = createAbilty({}, 'lab')
+    const ownLabId = session.orgs.test.id
+    const otherLabId = faker.string.uuid()
+
+    // A lab member reaches the IDE for a study their own lab submitted...
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: ownLabId }))).toBe(true)
+
+    // ...but not another lab's study. This was the defect: the grant was unconditioned, so supplying
+    // any studyId gave read/write/delete on that study's workspace files.
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId }))).toBe(false)
+
+    // The study's own researcher keeps access regardless of which lab submitted it.
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId, researcherId: session.user.id }))).toBe(
+        true,
+    )
+    expect(
+        ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId, researcherId: faker.string.uuid() })),
+    ).toBe(false)
+
+    // Fail-closed: a subject missing submittedByOrgId is denied rather than silently granted
+    expect(ability.can('load', toRecord('IDE', {}))).toBe(false)
+})
+
+test('enclave-only members cannot load the IDE (OTTER-719)', () => {
+    // The scoped grant lives behind `if (usersResearcherOrgIds.length)`, so a user with no lab
+    // membership never receives it.
+    const { ability } = createAbilty({}, 'enclave')
+
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: faker.string.uuid() }))).toBe(false)
+})
+
 test('admin role', () => {
     const { ability, session } = createAbilty({ isAdmin: true })
     expect(ability.can('approve', 'Study')).toBeTruthy()
