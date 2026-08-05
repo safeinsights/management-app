@@ -81,26 +81,20 @@ export default defineConfig({
         timeout: E2E_EXPECT_TIMEOUT,
     },
 
-    // Playwright owns the testing-only app instance (4100): bin/app-test builds the app
-    // (with E2E_FAKE_CLERK so Clerk is faked in-process — no external auth server) and
-    // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
-    // compilation is slow and unstable under the suite. The shared infra (Postgres +
-    // SeaweedFS + the test DB) is brought up first by ./bin/docker-e2e or ./bin/local-e2e.
-    // Docker uses an authoritative merged environment while app-test retains main's local
-    // environment behavior. On CI the app is built+started by bin/ci-server, so
-    // no webServer is managed here. Docker never reuses an existing server because that could
-    // connect Playwright to an app configured for another database.
-    webServer: IS_CI
-        ? []
-        : [
-              {
-                  command: 'pnpm run app:test',
-                  url: E2E_BASE_URL,
-                  reuseExistingServer: !IS_DOCKER_E2E,
-                  timeout: 300_000,
-                  ...(IS_DOCKER_E2E ? { env: { E2E_MODE: 'docker' } } : {}),
-              },
-          ],
+    // Local e2e lets Playwright own a testing-only app on port 4100. Docker e2e starts its app
+    // in Compose before Playwright, with .next masked by a container-owned volume. CI starts
+    // the app through bin/ci-server. We do not use `next dev` in any of these test paths.
+    webServer:
+        IS_CI || IS_DOCKER_E2E
+            ? []
+            : [
+                  {
+                      command: 'pnpm run app:test',
+                      url: E2E_BASE_URL,
+                      reuseExistingServer: true,
+                      timeout: 300_000,
+                  },
+              ],
 
     outputDir: 'test-results/e2e',
 

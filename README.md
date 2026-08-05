@@ -206,10 +206,9 @@ pnpm run test:unit
 
 ### E2E Testing with Playwright 🎭
 
-Playwright and the app under test always run on your host, so interactive debugging works.
-Only the shared infra (Postgres + object storage) differs, so pick the entrypoint that matches
-how you run it. Either way an isolated test database is used and your dev database is never
-touched.
+Playwright always runs on your host, so interactive debugging works. The local entrypoint also
+runs the app on the host; the Docker entrypoint runs the app with its infrastructure inside
+Compose. Either way an isolated test database is used and your dev database is never touched.
 
 One-time setup:
 
@@ -219,8 +218,8 @@ One-time setup:
 **If Postgres + SeaweedFS run in Docker: `./bin/docker-e2e`**
 
 Brings up the dedicated stack in `docker-compose.e2e.yml` (its own Postgres on port 5433 and
-SeaweedFS on 8334, distinct from dev's), migrates and seeds it inside the container, then runs
-Playwright against a dedicated app on port 4101. No host `psql` needed.
+SeaweedFS on 8334, distinct from dev's), migrates and seeds it inside the container, starts a
+dedicated app container on port 4101, then runs Playwright on the host. No host `psql` needed.
 
 - `./bin/docker-e2e` — full suite (headless)
 - `./bin/docker-e2e -- --ui` — Playwright UI (interactive)
@@ -233,10 +232,12 @@ non-secret endpoints without starting the stack).
 
 Docker e2e loads `.env` as its base and then applies `.env.test` when present. Docker-owned
 database, S3, local AWS credentials, bucket, fake-auth, and app endpoint values are applied
-last so the seed container, host Playwright, and host app cannot be redirected to dev services.
+last so the seed container, host Playwright, and Docker app cannot be redirected to dev services.
 Customize the published ports with `E2E_PG_PORT`, `E2E_S3_PORT`, or `E2E_APP_PORT`. This does
 not change the regular environment started by `docker compose up`. Remote database secret,
 application secret, and Claude API selectors are removed from the Docker e2e host processes.
+The app's `.next` directory is a disposable Docker volume that masks the bind-mounted checkout,
+so Docker e2e never reads or writes the host checkout's `.next` directory.
 
 **If you run Postgres + SeaweedFS yourself: `./bin/local-e2e`**
 

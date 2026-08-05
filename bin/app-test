@@ -35,7 +35,11 @@ export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-p
 
 if [ "${1:-}" != "--no-build" ]; then
     echo "app-test: building (E2E_FAKE_CLERK=1)..."
-    env -u AWS_PROFILE pnpm exec next build
+    if [ "${E2E_MODE:-}" = "docker" ]; then
+        ./node_modules/.bin/next build
+    else
+        env -u AWS_PROFILE pnpm exec next build
+    fi
 fi
 
 cp -r public .next/standalone/ 2>/dev/null || true

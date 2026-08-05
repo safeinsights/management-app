@@ -10,8 +10,8 @@ set -euo pipefail
 #   ./bin/docker-e2e -- --headed     # watch the browser
 #   ./bin/docker-e2e -- study-flow   # subset (any Playwright args after --)
 #
-# Migrates and seeds the isolated test database inside Docker. The app under test is served
-# on the host on port 4101 by Playwright's webServer config.
+# Migrates and seeds the isolated test database inside Docker. The app also runs in Docker on
+# port 4101, while Playwright and its interactive UI remain on the host.
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$repo_root"
@@ -91,8 +91,13 @@ fi
 
 dc() { docker compose -f "$COMPOSE_FILE" "$@"; }
 
+cleanup_app() {
+    dc rm -fsv app-e2e >/dev/null 2>&1 || true
+}
+
 if [ "$down" = true ]; then
     echo "Stopping e2e containers + network (volumes kept)..."
+    cleanup_app
     dc down --remove-orphans
     exit 0
 fi
@@ -109,6 +114,7 @@ fi
 
 if [ "$clean" = true ]; then
     echo "Cleaning test DB + object storage (dependencies preserved)..."
+    cleanup_app
     dc down
     docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-e2e" "${COMPOSE_PROJECT_NAME}_seaweedfs-data-e2e" 2>/dev/null || true
 else
@@ -133,9 +139,18 @@ dc run --rm create-buckets-e2e
 echo "Migrating + seeding the test DB (in Docker)..."
 dc run --rm seed-e2e
 
+echo "Building + starting the e2e app (in Docker)..."
+# Remove any interrupted run and its anonymous .next volume before creating a fresh build.
+cleanup_app
+trap cleanup_app EXIT
+if ! dc up -d --wait --wait-timeout 300 app-e2e; then
+    dc logs app-e2e
+    exit 1
+fi
+
 echo "Running Playwright on the host against the e2e stack..."
 if [ ${#pw_args[@]} -gt 0 ]; then
-    exec pnpm exec playwright test "${pw_args[@]}"
+    pnpm exec playwright test "${pw_args[@]}"
 else
-    exec pnpm exec playwright test
+    pnpm exec playwright test
 fi

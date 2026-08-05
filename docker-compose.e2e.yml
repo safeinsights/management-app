@@ -1,11 +1,7 @@
 # docker-compose.e2e.yml
 #
-# Local e2e infrastructure for HOST-run Playwright. Analogous to docker-compose.testunit.yml,
-# but with two differences:
-#   1. It PUBLISHES ports to the host, because Playwright and the app under test
-#      (bin/app-test on :4100) run on the host and must reach the DB + S3.
-#   2. It includes a one-shot `seed-e2e` service so migrate + seed happen INSIDE Docker
-#      (no host-level psql/kysely needed).
+# Local e2e stack for host-run Playwright. The application, database, object storage, and
+# build output run inside Docker; only their published endpoints are used from the host.
 #
 # Driven by ./bin/docker-e2e, which brings this stack up, seeds it, then runs Playwright on
 # the host. Interactive debugging (`--ui` / `--headed`) works because Playwright is local.
@@ -17,14 +13,72 @@
 # identity as the unit-test stack. `.env.test` overrides `.env` when present; explicit service
 # values remain authoritative for the isolated database and fake-auth seed process.
 services:
+    app-e2e:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        working_dir: /app
+        env_file:
+            - path: .env
+              required: false
+            - path: .env.test
+              required: false
+        environment:
+            - E2E_MODE=docker
+            - DATABASE_URL=postgres://si:si@db-e2e:5432/si_test
+            - S3_ENDPOINT=http://seaweedfs-e2e:8333
+            # This URL is sent to the host browser, so it must use the published S3 port.
+            - S3_BROWSER_ENDPOINT=http://127.0.0.1:${E2E_S3_PORT:-8334}
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
+            - AWS_REGION=us-east-1
+            - AWS_PROFILE=
+            - BUCKET_NAME=mgmt-app-local
+            - E2E_FAKE_CLERK=1
+            - SINGLE_USER_EDITING=t
+            - CI=true
+            - PORT=4101
+            - HOSTNAME=0.0.0.0
+            - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+            - CLAUDE_API_KEY=
+            - DB_SECRET_ARN=
+            - SECRETS_ARN=
+        volumes:
+            - ./:/app/
+            - node_modules_e2e:/app/node_modules
+            # Mask the bind-mounted host path with disposable container-owned build output.
+            - /app/.next
+        command: ./bin/app-test
+        depends_on:
+            db-e2e:
+                condition: service_healthy
+            seaweedfs-e2e:
+                condition: service_healthy
+        networks:
+            - e2e-net
+        ports:
+            - '${E2E_APP_PORT:-4101}:4101'
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'node',
+                    '-e',
+                    "fetch('http://127.0.0.1:4101/account/signin').then(() => process.exit(0)).catch(() => process.exit(1))",
+                ]
+            interval: 3s
+            timeout: 5s
+            retries: 20
+            start_period: 180s
+        restart: 'no'
+
     db-e2e:
         image: 'postgres:16'
         environment:
             - POSTGRES_USER=si
             - POSTGRES_PASSWORD=si
             - POSTGRES_DB=si_test
-        # Published so the host-run app server (bin/app-test) can reach the test DB.
-        # Distinct from dev's 5432 so the two never clash; override with E2E_PG_PORT.
+        # Published for host Playwright fixtures. Override with E2E_PG_PORT.
         ports:
             - '${E2E_PG_PORT:-5433}:5432'
         volumes:
@@ -45,7 +99,7 @@ services:
             AWS_ACCESS_KEY_ID: si-local-s3
             AWS_SECRET_ACCESS_KEY: si-local-s3
         command: server -s3 -dir=/data
-        # Published so the host-run app server can reach S3; distinct from dev's 8333.
+        # Published for host Playwright fixtures and browser-facing S3 URLs.
         ports:
             - '${E2E_S3_PORT:-8334}:8333'
         volumes:
