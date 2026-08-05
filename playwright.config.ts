@@ -86,15 +86,15 @@ export default defineConfig({
     // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
     // compilation is slow and unstable under the suite. The shared infra (Postgres +
     // SeaweedFS + the test DB) is brought up first by ./bin/docker-e2e or ./bin/local-e2e.
-    // Docker uses an authoritative merged environment and a dedicated app wrapper; local
-    // retains main's app-test behavior. On CI the app is built+started by bin/ci-server, so
+    // Docker uses an authoritative merged environment while app-test retains main's local
+    // environment behavior. On CI the app is built+started by bin/ci-server, so
     // no webServer is managed here. Docker never reuses an existing server because that could
     // connect Playwright to an app configured for another database.
     webServer: IS_CI
         ? []
         : [
               {
-                  command: IS_DOCKER_E2E ? './bin/docker-e2e-app' : 'pnpm run app:test',
+                  command: 'pnpm run app:test',
                   url: E2E_BASE_URL,
                   reuseExistingServer: !IS_DOCKER_E2E,
                   timeout: 300_000,
