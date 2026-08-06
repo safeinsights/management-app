@@ -141,6 +141,24 @@ export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
 
+// faker.internet.email() draws its local part from the shared name pools plus a small numeric
+// suffix, a space narrow enough that a full run (thousands of users) hands out the same address
+// twice and user_email_lower_unique rejects the second insert, surfacing as a duplicate-key error
+// in whichever unrelated test lost the race. The appended discriminator removes the draw from the
+// equation: the counter separates addresses within a worker, the token separates workers without
+// depending on how vitest pools them (faker is unseeded, so each worker draws its own).
+//
+// faker's casing is preserved, so callers still get the mixed-case addresses they got before.
+// Tests that need two records to share an address must pass it explicitly rather than hoping for
+// a collision.
+let emailSequence = 0
+const emailWorkerToken = faker.string.alphanumeric({ length: 6, casing: 'lower' })
+
+export const testEmail = (provider = 'test.com') => {
+    const [localPart] = faker.internet.email({ provider }).split('@')
+    return `${localPart}-${emailWorkerToken}${++emailSequence}@${provider}`
+}
+
 export const insertTestStudyData = async ({
     org,
     researcherId,
@@ -265,7 +283,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: email ?? faker.internet.email({ provider: 'test.com' }),
+            email: email ?? testEmail(),
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -583,7 +601,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         teams: null,
         orgs,
     }
-    const mockEmail = values.email || faker.internet.email({ provider: 'test.com' })
+    const mockEmail = values.email || testEmail()
     const userProperties = {
         id: values.clerkUserId,
         banned: false,

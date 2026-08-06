@@ -6,6 +6,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    testEmail,
 } from '@/tests/unit.helpers'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
@@ -75,7 +76,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -144,7 +145,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -248,7 +249,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: targetOrg.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -293,7 +294,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: contributorOrg.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -304,7 +305,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: adminOrg.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: true,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -519,7 +520,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: opts.orgId ?? org.id,
-                email: opts.email ?? faker.internet.email({ provider: 'test.com' }).toLowerCase(),
+                email: opts.email ?? testEmail().toLowerCase(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
                 claimedByUserId: opts.claimedByUserId ?? null,
@@ -607,7 +608,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -634,7 +635,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
                 claimedByUserId: user.id,
@@ -660,7 +661,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
                 claimedByUserId: invitingUser.user.id,
@@ -685,7 +686,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
@@ -712,7 +713,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
                 claimedByUserId: invitingUser.user.id,
@@ -729,7 +730,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: faker.internet.email({ provider: 'test.com' }),
+                email: testEmail(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
                 claimedByUserId: invitingUser.user.id,
