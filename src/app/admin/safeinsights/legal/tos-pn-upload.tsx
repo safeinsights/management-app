@@ -14,10 +14,6 @@ import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-// okay I have a lo-fi for this feature. it looks different than i planned.
-// I think today I can finish the upload modal,
-// and start working on displaying the uploaded thign and its versions!
-
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
 function UploadModalContents({
@@ -67,7 +63,7 @@ function CurrentVersion({ current, doctype }: { current: PublishedVersion | null
 }
 
 export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
-    const [legalModalOpened, { open: openLegalModal, close: closeLegalModal }] = useDisclosure(false)
+    const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['legalVersions', doctype],
@@ -86,14 +82,14 @@ export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
             <Stack p="sm">
                 <Flex justify="space-between" align="center">
                     <Title>{label}</Title>
-                    <Button onClick={openLegalModal}>
+                    <Button onClick={openCreateModal}>
                         <FileArrowUpIcon />
                         <Text ml="xs">Upload</Text>
                     </Button>
                 </Flex>
                 <CurrentVersion current={data.current} doctype={doctype} />
-                <AppModal title={label} isOpen={legalModalOpened} onClose={closeLegalModal}>
-                    <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeLegalModal} />
+                <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
+                    <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeCreateModal} />
                 </AppModal>
                 <Text>TBD Review Older Versions</Text>
                 <Text>TBD User Acknowledgment Status</Text>
