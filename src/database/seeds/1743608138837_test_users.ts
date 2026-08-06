@@ -83,19 +83,36 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     // src/lib/session.ts) and the openstax slugs drive feature gating (src/lib/constants.ts).
     // The e2e specs hard-code them as URL paths. Safety comes from this gate, not from the names.
     //
-    // Keep both checks as inline process.env reads with no new imports: importing anything that
-    // pulls in a CJS dependency (@/server/config -> debug -> require('tty')) crashes the esbuild
-    // ESM bundle the migrator Lambda runs seeds from. See the note near TEST_PUBLIC_KEY_PEM.
+    // Keep both checks as inline process.env reads with no new imports: CJS dependencies crash
+    // the esbuild ESM bundle the migrator Lambda runs seeds from (verified for si-encryption ->
+    // debug -> require('tty'); see the note near TEST_PUBLIC_KEY_PEM). The tsx entry points
+    // share this gate via bin/lib/testing-data-gate.ts, which is not imported here because it
+    // pulls in @/server/config and its CJS @aws-sdk dependency — importing config broke the
+    // bundle when tried, cause not fully diagnosed. Keep the accepted literal in sync with it.
+    //
+    // Prod bootstrap: with this gate, nothing ever creates the safe-insights org row in a fresh
+    // production database — the row SI-admin authorization reads (CLERK_ADMIN_ORG_SLUG in
+    // src/lib/types.ts, via src/lib/session.ts). That is deliberate: no migration or seed may
+    // write it there. Recovery flow for an empty prod DB: valid Clerk accounts are auto-created
+    // on first login, so create the admin user in Clerk and have them log in.
     // =======================================================================
 
-    // Opt in explicitly. Set by local dev, CI, and the non-production migrator Lambdas only.
-    if (!process.env.ALLOW_TESTING_DATA) return
+    // Opt in explicitly, on the literal 'TRUE' — the value iac's app-stack.ts sets for the
+    // non-production migrator Lambdas and bin/migrate-dev-db sets for local dev and CI. An
+    // explicit comparison keeps ALLOW_TESTING_DATA=false or =0 from enabling the seed.
+    if (process.env.ALLOW_TESTING_DATA !== 'TRUE') {
+        console.warn('Skipping test data seed: ALLOW_TESTING_DATA=TRUE is not set.')
+        return
+    }
 
     // Independent production backstop, in case something ever sets the opt-in there. NODE_ENV is
     // deliberately not consulted: it is 'production' in every Next production build, including
     // non-production deployed environments.
-    const envName = (process.env.ENVIRONMENT_ID || process.env.DEPLOY_ENV || '').toLowerCase()
-    if (envName === 'production' || envName === 'prod') return
+    const envName = (process.env.ENVIRONMENT_ID || '').toLowerCase()
+    if (envName === 'production' || envName === 'prod') {
+        console.warn('Refusing to seed test data into a production environment.')
+        return
+    }
 
     // Upsert orgs and capture the actual persisted id for each slug.
     // Existing deployments may already have rows for these slugs with
