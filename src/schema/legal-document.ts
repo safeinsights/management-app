@@ -14,6 +14,12 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ropa: 'Research Organization Participation Agreement',
 }
 
+// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
+// are global — one document each, no org or study scope — so the audience is simply everybody.
+export const enforcedLegalDocumentTypes = ['tos', 'pn'] as const
+
+export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
+
 export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])
 
 export type LegalDocumentFormat = z.infer<typeof legalDocumentFormatSchema>

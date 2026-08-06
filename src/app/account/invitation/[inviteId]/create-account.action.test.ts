@@ -79,6 +79,94 @@ describe('Create Account Actions', () => {
         expect(newUser).toBeDefined()
     })
 
+    // The signup checkbox has never been persisted, so a user affirmatively agreed with no evidence
+    // recorded. These two cover the fix and the state the app is in before anything is published.
+    describe('signup acknowledgements', () => {
+        const form = { firstName: 'Test', lastName: 'User', password: 'password', confirmPassword: 'password' }
+
+        const createInvite = async () =>
+            await db
+                .insertInto('pendingUser')
+                .values({
+                    orgId: org.id,
+                    email: faker.internet.email({ provider: 'test.com' }),
+                    isAdmin: false,
+                    invitedByUserId: invitingUser.user.id,
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        const publishTos = async () => {
+            const document = await db
+                .insertInto('legalDocument')
+                .values({ type: 'tos', orgId: null, studyId: null })
+                .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId: document.id,
+                    filePath: 'legal/tos/terms.md',
+                    format: 'markdown',
+                    versionNumber: 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        const acknowledgementsFor = async (email: string) =>
+            await db
+                .selectFrom('legalDocumentAcknowledgement')
+                .innerJoin('user', 'user.id', 'legalDocumentAcknowledgement.userId')
+                .select('legalDocumentAcknowledgement.legalDocumentVersionId')
+                .where('user.email', '=', email)
+                .execute()
+
+        it('records agreement to the versions the form displayed', async () => {
+            const version = await publishTos()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [version.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: version.id }])
+        })
+
+        // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
+        // account is still created — the app-wide gate collects a real acknowledgement later.
+        it('ignores a version that was never published', async () => {
+            const document = await db
+                .insertInto('legalDocument')
+                .values({ type: 'tos', orgId: null, studyId: null })
+                .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            const draft = await db
+                .insertInto('legalDocumentVersion')
+                .values({ legalDocumentId: document.id, filePath: 'legal/tos/draft.md', format: 'markdown' })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [draft.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+
+        it('creates the account when nothing has been published to acknowledge', async () => {
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+    })
+
     it('onCreateAccountAction throws an error if invite not found', async () => {
         const form = {
             firstName: 'Test',

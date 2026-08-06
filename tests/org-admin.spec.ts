@@ -70,7 +70,10 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
-        await page.getByRole('checkbox', { name: /terms of service/i }).check()
+        // The published documents are rendered inline on the form, and the acknowledgement recorded
+        // at signup is against the versions shown here.
+        await expect(page.getByText('This version supersedes v1.')).toBeVisible()
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled

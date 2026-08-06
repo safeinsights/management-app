@@ -9,6 +9,8 @@ import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
+    enforcedLegalDocumentTypes,
+    type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
     fetchParticipationAgreementsSchema,
     legalDocumentFormats,
@@ -17,6 +19,7 @@ import {
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
 import { createSignedUploadUrl, signedUrlForFile } from '../aws'
+import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
 // A signature day has no instant, so the column is a `date`. node-postgres would otherwise read it
@@ -219,6 +222,111 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
 
         return { acknowledged: true }
     })
+
+type EnforcedVersion = {
+    type: EnforcedLegalDocumentType
+    legalDocumentId: string
+    versionId: string
+    filePath: string
+}
+
+const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
+    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+
+// The current version of each globally-scoped document. Drafts are excluded: nobody can be obliged
+// by something that was never published.
+const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]> => {
+    const rows = await db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'legalDocument.id as legalDocumentId',
+            'legalDocument.type as type',
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.filePath as filePath',
+        ])
+        .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .distinctOn('legalDocument.id')
+        .orderBy('legalDocument.id')
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .execute()
+
+    // distinctOn dictates the ORDER BY above, so presentation order is applied after the fact.
+    return rows
+        .flatMap((row) => (isEnforcedType(row.type) ? [{ ...row, type: row.type }] : []))
+        .sort((a, b) => enforcedLegalDocumentTypes.indexOf(a.type) - enforcedLegalDocumentTypes.indexOf(b.type))
+}
+
+const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
+/**
+ * What the signed-in user still owes, current version only.
+ *
+ * A user owes a document when its latest published version has no acknowledgement row from them.
+ * Superseded versions are not backfilled — the obligation is to the terms in force, which is also
+ * what the SI-admin audit reports, so the two views cannot disagree.
+ */
+export const fetchPendingLegalAcknowledgementsAction = new Action('fetchPendingLegalAcknowledgementsAction')
+    .middleware(noDocumentScope)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, session }) => {
+        const latest = await latestEnforcedVersions(db)
+        if (!latest.length) return []
+
+        const acknowledged = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .innerJoin(
+                'legalDocumentVersion',
+                'legalDocumentVersion.id',
+                'legalDocumentAcknowledgement.legalDocumentVersionId',
+            )
+            .select(['legalDocumentVersion.legalDocumentId', 'legalDocumentVersion.id as versionId'])
+            .where('legalDocumentAcknowledgement.userId', '=', session.user.id)
+            .where(
+                'legalDocumentVersion.legalDocumentId',
+                'in',
+                latest.map((version) => version.legalDocumentId),
+            )
+            .execute()
+
+        const acknowledgedVersionIds = new Set(acknowledged.map((ack) => ack.versionId))
+        // An earlier ack on the same document is what separates "has been updated" from "is now
+        // available", so the modal can say which one happened.
+        const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
+
+        const pending = latest.filter((version) => !acknowledgedVersionIds.has(version.versionId))
+
+        // S3 is read only once something is actually outstanding. Every page load runs this action and
+        // the overwhelmingly common answer is "nothing pending".
+        return await Promise.all(
+            pending.map(async (version) => ({
+                type: version.type,
+                versionId: version.versionId,
+                isUpdate: acknowledgedDocumentIds.has(version.legalDocumentId),
+                content: await contentOf(version.filePath),
+            })),
+        )
+    })
+
+/**
+ * The published tos/pn, readable without a session.
+ *
+ * The invitation signup form renders these before an account exists, so there is nobody to
+ * authorise. Safe because the response is confined to published versions of the two globally-scoped
+ * public documents; nothing org- or study-scoped is reachable here.
+ */
+export const fetchPublicLegalDocumentsAction = new Action('fetchPublicLegalDocumentsAction').handler(async ({ db }) => {
+    const latest = await latestEnforcedVersions(db)
+
+    return await Promise.all(
+        latest.map(async (version) => ({
+            type: version.type,
+            versionId: version.versionId,
+            content: await contentOf(version.filePath),
+        })),
+    )
+})
 
 export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDocumentAcknowledgementsAction')
     .params(fetchLegalDocumentAcknowledgementsSchema)

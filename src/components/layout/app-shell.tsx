@@ -18,6 +18,7 @@ import { ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
 
+import { RequireLegalAcknowledgement } from '../require-legal-acknowledgement'
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 
@@ -53,6 +54,7 @@ export function AppShell({ children }: Props) {
             <RequireUser />
             <RequireMFA />
             <RequireUserKey />
+            <RequireLegalAcknowledgement />
             <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 

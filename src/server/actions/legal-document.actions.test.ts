@@ -2,12 +2,21 @@ import { sql } from 'kysely'
 import { describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { createSignedUploadUrl, signedUrlForFile } from '@/server/aws'
-import { actionResult, faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     fetchLegalDocumentAcknowledgementsAction,
     fetchLegalDocumentVersionsAction,
+    fetchPendingLegalAcknowledgementsAction,
+    fetchPublicLegalDocumentsAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
@@ -22,6 +31,16 @@ vi.mock('@/server/aws', async (importOriginal) => {
         createSignedUploadUrl: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
+
+// Document reads go through storage rather than calling S3 directly, and mocking `@/server/aws`
+// does NOT reach storage's own import of it — storage keeps the unmocked binding — so the stub has
+// to sit on the module the action actually calls. Echoing the key back as the body means a test
+// asserting on content is asserting the right version's file was read; a fixed string would pass
+// for any version.
+vi.mock('@/server/storage', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/storage')>()),
+    fetchFileContents: vi.fn(async (path: string) => new Blob([`content of ${path}`])),
+}))
 
 const createDraft = async (fileName = 'terms.md') =>
     actionResult(await createLegalDocumentDraftAction({ type: 'tos', fileName }))
@@ -269,6 +288,113 @@ describe('acknowledgeLegalDocumentAction', () => {
         const result = await acknowledgeLegalDocumentAction({ versionId: draft.version.id })
 
         expect(result).toHaveProperty('error')
+    })
+
+    // The enforcement modal is shown to everyone, so this is the permission the whole card rests on.
+    it('is allowed for a user who is not an SI admin', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const published = await publish((await createDraft()).version.id)
+
+        const { user } = await mockSessionWithTestData()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
+
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .selectAll('legalDocumentAcknowledgement')
+            .where('legalDocumentVersionId', '=', published.id)
+            .where('userId', '=', user.id)
+            .execute()
+
+        expect(acks).toHaveLength(1)
+    })
+})
+
+const publishTos = async (fileName = 'terms.md') =>
+    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'tos', fileName })).version.id)
+
+const publishPn = async (fileName = 'privacy.md') =>
+    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'pn', fileName })).version.id)
+
+describe('fetchPendingLegalAcknowledgementsAction', () => {
+    it('reports nothing when no document has been published', async () => {
+        await mockSessionWithTestData()
+
+        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+    })
+
+    it('reports a published document the user has never acknowledged, with its content', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tos = await publishTos()
+
+        await mockSessionWithTestData()
+        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+
+        expect(pending).toHaveLength(1)
+        expect(pending[0]!.type).toBe('tos')
+        expect(pending[0]!.versionId).toBe(tos.id)
+        expect(pending[0]!.content).toContain(tos.filePath)
+        // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
+        expect(pending[0]!.isUpdate).toBe(false)
+    })
+
+    it('reports nothing once the current version is acknowledged', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tos = await publishTos()
+
+        await mockSessionWithTestData()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
+
+        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+    })
+
+    // The obligation is to the terms in force: acknowledging v1 does not settle v2, and v1 is never
+    // asked for again. One SI-admin session throughout because mockSessionWithTestData mints a new
+    // user each call — and an admin who publishes new terms does owe them, like everyone else.
+    it('asks only for the current version, and marks it as an update', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const first = await publishTos()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
+        const second = await publishTos('terms-v2.md')
+
+        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+
+        expect(pending.map((document) => document.versionId)).toEqual([second.id])
+        expect(pending[0]!.isUpdate).toBe(true)
+    })
+
+    it('ignores a draft, which obliges nobody', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await createLegalDocumentDraftAction({ type: 'tos', fileName: 'terms.md' })
+
+        await mockSessionWithTestData()
+
+        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+    })
+
+    it('returns the Terms of Service before the Privacy Notice when both are outstanding', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await publishPn()
+        await publishTos()
+
+        await mockSessionWithTestData()
+        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+
+        expect(pending.map((document) => document.type)).toEqual(['tos', 'pn'])
+    })
+})
+
+describe('fetchPublicLegalDocumentsAction', () => {
+    it('returns the current published documents without a session', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await publishTos()
+        const current = await publishTos('terms-v2.md')
+
+        mockClerkSession(null)
+        const documents = actionResult(await fetchPublicLegalDocumentsAction())
+
+        expect(documents.map((document) => document.versionId)).toEqual([current.id])
+        expect(documents[0]!.content).toContain(current.filePath)
     })
 })
 

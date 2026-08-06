@@ -53,6 +53,11 @@ export function defineAbilityFor(session: UserSession) {
     permit('reset', 'MFA')
     permit('view', 'Orgs')
 
+    // Unconditioned: an acknowledgement is the user asserting something about themselves, and the
+    // action keys the row to session.user.id and refuses unpublished versions. Deliberately does NOT
+    // widen 'view', which would hand every user the SI-admin acknowledgement audit listings.
+    permit('acknowledge', 'LegalDocument')
+
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
 

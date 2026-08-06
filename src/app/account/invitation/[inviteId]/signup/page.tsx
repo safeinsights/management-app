@@ -10,6 +10,7 @@ import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useM
 import { TermsCheckbox } from '@/components/terms-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
+import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
@@ -70,9 +71,20 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const [passwordTouched, setPasswordTouched] = useState(false)
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
+    // Public: the form has to show these before an account exists. Empty until the first Terms of
+    // Service and Privacy Notice are published, which TermsCheckbox renders as placeholder copy.
+    const { data: legalDocuments = [] } = useQuery({
+        queryKey: ['publicLegalDocuments'],
+        queryFn: () => fetchPublicLegalDocumentsAction(),
+    })
+
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: ({ termsAccepted: _termsAccepted, ...form }: FormValues) =>
-            onCreateAccountAction({ inviteId, form }),
+            onCreateAccountAction({
+                inviteId,
+                form,
+                acknowledgedVersionIds: legalDocuments.map((document) => document.versionId),
+            }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
             if (!signIn || !setActive) {
@@ -209,6 +221,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     )}
 
                     <TermsCheckbox
+                        documents={legalDocuments}
                         checked={form.values.termsAccepted}
                         onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
                         onBlur={() => form.validateField('termsAccepted')}
