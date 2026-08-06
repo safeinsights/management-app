@@ -1,6 +1,6 @@
 'use server'
 
-import { Action, ActionFailure, z } from '@/server/actions/action'
+import { Action, z } from '@/server/actions/action'
 import { updateClerkUserName } from '@/server/clerk'
 import { positionSchema, educationSchema, personalInfoSchema, researchDetailsSchema } from '@/schema/researcher-profile'
 import { throwNotFound } from '@/lib/errors'
@@ -158,26 +158,40 @@ export const updateResearchDetailsAction = new Action('updateResearchDetailsActi
 
 export const getResearcherProfileByUserIdAction = new Action('getResearcherProfileByUserIdAction')
     .params(z.object({ userId: z.string(), studyId: z.string() }))
-    .middleware(async ({ params: { studyId, userId }, db }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
+        // Deliberately excludes researcherId/piUserId: everything returned here is merged into
+        // the CASL ability args, and requireAbilityTo echoes those args in its denial message —
+        // including them would leak the study's real researcher/PI ids to unauthorized callers.
         const study = await db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status', 'researcherId', 'piUserId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('Study'))
+
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { userId, studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['researcherId', 'piUserId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('Study'))
 
         // The study's view ability says nothing about whose profile is being requested, so without
         // this anyone able to view any single study could read every user's email and PII by
         // editing the userId in the URL. Only the two people the study actually names are exposed.
+        // This must run after the view-Study check above: callers without access to the study get
+        // only the generic CASL denial, never a distinguishable "not associated" answer that would
+        // confirm whether an arbitrary user is the study's researcher or PI. The denial is returned
+        // rather than thrown so id enumeration cannot flood Sentry (only thrown errors are
+        // captured), and logged at info because warn/error console output is forwarded to Sentry.
         if (userId !== study.researcherId && userId !== study.piUserId) {
             const msg = `getResearcherProfileByUserIdAction: user ${userId} is not associated with study ${studyId}`
-            logger.error(msg)
-            throw new ActionFailure({ permission_denied: msg })
+            logger.info(msg)
+            return { error: { permission_denied: msg } }
         }
 
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { userId }, db }) => {
         const user = await db
             .selectFrom('user')
             .select(['id', 'firstName', 'lastName', 'email'])
