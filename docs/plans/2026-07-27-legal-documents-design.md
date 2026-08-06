@@ -1,11 +1,8 @@
 # Legal Documents (ToS / PN / ROPA / DOPA / SLA) — Design
 
-**Date:** 2026-07-27
-**Project:** SafeInsights management-app
 **Epic:** [SHRMP-273 — Agreements and ToS/PN](https://openstax.atlassian.net/browse/SHRMP-273)
-**Status:** Implemented as described — schema, server actions and tests are on
-`SHRMP-274/instantiate-legal-page`. Task-level detail, deviations and remaining work:
-`2026-07-27-legal-documents-plan.md`
+**Status and remaining work:** `2026-07-27-legal-documents-plan.md` (this doc carries no status, so
+the two cannot drift)
 
 ---
 
@@ -23,67 +20,21 @@ legal document. We are explicitly _not_ building signing — signatures happen o
 | **DOPA** — Data Org Participation Agreement     | Members of one Data Partner  | Per-org   | PDF      |
 | **SLA** — Study Level Agreement                 | People who work on one study | Per-study | PDF      |
 
-> **On "O" in ROPA/DOPA.** The acronyms expand with **O**rganization, which is also the historic
-> name for what the app now calls a Partner. An earlier draft of this doc argued for renaming the
-> agreements to "Partner" to match the rest of the product; that was reversed. The executed PDFs
-> carry "Organization" on their cover, and an SI admin matching a signed file to a tab is better
-> served by the document's own name than by our internal noun. So `legalDocumentTypeLabels`
-> (`src/schema/legal-document.ts`) reads **"Research/Data Organization Participation Agreement"**.
->
-> The distinction that survives: the _agreement_ is named after the Organization, the _org_ is
-> still a Data Partner or Research Lab. That is why `participationAgreementOrgLabels` is a separate
-> map — it labels the table column and the picker, where the app's current noun is correct.
-
 The compliance requirement is the point: we must be able to **produce evidence** that a specific
 person agreed to a specific version of a specific document on a specific date.
 
-### The four cards
-
-| Card                                                         | What                                                                                                   | Depends on     |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | -------------- |
-| [SHRMP-274](https://openstax.atlassian.net/browse/SHRMP-274) | SI Admin **Legal page**: upload + publish ToS/PN, version history, per-user acknowledgement audit list | — (foundation) |
-| [SHRMP-275](https://openstax.atlassian.net/browse/SHRMP-275) | Login **enforcement modal** when ToS/PN is new or unacknowledged                                       | 274            |
-| [SHRMP-276](https://openstax.atlassian.net/browse/SHRMP-276) | DOPA + ROPA tabs on the Legal page                                                                     | 274            |
-| [SHRMP-277](https://openstax.atlassian.net/browse/SHRMP-277) | SLA tab on the Legal page                                                                              | 274, 276       |
-
-There is also a v1 hand-off doc with a broader set of goals (a user-facing "Legal" sidebar page,
-org-admin views, banners, Mailgun triggers). **The cards are the source of truth** — the doc is
-historical context. Most of the user-facing work is still in UX and not yet carded.
+**On "O" in ROPA/DOPA.** The acronyms expand with **O**rganization, the historic name for what the
+app now calls a Partner. An earlier draft argued for renaming the agreements to "Partner"; that was
+reversed. The executed PDFs carry "Organization" on their cover, and an SI admin matching a signed
+file to a tab is better served by the document's own name. So `legalDocumentTypeLabels` reads
+"Research/Data Organization Participation Agreement", while `participationAgreementOrgLabels` is a
+separate map for the table column and picker, where the app's current noun is correct.
 
 ---
 
-## 2. What already exists (and what doesn't)
+## 2. The model
 
-Findings from reading the codebase — a few of these are load-bearing:
-
-**There is no acknowledgement system today.** Nothing in the app records that a user agreed to
-anything. The closest thing is two timestamp columns on `study`
-(`researcher_agreements_acked_at` / `reviewer_agreements_acked_at`) that act as a wizard gate for
-the placeholder DUA/IRB/SOW page — a different document set, and marked "under construction".
-
-**The signup checkbox is not persisted.** `src/components/terms-checkbox.tsx` renders
-_"I agree to the Terms of Service and Privacy Notice"_, and
-`src/app/account/invitation/[inviteId]/signup/page.tsx` holds the result in `useState` where it
-only enables the Submit button. Users are affirmatively agreeing today and **we keep no record of
-it.** That is precisely the gap this epic closes. (Upside: no legacy data to migrate.)
-
-**A study already knows both of its organizations.** This one is easy to get backwards:
-
-- `study.orgId` → the **enclave / Data Partner** (the _reviewing_ org)
-- `study.submittedByOrgId` → the **lab / Research Lab** (NOT NULL)
-
-So an SLA needs to store only `study_id`; both orgs are one join away.
-
-**File storage is a solved problem.** `src/server/aws.ts` has S3 upload, presigned POST upload, and
-presigned GET download. Storing an S3 key in a text column is the established pattern
-(`study.irbDocPath`, `descriptionDocPath`, `agreementDocPath`). `react-markdown` is already a
-dependency. There is no PDF viewer — links will do, and that matches what the cards ask for.
-
----
-
-## 3. The model
-
-Three tables. The shape is the same for all five document types; only _scope_ and _format_ differ.
+Three tables. The shape is the same for all five types; only _scope_ and _format_ differ.
 
 ```mermaid
 erDiagram
@@ -110,22 +61,17 @@ erDiagram
     }
 ```
 
-**`legal_document`** is the _logical_ document — "the Terms of Service", "Acme Lab's ROPA",
-"study X's SLA". There is exactly one per scope, enforced by a unique constraint. It holds no
-content itself.
+**`legal_document`** is the _logical_ document — "the Terms of Service", "Acme Lab's ROPA". One per
+scope, enforced by a unique constraint. Holds no content.
 
-**`legal_document_version`** is an actual uploaded file. A document accumulates versions over time.
-A version is a **draft** until published (`published_at IS NULL`); publishing stamps the date,
-the publisher, and the next version number — all three together, which a CHECK constraint enforces so
-a half-published row cannot exist for read paths to trip over.
+**`legal_document_version`** is an uploaded file. A version is a **draft** until published
+(`published_at IS NULL`); publishing stamps the date, publisher and next version number together,
+which a CHECK enforces so no half-published row can exist for read paths to trip over.
 
 **`legal_document_acknowledgement`** is one row per (person, version). Its existence _is_ the
-compliance evidence.
+evidence.
 
-### How scope works
-
-A document's scope is expressed by which columns are set, with a database CHECK constraint per
-type so it cannot be recorded wrong:
+Scope is expressed by which columns are set, with a CHECK per type:
 
 | Type           | `org_id`     | `study_id`   |
 | -------------- | ------------ | ------------ |
@@ -133,117 +79,112 @@ type so it cannot be recorded wrong:
 | `ropa`, `dopa` | **required** | null         |
 | `sla`          | null         | **required** |
 
----
-
-## 4. Key decisions
-
-Each of these was argued through; the reasoning matters more than the conclusion.
-
-**One general model rather than separate tables per document type.**
-All five are "a versioned file plus a record of who agreed to it." They differ only in scope and
-format. Building ToS/PN-only now would mean a painful reshape when 276/277 land. The main cost
-of generalising — a Postgres enum that is annoying to extend — is paid once, now.
-
-**Nothing is stored that can be derived.**
-The SLA table does _not_ store the Research Lab or Data Partner: both live on `study` already, so
-we join. A stored copy is a second source of truth that can drift. Same reasoning applies to
-"who is required to acknowledge this" — see below.
-
-**Who must acknowledge is a query, not a table.**
-We do not materialise "pending acknowledgement" rows when a document is published. The audience is
-derived per type: ToS/PN → all users; ROPA/DOPA → that org's members via `orgUser`; SLA → members
-of the study's two orgs. This matters most for SLAs, where the hand-off doc says acknowledgement is
-triggered by _anyone who loads that study_ — a set materialised at publish time would be wrong the
-moment someone joins an org. Absence of an acknowledgement row means "pending".
-
-**Acknowledgements point at a version, not a document.**
-Card 274 requires showing _"the version of the ToS and PN they have agreed to"_. Pointing at an
-immutable version makes that an exact legal record.
-
-**Publishing is irreversible; drafts are replaceable.**
-The card's own copy is _"This cannot be undone."_ A published version can never be edited, deleted,
-or unpublished — a mistake is fixed by publishing a corrected new version, and the history shows
-both. Everyone then re-acknowledges, which is the correct outcome. An unpublished draft, by
-contrast, can be freely replaced (wrong file uploaded → just upload again); only one draft may
-exist per document at a time. There is no retraction column; it can be added later if legal asks.
-
-**Content lives in S3, not the database.**
-Consistent with every other document in the app. Card 274 asks for a _"latest linked copy"_ — a
-presigned S3 URL is literally that link. Because published versions are immutable, their content
-can be cached indefinitely.
-
-**Named `legal_document`, not `agreement`.**
-"Agreement" is already taken in this codebase by the unrelated DUA/IRB/SOW wizard concept
-(`study.agreementDocPath`, `/study/[studyId]/agreements/`), and reusing it would make two unrelated
-systems easy to confuse. "Legal document" is also more accurate: a Privacy _Notice_ is not an
-agreement. It matches the UI too — the admin route is `/admin/safeinsights/legal`.
-
-**Two date fields that mean different things.**
-`published_at` is when the document went live in the app (system-set, drives enforcement).
-`signed_at` is the calendar day a signatory physically signed it outside the app (admin-entered,
-ROPA/DOPA/SLA only). It is a `date` rather than a timestamp on purpose: a signing day has no
-time-of-day or timezone, and storing it as an instant would make it display as the previous day for
-viewers in western timezones.
-
-**No generic audit-log integration.**
-The app has an `audit` table, but these tables _are_ the compliance record — `published_at` /
-`published_by` say who published what when, and acknowledgement rows are the evidence. Writing the
-same facts to a second place invites the two disagreeing. Can be added if PMs ask for unified
-activity reporting.
+The migration is `src/database/migrations/1785860103751_legal_documents.ts`; its inline comments
+carry the reasoning for each non-obvious constraint.
 
 ---
 
-## 5. What this pass delivered
+## 3. Key decisions
 
-Foundation only — the database schema and the server-side operations, so UI work has a real API to
-build against.
+**One general model rather than a table per document type.** All five are "a versioned file plus a
+record of who agreed to it", differing only in scope and format. The main cost — a Postgres enum
+that is annoying to extend — is paid once.
 
-**Delivered**
+**Nothing stored that can be derived.** An SLA stores only `study_id`: `study.orgId` is the
+enclave / Data Partner and `study.submittedByOrgId` is the lab / Research Lab, so both are one join
+away. A stored copy is a second source of truth that can drift.
 
-- The three tables and the type enum.
-- Server actions: create a draft (with upload URL), publish a version, list versions with
-  history/links, list users with their acknowledgement status, record an acknowledgement.
-- A `LegalDocument` permission subject, S3 path builders, and 20 unit tests.
+**Who must acknowledge is a query, not a table.** No materialised "pending" rows at publish time.
+Audience is derived per type: ToS/PN → all users; ROPA/DOPA → that org's members; SLA → members of
+the study's two orgs. This matters most for SLAs, where the audience changes as people join an org.
+Absence of an acknowledgement row means pending.
 
-**Deliberately deferred**
+**Acknowledgements point at a version, not a document,** so "which version did they agree to" is an
+exact answer.
 
-- **The login enforcement modal** (SHRMP-275) — the acknowledgement _write_ exists; the flow that
-  triggers it does not.
-- **Permission rules for non-SI-admins.** Only the `LegalDocument` _subject_ was added; SI admins
-  reach these actions through their existing `('manage','all')` wildcard. Granting ordinary users the
-  right to acknowledge is a change to `permissions.ts` itself and is needed before 275 can work.
-- **Wiring the signup checkbox** to actually persist. It is uncarded (ToS/PN Goal 3), touches a
-  sensitive invitation flow, and is a no-op until a real ToS is published. Worth flagging to PMs:
-  it is the cheapest way to make 274's audit list contain real data, since signup is the primary
-  acknowledgement moment.
-- Everything in 276/277 beyond the schema support (`signed_at`, the scope columns) already being
-  present.
+**Publishing is irreversible; drafts are replaceable.** A published version is never edited,
+deleted or unpublished — a mistake is fixed by publishing a corrected version, and everyone
+re-acknowledges, which is the correct outcome. Only one draft may exist per document. No retraction
+column; it can be added if legal asks.
 
-**Known consequence:** until 275 or the signup wiring lands, the audit list will legitimately show
-"none" for every user. That is expected, not a bug.
+**Content lives in S3, not the database.** Consistent with every other document in the app.
+Immutable versions mean content can be cached indefinitely.
+
+**Named `legal_document`, not `agreement`.** "Agreement" is already taken by the unrelated
+DUA/IRB/SOW wizard (`study.agreementDocPath`, `/study/[studyId]/agreements/`). It is also more
+accurate: a Privacy _Notice_ is not an agreement.
+
+**Two date fields that mean different things.** `published_at` is when it went live in the app
+(system-set, drives enforcement). `signed_at` is the calendar day a signatory physically signed
+outside the app (admin-entered, ROPA/DOPA/SLA only). It is a `date`, not a timestamp: a signing day
+has no time-of-day, and storing an instant would display as the previous day west of the stored
+zone.
+
+**No generic audit-log integration.** These tables _are_ the compliance record. Writing the same
+facts to the `audit` table invites the two disagreeing.
+
+### Enforcement (SHRMP-275)
+
+**A user owes a document when its latest published version has no acknowledgement row from them.**
+Superseded versions are never backfilled — the obligation is to the terms in force. This is also
+what the SI-admin audit list computes, so the two views cannot disagree. "Never acknowledged" and
+"was updated" are the same query; they differ only in copy, keyed on whether any prior version was
+acknowledged.
+
+**The gate is presence-based, not login-event-based.** `RequireLegalAcknowledgement` sits in
+`AppShell` beside `RequireMFA` and `RequireUserKey`, so it also catches a user who was already
+signed in when a document was published and never logs in again. `/account/*` renders outside
+`AppShell`, which leaves MFA enrolment and key setup unblocked with no per-route wiring.
+
+**It is a UX gate, not enforcement.** Client-side, so devtools defeats it. Accepted: the compliance
+artifact is the acknowledgement row, not the blocking, and MFA/user-key already have this property.
+Server-side rejection of mutations from users who owe an acknowledgement would be a much larger
+change.
+
+**One modal, one checkbox, copy derived from what is pending.** Non-dismissable — no close button,
+no escape, no click-outside — with an explicit **Sign out** as the alternative to agreeing.
+Declining is a legitimate choice, and without that button the modal covers the nav and the only way
+out is closing the tab, which leaves the session intact.
+
+**Signup records the acknowledgement against the versions the form displayed,** not "whatever is
+latest now". If a new version publishes between page load and submit, we record what the user was
+shown and the gate collects the newer one. Before anything is published the signup checkbox falls
+back to placeholder copy and records nothing — `legal_document_version_id` is NOT NULL, so an
+acknowledgement of a non-existent document is impossible by construction.
+
+**`acknowledge` is granted unconditioned to every signed-in user.** It is the user asserting
+something about themselves, the row is keyed to `session.user.id`, and the action refuses
+unpublished versions. `view` is deliberately not widened, since that would hand ordinary users the
+SI-admin audit listings.
 
 ---
 
-## 6. Open questions
+## 4. Gotchas
 
-1. **Does the SLA supersede the DUA section** of the study agreements page? Both are study-level
-   agreements, and the DUA/IRB/SOW page is still a placeholder. Needs a product answer before 277.
-2. **Should the signup checkbox be persisted now?** See above — small, valuable, but out of card
-   scope.
-3. **How should an SI admin actually verify compliance?** The hand-off doc asks the engineering
-   team to propose a process someone could follow to produce a compliance report. Not yet designed.
-4. **ToS/PN Goals 3 and 5 are uncarded** (real links at signup; user-facing Legal page). Gap or
-   intentional?
-
----
-
-## 7. Notes for reviewers
-
-- The schema is deliberately built for all five document types even though only ToS/PN is being
-  used now. Adding columns later is cheap; reshaping an enum and backfilling is not.
-- Because the epic ships to `main` as one unit, the migration can be **amended in place** as
-  276/277 teach us things, rather than stacked with corrective migrations.
-- One implementation rule worth stating loudly: acknowledgement writes and publishes must be
-  **synchronous and transactional**. The `deferred()` helper in `src/server/events.ts` is
-  fire-and-forget with no retry — it is what silently lost AI code-review jobs. Only genuinely
-  optional side effects (emails) belong there.
+- **`deferred()` is fire-and-forget** (`src/server/events.ts`) with no retry, timeout or state — it
+  is what silently lost AI code-review jobs. Publishes and acknowledgements must be synchronous and
+  transactional. Only emails belong there.
+- **`performsMutations: true` already wraps the handler in a transaction** (`action.ts`). Do not
+  open one by hand.
+- **`UNIQUE NULLS NOT DISTINCT`** — without it Postgres allows unlimited `('tos', NULL, NULL)` rows.
+- **`study.orgId` is the Data Partner; `study.submittedByOrgId` is the Research Lab.** Trivially
+  easy to invert.
+- **`signed_at` is a `date`, which node-postgres reads back as a local-midnight `Date`.** Every read
+  path casts it with `signed_at::text` instead. Keep doing that, or register an OID 1082 parser.
+- **`createSignedUploadUrl` takes a directory prefix, not a key** — S3 appends the client's
+  filename. Each version uploads under a prefix containing its own id, and `file_path` is built from
+  the same `fileName` the client sends.
+- **All-optional ability conditions are weak types.** An action whose params share no property with
+  `{ orgId?, studyId? }` fails to compile with a confusing `type 'never'` error. Add a middleware
+  supplying the scope rather than loosening the ability type — `scopeFromVersionId` does this, and
+  it makes a future "org admin publishes only their own org's agreements" rule free.
+- **ToS/PN are globally scoped, so no e2e test may publish one.** There is exactly one `tos` and one
+  `pn` row ever, and publishing makes every user owe an acknowledgement — which under
+  `fullyParallel` at `retries: 0` blocks every other worker mid-run. All ToS/PN test state is seeded
+  once in `tests/global.setup.ts`, and lives in `tests/e2e.seed.ts` rather than
+  `src/database/seeds/` because those also run in deployed environments via the migrator Lambda.
+- **Mocking `@/server/aws` does not reach `src/server/storage.ts`.** The vitest setup file
+  transitively imports storage before any test's `vi.mock` registers, so storage keeps the real
+  binding. Stub the module the code actually calls. Being fixed separately.
+- **The epic ships to `main` as one unit**, so the migration is amended in place rather than stacked
+  with corrective migrations. `allowUnorderedMigrations: true` is set in `kysely.config.ts`.

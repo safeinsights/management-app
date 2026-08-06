@@ -9,7 +9,7 @@ import { DraftForm, ReviewAndPublishForm } from './document-modal'
 import { useDisclosure } from '@mantine/hooks'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
-import { ErrorPanel } from '@/components/panel'
+import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 
 // okay I have a lo-fi for this feature. it looks different than i planned.
@@ -18,7 +18,7 @@ import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 
 function UploadModalContents({ doctype, onClose }: { doctype: LegalDocumentType; onClose: () => void }) {
     const queryClient = useQueryClient()
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['legalVersions', doctype],
         queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
     })
@@ -30,7 +30,7 @@ function UploadModalContents({ doctype, onClose }: { doctype: LegalDocumentType;
         onClose()
     }
     if (isLoading || !data) return <LoadingMessage message="Loading..." />
-    if (isError) return <ErrorPanel />
+    if (isError) return <ErrorAlert error={error} />
     return data.draft ? (
         <ReviewAndPublishForm doctype={doctype} draft={data.draft} onPublish={handlePublished} />
     ) : (
@@ -51,9 +51,9 @@ export function TosPnUpload({ doctype }: { doctype: LegalDocumentType }) {
     return (
         <Paper>
             <Stack p="sm">
-                <Flex>
+                <Flex justify="space-between" align="center">
                     <Title>{label}</Title>
-                    <Button justify="right" align="right" onClick={openLegalModal}>
+                    <Button onClick={openLegalModal}>
                         <FileArrowUpIcon />
                         <Text ml="xs">Upload</Text>
                     </Button>

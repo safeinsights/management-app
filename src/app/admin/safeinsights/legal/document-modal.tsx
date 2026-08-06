@@ -3,7 +3,7 @@
 import { useQuery, useState } from '@/common'
 import { LegalDocumentContent } from '@/components/legal/document-content'
 import { LoadingMessage } from '@/components/loading'
-import { ErrorPanel } from '@/components/panel'
+import { ErrorAlert } from '@/components/errors'
 import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
@@ -14,10 +14,9 @@ import {
     fetchLegalDocumentVersionsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { Paper, Title, Button, Flex, Group, Text, Stack, Typography, ScrollArea } from '@mantine/core'
+import { Paper, Title, Button, Flex, Group, Text, Stack } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-icons/react/dist/ssr'
-import Markdown from 'react-markdown'
 
 // Access modal from "Upload New {label}" button
 // Page 1: upload draft. Displays if there isn't a current draft
@@ -35,11 +34,9 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     const saveDraft = async () => {
         if (!file) return
         // Call Chris's save draft action
-        const result = await createLegalDocumentDraftAction({
-            type: doctype,
-            fileName: file.name,
-            format: 'markdown',
-        })
+        // No format: the action derives it from the type, so a document cannot be stored in a
+        // format its viewer cannot render.
+        const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
         if (isActionError(result)) {
             throw new Error('Failed to create draft: ' + result)
         }
@@ -82,14 +79,14 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
 
 type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
 
-export function PreviewDocument({ url }: { url: string }) {
-    const { data, isLoading, isError } = useQuery({
+export function PreviewDocument({ url, label }: { url: string; label: string }) {
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['contents', url],
         queryFn: async () => (await fetch(url)).text(),
     })
     if (isLoading) return <LoadingMessage message="Loading..." />
-    if (isError || !data) return <ErrorPanel />
-    return <LegalDocumentContent content={data} label="LABEL" />
+    if (isError || !data) return <ErrorAlert error={error ?? 'The document could not be loaded'} />
+    return <LegalDocumentContent content={data} label={label} />
 }
 
 export function ReviewAndPublishForm({
@@ -108,7 +105,6 @@ export function ReviewAndPublishForm({
     const handlePublish = async () => {
         const result = await publishLegalDocumentVersionAction({ versionId: draft.id })
         if (isActionError(result)) {
-            console.log(result.error)
             throw new Error(result.error.toString())
         }
         onPublish()
@@ -119,7 +115,7 @@ export function ReviewAndPublishForm({
             <Title order={4} pb="sm">
                 Review the {legalDocumentTypeLabels[doctype]}
             </Title>
-            <PreviewDocument url={draft.downloadUrl} />
+            <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
             <Flex pt="md">
                 <Button variant="outline" mr="sm" onClick={handleBack}>
                     Back

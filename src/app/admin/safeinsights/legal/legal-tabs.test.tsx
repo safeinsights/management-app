@@ -17,11 +17,13 @@ describe('LegalTabs', () => {
 
         renderWithProviders(<LegalTabs />)
 
-        expect(screen.getByRole('button', { name: 'Upload New Terms of Service' })).toBeDefined()
+        // Every tab's upload control is labelled just "Upload"; the panel it sits in says which
+        // document it belongs to.
+        expect(screen.getByRole('button', { name: 'Upload' })).toBeDefined()
 
         fireEvent.click(screen.getByRole('tab', { name: 'Study Level Agreements' }))
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed SLA' })).toBeDefined())
-        expect(screen.queryByRole('button', { name: 'Upload New Terms of Service' })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     })
 })
