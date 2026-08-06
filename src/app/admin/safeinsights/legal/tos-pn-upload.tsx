@@ -74,7 +74,7 @@ export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
                                 label={doctype}
                             />
                         </AppModal>
-                        <Text>Published on {data.current.publishedAt.toString()}</Text>
+                        <Text>Published on {data.current.publishedAt ? data.current.publishedAt.toString() : ''}</Text>
                     </Group>
                 )}
                 <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
