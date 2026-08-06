@@ -65,7 +65,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 
         for (const orgUser of orgUsers) {
             if (!orgUser.isAdmin && !orgUser.isReviewer) {
-                db.deleteFrom('orgUser').where('id', '=', orgUser.id).execute()
+                await db.deleteFrom('orgUser').where('id', '=', orgUser.id).execute()
             }
 
             if (orgUser.isResearcher) {
