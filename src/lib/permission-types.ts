@@ -39,8 +39,15 @@ type Abilities =
     // Reserved for SI admins (see defineAbilityFor). 'manage' and 'all' are CASL's built-in
     // wildcard tokens, not real domain actions/subjects.
     | Ability<'all', 'manage', object>
-    | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
-    | Ability<'PendingUser', 'claim', object>
+    // 'manageRole' is deliberately separate from 'update': the self-profile rule
+    // (`update User` where id === session.user.id) must never be able to authorize a role
+    // change, or any member could promote themselves to org admin (OTTER-720).
+    | Ability<'User', 'invite' | 'update' | 'view' | 'manageRole', { id?: UUID; orgId?: UUID; orgSlug?: string }>
+    // `orgId` appears on both arms so the CASL subject union accepts an orgId condition on the
+    // 'revoke' rule (same reason the 'Study' arms all repeat `status`). It stays optional because
+    // 'claim' is unconditioned and its action supplies only an inviteId.
+    | Ability<'PendingUser', 'claim', { orgId?: UUID; inviteId?: string }>
+    | Ability<'PendingUser', 'revoke', { orgId?: UUID; inviteId?: string }>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
     | Ability<'Studies', 'view', object>
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
@@ -57,6 +64,11 @@ type Abilities =
     // name was misleading. Route + UI copy: /user-key (Routes.userKey), "Security key".
     | Ability<'UserKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
+    // Split out from 'Org' because `view Org` must stay cross-org for the public catalog (a lab
+    // researcher picks datasets from an enclave they don't belong to). Configuration reads —
+    // code-env settings, starter code — carry secrets and belong to that org's admins only
+    // (OTTER-724 / MA-6).
+    | Ability<'OrgConfig', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>

@@ -6,7 +6,7 @@ import { useForm, zodResolver, useMutation } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
-import { type Org } from '@/schema/org'
+import { type PublicOrg } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 
@@ -30,7 +30,7 @@ export const settingsFormSchema = z.object({
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
 
 interface OrganizationSettingsEditProps {
-    org: Org
+    org: PublicOrg
     onSaveSuccess: () => void
     onCancel: () => void
 }

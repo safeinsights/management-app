@@ -117,6 +117,37 @@ test('researcher role', () => {
     expect(ability.can('update', 'UserKey')).toBe(true)
 })
 
+test('manageRole is never granted by the self-update rule (OTTER-720)', () => {
+    const { ability, session } = createAbilty({ isAdmin: false })
+
+    // The defect: role changes were gated on `update User`, which every user holds for their own
+    // id, so passing your own userId satisfied the check and promoted you to admin.
+    expect(ability.can('manageRole', toRecord('User', { id: session.user.id }))).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { orgId: session.orgs.test.id }))).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { id: session.user.id, orgId: session.orgs.test.id }))).toBe(
+        false,
+    )
+
+    // The self-profile rule itself must survive — onUserResetPWAction depends on it.
+    expect(ability.can('update', toRecord('User', { id: session.user.id }))).toBe(true)
+
+    // Revoking an invite is likewise admin-only now.
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: session.orgs.test.id }))).toBe(false)
+})
+
+test('org admin holds manageRole and revoke, scoped to their own org (OTTER-720)', () => {
+    const { ability, session } = createAbilty({ isAdmin: true })
+    const otherOrgId = faker.string.uuid()
+
+    expect(ability.can('manageRole', toRecord('User', { orgId: session.orgs.test.id }))).toBe(true)
+    expect(ability.can('manageRole', toRecord('User', { orgId: otherOrgId }))).toBe(false)
+    // Fail-closed when the subject carries no orgId at all.
+    expect(ability.can('manageRole', toRecord('User', {}))).toBe(false)
+
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: session.orgs.test.id }))).toBe(true)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: otherOrgId }))).toBe(false)
+})
+
 test('load IDE is scoped to the submitting lab (OTTER-719)', () => {
     const { ability, session } = createAbilty({}, 'lab')
     const ownLabId = session.orgs.test.id
@@ -181,6 +212,11 @@ test('SI admin (manage/all) grants every action across subjects', () => {
     expect(ability.can('delete', toRecord('Org', { orgId: someOrg }))).toBe(true)
     expect(ability.can('invite', toRecord('User', { orgId: someOrg }))).toBe(true)
     expect(ability.can('view', 'OrgStudies')).toBe(true)
+
+    // The wildcard covers the OTTER-720 verbs too, for orgs the SI admin does not belong to —
+    // they are deliberately absent from the enumerated admin grants.
+    expect(ability.can('manageRole', toRecord('User', { orgId: someOrg }))).toBe(true)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: someOrg }))).toBe(true)
 })
 
 test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {
@@ -191,4 +227,6 @@ test('non-SI-admin is still bounded (manage/all does not leak to regular users)'
     expect(ability.can('review', toRecord('Study', { orgId: otherOrgId }))).toBe(false)
     expect(ability.can('delete', toRecord('Org', { orgId: otherOrgId }))).toBe(false)
     expect(ability.can('create', 'Org')).toBe(false)
+    expect(ability.can('manageRole', toRecord('User', { orgId: otherOrgId }))).toBe(false)
+    expect(ability.can('revoke', toRecord('PendingUser', { orgId: otherOrgId }))).toBe(false)
 })

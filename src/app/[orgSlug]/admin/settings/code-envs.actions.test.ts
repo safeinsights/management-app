@@ -12,6 +12,7 @@ import {
     deleteOrgCodeEnvAction,
     fetchCodeEnvHistoryAction,
     fetchOrgCodeEnvsAction,
+    fetchStarterCodeAction,
     updateOrgCodeEnvAction,
 } from './code-envs.actions'
 import { db } from '@/database'
@@ -1067,6 +1068,75 @@ describe('Code Environment audit logging', () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const result = await fetchCodeEnvHistoryAction({ orgSlug: org.slug, codeEnvId: otherEnv.id })
+        expect(isActionError(result)).toBe(true)
+    })
+
+    // fetchOrgCodeEnvsAction selectAll's the row, which carries settings.environment — plaintext
+    // env-var pairs, commonly credentials. It used to sit on the unconditioned `view Org`, so any
+    // authenticated user could read any org's. It is now `view OrgConfig` (OTTER-724 / MA-6).
+    describe('fetchOrgCodeEnvsAction scoping', () => {
+        const insertOrgWithSecret = async (slug: string) => {
+            const org = await insertTestOrg({ slug })
+            await insertTestCodeEnv({
+                orgId: org.id,
+                language: 'R',
+                environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }],
+            })
+            return org
+        }
+
+        it('denies a non-admin member of the same org', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: false })
+            await insertTestCodeEnv({
+                orgId: org.id,
+                language: 'R',
+                environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }],
+            })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: org.slug })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain('super-secret-value')
+        })
+
+        it('denies an admin of a different org', async () => {
+            const otherOrg = await insertOrgWithSecret('other-org-code-env-scope')
+            await mockSessionWithTestData({ isAdmin: true })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: otherOrg.slug })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain('super-secret-value')
+        })
+
+        // An unknown slug leaves orgId absent from the CASL subject, so the `$in` must fail CLOSED.
+        it('denies an unknown org slug', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: 'no-such-org-slug' })
+            expect(isActionError(result)).toBe(true)
+        })
+
+        it('allows an SI admin', async () => {
+            const otherOrg = await insertOrgWithSecret('si-admin-readable-code-env')
+            await mockSessionWithTestData({ isSiAdmin: true })
+
+            const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: otherOrg.slug }))
+            expect(result).toHaveLength(1)
+        })
+    })
+
+    it('fetchStarterCodeAction denies a non-admin member of the org', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+        const codeEnv = await insertTestCodeEnv({
+            orgId: org.id,
+            language: 'R',
+            starterCodeFileNames: ['starter.R'],
+        })
+
+        const result = await fetchStarterCodeAction({
+            orgSlug: org.slug,
+            codeEnvId: codeEnv.id,
+            fileName: 'starter.R',
+        })
         expect(isActionError(result)).toBe(true)
     })
 })

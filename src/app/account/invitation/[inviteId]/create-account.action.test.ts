@@ -3,6 +3,7 @@ import { actionResult, faker, insertTestOrg, insertTestUser, mockSessionWithTest
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import logger from '@/lib/logger'
 import {
     getOrgInfoForInviteAction,
     onCreateAccountAction,
@@ -304,24 +305,92 @@ describe('Create Account Actions', () => {
         expect(result.needsUserKey).toBe(true)
     })
 
-    it('onRevokeInviteAction removes invite', async () => {
-        const { user } = await insertTestUser({ org })
+    // Sets the Clerk emails reported for the currently-signed-in user, which is how the revoke
+    // action recognises an invitee declining their own invite.
+    const mockCallerEmails = (emails: string[]) => {
+        const client = clerkClient as unknown as Mock
+        client.mockResolvedValue({
+            users: {
+                createUser: vi.fn(),
+                updateUserMetadata: vi.fn(async () => ({})),
+                getUser: vi.fn(async () => ({
+                    publicMetadata: {},
+                    emailAddresses: emails.map((emailAddress) => ({ emailAddress })),
+                })),
+                getUserList: vi.fn(async () => ({ totalCount: 0, data: [] })),
+            },
+            emailAddresses: {
+                createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
+                updateEmailAddress: vi.fn(async () => ({})),
+            },
+        })
+    }
 
-        const invite = await db
+    const insertInvite = async (opts: { orgId?: string; email?: string } = {}) =>
+        await db
             .insertInto('pendingUser')
             .values({
-                orgId: org.id,
-                email: user.email!,
+                orgId: opts.orgId ?? org.id,
+                email: opts.email ?? faker.internet.email({ provider: 'test.com' }).toLowerCase(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
+    const findInvite = async (id: string) =>
+        await db.selectFrom('pendingUser').select(['id']).where('id', '=', id).executeTakeFirst()
+
+    it('onRevokeInviteAction lets an org admin revoke an invite', async () => {
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: true })
+        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
+
+        const invite = await insertInvite()
+
         await onRevokeInviteAction({ inviteId: invite.id })
 
-        const found = await db.selectFrom('pendingUser').select(['id']).where('id', '=', invite.id).executeTakeFirst()
-        expect(found).toBeFalsy()
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction lets the invitee decline their own invite', async () => {
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
+
+        const inviteEmail = faker.internet.email({ provider: 'test.com' }).toLowerCase()
+        const invite = await insertInvite({ email: inviteEmail })
+
+        // Matched case-insensitively across all Clerk addresses, mirroring the join-team UI.
+        mockCallerEmails([faker.internet.email({ provider: 'test.com' }), inviteEmail.toUpperCase()])
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction rejects a non-admin revoking someone else’s invite', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
+        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
+
+        const invite = await insertInvite()
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
+    })
+
+    it('onRevokeInviteAction rejects an admin of a different org', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ isAdmin: true })
+        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
+
+        // Invite belongs to `org`, which the caller does not administer.
+        const invite = await insertInvite()
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
     })
 
     it('onPendingUserLoginAction claims invite for logged in user', async () => {
