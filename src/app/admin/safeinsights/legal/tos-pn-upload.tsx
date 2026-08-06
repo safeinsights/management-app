@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@/common'
-import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
+import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
@@ -40,25 +40,47 @@ function UploadModalContents({
     )
 }
 
-function CurrentVersion({ current, doctype }: { current: PublishedVersion | null; doctype: LegalDocumentType }) {
+function ShowVersion({ version, doctype }: { version: PublishedVersion; doctype: LegalDocumentType }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
-    if (!current) return <Text>No published version yet</Text>
-
     const label = legalDocumentTypeLabels[doctype]
-    // publishedAt is nullable on the row type; `current` only ever holds published rows.
-    const publishedOn = current.publishedAt ? dayjs(current.publishedAt).format('MMM DD, YYYY') : 'unknown date'
+    // publishedAt is nullable on the row type; `version` only ever holds published rows.
+    const publishedOn = version.publishedAt ? dayjs(version.publishedAt).format('MM/DD/YYYY') : 'unknown date'
+    const versionNumber = version.versionNumber
+        ? version.versionNumber.toString().padStart(6, '0')
+        : 'unknown version number'
 
     return (
         <Group>
             <Anchor component="button" onClick={openViewModal}>
-                View current
+                {doctype.toUpperCase()}
+                {versionNumber}
             </Anchor>
-            <AppModal title="Review current version" isOpen={viewModalOpened} onClose={closeViewModal}>
-                <PreviewDocument url={current.downloadUrl} label={label} />
+            <AppModal title="Review version" isOpen={viewModalOpened} onClose={closeViewModal}>
+                <PreviewDocument url={version.downloadUrl} label={label} />
             </AppModal>
             <Text>Published on {publishedOn}</Text>
         </Group>
+    )
+}
+
+function VersionHistory({ history, doctype }: { history: PublishedVersion[]; doctype: LegalDocumentType }) {
+    const [opened, { toggle }] = useDisclosure(false)
+    if (history.length === 0) return <Text>No past versions exist</Text>
+
+    return (
+        <>
+            <Anchor component="button" onClick={toggle} aria-expanded={opened}>
+                <Flex>{opened ? 'Hide version history' : 'View version history'}</Flex>
+            </Anchor>
+            <Collapse in={opened}>
+                <Stack>
+                    {history.map((version) => {
+                        return <ShowVersion key={version.versionNumber} version={version} doctype={doctype} />
+                    })}
+                </Stack>
+            </Collapse>
+        </>
     )
 }
 
@@ -87,11 +109,12 @@ export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
                         <Text ml="xs">Upload</Text>
                     </Button>
                 </Flex>
-                <CurrentVersion current={data.current} doctype={doctype} />
+                {data.current && <ShowVersion version={data.current} doctype={doctype} />}
+                {!data.current && <Text>No published version yet</Text>}
+                <VersionHistory history={data.history} doctype={doctype} />
                 <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
                     <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeCreateModal} />
                 </AppModal>
-                <Text>TBD Review Older Versions</Text>
                 <Text>TBD User Acknowledgment Status</Text>
             </Stack>
         </Paper>
