@@ -10,7 +10,12 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
+import {
+    SaveStatusAnnouncer,
+    SaveStatusIndicator,
+    announcedSaveStatus,
+    type SaveStatusValue,
+} from '@/components/save-status'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
@@ -77,12 +82,19 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 
     // The Yjs provider saves the whole fields doc, so its status is form-wide;
     // each field only surfaces it after the user has actually edited that field
-    // (OTTER-594 QA: pristine fields must not claim "All changes saved").
-    const saveStatusFor = (key: CollabFieldKey): SaveStatusValue =>
-        yjsForm.editedKeys.has(key) ? fieldsSaveStatus : 'idle'
-    const titleSaveStatus = saveStatusFor('title')
-    const datasetsSaveStatus = saveStatusFor('datasets')
-    const piSaveStatus = saveStatusFor('piName')
+    // (OTTER-594 QA: pristine fields must not claim "All changes saved"), and stands down while
+    // that field's validation error owns the row (OTTER-674).
+    const saveStatusFor = (key: CollabFieldKey, error: unknown): SaveStatusValue =>
+        yjsForm.editedKeys.has(key) && !error ? fieldsSaveStatus : 'idle'
+    const titleSaveStatus = saveStatusFor('title', form.errors.title)
+    const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
+    const piSaveStatus = saveStatusFor('piName', form.errors.piName)
+
+    // All three read the same provider, so a live region on each would have a screen reader read
+    // "All changes saved" three times per save cycle. They stay visual and announce from here
+    // once (OTTER-675). The collaborative text editors below own separate providers and so keep
+    // their own regions.
+    const fieldsAnnouncedStatus = announcedSaveStatus([titleSaveStatus, datasetsSaveStatus, piSaveStatus])
 
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
@@ -99,6 +111,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
             redirectTarget="studySubmitted"
         >
             <Stack gap="xxl">
+                <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
                 <Paper p="xxl">
                     <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                         STEP 2
@@ -135,7 +148,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 value={form.values.title ?? ''}
                                 {...nativeFieldProps(form.errors.title, { required: true, description: true })}
                             />
-                            <SaveStatusIndicator status={titleSaveStatus} isVisible={!form.errors.title} />
+                            <SaveStatusIndicator status={titleSaveStatus} announce={false} />
                         </FormField>
 
                         <FormField
@@ -175,7 +188,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     </Group>
                                 </Anchor>
                             </Group>
-                            <SaveStatusIndicator status={datasetsSaveStatus} isVisible={!form.errors.datasets} />
+                            <SaveStatusIndicator status={datasetsSaveStatus} announce={false} />
                         </FormField>
                     </Stack>
                 </Paper>
@@ -221,7 +234,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                                 />
                             </Box>
-                            <SaveStatusIndicator status={piSaveStatus} isVisible={!form.errors.piName} />
+                            <SaveStatusIndicator status={piSaveStatus} announce={false} />
                         </FormField>
 
                         <Box>
