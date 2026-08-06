@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
+import { InvalidInvitePanel } from './invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
@@ -123,20 +124,3 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         </Paper>
     )
 }
-
-const InvalidInvitePanel = () => (
-    <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-        <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
-            <Title order={3} ta="center" c="red.8">
-                This invitation is no longer valid
-            </Title>
-            <Text size="md">
-                It may have already been accepted or expired. If you think this is a mistake, contact the person who
-                invited you for a new invitation.
-            </Text>
-            <ButtonLink variant="filled" size="lg" href={Routes.dashboard} fullWidth>
-                Go to your dashboard
-            </ButtonLink>
-        </Flex>
-    </Paper>
-)

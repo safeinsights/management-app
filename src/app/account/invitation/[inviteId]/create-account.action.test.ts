@@ -43,6 +43,7 @@ describe('Create Account Actions', () => {
         client.mockResolvedValue({
             users: {
                 createUser: vi.fn(),
+                updateUser: vi.fn(async () => ({})),
                 updateUserMetadata: vi.fn(async () => ({})),
                 getUser: vi.fn(() => ({ publicMetadata: {} })),
                 getUserList: vi.fn(async () => ({
@@ -54,7 +55,8 @@ describe('Create Account Actions', () => {
                     ],
                 })),
             },
-            // Merge path adds the invite email to the existing Clerk account and auto-verifies it.
+            // Only the signup path touches these, to verify the address on a Clerk account it
+            // just created for the invitee.
             emailAddresses: {
                 createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
                 updateEmailAddress: vi.fn(async () => ({})),
@@ -82,8 +84,28 @@ describe('Create Account Actions', () => {
 
         await onCreateAccountAction({ inviteId: invite.id, form })
 
-        const newUser = await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()
-        expect(newUser).toBeDefined()
+        const newUser = await db
+            .selectFrom('user')
+            .select(['id', 'email'])
+            .where('email', '=', invite.email)
+            .executeTakeFirstOrThrow()
+
+        // The membership grant and the claim commit together, so the claimed-invite guard is
+        // self-enforcing rather than depending on a later client-side call.
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(newUser.id)
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('userId', '=', newUser.id)
+            .where('orgId', '=', org.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(false)
     })
 
     it('onCreateAccountAction throws an error if invite not found', async () => {
@@ -167,31 +189,16 @@ describe('Create Account Actions', () => {
         expect(result).toEqual({ error: expect.objectContaining({ user: 'already has account' }) })
     })
 
-    // Signs in the given DB user and reports `verifiedEmails` as their verified Clerk addresses,
-    // which is what onJoinTeamAccountAction now authorizes against.
-    const signInAs = async (
-        user: { id: string; clerkId: string; email: string | null },
-        orgSlug: string,
-        verifiedEmails: string[] = [user.email!],
-    ) => {
+    // Signs in the given DB user. Invites are bearer credentials, so acceptance authorizes on
+    // the session alone — no Clerk email mocking is involved.
+    const signInAs = (user: { id: string; clerkId: string; email: string | null }, orgSlug: string) =>
         // Non-null: mockClerkSession only returns undefined for a null (signed-out) argument.
-        const mocks = mockClerkSession({
+        mockClerkSession({
             userId: user.id,
             clerkUserId: user.clerkId,
             email: user.email ?? undefined,
             orgSlug,
         })!
-
-        mocks.client.users.getUser = vi.fn(async () => ({
-            id: user.clerkId,
-            emailAddresses: verifiedEmails.map((emailAddress) => ({
-                emailAddress,
-                verification: { status: 'verified' },
-            })),
-        })) as unknown as typeof mocks.client.users.getUser
-
-        return mocks
-    }
 
     it('onJoinTeamAccountAction adds to existing user', async () => {
         const { user } = await insertTestUser({ org })
@@ -209,7 +216,7 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(user, org.slug)
+        signInAs(user, org.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         const userId = result.id
@@ -222,41 +229,19 @@ describe('Create Account Actions', () => {
                 expect.objectContaining({ orgId: newOrg.id }),
             ]),
         )
-    })
 
-    it('onJoinTeamAccountAction accepts an invite addressed to a secondary verified address', async () => {
-        // The merge case: the account signs in under its primary address but the invite was sent to
-        // another address it has already verified on the same Clerk account.
-        const { user } = await insertTestUser({ org })
-        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-        const secondaryEmail = faker.internet.email({ provider: 'test.com' })
-
-        const invite = await db
-            .insertInto('pendingUser')
-            .values({
-                orgId: newOrg.id,
-                email: secondaryEmail,
-                isAdmin: false,
-                invitedByUserId: invitingUser.user.id,
-            })
-            .returningAll()
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
             .executeTakeFirstOrThrow()
-
-        await signInAs(user, org.slug, [user.email!, secondaryEmail])
-
-        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
-        expect(result.id).toEqual(user.id)
-
-        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
-        expect(orgUsers).toEqual(expect.arrayContaining([expect.objectContaining({ orgId: newOrg.id })]))
+        expect(claimed.claimedByUserId).toBe(user.id)
     })
 
-    it('onJoinTeamAccountAction refuses an invite the session has not verified', async () => {
-        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-
-        // The attacker's own signed-in account. The invite belongs to somebody else entirely; the
-        // pre-fix action would have granted membership based on a client-supplied email.
-        const { user: attacker } = await insertTestUser({ org })
+    it('onJoinTeamAccountAction attaches an invite addressed to another email to the accepting account', async () => {
+        // Invites are bearer credentials: whoever holds the link may accept, and the membership
+        // attaches to the accepting session's account — never to the invited address's account.
+        const { user } = await insertTestUser({ org })
         const targetOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
 
         const invite = await db
@@ -264,31 +249,152 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: targetOrg.id,
                 email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const mocks = signInAs(user, org.slug)
+        // Accepting must never write the invited address onto the accepting Clerk account: a
+        // verified address is a sign-in / password-reset identifier (the old takeover primitive).
+        const emailWrites = { createEmailAddress: vi.fn(), updateEmailAddress: vi.fn() }
+        Object.assign(mocks.client, { emailAddresses: emailWrites })
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.id).toEqual(user.id)
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['userId', 'isAdmin'])
+            .where('orgId', '=', targetOrg.id)
+            .execute()
+        expect(membership).toEqual([{ userId: user.id, isAdmin: false }])
+
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(user.id)
+
+        expect(emailWrites.createEmailAddress).not.toHaveBeenCalled()
+        expect(emailWrites.updateEmailAddress).not.toHaveBeenCalled()
+    })
+
+    it('onJoinTeamAccountAction grants exactly the role the invite row specifies', async () => {
+        // The no-escalation invariant: a non-admin invite can never yield an admin membership,
+        // and there is no caller-supplied input that can influence the granted role.
+        const { user } = await insertTestUser({ org })
+        const contributorOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const adminOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const contributorInvite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: contributorOrg.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const adminInvite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: adminOrg.id,
+                email: faker.internet.email({ provider: 'test.com' }),
                 isAdmin: true,
                 invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(attacker, org.slug)
+        signInAs(user, org.slug)
 
-        const result = await onJoinTeamAccountAction({
-            inviteId: invite.id,
-            // Third-party identity claim that used to be honoured.
-            loggedInEmail: attacker.email!,
-        } as { inviteId: string })
+        // An injected isAdmin param is stripped by the schema, never honoured.
+        actionResult(
+            await onJoinTeamAccountAction({ inviteId: contributorInvite.id, isAdmin: true } as {
+                inviteId: string
+            }),
+        )
+        actionResult(await onJoinTeamAccountAction({ inviteId: adminInvite.id }))
 
-        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        const memberships = await db
+            .selectFrom('orgUser')
+            .select(['orgId', 'isAdmin'])
+            .where('userId', '=', user.id)
+            .execute()
+        expect(memberships).toEqual(
+            expect.arrayContaining([
+                { orgId: contributorOrg.id, isAdmin: false },
+                { orgId: adminOrg.id, isAdmin: true },
+            ]),
+        )
+    })
 
-        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', attacker.id).execute()
-        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
+    it('onJoinTeamAccountAction promotes an existing member when the invite grants admin', async () => {
+        // Re-inviting an existing contributor as admin is the ordinary promote-by-invite path;
+        // consuming the invite without honouring its role would silently drop the promotion.
+        const { user } = await insertTestUser({ org })
 
-        const untouched = await db
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isAdmin: true,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('orgId', '=', org.id)
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(true)
+
+        const claimed = await db
             .selectFrom('pendingUser')
             .select(['claimedByUserId'])
             .where('id', '=', invite.id)
             .executeTakeFirstOrThrow()
-        expect(untouched.claimedByUserId).toBeNull()
+        expect(claimed.claimedByUserId).toBe(user.id)
+    })
+
+    it('onJoinTeamAccountAction never demotes an existing admin via a contributor invite', async () => {
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('orgId', '=', org.id)
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(true)
     })
 
     it('onJoinTeamAccountAction refuses an unauthenticated caller', async () => {
@@ -329,7 +435,7 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(user, org.slug)
+        signInAs(user, org.slug)
 
         const result = await onJoinTeamAccountAction({ inviteId: invite.id })
 
@@ -355,7 +461,7 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(user, labOrg.slug)
+        signInAs(user, labOrg.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         expect(result.needsUserKey).toBe(true)
@@ -377,7 +483,7 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(user, org.slug)
+        signInAs(user, org.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         expect(result.needsUserKey).toBe(false)
@@ -402,34 +508,13 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await signInAs(user, existingLabOrg.slug)
+        signInAs(user, existingLabOrg.slug)
 
         const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
         expect(result.needsUserKey).toBe(true)
     })
 
-    // Sets the Clerk emails reported for the currently-signed-in user, which is how the revoke
-    // action recognises an invitee declining their own invite.
-    const mockCallerEmails = (emails: string[]) => {
-        const client = clerkClient as unknown as Mock
-        client.mockResolvedValue({
-            users: {
-                createUser: vi.fn(),
-                updateUserMetadata: vi.fn(async () => ({})),
-                getUser: vi.fn(async () => ({
-                    publicMetadata: {},
-                    emailAddresses: emails.map((emailAddress) => ({ emailAddress })),
-                })),
-                getUserList: vi.fn(async () => ({ totalCount: 0, data: [] })),
-            },
-            emailAddresses: {
-                createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
-                updateEmailAddress: vi.fn(async () => ({})),
-            },
-        })
-    }
-
-    const insertInvite = async (opts: { orgId?: string; email?: string } = {}) =>
+    const insertInvite = async (opts: { orgId?: string; email?: string; claimedByUserId?: string } = {}) =>
         await db
             .insertInto('pendingUser')
             .values({
@@ -437,6 +522,7 @@ describe('Create Account Actions', () => {
                 email: opts.email ?? faker.internet.email({ provider: 'test.com' }).toLowerCase(),
                 isAdmin: false,
                 invitedByUserId: invitingUser.user.id,
+                claimedByUserId: opts.claimedByUserId ?? null,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -446,7 +532,6 @@ describe('Create Account Actions', () => {
 
     it('onRevokeInviteAction lets an org admin revoke an invite', async () => {
         await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: true })
-        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
 
         const invite = await insertInvite()
 
@@ -455,24 +540,20 @@ describe('Create Account Actions', () => {
         expect(await findInvite(invite.id)).toBeFalsy()
     })
 
-    it('onRevokeInviteAction lets the invitee decline their own invite', async () => {
+    it('onRevokeInviteAction lets any authenticated holder of the link decline an unclaimed invite', async () => {
+        // Bearer design: possession of the invite id is the same credential that authorizes
+        // accepting the invite, so it also authorizes declining it — no email match involved.
         await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
 
-        const inviteEmail = faker.internet.email({ provider: 'test.com' }).toLowerCase()
-        const invite = await insertInvite({ email: inviteEmail })
-
-        // Matched case-insensitively across all Clerk addresses, mirroring the join-team UI.
-        mockCallerEmails([faker.internet.email({ provider: 'test.com' }), inviteEmail.toUpperCase()])
+        const invite = await insertInvite()
 
         await onRevokeInviteAction({ inviteId: invite.id })
 
         expect(await findInvite(invite.id)).toBeFalsy()
     })
 
-    it('onRevokeInviteAction rejects a non-admin revoking someone else’s invite', async () => {
+    it('onRevokeInviteAction refuses an unauthenticated caller', async () => {
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
-        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
 
         const invite = await insertInvite()
 
@@ -482,13 +563,36 @@ describe('Create Account Actions', () => {
         expect(await findInvite(invite.id)).toBeTruthy()
     })
 
-    it('onRevokeInviteAction rejects an admin of a different org', async () => {
+    it('onRevokeInviteAction lets an org admin remove a claimed invite', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: true })
+
+        const invite = await insertInvite({ claimedByUserId: user.id })
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction refuses a non-admin deleting a claimed invite', async () => {
+        // A claimed invite is a spent bearer token: possession of the id no longer authorizes
+        // anything, so only an org admin may remove the row.
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
+
+        const invite = await insertInvite({ claimedByUserId: invitingUser.user.id })
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
+    })
+
+    it('onRevokeInviteAction refuses an admin of a different org deleting a claimed invite', async () => {
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await mockSessionWithTestData({ isAdmin: true })
-        mockCallerEmails([faker.internet.email({ provider: 'test.com' })])
 
         // Invite belongs to `org`, which the caller does not administer.
-        const invite = await insertInvite()
+        const invite = await insertInvite({ claimedByUserId: invitingUser.user.id })
 
         const result = await onRevokeInviteAction({ inviteId: invite.id })
 
@@ -519,6 +623,34 @@ describe('Create Account Actions', () => {
             .executeTakeFirst()
 
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
+    })
+
+    it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {
+        // The signup page calls this after sign-in, by which point onCreateAccountAction has
+        // already claimed the invite for the same user in-transaction.
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onPendingUserLoginAction({ inviteId: invite.id })
+        expect(result).toBeUndefined()
+
+        const unchanged = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.claimedByUserId).toBe(user.id)
     })
 
     it('onPendingUserLoginAction cannot re-claim an invite another user already claimed', async () => {

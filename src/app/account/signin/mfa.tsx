@@ -1,5 +1,6 @@
 'use client'
 import { useForm, useMutation } from '@/common'
+import { reportError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
@@ -74,31 +75,45 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
+                            let org: { slug: string; name: string } | undefined
                             try {
                                 // Read the org before joining: accepting marks the invite claimed,
                                 // and the lookup only resolves unclaimed invites.
-                                const { slug, name } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                const joinResult = actionResult(await onJoinTeamAccountAction({ inviteId }))
+                                org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                            } catch (error) {
+                                // A claimed or deleted invite, so retrying can never succeed —
+                                // distinct from a join failure, which is worth retrying. The
+                                // join-team page renders a persistent "no longer valid" panel
+                                // for this state, so land there rather than on a dashboard
+                                // where only the transient toast explains what happened.
+                                reportError(error, 'This invitation is no longer valid')
+                                redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
+                            }
+                            if (org) {
+                                try {
+                                    const joinResult = actionResult(await onJoinTeamAccountAction({ inviteId }))
 
-                                const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
-                                if (joinResult?.needsUserKey) {
-                                    // First-time key generation: return to the inviting org's dashboard after.
-                                    redirectUrl =
-                                        `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
-                                } else {
-                                    redirectUrl = orgDashboard as Route
+                                    const orgDashboard = Routes.orgDashboard({ orgSlug: org.slug })
+                                    if (joinResult?.needsUserKey) {
+                                        // First-time key generation: return to the inviting org's dashboard after.
+                                        redirectUrl =
+                                            `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
+                                    } else {
+                                        redirectUrl = orgDashboard as Route
+                                    }
+
+                                    notifications.show({
+                                        color: 'green',
+                                        message: `You've successfully joined ${org.name}.`,
+                                    })
+                                    await auth.getToken({ skipCache: true })
+                                } catch (error) {
+                                    // The invite is still live (a failed accept rolls the claim
+                                    // back), so return to the join-team page where Accept can be
+                                    // retried instead of silently landing elsewhere.
+                                    reportError(error, 'Failed to accept your invitation. Please try again.')
+                                    redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
                                 }
-
-                                notifications.show({
-                                    color: 'green',
-                                    message: `You've successfully joined ${name}.`,
-                                })
-                                await auth.getToken({ skipCache: true })
-                            } catch {
-                                notifications.show({
-                                    color: 'red',
-                                    message: `Failed to accept your invitation. Please try again.`,
-                                })
                             }
                         }
                         router.push(redirectUrl)
