@@ -437,9 +437,13 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
         await page.waitForURL(/\/submitted(\?.*)?$/)
 
-        const submittedLink = page.locator('[data-testid="proposal-body"]').getByRole('link', {
-            name: PROPOSAL_LINK_TEXT,
-        })
+        // This view mounts the proposal collapsed (initialExpanded={false}), so the body is
+        // display:none until the toggle is clicked.
+        await page.getByTestId('proposal-toggle-header').click()
+        const proposalBody = page.getByTestId('proposal-body')
+        await expect(proposalBody).toBeVisible()
+
+        const submittedLink = proposalBody.getByRole('link', { name: PROPOSAL_LINK_TEXT })
         await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
         await expect(submittedLink).toHaveAttribute('target', '_blank')
     })
