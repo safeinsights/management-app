@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CSP_HEADER, cspHeaderValue, generateNonce } from './csp'
+import { CSP_HEADER, cspHeaderValue, cspReportUrl, generateNonce, reportingEndpointsValue } from './csp'
 
 describe('csp', () => {
     it('generates a distinct nonce each call', () => {
@@ -27,6 +27,29 @@ describe('csp', () => {
 
     it('forbids plugin embeds', () => {
         expect(cspHeaderValue('abc123')).toContain("object-src 'none'")
+    })
+
+    it('derives the Sentry security endpoint from the DSN', () => {
+        expect(cspReportUrl('https://key123@o484030.ingest.us.sentry.io/450700')).toBe(
+            'https://o484030.ingest.us.sentry.io/api/450700/security/?sentry_key=key123',
+        )
+    })
+
+    it('yields no report url for a missing or malformed DSN', () => {
+        expect(cspReportUrl('')).toBeUndefined()
+        expect(cspReportUrl('not-a-dsn')).toBeUndefined()
+        expect(cspReportUrl('https://o484030.ingest.us.sentry.io/450700')).toBeUndefined()
+    })
+
+    it('appends report directives only when given a destination', () => {
+        expect(cspHeaderValue('abc123', 'https://r.example/csp')).toContain(
+            'report-uri https://r.example/csp; report-to csp-report',
+        )
+        expect(cspHeaderValue('abc123')).not.toContain('report')
+    })
+
+    it('names the report endpoint the policy refers to', () => {
+        expect(reportingEndpointsValue('https://r.example/csp')).toBe('csp-report="https://r.example/csp"')
     })
 
     // The rollout ships report-only so a policy that is wrong about real Clerk cannot break signin.
