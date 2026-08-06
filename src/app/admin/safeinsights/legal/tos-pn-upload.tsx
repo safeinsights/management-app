@@ -1,11 +1,11 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@/common'
-import { Paper, Stack, Title, Text, Button, Flex, Group } from '@mantine/core'
+import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
-import { DraftForm, ReviewAndPublishForm } from './document-modal'
+import { DraftForm, PreviewDocument, ReviewAndPublishForm } from './document-modal'
 import { useDisclosure } from '@mantine/hooks'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
@@ -16,12 +16,16 @@ import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 // I think today I can finish the upload modal,
 // and start working on displaying the uploaded thign and its versions!
 
-function UploadModalContents({ doctype, onClose }: { doctype: LegalDocumentType; onClose: () => void }) {
+function UploadModalContents({
+    doctype,
+    draft,
+    onClose,
+}: {
+    doctype: LegalDocumentType
+    draft: string
+    onClose: () => void
+}) {
     const queryClient = useQueryClient()
-    const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['legalVersions', doctype],
-        queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
-    })
     const handleDraftSaved = () => {
         queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
     }
@@ -29,24 +33,30 @@ function UploadModalContents({ doctype, onClose }: { doctype: LegalDocumentType;
         queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
         onClose()
     }
-    if (isLoading || !data) return <LoadingMessage message="Loading..." />
-    if (isError) return <ErrorAlert error={error} />
-    return data.draft ? (
-        <ReviewAndPublishForm doctype={doctype} draft={data.draft} onPublish={handlePublished} />
+    return draft ? (
+        <ReviewAndPublishForm doctype={doctype} draft={draft} onPublish={handlePublished} />
     ) : (
         <DraftForm doctype={doctype} onDraftSaved={handleDraftSaved} />
     )
 }
 
-export function TosPnUpload({ doctype }: { doctype: LegalDocumentType }) {
+export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
     const [legalModalOpened, { open: openLegalModal, close: closeLegalModal }] = useDisclosure(false)
-    // retrieve current TOS URL
 
-    if (doctype !== 'tos' && doctype !== 'pn') {
-        throw new Error('Invalid doctype:' + doctype)
-    }
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['legalVersions', doctype],
+        queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
+    })
+    const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
+
+    if (isLoading || !data) return <LoadingMessage message="Loading..." />
+    if (isError) return <ErrorAlert error={error} />
 
     const label = legalDocumentTypeLabels[doctype]
+
+    const handleViewCurrent = () => {
+        openViewModal()
+    }
 
     return (
         <Paper>
@@ -59,13 +69,17 @@ export function TosPnUpload({ doctype }: { doctype: LegalDocumentType }) {
                     </Button>
                 </Flex>
                 <Group>
-                    <Text>Link to current Tos</Text>
-                    <Text>Published on publish on date</Text>
+                    <Anchor component="button" onClick={handleViewCurrent}>
+                        View current
+                    </Anchor>
+                    <AppModal title="Review current version" isOpen={viewModalOpened} onClose={closeViewModal}>
+                        <PreviewDocument url={data.current.downloadUrl} label={doctype} />
+                    </AppModal>
+                    <Text>Published on {data.current.publishedAt.toString()}</Text>
                 </Group>
                 <AppModal title={label} isOpen={legalModalOpened} onClose={closeLegalModal}>
-                    <UploadModalContents doctype={doctype} onClose={closeLegalModal} />
+                    <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeLegalModal} />
                 </AppModal>
-                <Text>TBD View Current Version</Text>
                 <Text>TBD Review Older Versions</Text>
                 <Text>TBD User Acknowledgment Status</Text>
             </Stack>
