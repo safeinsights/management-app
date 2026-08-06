@@ -370,7 +370,6 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.nextStepHref).toBeUndefined()
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()

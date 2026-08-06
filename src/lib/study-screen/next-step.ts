@@ -11,11 +11,15 @@ import { resolveScreen } from './resolve'
  * code screen we are on". A self-link is the only failure mode worth guarding, and it is precisely
  * the case where the answer is no.
  *
- * Asking the table instead of restating its predicates is what keeps this from drifting: a study
- * whose results have landed, or (once OTTER-686 registers the researcher's code-processing screen)
- * one still running in the enclave, starts offering a forward step here without this file changing.
- * It also subsumes the guards this replaces: a bare JOB-ERRORED still resolves back to the code
- * screen for the researcher, so the button stays hidden while the reviewer triages the error.
+ * Asking the table instead of restating its predicates is what keeps this from drifting: as the
+ * outputs epic registers screens, the states that gain a forward step gain it here without this file
+ * changing. A study whose results have landed already forwards; one still running in the enclave
+ * starts forwarding for the researcher the moment OTTER-686's screen is registered, on the strength
+ * of that registration alone.
+ *
+ * The same delegation subsumes the OTTER-614 guard this replaces. While an error is still hidden
+ * from the researcher the table holds them on a screen that does not disclose it, so whichever
+ * screen the forward link points at is one they were already entitled to land on.
  */
 export function hasNextStepFromCode(role: StudyRole, state: StudyState, currentScreen: ScreenId): boolean {
     return resolveScreen(role, state).screen !== currentScreen

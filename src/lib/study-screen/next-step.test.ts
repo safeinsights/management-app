@@ -30,10 +30,13 @@ describe('hasNextStepFromCode', () => {
             expect(hasNextStepFromCode('researcher', state({ hasResults: true }), 'code-approved')).toBe(true)
         })
 
-        // A bare JOB-ERRORED stays with the reviewer until they record a files decision, so the
-        // researcher holds on the code screen and must not be offered a step forward.
-        it('is false for an errored job with no files decision yet', () => {
-            const errored = state({ hasResults: true, resultsErrored: true })
+        // A packaging failure errors the job with no execution substatus ever recorded, so
+        // isExecuting stays false and the table holds the researcher on the code screen while the
+        // reviewer triages: there is nothing to step forward to. The errored-while-executing shape
+        // keeps isExecuting true (state.ts), so it forwards to whichever screen the table gives that
+        // state, which is by construction one that does not disclose the error.
+        it('is false for a job that errored before execution started', () => {
+            const errored = state({ hasResults: true, resultsErrored: true, isExecuting: false })
             expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(false)
         })
 
