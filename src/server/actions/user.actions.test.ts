@@ -107,6 +107,71 @@ describe('User Actions', () => {
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
 
+    test('updateUserRoleAction rejects a non-admin promoting themselves (OTTER-720)', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org, user, orgUser } = await mockSessionWithTestData({ isAdmin: false })
+
+        // The exploit: pass your OWN userId. This used to satisfy the `update User` self-profile
+        // rule and grant org admin to any authenticated member.
+        const result = await updateUserRoleAction({
+            orgSlug: org.slug,
+            userId: user.id,
+            isAdmin: true,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(false)
+    })
+
+    test('updateUserRoleAction rejects an admin changing their own role', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org, user, orgUser } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await updateUserRoleAction({
+            orgSlug: org.slug,
+            userId: user.id,
+            isAdmin: false,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(true)
+    })
+
+    test('updateUserRoleAction rejects an admin of another org', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const otherOrg = await insertTestOrg()
+        const { user: targetUser, orgUser: targetOrgUser } = await insertTestUser({ org: otherOrg })
+
+        const result = await updateUserRoleAction({
+            orgSlug: otherOrg.slug,
+            userId: targetUser.id,
+            isAdmin: true,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', targetOrgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(false)
+    })
+
     test('updateUserRoleAction should update user roles in the database', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const { user: userToUpdate } = await insertTestUser({ org })

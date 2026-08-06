@@ -399,6 +399,12 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     .params(
         z.object({
             jobId: z.string(),
+            // The caller states which role it is acting as. This used to be inferred from
+            // session.orgs, which cannot answer the question: the claim survives removal from an
+            // org, and a dual-role lab+enclave user is legitimately both. Either way they were
+            // treated as a reviewer and handed recipientKeys:{}, and since their fingerprint is
+            // absent from the zip's manifest, decrypt failed as "private key is not valid".
+            type: z.enum(['researcher', 'reviewer']),
         }),
     )
     .middleware(async ({ params: { jobId } }) => {
@@ -409,7 +415,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     })
     .requireAbilityTo('view', 'StudyJob')
 
-    .handler(async ({ studyJob, session, db }) => {
+    .handler(async ({ params: { type }, studyJob, session, db }) => {
         const userKey = await getUserPublicKey(session.user.id)
         if (!userKey) return []
 
@@ -418,17 +424,20 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
         if (!encryptedFiles.length) return []
 
-        // Enclave reviewers are manifest recipients and decrypt with their own key; lab researchers
-        // aren't, so they get per-file re-wrapped keys (study_job_file_recipient_key) as `recipientKeys`. A
-        // reviewer is a member of the study's enclave org; everyone else takes the researcher path.
-        const isEnclaveReviewer = Object.values(session.orgs).some(
-            (org) => org.id === studyJob.orgId && org.type === 'enclave',
-        )
-
         // TODO(perf): ciphertext bodies are buffered into server memory and serialized through the
         // action layer. Fine at current sizes; if it grows, hand the client a signed S3 URL to
         // fetch + decrypt directly instead.
-        if (isEnclaveReviewer) {
+        if (type === 'reviewer') {
+            // Reviewers are recipients of the zip's embedded manifest and decrypt with their own
+            // key, so they need no re-wrapped keys. The manifest is encrypted to the enclave's
+            // public keys, so asking for this path without one yields ciphertext that cannot be
+            // opened — the encryption gates this, not the parameter.
+            //
+            // Note what that widens: any caller past the 'view StudyJob' gate can now request this
+            // path and receive raw ciphertext for every encrypted artifact on the job, where the
+            // old session.orgs check would have refused. Confidentiality now rests entirely on the
+            // encryption rather than on two independent gates. Deliberate, since the claim could
+            // not answer the role question, but it is one gate and not two.
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
                     studyJobFileId: file.id,
@@ -440,8 +449,9 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
         }
 
-        // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
-        // naturally gated). Build the {file_path -> crypt} map per artifact.
+        // Researcher: only artifacts this user has wrapped keys for. Rows are written solely for
+        // lab recipients (insertSharedFileKeys) and only post-approval, so the set is naturally
+        // gated. Build the {file_path -> crypt} map per artifact.
         const wrappedKeys = await db
             .selectFrom('studyJobFileRecipientKey')
             .select(['studyJobFileId', 'filePath', 'crypt'])

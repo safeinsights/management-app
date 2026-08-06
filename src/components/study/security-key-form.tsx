@@ -12,13 +12,16 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 
 interface SecurityKeyFormProps {
     job: LatestJobForStudy
+    /** Which role's key set to decrypt against; see useSecurityKeyForm. */
+    type: 'researcher' | 'reviewer'
     /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, onDecrypted }) => {
+export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypted }) => {
     const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
         job,
+        type,
         onDecrypted,
     })
 

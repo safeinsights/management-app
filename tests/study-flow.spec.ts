@@ -281,30 +281,29 @@ function uploadResults(jobId: string): void {
     )
 }
 
-// Reviewer results-review (StudyDetailsReviewer) for a successful run: decrypt then
-// approve. Result files auto-select on decrypt, so the job-level Approve enables
-// without ticking a checkbox.
-async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<void> {
+// OTTER-668 + OTTER-676: the outputs-available screen, both phases. Like the errored screen,
+// a validated key swaps the form for the outputs table and Decision section on the same URL —
+// decryption is client-side, so the swap is a local phase flip, not a navigation.
+async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    const approveButton = page.getByRole('button', { name: /^Approve$/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
 // OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
@@ -319,7 +318,7 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -493,15 +492,20 @@ test('Reviewer approves submitted code', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer results decrypt+approve surface. Seeds a JOB-READY job, uploads
-// an encrypted result via the debug script (no runner), then drives the UI.
+// Owns the outputs-available surface end to end (OTTER-668 + OTTER-676): decrypt, the
+// validation gate, and sharing the outputs through the confirmation modal. Seeds a
+// JOB-READY job, uploads an encrypted result via the debug script (no runner), then
+// drives the UI, then ends on the researcher's side: sharing records FILES-APPROVED, which is
+// what surfaces the approved-results message on their study view.
 test('Successful results review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('results')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadResults(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesResults(page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
     })
 
     await withRole(browser, 'researcher', async (page) => {

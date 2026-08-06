@@ -75,6 +75,12 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
     // `aria-describedby`: Mantine renders `description` for sighted users but never associates it
     // with the input, so without this a screen reader announces only the title and the user never
     // hears which option withholds the files.
+    //
+    // `aria-invalid` sits on the inputs rather than on the `role="radiogroup"` element, which is
+    // where the group's invalid state belongs: Mantine renders that element itself, inside
+    // Radio.Group, and passes nothing through to it, so the inputs are the only reachable target.
+    // Without it the group was flagged visually and via `aria-describedby` but never announced as
+    // invalid, unlike the feedback editor right above it (OTTER-675).
     const options = buildDecisionOptions(labName).map((option) => (
         <Radio
             key={option.value}
@@ -82,6 +88,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
             label={option.title}
             description={<span id={descriptionId(option.value)}>{option.description}</span>}
             aria-describedby={descriptionId(option.value)}
+            aria-invalid={error ? true : undefined}
             styles={RADIO_STYLES}
             data-testid={`outputs-decision-${option.value}`}
         />

@@ -82,6 +82,62 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-errored')
     })
 
+    it('run complete, no files decision → reviewer-outputs-available (not study-results)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsDisplayStatus: 'RUN-COMPLETE',
+                }),
+            ),
+        ).toBe('reviewer-outputs-available')
+    })
+
+    it('run complete AND errored → reviewer-outputs-errored (errored out-ranks available)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsDisplayStatus: 'JOB-ERRORED',
+                }),
+            ),
+        ).toBe('reviewer-outputs-errored')
+    })
+
+    it('run complete then files decision → reviewer-study-results (available no longer intercepted)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsApproved: true,
+                    resultsDisplayStatus: 'FILES-APPROVED',
+                }),
+            ),
+        ).toBe('reviewer-study-results')
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsRejected: true,
+                    resultsDisplayStatus: 'FILES-REJECTED',
+                }),
+            ),
+        ).toBe('reviewer-study-results')
+    })
+
     it('job errored then files-rejected → reviewer-study-results (errored no longer intercepted)', () => {
         expect(
             screen(
