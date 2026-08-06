@@ -82,6 +82,10 @@ const clickView = () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
 }
 
+const blurInput = () => {
+    screen.getByRole('textbox').blur()
+}
+
 describe('SecurityKeyForm', () => {
     let org: Org
     let job: LatestJobForStudy
@@ -127,11 +131,20 @@ describe('SecurityKeyForm', () => {
         expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type })
     })
 
+    it('focuses the input on mount', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('textbox')).toHaveFocus()
+    })
+
     it('shows the empty-field error and focuses the input when submitted blank', async () => {
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
+        blurInput()
         clickView()
 
         expect(await screen.findByText(EMPTY_ERROR)).toBeInTheDocument()
@@ -144,6 +157,7 @@ describe('SecurityKeyForm', () => {
         await screen.findByRole('button', { name: 'View' })
 
         enterKey('not-a-real-key')
+        blurInput()
         clickView()
 
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()

@@ -46,10 +46,6 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         },
     })
 
-    useEffect(() => {
-        inputRef.current?.focus()
-    }, [])
-
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
     const { decrypt, isPending } = useDecryptFiles({
