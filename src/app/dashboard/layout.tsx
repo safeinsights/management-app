@@ -1,5 +1,6 @@
 import { ErrorAlert } from '@/components/errors'
 import { AppShell } from '@/components/layout/app-shell'
+import PostHogUserProvider from '@/components/posthog-user-provider'
 import SentryUserProvider from '@/components/sentry-user-provider'
 import { ClerkProvider } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
@@ -27,6 +28,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
     return (
         <ClerkProvider publishableKey={clerkPublishableKey}>
             <SentryUserProvider />
+            <PostHogUserProvider />
             <AppShell>{children}</AppShell>
         </ClerkProvider>
     )

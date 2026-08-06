@@ -12,6 +12,7 @@ import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { usePostHogInit } from '@/hooks/use-posthog-init'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -30,6 +31,7 @@ let browserQueryClient: QueryClient | undefined = undefined
 type Props = {
     children: ReactNode
     singleUserEditing?: boolean
+    posthogProjectToken?: string
 }
 export function getQueryClient() {
     if (isServer) {
@@ -45,8 +47,9 @@ export function getQueryClient() {
     }
 }
 
-export const Providers: FC<Props> = ({ children, singleUserEditing = false }) => {
+export const Providers: FC<Props> = ({ children, singleUserEditing = false, posthogProjectToken = '' }) => {
     const queryClient = getQueryClient()
+    usePostHogInit(posthogProjectToken)
 
     useEffect(() => {
         window.isReactHydrated = true

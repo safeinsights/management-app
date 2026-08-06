@@ -4,6 +4,7 @@ allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
     '@swc/core': false
+    core-js: false
     esbuild: true
     fsevents: true
     msw: false
