@@ -49,7 +49,7 @@ describe('StudyOrgSelector', () => {
         render(<FormWrapper />)
 
         await waitFor(() => {
-            expect(screen.getByRole('heading', { name: 'Data Partner', level: 4 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Data Partner', level: 2 })).toBeInTheDocument()
         })
     })
 })
