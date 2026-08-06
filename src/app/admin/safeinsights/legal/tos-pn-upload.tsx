@@ -11,10 +11,9 @@ import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-documen
 import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
+import { ActionSuccessType } from '@/lib/types'
 
-// okay I have a lo-fi for this feature. it looks different than i planned.
-// I think today I can finish the upload modal,
-// and start working on displaying the uploaded thign and its versions!
+type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
 
 function UploadModalContents({
     doctype,
@@ -22,7 +21,7 @@ function UploadModalContents({
     onClose,
 }: {
     doctype: LegalDocumentType
-    draft: string
+    draft: Draft
     onClose: () => void
 }) {
     const queryClient = useQueryClient()
@@ -41,7 +40,7 @@ function UploadModalContents({
 }
 
 export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
-    const [legalModalOpened, { open: openLegalModal, close: closeLegalModal }] = useDisclosure(false)
+    const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['legalVersions', doctype],
@@ -54,31 +53,32 @@ export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
 
     const label = legalDocumentTypeLabels[doctype]
 
-    const handleViewCurrent = () => {
-        openViewModal()
-    }
-
     return (
         <Paper>
             <Stack p="sm">
                 <Flex justify="space-between" align="center">
                     <Title>{label}</Title>
-                    <Button onClick={openLegalModal}>
+                    <Button onClick={openCreateModal}>
                         <FileArrowUpIcon />
                         <Text ml="xs">Upload</Text>
                     </Button>
                 </Flex>
-                <Group>
-                    <Anchor component="button" onClick={handleViewCurrent}>
-                        View current
-                    </Anchor>
-                    <AppModal title="Review current version" isOpen={viewModalOpened} onClose={closeViewModal}>
-                        <PreviewDocument url={data.current.downloadUrl} label={doctype} />
-                    </AppModal>
-                    <Text>Published on {data.current.publishedAt.toString()}</Text>
-                </Group>
-                <AppModal title={label} isOpen={legalModalOpened} onClose={closeLegalModal}>
-                    <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeLegalModal} />
+                {data && data.current && (
+                    <Group>
+                        <Anchor component="button" onClick={openViewModal}>
+                            View current
+                        </Anchor>
+                        <AppModal title="Review current version" isOpen={viewModalOpened} onClose={closeViewModal}>
+                            <PreviewDocument
+                                url={data.current.downloadUrl ? data.current.downloadUrl : ''}
+                                label={doctype}
+                            />
+                        </AppModal>
+                        <Text>Published on {data.current.publishedAt.toString()}</Text>
+                    </Group>
+                )}
+                <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
+                    <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeCreateModal} />
                 </AppModal>
                 <Text>TBD Review Older Versions</Text>
                 <Text>TBD User Acknowledgment Status</Text>
