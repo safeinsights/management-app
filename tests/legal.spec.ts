@@ -38,9 +38,11 @@ test.describe('SafeInsights Legal', () => {
         // The card asks for a second, separate confirmation before anything is written.
         const confirmation = page.getByRole('dialog').filter({ hasText: 'Publish this file?' })
         await expect(confirmation).toBeVisible()
-        await expect(confirmation.getByText(SIGNATORY)).toBeVisible()
+        // Exact, because the org is named twice: once as the read-back field and again inside the
+        // sentence naming who has to acknowledge.
+        await expect(confirmation.getByText(SIGNATORY, { exact: true })).toBeVisible()
         // Publishing obligates people, so the confirmation has to say who.
-        await expect(confirmation.getByText(/requires each of them to acknowledge it/)).toBeVisible()
+        await expect(confirmation.getByText(`all members of ${SIGNATORY}`)).toBeVisible()
         await confirmation.getByRole('button', { name: 'Yes, publish' }).click()
 
         const row = page.getByRole('row', { name: new RegExp(SIGNATORY) })
