@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { actionResult, faker, insertTestOrg, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    mockSessionWithTestData,
+    renderWithProviders,
+    userEvent,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -76,43 +83,45 @@ describe('ParticipationAgreements', () => {
         expect(screen.queryByText(unsigned.name)).toBeNull()
     })
 
-    it('picks the org on the upload form and holds Publish until all three are given', async () => {
+    // Which orgs the picker offers is asserted against fetchParticipationSignatoriesAction; opening
+    // the dropdown is left to the e2e spec, because Mantine's Combobox needs layout APIs happy-dom
+    // does not provide and its options never render here.
+    it('asks for an org when opened from the header, with Publish held until one is chosen', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await seedDataPartner()
+        const user = userEvent.setup()
 
         renderWithProviders(<ParticipationAgreements type="dopa" />)
 
-        fireEvent.click(screen.getByRole('button', { name: 'Upload' }))
+        await user.click(screen.getByRole('button', { name: 'Upload' }))
 
         await waitFor(() =>
             expect(screen.getByText('Upload a signed Data Organization Participation Agreement')).toBeDefined(),
         )
-        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+        expect(screen.getByPlaceholderText('Select a Data Partner')).toBeDefined()
+        // A date and file alone are not enough while the org is still unset.
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+        chooseFile('signed-dopa.pdf')
 
-        // An org with no agreement yet is still offered: this is where its first one comes from.
-        const select = screen.getByPlaceholderText('Select a Data Partner')
-        fireEvent.click(select)
-        fireEvent.click(await screen.findByRole('option', { name: org.name }))
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+    })
+
+    it('fixes the org and names its current version when opened from a row', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const user = userEvent.setup()
+        const org = await seedSignedDopa('2026-07-27')
+
+        renderWithProviders(<ParticipationAgreements type="dopa" />)
+
+        const row = await rowFor(org.name)
+        await user.click(within(row).getByRole('button', { name: 'Upload new version' }))
+
+        await waitFor(() => expect(screen.getByText(/This organization is on version 1\./)).toBeDefined())
+        expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
         chooseFile('signed-dopa.pdf')
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
-    })
-
-    it('offers an org that has already signed, so a renewal is a new version', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await seedSignedDopa('2026-07-27')
-
-        renderWithProviders(<ParticipationAgreements type="dopa" />)
-
-        await rowFor(org.name)
-        fireEvent.click(screen.getByRole('button', { name: 'Upload' }))
-
-        fireEvent.click(await screen.findByPlaceholderText('Select a Data Partner'))
-        fireEvent.click(await screen.findByRole('option', { name: org.name }))
-
-        await waitFor(() => expect(screen.getByText(/This organization is on version 1\./)).toBeDefined())
     })
 
     it('names the org, date, file and the people being obligated in the confirmation', async () => {

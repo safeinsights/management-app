@@ -27,6 +27,7 @@
         "ladle:build:standalone": "LADLE_STANDALONE=1 PANDA_LOG_LEVEL=silent ladle build --outDir .ladle/dist-standalone",
         "ladle:build:pages": "PANDA_LOG_LEVEL=silent ladle build --outDir .ladle/dist --base ${LADLE_BASE_PATH:-/}",
         "db:migrate": "./bin/migrate-dev-db",
+        "db:seed-studies": "tsx bin/seed-dev-studies.ts",
         "create-admin-user": "tsx bin/create-admin-user.ts",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",

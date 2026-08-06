@@ -71,6 +71,9 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
 
     return {
         isLoading,
+        // An SLA hangs off an approved study, so with none waiting the cascade has nothing to offer
+        // and would otherwise render as three empty dropdowns that look broken.
+        isEmpty: !isLoading && candidates.length === 0,
         dataPartnerId,
         researchLabId,
         studyId,
@@ -116,6 +119,15 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
         <ReadOnlyField label="Research Lab" value={details.researchLabName} />
         <ReadOnlyField label="Data Partner" value={details.dataPartnerName} />
     </>
+)
+
+// Says why the cascade is empty. Both causes are ordinary states rather than faults: nothing has
+// been approved yet, or every approved study already has its SLA.
+const NoStudiesWaiting: FC = () => (
+    <Text c="dimmed">
+        No approved studies are waiting for an SLA. A study becomes available here once its proposal has been approved
+        and it does not already have one.
+    </Text>
 )
 
 // Only shown when the study is not already fixed by the row that opened the form.
@@ -244,6 +256,9 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
         if (!details || !file) return
         uploadSla({ studyId: details.studyId, signedAt, file })
     }
+
+    // Nothing to publish against, so the form is replaced rather than shown unfillable.
+    if (!sla && candidates.isEmpty) return <NoStudiesWaiting />
 
     return (
         <Stack>

@@ -26,7 +26,9 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: string }) => {
+// An approved study with no SLA yet: what the upload cascade offers, and what the form's empty
+// state depends on the absence of.
+const seedApprovedStudy = async (title: string) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { user: researcher } = await insertTestUser({
@@ -49,12 +51,18 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
         .returningAll()
         .executeTakeFirstOrThrow()
 
+    return { study, dataPartner, researchLab }
+}
+
+const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: string }) => {
+    const seeded = await seedApprovedStudy(title)
+
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'sla', studyId: seeded.study.id, fileName: 'sla.pdf' }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
-    return { study, dataPartner, researchLab }
+    return seeded
 }
 
 // Scoped to one study's row: the table shows every SLA the suite has seeded.
@@ -142,6 +150,9 @@ describe('StudyLevelAgreements', () => {
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
+        // Seeded rather than relying on whatever else the suite left approved: with no candidates
+        // the form renders its empty state and there are no selects to assert on.
+        await seedApprovedStudy(`SLA candidate ${faker.string.alpha(6)}`)
 
         renderWithProviders(<StudyLevelAgreements />)
 

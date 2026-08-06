@@ -134,12 +134,16 @@ type StudyOverrides = {
     // both sides have acked. Seed those timestamps so the state machine resolves the
     // code screens instead of bouncing back to the agreements gate.
     agreementsAcked?: boolean
+    // Default to the canonical e2e pair. Only local dev seeding overrides these, to
+    // spread studies across org pairs so pickers have something to narrow.
+    enclaveSlug?: string
+    labSlug?: string
 }
 
 async function insertStudy(overrides: StudyOverrides) {
     const [enclave, lab, researcherId, reviewerId] = await Promise.all([
-        resolveOrg(ENCLAVE_SLUG),
-        resolveOrg(LAB_SLUG),
+        resolveOrg(overrides.enclaveSlug ?? ENCLAVE_SLUG),
+        resolveOrg(overrides.labSlug ?? LAB_SLUG),
         resolveUserId('researcher'),
         resolveUserId('reviewer'),
     ])
@@ -273,6 +277,21 @@ export async function seedProposalPendingReview(title: string): Promise<SeedResu
 // (the /submitted -> /agreements/researcher -> /code path).
 export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+    return { studyId: study.id }
+}
+
+// As above but against a named org pair. For local dev seeding only: an SLA belongs to a
+// study, so the admin's Data Partner > Research Lab > study picker is empty until studies
+// exist across more than one pair.
+export async function seedStudyFor(
+    overrides: Pick<StudyOverrides, 'title' | 'status' | 'enclaveSlug' | 'labSlug'>,
+): Promise<SeedResult> {
+    const status = overrides.status ?? 'APPROVED'
+    const { study } = await insertStudy({
+        ...overrides,
+        status,
+        approvedAt: status === 'APPROVED' ? new Date() : null,
+    })
     return { studyId: study.id }
 }
 
