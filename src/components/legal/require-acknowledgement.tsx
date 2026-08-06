@@ -8,8 +8,8 @@ import {
     fetchPendingLegalAcknowledgementsAction,
 } from '@/server/actions/legal-document.actions'
 import { useState } from 'react'
-import type { PendingLegalDocument } from './legal-acknowledgement-copy'
-import { LegalAcknowledgementModal } from './legal-acknowledgement-modal'
+import type { PendingLegalDocument } from './acknowledgement-copy'
+import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
 export const PENDING_LEGAL_ACKNOWLEDGEMENTS_QUERY_KEY = ['pendingLegalAcknowledgements']
 

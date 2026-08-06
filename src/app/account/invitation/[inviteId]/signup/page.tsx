@@ -7,7 +7,7 @@ import { handleMutationErrorsWithForm, InputError, reportError } from '@/compone
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TermsCheckbox } from '@/components/terms-checkbox'
+import { TermsCheckbox } from '@/components/legal/terms-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'

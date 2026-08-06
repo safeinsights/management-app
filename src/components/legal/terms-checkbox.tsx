@@ -4,8 +4,8 @@ import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Anchor, Checkbox, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, ReactNode } from 'react'
-import type { PublicLegalDocument } from './legal-acknowledgement-copy'
-import { LegalDocumentContent } from './legal-document-content'
+import type { PublicLegalDocument } from './acknowledgement-copy'
+import { LegalDocumentContent } from './document-content'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
 // they exist the real documents render below and the acknowledgement is recorded against them.

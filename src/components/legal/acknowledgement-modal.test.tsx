@@ -1,7 +1,7 @@
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import type { PendingLegalDocument } from './legal-acknowledgement-copy'
-import { LegalAcknowledgementModal } from './legal-acknowledgement-modal'
+import type { PendingLegalDocument } from './acknowledgement-copy'
+import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
 const documents: PendingLegalDocument[] = [
     { type: 'tos', versionId: 'tos-v2', isUpdate: true, content: '# Terms\n\nThe updated terms.' },

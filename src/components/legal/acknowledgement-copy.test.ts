@@ -4,7 +4,7 @@ import {
     legalAcknowledgementCheckboxLabel,
     legalAcknowledgementTitle,
     type PendingLegalDocument,
-} from './legal-acknowledgement-copy'
+} from './acknowledgement-copy'
 
 const document = (type: PendingLegalDocument['type'], isUpdate: boolean): PendingLegalDocument => ({
     type,

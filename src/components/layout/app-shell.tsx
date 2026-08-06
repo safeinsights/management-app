@@ -18,7 +18,7 @@ import { ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
 
-import { RequireLegalAcknowledgement } from '../require-legal-acknowledgement'
+import { RequireLegalAcknowledgement } from '../legal/require-acknowledgement'
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 

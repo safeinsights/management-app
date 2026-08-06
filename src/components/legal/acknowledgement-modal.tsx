@@ -3,13 +3,13 @@
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { LegalDocumentContent } from './legal-document-content'
+import { LegalDocumentContent } from './document-content'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
     legalAcknowledgementTitle,
     type PendingLegalDocument,
-} from './legal-acknowledgement-copy'
+} from './acknowledgement-copy'
 
 type Props = {
     isVisible: boolean
