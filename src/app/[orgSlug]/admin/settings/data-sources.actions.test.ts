@@ -7,8 +7,11 @@ import {
     updateOrgDataSourceAction,
 } from './data-sources.actions'
 import { deleteOrgCodeEnvAction } from './code-envs.actions'
+import { createOrgDataSourceSchema, dataSourceFormSchema } from './data-sources.schema'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+
+const XSS_URLS = ['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'vbscript:msgbox(1)']
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -248,6 +251,51 @@ describe('Data Source Actions', () => {
         })
 
         expect(isActionError(result)).toBe(true)
+    })
+
+    it.each(XSS_URLS)('rejects the non-http scheme %s on a url row', (url) => {
+        const result = createOrgDataSourceSchema.safeParse({
+            name: 'Some Records',
+            urls: [{ url, description: 'Looks harmless' }],
+        })
+
+        expect(result.success).toBe(false)
+    })
+
+    it.each(XSS_URLS)('rejects the non-http scheme %s on the draft url field', (url) => {
+        const result = dataSourceFormSchema.safeParse({
+            name: 'Some Records',
+            urls: [],
+            newUrl: url,
+            newUrlDescription: 'Looks harmless',
+        })
+
+        expect(result.success).toBe(false)
+    })
+
+    it.each(['http://example.com/data', 'https://example.com/data'])('accepts %s', (url) => {
+        expect(
+            createOrgDataSourceSchema.safeParse({ name: 'Some Records', urls: [{ url, description: 'd' }] }).success,
+        ).toBe(true)
+        expect(
+            dataSourceFormSchema.safeParse({ name: 'Some Records', urls: [], newUrl: url, newUrlDescription: 'd' })
+                .success,
+        ).toBe(true)
+    })
+
+    it('rejects a javascript: url at the server action', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await createOrgDataSourceAction({
+            orgSlug: org.slug,
+            name: 'Should Fail',
+            urls: [{ url: 'javascript:alert(1)', description: 'Looks harmless' }],
+        })
+
+        expect(isActionError(result)).toBe(true)
+
+        const rows = await db.selectFrom('orgDataSource').where('name', '=', 'Should Fail').execute()
+        expect(rows).toHaveLength(0)
     })
 
     it('blocks code env deletion when linked data sources exist', async () => {
